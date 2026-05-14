@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 import type { ExerciseCalibrationStatus } from '@/entities/exercise/model/types'
 import type {
   RuntimeCalibrationState,
@@ -41,7 +42,9 @@ function getCurrentExercise(session: RuntimeWorkoutSession) {
   return session.exercises.find((exercise) => exercise.id === session.currentExerciseId) ?? session.exercises[0]
 }
 
-export const useRuntimeStore = create<RuntimeStore>((set, get) => ({
+export const useRuntimeStore = create<RuntimeStore>()(
+  persist(
+    (set, get) => ({
   session: null,
   sessionSignature: null,
   initializeSession: (options) => {
@@ -337,4 +340,13 @@ export const useRuntimeStore = create<RuntimeStore>((set, get) => ({
           }
         : state,
     ),
-}))
+    }),
+    {
+      name: 'egym-runtime-store',
+      partialize: (state) => ({
+        session: state.session,
+        sessionSignature: state.sessionSignature,
+      }),
+    },
+  ),
+)

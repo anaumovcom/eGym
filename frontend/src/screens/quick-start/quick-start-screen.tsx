@@ -122,7 +122,7 @@ export function QuickStartScreen() {
     <FormaShell userName={getUserName(resolvedUserId)} machine={machine} onStop={() => setEmergencyStopActive(true)}>
       <SectionIntro
         title="Быстрый старт"
-        description="Выберите упражнение, подтвердите нагрузку и начните тренировку. Экран использует mock API и реальные slug'и упражнений из каталога."
+        description="Выберите упражнение, подтвердите нагрузку и начните тренировку. Экран работает с реальным API и slug'ами каталога упражнений."
         actions={
           <Button variant="secondary" iconLeft={<Sparkles className="h-4 w-4" />} onClick={() => navigate('/catalog')}>
             Открыть каталог
@@ -135,7 +135,7 @@ export function QuickStartScreen() {
       ) : null}
 
       {blocked ? (
-        <BlockingAlert title="Тренажёр не готов" description="Сценарий mock API блокирует старт: сначала нужно восстановить доступность приводов и системы безопасности." />
+        <BlockingAlert title="Тренажёр не готов" description="Старт заблокирован: сначала нужно восстановить доступность приводов и системы безопасности." />
       ) : machine.machineState === 'warning' ? (
         <WarningBanner title="Тренажёр требует внимания" description="Один из приводов работает с предупреждением. Рекомендуется запустить диагностику перед стартом упражнения." />
       ) : null}
@@ -189,7 +189,7 @@ export function QuickStartScreen() {
               </div>
               <div className="flex items-center gap-2 text-sm text-white/42">
                 <SearchIcon className="h-4 w-4" />
-                {search ? 'Поиск по русским и английским названиям' : 'Фильтры готовы для мокового сценария'}
+                {search ? 'Поиск по русским и английским названиям' : 'Фильтры готовы к реальному каталогу'}
               </div>
             </div>
 
@@ -297,7 +297,7 @@ export function QuickStartScreen() {
         <div className={cn('rounded-[28px] border px-5 py-4 text-sm leading-7', blocked ? 'border-[#b83d38]/30 bg-[#311615] text-[#ffb3a9]' : 'border-[#d6b05f]/25 bg-[#241b0d] text-[#f2cf87]')}>
           <div className="flex items-center gap-3 font-semibold">
             <CircleAlert className="h-4 w-4" />
-            Дополнительное предупреждение mock-сценария
+            Дополнительное предупреждение
           </div>
           <div className="mt-2">Состояния быстрого старта доступны через query параметр scenario: guest, blacklist, machine-warning, machine-blocked.</div>
         </div>

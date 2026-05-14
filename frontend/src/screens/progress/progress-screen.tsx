@@ -1,14 +1,17 @@
+import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, Camera, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
-import { useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import type { MachineHealth } from '@/entities/machine/model/types'
+import type { ProgressData } from '@/entities/stage4/model/types'
 import type { ProgressExerciseHistoryRow, ProgressTab, Stage4Period } from '@/entities/stage4/model/types'
-import { buildProgressData, progressTabs, stage4Periods } from '@/mocks/stage4-data'
+import { progressTabs, stage4Periods } from '@/mocks/stage4-data'
+import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { MuscleStatusList } from '@/shared/ui/stage2/screen-components'
-import { BarChartCard, EmptyStatePanel, LineChartCard, MetricCardGrid, Panel, PeriodSwitcher, PhotoPreviewCard, SectionTitle, Stage4DevPanel, TabStrip, ToneBadge } from '@/shared/ui/stage4/screen-components'
-import { useStage4Screen } from '@/features/stage4/lib/use-stage4-screen'
+import { BarChartCard, EmptyStatePanel, LineChartCard, MetricCardGrid, Panel, PeriodSwitcher, PhotoPreviewCard, SectionTitle, TabStrip, ToneBadge } from '@/shared/ui/stage4/screen-components'
+import { useAppStore } from '@/stores/app-store'
 
 function asPeriod(value: string | null): Stage4Period {
   if (value === '7d' || value === '30d' || value === '3m' || value === '6m' || value === '1y' || value === 'all') {
@@ -29,27 +32,30 @@ function asProgressTab(value: string | null): ProgressTab {
 export function ProgressScreen() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const {
-    userName,
-    profile,
-    blacklistedExerciseSlugs,
-    emergencyStopActive,
-    setEmergencyStopActive,
-    dev,
-    patchDevFlags,
-    resetDevFlags,
-  } = useStage4Screen()
+  const selectedUserId = useAppStore((state) => state.selectedUserId)
+  const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
+  const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
 
   const period = asPeriod(searchParams.get('period'))
   const tab = asProgressTab(searchParams.get('tab'))
   const selectedExerciseSlug = searchParams.get('exercise') ?? 'machine-pulldown'
+  const userId = selectedUserId ?? 'alexey'
 
-  const data = useMemo(
-    () => buildProgressData({ user: profile, period, blacklistedSlugs: blacklistedExerciseSlugs, dev }),
-    [blacklistedExerciseSlugs, dev, period, profile],
-  )
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['progress-screen', userId, period, selectedExerciseSlug],
+    queryFn: () => apiGet<ProgressData>(`/api/progress?userId=${encodeURIComponent(userId)}&period=${encodeURIComponent(period)}&exerciseSlug=${encodeURIComponent(selectedExerciseSlug)}`),
+  })
 
-  const activeExercise = data.exerciseOptions.find((item) => item.slug === selectedExerciseSlug) ?? data.exerciseOptions[0]
+  const fallbackMachine: MachineHealth = {
+    machineState: 'ready',
+    machineLabel: 'Загрузка статуса',
+    leftDrive: 'connected',
+    rightDrive: 'connected',
+    safety: 'enabled',
+    calibration: 'Загрузка...',
+  }
+
+  const userName = selectedUserId === 'elena' ? 'Елена' : selectedUserId === 'guest' ? 'Гость' : 'Алексей'
 
   function updateParams(patch: Record<string, string | null>) {
     setSearchParams((current) => {
@@ -66,6 +72,24 @@ export function ProgressScreen() {
       return next
     })
   }
+
+  if (error) {
+    return (
+      <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] border border-[#eb5345]/25 bg-[#1b0f10] p-8 text-[#ffb4a7]">Не удалось загрузить прогресс. Проверьте backend API.</div>
+      </FormaShell>
+    )
+  }
+
+  if (isLoading || !data) {
+    return (
+      <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] p-8 text-white/72">Загрузка прогресса…</div>
+      </FormaShell>
+    )
+  }
+
+  const activeExercise = data.exerciseOptions.find((item) => item.slug === selectedExerciseSlug) ?? data.exerciseOptions[0]
 
   return (
     <FormaShell userName={userName} machine={data.machine} onStop={() => setEmergencyStopActive(true)}>
@@ -418,7 +442,6 @@ export function ProgressScreen() {
       ) : null}
 
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
-      <Stage4DevPanel value={dev} onChange={patchDevFlags} onReset={resetDevFlags} />
     </FormaShell>
   )
 }

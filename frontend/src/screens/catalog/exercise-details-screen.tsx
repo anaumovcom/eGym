@@ -112,7 +112,7 @@ export function ExerciseDetailsScreen() {
   return (
     <FormaShell userName={getUserName(resolvedUserId)} machine={machine} onStop={() => setEmergencyStopActive(true)}>
       {data.blacklisted ? <WarningBanner title="Упражнение в чёрном списке" description="Пользователь ранее отметил упражнение как нежелательное. Экран остаётся доступным, но старт лучше заменить альтернативой." /> : null}
-      {blocked ? <BlockingAlert title="Старт упражнения заблокирован" description="Полноэкранная карточка доступна, но mock-сценарий показывает недоступность тренажёра для запуска." /> : null}
+      {blocked ? <BlockingAlert title="Старт упражнения заблокирован" description="Полноэкранная карточка доступна, но запуск временно недоступен из-за состояния тренажёра." /> : null}
 
       <div className="glass-panel rounded-[34px] p-6 xl:p-8">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">

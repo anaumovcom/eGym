@@ -1,14 +1,180 @@
+import { useQuery } from '@tanstack/react-query'
 import { Camera, Check, Pencil, X } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import type { ExerciseCatalogResponse } from '@/entities/exercise/model/types'
+import type { MachineHealth } from '@/entities/machine/model/types'
 import type { ProfileTab } from '@/entities/stage4/model/types'
-import { getExerciseChoices, profileTabs } from '@/mocks/stage4-data'
+import type { UserProfileData } from '@/entities/stage4/model/types'
+import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
-import { Panel, PhotoPreviewCard, SectionTitle, Stage4DevPanel, TabStrip } from '@/shared/ui/stage4/screen-components'
-import { useStage4Screen } from '@/features/stage4/lib/use-stage4-screen'
-import { useStage4Store } from '@/stores/stage4-store'
+import { Panel, PhotoPreviewCard, SectionTitle, TabStrip } from '@/shared/ui/stage4/screen-components'
+import { useAppStore } from '@/stores/app-store'
+
+type CurrentUserResponse = {
+  id: string
+  name: string
+  role: string
+  readinessPercent: number
+  accent: 'gold' | 'green'
+  profile: {
+    birthDate: string | null
+    heightCm: number | null
+    weightKg: number | null
+    photoUrl: string | null
+    notes: string | null
+  } | null
+  goals: Array<{
+    id: number
+    goalType: string
+    label: string
+    targetValue: number | null
+    targetUnit: string | null
+    isPrimary: boolean
+  }>
+}
+
+type BodyMeasurementsResponse = {
+  measurements: Array<{
+    id: number
+    measuredAt: string
+    weightKg: number | null
+    bodyFatPercent: number | null
+    chestCm: number | null
+    waistCm: number | null
+    hipsCm: number | null
+  }>
+}
+
+type ProgressPhotosResponse = {
+  photos: Array<{
+    id: number
+    mode: string
+    view: 'front' | 'side' | 'back'
+    takenAt: string
+    imageUrl: string
+    thumbnailUrl: string
+    width: number
+    height: number
+    note: string | null
+  }>
+}
+
+type AchievementsResponse = {
+  achievements: Array<{
+    id: string
+    title: string
+    description: string
+    unlocked: boolean
+    unlockedAt: string | null
+  }>
+}
+
+const profileTabs: Array<{ id: ProfileTab; label: string }> = [
+  { id: 'summary', label: 'Сводка' },
+  { id: 'general', label: 'Общее' },
+  { id: 'goals', label: 'Цели' },
+  { id: 'body', label: 'Данные тела' },
+  { id: 'photo', label: 'Фото прогресса' },
+  { id: 'blacklist', label: 'Чёрный список упражнений' },
+]
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value))
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value))
+}
+
+function buildGuestProfile(): UserProfileData {
+  return {
+    id: 'guest',
+    name: 'Гость',
+    avatarLabel: 'Г',
+    goal: 'Ознакомительный режим',
+    heightCm: 0,
+    weightKg: 0,
+    level: 'не задан',
+    email: '',
+    notes: '',
+    locale: 'Русский',
+    units: 'kg / cm',
+    theme: 'Тёмная',
+    createdAt: 'Сегодня',
+    trainingFrequency: 'не задано',
+    workoutDuration: 'не задано',
+    workoutStyle: 'ознакомительный режим',
+    autoPrograms: false,
+    priorityMuscles: [],
+    considerationNotes: ['Выберите пользователя, чтобы загрузить персональные данные и историю.'],
+    bodyMeasurements: [],
+    photos: [],
+  }
+}
+
+function buildProfileData(currentUser: CurrentUserResponse, measurements: BodyMeasurementsResponse['measurements'], photos: ProgressPhotosResponse['photos'], achievements: AchievementsResponse['achievements']): UserProfileData {
+  const sortedMeasurements = [...measurements].sort((left, right) => new Date(right.measuredAt).getTime() - new Date(left.measuredAt).getTime())
+  const unlockedAchievements = achievements.filter((item) => item.unlocked)
+  const groupedPhotos = new Map<string, { id: string; date: string; views: Array<{ id: 'front' | 'side' | 'back'; label: string }> }>()
+
+  photos.forEach((photo) => {
+    const key = formatDate(photo.takenAt)
+    const existing = groupedPhotos.get(key) ?? { id: String(photo.id), date: key, views: [] }
+    if (!existing.views.some((item) => item.id === photo.view)) {
+      existing.views.push({
+        id: photo.view,
+        label: photo.view === 'front' ? 'Спереди' : photo.view === 'side' ? 'Сбоку' : 'Сзади',
+      })
+    }
+    groupedPhotos.set(key, existing)
+  })
+
+  const primaryGoal = currentUser.goals.find((item) => item.isPrimary) ?? currentUser.goals[0]
+  const latestMeasurement = sortedMeasurements[0]
+  const avatarLabel = currentUser.name.trim().charAt(0).toUpperCase() || 'П'
+  const readiness = currentUser.readinessPercent
+  const level = readiness >= 80 ? 'продвинутый' : readiness >= 55 ? 'средний' : 'начальный'
+  const createdAt = sortedMeasurements.at(-1)?.measuredAt ?? photos.at(-1)?.takenAt ?? new Date().toISOString()
+
+  return {
+    id: currentUser.id,
+    name: currentUser.name,
+    avatarLabel,
+    goal: primaryGoal?.label ?? 'Поддержание активности',
+    heightCm: currentUser.profile?.heightCm ?? 0,
+    weightKg: currentUser.profile?.weightKg ?? latestMeasurement?.weightKg ?? 0,
+    level,
+    email: '',
+    notes: currentUser.profile?.notes ?? '',
+    locale: 'Русский',
+    units: 'kg / cm',
+    theme: 'Тёмная',
+    createdAt: formatDate(createdAt),
+    trainingFrequency: unlockedAchievements.length > 0 ? `${Math.max(unlockedAchievements.length, 1)} активных вех` : 'недостаточно данных',
+    workoutDuration: latestMeasurement ? '45 минут' : 'не задано',
+    workoutStyle: primaryGoal?.label ?? 'индивидуальный режим',
+    autoPrograms: currentUser.id !== 'guest',
+    priorityMuscles: primaryGoal?.label.toLowerCase().includes('сила') ? ['Спина', 'Грудь'] : primaryGoal?.label.toLowerCase().includes('актив') ? ['Ноги', 'Кор'] : [],
+    considerationNotes: unlockedAchievements.length > 0 ? unlockedAchievements.slice(0, 3).map((item) => item.title) : ['Недостаточно истории для персональных рекомендаций.'],
+    bodyMeasurements: sortedMeasurements.map((item) => ({
+      date: formatShortDate(item.measuredAt),
+      weight: item.weightKg ?? 0,
+      waistCm: item.waistCm ?? 0,
+      chestCm: item.chestCm ?? 0,
+      hipsCm: item.hipsCm ?? 0,
+      shouldersCm: 0,
+      bicepsCm: 0,
+    })),
+    photos: Array.from(groupedPhotos.values()),
+  }
+}
+
+function formatMetric(value: number, suffix: string) {
+  return value > 0 ? `${value} ${suffix}` : '—'
+}
 
 function asProfileTab(value: string | null): ProfileTab {
   if (value === 'summary' || value === 'general' || value === 'goals' || value === 'body' || value === 'photo' || value === 'blacklist') {
@@ -21,28 +187,78 @@ function asProfileTab(value: string | null): ProfileTab {
 export function UserProfileScreen() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const {
-    userName,
-    profile,
-    profileDraft,
-    blacklistedExerciseSlugs,
-    toggleBlacklistedExercise,
-    emergencyStopActive,
-    setEmergencyStopActive,
-    dev,
-    patchDevFlags,
-    resetDevFlags,
-  } = useStage4Screen()
+  const selectedUserId = useAppStore((state) => state.selectedUserId)
+  const blacklistedExerciseSlugs = useAppStore((state) => state.blacklistedExerciseSlugs)
+  const toggleBlacklistedExercise = useAppStore((state) => state.toggleBlacklistedExercise)
+  const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
+  const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const tab = asProfileTab(searchParams.get('tab'))
-  const startProfileEdit = useStage4Store((state) => state.startProfileEdit)
-  const updateProfileDraft = useStage4Store((state) => state.updateProfileDraft)
-  const saveProfileDraft = useStage4Store((state) => state.saveProfileDraft)
-  const cancelProfileEdit = useStage4Store((state) => state.cancelProfileEdit)
+  const resolvedUserId = selectedUserId ?? 'alexey'
+  const userName = resolvedUserId === 'elena' ? 'Елена' : resolvedUserId === 'guest' ? 'Гость' : 'Алексей'
+  const fallbackMachine: MachineHealth = {
+    machineState: 'ready',
+    machineLabel: 'Загрузка статуса',
+    leftDrive: 'connected',
+    rightDrive: 'connected',
+    safety: 'enabled',
+    calibration: 'Проверка подключения...',
+  }
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['user-profile-screen', resolvedUserId],
+    enabled: resolvedUserId !== 'guest',
+    queryFn: async () => {
+      const [currentUser, measurements, photos, achievements, catalog] = await Promise.all([
+        apiGet<CurrentUserResponse>('/api/users/current'),
+        apiGet<BodyMeasurementsResponse>(`/api/body-measurements?userId=${encodeURIComponent(resolvedUserId)}`),
+        apiGet<ProgressPhotosResponse>(`/api/photo-progress?userId=${encodeURIComponent(resolvedUserId)}`),
+        apiGet<AchievementsResponse>(`/api/achievements?userId=${encodeURIComponent(resolvedUserId)}`),
+        apiGet<ExerciseCatalogResponse>(`/api/exercises?userId=${encodeURIComponent(resolvedUserId)}`),
+      ])
+
+      return {
+        profile: buildProfileData(currentUser, measurements.measurements, photos.photos, achievements.achievements),
+        exerciseChoices: catalog.items.map((exercise) => ({ slug: exercise.slug, name: exercise.name, secondaryName: exercise.secondaryName })),
+      }
+    },
+  })
+
+  const guestProfile = useMemo(() => buildGuestProfile(), [])
+  const [profileOverride, setProfileOverride] = useState<UserProfileData | null>(null)
+  const [profileDraft, setProfileDraft] = useState<UserProfileData | null>(null)
+
+  useEffect(() => {
+    setProfileOverride(null)
+    setProfileDraft(null)
+  }, [resolvedUserId])
+
+  const profile = profileOverride ?? data?.profile ?? guestProfile
+  const exerciseChoices = data?.exerciseChoices ?? []
 
   const viewProfile = profileDraft ?? profile
   const editing = Boolean(profileDraft)
-  const exerciseChoices = useMemo(() => getExerciseChoices(), [])
   const latestMeasurement = viewProfile.bodyMeasurements[0]
+
+  function startProfileEdit() {
+    setProfileDraft(structuredClone(viewProfile))
+  }
+
+  function updateProfileDraft<K extends keyof UserProfileData>(key: K, value: UserProfileData[K]) {
+    setProfileDraft((state) => (state ? { ...state, [key]: value } : state))
+  }
+
+  function saveProfileDraft() {
+    if (!profileDraft) {
+      return
+    }
+
+    setProfileOverride(structuredClone(profileDraft))
+    setProfileDraft(null)
+  }
+
+  function cancelProfileEdit() {
+    setProfileDraft(null)
+  }
 
   function updateTab(nextTab: string) {
     setSearchParams((current) => {
@@ -62,8 +278,24 @@ export function UserProfileScreen() {
     updateProfileDraft('priorityMuscles', [...current])
   }
 
+  if ((isLoading && resolvedUserId !== 'guest') || !viewProfile) {
+    return (
+      <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] p-8 text-white/72">Загрузка профиля…</div>
+      </FormaShell>
+    )
+  }
+
+  if (error && resolvedUserId !== 'guest') {
+    return (
+      <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] border border-[#eb5345]/25 bg-[#1b0f10] p-8 text-[#ffb4a7]">Не удалось загрузить профиль пользователя. Проверьте backend API.</div>
+      </FormaShell>
+    )
+  }
+
   return (
-    <FormaShell userName={userName} machine={{ machineState: dev.machineReady ? 'ready' : 'warning', machineLabel: dev.machineReady ? 'Тренажёр готов' : 'Есть предупреждения', leftDrive: dev.leftDriveError ? 'error' : 'connected', rightDrive: dev.rightDriveError ? 'error' : 'connected', safety: dev.safetyDisabled ? 'disabled' : dev.emergencyStop ? 'emergency_stop' : 'enabled', calibration: dev.noCalibration ? 'Нет калибровки' : 'Калибровка сохранена' }} onStop={() => setEmergencyStopActive(true)}>
+    <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
       <SectionTitle
         title="Профиль пользователя"
         description="Данные пользователя, цели, тело, фото прогресса и персональные ограничения."
@@ -149,7 +381,7 @@ export function UserProfileScreen() {
                 ['Текущий вес', viewProfile.weightKg > 0 ? `${viewProfile.weightKg} кг` : '—'],
                 ['Цель', viewProfile.goal],
                 ['Частота тренировок', viewProfile.trainingFrequency],
-                ['Рекомендация', 'Сегодня лучше спина'],
+                ['Рекомендация', viewProfile.considerationNotes[0] ?? 'Нет персональной рекомендации'],
               ]} />
             </Panel>
             <Panel title="Чёрный список упражнений">
@@ -244,8 +476,8 @@ export function UserProfileScreen() {
                 ['Талия', `${latestMeasurement.waistCm} см`],
                 ['Грудь', `${latestMeasurement.chestCm} см`],
                 ['Бёдра', `${latestMeasurement.hipsCm} см`],
-                ['Плечи', `${latestMeasurement.shouldersCm} см`],
-                ['Бицепс', `${latestMeasurement.bicepsCm} см`],
+                ['Плечи', formatMetric(latestMeasurement.shouldersCm, 'см')],
+                ['Бицепс', formatMetric(latestMeasurement.bicepsCm, 'см')],
               ]} />
             ) : (
               <div className="text-sm text-white/45">Нет измерений.</div>
@@ -256,11 +488,11 @@ export function UserProfileScreen() {
               {viewProfile.bodyMeasurements.map((item) => (
                 <div key={item.date} className="grid grid-cols-[1fr_repeat(5,auto)] gap-3 rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/75">
                   <span>{item.date}</span>
-                  <span>{item.weight} кг</span>
-                  <span>{item.waistCm} см</span>
-                  <span>{item.chestCm} см</span>
-                  <span>{item.hipsCm} см</span>
-                  <span>{item.bicepsCm} см</span>
+                  <span>{formatMetric(item.weight, 'кг')}</span>
+                  <span>{formatMetric(item.waistCm, 'см')}</span>
+                  <span>{formatMetric(item.chestCm, 'см')}</span>
+                  <span>{formatMetric(item.hipsCm, 'см')}</span>
+                  <span>{formatMetric(item.bicepsCm, 'см')}</span>
                 </div>
               ))}
             </div>
@@ -320,7 +552,6 @@ export function UserProfileScreen() {
       ) : null}
 
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
-      <Stage4DevPanel value={dev} onChange={patchDevFlags} onReset={resetDevFlags} />
     </FormaShell>
   )
 }

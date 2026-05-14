@@ -7,7 +7,7 @@ import { buildSystemSettingsData, settingsTabs } from '@/mocks/stage4-data'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
-import { MetricCardGrid, Panel, SectionTitle, Stage4DevPanel, TabStrip } from '@/shared/ui/stage4/screen-components'
+import { MetricCardGrid, Panel, SectionTitle, TabStrip } from '@/shared/ui/stage4/screen-components'
 import { useStage4Screen } from '@/features/stage4/lib/use-stage4-screen'
 import { useStage4Store } from '@/stores/stage4-store'
 
@@ -47,7 +47,7 @@ function buildSettingsDraft(data: SystemSettingsData) {
 
 export function SystemSettingsScreen() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const { selectedUserId, userName, emergencyStopActive, setEmergencyStopActive, dev, settingsDraft, patchDevFlags, resetDevFlags } = useStage4Screen()
+  const { selectedUserId, userName, emergencyStopActive, setEmergencyStopActive, dev, settingsDraft } = useStage4Screen()
   const setSettingsValue = useStage4Store((state) => state.setSettingsValue)
   const hydrateSettingsDraft = useStage4Store((state) => state.hydrateSettingsDraft)
   const saveSettingsDraft = useStage4Store((state) => state.saveSettingsDraft)
@@ -466,7 +466,6 @@ export function SystemSettingsScreen() {
       ) : null}
 
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
-      <Stage4DevPanel value={dev} onChange={patchDevFlags} onReset={resetDevFlags} />
     </FormaShell>
   )
 }

@@ -137,7 +137,7 @@ export function RestScreen() {
               <div className="font-display text-3xl font-bold text-white">Live hardware</div>
               <div className="mt-4 space-y-3 text-sm text-white/72">
                 <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Позиция</span><span>{Math.round(snapshot.motion.barPositionMm)} мм</span></div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Синхронность</span><span>{snapshot.motion.syncDeltaMm.toFixed(1)} мм</span></div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Синхронность</span><span>{(snapshot.motion.syncDeltaMm ?? Math.abs(snapshot.motion.leftPositionMm - snapshot.motion.rightPositionMm)).toFixed(1)} мм</span></div>
                 <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Профиль</span><span>{snapshot.motion.motionProfile}</span></div>
               </div>
             </section>

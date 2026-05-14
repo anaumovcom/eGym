@@ -94,6 +94,7 @@ export function ExerciseSessionScreen() {
   const exercise = session.exercises.find((item) => item.id === session.currentExerciseId) ?? session.exercises[0]
   const state = session.sessionState
   const liveMotion = exercise.kind === 'machine' ? snapshot?.motion : null
+  const syncDeltaMm = liveMotion ? liveMotion.syncDeltaMm ?? Math.abs(liveMotion.leftPositionMm - liveMotion.rightPositionMm) : null
   const progressPercent = liveMotion
     ? Math.round((liveMotion.repetitionCount / Math.max(1, liveMotion.targetReps)) * 100)
     : Math.round(((state.setNumber - 1) / Math.max(1, state.totalSets)) * 100)
@@ -102,7 +103,7 @@ export function ExerciseSessionScreen() {
         { label: 'Повторы', value: `${liveMotion.repetitionCount}/${liveMotion.targetReps}`, tone: 'good' as const },
         { label: 'Амплитуда', value: `${liveMotion.amplitudePercent}%`, tone: liveMotion.amplitudePercent >= 70 ? 'good' as const : 'warning' as const },
         { label: 'Позиция', value: `${Math.round(liveMotion.barPositionMm)} мм`, tone: 'neutral' as const },
-        { label: 'Синхронность', value: `${liveMotion.syncDeltaMm.toFixed(1)} мм`, tone: liveMotion.syncDeltaMm <= 5 ? 'good' as const : 'warning' as const },
+        { label: 'Синхронность', value: `${syncDeltaMm?.toFixed(1) ?? '0.0'} мм`, tone: (syncDeltaMm ?? 0) <= 5 ? 'good' as const : 'warning' as const },
       ]
     : state.metrics
   const liveMotionTrack = liveMotion

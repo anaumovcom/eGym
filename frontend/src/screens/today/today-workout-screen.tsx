@@ -190,7 +190,7 @@ export function TodayWorkoutScreen() {
       </div>
 
       {data.startState === 'planned' ? <WarningBanner title="Фото прогресса" description="В потоке этапа 2 уже заложен переход к логике фотофиксации перед первым упражнением, но без отдельного экрана выполнения." /> : null}
-      {data.startState === 'completed' ? <WarningBanner title="Тренировка завершена" description="Mock-сценарий completed позволяет проверить финальное состояние: старт больше не активен, но история и карточки упражнений остаются доступны." /> : null}
+      {data.startState === 'completed' ? <WarningBanner title="Тренировка завершена" description="Тренировка завершена: старт больше не активен, но история и карточки упражнений остаются доступны." /> : null}
       {data.startState === 'in-progress' ? <div className="rounded-[28px] border border-[#d6b05f]/20 bg-[#21180d] px-5 py-4 text-[#f2cf87]"><div className="flex items-center gap-3 font-semibold"><TriangleAlert className="h-4 w-4" />Тренировка уже идёт</div><div className="mt-2 text-sm">Можно продолжить текущую сессию, быстро скорректировать нагрузку или заменить следующее упражнение.</div></div> : null}
 
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />

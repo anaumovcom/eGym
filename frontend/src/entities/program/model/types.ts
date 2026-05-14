@@ -39,3 +39,14 @@ export type ProgramDetails = ProgramSummary & {
     builder: string
   }
 }
+
+export type ProgramLibraryData = {
+  searchPlaceholder: string
+  categoryFilters: string[]
+  durationFilters: string[]
+  levelFilters: string[]
+  equipmentFilters: string[]
+  recommended: ProgramSummary[]
+  allPrograms: ProgramSummary[]
+  selectedProgram: ProgramDetails
+}

@@ -1,8 +1,8 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { HeartPulse, Settings, ShieldAlert, ShieldCheck, UserPlus, UserRound, Wrench } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
-import { apiGet } from '@/shared/api/client'
+import { apiGet, apiPost } from '@/shared/api/client'
 import { getDriveLabel, getDriveTone, getMachineNotice, getMachineTone, getSafetyLabel, getSafetyTone } from '@/shared/lib/machine-status'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
@@ -13,6 +13,7 @@ import { useAppStore } from '@/stores/app-store'
 import type { UserSummary } from '@/entities/user/model/types'
 
 type UsersResponse = { users: UserSummary[] }
+type SelectUserResponse = { currentUser: { id: string } }
 
 export type UserSelectionViewProps = {
   users: UserSummary[]
@@ -31,6 +32,10 @@ export function UserSelectionScreen() {
   const setSelectedUserId = useAppStore((state) => state.setSelectedUserId)
   const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
+
+  const selectUserMutation = useMutation({
+    mutationFn: (userId: string) => apiPost<SelectUserResponse>('/api/users/select', { userId }),
+  })
 
   const { data: usersData } = useQuery({
     queryKey: ['users'],
@@ -52,8 +57,10 @@ export function UserSelectionScreen() {
       machine={machine}
       emergencyStopActive={emergencyStopActive}
       onSelectUser={(userId) => {
-        setSelectedUserId(userId)
-        navigate('/dashboard')
+        void selectUserMutation.mutateAsync(userId).catch(() => undefined).finally(() => {
+          setSelectedUserId(userId)
+          navigate('/dashboard')
+        })
       }}
       onGuest={() => {
         setSelectedUserId('guest')

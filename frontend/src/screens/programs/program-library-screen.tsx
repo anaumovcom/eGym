@@ -2,14 +2,14 @@ import { useQuery } from '@tanstack/react-query'
 import { BookOpenText } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import type { ProgramLibraryData } from '@/mocks/stage2-data'
+import type { MachineHealth } from '@/entities/machine/model/types'
+import type { ProgramLibraryData } from '@/entities/program/model/types'
 import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { FilterChip, ProgramCard, ProgramDetailsPanel, SearchField, SectionIntro, SupportCard } from '@/shared/ui/stage2/screen-components'
 import { useAppStore } from '@/stores/app-store'
-import { machineScenarios } from '@/mocks/data'
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
@@ -29,7 +29,16 @@ export function ProgramLibraryScreen() {
   const search = searchParams.get('search') ?? ''
   const [activeCategory, setActiveCategory] = useState('Все')
 
-  const { data } = useQuery({
+  const fallbackMachine: MachineHealth = {
+    machineState: 'ready',
+    machineLabel: 'Загрузка статуса',
+    leftDrive: 'connected',
+    rightDrive: 'connected',
+    safety: 'enabled',
+    calibration: 'Проверка подключения...',
+  }
+
+  const { data, isLoading, error } = useQuery({
     queryKey: ['program-library', selected],
     queryFn: () => apiGet<ProgramLibraryData>(`/api/programs?selected=${encodeURIComponent(selected)}`),
   })
@@ -46,12 +55,24 @@ export function ProgramLibraryScreen() {
     })
   }, [activeCategory, data, search])
 
-  if (!data) {
-    return null
+  if (isLoading || !data) {
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] p-8 text-white/72">Загрузка библиотеки программ…</div>
+      </FormaShell>
+    )
+  }
+
+  if (error) {
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] border border-[#eb5345]/25 bg-[#1b0f10] p-8 text-[#ffb4a7]">Не удалось загрузить библиотеку программ. Проверьте backend API.</div>
+      </FormaShell>
+    )
   }
 
   return (
-    <FormaShell userName={getUserName(selectedUserId)} machine={machineScenarios.ready} onStop={() => setEmergencyStopActive(true)}>
+    <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
       <SectionIntro
         title="Библиотека готовых программ"
         description="Выберите готовую тренировку, адаптируйте её под себя и добавьте в календарь. Экран покрывает сценарии быстрого запуска, адаптации и назначения плана."

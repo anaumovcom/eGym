@@ -3,7 +3,7 @@ import { CalendarPlus, CalendarRange } from 'lucide-react'
 import { useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { WorkoutCalendarData } from '@/entities/calendar/model/types'
-import { machineScenarios } from '@/mocks/data'
+import type { MachineHealth } from '@/entities/machine/model/types'
 import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -27,22 +27,43 @@ export function WorkoutCalendarScreen() {
   const mode = searchParams.get('mode') === 'week' ? 'week' : 'month'
   const selectedDayId = searchParams.get('selectedDayId') ?? selectedCalendarDayId ?? '2026-05-14'
 
-  const { data } = useQuery({
+  const fallbackMachine: MachineHealth = {
+    machineState: 'ready',
+    machineLabel: 'Загрузка статуса',
+    leftDrive: 'connected',
+    rightDrive: 'connected',
+    safety: 'enabled',
+    calibration: 'Проверка подключения...',
+  }
+
+  const { data, isLoading, error } = useQuery({
     queryKey: ['workout-calendar', mode, selectedDayId],
     queryFn: () => apiGet<WorkoutCalendarData>(`/api/calendar?mode=${encodeURIComponent(mode)}&selectedDayId=${encodeURIComponent(selectedDayId)}`),
   })
 
   const visibleDays = useMemo(() => data?.days ?? [], [data?.days])
 
-  if (!data) {
-    return null
+  if (isLoading || !data) {
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] p-8 text-white/72">Загрузка календаря…</div>
+      </FormaShell>
+    )
+  }
+
+  if (error) {
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] border border-[#eb5345]/25 bg-[#1b0f10] p-8 text-[#ffb4a7]">Не удалось загрузить календарь тренировок. Проверьте backend API.</div>
+      </FormaShell>
+    )
   }
 
   return (
-    <FormaShell userName={getUserName(selectedUserId)} machine={machineScenarios.ready} onStop={() => setEmergencyStopActive(true)}>
+    <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
       <SectionIntro
         title="Календарь тренировок"
-        description="Планируйте тренировки с учётом целей, восстановления и нагрузки на мышцы. Доступны недельный и месячный виды на моковых данных."
+        description="Планируйте тренировки с учётом целей, восстановления и нагрузки на мышцы. Доступны недельный и месячный виды календаря."
         actions={
           <div className="flex flex-wrap gap-3">
             <div className="inline-flex rounded-[22px] border border-[#d6b05f]/20 bg-white/4 p-1">

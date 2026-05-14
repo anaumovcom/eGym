@@ -1,12 +1,15 @@
-import { useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import type { FatigueData } from '@/entities/stage4/model/types'
+import type { MachineHealth } from '@/entities/machine/model/types'
 import type { FatigueMode } from '@/entities/stage4/model/types'
-import { buildFatigueData, fatigueModes } from '@/mocks/stage4-data'
+import { fatigueModes } from '@/mocks/stage4-data'
+import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
-import { MetricCardGrid, MuscleMapDetailed, MuscleSelectionPanel, Panel, PeriodSwitcher, SectionTitle, Stage4DevPanel, ToneBadge } from '@/shared/ui/stage4/screen-components'
-import { useStage4Screen } from '@/features/stage4/lib/use-stage4-screen'
+import { MetricCardGrid, MuscleMapDetailed, MuscleSelectionPanel, Panel, PeriodSwitcher, SectionTitle, ToneBadge } from '@/shared/ui/stage4/screen-components'
+import { useAppStore } from '@/stores/app-store'
 
 function asFatigueMode(value: string | null): FatigueMode {
   if (value === 'current' || value === 'after-workout' || value === '7d' || value === '30d') {
@@ -19,31 +22,24 @@ function asFatigueMode(value: string | null): FatigueMode {
 export function FatigueScreen() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const { userName, emergencyStopActive, setEmergencyStopActive, dev, patchDevFlags, resetDevFlags } = useStage4Screen()
+  const selectedUserId = useAppStore((state) => state.selectedUserId)
+  const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
+  const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const mode = asFatigueMode(searchParams.get('mode'))
-
-  const effectiveDev = useMemo(() => {
-    if (mode === 'after-workout') {
-      return { ...dev, offlineHours: 0 }
-    }
-
-    if (mode === '7d') {
-      return { ...dev, offlineHours: Math.max(dev.offlineHours, 24 * 7) }
-    }
-
-    if (mode === '30d') {
-      return { ...dev, offlineHours: Math.max(dev.offlineHours, 24 * 30) }
-    }
-
-    return dev
-  }, [dev, mode])
-
-  const data = useMemo(() => buildFatigueData({ dev: effectiveDev }), [effectiveDev])
-  const selectedId = searchParams.get('muscle') ?? data.muscles[0]?.id ?? 'chest'
-  const selectedMuscle = data.muscles.find((item) => item.id === selectedId) ?? data.muscles[0]
-  const highOrCritical = data.muscles.filter((item) => item.status === 'high' || item.status === 'critical')
-  const medium = data.muscles.filter((item) => item.status === 'medium')
-  const ready = data.muscles.filter((item) => item.status === 'ready' || item.status === 'light')
+  const userId = selectedUserId ?? 'alexey'
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['fatigue-screen', userId, mode],
+    queryFn: () => apiGet<FatigueData>(`/api/fatigue?userId=${encodeURIComponent(userId)}&mode=${encodeURIComponent(mode)}`),
+  })
+  const userName = selectedUserId === 'elena' ? 'Елена' : selectedUserId === 'guest' ? 'Гость' : 'Алексей'
+  const fallbackMachine: MachineHealth = {
+    machineState: 'ready',
+    machineLabel: 'Загрузка статуса',
+    leftDrive: 'connected',
+    rightDrive: 'connected',
+    safety: 'enabled',
+    calibration: 'Загрузка...',
+  }
 
   function updateParams(patch: Record<string, string | null>) {
     setSearchParams((current) => {
@@ -61,8 +57,26 @@ export function FatigueScreen() {
     })
   }
 
-  if (!selectedMuscle) {
-    return null
+  if (isLoading || !data) {
+    return (
+      <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] p-8 text-white/72">Загрузка карты усталости…</div>
+      </FormaShell>
+    )
+  }
+
+  const selectedId = searchParams.get('muscle') ?? data.muscles[0]?.id ?? 'chest'
+  const selectedMuscle = data.muscles.find((item) => item.id === selectedId) ?? data.muscles[0]
+  const highOrCritical = data.muscles.filter((item) => item.status === 'high' || item.status === 'critical')
+  const medium = data.muscles.filter((item) => item.status === 'medium')
+  const ready = data.muscles.filter((item) => item.status === 'ready' || item.status === 'light')
+
+  if (error || !selectedMuscle) {
+    return (
+      <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] border border-[#eb5345]/25 bg-[#1b0f10] p-8 text-[#ffb4a7]">Не удалось загрузить данные усталости.</div>
+      </FormaShell>
+    )
   }
 
   return (
@@ -121,7 +135,6 @@ export function FatigueScreen() {
       </div>
 
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
-      <Stage4DevPanel value={dev} onChange={patchDevFlags} onReset={resetDevFlags} />
     </FormaShell>
   )
 }

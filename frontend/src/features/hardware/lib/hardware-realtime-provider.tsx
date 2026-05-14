@@ -10,6 +10,9 @@ export function HardwareRealtimeProvider() {
   const setSnapshot = useHardwareStore((state) => state.setSnapshot)
   const setConnectionStatus = useHardwareStore((state) => state.setConnectionStatus)
   const setErrorMessage = useHardwareStore((state) => state.setErrorMessage)
+  const runCommand = useHardwareStore((state) => state.runCommand)
+  const snapshot = useHardwareStore((state) => state.snapshot)
+  const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
 
   useEffect(() => {
     let socket: WebSocket | null = null
@@ -69,6 +72,20 @@ export function HardwareRealtimeProvider() {
       socket?.close()
     }
   }, [loadSnapshot, selectedUserId, setConnectionStatus, setErrorMessage, setSnapshot])
+
+  useEffect(() => {
+    if (!emergencyStopActive) {
+      return
+    }
+
+    if (snapshot?.safety.state === 'emergency_stop') {
+      return
+    }
+
+    void runCommand({ action: 'trigger_emergency_stop', userId: selectedUserId }).catch(() => {
+      setConnectionStatus('error')
+    })
+  }, [emergencyStopActive, runCommand, selectedUserId, setConnectionStatus, snapshot?.safety.state])
 
   return null
 }

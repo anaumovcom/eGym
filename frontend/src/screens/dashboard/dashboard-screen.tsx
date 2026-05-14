@@ -135,7 +135,7 @@ export function DashboardView({ data, userName, emergencyStopActive, onStop, onE
                 <div className="text-sm uppercase tracking-[0.25em] text-white/35">Сегодняшняя тренировка</div>
                 <div className="mt-2 font-display text-3xl font-bold text-white">Сегодня нет сохранённой тренировки</div>
                 <p className="mt-4 text-base leading-8 text-white/68">
-                  В этом mock-сценарии пользователь не получил план на сегодня. Можно перейти в быстрый старт или открыть каталог упражнений.
+                  Пользователь пока не получил план на сегодня. Можно перейти в быстрый старт или открыть каталог упражнений.
                 </p>
               </div>
               <div className="mt-5 flex gap-3">

@@ -10,3 +10,6 @@ def test_export_openapi_writes_schema(tmp_path: Path) -> None:
     assert output.exists()
     assert '"/api/users"' in content
     assert '"/api/dashboard"' in content
+    assert '"/api/exercises"' in content
+    assert '"/api/quick-start"' in content
+    assert '"/api/today"' in content

@@ -3,7 +3,7 @@ import { ListTree, Plus, Save } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { WorkoutBuilderData } from '@/entities/builder/model/types'
-import { machineScenarios } from '@/mocks/data'
+import type { MachineHealth } from '@/entities/machine/model/types'
 import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -24,7 +24,16 @@ export function WorkoutBuilderScreen() {
 
   const selectedExerciseId = searchParams.get('selectedExerciseId') ?? 'group-pullups-1'
 
-  const { data } = useQuery({
+  const fallbackMachine: MachineHealth = {
+    machineState: 'ready',
+    machineLabel: 'Загрузка статуса',
+    leftDrive: 'connected',
+    rightDrive: 'connected',
+    safety: 'enabled',
+    calibration: 'Проверка подключения...',
+  }
+
+  const { data, isLoading, error } = useQuery({
     queryKey: ['workout-builder', selectedExerciseId],
     queryFn: () => apiGet<WorkoutBuilderData>(`/api/builder?selectedExerciseId=${encodeURIComponent(selectedExerciseId)}`),
   })
@@ -35,12 +44,24 @@ export function WorkoutBuilderScreen() {
     setEditor(data?.selectedExercise ?? null)
   }, [data?.selectedExercise])
 
-  if (!data || !editor) {
-    return null
+  if (isLoading || !data || !editor) {
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] p-8 text-white/72">Загрузка конструктора тренировки…</div>
+      </FormaShell>
+    )
+  }
+
+  if (error) {
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <div className="glass-panel rounded-[34px] border border-[#eb5345]/25 bg-[#1b0f10] p-8 text-[#ffb4a7]">Не удалось загрузить конструктор тренировки. Проверьте backend API.</div>
+      </FormaShell>
+    )
   }
 
   return (
-    <FormaShell userName={getUserName(selectedUserId)} machine={machineScenarios.ready} onStop={() => setEmergencyStopActive(true)}>
+    <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
       <SectionIntro
         title={data.title}
         description={data.subtitle}

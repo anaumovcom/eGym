@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { persist } from 'zustand/middleware'
 
 type AppState = {
   selectedUserId: string | null
@@ -17,7 +18,9 @@ type AppState = {
   toggleBlacklistedExercise: (slug: string) => void
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>()(
+  persist(
+    (set) => ({
   selectedUserId: null,
   selectedExerciseSlug: 'machine-pulldown',
   selectedProgramId: 'back-biceps',
@@ -48,4 +51,17 @@ export const useAppStore = create<AppState>((set) => ({
         favoriteExerciseSlugs: exists ? state.favoriteExerciseSlugs : state.favoriteExerciseSlugs.filter((item) => item !== slug),
       }
     }),
-}))
+    }),
+    {
+      name: 'egym-app-store',
+      partialize: (state) => ({
+        selectedUserId: state.selectedUserId,
+        selectedExerciseSlug: state.selectedExerciseSlug,
+        selectedProgramId: state.selectedProgramId,
+        selectedCalendarDayId: state.selectedCalendarDayId,
+        favoriteExerciseSlugs: state.favoriteExerciseSlugs,
+        blacklistedExerciseSlugs: state.blacklistedExerciseSlugs,
+      }),
+    },
+  ),
+)

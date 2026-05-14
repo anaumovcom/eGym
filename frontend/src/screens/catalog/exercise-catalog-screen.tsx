@@ -97,7 +97,7 @@ export function ExerciseCatalogScreen() {
   return (
     <FormaShell userName={getUserName(resolvedUserId)} machine={machine} onStop={() => setEmergencyStopActive(true)}>
       {machine.machineState === 'blocked' ? <BlockingAlert title="Каталог доступен, старт заблокирован" description="Можно смотреть упражнения и собирать план, но запуск тренировок временно недоступен из-за состояния тренажёра." /> : null}
-      {machine.machineState === 'warning' ? <WarningBanner title="Тренажёр требует внимания" description="В этом mock-сценарии каталог и карточка упражнения остаются доступны, но перед стартом понадобится диагностика." /> : null}
+      {machine.machineState === 'warning' ? <WarningBanner title="Тренажёр требует внимания" description="Каталог и карточка упражнения остаются доступны, но перед стартом понадобится диагностика." /> : null}
 
       <SectionIntro
         title="Каталог упражнений"

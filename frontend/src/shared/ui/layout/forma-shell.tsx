@@ -2,6 +2,7 @@ import { CalendarDays, Dumbbell, HeartPulse, House, OctagonAlert, PanelTop, Sett
 import type { PropsWithChildren } from 'react'
 import { NavLink } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
+import { useHardwareStore } from '@/stores/hardware-store'
 import { getDriveLabel, getDriveTone, getMachineTone, getSafetyLabel, getSafetyTone } from '@/shared/lib/machine-status'
 import { navigationItems } from '@/shared/config/navigation'
 import { cn } from '@/shared/lib/cn'
@@ -87,11 +88,13 @@ export function EmergencyStopButton({ onClick }: { onClick: () => void }) {
 }
 
 export function FormaShell({ children, userName, machine, onStop }: PropsWithChildren<{ userName: string; machine: MachineHealth; onStop: () => void }>) {
+  const liveMachine = useHardwareStore((state) => state.snapshot?.machine)
+
   return (
     <div className="mx-auto flex min-h-screen w-full max-w-[1880px] gap-6 px-4 py-4 xl:px-6">
       <LeftNavigationMenu />
       <main className="flex-1 space-y-6">
-        <TopSystemBar userName={userName} machine={machine} onStop={onStop} />
+        <TopSystemBar userName={userName} machine={liveMachine ?? machine} onStop={onStop} />
         {children}
       </main>
     </div>
