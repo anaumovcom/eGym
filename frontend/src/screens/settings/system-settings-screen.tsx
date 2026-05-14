@@ -1,7 +1,8 @@
 import { CheckCircle2, Download, PlayCircle, RefreshCw, Shield, Wifi } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { SettingsTab } from '@/entities/stage4/model/types'
+import type { SettingsTab, SystemSettingsData } from '@/entities/stage4/model/types'
+import { useHardwareStore } from '@/stores/hardware-store'
 import { buildSystemSettingsData, settingsTabs } from '@/mocks/stage4-data'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -18,16 +19,67 @@ function asSettingsTab(value: string | null): SettingsTab {
   return 'overview'
 }
 
+function buildSettingsDraft(data: SystemSettingsData) {
+  return {
+    interfaceTheme: data.common.interfaceTheme,
+    interfaceScale: data.common.interfaceScale,
+    language: data.common.language,
+    units: data.common.units,
+    brightnessMode: data.common.brightnessMode,
+    autoReturnMinutes: data.common.autoReturnMinutes,
+    soundEnabled: data.common.soundEnabled,
+    voiceHintsEnabled: data.common.voiceHintsEnabled,
+    signalVolume: data.common.signalVolume,
+    wifiMode: data.common.wifiMode,
+    networkStatus: data.common.networkStatus,
+    guestMode: data.safety.guestMode,
+    guestWeightLimit: data.safety.guestWeightLimit,
+    workoutPin: data.safety.workoutPin,
+    servicePin: data.safety.servicePin,
+    childLock: data.safety.childLock,
+    idleLockMinutes: data.safety.idleLockMinutes,
+    maxLoad: data.safety.maxLoad,
+    maxSpeed: data.safety.maxSpeed,
+    syncLimit: data.safety.syncLimit,
+    desyncAction: data.safety.desyncAction,
+  }
+}
+
 export function SystemSettingsScreen() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const { userName, emergencyStopActive, setEmergencyStopActive, dev, settingsDraft, patchDevFlags, resetDevFlags } = useStage4Screen()
+  const { selectedUserId, userName, emergencyStopActive, setEmergencyStopActive, dev, settingsDraft, patchDevFlags, resetDevFlags } = useStage4Screen()
   const setSettingsValue = useStage4Store((state) => state.setSettingsValue)
+  const hydrateSettingsDraft = useStage4Store((state) => state.hydrateSettingsDraft)
   const saveSettingsDraft = useStage4Store((state) => state.saveSettingsDraft)
   const cancelSettingsDraft = useStage4Store((state) => state.cancelSettingsDraft)
   const resetSettingsToDefaults = useStage4Store((state) => state.resetSettingsToDefaults)
+  const snapshot = useHardwareStore((state) => state.snapshot)
+  const liveSettings = useHardwareStore((state) => state.settings)
+  const hardwareError = useHardwareStore((state) => state.errorMessage)
+  const loadSettings = useHardwareStore((state) => state.loadSettings)
+  const updateSafetySettings = useHardwareStore((state) => state.updateSafetySettings)
+  const runCommand = useHardwareStore((state) => state.runCommand)
   const tab = asSettingsTab(searchParams.get('tab'))
 
-  const data = useMemo(() => buildSystemSettingsData(dev), [dev])
+  const fallbackData = useMemo(() => buildSystemSettingsData(dev), [dev])
+
+  useEffect(() => {
+    void loadSettings(selectedUserId).catch(() => {})
+  }, [loadSettings, selectedUserId])
+
+  useEffect(() => {
+    if (liveSettings) {
+      hydrateSettingsDraft(buildSettingsDraft(liveSettings))
+    }
+  }, [hydrateSettingsDraft, liveSettings])
+
+  useEffect(() => {
+    if (snapshot?.safety.state === 'emergency_stop') {
+      setEmergencyStopActive(true)
+    }
+  }, [setEmergencyStopActive, snapshot?.safety.state])
+
+  const data = liveSettings ?? fallbackData
   const common = {
     ...data.common,
     interfaceTheme: settingsDraft.interfaceTheme === 'light' ? 'light' : 'dark',
@@ -64,9 +116,60 @@ export function SystemSettingsScreen() {
     })
   }
 
+  async function refreshSettings() {
+    await loadSettings(selectedUserId)
+  }
+
+  async function handleSafetySave() {
+    if (liveSettings) {
+      await updateSafetySettings(safetyDraft, selectedUserId)
+      await refreshSettings()
+    }
+
+    saveSettingsDraft()
+  }
+
+  async function handleRunDiagnostics() {
+    await runCommand({ action: 'run_diagnostics', userId: selectedUserId })
+    await refreshSettings()
+  }
+
+  async function handleClearEmergencyStop() {
+    await runCommand({ action: 'clear_emergency_stop', userId: selectedUserId })
+    setEmergencyStopActive(false)
+    await refreshSettings()
+  }
+
+  async function handleServiceModeToggle() {
+    await runCommand({ action: 'toggle_service_mode', userId: selectedUserId, serviceMode: !data.service.unlocked })
+    await refreshSettings()
+  }
+
+  async function handleServiceAction(title: string) {
+    if (title === 'Homing') {
+      await runCommand({ action: 'home', userId: selectedUserId, serviceMode: data.service.unlocked })
+    } else if (title === 'Сброс нуля') {
+      await runCommand({ action: 'reset_zero_position', userId: selectedUserId, serviceMode: data.service.unlocked })
+    } else if (title === 'Запуск диагностики') {
+      await handleRunDiagnostics()
+      return
+    }
+
+    await refreshSettings()
+  }
+
   return (
-    <FormaShell userName={userName} machine={data.machine} onStop={() => setEmergencyStopActive(true)}>
+    <FormaShell
+      userName={userName}
+      machine={snapshot?.machine ?? data.machine}
+      onStop={() => {
+        void runCommand({ action: 'trigger_emergency_stop', userId: selectedUserId })
+        setEmergencyStopActive(true)
+      }}
+    >
       <SectionTitle title="Настройки, безопасность и диагностика" description="Управление тренажёром, безопасностью и обслуживанием." />
+
+      {hardwareError ? <div className="rounded-[24px] border border-[#eb5345]/25 bg-[#1b0f10] px-5 py-4 text-sm text-[#ffb4a7]">{hardwareError}</div> : null}
 
       <TabStrip tabs={settingsTabs} active={tab} onChange={updateTab} />
 
@@ -115,6 +218,11 @@ export function SystemSettingsScreen() {
         <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
           <div className="space-y-6">
             <Panel title="Безопасность активна" description="Система безопасности включена и контролирует все параметры тренажёра.">
+              {snapshot?.safety.state === 'emergency_stop' ? (
+                <div className="mb-4 flex justify-end">
+                  <Button variant="secondary" onClick={() => void handleClearEmergencyStop()}>Снять аварийную остановку</Button>
+                </div>
+              ) : null}
               <div className="grid gap-4 xl:grid-cols-2">
                 <ToggleField label="Аварийная остановка готова" checked={data.safety.emergencyReady} editable={false} onChange={() => {}} />
                 <ToggleField label="Детская защита" checked={safetyDraft.childLock} editable onChange={(value) => setSettingsValue('childLock', value)} />
@@ -137,7 +245,7 @@ export function SystemSettingsScreen() {
               <div>Сохраните изменения или восстановите значения по умолчанию.</div>
             </div>
             <div className="mt-5 flex flex-col gap-3">
-              <Button iconLeft={<CheckCircle2 className="h-4 w-4" />} onClick={saveSettingsDraft}>Сохранить изменения</Button>
+              <Button iconLeft={<CheckCircle2 className="h-4 w-4" />} onClick={() => void handleSafetySave()}>Сохранить изменения</Button>
               <Button variant="secondary" onClick={cancelSettingsDraft}>Отменить</Button>
               <Button variant="secondary" onClick={resetSettingsToDefaults}>Сбросить по умолчанию</Button>
             </div>
@@ -208,8 +316,8 @@ export function SystemSettingsScreen() {
               ))}
             </div>
             <div className="mt-5 flex flex-col gap-3">
-              <Button iconLeft={<PlayCircle className="h-4 w-4" />}>Запустить полную диагностику</Button>
-              <Button variant="secondary" iconLeft={<RefreshCw className="h-4 w-4" />}>Повторить</Button>
+              <Button iconLeft={<PlayCircle className="h-4 w-4" />} onClick={() => void handleRunDiagnostics()}>Запустить полную диагностику</Button>
+              <Button variant="secondary" iconLeft={<RefreshCw className="h-4 w-4" />} onClick={() => void handleRunDiagnostics()}>Повторить</Button>
               <Button variant="secondary">Открыть журнал</Button>
             </div>
           </Panel>
@@ -259,13 +367,16 @@ export function SystemSettingsScreen() {
         <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
           <div className="space-y-6">
             <Panel title="Сервисный режим" description="Режим предназначен только для технического обслуживания и настройки тренажёра.">
+              <div className="mb-6 flex flex-wrap gap-3">
+                <Button onClick={() => void handleServiceModeToggle()}>{data.service.unlocked ? 'Выключить сервисный режим' : 'Включить сервисный режим'}</Button>
+              </div>
               <div className="grid gap-6 xl:grid-cols-2">
                 <Panel title="Текущие позиции"><InfoMetricList items={data.service.positions} /></Panel>
                 <Panel title="Состояние приводов"><InfoMetricList items={data.service.driveHealth} /></Panel>
               </div>
               <div className="mt-6 grid gap-4 md:grid-cols-2">
                 {data.service.actions.map((action) => (
-                  <button key={action.title} type="button" className="rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-left text-sm text-white/75">
+                  <button key={action.title} type="button" onClick={() => void handleServiceAction(action.title)} className="rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-left text-sm text-white/75">
                     <div className="text-white">{action.title}</div>
                     <div className="mt-1 text-xs text-white/45">{action.description}</div>
                   </button>

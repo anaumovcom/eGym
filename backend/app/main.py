@@ -9,8 +9,9 @@ from fastapi.staticfiles import StaticFiles
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.db.base import Base
-from app.db.seed import seed_dev_data, seed_stage7_data
+from app.db.seed import seed_dev_data, seed_stage7_data, seed_stage8_data
 from app.db.session import SessionLocal, engine
+from app.services.hardware_runtime import hardware_runtime
 
 
 def bootstrap_local_data() -> None:
@@ -23,12 +24,16 @@ def bootstrap_local_data() -> None:
     with SessionLocal() as session:
         seed_dev_data(session)
         seed_stage7_data(session)
+        seed_stage8_data(session)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    hardware_runtime.reset()
     bootstrap_local_data()
+    await hardware_runtime.start()
     yield
+    await hardware_runtime.stop()
 
 
 def create_app() -> FastAPI:

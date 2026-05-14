@@ -2,6 +2,7 @@ import { Activity, Gauge, PauseCircle, TimerReset } from 'lucide-react'
 import { useEffect } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
+import { useHardwareStore } from '@/stores/hardware-store'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -63,6 +64,9 @@ export function ExerciseSessionScreen() {
   const finishCurrentSet = useRuntimeStore((state) => state.finishCurrentSet)
   const completeExercise = useRuntimeStore((state) => state.completeExercise)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
+  const snapshot = useHardwareStore((state) => state.snapshot)
+  const hardwareError = useHardwareStore((state) => state.errorMessage)
+  const runCommand = useHardwareStore((state) => state.runCommand)
 
   const initOptions = getRuntimeInitOptions(searchParams)
 
@@ -77,16 +81,69 @@ export function ExerciseSessionScreen() {
     }
   }, [ensureSession, initOptions, session, startExercise])
 
+  useEffect(() => {
+    if (snapshot?.safety.state === 'emergency_stop') {
+      setEmergencyStopActive(true)
+    }
+  }, [setEmergencyStopActive, snapshot?.safety.state])
+
   if (!session || !session.sessionState) {
     return null
   }
 
   const exercise = session.exercises.find((item) => item.id === session.currentExerciseId) ?? session.exercises[0]
   const state = session.sessionState
-  const progressPercent = Math.round(((state.setNumber - 1) / Math.max(1, state.totalSets)) * 100)
+  const liveMotion = exercise.kind === 'machine' ? snapshot?.motion : null
+  const progressPercent = liveMotion
+    ? Math.round((liveMotion.repetitionCount / Math.max(1, liveMotion.targetReps)) * 100)
+    : Math.round(((state.setNumber - 1) / Math.max(1, state.totalSets)) * 100)
+  const liveMetrics = liveMotion
+    ? [
+        { label: 'Повторы', value: `${liveMotion.repetitionCount}/${liveMotion.targetReps}`, tone: 'good' as const },
+        { label: 'Амплитуда', value: `${liveMotion.amplitudePercent}%`, tone: liveMotion.amplitudePercent >= 70 ? 'good' as const : 'warning' as const },
+        { label: 'Позиция', value: `${Math.round(liveMotion.barPositionMm)} мм`, tone: 'neutral' as const },
+        { label: 'Синхронность', value: `${liveMotion.syncDeltaMm.toFixed(1)} мм`, tone: liveMotion.syncDeltaMm <= 5 ? 'good' as const : 'warning' as const },
+      ]
+    : state.metrics
+  const liveMotionTrack = liveMotion
+    ? {
+        minLabel: `${Math.round(liveMotion.lowerBoundMm ?? 0)} мм`,
+        currentLabel: `${Math.round(liveMotion.barPositionMm)} мм`,
+        maxLabel: `${Math.round(liveMotion.upperBoundMm ?? 1400)} мм`,
+        points: [20, 38, 56, liveMotion.amplitudePercent, 72, 52, 34, 18].map((value, index) => ({
+          phase: index === 3 ? 'current' as const : index < 3 ? 'up' as const : 'down' as const,
+          value,
+        })),
+      }
+    : state.motionTrack
+
+  async function handleFinishCurrentSet() {
+    if (exercise.kind === 'machine' && selectedUserId) {
+      await runCommand({
+        action: 'complete_set',
+        userId: selectedUserId,
+        exerciseSlug: exercise.slug,
+        calibrationRequired: false,
+        rangeConfirmed: true,
+        weightKg: exercise.loadSettings.weight,
+        mode: 'machine',
+      })
+    }
+
+    finishCurrentSet()
+    const nextView = useRuntimeStore.getState().session?.view
+    navigate(withSearch(nextView === 'exercise-summary' ? '/exercise-summary' : '/rest', location.search))
+  }
 
   return (
-    <FormaShell userName={getUserName(selectedUserId)} machine={session.machine} onStop={() => setEmergencyStopActive(true)}>
+    <FormaShell
+      userName={getUserName(selectedUserId)}
+      machine={snapshot?.machine ?? session.machine}
+      onStop={() => {
+        void runCommand({ action: 'trigger_emergency_stop', userId: selectedUserId })
+        setEmergencyStopActive(true)
+      }}
+    >
       <SectionIntro
         title={exercise.name}
         description={`Упражнение ${exercise.order} из ${session.exercises.length} · ${state.targetLabel}`}
@@ -102,7 +159,7 @@ export function ExerciseSessionScreen() {
           <div className="flex items-center justify-between gap-4">
             <div>
               <div className="text-sm uppercase tracking-[0.24em] text-white/35">Выполнение</div>
-              <div className="mt-2 font-display text-6xl font-bold text-white">{state.kind === 'timed' ? `${state.currentValue} сек` : `${state.currentValue}`}</div>
+              <div className="mt-2 font-display text-6xl font-bold text-white">{state.kind === 'timed' ? `${state.currentValue} сек` : `${liveMotion?.repetitionCount ?? state.currentValue}`}</div>
               <div className="mt-2 text-xl text-white/45">{state.targetLabel}</div>
             </div>
             <div className="flex h-48 w-48 items-center justify-center rounded-full border border-[#d6b05f]/20 bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.18),transparent_44%),linear-gradient(180deg,#171b22,#090c11)]">
@@ -118,7 +175,7 @@ export function ExerciseSessionScreen() {
           </div>
 
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {state.metrics.map((metric) => (
+            {liveMetrics.map((metric) => (
               <div key={metric.label} className="rounded-[24px] border border-white/8 bg-white/4 p-4">
                 <div className="text-sm text-white/45">{metric.label}</div>
                 <div className={cn('mt-2 font-display text-3xl font-bold', metric.tone === 'good' ? 'text-[#92e09a]' : metric.tone === 'warning' ? 'text-[#f2cf87]' : 'text-white')}>
@@ -128,20 +185,22 @@ export function ExerciseSessionScreen() {
             ))}
           </div>
 
-          {state.motionTrack ? (
+          {hardwareError ? <div className="mt-6 rounded-[24px] border border-[#eb5345]/25 bg-[#1b0f10] px-5 py-4 text-sm text-[#ffb4a7]">{hardwareError}</div> : null}
+
+          {liveMotionTrack ? (
             <div className="mt-6 rounded-[28px] border border-white/8 bg-white/4 p-5">
               <div className="flex items-center gap-3 text-white/45"><Gauge className="h-4 w-4" />Амплитуда движения</div>
               <div className="mt-5 flex items-end gap-2">
-                {state.motionTrack.points.map((point, index) => (
+                {liveMotionTrack.points.map((point, index) => (
                   <div key={`${point.phase}-${index}`} className="flex-1">
                     <div className={cn('rounded-t-full', motionBarHeightClass(point.value), point.phase === 'current' ? 'bg-[#f2cf87]' : point.phase === 'up' ? 'bg-[#92e09a]' : 'bg-white/18')} />
                   </div>
                 ))}
               </div>
               <div className="mt-3 flex items-center justify-between text-sm text-white/45">
-                <span>{state.motionTrack.minLabel}</span>
-                <span>{state.motionTrack.currentLabel}</span>
-                <span>{state.motionTrack.maxLabel}</span>
+                <span>{liveMotionTrack.minLabel}</span>
+                <span>{liveMotionTrack.currentLabel}</span>
+                <span>{liveMotionTrack.maxLabel}</span>
               </div>
             </div>
           ) : null}
@@ -149,11 +208,7 @@ export function ExerciseSessionScreen() {
           <div className="mt-6 flex flex-wrap gap-3">
             <Button
               iconLeft={<Activity className="h-4 w-4" />}
-              onClick={() => {
-                finishCurrentSet()
-                const nextView = useRuntimeStore.getState().session?.view
-                navigate(withSearch(nextView === 'exercise-summary' ? '/exercise-summary' : '/rest', location.search))
-              }}
+              onClick={() => void handleFinishCurrentSet()}
             >
               {state.kind === 'timed' ? 'Завершить интервал' : state.kind === 'group' ? 'Завершить шаг' : 'Завершить подход'}
             </Button>

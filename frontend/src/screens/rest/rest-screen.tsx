@@ -2,6 +2,7 @@ import { Minus, PauseCircle, Plus } from 'lucide-react'
 import { useEffect } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
+import { useHardwareStore } from '@/stores/hardware-store'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
@@ -26,6 +27,9 @@ export function RestScreen() {
   const adjustRestSeconds = useRuntimeStore((state) => state.adjustRestSeconds)
   const pauseRestTimer = useRuntimeStore((state) => state.pauseRestTimer)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
+  const snapshot = useHardwareStore((state) => state.snapshot)
+  const hardwareError = useHardwareStore((state) => state.errorMessage)
+  const runCommand = useHardwareStore((state) => state.runCommand)
 
   const initOptions = getRuntimeInitOptions(searchParams)
 
@@ -35,14 +39,50 @@ export function RestScreen() {
     }
   }, [ensureSession, initOptions, session])
 
+  useEffect(() => {
+    if (snapshot?.safety.state === 'emergency_stop') {
+      setEmergencyStopActive(true)
+    }
+  }, [setEmergencyStopActive, snapshot?.safety.state])
+
   if (!session || !session.restState) {
     return null
   }
 
+  const activeSession = session
   const rest = session.restState
+  const currentExercise = activeSession.exercises.find((item) => item.id === activeSession.currentExerciseId) ?? activeSession.exercises[0]
+  const hasNextSet = activeSession.currentSetIndex < currentExercise.plan.length - 1
+  const nextExercisePlan = hasNextSet ? currentExercise : activeSession.exercises[currentExercise.order]
+
+  async function handleBeginNextStep() {
+    if (nextExercisePlan?.kind === 'machine' && selectedUserId) {
+      await runCommand({
+        action: 'start_motion',
+        userId: selectedUserId,
+        exerciseSlug: nextExercisePlan.slug,
+        calibrationRequired: true,
+        rangeConfirmed: true,
+        weightKg: nextExercisePlan.loadSettings.weight,
+        mode: 'machine',
+        targetSet: hasNextSet ? activeSession.currentSetIndex + 2 : 1,
+        targetReps: nextExercisePlan.loadSettings.reps,
+      })
+    }
+
+    beginNextStep()
+    navigate(withSearch('/exercise-session', location.search))
+  }
 
   return (
-    <FormaShell userName={getUserName(selectedUserId)} machine={session.machine} onStop={() => setEmergencyStopActive(true)}>
+    <FormaShell
+      userName={getUserName(selectedUserId)}
+      machine={snapshot?.machine ?? session.machine}
+      onStop={() => {
+        void runCommand({ action: 'trigger_emergency_stop', userId: selectedUserId })
+        setEmergencyStopActive(true)
+      }}
+    >
       <SectionIntro title={rest.title} description={rest.subtitle} />
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -65,20 +105,17 @@ export function RestScreen() {
               <Metric label="План" value={`${rest.completedSet.plannedValue}`} />
               <Metric label="Факт" value={`${rest.completedSet.actualValue}`} />
               <Metric label="Темп" value={rest.completedSet.tempoLabel} />
-              <Metric label="Амплитуда" value={rest.completedSet.amplitudePercent ? `${rest.completedSet.amplitudePercent}%` : '—'} />
+              <Metric label="Амплитуда" value={snapshot?.motion ? `${snapshot.motion.amplitudePercent}%` : rest.completedSet.amplitudePercent ? `${rest.completedSet.amplitudePercent}%` : '—'} />
             </div>
           </div>
+
+          {hardwareError ? <div className="mt-6 rounded-[24px] border border-[#eb5345]/25 bg-[#1b0f10] px-5 py-4 text-sm text-[#ffb4a7]">{hardwareError}</div> : null}
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Button iconLeft={<PauseCircle className="h-4 w-4" />} variant="secondary" onClick={pauseRestTimer}>
               Пауза таймера
             </Button>
-            <Button
-              onClick={() => {
-                beginNextStep()
-                navigate(withSearch('/exercise-session', location.search))
-              }}
-            >
+            <Button onClick={() => void handleBeginNextStep()}>
               {rest.nextActionLabel}
             </Button>
           </div>
@@ -94,6 +131,17 @@ export function RestScreen() {
             </div>
             <div className="mt-4 text-sm leading-7 text-white/65">{rest.recommendation}</div>
           </section>
+
+          {snapshot?.motion ? (
+            <section className="glass-panel rounded-[32px] p-5">
+              <div className="font-display text-3xl font-bold text-white">Live hardware</div>
+              <div className="mt-4 space-y-3 text-sm text-white/72">
+                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Позиция</span><span>{Math.round(snapshot.motion.barPositionMm)} мм</span></div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Синхронность</span><span>{snapshot.motion.syncDeltaMm.toFixed(1)} мм</span></div>
+                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Профиль</span><span>{snapshot.motion.motionProfile}</span></div>
+              </div>
+            </section>
+          ) : null}
         </aside>
       </div>
 

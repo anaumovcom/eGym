@@ -23,6 +23,7 @@ from app.models.enums import (
     SafetyState,
     UserAccent,
 )
+from app.models.hardware import ExerciseCalibration, HardwareDiagnosticRecord
 from app.models.machine import DriveStatusSnapshot, MachineStatusSnapshot, SafetyEvent
 from app.models.profile import BodyMeasurement, UserGoal, UserProfile
 from app.models.settings import AppSetting
@@ -374,6 +375,77 @@ def seed_stage7_data(session: Session) -> None:
                 width=480,
                 height=720,
                 note="Seeded photo",
+            )
+        )
+
+    session.commit()
+
+
+def seed_stage8_data(session: Session) -> None:
+    if session.scalar(select(User.id).limit(1)) is None:
+        return
+    if session.scalar(select(ExerciseCalibration.id).limit(1)) is not None:
+        return
+
+    now = datetime.now(UTC)
+    session.add_all(
+        [
+            ExerciseCalibration(
+                user_id="alexey",
+                exercise_slug="band-chest-press",
+                lower_point_mm=620.0,
+                upper_point_mm=1290.0,
+                zero_position_mm=860.0,
+                movement_range_confirmed=True,
+                calibration_required=True,
+                is_active=True,
+                captured_at=now - timedelta(minutes=12),
+                expires_at=now + timedelta(days=7),
+                note="Seeded stage 8 calibration",
+            ),
+            ExerciseCalibration(
+                user_id="elena",
+                exercise_slug="band-leg-press",
+                lower_point_mm=540.0,
+                upper_point_mm=1180.0,
+                zero_position_mm=790.0,
+                movement_range_confirmed=True,
+                calibration_required=True,
+                is_active=True,
+                captured_at=now - timedelta(days=1),
+                expires_at=now + timedelta(days=6),
+                note="Seeded stage 8 calibration",
+            ),
+            HardwareDiagnosticRecord(
+                category="drives",
+                title="Проверка приводов",
+                status="passed",
+                severity="info",
+                description="Оба привода эмулятора доступны и синхронизированы.",
+                payload_json={"emulator": True, "syncDeltaMm": 0.4},
+                ran_at=now - timedelta(minutes=8),
+            ),
+        ]
+    )
+
+    existing_settings = list(session.scalars(select(AppSetting).where(AppSetting.key == "hardware.safety.settings")))
+    if not existing_settings:
+        session.add(
+            AppSetting(
+                user_id=None,
+                key="hardware.safety.settings",
+                value={
+                    "childLock": True,
+                    "workoutPin": True,
+                    "servicePin": True,
+                    "idleLockMinutes": "2 минуты",
+                    "guestMode": True,
+                    "guestWeightLimit": "30 кг",
+                    "maxLoad": "80 кг",
+                    "maxSpeed": "Средняя",
+                    "syncLimit": "5 мм",
+                    "desyncAction": "Остановить движение",
+                },
             )
         )
 

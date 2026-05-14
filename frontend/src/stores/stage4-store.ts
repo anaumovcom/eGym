@@ -13,6 +13,7 @@ type Stage4Store = {
   saveProfileDraft: () => void
   cancelProfileEdit: () => void
   setSettingsValue: (key: string, value: string | boolean) => void
+  hydrateSettingsDraft: (values: Record<string, string | boolean>) => void
   saveSettingsDraft: () => void
   cancelSettingsDraft: () => void
   resetSettingsToDefaults: () => void
@@ -76,6 +77,7 @@ export const useStage4Store = create<Stage4Store>((set, get) => ({
     ),
   cancelProfileEdit: () => set({ profileDraft: null }),
   setSettingsValue: (key, value) => set((state) => ({ settingsDraft: { ...state.settingsDraft, [key]: value } })),
+  hydrateSettingsDraft: (values) => set({ settingsSaved: { ...values }, settingsDraft: { ...values } }),
   saveSettingsDraft: () => set((state) => ({ settingsSaved: { ...state.settingsDraft } })),
   cancelSettingsDraft: () => set((state) => ({ settingsDraft: { ...state.settingsSaved } })),
   resetSettingsToDefaults: () => set({ settingsSaved: createDefaultSettingsDraft(), settingsDraft: createDefaultSettingsDraft() }),

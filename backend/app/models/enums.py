@@ -59,6 +59,11 @@ class AuditAction(StrEnum):
     user_selected = "user_selected"
     emergency_stop = "emergency_stop"
     settings_changed = "settings_changed"
+    hardware_command = "hardware_command"
+    calibration_saved = "calibration_saved"
+    calibration_deleted = "calibration_deleted"
+    zero_position_reset = "zero_position_reset"
+    diagnostics_run = "diagnostics_run"
 
 
 class RuntimeExerciseKind(StrEnum):

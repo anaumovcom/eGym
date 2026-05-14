@@ -7,6 +7,7 @@ from app.models.analytics import (
     WorkoutSession,
 )
 from app.models.audit import AuditLog
+from app.models.hardware import ExerciseCalibration, HardwareDiagnosticRecord
 from app.models.machine import DriveStatusSnapshot, MachineStatusSnapshot, SafetyEvent
 from app.models.profile import BodyMeasurement, UserGoal, UserProfile
 from app.models.settings import AppSetting
@@ -18,8 +19,10 @@ __all__ = [
     "AuditLog",
     "BodyMeasurement",
     "DriveStatusSnapshot",
+    "ExerciseCalibration",
     "ExerciseSession",
     "ExerciseHistoryRecord",
+    "HardwareDiagnosticRecord",
     "MachineStatusSnapshot",
     "MuscleFatigueEvent",
     "MuscleFatigueSnapshot",

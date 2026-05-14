@@ -2,6 +2,7 @@ import { ArrowLeft, Camera, Play } from 'lucide-react'
 import { useEffect } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
+import { useHardwareStore } from '@/stores/hardware-store'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
@@ -28,6 +29,15 @@ export function ExerciseSetupScreen() {
   const openPhotoProgress = useRuntimeStore((state) => state.openPhotoProgress)
   const startExercise = useRuntimeStore((state) => state.startExercise)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
+  const snapshot = useHardwareStore((state) => state.snapshot)
+  const currentCalibration = useHardwareStore((state) => state.currentCalibration)
+  const hardwareError = useHardwareStore((state) => state.errorMessage)
+  const setHardwareError = useHardwareStore((state) => state.setErrorMessage)
+  const loadCurrentCalibration = useHardwareStore((state) => state.loadCurrentCalibration)
+  const saveCalibration = useHardwareStore((state) => state.saveCalibration)
+  const deleteCalibration = useHardwareStore((state) => state.deleteCalibration)
+  const checkSafetyGate = useHardwareStore((state) => state.checkSafetyGate)
+  const runCommand = useHardwareStore((state) => state.runCommand)
 
   const initOptions = getRuntimeInitOptions(searchParams)
 
@@ -41,16 +51,113 @@ export function ExerciseSetupScreen() {
     }
   }, [location.search, navigate, session])
 
-  if (!session) {
+  const exercise = session?.exercises.find((item) => item.id === session.currentExerciseId) ?? session?.exercises[0]
+
+  useEffect(() => {
+    if (!exercise) {
+      return
+    }
+
+    if (snapshot?.safety.state === 'emergency_stop') {
+      setEmergencyStopActive(true)
+    }
+
+    if (exercise.kind !== 'machine') {
+      updateCalibrationState('not-needed')
+      return
+    }
+
+    if (!selectedUserId) {
+      updateCalibrationState('missing')
+      return
+    }
+
+    void loadCurrentCalibration(selectedUserId, exercise.slug)
+      .then((calibration) => {
+        updateCalibrationState(calibration ? 'saved' : 'missing')
+      })
+      .catch(() => {})
+  }, [exercise, loadCurrentCalibration, selectedUserId, setEmergencyStopActive, snapshot?.safety.state, updateCalibrationState])
+
+  if (!session || !exercise) {
     return null
   }
 
-  const exercise = session.exercises.find((item) => item.id === session.currentExerciseId) ?? session.exercises[0]
+  const currentExercise = exercise
   const settings = exercise.loadSettings
-  const startBlocked = exercise.kind === 'machine' && exercise.calibrationState === 'missing'
+  const startBlocked = currentExercise.kind === 'machine' && (!currentCalibration || !selectedUserId)
+
+  async function handleCalibrationSave() {
+    if (!selectedUserId) {
+      setHardwareError('Сначала выберите пользователя перед сохранением калибровки.')
+      return
+    }
+
+    await saveCalibration({
+      userId: selectedUserId,
+      exerciseSlug: currentExercise.slug,
+      lowerPointMm: snapshot?.motion.lowerBoundMm ?? 620,
+      upperPointMm: snapshot?.motion.upperBoundMm ?? 1290,
+      zeroPositionMm: snapshot?.motion.barPositionMm ?? 860,
+      movementRangeConfirmed: true,
+      calibrationRequired: true,
+    })
+    updateCalibrationState('saved')
+  }
+
+  async function handleCalibrationDelete() {
+    if (currentCalibration) {
+      await deleteCalibration(currentCalibration.id, selectedUserId)
+    }
+    updateCalibrationState('missing')
+  }
+
+  async function handleStartExercise() {
+    if (currentExercise.kind === 'machine') {
+      if (!selectedUserId) {
+        setHardwareError('Для запуска тренажёрного упражнения нужно выбрать пользователя.')
+        return
+      }
+
+      const safetyGate = await checkSafetyGate({
+        userId: selectedUserId,
+        exerciseSlug: currentExercise.slug,
+        calibrationRequired: true,
+        rangeConfirmed: true,
+        weightKg: settings.weight,
+        mode: 'machine',
+      })
+
+      if (!safetyGate.allowed) {
+        return
+      }
+
+      await runCommand({
+        action: 'start_motion',
+        userId: selectedUserId,
+        exerciseSlug: currentExercise.slug,
+        calibrationRequired: true,
+        rangeConfirmed: true,
+        weightKg: settings.weight,
+        mode: 'machine',
+        targetSet: 1,
+        targetReps: settings.reps,
+      })
+    }
+
+    startExercise()
+    navigate(withSearch('/exercise-session', location.search))
+  }
 
   return (
-    <FormaShell userName={getUserName(selectedUserId)} machine={session.machine} onStop={() => setEmergencyStopActive(true)}>
+    <FormaShell
+      userName={getUserName(selectedUserId)}
+      machine={snapshot?.machine ?? session.machine}
+      onStop={() => {
+        void runCommand({ action: 'trigger_emergency_stop', userId: selectedUserId })
+        setEmergencyStopActive(true)
+      }}
+    >
       <SectionIntro
         title="Настройка упражнения"
         description="Подтвердите параметры перед стартом, проверьте калибровку и при необходимости сделайте фотофиксацию перед упражнением."
@@ -81,6 +188,7 @@ export function ExerciseSetupScreen() {
 
           {session.photoProgress.completed ? <WarningBanner title="Фото сохранены" description="Фотофиксация перед тренировкой завершена, можно запускать упражнение." /> : null}
           {startBlocked ? <WarningBanner title="Нужна калибровка" description="Для тренажёрного упражнения старт заблокирован, пока не будет сохранена амплитуда движения." /> : null}
+          {hardwareError ? <WarningBanner title="Hardware API" description={hardwareError} /> : null}
 
           <div className="mt-6 space-y-5">
             <LoadSettingsControl
@@ -93,10 +201,10 @@ export function ExerciseSetupScreen() {
             />
             <CalibrationStatusBlock calibration={settings.calibration} />
             <div className="flex flex-wrap gap-3">
-              <Button variant={exercise.calibrationState === 'saved' ? 'primary' : 'secondary'} onClick={() => updateCalibrationState('saved')}>
+              <Button variant={exercise.calibrationState === 'saved' ? 'primary' : 'secondary'} onClick={() => void handleCalibrationSave()}>
                 Амплитуда сохранена
               </Button>
-              <Button variant={exercise.calibrationState === 'missing' ? 'primary' : 'secondary'} onClick={() => updateCalibrationState('missing')}>
+              <Button variant={exercise.calibrationState === 'missing' ? 'primary' : 'secondary'} onClick={() => void handleCalibrationDelete()}>
                 Нет калибровки
               </Button>
               <Button variant={exercise.calibrationState === 'not-needed' ? 'primary' : 'secondary'} onClick={() => updateCalibrationState('not-needed')}>
@@ -123,10 +231,7 @@ export function ExerciseSetupScreen() {
               }}>
                 Фотофиксация
               </Button>
-              <Button className="w-full" disabled={startBlocked} iconLeft={<Play className="h-4 w-4" />} onClick={() => {
-                startExercise()
-                navigate(withSearch('/exercise-session', location.search))
-              }}>
+              <Button className="w-full" disabled={startBlocked} iconLeft={<Play className="h-4 w-4" />} onClick={() => void handleStartExercise()}>
                 {startBlocked ? 'Старт недоступен' : 'Запустить упражнение'}
               </Button>
             </div>
