@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+egym.db
+.env
+node_modules/
+dist/
+.vite/
+.DS_Store
+exercises/
