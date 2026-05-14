@@ -26,20 +26,20 @@
 
 Скопированы визуальные ориентиры:
 
-* `images/quick-start.png`
-* `images/today-workout.png`
-* `images/workout-calendar-week.png`
-* `images/workout-calendar-month.png`
-* `images/workout-builder.png`
-* `images/program-library.png`
-* `images/exercise-catalog.png`
-* `images/exercise-catalog-details.png`
-* `images/exercise-details.png`
-* `images/exercise-details-info.png`
-* `images/exercise-details-technic.png`
-* `images/exercise-details-muscles.png`
-* `images/exercise-details-history.png`
-* `images/exercise-details-similar.png`
+* `images/quick-start.jpg`
+* `images/today-workout.jpg`
+* `images/workout-calendar-week.jpg`
+* `images/workout-calendar-month.jpg`
+* `images/workout-builder.jpg`
+* `images/program-library.jpg`
+* `images/exercise-catalog.jpg`
+* `images/exercise-catalog-details.jpg`
+* `images/exercise-details.jpg`
+* `images/exercise-details-info.jpg`
+* `images/exercise-details-technic.jpg`
+* `images/exercise-details-muscles.jpg`
+* `images/exercise-details-history.jpg`
+* `images/exercise-details-similar.jpg`
 
 ---
 

@@ -25,22 +25,22 @@
 
 Скопированы визуальные ориентиры:
 
-* `images/photo-progress-1.png`
-* `images/photo-progress-2.png`
-* `images/photo-progress-3.png`
-* `images/photo-progress-4.png`
-* `images/exercise-setup-calibration-ok.png`
-* `images/exercise-setup-no-calibration.png`
-* `images/exercise-setup-no-need.png`
-* `images/exercise-session-gym.png`
-* `images/exercise-session-count-no-machine.png`
-* `images/exercise-session-time.png`
-* `images/rest-screen.png`
-* `images/rest-screen-2.png`
-* `images/rest-screen-3.png`
-* `images/exercise-summary.png`
-* `images/workout-summary.png`
-* `images/workout-summary-fail.png`
+* `images/photo-progress-1.jpg`
+* `images/photo-progress-2.jpg`
+* `images/photo-progress-3.jpg`
+* `images/photo-progress-4.jpg`
+* `images/exercise-setup-calibration-ok.jpg`
+* `images/exercise-setup-no-calibration.jpg`
+* `images/exercise-setup-no-need.jpg`
+* `images/exercise-session-gym.jpg`
+* `images/exercise-session-count-no-machine.jpg`
+* `images/exercise-session-time.jpg`
+* `images/rest-screen.jpg`
+* `images/rest-screen-2.jpg`
+* `images/rest-screen-3.jpg`
+* `images/exercise-summary.jpg`
+* `images/workout-summary.jpg`
+* `images/workout-summary-fail.jpg`
 
 ---
 

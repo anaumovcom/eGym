@@ -24,28 +24,28 @@
 
 Скопированы визуальные ориентиры:
 
-* `images/user-profile1.png`
-* `images/user-profile2.png`
-* `images/user-profile3.png`
-* `images/user-profile4.png`
-* `images/user-profile5.png`
-* `images/user-profile6.png`
-* `images/progress.png`
-* `images/progress-excersices.png`
-* `images/progress-str-volume.png`
-* `images/progress-regularity.png`
-* `images/progress-muscles.png`
-* `images/progress-body.png`
-* `images/progress-photo.png`
-* `images/muscle-map.png`
-* `images/system-settings.png`
-* `images/system-settings-common.png`
-* `images/system-settings-safety.png`
-* `images/system-settings-mechanic.png`
-* `images/system-settings-calibration.png`
-* `images/system-settings-diagnostic.png`
-* `images/system-settings-journal.png`
-* `images/system-settings-service.png`
+* `images/user-profile1.jpg`
+* `images/user-profile2.jpg`
+* `images/user-profile3.jpg`
+* `images/user-profile4.jpg`
+* `images/user-profile5.jpg`
+* `images/user-profile6.jpg`
+* `images/progress.jpg`
+* `images/progress-excersices.jpg`
+* `images/progress-str-volume.jpg`
+* `images/progress-regularity.jpg`
+* `images/progress-muscles.jpg`
+* `images/progress-body.jpg`
+* `images/progress-photo.jpg`
+* `images/muscle-map.jpg`
+* `images/system-settings.jpg`
+* `images/system-settings-common.jpg`
+* `images/system-settings-safety.jpg`
+* `images/system-settings-mechanic.jpg`
+* `images/system-settings-calibration.jpg`
+* `images/system-settings-diagnostic.jpg`
+* `images/system-settings-journal.jpg`
+* `images/system-settings-service.jpg`
 
 ---
 

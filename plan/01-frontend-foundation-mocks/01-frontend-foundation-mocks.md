@@ -23,8 +23,8 @@
 
 Скопированы визуальные ориентиры:
 
-* `images/user-selection.png`
-* `images/dashboard.png`
+* `images/user-selection.jpg`
+* `images/dashboard.jpg`
 
 ---
 
