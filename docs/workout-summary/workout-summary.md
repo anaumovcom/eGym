@@ -328,19 +328,23 @@ Forma
 ```text
 После тренировки
 
-Спина: высокая усталость
-Бицепс: высокая усталость
-Предплечья: средняя усталость
-Кор: лёгкая усталость
+Спина: 82 из 100 · высокая усталость
+Бицепс: 68 из 100 · высокая усталость
+Предплечья: 42 из 100 · средняя усталость
+Кор: 18 из 100 · лёгкая усталость
 ```
 
 Можно добавить прогноз:
 
 ```text
 Ожидаемое восстановление:
-спина — около 48 часов
-бицепс — около 36 часов
+спина — до умеренной нагрузки около 24 часов
+бицепс — до умеренной нагрузки около 18 часов
 ```
+
+Усталость должна быть пересчитана на момент завершения тренировки с учётом фактического времени, прошедшего с предыдущей нагрузки.
+
+Если сервер был выключен между тренировками, Forma не должна использовать старое значение как текущее. Перед добавлением новой нагрузки нужно сначала пересчитать усталость по `nowUtc - lastFatigueCalculatedAt`, затем добавить новую `fatigueDelta` от выполненных упражнений.
 
 ---
 
@@ -734,7 +738,12 @@ type WorkoutSummaryScreen = {
     muscleId: string;
     muscleName: string;
     loadLevel: 'none' | 'light' | 'medium' | 'high' | 'very_high';
-    fatigueAfterWorkout: 'ready' | 'light' | 'moderate' | 'high' | 'critical';
+    fatigueBeforeWorkout: number;
+    fatigueAdded: number;
+    fatigueAfterWorkout: number;
+    fatigueLevelAfterWorkout: 'ready' | 'light' | 'moderate' | 'high' | 'critical';
+    calculatedAt: string;
+    recoveryHalfLifeHours: number;
     estimatedRecoveryHours?: number;
   }[];
 
@@ -836,6 +845,10 @@ type CompletedWorkoutResult = {
   muscleLoad: {
     muscleId: string;
     loadLevel: 'none' | 'light' | 'medium' | 'high' | 'very_high';
+    fatigueBeforeWorkout: number;
+    fatigueAdded: number;
+    fatigueAfterWorkout: number;
+    calculatedAt: string;
   }[];
 
   perceivedDifficulty?: 'easy' | 'normal' | 'hard';
