@@ -8,20 +8,22 @@ import { ExerciseDetailsScreen } from '@/screens/catalog/exercise-details-screen
 import { ExerciseSessionScreen } from '@/screens/exercise-session/exercise-session-screen'
 import { ExerciseSetupScreen } from '@/screens/exercise-setup/exercise-setup-screen'
 import { ExerciseSummaryScreen } from '@/screens/exercise-summary/exercise-summary-screen'
+import { FatigueScreen } from '@/screens/fatigue/fatigue-screen'
 import { PlaceholderScreen } from '@/screens/placeholder/placeholder-screen'
 import { PhotoProgressScreen } from '@/screens/photo-progress/photo-progress-screen'
+import { UserProfileScreen } from '@/screens/profile/user-profile-screen'
 import { ProgramLibraryScreen } from '@/screens/programs/program-library-screen'
+import { ProgressScreen } from '@/screens/progress/progress-screen'
 import { QuickStartScreen } from '@/screens/quick-start/quick-start-screen'
 import { RestScreen } from '@/screens/rest/rest-screen'
+import { SystemSettingsScreen } from '@/screens/settings/system-settings-screen'
 import { TodayWorkoutScreen } from '@/screens/today/today-workout-screen'
 import { UserSelectionScreen } from '@/screens/user-selection/user-selection-screen'
 import { WorkoutSummaryScreen } from '@/screens/workout-summary/workout-summary-screen'
 import { useAppStore } from '@/stores/app-store'
 
 const placeholderTitles = {
-  '/fatigue': 'Усталость',
-  '/profile': 'Профиль',
-  '/settings': 'Настройки',
+  '/settings/legacy': 'Настройки',
 } as const
 
 function ProtectedAppRoute({ children }: { children: ReactElement }) {
@@ -49,7 +51,10 @@ export function AppRouter() {
         <Route path="/catalog/:slug" element={<ProtectedAppRoute><ExerciseDetailsScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-setup" element={<ProtectedAppRoute><ExerciseSetupScreen /></ProtectedAppRoute>} />
         <Route path="/photo-progress" element={<ProtectedAppRoute><PhotoProgressScreen /></ProtectedAppRoute>} />
-        <Route path="/progress" element={<ProtectedAppRoute><PhotoProgressScreen /></ProtectedAppRoute>} />
+        <Route path="/progress" element={<ProtectedAppRoute><ProgressScreen /></ProtectedAppRoute>} />
+        <Route path="/fatigue" element={<ProtectedAppRoute><FatigueScreen /></ProtectedAppRoute>} />
+        <Route path="/profile" element={<ProtectedAppRoute><UserProfileScreen /></ProtectedAppRoute>} />
+        <Route path="/settings" element={<ProtectedAppRoute><SystemSettingsScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-session" element={<ProtectedAppRoute><ExerciseSessionScreen /></ProtectedAppRoute>} />
         <Route path="/rest" element={<ProtectedAppRoute><RestScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-summary" element={<ProtectedAppRoute><ExerciseSummaryScreen /></ProtectedAppRoute>} />
