@@ -1,0 +1,1295 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "eGym Forma API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health Check",
+        "operationId": "health_check_api_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponseSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "List Users",
+        "operationId": "list_users_api_users_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsersResponseSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/current": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get Current User",
+        "operationId": "get_current_user_api_users_current_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CurrentUserSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/users/select": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Select User",
+        "operationId": "select_user_api_users_select_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectUserRequestSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SelectUserResponseSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/dashboard": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Dashboard",
+        "operationId": "get_dashboard_api_dashboard_get",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          },
+          {
+            "name": "scenario",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scenario"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DashboardDataSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/machine/status": {
+      "get": {
+        "tags": [
+          "machine"
+        ],
+        "summary": "Get Machine Status",
+        "operationId": "get_machine_status_api_machine_status_get",
+        "parameters": [
+          {
+            "name": "scenario",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scenario"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MachineHealthSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/machine/drives": {
+      "get": {
+        "tags": [
+          "machine"
+        ],
+        "summary": "Get Drive Statuses",
+        "operationId": "get_drive_statuses_api_machine_drives_get",
+        "parameters": [
+          {
+            "name": "scenario",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scenario"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveStatusesResponseSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/machine/safety": {
+      "get": {
+        "tags": [
+          "machine"
+        ],
+        "summary": "Get Safety Status",
+        "operationId": "get_safety_status_api_machine_safety_get",
+        "parameters": [
+          {
+            "name": "scenario",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Scenario"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SafetyStatusSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/machine/emergency-stop": {
+      "post": {
+        "tags": [
+          "machine"
+        ],
+        "summary": "Trigger Emergency Stop",
+        "operationId": "trigger_emergency_stop_api_machine_emergency_stop_post",
+        "parameters": [
+          {
+            "name": "actorUserId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Actoruserid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmergencyStopResponseSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/notifications": {
+      "get": {
+        "tags": [
+          "notifications"
+        ],
+        "summary": "List Notifications",
+        "operationId": "list_notifications_api_notifications_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NotificationsResponseSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/directories/common": {
+      "get": {
+        "tags": [
+          "directories"
+        ],
+        "summary": "Get Common Directories",
+        "operationId": "get_common_directories_api_directories_common_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommonDirectoriesSchema"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AccessRole": {
+        "type": "string",
+        "enum": [
+          "member",
+          "coach",
+          "admin",
+          "service"
+        ],
+        "title": "AccessRole"
+      },
+      "CommonDirectoriesSchema": {
+        "properties": {
+          "roles": {
+            "items": {
+              "$ref": "#/components/schemas/DirectoryItemSchema"
+            },
+            "type": "array",
+            "title": "Roles"
+          },
+          "accents": {
+            "items": {
+              "$ref": "#/components/schemas/DirectoryItemSchema"
+            },
+            "type": "array",
+            "title": "Accents"
+          },
+          "machineStates": {
+            "items": {
+              "$ref": "#/components/schemas/DirectoryItemSchema"
+            },
+            "type": "array",
+            "title": "Machinestates"
+          },
+          "driveStates": {
+            "items": {
+              "$ref": "#/components/schemas/DirectoryItemSchema"
+            },
+            "type": "array",
+            "title": "Drivestates"
+          },
+          "safetyStates": {
+            "items": {
+              "$ref": "#/components/schemas/DirectoryItemSchema"
+            },
+            "type": "array",
+            "title": "Safetystates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "roles",
+          "accents",
+          "machineStates",
+          "driveStates",
+          "safetyStates"
+        ],
+        "title": "CommonDirectoriesSchema"
+      },
+      "CurrentUserSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/AccessRole"
+          },
+          "readinessPercent": {
+            "type": "integer",
+            "title": "Readinesspercent"
+          },
+          "accent": {
+            "$ref": "#/components/schemas/UserAccent"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserProfileSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "goals": {
+            "items": {
+              "$ref": "#/components/schemas/UserGoalSchema"
+            },
+            "type": "array",
+            "title": "Goals"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "role",
+          "readinessPercent",
+          "accent",
+          "profile",
+          "goals"
+        ],
+        "title": "CurrentUserSchema"
+      },
+      "DashboardAlertSchema": {
+        "properties": {
+          "tone": {
+            "$ref": "#/components/schemas/NotificationTone"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tone",
+          "title",
+          "description"
+        ],
+        "title": "DashboardAlertSchema"
+      },
+      "DashboardDataSchema": {
+        "properties": {
+          "greeting": {
+            "type": "string",
+            "title": "Greeting"
+          },
+          "recommendationTitle": {
+            "type": "string",
+            "title": "Recommendationtitle"
+          },
+          "recommendationText": {
+            "type": "string",
+            "title": "Recommendationtext"
+          },
+          "readinessPercent": {
+            "type": "integer",
+            "title": "Readinesspercent"
+          },
+          "todayWorkout": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DashboardWorkoutSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "machine": {
+            "$ref": "#/components/schemas/MachineHealthSchema"
+          },
+          "alerts": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardAlertSchema"
+            },
+            "type": "array",
+            "title": "Alerts"
+          },
+          "recommendedExercises": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardRecommendationSchema"
+            },
+            "type": "array",
+            "title": "Recommendedexercises"
+          },
+          "quickStart": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardQuickStartItemSchema"
+            },
+            "type": "array",
+            "title": "Quickstart"
+          },
+          "progress": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardProgressMetricSchema"
+            },
+            "type": "array",
+            "title": "Progress"
+          },
+          "muscles": {
+            "items": {
+              "$ref": "#/components/schemas/MuscleCardSchema"
+            },
+            "type": "array",
+            "title": "Muscles"
+          }
+        },
+        "type": "object",
+        "required": [
+          "greeting",
+          "recommendationTitle",
+          "recommendationText",
+          "readinessPercent",
+          "todayWorkout",
+          "machine",
+          "alerts",
+          "recommendedExercises",
+          "quickStart",
+          "progress",
+          "muscles"
+        ],
+        "title": "DashboardDataSchema"
+      },
+      "DashboardProgressMetricSchema": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "value": {
+            "type": "string",
+            "title": "Value"
+          }
+        },
+        "type": "object",
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "DashboardProgressMetricSchema"
+      },
+      "DashboardQuickStartItemSchema": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "stats": {
+            "type": "string",
+            "title": "Stats"
+          },
+          "last": {
+            "type": "string",
+            "title": "Last"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "stats",
+          "last"
+        ],
+        "title": "DashboardQuickStartItemSchema"
+      },
+      "DashboardRecommendationSchema": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "muscles": {
+            "type": "string",
+            "title": "Muscles"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "muscles",
+          "status"
+        ],
+        "title": "DashboardRecommendationSchema"
+      },
+      "DashboardWorkoutSchema": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "exercises": {
+            "type": "integer",
+            "title": "Exercises"
+          },
+          "sets": {
+            "type": "integer",
+            "title": "Sets"
+          },
+          "duration": {
+            "type": "string",
+            "title": "Duration"
+          },
+          "list": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "List"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "exercises",
+          "sets",
+          "duration",
+          "list"
+        ],
+        "title": "DashboardWorkoutSchema"
+      },
+      "DirectoryItemSchema": {
+        "properties": {
+          "value": {
+            "type": "string",
+            "title": "Value"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "label"
+        ],
+        "title": "DirectoryItemSchema"
+      },
+      "DriveState": {
+        "type": "string",
+        "enum": [
+          "connected",
+          "warning",
+          "error"
+        ],
+        "title": "DriveState"
+      },
+      "DriveStatusSchema": {
+        "properties": {
+          "side": {
+            "type": "string",
+            "title": "Side"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DriveState"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "side",
+          "status",
+          "label",
+          "message"
+        ],
+        "title": "DriveStatusSchema"
+      },
+      "DriveStatusesResponseSchema": {
+        "properties": {
+          "machineState": {
+            "$ref": "#/components/schemas/MachineState"
+          },
+          "drives": {
+            "items": {
+              "$ref": "#/components/schemas/DriveStatusSchema"
+            },
+            "type": "array",
+            "title": "Drives"
+          }
+        },
+        "type": "object",
+        "required": [
+          "machineState",
+          "drives"
+        ],
+        "title": "DriveStatusesResponseSchema"
+      },
+      "EmergencyStopResponseSchema": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "safety": {
+            "$ref": "#/components/schemas/SafetyStatusSchema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "safety"
+        ],
+        "title": "EmergencyStopResponseSchema"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponseSchema": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment"
+          },
+          "database": {
+            "type": "string",
+            "title": "Database"
+          },
+          "redis": {
+            "type": "string",
+            "title": "Redis"
+          },
+          "openapiUrl": {
+            "type": "string",
+            "title": "Openapiurl"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "environment",
+          "database",
+          "redis",
+          "openapiUrl"
+        ],
+        "title": "HealthResponseSchema"
+      },
+      "MachineHealthSchema": {
+        "properties": {
+          "machineState": {
+            "$ref": "#/components/schemas/MachineState"
+          },
+          "machineLabel": {
+            "type": "string",
+            "title": "Machinelabel"
+          },
+          "leftDrive": {
+            "$ref": "#/components/schemas/DriveState"
+          },
+          "rightDrive": {
+            "$ref": "#/components/schemas/DriveState"
+          },
+          "safety": {
+            "$ref": "#/components/schemas/SafetyState"
+          },
+          "calibration": {
+            "type": "string",
+            "title": "Calibration"
+          }
+        },
+        "type": "object",
+        "required": [
+          "machineState",
+          "machineLabel",
+          "leftDrive",
+          "rightDrive",
+          "safety",
+          "calibration"
+        ],
+        "title": "MachineHealthSchema"
+      },
+      "MachineState": {
+        "type": "string",
+        "enum": [
+          "ready",
+          "warning",
+          "blocked"
+        ],
+        "title": "MachineState"
+      },
+      "MuscleCardSchema": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "score": {
+            "type": "integer",
+            "title": "Score"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "status",
+          "score"
+        ],
+        "title": "MuscleCardSchema"
+      },
+      "NotificationSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "tone": {
+            "$ref": "#/components/schemas/NotificationTone"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Createdat"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tone",
+          "title",
+          "description",
+          "createdAt"
+        ],
+        "title": "NotificationSchema"
+      },
+      "NotificationTone": {
+        "type": "string",
+        "enum": [
+          "info",
+          "warning",
+          "blocked"
+        ],
+        "title": "NotificationTone"
+      },
+      "NotificationsResponseSchema": {
+        "properties": {
+          "notifications": {
+            "items": {
+              "$ref": "#/components/schemas/NotificationSchema"
+            },
+            "type": "array",
+            "title": "Notifications"
+          }
+        },
+        "type": "object",
+        "required": [
+          "notifications"
+        ],
+        "title": "NotificationsResponseSchema"
+      },
+      "SafetyState": {
+        "type": "string",
+        "enum": [
+          "enabled",
+          "disabled",
+          "emergency_stop"
+        ],
+        "title": "SafetyState"
+      },
+      "SafetyStatusSchema": {
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/SafetyState"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "requiresService": {
+            "type": "boolean",
+            "title": "Requiresservice"
+          },
+          "activeEventId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Activeeventid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "state",
+          "label",
+          "message",
+          "requiresService",
+          "activeEventId"
+        ],
+        "title": "SafetyStatusSchema"
+      },
+      "SelectUserRequestSchema": {
+        "properties": {
+          "userId": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Userid"
+          }
+        },
+        "type": "object",
+        "required": [
+          "userId"
+        ],
+        "title": "SelectUserRequestSchema"
+      },
+      "SelectUserResponseSchema": {
+        "properties": {
+          "currentUser": {
+            "$ref": "#/components/schemas/CurrentUserSchema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "currentUser"
+        ],
+        "title": "SelectUserResponseSchema"
+      },
+      "UserAccent": {
+        "type": "string",
+        "enum": [
+          "gold",
+          "green"
+        ],
+        "title": "UserAccent"
+      },
+      "UserGoalSchema": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "goalType": {
+            "type": "string",
+            "title": "Goaltype"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "targetValue": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetvalue"
+          },
+          "targetUnit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetunit"
+          },
+          "isPrimary": {
+            "type": "boolean",
+            "title": "Isprimary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "goalType",
+          "label",
+          "targetValue",
+          "targetUnit",
+          "isPrimary"
+        ],
+        "title": "UserGoalSchema"
+      },
+      "UserProfileSchema": {
+        "properties": {
+          "birthDate": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Birthdate"
+          },
+          "heightCm": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heightcm"
+          },
+          "weightKg": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Weightkg"
+          },
+          "photoUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Photourl"
+          },
+          "notes": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Notes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "birthDate",
+          "heightCm",
+          "weightKg",
+          "photoUrl",
+          "notes"
+        ],
+        "title": "UserProfileSchema"
+      },
+      "UserSummarySchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "readinessPercent": {
+            "type": "integer",
+            "title": "Readinesspercent"
+          },
+          "lastWorkout": {
+            "type": "string",
+            "title": "Lastworkout"
+          },
+          "todayFocus": {
+            "type": "string",
+            "title": "Todayfocus"
+          },
+          "weekProgress": {
+            "type": "string",
+            "title": "Weekprogress"
+          },
+          "accent": {
+            "$ref": "#/components/schemas/UserAccent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "readinessPercent",
+          "lastWorkout",
+          "todayFocus",
+          "weekProgress",
+          "accent"
+        ],
+        "title": "UserSummarySchema"
+      },
+      "UsersResponseSchema": {
+        "properties": {
+          "users": {
+            "items": {
+              "$ref": "#/components/schemas/UserSummarySchema"
+            },
+            "type": "array",
+            "title": "Users"
+          }
+        },
+        "type": "object",
+        "required": [
+          "users"
+        ],
+        "title": "UsersResponseSchema"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      }
+    }
+  }
+}
