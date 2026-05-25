@@ -45,6 +45,30 @@ function buildSettingsDraft(data: SystemSettingsData) {
   }
 }
 
+function formatMillimeters(value?: number | null) {
+  if (value == null) {
+    return '—'
+  }
+
+  return `${value.toFixed(1)} мм`
+}
+
+function formatTemperature(value?: number | null) {
+  if (value == null) {
+    return '—'
+  }
+
+  return `${value.toFixed(1)}°C`
+}
+
+function formatSpeed(value?: number | null) {
+  if (value == null) {
+    return '—'
+  }
+
+  return `${value.toFixed(0)} мм/с`
+}
+
 export function SystemSettingsScreen() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { selectedUserId, userName, emergencyStopActive, setEmergencyStopActive, dev, settingsDraft } = useStage4Screen()
@@ -79,7 +103,89 @@ export function SystemSettingsScreen() {
     }
   }, [setEmergencyStopActive, snapshot?.safety.state])
 
-  const data = liveSettings ?? fallbackData
+  const data = useMemo(() => {
+    const baseData = liveSettings ?? fallbackData
+    if (!snapshot) {
+      return baseData
+    }
+
+    const leftDrive = snapshot.drives.find((drive) => drive.side === 'left') ?? snapshot.drives[0]
+    const rightDrive = snapshot.drives.find((drive) => drive.side === 'right') ?? snapshot.drives[1] ?? leftDrive
+    const syncDeltaMm = snapshot.motion.syncDeltaMm ?? Math.abs((snapshot.motion.rightPositionMm ?? 0) - (snapshot.motion.leftPositionMm ?? 0))
+
+    return {
+      ...baseData,
+      machine: snapshot.machine,
+      overviewCards: [
+        { label: 'Статус', value: snapshot.machine.machineLabel, tone: snapshot.machine.machineState === 'ready' ? 'good' : 'warning' },
+        { label: 'Эмулятор', value: snapshot.emulatorMode ? 'Включён' : 'Отключён', hint: 'mode' },
+        { label: 'Синхронность', value: `${syncDeltaMm.toFixed(1)} мм`, hint: 'разница сторон' },
+        { label: 'Калибровка', value: snapshot.machine.calibration, hint: 'диапазон' },
+      ],
+      mechanics: {
+        ...baseData.mechanics,
+        statusSummary: [
+          { label: 'Механика', value: snapshot.machine.machineLabel, hint: 'общее состояние' },
+          { label: 'Запуск', value: snapshot.safety.state === 'enabled' && snapshot.machine.machineState !== 'blocked' ? 'Разрешён' : 'Заблокирован', hint: 'safety gate' },
+        ],
+        leftDrive: leftDrive
+          ? [
+              { label: 'Состояние', value: leftDrive.connected ? 'Подключён' : 'Не подключён', tone: leftDrive.connected ? 'good' : 'danger' },
+              { label: 'Позиция', value: formatMillimeters(leftDrive.positionMm) },
+              { label: 'Скорость', value: formatSpeed(leftDrive.speedMmPerSec) },
+              { label: 'Температура', value: formatTemperature(leftDrive.temperatureC) },
+            ]
+          : baseData.mechanics.leftDrive,
+        rightDrive: rightDrive
+          ? [
+              { label: 'Состояние', value: rightDrive.connected ? 'Подключён' : 'Не подключён', tone: rightDrive.connected ? 'good' : 'danger' },
+              { label: 'Позиция', value: formatMillimeters(rightDrive.positionMm) },
+              { label: 'Скорость', value: formatSpeed(rightDrive.speedMmPerSec) },
+              { label: 'Температура', value: formatTemperature(rightDrive.temperatureC) },
+            ]
+          : baseData.mechanics.rightDrive,
+        sync: [
+          { label: 'Разница сторон', value: `${syncDeltaMm.toFixed(1)} мм` },
+          { label: 'Допуск', value: baseData.safety.syncLimit },
+          { label: 'Действие', value: baseData.safety.desyncAction },
+        ],
+        motion: [
+          { label: 'Профиль', value: snapshot.motion.motionProfile },
+          { label: 'Направление', value: snapshot.motion.moving ? snapshot.motion.direction : 'остановлено' },
+          { label: 'Амплитуда', value: `${snapshot.motion.amplitudePercent}%` },
+          { label: 'Темп', value: snapshot.motion.tempoLabel },
+        ],
+        screw: [
+          { label: 'Ход', value: '2100 мм' },
+          { label: 'Текущая позиция', value: formatMillimeters(snapshot.motion.barPositionMm) },
+          { label: 'Нижняя граница', value: snapshot.motion.lowerBoundMm != null ? formatMillimeters(snapshot.motion.lowerBoundMm) : '—' },
+          { label: 'Верхняя граница', value: snapshot.motion.upperBoundMm != null ? formatMillimeters(snapshot.motion.upperBoundMm) : '—' },
+        ],
+        service: [
+          { label: 'Сервисный режим', value: snapshot.serviceMode ? 'Включён' : 'Отключён' },
+          { label: 'Последняя диагностика', value: snapshot.lastDiagnosticsAt ?? 'нет данных' },
+          { label: 'Команд в очереди', value: String(snapshot.commandQueueDepth) },
+        ],
+      },
+      service: {
+        ...baseData.service,
+        unlocked: snapshot.serviceMode,
+        positions: [
+          { label: 'Гриф', value: formatMillimeters(snapshot.motion.barPositionMm) },
+          { label: 'Левый привод', value: formatMillimeters(snapshot.motion.leftPositionMm) },
+          { label: 'Правый привод', value: formatMillimeters(snapshot.motion.rightPositionMm) },
+          { label: 'Рассинхрон', value: `${syncDeltaMm.toFixed(1)} мм` },
+        ],
+        driveHealth: [
+          { label: 'Левый привод', value: leftDrive?.status ?? '—', tone: leftDrive?.status === 'connected' ? 'good' : leftDrive?.status === 'warning' ? 'warning' : 'danger' },
+          { label: 'Правый привод', value: rightDrive?.status ?? '—', tone: rightDrive?.status === 'connected' ? 'good' : rightDrive?.status === 'warning' ? 'warning' : 'danger' },
+          { label: 'Безопасность', value: snapshot.safety.label, tone: snapshot.safety.state === 'enabled' ? 'good' : 'warning' },
+          { label: 'Последняя команда', value: snapshot.lastCommand?.action ?? 'нет' },
+        ],
+      },
+    }
+  }, [fallbackData, liveSettings, snapshot])
+
   const common = {
     ...data.common,
     interfaceTheme: settingsDraft.interfaceTheme === 'light' ? 'light' : 'dark',

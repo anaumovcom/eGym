@@ -1,18 +1,6 @@
-INFO:     Will watch for changes in these directories: ['D:\\eGym\\backend']
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process [18216] using WatchFiles
-INFO:     Started server process [24192]
+INFO:     Started server process [8172]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
-INFO:     ('127.0.0.1', 57164) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 50796) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 52733) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 65445) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 64493) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 65503) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open

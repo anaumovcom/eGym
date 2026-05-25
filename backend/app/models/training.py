@@ -61,6 +61,15 @@ class WorkoutProgram(TimestampMixin, Base):
     deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
+class UserHiddenWorkoutProgram(Base):
+    __tablename__ = "user_hidden_workout_programs"
+    __table_args__ = (UniqueConstraint("user_id", "program_id", name="uq_user_hidden_workout_program"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    program_id: Mapped[str] = mapped_column(String(80), nullable=False, index=True)
+
+
 class WorkoutScheduleEntry(TimestampMixin, Base):
     __tablename__ = "workout_schedule_entries"
 

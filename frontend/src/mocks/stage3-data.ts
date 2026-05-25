@@ -18,6 +18,7 @@ import type {
   RuntimeWorkoutSummaryState,
 } from '@/entities/runtime/model/types'
 import type { MuscleCard } from '@/entities/muscle/model/types'
+import { buildStrengthPlan, getStrengthModeTitle, toRuntimeSetPlan } from '@/features/strength/lib/strength-plan'
 import { machineScenarios } from '@/mocks/data'
 import { getExerciseDetails } from '@/mocks/stage2-data'
 
@@ -31,6 +32,8 @@ type ExerciseOverride = {
   movementRangeSaved?: boolean
   recommendation?: string
   plan?: RuntimeSetPlan[]
+  strengthModeId?: string
+  strengthDayType?: string | null
   groupMeta?: RuntimeExercisePlan['groupMeta']
 }
 
@@ -59,7 +62,7 @@ function detectKind(slug: string, fallback?: RuntimeExerciseKind): RuntimeExerci
   return 'machine'
 }
 
-function buildPlan(kind: RuntimeExerciseKind, detailsSlug: string): RuntimeSetPlan[] {
+function buildPlan(kind: RuntimeExerciseKind, detailsSlug: string, settings: { weight: number; reps: number; restSeconds: number }, strengthModeId = 'basic', strengthDayType?: string | null): RuntimeSetPlan[] {
   if (kind === 'timed' || detailsSlug === 'forearm-plank') {
     return [
       { targetSeconds: 45, weightLabel: 'собственный вес', restSeconds: 60 },
@@ -77,24 +80,35 @@ function buildPlan(kind: RuntimeExerciseKind, detailsSlug: string): RuntimeSetPl
   }
 
   if (kind === 'group') {
-    return [{ targetReps: 10, weightLabel: '45 кг', restSeconds: 30 }]
+    return [{ setType: 'work', targetReps: 10, targetMinReps: 10, targetMaxReps: 10, weightLabel: '45 кг', recommendedWeightKg: 45, restSeconds: 30, rirLabel: '2–3 в запасе', note: 'Короткий шаг группы.' }]
   }
 
-  return [
-    { targetReps: 10, weightLabel: '40 кг', restSeconds: 90 },
-    { targetReps: 10, weightLabel: '40 кг', restSeconds: 90 },
-    { targetReps: 10, weightLabel: '40 кг', restSeconds: 90 },
-  ]
+  return buildStrengthPlan(strengthModeId, strengthDayType, settings, kind).map(toRuntimeSetPlan)
 }
 
 export function buildRuntimeExercisePlan(slug: string, order: number, override: ExerciseOverride = {}): RuntimeExercisePlan {
   const details = getExerciseDetails(slug)
   const kind = detectKind(slug, override.kind)
-  const plan = override.plan ?? buildPlan(kind, slug)
   const name = override.name ?? (slug === 'push-up' ? 'Отжимания' : details.name)
   const secondaryName = override.secondaryName ?? (slug === 'push-up' ? 'Push-Ups' : details.secondaryName)
   const muscles = override.muscles ?? details.muscles
   const calibrationState = override.calibrationState ?? (kind === 'machine' ? 'saved' : 'not-needed')
+  const loadSettings = {
+    ...details.loadSettings,
+    weight: kind === 'machine' ? details.loadSettings.weight : 0,
+    mode: kind === 'machine' ? details.loadSettings.mode : kind === 'timed' ? 'Темповый режим' : 'Без тренажёра',
+    recommendation:
+      override.recommendation ??
+      (kind === 'machine'
+        ? 'Оставить текущий вес. Можно увеличить на 2.5 кг при хорошем самочувствии.'
+        : kind === 'timed'
+          ? 'Сохраняйте стабильную линию корпуса и ровное дыхание.'
+          : 'Текущий объём оптимален. Сохраняйте темп и амплитуду.'),
+    calibration: calibrationState === 'saved' ? 'ready' as const : calibrationState === 'missing' ? 'required' as const : 'unavailable' as const,
+  }
+  const strengthModeId = override.strengthModeId ?? 'basic'
+  const strengthDayType = override.strengthDayType ?? null
+  const plan = override.plan ?? buildPlan(kind, slug, loadSettings, strengthModeId, strengthDayType)
 
   return {
     id: `${slug}-${order}`,
@@ -111,25 +125,18 @@ export function buildRuntimeExercisePlan(slug: string, order: number, override: 
       secondaryName,
       muscles,
     },
-    loadSettings: {
-      ...details.loadSettings,
-      weight: kind === 'machine' ? details.loadSettings.weight : 0,
-      mode: kind === 'machine' ? details.loadSettings.mode : kind === 'timed' ? 'Темповый режим' : 'Без тренажёра',
-      recommendation:
-        override.recommendation ??
-        (kind === 'machine'
-          ? 'Оставить текущий вес. Можно увеличить на 2.5 кг при хорошем самочувствии.'
-          : kind === 'timed'
-            ? 'Сохраняйте стабильную линию корпуса и ровное дыхание.'
-            : 'Текущий объём оптимален. Сохраняйте темп и амплитуду.'),
-      calibration: calibrationState === 'saved' ? 'ready' : calibrationState === 'missing' ? 'required' : 'unavailable',
-    },
+    loadSettings,
     calibrationState,
     movementRangeLabel:
       override.movementRangeLabel ??
       (calibrationState === 'saved' ? '64–132 см' : calibrationState === 'missing' ? 'Калибровка не найдена' : 'Не требуется'),
     movementRangeSaved: override.movementRangeSaved ?? calibrationState === 'saved',
     plan,
+    strengthMode: {
+      id: strengthModeId,
+      title: getStrengthModeTitle(strengthModeId),
+      dayType: strengthDayType,
+    },
     recommendation:
       override.recommendation ??
       (kind === 'machine'
@@ -253,7 +260,14 @@ function getCurrentExercise(session: RuntimeWorkoutSession) {
 export function buildExerciseSession(session: RuntimeWorkoutSession): RuntimeExerciseSessionState {
   const exercise = getCurrentExercise(session)
   const setPlan = exercise.plan[session.currentSetIndex] ?? exercise.plan[exercise.plan.length - 1]
-  const targetValue = setPlan.targetReps ?? setPlan.targetSeconds ?? 0
+  const targetValue = setPlan.targetMaxReps ?? setPlan.targetReps ?? setPlan.targetSeconds ?? 0
+  const targetLabel = setPlan.targetMinReps && setPlan.targetMaxReps && setPlan.targetMinReps !== setPlan.targetMaxReps
+    ? `цель ${setPlan.targetMinReps}–${setPlan.targetMaxReps} повторов`
+    : exercise.kind === 'timed'
+      ? `цель ${setPlan.targetSeconds} сек`
+      : exercise.kind === 'group'
+        ? `${exercise.groupMeta?.groupName ?? 'Группа'} · шаг ${exercise.groupMeta?.currentStep ?? 1} из ${exercise.groupMeta?.totalSteps ?? 1}`
+        : `цель ${setPlan.targetReps ?? setPlan.targetMaxReps} повторов`
   const currentValue = Math.max(0, targetValue - (exercise.kind === 'machine' ? 3 : exercise.kind === 'bodyweight' ? 4 : exercise.kind === 'timed' ? 13 : 0))
 
   return {
@@ -261,14 +275,15 @@ export function buildExerciseSession(session: RuntimeWorkoutSession): RuntimeExe
     kind: exercise.kind,
     setNumber: session.currentSetIndex + 1,
     totalSets: exercise.plan.length,
-    targetLabel:
-      exercise.kind === 'timed'
-        ? `цель ${setPlan.targetSeconds} сек`
-        : exercise.kind === 'group'
-          ? `${exercise.groupMeta?.groupName ?? 'Группа'} · шаг ${exercise.groupMeta?.currentStep ?? 1} из ${exercise.groupMeta?.totalSteps ?? 1}`
-          : `цель ${setPlan.targetReps} повторов`,
+    targetLabel,
     currentValue,
     targetValue,
+    setType: setPlan.setType,
+    targetMinReps: setPlan.targetMinReps,
+    targetMaxReps: setPlan.targetMaxReps,
+    rirLabel: setPlan.rirLabel,
+    setNote: setPlan.note,
+    setWarning: setPlan.warning,
     weightLabel: setPlan.weightLabel,
     hints:
       exercise.kind === 'timed'
@@ -330,13 +345,21 @@ export function simulateSetResult(session: RuntimeWorkoutSession): RuntimeSetRes
   const exercise = getCurrentExercise(session)
   const setNumber = session.currentSetIndex + 1
   const plan = exercise.plan[session.currentSetIndex] ?? exercise.plan[exercise.plan.length - 1]
-  const plannedValue = plan.targetReps ?? plan.targetSeconds ?? 0
+  const plannedValue = plan.targetMaxReps ?? plan.targetReps ?? plan.targetSeconds ?? 0
+  const targetMinReps = plan.targetMinReps ?? plan.targetReps
+  const targetMaxReps = plan.targetMaxReps ?? plan.targetReps
+  const weightKg = plan.recommendedWeightKg ?? (exercise.kind === 'machine' ? exercise.loadSettings.weight : 0)
 
   if (exercise.kind === 'timed') {
     return {
       setNumber,
       plannedValue,
       actualValue: [45, 45, 32][session.currentSetIndex] ?? plannedValue,
+      setType: plan.setType,
+      targetMinReps,
+      targetMaxReps,
+      weightKg,
+      volumeKg: 0,
       tempoLabel: 'стабильно',
     }
   }
@@ -346,6 +369,12 @@ export function simulateSetResult(session: RuntimeWorkoutSession): RuntimeSetRes
       setNumber,
       plannedValue,
       actualValue: [12, 10, 9][session.currentSetIndex] ?? plannedValue,
+      setType: plan.setType,
+      targetMinReps,
+      targetMaxReps,
+      reps: [12, 10, 9][session.currentSetIndex] ?? plannedValue,
+      weightKg,
+      volumeKg: 0,
       amplitudePercent: 91,
       tempoLabel: 'хорошо',
     }
@@ -356,14 +385,33 @@ export function simulateSetResult(session: RuntimeWorkoutSession): RuntimeSetRes
       setNumber,
       plannedValue,
       actualValue: 10,
+      setType: plan.setType,
+      targetMinReps,
+      targetMaxReps,
+      reps: 10,
+      weightKg,
+      volumeKg: weightKg * 10,
       tempoLabel: 'норма',
     }
   }
 
+  const actualValue = [targetMaxReps ?? plannedValue, targetMaxReps ?? plannedValue, Math.max(targetMinReps ?? plannedValue, (targetMaxReps ?? plannedValue) - 1), targetMinReps ?? plannedValue][session.currentSetIndex] ?? plannedValue
+
   return {
     setNumber,
     plannedValue,
-    actualValue: [10, 10, 9][session.currentSetIndex] ?? plannedValue,
+    actualValue,
+    setType: plan.setType,
+    targetMinReps,
+    targetMaxReps,
+    reps: actualValue,
+    weightKg,
+    rir: plan.setType === 'failure' ? 0 : 2,
+    subjectiveEffort: plan.setType === 'failure' ? 9 : 7,
+    discomfortLevel: 0,
+    pain: false,
+    techniqueBreakdown: false,
+    volumeKg: weightKg * actualValue,
     amplitudePercent: [92, 92, 88][session.currentSetIndex] ?? 90,
     tempoLabel: 'хорошо',
     syncLabel: 'норма',
@@ -381,6 +429,7 @@ export function buildRestState(session: RuntimeWorkoutSession, result: RuntimeSe
       subtitle: `Группа: ${exercise.groupMeta?.groupName ?? 'Группа'} · круг ${exercise.groupMeta?.currentRound ?? 1} из ${exercise.groupMeta?.totalRounds ?? 1}`,
       totalSeconds: 30,
       remainingSeconds: 30,
+      timerPaused: false,
       completedSet: result,
       recommendation: 'Короткий отдых, затем переходите к следующему шагу.',
       nextActionLabel: 'Начать присед',
@@ -395,25 +444,36 @@ export function buildRestState(session: RuntimeWorkoutSession, result: RuntimeSe
     subtitle: `${exercise.name} · подход ${result.setNumber} из ${exercise.plan.length} завершён`,
     totalSeconds: exercise.plan[session.currentSetIndex].restSeconds,
     remainingSeconds: exercise.plan[session.currentSetIndex].restSeconds,
+    timerPaused: false,
     completedSet: result,
     recommendation: result.actualValue < result.plannedValue ? 'Можно оставить текущий объём или добавить немного отдыха.' : 'Оставить текущий вес. Подход выполнен уверенно.',
     nextActionLabel: hasNextSet ? 'Начать следующий подход' : 'Перейти к следующему упражнению',
     nextExercise: hasNextSet
-      ? { name: exercise.name, target: exercise.kind === 'timed' ? `${exercise.plan[session.currentSetIndex + 1]?.targetSeconds ?? result.plannedValue} сек` : `${exercise.plan[session.currentSetIndex + 1]?.targetReps ?? result.plannedValue} повторов`, restLabel: `${exercise.plan[session.currentSetIndex + 1]?.restSeconds ?? 60} сек` }
+      ? { name: exercise.name, target: exercise.kind === 'timed' ? `${exercise.plan[session.currentSetIndex + 1]?.targetSeconds ?? result.plannedValue} сек` : formatRuntimeTargetLabel(exercise.plan[session.currentSetIndex + 1], result.plannedValue), restLabel: `${exercise.plan[session.currentSetIndex + 1]?.restSeconds ?? 60} сек` }
       : session.exercises[exercise.order]
-        ? { name: session.exercises[exercise.order].name, target: session.exercises[exercise.order].kind === 'timed' ? `${session.exercises[exercise.order].plan[0].targetSeconds ?? 45} сек` : `${session.exercises[exercise.order].plan[0].targetReps ?? 10} повторов`, restLabel: `${session.exercises[exercise.order].plan[0].restSeconds} сек` }
+        ? { name: session.exercises[exercise.order].name, target: session.exercises[exercise.order].kind === 'timed' ? `${session.exercises[exercise.order].plan[0].targetSeconds ?? 45} сек` : formatRuntimeTargetLabel(session.exercises[exercise.order].plan[0], 10), restLabel: `${session.exercises[exercise.order].plan[0].restSeconds} сек` }
         : undefined,
   }
+}
+
+function formatRuntimeTargetLabel(plan: RuntimeSetPlan | undefined, fallback: number) {
+  if (plan?.targetMinReps && plan.targetMaxReps && plan.targetMinReps !== plan.targetMaxReps) {
+    return `${plan.targetMinReps}–${plan.targetMaxReps} повторов`
+  }
+
+  return `${plan?.targetReps ?? plan?.targetMaxReps ?? fallback} повторов`
 }
 
 export function buildExerciseSummary(session: RuntimeWorkoutSession, outcome: RuntimeExerciseOutcome): RuntimeExerciseSummaryState {
   const exercise = getCurrentExercise(session)
   const results = session.completedSets[exercise.id] ?? []
   const totalValue = results.reduce((sum, item) => sum + item.actualValue, 0)
-  const totalVolume = exercise.kind === 'machine' ? `${Math.round(totalValue * (exercise.loadSettings.weight || 40))} кг` : exercise.kind === 'timed' ? `${totalValue} сек` : `${totalValue} повторов`
+  const totalVolumeValue = results.reduce((sum, item) => sum + (item.volumeKg ?? ((item.weightKg ?? 0) * (item.reps ?? item.actualValue ?? 0))), 0)
+  const totalVolume = exercise.kind === 'machine' ? `${Math.round(totalVolumeValue)} кг` : exercise.kind === 'timed' ? `${totalValue} сек` : `${totalValue} повторов`
   const averageAmplitude = results.some((item) => typeof item.amplitudePercent === 'number')
     ? `${Math.round(results.reduce((sum, item) => sum + (item.amplitudePercent ?? 0), 0) / results.length)}%`
     : undefined
+  const plannedTotal = exercise.plan.reduce((sum, item) => sum + (item.targetSeconds ?? item.targetMaxReps ?? item.targetReps ?? 0), 0)
 
   return {
     outcome,
@@ -425,17 +485,73 @@ export function buildExerciseSummary(session: RuntimeWorkoutSession, outcome: Ru
       setsCompleted: `${results.length} из ${exercise.plan.length}`,
       repsOrTime: exercise.kind === 'timed' ? `${totalValue} сек` : `${totalValue} повторов`,
       volume: totalVolume,
+      bestSet: getLocalBestSetLabel(results),
       averageAmplitude,
       tempo: 'стабильный',
     },
     planVsFact: [
       { label: 'Подходы', plan: `${exercise.plan.length}`, fact: `${results.length}`, delta: `${results.length - exercise.plan.length}` },
-      { label: exercise.kind === 'timed' ? 'Секунды' : 'Повторы', plan: `${exercise.plan.reduce((sum, item) => sum + (item.targetSeconds ?? item.targetReps ?? 0), 0)}`, fact: `${totalValue}`, delta: `${totalValue - exercise.plan.reduce((sum, item) => sum + (item.targetSeconds ?? item.targetReps ?? 0), 0)}` },
+      { label: exercise.kind === 'timed' ? 'Секунды' : 'Повторы', plan: `${plannedTotal}`, fact: `${totalValue}`, delta: `${totalValue - plannedTotal}` },
       { label: 'Вес', plan: exercise.kind === 'machine' ? `${exercise.loadSettings.weight} кг` : '—', fact: exercise.kind === 'machine' ? `${exercise.loadSettings.weight} кг` : '—', delta: '—' },
     ],
-    recommendation: exercise.recommendation,
+    recommendation: buildLocalStrengthRecommendation(exercise.strengthMode.id, exercise.strengthMode.dayType, results),
     nextStepLabel: session.exercises[exercise.order] ? 'Перейти к следующему упражнению' : 'Открыть итог тренировки',
   }
+}
+
+function getLocalBestSetLabel(results: RuntimeSetResult[]) {
+  if (results.length === 0) {
+    return '—'
+  }
+
+  const best = results.reduce((current, item) => ((item.volumeKg ?? 0) > (current.volumeKg ?? 0) ? item : current), results[0])
+  if (best.weightKg && (best.reps ?? best.actualValue)) {
+    const reps = best.reps ?? best.actualValue
+    return `Подход ${best.setNumber}: ${best.weightKg} кг × ${reps} = ${Math.round(best.weightKg * reps)} кг`
+  }
+
+  return `Подход ${best.setNumber}: ${best.actualValue}`
+}
+
+function buildLocalStrengthRecommendation(modeId: string, dayType: string | null | undefined, results: RuntimeSetResult[]) {
+  const workResults = results.filter((item) => item.setType !== 'warmup')
+  const relevantResults = workResults.length > 0 ? workResults : results
+  const values = relevantResults.map((item) => item.reps ?? item.actualValue)
+  const resultLine = values.join(' / ')
+  const painOrTechnique = relevantResults.some((item) => item.pain || item.techniqueBreakdown || (item.discomfortLevel ?? 0) >= 5)
+  const highFatigue = relevantResults.some((item) => (item.subjectiveEffort ?? 0) >= 9)
+  const allUpper = relevantResults.every((item) => (item.reps ?? item.actualValue) >= (item.targetMaxReps ?? item.plannedValue))
+  const anyBelowMin = relevantResults.some((item) => (item.reps ?? item.actualValue) < (item.targetMinReps ?? item.plannedValue))
+
+  if (painOrTechnique) {
+    return `Ты выполнил ${resultLine}. Ты отметил боль или потерю техники. Не увеличивай вес на следующей тренировке.`
+  }
+
+  if (modeId === 'double_progression') {
+    return allUpper && !highFatigue
+      ? `Ты выполнил ${resultLine}. Можно увеличить вес на следующей тренировке.`
+      : `Ты выполнил ${resultLine}. Оставь текущий вес и попробуй добавить повторения.`
+  }
+
+  if (modeId === 'strength') {
+    return allUpper && !highFatigue
+      ? `Ты выполнил ${resultLine}. Можно немного увеличить вес на следующей тренировке.`
+      : `Ты выполнил ${resultLine}. Оставь текущий вес до уверенного выполнения всех подходов.`
+  }
+
+  if (modeId === 'technique_light' || (modeId === 'periodized_day' && dayType === 'light')) {
+    return `Ты выполнил ${resultLine}. Это лёгкая или техническая тренировка: пока оставь текущий вес и закрепи технику.`
+  }
+
+  if (allUpper && !highFatigue) {
+    return `Ты выполнил ${resultLine}. Ты выполнил все подходы в верхней границе диапазона. На следующей тренировке можно немного увеличить вес.`
+  }
+
+  if (anyBelowMin || highFatigue) {
+    return `Ты выполнил ${resultLine}. Пока оставь текущий вес. На следующей тренировке попробуй добавить 1–2 повтора.`
+  }
+
+  return `Ты выполнил ${resultLine}. Вес подобран нормально: сохрани его и добирай повторы в заданном диапазоне.`
 }
 
 function effectsForWorkout(exercises: RuntimeExercisePlan[], completedSets: Record<string, RuntimeSetResult[]>): MuscleCard[] {

@@ -14,14 +14,21 @@ class SetResultCreateSchema(SchemaModel):
     set_number: int
     planned_value: int
     actual_value: int
+    set_type: str | None = None
+    target_min_reps: int | None = None
+    target_max_reps: int | None = None
     reps: int | None = None
     weight_kg: float | None = None
     duration_seconds: int | None = None
     tempo_label: str
     amplitude_percent: float | None = None
     rest_duration_seconds: int | None = None
+    rir: int | None = None
     subjective_effort: int | None = None
     discomfort_level: int | None = None
+    pain: bool = False
+    technique_breakdown: bool = False
+    comment: str | None = None
     sync_label: str | None = None
     machine_metrics: dict[str, object] = {}
 
@@ -43,6 +50,8 @@ class ExerciseSessionCreateSchema(SchemaModel):
     finished_at: datetime | None = None
     calibration_state: str | None = None
     target_sets: int = 0
+    training_mode: str | None = None
+    training_day_type: str | None = None
     recommendation: str | None = None
     muscles: list[MuscleTargetSchema] = []
     sets: list[SetResultCreateSchema] = []
@@ -67,6 +76,18 @@ class RuntimeSetResultSchema(SchemaModel):
     set_number: int
     planned_value: int
     actual_value: int
+    set_type: str | None = None
+    target_min_reps: int | None = None
+    target_max_reps: int | None = None
+    reps: int | None = None
+    weight_kg: float | None = None
+    rir: int | None = None
+    subjective_effort: int | None = None
+    discomfort_level: int | None = None
+    pain: bool = False
+    technique_breakdown: bool = False
+    comment: str | None = None
+    volume_kg: float | None = None
     amplitude_percent: float | None = None
     tempo_label: str
     sync_label: str | None = None
@@ -83,6 +104,7 @@ class RuntimeExerciseTotalsSchema(SchemaModel):
     sets_completed: str
     reps_or_time: str
     volume: str
+    best_set: str | None = None
     average_amplitude: str | None = None
     tempo: str
 

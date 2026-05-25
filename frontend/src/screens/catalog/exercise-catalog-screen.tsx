@@ -201,7 +201,7 @@ export function ExerciseCatalogScreen() {
           </div>
 
           <div className={viewMode === 'grid' ? 'grid gap-4 md:grid-cols-2 2xl:grid-cols-3' : 'grid gap-4'}>
-            {data.items.slice(0, 24).map((exercise) => (
+            {data.items.map((exercise) => (
               <ExercisePreviewCard
                 key={exercise.slug}
                 exercise={exercise}

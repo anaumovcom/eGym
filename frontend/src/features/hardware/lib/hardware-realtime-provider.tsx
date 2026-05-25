@@ -4,6 +4,8 @@ import { useHardwareStore } from '@/stores/hardware-store'
 import { useAppStore } from '@/stores/app-store'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
 
+const HARDWARE_SNAPSHOT_POLL_INTERVAL_MS = 500
+
 export function HardwareRealtimeProvider() {
   const selectedUserId = useAppStore((state) => state.selectedUserId)
   const loadSnapshot = useHardwareStore((state) => state.loadSnapshot)
@@ -17,12 +19,34 @@ export function HardwareRealtimeProvider() {
   useEffect(() => {
     let socket: WebSocket | null = null
     let reconnectTimer: number | null = null
+    let snapshotPollTimer: number | null = null
     let isDisposed = false
     const search = selectedUserId ? `?userId=${encodeURIComponent(selectedUserId)}` : ''
 
-    void loadSnapshot(selectedUserId).catch(() => {
-      setConnectionStatus('error')
-    })
+    function stopSnapshotPolling() {
+      if (snapshotPollTimer !== null) {
+        window.clearInterval(snapshotPollTimer)
+        snapshotPollTimer = null
+      }
+    }
+
+    function refreshSnapshot() {
+      return loadSnapshot(selectedUserId).catch(() => {
+        setConnectionStatus('error')
+      })
+    }
+
+    function startSnapshotPolling() {
+      if (snapshotPollTimer !== null) {
+        return
+      }
+
+      snapshotPollTimer = window.setInterval(() => {
+        void refreshSnapshot()
+      }, HARDWARE_SNAPSHOT_POLL_INTERVAL_MS)
+    }
+
+    void refreshSnapshot()
 
     function connect() {
       if (isDisposed) {
@@ -30,11 +54,13 @@ export function HardwareRealtimeProvider() {
       }
 
       setConnectionStatus('connecting')
+      startSnapshotPolling()
       socket = new WebSocket(buildWebSocketUrl(`/api/hardware/realtime${search}`))
 
       socket.addEventListener('open', () => {
         setConnectionStatus('connected')
         setErrorMessage(null)
+        stopSnapshotPolling()
       })
 
       socket.addEventListener('message', (event) => {
@@ -50,6 +76,7 @@ export function HardwareRealtimeProvider() {
       socket.addEventListener('error', () => {
         setConnectionStatus('error')
         setErrorMessage('Поток realtime hardware недоступен.')
+        startSnapshotPolling()
       })
 
       socket.addEventListener('close', () => {
@@ -58,6 +85,7 @@ export function HardwareRealtimeProvider() {
         }
 
         setConnectionStatus('disconnected')
+        startSnapshotPolling()
         reconnectTimer = window.setTimeout(connect, 1000)
       })
     }
@@ -69,6 +97,7 @@ export function HardwareRealtimeProvider() {
       if (reconnectTimer !== null) {
         window.clearTimeout(reconnectTimer)
       }
+      stopSnapshotPolling()
       socket?.close()
     }
   }, [loadSnapshot, selectedUserId, setConnectionStatus, setErrorMessage, setSnapshot])

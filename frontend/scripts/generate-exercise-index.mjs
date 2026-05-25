@@ -72,7 +72,7 @@ function buildVideoEntries(slug, json, dirPath) {
 
   return allFiles.map((fileName) => ({
     fileName,
-    url: `/mock-assets/exercises/${slug}/${fileName}`,
+    url: `/media/exercises/${slug}/${fileName}`,
     gender: fileName.startsWith('female-') ? 'female' : 'male',
     view: fileName.includes('-front') ? 'front' : 'side',
   }))

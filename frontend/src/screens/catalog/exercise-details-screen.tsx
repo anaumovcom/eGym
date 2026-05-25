@@ -10,7 +10,7 @@ import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-components'
-import { BuilderWarningPanel, CalibrationStatusBlock, ExerciseActionBar, FilterChip, LoadSettingsControl, MuscleMapCompact, MuscleStatusList } from '@/shared/ui/stage2/screen-components'
+import { BuilderWarningPanel, CalibrationStatusBlock, ExerciseActionBar, ExerciseVideoPlayer, FilterChip, LoadSettingsControl, MuscleMapCompact, MuscleStatusList } from '@/shared/ui/stage2/screen-components'
 import { useAppStore } from '@/stores/app-store'
 
 const tabs = [
@@ -147,20 +147,14 @@ export function ExerciseDetailsScreen() {
 
           <div className="grid w-full gap-6 xl:max-w-[720px]">
             <div className="overflow-hidden rounded-[32px] border border-[#d6b05f]/20 bg-[#0d1116]">
-              <div className="relative min-h-[340px] bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.18),transparent_38%),linear-gradient(180deg,#161b22,#0a0c0f)] p-5">
+              <div className="bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.18),transparent_38%),linear-gradient(180deg,#161b22,#0a0c0f)] p-5">
                 {hasVideo && activeVideo ? (
-                  <video key={activeVideo.url} className="h-[340px] w-full rounded-[24px] bg-black object-cover" controls playsInline preload="metadata" aria-label={activeVideo.label}>
-                    <source src={activeVideo.url} type="video/mp4" />
-                  </video>
+                  <ExerciseVideoPlayer videoUrl={activeVideo.url} videoLabel={activeVideo.label} />
                 ) : (
-                  <div className="flex min-h-[340px] items-end justify-between rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,#161b22,#0a0c0f)] p-5">
+                  <div className="flex aspect-video items-center rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,#161b22,#0a0c0f)] p-5">
                     <WarningBanner title="Видео недоступно" description="Для этого упражнения в stage 2 включено состояние без локального видео. Вместо него доступны техника выполнения и текстовые подсказки." />
-                    <div className="inline-flex h-20 w-20 items-center justify-center rounded-full border border-white/18 bg-black/25 text-white">
-                      <Play className="ml-1 h-7 w-7" />
-                    </div>
                   </div>
                 )}
-                <div className="absolute right-9 top-9 rounded-full border border-white/12 bg-black/25 px-3 py-1 text-sm text-white/75">{activeVideo?.label ?? 'Нет видео'}</div>
               </div>
               <div className="grid gap-3 border-t border-white/8 p-4 md:grid-cols-2">
                 <div className="flex flex-wrap gap-2">

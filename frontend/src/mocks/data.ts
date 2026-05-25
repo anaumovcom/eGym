@@ -82,7 +82,93 @@ const baseWorkout = {
   exercises: 5,
   sets: 18,
   duration: '45 минут',
-  list: ['Тяга сверху', 'Тяга к поясу', 'Сгибание рук', 'Тяга прямыми руками', 'Планка'],
+  list: [
+    {
+      slug: 'machine-pulldown',
+      name: 'Тяга сверху',
+      previewVideoUrl: '/media/exercises/machine-pulldown/male-machine-pulldown-side.mp4',
+      previous: {
+        label: 'Прошлый раз',
+        primary: '50 кг',
+        secondary: '20 повторов',
+        meta: '2 подхода • 3 дня назад',
+      },
+      planned: {
+        label: 'План',
+        primary: '55 кг',
+        secondary: '20 повторов',
+        meta: '4 подхода • +5 кг к прошлому',
+      },
+    },
+    {
+      slug: 'machine-seated-cable-row',
+      name: 'Тяга к поясу',
+      previewVideoUrl: '/media/exercises/machine-seated-cable-row/male-machine-seated-cable-row-side.mp4',
+      previous: {
+        label: 'Прошлый раз',
+        primary: '42 кг',
+        secondary: '24 повтора',
+        meta: '3 подхода • 5 дней назад',
+      },
+      planned: {
+        label: 'План',
+        primary: '45 кг',
+        secondary: '24 повтора',
+        meta: '4 подхода • +3 кг к прошлому',
+      },
+    },
+    {
+      slug: 'barbell-curl',
+      name: 'Сгибание рук',
+      previewVideoUrl: '/media/exercises/barbell-curl/male-barbell-curl-side.mp4',
+      previous: {
+        label: 'Прошлый раз',
+        primary: '20 кг',
+        secondary: '36 повторов',
+        meta: '3 подхода • 5 дней назад',
+      },
+      planned: {
+        label: 'План',
+        primary: '20 кг',
+        secondary: '36 повторов',
+        meta: '3 подхода • повторяем рабочую схему',
+      },
+    },
+    {
+      slug: 'underhand-pulldown',
+      name: 'Тяга прямыми руками',
+      previewVideoUrl: '/media/exercises/underhand-pulldown/male-underhand-pulldown-side.mp4',
+      previous: {
+        label: 'Прошлый раз',
+        primary: '30 кг',
+        secondary: '36 повторов',
+        meta: '3 подхода • 7 дней назад',
+      },
+      planned: {
+        label: 'План',
+        primary: '35 кг',
+        secondary: '48 повторов',
+        meta: '4 подхода • +5 кг к прошлому',
+      },
+    },
+    {
+      slug: 'forearm-plank',
+      name: 'Планка',
+      previewVideoUrl: '/media/exercises/forearm-plank/male-forearm-plank-side.mp4',
+      previous: {
+        label: 'Прошлый раз',
+        primary: '40 сек',
+        secondary: 'вес тела',
+        meta: '3 подхода • 4 дня назад',
+      },
+      planned: {
+        label: 'План',
+        primary: '45 сек',
+        secondary: 'вес тела',
+        meta: '3 подхода • +5 сек к прошлому',
+      },
+    },
+  ],
 }
 
 const baseRecommendedExercises = [

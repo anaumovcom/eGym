@@ -8,6 +8,7 @@ import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
+import { ensureFatigueMuscleCoverage } from '@/shared/ui/stage4/fatigue-muscle-map'
 import { MetricCardGrid, MuscleMapDetailed, MuscleSelectionPanel, Panel, PeriodSwitcher, SectionTitle, ToneBadge } from '@/shared/ui/stage4/screen-components'
 import { useAppStore } from '@/stores/app-store'
 
@@ -27,6 +28,7 @@ export function FatigueScreen() {
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const mode = asFatigueMode(searchParams.get('mode'))
   const userId = selectedUserId ?? 'alexey'
+  const fatigueFigureGender = selectedUserId === 'elena' ? 'female' : 'male'
   const { data, isLoading, error } = useQuery({
     queryKey: ['fatigue-screen', userId, mode],
     queryFn: () => apiGet<FatigueData>(`/api/fatigue?userId=${encodeURIComponent(userId)}&mode=${encodeURIComponent(mode)}`),
@@ -65,11 +67,12 @@ export function FatigueScreen() {
     )
   }
 
-  const selectedId = searchParams.get('muscle') ?? data.muscles[0]?.id ?? 'chest'
-  const selectedMuscle = data.muscles.find((item) => item.id === selectedId) ?? data.muscles[0]
-  const highOrCritical = data.muscles.filter((item) => item.status === 'high' || item.status === 'critical')
-  const medium = data.muscles.filter((item) => item.status === 'medium')
-  const ready = data.muscles.filter((item) => item.status === 'ready' || item.status === 'light')
+  const muscles = ensureFatigueMuscleCoverage(data.muscles)
+  const selectedId = searchParams.get('muscle') ?? muscles[0]?.id ?? 'chest'
+  const selectedMuscle = muscles.find((item) => item.id === selectedId) ?? muscles[0]
+  const highOrCritical = muscles.filter((item) => item.status === 'high' || item.status === 'critical')
+  const medium = muscles.filter((item) => item.status === 'medium')
+  const ready = muscles.filter((item) => item.status === 'ready' || item.status === 'light')
 
   if (error || !selectedMuscle) {
     return (
@@ -94,7 +97,7 @@ export function FatigueScreen() {
       <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
         <div className="space-y-6">
           <Panel title="Карта мышечной усталости" description={data.recoveryNote}>
-            <MuscleMapDetailed muscles={data.muscles} selectedId={selectedMuscle.id} onSelect={(id) => updateParams({ muscle: id })} />
+            <MuscleMapDetailed muscles={muscles} selectedId={selectedMuscle.id} figureGender={fatigueFigureGender} onSelect={(id) => updateParams({ muscle: id })} />
           </Panel>
 
           <div className="grid gap-6 xl:grid-cols-3">

@@ -39,6 +39,7 @@ from app.schemas.machine import MachineHealthSchema
 from app.schemas.user import BodyMeasurementSchema
 from app.services.exercise_library import get_imported_exercise
 from app.services.fatigue_service import FatigueService
+from app.services.muscle_catalog import get_muscle_definition
 from app.services.machine_service import MachineService
 
 
@@ -132,13 +133,14 @@ class ProgressService:
         muscles = []
         for snapshot in sorted(snapshots, key=lambda item: item.fatigue_score, reverse=True):
             impacts = history.get(snapshot.muscle_id, [])[:3]
+            definition = get_muscle_definition(snapshot.muscle_id)
             muscles.append(
                 FatigueMuscleSchema(
                     id=snapshot.muscle_id,
-                    name=self._muscle_name(snapshot.muscle_id),
-                    short_name=self._muscle_name(snapshot.muscle_id),
-                    group="back" if snapshot.muscle_id in {"back", "rear-delta", "glutes", "hamstrings", "calves"} else "front",
-                    area="lower" if snapshot.muscle_id in {"quads", "hamstrings", "glutes", "calves"} else ("middle" if snapshot.muscle_id in {"abs", "core"} else "upper"),
+                    name=definition.name,
+                    short_name=definition.name,
+                    group=definition.group,
+                    area=definition.area,
                     score=int(round(snapshot.fatigue_score)),
                     readiness_percent=self.fatigue_service.readiness_percent(snapshot.fatigue_score),
                     status=self.fatigue_service.fatigue_status(snapshot.fatigue_score),
@@ -552,34 +554,12 @@ class ProgressService:
         return "Мышца готова к нагрузке."
 
     def _exercise_suggestions(self, muscle_id: str, *, avoid: bool) -> list[FatigueExerciseSuggestionSchema]:
-        suggestions = {
-            "back": (["Тяга сверху", "Тяга к поясу"], ["Тяга сверху тяжёлая"]),
-            "chest": (["Планка", "Лёгкая тяга"], ["Жим лёжа", "Жим с пола"]),
-            "triceps": (["Тяга к поясу"], ["Французский жим"]),
-            "quads": (["Лёгкие выпады"], ["Тяжёлый присед"]),
-        }
-        recommended, avoided = suggestions.get(muscle_id, (["Лёгкое кардио"], ["Тяжёлая изоляция"]))
-        source = avoided if avoid else recommended
+        definition = get_muscle_definition(muscle_id)
+        source = definition.avoided if avoid else definition.recommended
         return [FatigueExerciseSuggestionSchema(name=name, note="Подходит" if not avoid else "Лучше отложить", status="ready" if not avoid else "high") for name in source]
 
     def _muscle_name(self, muscle_id: str) -> str:
-        mapping = {
-            "chest": "Грудь",
-            "triceps": "Трицепс",
-            "front-delta": "Передняя дельта",
-            "abs": "Пресс",
-            "quads": "Квадрицепсы",
-            "back": "Спина",
-            "rear-delta": "Задняя дельта",
-            "glutes": "Ягодицы",
-            "hamstrings": "Бицепс бедра",
-            "calves": "Икры",
-            "biceps": "Бицепс",
-            "shoulders": "Плечи",
-            "legs": "Ноги",
-            "core": "Кор",
-        }
-        return mapping.get(muscle_id, muscle_id.replace("-", " ").title())
+        return get_muscle_definition(muscle_id).name
 
     def _streak_weeks(self, workouts: list[WorkoutSession]) -> int:
         if not workouts:

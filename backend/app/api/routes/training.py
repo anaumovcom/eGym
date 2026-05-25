@@ -4,8 +4,14 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_session
 from app.schemas.exercise import ExerciseCatalogResponseSchema, ExerciseDetailsSchema
 from app.schemas.training import (
+    BuilderPlanMutationSchema,
+    ProgramMutationResultSchema,
+    ProgramMutationSchema,
     ProgramLibraryDataSchema,
     QuickStartDataSchema,
+    StrengthTrainingModeSchema,
+    TodayWorkoutPlanMutationSchema,
+    TrainingPlanMutationResultSchema,
     TodayWorkoutDataSchema,
     WorkoutBuilderDataSchema,
     WorkoutCalendarDataSchema,
@@ -114,6 +120,26 @@ def get_programs(
     return training_service.get_program_library(session, selected_program_id=selected)
 
 
+@router.post("/programs", response_model=ProgramMutationResultSchema, status_code=status.HTTP_201_CREATED)
+def create_program(
+    payload: ProgramMutationSchema,
+    session: Session = Depends(get_session),
+) -> ProgramMutationResultSchema:
+    return training_service.create_program(session, payload)
+
+
+@router.delete("/programs/{program_id}", response_model=ProgramMutationResultSchema)
+def delete_program(
+    program_id: str,
+    user_id: str = Query("alexey", alias="userId"),
+    session: Session = Depends(get_session),
+) -> ProgramMutationResultSchema:
+    deleted = training_service.delete_program(session, program_id=program_id, user_id=user_id)
+    if not deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Program not found")
+    return ProgramMutationResultSchema(id=program_id, status="deleted")
+
+
 @router.get("/calendar", response_model=WorkoutCalendarDataSchema)
 def get_calendar(
     mode: str = Query("month"),
@@ -125,7 +151,30 @@ def get_calendar(
 
 @router.get("/builder", response_model=WorkoutBuilderDataSchema)
 def get_builder(
+    user_id: str = Query("alexey", alias="userId"),
+    program_id: str | None = Query(default=None, alias="programId"),
     selected_exercise_id: str | None = Query(default=None, alias="selectedExerciseId"),
     session: Session = Depends(get_session),
 ) -> WorkoutBuilderDataSchema:
-    return training_service.get_builder(session, selected_exercise_id=selected_exercise_id)
+    return training_service.get_builder(session, user_id=user_id, program_id=program_id, selected_exercise_id=selected_exercise_id)
+
+
+@router.get("/strength-modes", response_model=list[StrengthTrainingModeSchema])
+def get_strength_modes() -> list[StrengthTrainingModeSchema]:
+    return training_service.get_strength_modes()
+
+
+@router.put("/today/plan", response_model=TrainingPlanMutationResultSchema)
+def save_today_workout_plan(
+    payload: TodayWorkoutPlanMutationSchema,
+    session: Session = Depends(get_session),
+) -> TrainingPlanMutationResultSchema:
+    return training_service.save_today_workout_plan(session, payload)
+
+
+@router.put("/builder/plan", response_model=TrainingPlanMutationResultSchema)
+def save_builder_plan(
+    payload: BuilderPlanMutationSchema,
+    session: Session = Depends(get_session),
+) -> TrainingPlanMutationResultSchema:
+    return training_service.save_builder_plan(session, payload)

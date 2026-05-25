@@ -5,6 +5,7 @@ import type { ProgramDetails, ProgramSummary } from '@/entities/program/model/ty
 import type { QuickStartData, QuickStartExerciseListItem } from '@/entities/quick-start/model/types'
 import type { TodayWorkoutData, WorkoutExercisePanel } from '@/entities/workout/model/types'
 import type { MuscleCard, MuscleStatus } from '@/entities/muscle/model/types'
+import { buildStrengthPlan, FALLBACK_STRENGTH_MODES } from '@/features/strength/lib/strength-plan'
 import type { KnownUserId } from '@/mocks/data'
 import { machineScenarios } from '@/mocks/data'
 import { generatedExerciseEntries } from '@/mocks/generated/exercises.generated'
@@ -904,6 +905,13 @@ export function getWorkoutBuilderData(selectedExerciseId = 'group-pullups-1'): W
   return {
     title: 'Конструктор тренировок',
     subtitle: 'Соберите тренировку из упражнений, настройте нагрузку и сохраните программу.',
+    programs: [
+      { id: 'back-biceps', name: 'Спина + бицепс', subtitle: 'Силовая тренировка', recommendedToday: true },
+      { id: 'fullbody-base', name: 'Фуллбоди база', subtitle: 'Баланс силы и техники', recommendedToday: false },
+      { id: 'mobility-recovery', name: 'Восстановление', subtitle: 'Мобилизация и лёгкая техника', recommendedToday: false },
+    ],
+    strengthModes: FALLBACK_STRENGTH_MODES,
+    selectedProgramId: 'back-biceps',
     info: {
       name: 'День спины',
       type: 'Силовая',
@@ -920,8 +928,8 @@ export function getWorkoutBuilderData(selectedExerciseId = 'group-pullups-1'): W
         betweenExercisesRest: '30 сек',
         betweenRoundsRest: '90 сек',
         items: [
-          { id: 'group-pullups-1', slug: 'machine-pulldown', name: 'Тяга сверху', muscleGroup: 'Спина', sets: '3×10', rest: '30 сек', load: '45 кг' },
-          { id: 'group-squat-1', slug: 'barbell-heels-up-back-squat', name: 'Присед', muscleGroup: 'Ноги', sets: '3×8', rest: '30 сек', load: '60 кг' },
+          { id: 'group-pullups-1', slug: 'machine-pulldown', name: 'Тяга сверху', muscleGroup: 'Спина', muscles: ['Широчайшие', 'Бицепс', 'Предплечья'], sets: '3×10', rest: '30 сек', load: '45 кг', loadType: 'weighted', previewVideoUrl: '/media/exercises/machine-pulldown/male-side.mp4' },
+          { id: 'group-squat-1', slug: 'barbell-heels-up-back-squat', name: 'Присед', muscleGroup: 'Ноги', muscles: ['Квадрицепс', 'Ягодицы', 'Бицепс бедра'], sets: '3×8', rest: '30 сек', load: '60 кг', loadType: 'weighted', previewVideoUrl: '/media/exercises/barbell-heels-up-back-squat/male-side.mp4' },
         ],
       },
       {
@@ -929,24 +937,28 @@ export function getWorkoutBuilderData(selectedExerciseId = 'group-pullups-1'): W
         kind: 'single',
         title: 'Основной блок',
         items: [
-          { id: 'row-1', slug: 'machine-seated-cable-row', name: 'Тяга горизонтального блока', muscleGroup: 'Спина', sets: '3×10', rest: '90 сек', load: '45 кг' },
-          { id: 'row-2', slug: 'underhand-pulldown', name: 'Тяга к поясу в тренажёре', muscleGroup: 'Спина', sets: '4×12', rest: '90 сек', load: '40 кг' },
-          { id: 'curl-1', slug: 'barbell-curl', name: 'Сгибание рук с гантелями', muscleGroup: 'Бицепс', sets: '3×12', rest: '75 сек', load: '20 кг' },
-          { id: 'plank-1', slug: 'forearm-plank', name: 'Планка', muscleGroup: 'Кор', sets: '3×45 сек', rest: '45 сек', load: 'вес тела' },
+          { id: 'row-1', slug: 'machine-seated-cable-row', name: 'Тяга горизонтального блока', muscleGroup: 'Спина', muscles: ['Широчайшие', 'Бицепс', 'Предплечья'], sets: '3×10', rest: '90 сек', load: '45 кг', loadType: 'weighted', previewVideoUrl: '/media/exercises/machine-seated-cable-row/male-side.mp4' },
+          { id: 'row-2', slug: 'underhand-pulldown', name: 'Тяга к поясу в тренажёре', muscleGroup: 'Спина', muscles: ['Широчайшие', 'Бицепс', 'Предплечья'], sets: '4×12', rest: '90 сек', load: '40 кг', loadType: 'weighted', previewVideoUrl: '/media/exercises/underhand-pulldown/male-side.mp4' },
+          { id: 'curl-1', slug: 'barbell-curl', name: 'Сгибание рук с гантелями', muscleGroup: 'Бицепс', muscles: ['Бицепс', 'Предплечья'], sets: '3×12', rest: '75 сек', load: '20 кг', loadType: 'weighted', previewVideoUrl: '/media/exercises/barbell-curl/male-side.mp4' },
+          { id: 'plank-1', slug: 'forearm-plank', name: 'Планка', muscleGroup: 'Кор', muscles: ['Пресс', 'Косые мышцы', 'Плечи'], sets: '3×45 сек', rest: '45 сек', load: 'вес тела', loadType: 'timed', previewVideoUrl: '/media/exercises/forearm-plank/male-side.mp4' },
         ],
       },
     ],
     selectedExerciseId,
     selectedExercise: {
-      name: 'Подтягивания',
-      subtitle: 'Спина, бицепс',
+      name: 'Тяга сверху',
+      subtitle: 'Спина',
       setParams: {
         reps: 10,
-        weight: 0,
+        weight: 45,
         restSeconds: 30,
       },
+      loadType: 'weighted',
       loadMode: 'Обычный вес',
       tempo: 'Обычный',
+      strengthModeId: 'basic',
+      strengthDayType: null,
+      strengthPlan: buildStrengthPlan('basic', null, { reps: 10, weight: 45, restSeconds: 30 }, 'weighted'),
       note: 'Следить за лопатками, не дёргать корпусом.',
     },
     addSuggestions: [

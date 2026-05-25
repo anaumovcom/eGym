@@ -78,15 +78,15 @@ def list_calibrations(
     return hardware_service.list_calibrations(session, user_id)
 
 
-@router.get("/calibrations/current", response_model=CalibrationSummarySchema)
+@router.get("/calibrations/current", response_model=CalibrationSummarySchema | None)
 def get_current_calibration(
     user_id: str = Query(..., alias="userId"),
     exercise_slug: str = Query(..., alias="exerciseSlug"),
     session: Session = Depends(get_session),
-) -> CalibrationSummarySchema:
+) -> CalibrationSummarySchema | None:
     calibration = hardware_service.get_current_calibration(session, user_id, exercise_slug)
     if calibration is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Calibration not found")
+        return None
     return CalibrationSummarySchema.model_validate(calibration)
 
 
@@ -120,6 +120,6 @@ async def hardware_realtime(websocket: WebSocket) -> None:
     try:
         while True:
             payload = await queue.get()
-            await websocket.send_json(payload)
+            await websocket.send_json(HardwareSnapshotSchema.model_validate(payload).model_dump(mode="json", by_alias=True))
     except WebSocketDisconnect:
         hardware_runtime.unsubscribe(queue)

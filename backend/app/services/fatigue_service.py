@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.models.analytics import MuscleFatigueEvent, MuscleFatigueSnapshot
 from app.models.enums import FatigueEventSource, MuscleRole
+from app.services.muscle_catalog import get_muscle_definition, is_legacy_muscle_id, split_muscle_targets
 
 ROLE_FACTORS: dict[MuscleRole, float] = {
     MuscleRole.primary: 1.0,
@@ -29,6 +30,63 @@ class FatigueUpdate:
 
 
 class FatigueService:
+    def migrate_legacy_muscle_data(self, session: Session, user_id: str, now: datetime | None = None) -> None:
+        effective_now = now or datetime.now(UTC)
+        snapshots = list(session.scalars(select(MuscleFatigueSnapshot).where(MuscleFatigueSnapshot.user_id == user_id)))
+        legacy_snapshots = [snapshot for snapshot in snapshots if is_legacy_muscle_id(snapshot.muscle_id)]
+
+        for snapshot in legacy_snapshots:
+            self.hydrate_snapshot(snapshot, effective_now)
+            for canonical_id, weight in split_muscle_targets(snapshot.muscle_id):
+                canonical_snapshot = self.get_or_create_snapshot(
+                    session,
+                    user_id=user_id,
+                    muscle_id=canonical_id,
+                    now=snapshot.calculated_at,
+                    recovery_half_life_hours=snapshot.recovery_half_life_hours,
+                )
+                if canonical_snapshot.id != snapshot.id:
+                    self.hydrate_snapshot(canonical_snapshot, effective_now)
+                    canonical_snapshot.fatigue_score += snapshot.fatigue_score * weight
+                    canonical_snapshot.last_load_at = max(
+                        [item for item in (canonical_snapshot.last_load_at, snapshot.last_load_at) if item is not None],
+                        default=None,
+                    )
+            session.delete(snapshot)
+
+        legacy_events = list(
+            session.scalars(
+                select(MuscleFatigueEvent).where(
+                    MuscleFatigueEvent.user_id == user_id,
+                )
+            )
+        )
+
+        for event in legacy_events:
+            if not is_legacy_muscle_id(event.muscle_id):
+                continue
+
+            for canonical_id, weight in split_muscle_targets(event.muscle_id):
+                session.add(
+                    MuscleFatigueEvent(
+                        user_id=event.user_id,
+                        muscle_id=canonical_id,
+                        source=event.source,
+                        workout_session_id=event.workout_session_id,
+                        exercise_session_id=event.exercise_session_id,
+                        set_result_id=event.set_result_id,
+                        occurred_at=event.occurred_at,
+                        fatigue_delta=round(event.fatigue_delta * weight, 2),
+                        role=event.role,
+                        recovery_half_life_hours=event.recovery_half_life_hours,
+                        note=event.note,
+                    )
+                )
+            session.delete(event)
+
+        if legacy_snapshots:
+            session.flush()
+
     def ensure_utc(self, value: datetime) -> datetime:
         if value.tzinfo is None:
             return value.replace(tzinfo=UTC)
@@ -90,6 +148,7 @@ class FatigueService:
 
     def list_current_scores(self, session: Session, user_id: str, now: datetime | None = None) -> list[MuscleFatigueSnapshot]:
         effective_now = now or datetime.now(UTC)
+        self.migrate_legacy_muscle_data(session, user_id, effective_now)
         statement = select(MuscleFatigueSnapshot).where(MuscleFatigueSnapshot.user_id == user_id)
         snapshots = list(session.scalars(statement))
         for snapshot in snapshots:
@@ -128,41 +187,43 @@ class FatigueService:
         updates: list[FatigueUpdate] = []
         for target in muscle_targets:
             role = MuscleRole(target.get("role", MuscleRole.secondary.value))
-            delta = round(base_load * ROLE_FACTORS[role], 2)
-            snapshot = self.get_or_create_snapshot(
-                session,
-                user_id=user_id,
-                muscle_id=target["muscle_id"],
-                now=occurred_at,
-            )
-            self.hydrate_snapshot(snapshot, occurred_at)
-            snapshot.fatigue_score += delta
-            snapshot.last_load_at = occurred_at
-            session.add(
-                MuscleFatigueEvent(
+            for canonical_id, weight in split_muscle_targets(target["muscle_id"]):
+                definition = get_muscle_definition(canonical_id)
+                delta = round(base_load * ROLE_FACTORS[role] * weight, 2)
+                snapshot = self.get_or_create_snapshot(
+                    session,
                     user_id=user_id,
-                    muscle_id=target["muscle_id"],
-                    source=FatigueEventSource.exercise_set,
-                    workout_session_id=workout_session_id,
-                    exercise_session_id=exercise_session_id,
-                    set_result_id=set_result_id,
-                    occurred_at=occurred_at,
-                    fatigue_delta=delta,
-                    role=role,
-                    recovery_half_life_hours=snapshot.recovery_half_life_hours,
-                    note=exercise_name,
+                    muscle_id=canonical_id,
+                    now=occurred_at,
                 )
-            )
-            updates.append(
-                FatigueUpdate(
-                    muscle_id=target["muscle_id"],
-                    name=target.get("name", target["muscle_id"]),
-                    delta=delta,
-                    current_score=int(round(snapshot.fatigue_score)),
-                    readiness_percent=self.readiness_percent(snapshot.fatigue_score),
-                    status=self.fatigue_status(snapshot.fatigue_score),
+                self.hydrate_snapshot(snapshot, occurred_at)
+                snapshot.fatigue_score += delta
+                snapshot.last_load_at = occurred_at
+                session.add(
+                    MuscleFatigueEvent(
+                        user_id=user_id,
+                        muscle_id=canonical_id,
+                        source=FatigueEventSource.exercise_set,
+                        workout_session_id=workout_session_id,
+                        exercise_session_id=exercise_session_id,
+                        set_result_id=set_result_id,
+                        occurred_at=occurred_at,
+                        fatigue_delta=delta,
+                        role=role,
+                        recovery_half_life_hours=snapshot.recovery_half_life_hours,
+                        note=exercise_name,
+                    )
                 )
-            )
+                updates.append(
+                    FatigueUpdate(
+                        muscle_id=canonical_id,
+                        name=definition.name,
+                        delta=delta,
+                        current_score=int(round(snapshot.fatigue_score)),
+                        readiness_percent=self.readiness_percent(snapshot.fatigue_score),
+                        status=self.fatigue_status(snapshot.fatigue_score),
+                    )
+                )
         session.flush()
         return updates
 

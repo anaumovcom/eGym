@@ -86,7 +86,7 @@ export function UserSelectionView({
   return (
     <div className="relative min-h-screen overflow-hidden px-4 py-6 xl:px-6">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.04),transparent_38%),url('https://images.unsplash.com/photo-1517836357463-d25dfeac3438?auto=format&fit=crop&w=1800&q=80')] bg-cover bg-center opacity-20" />
-      <div className="relative mx-auto flex max-w-[1680px] flex-col gap-8">
+      <div className="relative flex w-full flex-col gap-8">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-15 w-15 items-center justify-center rounded-[22px] bg-linear-to-br from-[#edcb86] to-[#986c21] text-3xl font-black text-[#100a00]">

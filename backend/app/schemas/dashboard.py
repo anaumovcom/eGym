@@ -8,7 +8,29 @@ class DashboardWorkoutSchema(SchemaModel):
     exercises: int
     sets: int
     duration: str
-    list: list[str]
+
+
+class DashboardWorkoutSnapshotSchema(SchemaModel):
+    label: str
+    primary: str
+    secondary: str
+    meta: str | None = None
+
+
+class DashboardWorkoutExerciseSchema(SchemaModel):
+    slug: str
+    name: str
+    previous: DashboardWorkoutSnapshotSchema
+    planned: DashboardWorkoutSnapshotSchema
+    preview_video_url: str | None = None
+
+
+class DashboardWorkoutSchema(SchemaModel):
+    title: str
+    exercises: int
+    sets: int
+    duration: str
+    list: list[DashboardWorkoutExerciseSchema]
 
 
 class DashboardRecommendationSchema(SchemaModel):

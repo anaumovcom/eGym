@@ -1,5 +1,5 @@
 import { Camera, CheckCircle2, ChevronLeft, Clock3, ScanLine, ShieldCheck } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { Button } from '@/shared/ui/button'
@@ -25,20 +25,28 @@ export function PhotoProgressScreen() {
   const completePhotoShot = useRuntimeStore((state) => state.completePhotoShot)
   const openPhotoProgress = useRuntimeStore((state) => state.openPhotoProgress)
   const continueAfterPhoto = useRuntimeStore((state) => state.continueAfterPhoto)
+  const skipPhotoProgress = useRuntimeStore((state) => state.skipPhotoProgress)
   const setPhotoTimer = useRuntimeStore((state) => state.setPhotoTimer)
   const setView = useRuntimeStore((state) => state.setView)
+  const hasSyncedSessionRef = useRef(false)
 
   const initOptions = getRuntimeInitOptions(searchParams)
 
   useEffect(() => {
+    if (hasSyncedSessionRef.current) {
+      return
+    }
+
     if (!session) {
       ensureSession(initOptions)
       return
     }
 
-    if (session.view !== 'photo-progress' && !session.photoProgress.completed) {
+    if (session.view !== 'photo-progress') {
       openPhotoProgress(initOptions.photoMode ?? 'manual')
     }
+
+    hasSyncedSessionRef.current = true
   }, [ensureSession, initOptions, openPhotoProgress, session])
 
   if (!session) {
@@ -107,7 +115,7 @@ export function PhotoProgressScreen() {
                       ? isPostWorkout
                         ? (setView('workout-summary'), navigate(withSearch('/workout-summary', location.search)))
                         : (continueAfterPhoto(), navigate(withSearch('/exercise-setup', location.search)))
-                      : navigate(-1)
+                      : (skipPhotoProgress(), navigate(withSearch('/exercise-setup', location.search)))
                   }
                 >
                   {photoState.completed ? (isPostWorkout ? 'Вернуться к итогу тренировки' : 'Продолжить к настройке') : 'Сделать позже'}

@@ -85,6 +85,60 @@ def test_save_workout_and_read_progress_and_fatigue(client: TestClient) -> None:
     assert any(item["id"] == "chest" and item["score"] > 0 for item in fatigue_payload["muscles"])
 
 
+def test_legacy_back_fatigue_is_split_into_detail_muscles(client: TestClient, db_session) -> None:
+    workout_response = client.post(
+        "/api/runtime/workouts",
+        json={
+            "userId": "alexey",
+            "source": "today",
+            "title": "Спина",
+            "status": "completed",
+            "startedAt": (datetime.now(UTC) - timedelta(minutes=30)).isoformat(),
+            "finishedAt": datetime.now(UTC).isoformat(),
+            "durationSeconds": 1800,
+            "exercises": [
+                {
+                    "userId": "alexey",
+                    "exerciseSlug": "machine-seated-cable-row",
+                    "exerciseName": "Тяга к поясу",
+                    "kind": "machine",
+                    "orderIndex": 1,
+                    "status": "completed",
+                    "startedAt": (datetime.now(UTC) - timedelta(minutes=25)).isoformat(),
+                    "finishedAt": (datetime.now(UTC) - timedelta(minutes=5)).isoformat(),
+                    "targetSets": 1,
+                    "muscles": [
+                        {"muscleId": "back", "name": "Спина", "role": "primary"}
+                    ],
+                    "sets": [
+                        {
+                            "setNumber": 1,
+                            "plannedValue": 10,
+                            "actualValue": 10,
+                            "reps": 10,
+                            "weightKg": 45,
+                            "tempoLabel": "2-0-2",
+                            "amplitudePercent": 90,
+                            "subjectiveEffort": 7,
+                            "discomfortLevel": 0,
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    assert workout_response.status_code == 200
+
+    fatigue_response = client.get("/api/fatigue", params={"userId": "alexey", "mode": "current"})
+    assert fatigue_response.status_code == 200
+    fatigue_payload = fatigue_response.json()
+
+    assert any(item["id"] == "lats" and item["score"] > 0 for item in fatigue_payload["muscles"])
+    assert any(item["id"] == "traps-middle" and item["score"] > 0 for item in fatigue_payload["muscles"])
+    assert all(item["id"] != "back" for item in fatigue_payload["muscles"])
+
+
 def test_photo_progress_upload_list_and_delete(client: TestClient, tmp_path: Path) -> None:
     media_service.media_root = tmp_path
     image = Image.new("RGB", (120, 180), color=(240, 240, 240))

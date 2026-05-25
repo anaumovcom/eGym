@@ -142,7 +142,7 @@ class HardwareService:
             self._check("range", "Диапазон подтверждён", (not payload.calibration_required) or payload.range_confirmed or bool(calibration and calibration.movement_range_confirmed), "warning", "Диапазон движения подтверждён" if (not payload.calibration_required) or payload.range_confirmed or bool(calibration and calibration.movement_range_confirmed) else "Подтвердите диапазон движения."),
             self._check("weight", "Нагрузка допустима", payload.weight_kg <= self._parse_kg(settings.max_load), "critical", "Нагрузка допустима" if payload.weight_kg <= self._parse_kg(settings.max_load) else f"Превышен лимит нагрузки {settings.max_load}."),
             self._check("service-mode", "Сервисный режим не конфликтует", not runtime.service_mode, "critical", "Сервисный режим не активен" if not runtime.service_mode else "Отключите сервисный режим перед тренировкой."),
-            self._check("limits", "Лимиты движения не нарушены", 0 <= runtime.motion.bar_position_mm <= 1400, "critical", "Позиция в пределах лимитов" if 0 <= runtime.motion.bar_position_mm <= 1400 else "Текущая позиция вне безопасного диапазона."),
+            self._check("limits", "Лимиты движения не нарушены", 0 <= runtime.motion.bar_position_mm <= 2100, "critical", "Позиция в пределах лимитов" if 0 <= runtime.motion.bar_position_mm <= 2100 else "Текущая позиция вне безопасного диапазона."),
         ]
         blocking_reasons = [check.message for check in checks if not check.passed and check.severity == "critical"]
         return SafetyGateResponseSchema(

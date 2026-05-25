@@ -3,12 +3,16 @@ import { persist } from 'zustand/middleware'
 import type { ExerciseCalibrationStatus } from '@/entities/exercise/model/types'
 import type {
   RuntimeCalibrationState,
+  RuntimeExerciseSummaryState,
   RuntimeExerciseOutcome,
   RuntimeFlowSource,
   RuntimePhotoMode,
   RuntimePhotoView,
+  RuntimeSetResult,
   RuntimeWorkoutSession,
 } from '@/entities/runtime/model/types'
+import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exercise'
+import { buildStrengthPlan, getStrengthModeTitle, normalizeStrengthDayType, normalizeStrengthModeId, toRuntimeSetPlan } from '@/features/strength/lib/strength-plan'
 import { buildExerciseSession, buildExerciseSummary, buildPhotoProgressState, buildRestState, buildWorkoutSummary, createRuntimeSession, rebuildSessionSnapshots, simulateSetResult } from '@/mocks/stage3-data'
 
 type RuntimeStore = {
@@ -24,12 +28,15 @@ type RuntimeStore = {
   continueAfterPhoto: () => void
   updateCalibrationState: (state: RuntimeCalibrationState) => void
   updateLoadSettings: (patch: Partial<RuntimeWorkoutSession['exercises'][number]['loadSettings']>) => void
+  selectStrengthMode: (modeId: string, dayType?: string | null) => void
   startExercise: () => void
-  finishCurrentSet: () => void
+  finishCurrentSet: (result?: RuntimeSetResult) => void
   beginNextStep: () => void
   adjustRestSeconds: (delta: number) => void
+  tickRestTimer: () => void
   pauseRestTimer: () => void
   completeExercise: (outcome?: RuntimeExerciseOutcome) => void
+  replaceExerciseSummary: (summary: RuntimeExerciseSummaryState) => void
   continueAfterExerciseSummary: () => void
   completeWorkout: (outcome?: 'completed' | 'partial' | 'aborted') => void
 }
@@ -40,6 +47,14 @@ function buildSignature(options: { source: RuntimeFlowSource; slug?: string; pho
 
 function getCurrentExercise(session: RuntimeWorkoutSession) {
   return session.exercises.find((exercise) => exercise.id === session.currentExerciseId) ?? session.exercises[0]
+}
+
+function rebuildExercisePlan(exercise: RuntimeWorkoutSession['exercises'][number]) {
+  if (exercise.kind === 'timed' || exercise.kind === 'group') {
+    return exercise.plan
+  }
+
+  return buildStrengthPlan(exercise.strengthMode.id, exercise.strengthMode.dayType, exercise.loadSettings, exercise.kind).map(toRuntimeSetPlan)
 }
 
 export const useRuntimeStore = create<RuntimeStore>()(
@@ -165,14 +180,60 @@ export const useRuntimeStore = create<RuntimeStore>()(
       const currentExercise = getCurrentExercise(state.session)
       const exercises = state.session.exercises.map((exercise) =>
         exercise.id === currentExercise.id
-          ? {
-              ...exercise,
-              loadSettings: { ...exercise.loadSettings, ...patch },
-            }
+          ? (() => {
+              const loadSettings = { ...exercise.loadSettings, ...patch }
+              const calibrationState: RuntimeCalibrationState = requiresMachineCalibration({ ...exercise, loadSettings })
+                ? (exercise.calibrationState === 'not-needed' ? 'missing' : exercise.calibrationState)
+                : 'not-needed'
+              const calibration: ExerciseCalibrationStatus = calibrationState === 'saved' ? 'ready' : calibrationState === 'missing' ? 'required' : 'unavailable'
+              const nextExercise: RuntimeWorkoutSession['exercises'][number] = {
+                ...exercise,
+                calibrationState,
+                movementRangeSaved: calibrationState === 'saved',
+                movementRangeLabel: calibrationState === 'saved' ? '64–132 см' : calibrationState === 'missing' ? 'Калибровка не найдена' : 'Не требуется',
+                loadSettings: {
+                  ...loadSettings,
+                  calibration,
+                },
+              }
+              return {
+                ...nextExercise,
+                plan: rebuildExercisePlan(nextExercise),
+              }
+            })()
           : exercise,
       )
 
       const session = { ...state.session, exercises }
+      return { session: { ...session, ...rebuildSessionSnapshots(session, state.session.workoutSummary.outcome) } }
+    }),
+  selectStrengthMode: (modeId, dayType) =>
+    set((state) => {
+      if (!state.session) {
+        return state
+      }
+
+      const normalizedModeId = normalizeStrengthModeId(modeId)
+      const normalizedDayType = normalizeStrengthDayType(normalizedModeId, dayType)
+      const currentExercise = getCurrentExercise(state.session)
+      const exercises = state.session.exercises.map((exercise) => {
+        if (exercise.id !== currentExercise.id) {
+          return exercise
+        }
+
+        const strengthMode = {
+          id: normalizedModeId,
+          title: getStrengthModeTitle(normalizedModeId),
+          dayType: normalizedDayType,
+        }
+        const nextExercise = { ...exercise, strengthMode }
+        return {
+          ...nextExercise,
+          plan: rebuildExercisePlan(nextExercise),
+        }
+      })
+
+      const session = { ...state.session, exercises, currentSetIndex: 0 }
       return { session: { ...session, ...rebuildSessionSnapshots(session, state.session.workoutSummary.outcome) } }
     }),
   startExercise: () =>
@@ -184,14 +245,14 @@ export const useRuntimeStore = create<RuntimeStore>()(
       const session = { ...state.session, view: 'exercise-session' as const }
       return { session: { ...session, sessionState: buildExerciseSession(session) } }
     }),
-  finishCurrentSet: () =>
+  finishCurrentSet: (providedResult) =>
     set((state) => {
       if (!state.session) {
         return state
       }
 
       const currentExercise = getCurrentExercise(state.session)
-      const result = simulateSetResult(state.session)
+      const result = providedResult ?? simulateSetResult(state.session)
       const completedSets = {
         ...state.session.completedSets,
         [currentExercise.id]: [...(state.session.completedSets[currentExercise.id] ?? []), result],
@@ -260,6 +321,22 @@ export const useRuntimeStore = create<RuntimeStore>()(
           }
         : state,
     ),
+  tickRestTimer: () =>
+    set((state) => {
+      if (!state.session?.restState || state.session.restState.timerPaused || state.session.restState.remainingSeconds <= 0) {
+        return state
+      }
+
+      return {
+        session: {
+          ...state.session,
+          restState: {
+            ...state.session.restState,
+            remainingSeconds: Math.max(0, state.session.restState.remainingSeconds - 1),
+          },
+        },
+      }
+    }),
   pauseRestTimer: () =>
     set((state) =>
       state.session?.restState
@@ -268,9 +345,7 @@ export const useRuntimeStore = create<RuntimeStore>()(
               ...state.session,
               restState: {
                 ...state.session.restState,
-                recommendation: state.session.restState.recommendation.includes('Таймер')
-                  ? 'Оставить текущий отдых и переходить дальше по готовности.'
-                  : `${state.session.restState.recommendation} Таймер поставлен на паузу.`,
+                timerPaused: !state.session.restState.timerPaused,
               },
             },
           }
@@ -294,6 +369,8 @@ export const useRuntimeStore = create<RuntimeStore>()(
       }
       return { session }
     }),
+  replaceExerciseSummary: (summary) =>
+    set((state) => (state.session ? { session: { ...state.session, exerciseSummary: summary } } : state)),
   continueAfterExerciseSummary: () =>
     set((state) => {
       if (!state.session || !state.session.exerciseSummary) {

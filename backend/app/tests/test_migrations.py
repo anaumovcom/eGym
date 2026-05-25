@@ -28,6 +28,7 @@ def test_alembic_upgrade_creates_foundation_tables(tmp_path: Path) -> None:
         "audit_log",
         "user_exercise_states",
         "exercise_history_records",
+        "user_hidden_workout_programs",
         "workout_programs",
         "workout_schedule_entries",
         "workout_sessions",

@@ -45,7 +45,7 @@ export async function fetchHardwareCalibrations(userId: string) {
 
 export async function fetchCurrentCalibration(userId: string, exerciseSlug: string) {
   const search = `?userId=${encodeURIComponent(userId)}&exerciseSlug=${encodeURIComponent(exerciseSlug)}`
-  return apiGet<HardwareCalibration>(`/api/hardware/calibrations/current${search}`)
+  return apiGet<HardwareCalibration | null>(`/api/hardware/calibrations/current${search}`)
 }
 
 export async function saveHardwareCalibration(payload: HardwareCalibrationPayload) {

@@ -1,5 +1,5 @@
 import { Minus, PauseCircle, Plus } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { useHardwareStore } from '@/stores/hardware-store'
@@ -25,11 +25,13 @@ export function RestScreen() {
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
   const beginNextStep = useRuntimeStore((state) => state.beginNextStep)
   const adjustRestSeconds = useRuntimeStore((state) => state.adjustRestSeconds)
+  const tickRestTimer = useRuntimeStore((state) => state.tickRestTimer)
   const pauseRestTimer = useRuntimeStore((state) => state.pauseRestTimer)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
   const snapshot = useHardwareStore((state) => state.snapshot)
   const hardwareError = useHardwareStore((state) => state.errorMessage)
   const runCommand = useHardwareStore((state) => state.runCommand)
+  const autoAdvanceTriggeredRef = useRef(false)
 
   const initOptions = getRuntimeInitOptions(searchParams)
 
@@ -55,6 +57,31 @@ export function RestScreen() {
   const hasNextSet = activeSession.currentSetIndex < currentExercise.plan.length - 1
   const nextExercisePlan = hasNextSet ? currentExercise : activeSession.exercises[currentExercise.order]
 
+  useEffect(() => {
+    autoAdvanceTriggeredRef.current = false
+  }, [activeSession.currentExerciseId, activeSession.currentSetIndex, rest.mode])
+
+  useEffect(() => {
+    if (rest.timerPaused || rest.remainingSeconds <= 0) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      tickRestTimer()
+    }, 1000)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [rest.remainingSeconds, rest.timerPaused, tickRestTimer])
+
+  useEffect(() => {
+    if (rest.timerPaused || rest.remainingSeconds > 0 || autoAdvanceTriggeredRef.current) {
+      return
+    }
+
+    autoAdvanceTriggeredRef.current = true
+    void handleBeginNextStep()
+  }, [rest.remainingSeconds, rest.timerPaused])
+
   async function handleBeginNextStep() {
     if (nextExercisePlan?.kind === 'machine' && selectedUserId) {
       await runCommand({
@@ -66,7 +93,7 @@ export function RestScreen() {
         weightKg: nextExercisePlan.loadSettings.weight,
         mode: 'machine',
         targetSet: hasNextSet ? activeSession.currentSetIndex + 2 : 1,
-        targetReps: nextExercisePlan.loadSettings.reps,
+        targetReps: nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.targetMaxReps ?? nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.targetReps ?? nextExercisePlan.loadSettings.reps,
       })
     }
 
@@ -113,10 +140,10 @@ export function RestScreen() {
 
           <div className="mt-6 flex flex-wrap gap-3">
             <Button iconLeft={<PauseCircle className="h-4 w-4" />} variant="secondary" onClick={pauseRestTimer}>
-              Пауза таймера
+              {rest.timerPaused ? 'Продолжить таймер' : 'Пауза таймера'}
             </Button>
             <Button onClick={() => void handleBeginNextStep()}>
-              {rest.nextActionLabel}
+              {rest.remainingSeconds > 0 ? 'Пропустить отдых' : rest.nextActionLabel}
             </Button>
           </div>
         </section>

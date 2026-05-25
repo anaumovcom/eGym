@@ -97,7 +97,7 @@ def _build_video_entries(slug: str, payload: dict[str, object], directory: Path)
     return tuple(
         ImportedExerciseVideo(
             file_name=file_name,
-            relative_url=f"/mock-assets/exercises/{slug}/{file_name}",
+            relative_url=f"/media/exercises/{slug}/{file_name}",
             gender="female" if file_name.startswith("female-") else "male",
             view="front" if "-front" in file_name else "side",
         )

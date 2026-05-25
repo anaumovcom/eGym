@@ -19,7 +19,7 @@ export const Components: Story = {
     <div className="grid gap-6 xl:grid-cols-[260px_1fr]">
       <LeftNavigationMenu />
       <div className="space-y-6">
-        <TopSystemBar userName="Алексей" machine={machineScenarios.ready} onStop={() => undefined} />
+        <TopSystemBar onStop={() => undefined} />
         <EmergencyStopButton onClick={() => undefined} />
       </div>
     </div>

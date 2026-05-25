@@ -1,6 +1,7 @@
 import type { ExerciseDetails, ExerciseLoadSettings, ExerciseSummary } from '@/entities/exercise/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { MuscleCard } from '@/entities/muscle/model/types'
+import type { StrengthSetType } from '@/entities/strength/model/types'
 
 export type RuntimeFlowSource = 'quick-start' | 'today' | 'calendar' | 'programs' | 'builder' | 'catalog' | 'progress'
 export type RuntimeExerciseKind = 'machine' | 'bodyweight' | 'timed' | 'stretch' | 'group'
@@ -12,16 +13,35 @@ export type RuntimeCalibrationState = 'saved' | 'missing' | 'not-needed'
 export type RuntimeExerciseOutcome = 'completed' | 'partial' | 'aborted'
 
 export type RuntimeSetPlan = {
+  setType?: StrengthSetType
   targetReps?: number
+  targetMinReps?: number
+  targetMaxReps?: number
   targetSeconds?: number
   weightLabel: string
+  recommendedWeightKg?: number
   restSeconds: number
+  rirLabel?: string
+  note?: string
+  warning?: string
 }
 
 export type RuntimeSetResult = {
   setNumber: number
   plannedValue: number
   actualValue: number
+  setType?: StrengthSetType | string | null
+  targetMinReps?: number | null
+  targetMaxReps?: number | null
+  reps?: number | null
+  weightKg?: number | null
+  rir?: number | null
+  subjectiveEffort?: number | null
+  discomfortLevel?: number | null
+  pain?: boolean
+  techniqueBreakdown?: boolean
+  comment?: string | null
+  volumeKg?: number | null
   amplitudePercent?: number
   tempoLabel: string
   syncLabel?: string
@@ -43,6 +63,11 @@ export type RuntimeExercisePlan = {
   movementRangeLabel?: string
   movementRangeSaved?: boolean
   plan: RuntimeSetPlan[]
+  strengthMode: {
+    id: string
+    title: string
+    dayType?: string | null
+  }
   recommendation: string
   nextExerciseId?: string
   previewLabel?: string
@@ -84,6 +109,12 @@ export type RuntimeExerciseSessionState = {
   targetLabel: string
   currentValue: number
   targetValue: number
+  setType?: StrengthSetType
+  targetMinReps?: number
+  targetMaxReps?: number
+  rirLabel?: string
+  setNote?: string
+  setWarning?: string
   weightLabel: string
   hints: string[]
   machine: MachineHealth
@@ -103,6 +134,7 @@ export type RuntimeRestState = {
   subtitle: string
   totalSeconds: number
   remainingSeconds: number
+  timerPaused: boolean
   completedSet: RuntimeSetResult
   recommendation: string
   nextActionLabel: string
@@ -120,6 +152,7 @@ export type RuntimeExerciseSummaryState = {
     setsCompleted: string
     repsOrTime: string
     volume: string
+    bestSet?: string
     averageAmplitude?: string
     tempo: string
   }

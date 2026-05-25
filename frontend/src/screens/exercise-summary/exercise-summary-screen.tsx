@@ -2,6 +2,7 @@ import { CheckCircle2, CircleAlert } from 'lucide-react'
 import { useEffect } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
+import { getBestSetLabel, getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -39,6 +40,8 @@ export function ExerciseSummaryScreen() {
   }
 
   const summary = session.exerciseSummary
+  const bestSet = summary.totals.bestSet ?? getBestSetLabel(summary.setResults)
+  const hasWarning = summary.setResults.some((result) => result.pain || result.techniqueBreakdown || (result.discomfortLevel ?? 0) >= 5)
 
   return (
     <FormaShell userName={getUserName(selectedUserId)} machine={session.machine} onStop={() => setEmergencyStopActive(true)}>
@@ -62,19 +65,38 @@ export function ExerciseSummaryScreen() {
             <Metric label="Темп" value={summary.totals.tempo} />
           </div>
 
+          <div className="mt-4 rounded-[24px] border border-[#d6b05f]/18 bg-[#18140b] px-5 py-4 text-[#f2cf87]">
+            <div className="text-sm uppercase tracking-[0.22em] text-[#f2cf87]/60">Лучший подход</div>
+            <div className="mt-2 font-display text-3xl font-bold text-white">{bestSet}</div>
+          </div>
+
+          {hasWarning ? (
+            <div className="mt-4 rounded-[24px] border border-[#eb5345]/25 bg-[#1b0f10] px-5 py-4 text-sm text-[#ffb4a7]">
+              Ты отметил боль или потерю техники. Не увеличивай вес на следующей тренировке.
+            </div>
+          ) : null}
+
           <div className="mt-6 overflow-hidden rounded-[28px] border border-white/8">
-            <div className="grid grid-cols-[120px_1fr_1fr_1fr] bg-white/4 px-4 py-3 text-sm text-white/45">
+            <div className="grid grid-cols-[88px_140px_1fr_1fr_1fr_1fr] bg-white/4 px-4 py-3 text-sm text-white/45">
               <div>Сет</div>
+              <div>Тип</div>
               <div>План</div>
               <div>Факт</div>
+              <div>Вес / объём</div>
               <div>Качество</div>
             </div>
             {summary.setResults.map((result) => (
-              <div key={result.setNumber} className="grid grid-cols-[120px_1fr_1fr_1fr] border-t border-white/8 px-4 py-4 text-sm text-white/72">
+              <div key={result.setNumber} className="grid grid-cols-[88px_140px_1fr_1fr_1fr_1fr] border-t border-white/8 px-4 py-4 text-sm text-white/72">
                 <div className="font-semibold text-white">#{result.setNumber}</div>
-                <div>{result.plannedValue}</div>
-                <div>{result.actualValue}</div>
-                <div>{result.tempoLabel}{result.amplitudePercent ? ` • ${result.amplitudePercent}%` : ''}</div>
+                <div>
+                  <span className={cn('rounded-full px-2 py-1 text-xs', result.setType === 'warmup' ? 'bg-white/6 text-white/55' : result.setType === 'failure' ? 'bg-[#eb5345]/12 text-[#ffb1a8]' : 'bg-[#d6b05f]/12 text-[#f2cf87]')}>
+                    {getSetTypeLabel(result.setType)}
+                  </span>
+                </div>
+                <div>{formatSummaryPlan(result)}</div>
+                <div>{result.reps ?? result.actualValue}{typeof result.rir === 'number' ? ` • RIR ${result.rir}` : ''}</div>
+                <div>{result.weightKg ? `${result.weightKg} кг` : '—'}{result.volumeKg ? ` • ${Math.round(result.volumeKg)} кг` : ''}</div>
+                <div>{result.tempoLabel}{result.amplitudePercent ? ` • ${result.amplitudePercent}%` : ''}{result.pain ? ' • боль' : ''}{result.techniqueBreakdown ? ' • техника' : ''}</div>
               </div>
             ))}
           </div>
@@ -137,6 +159,14 @@ export function ExerciseSummaryScreen() {
       />
     </FormaShell>
   )
+}
+
+function formatSummaryPlan(result: { targetMinReps?: number | null; targetMaxReps?: number | null; plannedValue: number }) {
+  if (result.targetMinReps && result.targetMaxReps && result.targetMinReps !== result.targetMaxReps) {
+    return `${result.targetMinReps}–${result.targetMaxReps}`
+  }
+
+  return `${result.targetMaxReps ?? result.plannedValue}`
 }
 
 function Metric({ label, value }: { label: string; value: string }) {

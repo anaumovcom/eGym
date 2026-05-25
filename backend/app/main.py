@@ -11,6 +11,7 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app.db.seed import seed_dev_data, seed_stage7_data, seed_stage8_data
 from app.db.session import SessionLocal, engine
+from app.services.exercise_library import EXERCISES_ROOT
 from app.services.hardware_runtime import hardware_runtime
 
 
@@ -54,6 +55,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+    app.mount(f"{settings.media_url_prefix}/exercises", StaticFiles(directory=EXERCISES_ROOT), name="exercise-media")
     app.mount(settings.media_url_prefix, StaticFiles(directory=settings.media_root), name="media")
     app.include_router(api_router, prefix=settings.api_prefix)
     return app

@@ -6,7 +6,22 @@ export type DashboardWorkout = {
   exercises: number
   sets: number
   duration: string
-  list: string[]
+  list: DashboardWorkoutExercise[]
+}
+
+export type DashboardWorkoutSnapshot = {
+  label: string
+  primary: string
+  secondary: string
+  meta?: string | null
+}
+
+export type DashboardWorkoutExercise = {
+  slug: string
+  name: string
+  previewVideoUrl?: string | null
+  previous: DashboardWorkoutSnapshot
+  planned: DashboardWorkoutSnapshot
 }
 
 export type DashboardRecommendation = {

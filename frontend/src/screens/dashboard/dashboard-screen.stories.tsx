@@ -16,7 +16,9 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 const baseArgs = {
+  userId: 'alexey',
   userName: 'Алексей',
+  figureGender: 'male' as const,
   emergencyStopActive: false,
   onStop: () => undefined,
   onEmergencyStopChange: () => undefined,

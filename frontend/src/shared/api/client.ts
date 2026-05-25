@@ -21,6 +21,14 @@ function buildUrl(path: string): string {
   return API_BASE_URL ? `${API_BASE_URL}${path}` : path
 }
 
+export function resolveApiAssetUrl(path?: string): string | undefined {
+  if (!path) {
+    return undefined
+  }
+
+  return buildUrl(path)
+}
+
 async function parseResponse<T>(response: Response): Promise<T> {
   const contentType = response.headers.get('content-type') ?? ''
   const isJson = contentType.includes('application/json')

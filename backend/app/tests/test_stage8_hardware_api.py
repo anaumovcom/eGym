@@ -1,7 +1,19 @@
 from sqlalchemy import select
 
+from app.core.config import get_settings
 from app.models.audit import AuditLog
 from app.models.enums import AuditAction
+from app.services.hardware_runtime import hardware_runtime
+
+
+def test_current_calibration_returns_null_without_404(client) -> None:
+    response = client.get(
+        "/api/hardware/calibrations/current",
+        params={"userId": "alexey", "exerciseSlug": "barbell-floor-press"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() is None
 
 
 def test_safety_gate_requires_calibration(client) -> None:
@@ -104,6 +116,8 @@ def test_realtime_stream_receives_command_updates(client) -> None:
         initial = websocket.receive_json()
         assert initial["eventType"] == "hardware.snapshot"
         assert initial["selectedUserId"] == "alexey"
+        assert "barPositionMm" in initial["motion"]
+        assert "positionMm" in initial["drives"][0]
 
         response = client.post(
             "/api/hardware/commands",
@@ -117,3 +131,124 @@ def test_realtime_stream_receives_command_updates(client) -> None:
         updated = websocket.receive_json()
         assert updated["safety"]["state"] == "emergency_stop"
         assert updated["machine"]["machineLabel"] == "СТОП активирован"
+
+
+def test_keyboard_simulation_moves_and_stops_bar(monkeypatch) -> None:
+    monkeypatch.setenv("HARDWARE_KEYBOARD_SIMULATION_ENABLED", "true")
+    get_settings.cache_clear()
+    hardware_runtime.reset()
+
+    try:
+        start_position = hardware_runtime.snapshot_payload()["motion"]["bar_position_mm"]
+
+        monkeypatch.setattr(hardware_runtime, "_get_keyboard_direction", lambda: "up")
+        assert hardware_runtime._tick_motion() is True
+        moved_up = hardware_runtime.snapshot_payload()["motion"]
+        assert moved_up["moving"] is True
+        assert moved_up["bar_position_mm"] > start_position
+
+        monkeypatch.setattr(hardware_runtime, "_get_keyboard_direction", lambda: None)
+        assert hardware_runtime._tick_motion() is True
+        stopped = hardware_runtime.snapshot_payload()["motion"]
+        assert stopped["moving"] is False
+
+        monkeypatch.setattr(hardware_runtime, "_get_keyboard_direction", lambda: "down")
+        assert hardware_runtime._tick_motion() is True
+        moved_down = hardware_runtime.snapshot_payload()["motion"]
+        assert moved_down["moving"] is True
+        assert moved_down["bar_position_mm"] < moved_up["bar_position_mm"]
+    finally:
+        get_settings.cache_clear()
+        hardware_runtime.reset()
+
+
+def test_keyboard_simulation_counts_rep_only_after_full_range(monkeypatch) -> None:
+    monkeypatch.setenv("HARDWARE_KEYBOARD_SIMULATION_ENABLED", "true")
+    get_settings.cache_clear()
+    hardware_runtime.reset()
+
+    try:
+        hardware_runtime.start_motion(
+            calibration_id=None,
+            lower_bound_mm=840,
+            upper_bound_mm=880,
+            target_set=1,
+            target_reps=3,
+            motion_profile="training",
+        )
+
+        monkeypatch.setattr(hardware_runtime, "_get_keyboard_direction", lambda: "down")
+        assert hardware_runtime._tick_motion() is True
+        partial_range = hardware_runtime.snapshot_payload()["motion"]
+        assert partial_range["bar_position_mm"] == 840
+        assert partial_range["repetition_count"] == 0
+
+        monkeypatch.setattr(hardware_runtime, "_get_keyboard_direction", lambda: "up")
+        assert hardware_runtime._tick_motion() is True
+        assert hardware_runtime._tick_motion() is True
+        completed = hardware_runtime.snapshot_payload()["motion"]
+        assert completed["bar_position_mm"] == 880
+        assert completed["repetition_count"] == 1
+    finally:
+        get_settings.cache_clear()
+        hardware_runtime.reset()
+
+
+def test_auto_motion_counts_rep_on_upper_boundary_after_lower_boundary(monkeypatch) -> None:
+    monkeypatch.setenv("HARDWARE_KEYBOARD_SIMULATION_ENABLED", "false")
+    get_settings.cache_clear()
+    hardware_runtime.reset()
+
+    try:
+        hardware_runtime.start_motion(
+            calibration_id=None,
+            lower_bound_mm=840,
+            upper_bound_mm=880,
+            target_set=1,
+            target_reps=3,
+            motion_profile="training",
+        )
+
+        assert hardware_runtime._tick_motion() is True
+        first_top = hardware_runtime.snapshot_payload()["motion"]
+        assert first_top["bar_position_mm"] == 880
+        assert first_top["repetition_count"] == 0
+
+        assert hardware_runtime._tick_motion() is True
+        at_bottom = hardware_runtime.snapshot_payload()["motion"]
+        assert at_bottom["bar_position_mm"] == 840
+        assert at_bottom["repetition_count"] == 0
+
+        assert hardware_runtime._tick_motion() is True
+        counted = hardware_runtime.snapshot_payload()["motion"]
+        assert counted["bar_position_mm"] == 880
+        assert counted["repetition_count"] == 1
+    finally:
+        get_settings.cache_clear()
+        hardware_runtime.reset()
+
+
+def test_start_motion_refreshes_initial_amplitude_snapshot(monkeypatch) -> None:
+    monkeypatch.setenv("HARDWARE_KEYBOARD_SIMULATION_ENABLED", "false")
+    get_settings.cache_clear()
+    hardware_runtime.reset()
+
+    try:
+      hardware_runtime.state.motion.amplitude_percent = 0
+
+      hardware_runtime.start_motion(
+          calibration_id=None,
+          lower_bound_mm=840,
+          upper_bound_mm=880,
+          target_set=1,
+          target_reps=3,
+          motion_profile="training",
+      )
+
+      snapshot = hardware_runtime.snapshot_payload()["motion"]
+      assert snapshot["bar_position_mm"] == 860
+      assert snapshot["amplitude_percent"] == 50
+      assert snapshot["repetition_count"] == 0
+    finally:
+        get_settings.cache_clear()
+        hardware_runtime.reset()

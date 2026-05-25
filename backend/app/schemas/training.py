@@ -12,6 +12,37 @@ ProgramDifficulty = Literal["novice", "easy", "medium", "advanced"]
 CalendarViewMode = Literal["week", "month"]
 CalendarDayStatus = Literal["completed", "planned", "skipped", "rest", "overload", "today", "empty"]
 BuilderGroupKind = Literal["single", "alternating", "superset", "circuit"]
+BuilderLoadType = Literal["weighted", "bodyweight", "timed"]
+StrengthSetType = Literal["warmup", "work", "failure"]
+
+
+class StrengthModeDayOptionSchema(SchemaModel):
+    id: str
+    label: str
+    description: str
+
+
+class StrengthTrainingModeSchema(SchemaModel):
+    id: str
+    title: str
+    short_description: str
+    goal: str
+    level: str
+    audience: str
+    default_day_type: str | None = None
+    day_options: list[StrengthModeDayOptionSchema] = Field(default_factory=list)
+    safety_note: str | None = None
+
+
+class BuilderStrengthSetPlanSchema(SchemaModel):
+    set_number: int
+    set_type: StrengthSetType
+    label: str
+    target_reps_label: str
+    recommended_weight_label: str
+    rest_seconds: int
+    rir_label: str
+    note: str
 
 
 class QuickStartRecommendationSchema(SchemaModel):
@@ -217,9 +248,24 @@ class BuilderExerciseItemSchema(SchemaModel):
     slug: str
     name: str
     muscle_group: str
+    muscles: list[str] = Field(default_factory=list)
+    affects_fatigue: bool = True
     sets: str
     rest: str
     load: str
+    load_type: BuilderLoadType | None = None
+    preview_video_url: str | None = None
+    strength_mode_id: str = "basic"
+    strength_day_type: str | None = None
+    strength_plan: list[BuilderStrengthSetPlanSchema] = Field(default_factory=list)
+
+
+class BuilderProgramTabSchema(SchemaModel):
+    id: str
+    name: str
+    subtitle: str
+    recommended_today: bool
+    can_delete: bool = False
 
 
 class BuilderWorkoutGroupSchema(SchemaModel):
@@ -236,8 +282,15 @@ class BuilderExerciseEditorSchema(SchemaModel):
     name: str
     subtitle: str
     set_params: dict[str, int]
+    effective_set_params: dict[str, int] = Field(default_factory=dict)
+    load_type: BuilderLoadType | None = None
     load_mode: str
+    load_mode_description: str = ""
     tempo: str
+    tempo_description: str = ""
+    strength_mode_id: str = "basic"
+    strength_day_type: str | None = None
+    strength_plan: list[BuilderStrengthSetPlanSchema] = Field(default_factory=list)
     note: str
 
 
@@ -256,6 +309,9 @@ class WorkoutBuilderWarningSchema(SchemaModel):
 class WorkoutBuilderDataSchema(SchemaModel):
     title: str
     subtitle: str
+    programs: list[BuilderProgramTabSchema]
+    strength_modes: list[StrengthTrainingModeSchema]
+    selected_program_id: str
     info: dict[str, str]
     groups: list[BuilderWorkoutGroupSchema]
     selected_exercise_id: str
@@ -263,6 +319,24 @@ class WorkoutBuilderDataSchema(SchemaModel):
     add_suggestions: list[dict[str, str]]
     summary_cards: list[BuilderSummaryCardSchema]
     warnings: list[WorkoutBuilderWarningSchema]
+
+
+class TodayWorkoutPlanMutationSchema(SchemaModel):
+    user_id: str = Field(min_length=1)
+    slugs: list[str]
+
+
+class BuilderPlanMutationSchema(SchemaModel):
+    user_id: str = Field(min_length=1)
+    program_id: str | None = None
+    workout_name: str | None = None
+    groups: list[BuilderWorkoutGroupSchema]
+    selected_exercise_id: str | None = None
+    selected_exercise: BuilderExerciseEditorSchema | None = None
+
+
+class TrainingPlanMutationResultSchema(SchemaModel):
+    status: Literal["saved"]
 
 
 class UserExerciseSlugListSchema(SchemaModel):

@@ -1,0 +1,194 @@
+Backend supervisor следит за backend, exercises и exercise_name_translations.csv.
+Backend server запущен. PID: 5624
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18748
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 16920
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18440
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10320
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20740
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10952
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 2764
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18844
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 16740
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19380
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14468
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\training.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20604
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10072
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20544
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21852
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\runtime_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 3000
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\runtime_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 7884
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20312
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10328
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\runtime_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21632
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\training.py, D:\eGym\backend\app\schemas\runtime.py, D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 560
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21988
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 5484
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 16956
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20296
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21264
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10756
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22412
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20572
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21196
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 4380
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 2744
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21432
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18972
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21348
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 2760
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18176
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18752
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19188
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20952
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19384
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20412
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\training.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19844
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22520
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19928
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 13428
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 17524
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\training.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20540
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\training.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20700
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\training.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 8432
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 15044
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 1056
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\training.py, D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 7572
+Обнаружены изменения backend данных: D:\eGym\backend\app\models\training.py, D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20692
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20996
+Обнаружены изменения backend данных: D:\eGym\backend\alembic\versions\20260525_0004_user_hidden_workout_programs.py, D:\eGym\backend\app\tests\test_migrations.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 17800
+Обнаружены изменения backend данных: D:\eGym\backend\alembic\versions\20260525_0004_user_hidden_workout_programs.py, D:\eGym\backend\app\models\training.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_migrations.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21616
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 13428
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 17988
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 4996
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19892
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21468
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21488
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 4684

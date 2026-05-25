@@ -2,13 +2,15 @@ import { useQuery } from '@tanstack/react-query'
 import { Activity, ArrowRightLeft, Camera, Play, Replace, TriangleAlert } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
+import type { ExerciseDetails } from '@/entities/exercise/model/types'
 import type { TodayWorkoutData } from '@/entities/workout/model/types'
-import { apiGet } from '@/shared/api/client'
+import { apiGet, apiPut } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-components'
 import { BuilderWarningPanel, CalibrationStatusBlock, LoadSettingsControl, MuscleMapCompact, WorkoutPlanList } from '@/shared/ui/stage2/screen-components'
+import { ExercisePickerModal } from '@/shared/ui/training/exercise-picker-modal'
 import { useAppStore } from '@/stores/app-store'
 
 function getUserName(userId: string | null) {
@@ -38,15 +40,75 @@ export function TodayWorkoutScreen() {
       ),
   })
 
+  const [exerciseRows, setExerciseRows] = useState(data?.exerciseRows ?? [])
+  const [selectedExercise, setSelectedExercise] = useState(data?.selectedExercise ?? null)
   const [settings, setSettings] = useState(data?.selectedExercise.settings ?? null)
+  const [replaceModalOpen, setReplaceModalOpen] = useState(false)
 
   useEffect(() => {
+    setExerciseRows(data?.exerciseRows ?? [])
+    setSelectedExercise(data?.selectedExercise ?? null)
     setSettings(data?.selectedExercise.settings ?? null)
     setSelectedExerciseSlug(selected)
-  }, [data?.selectedExercise.settings, selected, setSelectedExerciseSlug])
+  }, [data?.exerciseRows, data?.selectedExercise, data?.selectedExercise.settings, selected, setSelectedExerciseSlug])
 
-  if (!data) {
+  if (!data || !selectedExercise) {
     return null
+  }
+
+  async function handleReplaceExercise(details: ExerciseDetails) {
+    const primaryMuscles = details.primaryMuscles.length > 0 ? details.primaryMuscles : details.muscles
+    const latestHistory = details.history[0]
+    const nextLastResult = latestHistory
+      ? `${latestHistory.weight} • ${latestHistory.reps} • ${latestHistory.sets} ${latestHistory.sets === 1 ? 'подход' : latestHistory.sets < 5 ? 'подхода' : 'подходов'}`
+      : 'Нет истории'
+    const nextLoad = details.loadSettings.weight > 0 ? `${details.loadSettings.weight} кг × ${details.loadSettings.reps}` : `${details.loadSettings.reps} повторений`
+
+    const nextRows = exerciseRows.map((row) =>
+      row.id === selected
+        ? {
+            ...row,
+            id: details.slug,
+            slug: details.slug,
+            name: details.name,
+            muscles: primaryMuscles.join(', '),
+            load: nextLoad,
+            rest: `${details.loadSettings.restSeconds} сек`,
+            note: details.loadSettings.recommendation,
+          }
+        : row,
+    )
+
+    await apiPut('/api/today/plan', {
+      userId: resolvedUserId,
+      slugs: nextRows.map((row) => row.slug),
+    })
+
+    setExerciseRows(nextRows)
+    setSelectedExercise((current) =>
+      current
+        ? {
+            ...current,
+            id: details.slug,
+            ...current,
+            slug: details.slug,
+            name: details.name,
+            muscles: primaryMuscles.join(', '),
+            lastResult: nextLastResult,
+            formaRecommendation: details.loadSettings.recommendation,
+            settings: details.loadSettings,
+            alerts: details.compatibility.description ? [details.compatibility.description] : [],
+          }
+        : current,
+    )
+    setSettings(details.loadSettings)
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.set('selected', details.slug)
+      return next
+    })
+    setSelectedExerciseSlug(details.slug)
+    setReplaceModalOpen(false)
   }
 
   return (
@@ -105,8 +167,8 @@ export function TodayWorkoutScreen() {
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <WorkoutPlanList
-          rows={data.exerciseRows}
-          activeId={data.selectedExerciseId}
+          rows={exerciseRows}
+          activeId={selectedExercise.id}
           onSelect={(id) =>
             setSearchParams((current) => {
               const next = new URLSearchParams(current)
@@ -126,17 +188,17 @@ export function TodayWorkoutScreen() {
         <aside className="space-y-6">
           <section className="glass-panel rounded-[32px] p-5">
             <div className="text-sm uppercase tracking-[0.24em] text-white/35">Выбранное упражнение</div>
-            <div className="mt-3 font-display text-4xl font-bold text-white">{data.selectedExercise.name}</div>
-            <div className="mt-1 text-white/45">{data.selectedExercise.muscles}</div>
+            <div className="mt-3 font-display text-4xl font-bold text-white">{selectedExercise.name}</div>
+            <div className="mt-1 text-white/45">{selectedExercise.muscles}</div>
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <MetricBlock value={data.selectedExercise.lastResult} label="последний результат" />
-              <MetricBlock value={data.selectedExercise.formaRecommendation} label="рекомендация Forma" />
+              <MetricBlock value={selectedExercise.lastResult} label="последний результат" />
+              <MetricBlock value={selectedExercise.formaRecommendation} label="рекомендация Forma" />
             </div>
 
-            {data.selectedExercise.alerts.length > 0 ? (
+            {selectedExercise.alerts.length > 0 ? (
               <div className="mt-4 space-y-3">
-                {data.selectedExercise.alerts.map((alert) => (
+                {selectedExercise.alerts.map((alert) => (
                   <BuilderWarningPanel key={alert} title="Внимание к упражнению" description={alert} tone="warning" />
                 ))}
               </div>
@@ -157,10 +219,10 @@ export function TodayWorkoutScreen() {
             ) : null}
 
             <div className="mt-5 grid gap-3 md:grid-cols-2">
-              <Button variant="secondary" iconLeft={<Replace className="h-4 w-4" />} onClick={() => navigate('/catalog')}>
+              <Button variant="secondary" iconLeft={<Replace className="h-4 w-4" />} onClick={() => setReplaceModalOpen(true)}>
                 Заменить упражнение
               </Button>
-              <Button variant="secondary" iconLeft={<Activity className="h-4 w-4" />} onClick={() => navigate(`/catalog/${encodeURIComponent(data.selectedExercise.slug)}`)}>
+              <Button variant="secondary" iconLeft={<Activity className="h-4 w-4" />} onClick={() => navigate(`/catalog/${encodeURIComponent(selectedExercise.slug)}`)}>
                 Открыть карточку
               </Button>
             </div>
@@ -170,7 +232,7 @@ export function TodayWorkoutScreen() {
             <div className="text-sm uppercase tracking-[0.24em] text-white/35">Мышцы тренировки</div>
             <div className="mt-3 font-display text-3xl font-bold text-white">Баланс нагрузки</div>
             <div className="mt-5">
-              <MuscleMapCompact primary={['Спина', 'Бицепс']} secondary={['Предплечья']} stabilizers={['Кор']} />
+              <MuscleMapCompact primary={['Спина', 'Бицепс']} secondary={['Предплечья']} stabilizers={['Кор']} figureGender={resolvedUserId === 'elena' ? 'female' : 'male'} />
             </div>
           </section>
 
@@ -192,6 +254,16 @@ export function TodayWorkoutScreen() {
       {data.startState === 'planned' ? <WarningBanner title="Фото прогресса" description="В потоке этапа 2 уже заложен переход к логике фотофиксации перед первым упражнением, но без отдельного экрана выполнения." /> : null}
       {data.startState === 'completed' ? <WarningBanner title="Тренировка завершена" description="Тренировка завершена: старт больше не активен, но история и карточки упражнений остаются доступны." /> : null}
       {data.startState === 'in-progress' ? <div className="rounded-[28px] border border-[#d6b05f]/20 bg-[#21180d] px-5 py-4 text-[#f2cf87]"><div className="flex items-center gap-3 font-semibold"><TriangleAlert className="h-4 w-4" />Тренировка уже идёт</div><div className="mt-2 text-sm">Можно продолжить текущую сессию, быстро скорректировать нагрузку или заменить следующее упражнение.</div></div> : null}
+
+      <ExercisePickerModal
+        open={replaceModalOpen}
+        onOpenChange={setReplaceModalOpen}
+        userId={resolvedUserId}
+        mode="replace"
+        currentExerciseSlug={selectedExercise.slug}
+        currentExerciseName={selectedExercise.name}
+        onSelect={handleReplaceExercise}
+      />
 
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
     </FormaShell>

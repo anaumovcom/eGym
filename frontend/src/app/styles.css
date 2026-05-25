@@ -74,3 +74,11 @@ input {
   width: 10px;
   border-radius: 9999px;
 }
+
+.scrollbar-hidden {
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
