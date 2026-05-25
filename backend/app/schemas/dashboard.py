@@ -33,6 +33,13 @@ class DashboardWorkoutSchema(SchemaModel):
     list: list[DashboardWorkoutExerciseSchema]
 
 
+class DashboardBuilderWorkoutSchema(SchemaModel):
+    id: str
+    title: str
+    exercises: list[str]
+    duration: str
+
+
 class DashboardRecommendationSchema(SchemaModel):
     name: str
     muscles: str
@@ -68,6 +75,7 @@ class DashboardDataSchema(SchemaModel):
     recommendation_text: str
     readiness_percent: int
     today_workout: DashboardWorkoutSchema | None
+    workouts: list[DashboardBuilderWorkoutSchema]
     machine: MachineHealthSchema
     alerts: list[DashboardAlertSchema]
     recommended_exercises: list[DashboardRecommendationSchema]

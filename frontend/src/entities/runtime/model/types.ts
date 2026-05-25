@@ -96,7 +96,7 @@ export type RuntimePhotoProgressState = {
   completed: boolean
   currentView: RuntimePhotoView
   shots: RuntimePhotoShot[]
-  timerSeconds: 3 | 5 | 10 | 0
+  timerSeconds: 2 | 3 | 5
   readyMessage: string
   privacyNote: string
 }
@@ -177,6 +177,9 @@ export type RuntimeWorkoutSummaryState = {
 export type RuntimeWorkoutSession = {
   id: string
   source: RuntimeFlowSource
+  programId?: string
+  runId?: string
+  dataSource?: 'backend' | 'mock'
   view: RuntimeView
   machine: MachineHealth
   workoutTitle: string

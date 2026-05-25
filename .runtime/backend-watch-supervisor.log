@@ -192,3 +192,9 @@ Backend server запущен. PID: 21488
 Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
 Принудительно перезапускаю backend server.
 Backend server запущен. PID: 4684
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\dashboard.py, D:\eGym\backend\app\services\dashboard_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19952
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\dashboard.py, D:\eGym\backend\app\services\dashboard_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21488

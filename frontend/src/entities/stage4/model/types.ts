@@ -114,8 +114,14 @@ export type ProgressData = {
 }
 
 export type ProfilePhotoShot = {
-  id: string
+  id: 'front' | 'side' | 'back'
+  photoId: number
   label: string
+  takenAt: string
+  imageUrl: string
+  thumbnailUrl: string
+  width: number
+  height: number
 }
 
 export type UserProfileData = {

@@ -170,7 +170,7 @@ export function buildPhotoProgressState(mode: RuntimePhotoMode, completed = fals
           takenAt: '14 мая 2026',
         }))
       : buildPhotoShots(),
-    timerSeconds: 5,
+    timerSeconds: 2,
     readyMessage: mode === 'post-workout' ? 'Фото после тренировки помогут увидеть динамику восстановления.' : 'Фото нужны только для личного прогресса.',
     privacyNote: 'Фото сохраняются только в профиль текущего пользователя и не используются для сравнения с другими.',
   }
@@ -229,6 +229,8 @@ function buildWorkoutExercises(source: RuntimeFlowSource, slug?: string, calibra
 export function createRuntimeSession(options: {
   source: RuntimeFlowSource
   slug?: string
+  programId?: string
+  runId?: string
   photoMode?: RuntimePhotoMode | null
   calibrationState?: RuntimeCalibrationState
 }): RuntimeWorkoutSession {
@@ -239,6 +241,9 @@ export function createRuntimeSession(options: {
   return {
     id: `${options.source}-${Date.now()}`,
     source: options.source,
+    programId: options.programId,
+    runId: options.runId,
+    dataSource: 'mock',
     view: photoMode ? 'photo-progress' : 'exercise-setup',
     machine: machineScenarios.ready,
     workoutTitle: options.source === 'quick-start' || options.source === 'catalog' ? firstExercise.name : 'Спина + бицепс',

@@ -12,6 +12,7 @@ from app.models.training import ExerciseHistoryRecord, UserExerciseState
 from app.repositories.user_repository import UserRepository
 from app.schemas.dashboard import (
     DashboardAlertSchema,
+    DashboardBuilderWorkoutSchema,
     DashboardDataSchema,
     DashboardProgressMetricSchema,
     DashboardQuickStartItemSchema,
@@ -26,6 +27,7 @@ from app.services.exercise_library import ImportedExercise, get_imported_exercis
 from app.services.fatigue_service import FatigueService
 from app.services.machine_service import MachineService
 from app.services.muscle_catalog import get_muscle_definition
+from app.services.training_service import TrainingService
 
 
 class DashboardProfile(TypedDict):
@@ -59,6 +61,7 @@ class DashboardService:
         self.user_repository = UserRepository()
         self.machine_service = MachineService()
         self.fatigue_service = FatigueService()
+        self.training_service = TrainingService()
 
     def get_dashboard(
         self,
@@ -78,6 +81,7 @@ class DashboardService:
             recommendation_text=profile["recommendation_text"],
             readiness_percent=profile["readiness_percent"],
             today_workout=self._today_workout(session, user_id),
+            workouts=self._builder_workouts(session, user_id),
             machine=machine,
             alerts=[],
             recommended_exercises=[
@@ -183,6 +187,23 @@ class DashboardService:
             previous=self._previous_snapshot(latest_result, plan["measure"]),
             planned=self._planned_snapshot(plan["measure"], planned_weight, planned_value, planned_sets, latest_result),
         )
+
+    def _builder_workouts(self, session: Session, user_id: str) -> list[DashboardBuilderWorkoutSchema]:
+        workouts: list[DashboardBuilderWorkoutSchema] = []
+        for program in self.training_service._programs(session, user_id):
+            builder_value = self.training_service._builder_setting_value(session, user_id, program.id)
+            groups = self.training_service._builder_groups(session, user_id, program)
+            duration_minutes = self.training_service._builder_estimated_duration_minutes(groups, program.duration_minutes)
+            exercise_names = [item.name for group in groups for item in group.items]
+            workouts.append(
+                DashboardBuilderWorkoutSchema(
+                    id=program.id,
+                    title=self.training_service._builder_workout_name(builder_value, program),
+                    exercises=exercise_names,
+                    duration=f"≈ {duration_minutes} минут" if duration_minutes > 0 else f"{program.duration_minutes} минут",
+                )
+            )
+        return workouts
 
     def _preview_video_url(self, exercise: ImportedExercise | None, user_id: str) -> str | None:
         if exercise is None or not exercise.videos:

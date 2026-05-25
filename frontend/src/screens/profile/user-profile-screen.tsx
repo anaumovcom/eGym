@@ -1,12 +1,11 @@
-import { useQuery } from '@tanstack/react-query'
-import { Camera, Check, Pencil, X } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Camera, Check, Pencil, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { ExerciseCatalogResponse } from '@/entities/exercise/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
-import type { ProfileTab } from '@/entities/stage4/model/types'
-import type { UserProfileData } from '@/entities/stage4/model/types'
-import { apiGet } from '@/shared/api/client'
+import type { ProfilePhotoShot, ProfileTab, UserProfileData } from '@/entities/stage4/model/types'
+import { apiDelete, apiGet, resolveApiAssetUrl } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
@@ -89,6 +88,10 @@ function formatShortDate(value: string) {
   return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value))
 }
 
+function getPhotoViewLabel(view: 'front' | 'side' | 'back') {
+  return view === 'front' ? 'Спереди' : view === 'side' ? 'Сбоку' : 'Сзади'
+}
+
 function buildGuestProfile(): UserProfileData {
   return {
     id: 'guest',
@@ -117,16 +120,23 @@ function buildGuestProfile(): UserProfileData {
 
 function buildProfileData(currentUser: CurrentUserResponse, measurements: BodyMeasurementsResponse['measurements'], photos: ProgressPhotosResponse['photos'], achievements: AchievementsResponse['achievements']): UserProfileData {
   const sortedMeasurements = [...measurements].sort((left, right) => new Date(right.measuredAt).getTime() - new Date(left.measuredAt).getTime())
+  const sortedPhotos = [...photos].sort((left, right) => new Date(right.takenAt).getTime() - new Date(left.takenAt).getTime())
   const unlockedAchievements = achievements.filter((item) => item.unlocked)
-  const groupedPhotos = new Map<string, { id: string; date: string; views: Array<{ id: 'front' | 'side' | 'back'; label: string }> }>()
+  const groupedPhotos = new Map<string, { id: string; date: string; views: ProfilePhotoShot[] }>()
 
-  photos.forEach((photo) => {
+  sortedPhotos.forEach((photo) => {
     const key = formatDate(photo.takenAt)
     const existing = groupedPhotos.get(key) ?? { id: String(photo.id), date: key, views: [] }
     if (!existing.views.some((item) => item.id === photo.view)) {
       existing.views.push({
         id: photo.view,
-        label: photo.view === 'front' ? 'Спереди' : photo.view === 'side' ? 'Сбоку' : 'Сзади',
+        photoId: photo.id,
+        label: getPhotoViewLabel(photo.view),
+        takenAt: formatShortDate(photo.takenAt),
+        imageUrl: resolveApiAssetUrl(photo.imageUrl) ?? photo.imageUrl,
+        thumbnailUrl: resolveApiAssetUrl(photo.thumbnailUrl) ?? photo.thumbnailUrl,
+        width: photo.width,
+        height: photo.height,
       })
     }
     groupedPhotos.set(key, existing)
@@ -168,8 +178,17 @@ function buildProfileData(currentUser: CurrentUserResponse, measurements: BodyMe
       shouldersCm: 0,
       bicepsCm: 0,
     })),
-    photos: Array.from(groupedPhotos.values()),
+    photos: Array.from(groupedPhotos.values()).map((entry) => ({
+      ...entry,
+      views: [...entry.views].sort((left, right) => photoViewOrder[left.id] - photoViewOrder[right.id]),
+    })),
   }
+}
+
+const photoViewOrder: Record<'front' | 'side' | 'back', number> = {
+  front: 0,
+  side: 1,
+  back: 2,
 }
 
 function formatMetric(value: number, suffix: string) {
@@ -185,6 +204,7 @@ function asProfileTab(value: string | null): ProfileTab {
 }
 
 export function UserProfileScreen() {
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
@@ -226,6 +246,7 @@ export function UserProfileScreen() {
   const guestProfile = useMemo(() => buildGuestProfile(), [])
   const [profileOverride, setProfileOverride] = useState<UserProfileData | null>(null)
   const [profileDraft, setProfileDraft] = useState<UserProfileData | null>(null)
+  const [deletingPhotoId, setDeletingPhotoId] = useState<number | null>(null)
 
   useEffect(() => {
     setProfileOverride(null)
@@ -276,6 +297,30 @@ export function UserProfileScreen() {
       current.add(name)
     }
     updateProfileDraft('priorityMuscles', [...current])
+  }
+
+  async function handleDeletePhoto(photoId: number) {
+    if (deletingPhotoId != null) {
+      return
+    }
+
+    const confirmed = window.confirm('Удалить фото прогресса? Это действие нельзя отменить.')
+    if (!confirmed) {
+      return
+    }
+
+    try {
+      setDeletingPhotoId(photoId)
+      await apiDelete(`/api/photo-progress/${photoId}?confirm=true`)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['user-profile-screen', resolvedUserId] }),
+        queryClient.invalidateQueries({ queryKey: ['progress-screen', resolvedUserId] }),
+      ])
+    } catch (deleteError) {
+      window.alert(deleteError instanceof Error ? deleteError.message : 'Не удалось удалить фото прогресса.')
+    } finally {
+      setDeletingPhotoId(null)
+    }
   }
 
   if ((isLoading && resolvedUserId !== 'guest') || !viewProfile) {
@@ -368,7 +413,7 @@ export function UserProfileScreen() {
               <Panel title="Фото прогресса">
                 <div className="grid gap-3 md:grid-cols-3">
                   {(viewProfile.photos[0]?.views ?? []).map((view) => (
-                    <PhotoPreviewCard key={view.id} title={view.label} label={view.label} />
+                    <PhotoPreviewCard key={view.id} title={view.label} label={view.label} imageUrl={view.thumbnailUrl} takenAt={view.takenAt} />
                   ))}
                 </div>
               </Panel>
@@ -514,7 +559,24 @@ export function UserProfileScreen() {
                   <div className="font-semibold text-white">{photo.date}</div>
                   <div className="mt-4 grid gap-3 md:grid-cols-3">
                     {photo.views.map((view) => (
-                      <PhotoPreviewCard key={view.id} title={view.label} label={view.label} />
+                      <PhotoPreviewCard
+                        key={`${photo.id}-${view.id}`}
+                        title={view.label}
+                        label={view.label}
+                        imageUrl={view.thumbnailUrl}
+                        takenAt={view.takenAt}
+                        action={
+                          <Button
+                            variant="secondary"
+                            className="w-full"
+                            iconLeft={<Trash2 className="h-4 w-4" />}
+                            onClick={() => handleDeletePhoto(view.photoId)}
+                            disabled={deletingPhotoId === view.photoId}
+                          >
+                            {deletingPhotoId === view.photoId ? 'Удаление…' : 'Удалить фото'}
+                          </Button>
+                        }
+                      />
                     ))}
                   </div>
                 </div>

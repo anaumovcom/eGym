@@ -36,6 +36,8 @@ export function getRuntimeInitOptions(searchParams: URLSearchParams) {
   return {
     source: parseRuntimeSource(searchParams.get('source')),
     slug: searchParams.get('slug') ?? undefined,
+    programId: searchParams.get('programId') ?? undefined,
+    runId: searchParams.get('runId') ?? undefined,
     photoMode: parseRuntimePhotoMode(searchParams.get('photo')),
     calibrationState: parseCalibrationState(searchParams.get('calibration')),
   }

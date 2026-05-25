@@ -9,6 +9,13 @@ export type DashboardWorkout = {
   list: DashboardWorkoutExercise[]
 }
 
+export type DashboardBuilderWorkout = {
+  id: string
+  title: string
+  exercises: string[]
+  duration: string
+}
+
 export type DashboardWorkoutSnapshot = {
   label: string
   primary: string
@@ -53,6 +60,7 @@ export type DashboardData = {
   recommendationText: string
   readinessPercent: number
   todayWorkout: DashboardWorkout | null
+  workouts?: DashboardBuilderWorkout[]
   machine: MachineHealth
   alerts: DashboardAlert[]
   recommendedExercises: DashboardRecommendation[]

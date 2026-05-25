@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Camera, Play, RotateCcw } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import type { MachineHealth } from '@/entities/machine/model/types'
 import type { StrengthTrainingMode } from '@/entities/strength/model/types'
+import { buildBackendBuilderRuntimeSession } from '@/features/runtime/lib/backend-builder-session'
 import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exercise'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { useHardwareStore } from '@/stores/hardware-store'
@@ -18,6 +20,15 @@ import { useRuntimeStore } from '@/stores/runtime-store'
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
+}
+
+const fallbackMachine: MachineHealth = {
+  machineState: 'ready',
+  machineLabel: 'Тренажёр готов',
+  leftDrive: 'connected',
+  rightDrive: 'connected',
+  safety: 'enabled',
+  calibration: 'Калибровка: перед упражнением',
 }
 
 function formatMillimeters(value?: number | null) {
@@ -41,10 +52,12 @@ export function ExerciseSetupScreen() {
   const location = useLocation()
   const [searchParams] = useSearchParams()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
+  const resolvedUserId = selectedUserId ?? 'alexey'
   const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const session = useRuntimeStore((state) => state.session)
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
+  const initializeBackendSession = useRuntimeStore((state) => state.initializeBackendSession)
   const updateCalibrationState = useRuntimeStore((state) => state.updateCalibrationState)
   const updateLoadSettings = useRuntimeStore((state) => state.updateLoadSettings)
   const selectStrengthMode = useRuntimeStore((state) => state.selectStrengthMode)
@@ -63,7 +76,23 @@ export function ExerciseSetupScreen() {
   const [capturedLowerPointMm, setCapturedLowerPointMm] = useState<number | null>(null)
   const [capturedUpperPointMm, setCapturedUpperPointMm] = useState<number | null>(null)
 
-  const initOptions = getRuntimeInitOptions(searchParams)
+  const initOptions = useMemo(() => getRuntimeInitOptions(searchParams), [searchParams])
+  const usesBackendBuilderSession = initOptions.source === 'builder' && Boolean(initOptions.programId)
+  const hasActiveBackendBuilderSession = usesBackendBuilderSession
+    ? session?.source === 'builder' && session.programId === initOptions.programId && session.dataSource === 'backend' && (!initOptions.runId || session.runId === initOptions.runId)
+    : true
+  const { data: backendBuilderSession, error: backendBuilderSessionError } = useQuery({
+    queryKey: ['runtime-builder-session', resolvedUserId, initOptions.programId, initOptions.runId, initOptions.photoMode, initOptions.calibrationState],
+    queryFn: () => buildBackendBuilderRuntimeSession({
+      userId: resolvedUserId,
+      programId: initOptions.programId!,
+      runId: initOptions.runId,
+      photoMode: initOptions.photoMode,
+      calibrationState: initOptions.calibrationState,
+    }),
+    enabled: usesBackendBuilderSession,
+    staleTime: 0,
+  })
   const { data: strengthModes = [] } = useQuery({
     queryKey: ['strength-modes'],
     queryFn: () => apiGet<StrengthTrainingMode[]>('/api/strength-modes'),
@@ -71,10 +100,24 @@ export function ExerciseSetupScreen() {
   })
 
   useEffect(() => {
-    ensureSession(initOptions)
-  }, [ensureSession, initOptions])
+    if (usesBackendBuilderSession) {
+      return
+    }
 
-  const exercise = session?.exercises.find((item) => item.id === session.currentExerciseId) ?? session?.exercises[0]
+    ensureSession(initOptions)
+  }, [ensureSession, initOptions, usesBackendBuilderSession])
+
+  useEffect(() => {
+    if (!usesBackendBuilderSession || !backendBuilderSession || hasActiveBackendBuilderSession) {
+      return
+    }
+
+    initializeBackendSession(backendBuilderSession, initOptions)
+  }, [backendBuilderSession, hasActiveBackendBuilderSession, initializeBackendSession, initOptions, usesBackendBuilderSession])
+
+  const exercise = hasActiveBackendBuilderSession
+    ? session?.exercises.find((item) => item.id === session.currentExerciseId) ?? session?.exercises[0]
+    : undefined
 
   useEffect(() => {
     if (!session || !exercise || session.view !== 'exercise-setup') {
@@ -151,12 +194,22 @@ export function ExerciseSetupScreen() {
     setCapturedUpperPointMm(currentCalibration.upperPointMm)
   }, [currentCalibration, exercise?.kind, exercise?.slug])
 
+  if (usesBackendBuilderSession && backendBuilderSessionError) {
+    const message = backendBuilderSessionError instanceof Error ? backendBuilderSessionError.message : 'Проверьте доступность backend API.'
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={session?.machine ?? fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <WarningBanner title="Не удалось загрузить тренировку" description={message} />
+      </FormaShell>
+    )
+  }
+
   if (!session || !exercise) {
     return null
   }
 
   const currentExercise = exercise
   const settings = exercise.loadSettings
+  const currentStrengthMode = currentExercise.strengthMode ?? { id: 'basic', title: 'Базовый режим', dayType: null }
   const calibrationRequired = requiresMachineCalibration(currentExercise)
   const setupVideo = currentExercise.details.videos.find((video) => video.gender === 'male' && video.view === 'side')
     ?? currentExercise.details.videos[0]
@@ -332,8 +385,8 @@ export function ExerciseSetupScreen() {
             />
             <StrengthModeSelector
               modes={strengthModes}
-              selectedModeId={currentExercise.strengthMode.id}
-              selectedDayType={currentExercise.strengthMode.dayType}
+              selectedModeId={currentStrengthMode.id}
+              selectedDayType={currentStrengthMode.dayType}
               onSelect={(modeId, dayType) => selectStrengthMode(modeId, dayType)}
             />
             <CalibrationStatusBlock calibration={settings.calibration} />

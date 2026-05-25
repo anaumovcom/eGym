@@ -549,11 +549,35 @@ export function MuscleSelectionPanel({ muscle }: { muscle: FatigueMuscle }) {
   )
 }
 
-export function PhotoPreviewCard({ title, label }: { title: string; label: string }) {
+export function PhotoPreviewCard({
+  title,
+  label,
+  imageUrl,
+  takenAt,
+  action,
+}: {
+  title: string
+  label: string
+  imageUrl?: string
+  takenAt?: string
+  action?: React.ReactNode
+}) {
   return (
-    <div className="flex min-h-[130px] flex-col justify-end rounded-[22px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_35%),linear-gradient(180deg,#171a1f,#0d0f13)] p-4 text-white/74">
-      <div className="mx-auto mb-4 flex h-16 w-12 items-center justify-center rounded-[18px] border border-white/8 bg-white/4 text-xs text-white/35">{label}</div>
-      <div className="text-sm text-white">{title}</div>
+    <div className="overflow-hidden rounded-[22px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_35%),linear-gradient(180deg,#171a1f,#0d0f13)] text-white/74">
+      <div className="aspect-video overflow-hidden border-b border-white/8 bg-black/30">
+        {imageUrl ? (
+          <img src={imageUrl} alt={title} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <div className="flex h-16 w-12 items-center justify-center rounded-[18px] border border-white/8 bg-white/4 text-xs text-white/35">{label}</div>
+          </div>
+        )}
+      </div>
+      <div className="p-4">
+        <div className="text-sm text-white">{title}</div>
+        {takenAt ? <div className="mt-1 text-xs uppercase tracking-[0.18em] text-white/35">{takenAt}</div> : null}
+        {action ? <div className="mt-3">{action}</div> : null}
+      </div>
     </div>
   )
 }

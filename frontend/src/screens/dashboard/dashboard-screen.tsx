@@ -1,18 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { Activity, ArrowRight, ChevronRight, Replace, Trash2, TrendingUp } from 'lucide-react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Activity, ChevronRight, Clock3, Dumbbell, ListChecks, TrendingUp } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import type { DashboardData, DashboardWorkoutExercise, DashboardWorkoutSnapshot } from '@/entities/dashboard/model/types'
-import type { ExerciseDetails } from '@/entities/exercise/model/types'
 import type { MuscleCard } from '@/entities/muscle/model/types'
-import { apiGet, apiPut } from '@/shared/api/client'
-import { cn } from '@/shared/lib/cn'
+import type { DashboardData } from '@/entities/dashboard/model/types'
+import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-components'
-import { CompactBodyMapGrid, ExerciseVideoPlayer, type CompactBodyMapHover } from '@/shared/ui/stage2/screen-components'
-import { ExerciseDetailsDialog } from '@/shared/ui/training/exercise-details-dialog'
-import { ExercisePickerModal } from '@/shared/ui/training/exercise-picker-modal'
+import { CompactBodyMapGrid, type CompactBodyMapHover } from '@/shared/ui/stage2/screen-components'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { useAppStore } from '@/stores/app-store'
 
@@ -34,14 +30,8 @@ const statusLabels: Record<MuscleCard['status'], string> = {
   no_data: 'Нет данных',
 }
 
-const recommendationTone: Record<string, string> = {
-  'Рекомендуется': 'text-[#8ce48b]',
-  'Можно выполнить': 'text-[#f0d08c]',
-}
-
 export type DashboardViewProps = {
   data: DashboardData
-  userId: string
   userName: string
   figureGender: 'male' | 'female'
   emergencyStopActive: boolean
@@ -69,7 +59,6 @@ export function DashboardScreen() {
   return (
     <DashboardView
       data={data}
-      userId={userId}
       userName={selectedUserId === 'elena' ? 'Елена' : selectedUserId === 'guest' ? 'Гость' : 'Алексей'}
       figureGender={selectedUserId === 'elena' ? 'female' : 'male'}
       emergencyStopActive={emergencyStopActive}
@@ -79,7 +68,7 @@ export function DashboardScreen() {
   )
 }
 
-export function DashboardView({ data, userId, userName, figureGender, emergencyStopActive, onStop, onEmergencyStopChange }: DashboardViewProps) {
+export function DashboardView({ data, userName, figureGender, emergencyStopActive, onStop, onEmergencyStopChange }: DashboardViewProps) {
   return (
     <FormaShell userName={userName} machine={data.machine} onStop={onStop}>
       {data.alerts.length > 0 ? (
@@ -95,7 +84,7 @@ export function DashboardView({ data, userId, userName, figureGender, emergencyS
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <DashboardWorkoutSection userId={userId} todayWorkout={data.todayWorkout} recommendedExercises={data.recommendedExercises} />
+        <DashboardWorkoutsSection workouts={data.workouts ?? []} />
         <div className="grid gap-6">
           <DashboardMuscleMapSection muscles={data.muscles} figureGender={figureGender} />
           <DashboardStatsSection progress={data.progress} />
@@ -172,292 +161,89 @@ function DashboardMuscleMapSection({ muscles, figureGender }: { muscles: Dashboa
   )
 }
 
-function DashboardWorkoutSection({
-  userId,
-  todayWorkout,
-  recommendedExercises,
-}: {
-  userId: string
-  todayWorkout: DashboardData['todayWorkout']
-  recommendedExercises: DashboardData['recommendedExercises']
-}) {
+function DashboardWorkoutsSection({ workouts }: { workouts: NonNullable<DashboardData['workouts']> }) {
   const navigate = useNavigate()
-  const [workoutState, setWorkoutState] = useState(todayWorkout)
-  const [replaceTarget, setReplaceTarget] = useState<DashboardWorkoutExercise | null>(null)
-  const [detailsTarget, setDetailsTarget] = useState<DashboardWorkoutExercise | null>(null)
+  const setSelectedProgramId = useAppStore((state) => state.setSelectedProgramId)
 
-  useEffect(() => {
-    setWorkoutState(todayWorkout)
-  }, [todayWorkout])
-
-  function updateWorkoutItems(items: DashboardWorkoutExercise[]) {
-    setWorkoutState((current) => {
-      if (!current) {
-        return current
-      }
-
-      return {
-        ...current,
-        exercises: items.length,
-        sets: sumWorkoutSets(items),
-        list: items,
-      }
-    })
-  }
-
-  async function handleDeleteExercise(slug: string) {
-    if (!workoutState) {
-      return
-    }
-
-    const nextItems = workoutState.list.filter((item) => item.slug !== slug)
-    if (nextItems.length === 0) {
-      return
-    }
-
-    await apiPut('/api/today/plan', {
-      userId,
-      slugs: nextItems.map((item) => item.slug),
-    })
-    updateWorkoutItems(nextItems)
-  }
-
-  async function handleReplaceExercise(nextExercise: DashboardWorkoutExercise) {
-    if (!replaceTarget || !workoutState) {
-      return
-    }
-
-    const nextItems = workoutState.list.map((item) => (item.slug === replaceTarget.slug ? nextExercise : item))
-    await apiPut('/api/today/plan', {
-      userId,
-      slugs: nextItems.map((item) => item.slug),
-    })
-    updateWorkoutItems(nextItems)
-    setReplaceTarget(null)
+  function handleStartWorkout(workoutId: string) {
+    const runId = Date.now().toString(36)
+    setSelectedProgramId(workoutId)
+    navigate(`/exercise-setup?source=builder&programId=${encodeURIComponent(workoutId)}&photo=before&runId=${encodeURIComponent(runId)}`)
   }
 
   return (
     <section className="glass-panel rounded-[34px] p-6">
-      {workoutState ? (
-        <>
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <div className="text-sm uppercase tracking-[0.25em] text-white/35">Сегодняшняя тренировка</div>
-              <div className="mt-2 font-display text-3xl font-bold text-white">{workoutState.title}</div>
-            </div>
-          </div>
-          <div className="mb-4 grid grid-cols-3 gap-3 text-sm text-white/65">
-            <div>{workoutState.exercises} упражнений</div>
-            <div>{workoutState.sets} подходов</div>
-            <div>{workoutState.duration}</div>
-          </div>
-          {workoutState.list.length > 0 ? (
-            <div className="space-y-3">
-              {workoutState.list.map((item, index) => (
-                <div
-                  key={`${item.slug}-${index}`}
-                  onClick={() => setDetailsTarget(item)}
-                  className="cursor-pointer rounded-[22px] border border-white/8 bg-white/[0.045] px-4 py-3 text-sm text-white/80 transition hover:border-white/14 hover:bg-white/[0.06]"
-                >
-                <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_164px] md:items-center">
-                  <div className="flex items-start gap-3">
-                    <span className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/8 text-xs">{index + 1}</span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate font-semibold text-white">{item.name}</div>
-                        </div>
-                        <ChevronRight className="mt-0.5 h-4 w-4 shrink-0 text-white/30" />
-                      </div>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <DashboardWorkoutSnapshotLine snapshot={item.previous} />
-                        <DashboardWorkoutSnapshotLine snapshot={item.planned} emphasize />
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            setReplaceTarget(item)
-                          }}
-                          className="inline-flex min-h-9 items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-white/72 transition hover:border-[#d6b05f]/30 hover:bg-white/8 hover:text-white"
-                        >
-                          <Replace className="h-3.5 w-3.5" />
-                          Заменить
-                        </button>
-                        <button
-                          type="button"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            void handleDeleteExercise(item.slug)
-                          }}
-                          className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#eb5345]/22 bg-[#eb5345]/8 px-3 py-2 text-xs font-semibold text-[#ffb1a8] transition hover:border-[#eb5345]/40 hover:bg-[#eb5345]/14"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                          Удалить
-                        </button>
-                      </div>
+      <div className="mb-5 flex items-start justify-between gap-4">
+        <div>
+          <div className="text-sm uppercase tracking-[0.25em] text-white/35">Тренировки</div>
+          <div className="mt-2 font-display text-3xl font-bold text-white">Выберите тренировку для старта</div>
+        </div>
+      </div>
+      {workouts.length > 0 ? (
+        <div className="grid gap-4 md:grid-cols-2">
+          {workouts.map((workout) => {
+            return (
+              <button
+                key={workout.id}
+                type="button"
+                onClick={() => handleStartWorkout(workout.id)}
+                className="group relative isolate w-full cursor-pointer overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1118] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_18px_46px_rgba(0,0,0,0.22)] transition hover:-translate-y-0.5 hover:border-[#d6b05f]/36 hover:bg-[#10151d] hover:shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_24px_64px_rgba(0,0,0,0.32)]"
+              >
+                <span className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-[#d6b05f]/14 blur-3xl transition group-hover:bg-[#d6b05f]/22" />
+                <span className="pointer-events-none absolute -bottom-24 left-8 h-44 w-44 rounded-full bg-[#6ed36d]/8 blur-3xl" />
+                <div className="relative z-10 flex items-start gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] border border-[#d6b05f]/22 bg-[#d6b05f]/12 text-[#f0d08c] shadow-[0_12px_28px_rgba(214,176,95,0.12)]">
+                      <Dumbbell className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate font-display text-3xl font-bold tracking-[-0.05em] text-white">{workout.title}</div>
                     </div>
                   </div>
-                  <DashboardWorkoutVideoPreview videoUrl={item.previewVideoUrl} title={item.name} />
                 </div>
-              </div>
-              ))}
-            </div>
-          ) : (
-            <div className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.03] px-5 py-6 text-sm text-white/55">
-              В тренировке не осталось упражнений.
-            </div>
-          )}
-          <div className="mt-5 flex gap-3">
-            <Button className="flex-1">Начать</Button>
-            <Button variant="secondary" className="flex-1">Открыть план</Button>
-          </div>
-          <ExercisePickerModal
-            open={Boolean(replaceTarget)}
-            onOpenChange={(open) => {
-              if (!open) {
-                setReplaceTarget(null)
-              }
-            }}
-            userId={userId}
-            mode="replace"
-            currentExerciseSlug={replaceTarget?.slug}
-            currentExerciseName={replaceTarget?.name ?? ''}
-            onSelect={(details) => handleReplaceExercise(buildDashboardWorkoutExercise(details))}
-          />
-          <ExerciseDetailsDialog
-            open={Boolean(detailsTarget)}
-            onOpenChange={(open) => {
-              if (!open) {
-                setDetailsTarget(null)
-              }
-            }}
-            userId={userId}
-            exerciseSlug={detailsTarget?.slug}
-            exerciseName={detailsTarget?.name}
-            preferredVideoGender={userId === 'elena' ? 'female' : 'male'}
-            onOpenFullScreen={detailsTarget ? () => navigate(`/catalog/${encodeURIComponent(detailsTarget.slug)}`) : undefined}
-          />
-        </>
+                <div className="relative z-10 mt-4 grid gap-3">
+                  <div className="inline-flex min-h-12 items-center gap-3 rounded-[20px] border border-white/8 bg-white/[0.055] px-3 text-sm text-white/68">
+                    <Clock3 className="h-4 w-4 text-[#d6b05f]" />
+                    <span>{workout.duration}</span>
+                  </div>
+                </div>
+                <div className="relative z-10 mt-3 rounded-[22px] border border-white/8 bg-black/16 p-2.5">
+                  <div className="mb-2 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/38">
+                    <ListChecks className="h-3.5 w-3.5 text-[#d6b05f]" />
+                    Упражнения
+                  </div>
+                  <div className="grid gap-2">
+                    {workout.exercises.length > 0 ? workout.exercises.map((exercise, index) => (
+                      <div key={`${workout.id}-${exercise}-${index}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[16px] border border-white/7 bg-white/[0.045] px-2.5 py-2 transition group-hover:border-white/10 group-hover:bg-white/[0.06]">
+                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/7 text-[10px] font-semibold text-white/58">{index + 1}</span>
+                        <span className="truncate text-sm font-semibold text-white/78">{exercise}</span>
+                        <Dumbbell className="h-3.5 w-3.5 text-white/28" />
+                      </div>
+                    )) : (
+                      <div className="rounded-[18px] border border-dashed border-white/10 bg-white/[0.035] px-3 py-3 text-sm text-white/45">Нет упражнений</div>
+                    )}
+                  </div>
+                </div>
+                <div className="relative z-10 mt-4 ml-2 inline-flex items-center gap-2 text-sm font-semibold text-[#f0d08c]/78 transition group-hover:text-[#f0d08c]">
+                  Нажмите, чтобы начать тренировку
+                  <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
+                </div>
+              </button>
+            )
+          })}
+        </div>
       ) : (
         <div className="flex h-full min-h-[280px] flex-col justify-between">
           <div>
-            <div className="text-sm uppercase tracking-[0.25em] text-white/35">Сегодняшняя тренировка</div>
-            <div className="mt-2 font-display text-3xl font-bold text-white">Сегодня нет тренировки</div>
-            <div className="mt-6 flex items-center justify-between">
-              <div className="font-display text-2xl font-bold text-white">Рекомендовано сегодня</div>
-              <ArrowRight className="h-5 w-5 text-white/30" />
-            </div>
-            <div className="mt-4 space-y-3">
-              {recommendedExercises.map((item) => (
-                <div key={item.name} className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3 text-sm text-white/82">
-                  <div>
-                    <div className="font-semibold text-white">{item.name}</div>
-                    <div className="text-white/45">{item.muscles}</div>
-                  </div>
-                  <div className={cn('font-medium', recommendationTone[item.status] ?? 'text-white/65')}>{item.status}</div>
-                </div>
-              ))}
-            </div>
+            <div className="text-sm uppercase tracking-[0.25em] text-white/35">Тренировки</div>
+            <div className="mt-2 font-display text-3xl font-bold text-white">Тренировки не найдены</div>
+            <div className="mt-3 text-sm leading-6 text-white/48">Создайте тренировку в конструкторе, чтобы она появилась на главной странице.</div>
           </div>
           <div className="mt-5 flex gap-3">
-            <Button variant="secondary" className="flex-1">Открыть каталог</Button>
+            <Button variant="secondary" className="flex-1" onClick={() => navigate('/builder')}>Открыть конструктор</Button>
           </div>
         </div>
       )}
     </section>
   )
-}
-
-function DashboardWorkoutSnapshotLine({ snapshot, emphasize = false }: { snapshot: DashboardWorkoutSnapshot; emphasize?: boolean }) {
-  return (
-    <div className={cn('min-w-0 rounded-full border px-3 py-2', emphasize ? 'border-[#d6b05f]/20 bg-[#d6b05f]/10' : 'border-white/8 bg-white/5')}>
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span className="text-[10px] uppercase tracking-[0.18em] text-white/38">{snapshot.label}</span>
-        <span className={cn('text-sm font-semibold leading-none', emphasize ? 'text-[#f0d08c]' : 'text-white')}>
-          {snapshot.primary}
-        </span>
-        <span className="text-xs text-white/62">{snapshot.secondary}</span>
-        {snapshot.meta ? <span className="text-xs text-white/38">{snapshot.meta}</span> : null}
-      </div>
-    </div>
-  )
-}
-
-function DashboardWorkoutVideoPreview({ videoUrl, title }: { videoUrl?: string | null; title: string }) {
-  if (!videoUrl) {
-    return <div className="hidden h-[92px] rounded-[18px] border border-white/8 bg-[#0b1017] md:block" />
-  }
-
-  return (
-    <ExerciseVideoPlayer
-      videoUrl={videoUrl}
-      videoLabel={`${title} · превью`}
-      lazyLoad
-      wrapperClassName="hidden h-[92px] aspect-auto rounded-[18px] border border-white/8 bg-[#0b1017] md:block"
-    />
-  )
-}
-
-function buildDashboardWorkoutExercise(details: ExerciseDetails): DashboardWorkoutExercise {
-  const latestHistory = details.history[0]
-  const isStatic = details.force === 'Static'
-  const primaryPlanned = isStatic ? `${details.loadSettings.reps} сек` : details.loadSettings.weight > 0 ? `${formatWeight(details.loadSettings.weight)} кг` : 'вес тела'
-  const secondaryPlanned = isStatic ? 'вес тела' : `${details.loadSettings.reps} повторов`
-
-  return {
-    slug: details.slug,
-    name: details.name,
-    previewVideoUrl: details.previewVideoUrl,
-    previous: latestHistory
-      ? {
-          label: 'Прошлый раз',
-          primary: isStatic ? `${latestHistory.reps} сек` : latestHistory.weight,
-          secondary: isStatic ? 'вес тела' : `${latestHistory.reps} повторов`,
-          meta: `${latestHistory.sets} ${formatSetWord(latestHistory.sets)} • ${latestHistory.date}`,
-        }
-      : {
-          label: 'Прошлый раз',
-          primary: 'Нет истории',
-          secondary: 'Ориентир появится после старта',
-          meta: undefined,
-        },
-    planned: {
-      label: 'План',
-      primary: primaryPlanned,
-      secondary: secondaryPlanned,
-      meta: `${details.loadSettings.sets} ${formatSetWord(details.loadSettings.sets)} • новый выбор`,
-    },
-  }
-}
-
-function sumWorkoutSets(items: DashboardWorkoutExercise[]) {
-  return items.reduce((total, item) => total + extractSetsFromMeta(item.planned.meta), 0)
-}
-
-function extractSetsFromMeta(meta?: string | null) {
-  if (!meta) {
-    return 0
-  }
-
-  const match = meta.match(/^(\d+)/)
-  return match ? Number(match[1]) : 0
-}
-
-function formatSetWord(value: number) {
-  const remainderTen = value % 10
-  const remainderHundred = value % 100
-
-  if (remainderTen === 1 && remainderHundred !== 11) {
-    return 'подход'
-  }
-  if (remainderTen >= 2 && remainderTen <= 4 && (remainderHundred < 12 || remainderHundred > 14)) {
-    return 'подхода'
-  }
-  return 'подходов'
-}
-
-function formatWeight(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '')
 }

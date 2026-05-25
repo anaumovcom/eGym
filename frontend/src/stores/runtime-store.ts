@@ -15,15 +15,18 @@ import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exerc
 import { buildStrengthPlan, getStrengthModeTitle, normalizeStrengthDayType, normalizeStrengthModeId, toRuntimeSetPlan } from '@/features/strength/lib/strength-plan'
 import { buildExerciseSession, buildExerciseSummary, buildPhotoProgressState, buildRestState, buildWorkoutSummary, createRuntimeSession, rebuildSessionSnapshots, simulateSetResult } from '@/mocks/stage3-data'
 
+type RuntimeSessionInitOptions = { source: RuntimeFlowSource; slug?: string; programId?: string; runId?: string; photoMode?: RuntimePhotoMode | null; calibrationState?: RuntimeCalibrationState }
+
 type RuntimeStore = {
   session: RuntimeWorkoutSession | null
   sessionSignature: string | null
-  initializeSession: (options: { source: RuntimeFlowSource; slug?: string; photoMode?: RuntimePhotoMode | null; calibrationState?: RuntimeCalibrationState }) => void
-  ensureSession: (options: { source: RuntimeFlowSource; slug?: string; photoMode?: RuntimePhotoMode | null; calibrationState?: RuntimeCalibrationState }) => void
+  initializeSession: (options: RuntimeSessionInitOptions) => void
+  initializeBackendSession: (session: RuntimeWorkoutSession, options: RuntimeSessionInitOptions) => void
+  ensureSession: (options: RuntimeSessionInitOptions) => void
   setView: (view: RuntimeWorkoutSession['view']) => void
-  completePhotoShot: (view: RuntimePhotoView) => void
+  completePhotoShot: (view: RuntimePhotoView, imageUrl?: string, takenAt?: string) => void
   openPhotoProgress: (mode: RuntimePhotoMode) => void
-  setPhotoTimer: (seconds: 3 | 5 | 10 | 0) => void
+  setPhotoTimer: (seconds: 2 | 3 | 5) => void
   skipPhotoProgress: () => void
   continueAfterPhoto: () => void
   updateCalibrationState: (state: RuntimeCalibrationState) => void
@@ -41,8 +44,8 @@ type RuntimeStore = {
   completeWorkout: (outcome?: 'completed' | 'partial' | 'aborted') => void
 }
 
-function buildSignature(options: { source: RuntimeFlowSource; slug?: string; photoMode?: RuntimePhotoMode | null; calibrationState?: RuntimeCalibrationState }) {
-  return [options.source, options.slug ?? '', options.photoMode ?? '', options.calibrationState ?? ''].join(':')
+function buildSignature(options: RuntimeSessionInitOptions) {
+  return [options.source, options.slug ?? '', options.programId ?? '', options.runId ?? '', options.photoMode ?? '', options.calibrationState ?? ''].join(':')
 }
 
 function getCurrentExercise(session: RuntimeWorkoutSession) {
@@ -54,7 +57,8 @@ function rebuildExercisePlan(exercise: RuntimeWorkoutSession['exercises'][number
     return exercise.plan
   }
 
-  return buildStrengthPlan(exercise.strengthMode.id, exercise.strengthMode.dayType, exercise.loadSettings, exercise.kind).map(toRuntimeSetPlan)
+  const strengthMode = exercise.strengthMode ?? { id: 'basic', dayType: null }
+  return buildStrengthPlan(strengthMode.id, strengthMode.dayType, exercise.loadSettings, exercise.kind).map(toRuntimeSetPlan)
 }
 
 export const useRuntimeStore = create<RuntimeStore>()(
@@ -67,6 +71,9 @@ export const useRuntimeStore = create<RuntimeStore>()(
     const snapshots = rebuildSessionSnapshots(session, 'completed')
     set({ session: { ...session, ...snapshots }, sessionSignature: buildSignature(options) })
   },
+  initializeBackendSession: (session, options) => {
+    set({ session, sessionSignature: buildSignature(options) })
+  },
   ensureSession: (options) => {
     if (!get().session || get().sessionSignature !== buildSignature(options)) {
       get().initializeSession(options)
@@ -74,14 +81,21 @@ export const useRuntimeStore = create<RuntimeStore>()(
   },
   setView: (view) =>
     set((state) => (state.session ? { session: { ...state.session, view } } : state)),
-  completePhotoShot: (view) =>
+  completePhotoShot: (view, imageUrl, takenAt) =>
     set((state) => {
       if (!state.session) {
         return state
       }
 
       const shots = state.session.photoProgress.shots.map((shot) =>
-        shot.view === view ? { ...shot, status: 'ready' as const, imageUrl: `/mock-assets/photo-progress/${view}.jpg`, takenAt: '14 мая 2026' } : shot,
+        shot.view === view
+          ? {
+              ...shot,
+              status: 'ready' as const,
+              imageUrl: imageUrl ?? shot.imageUrl,
+              takenAt: takenAt ?? shot.takenAt ?? new Date().toLocaleString('ru-RU'),
+            }
+          : shot,
       )
       const nextView = shots.find((shot) => shot.status === 'pending')?.view ?? 'back'
       const completed = shots.every((shot) => shot.status === 'ready')
@@ -153,6 +167,10 @@ export const useRuntimeStore = create<RuntimeStore>()(
 
       const currentExercise = getCurrentExercise(state.session)
       const nextCalibration: ExerciseCalibrationStatus = calibrationState === 'saved' ? 'ready' : calibrationState === 'missing' ? 'required' : 'unavailable'
+      if (currentExercise.calibrationState === calibrationState && currentExercise.loadSettings.calibration === nextCalibration) {
+        return state
+      }
+
       const exercises = state.session.exercises.map((exercise) =>
         exercise.id === currentExercise.id
           ? {

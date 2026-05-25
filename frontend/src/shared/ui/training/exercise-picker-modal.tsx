@@ -35,6 +35,7 @@ export function ExercisePickerModal({
   const [search, setSearch] = useState('')
   const [pendingSlug, setPendingSlug] = useState<string | null>(null)
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([])
+  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
   const [initializedFilterSlug, setInitializedFilterSlug] = useState<string | null>(null)
 
   useEffect(() => {
@@ -42,6 +43,7 @@ export function ExercisePickerModal({
       setSearch('')
       setPendingSlug(null)
       setSelectedMuscles([])
+      setSelectedEquipment([])
       setInitializedFilterSlug(null)
     }
   }, [open])
@@ -70,11 +72,14 @@ export function ExercisePickerModal({
     if (selectedMuscles.length > 0) {
       params.set('muscles', selectedMuscles.join(','))
     }
+    if (selectedEquipment.length > 0) {
+      params.set('equipment', selectedEquipment.join(','))
+    }
     return params.toString()
-  }, [search, selectedMuscles, userId])
+  }, [search, selectedEquipment, selectedMuscles, userId])
 
   const { data, isLoading } = useQuery({
-    queryKey: ['exercise-picker-catalog', userId, search, selectedMuscles.join(',')],
+    queryKey: ['exercise-picker-catalog', userId, search, selectedMuscles.join(','), selectedEquipment.join(',')],
     queryFn: () => apiGet<ExerciseCatalogResponse>(`/api/exercises?${queryString}`),
     enabled: open,
   })
@@ -83,6 +88,8 @@ export function ExercisePickerModal({
     const ordered = [...(currentExerciseDetails?.muscles ?? []), ...(data?.availableFilters.muscles ?? [])]
     return ordered.filter((item, index) => ordered.indexOf(item) === index).slice(0, 16)
   }, [currentExerciseDetails?.muscles, data?.availableFilters.muscles])
+
+  const equipmentFilters = useMemo(() => data?.availableFilters.equipment ?? [], [data?.availableFilters.equipment])
 
   const items = useMemo(() => {
     const blocked = new Set(excludeSlugs ?? [])
@@ -96,12 +103,24 @@ export function ExercisePickerModal({
       }
 
       if (selectedMuscles.length === 0) {
+        if (selectedEquipment.length === 0) {
+          return true
+        }
+
+        return selectedEquipment.includes(item.equipment)
+      }
+
+      if (!selectedMuscles.every((muscle) => item.muscles.includes(muscle))) {
+        return false
+      }
+
+      if (selectedEquipment.length === 0) {
         return true
       }
 
-      return selectedMuscles.every((muscle) => item.muscles.includes(muscle))
+      return selectedEquipment.includes(item.equipment)
     })
-  }, [currentExerciseSlug, data?.items, excludeSlugs, mode, selectedMuscles])
+  }, [currentExerciseSlug, data?.items, excludeSlugs, mode, selectedEquipment, selectedMuscles])
 
   async function handleSelect(item: ExerciseSummary) {
     try {
@@ -116,6 +135,10 @@ export function ExercisePickerModal({
 
   function toggleMuscleFilter(value: string) {
     setSelectedMuscles((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]))
+  }
+
+  function toggleEquipmentFilter(value: string) {
+    setSelectedEquipment((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]))
   }
 
   const resolvedTitle = title ?? (mode === 'replace' ? 'Замена упражнения' : 'Добавить упражнение')
@@ -143,32 +166,58 @@ export function ExercisePickerModal({
               <SearchField value={search} placeholder={mode === 'replace' ? 'Найти упражнение для замены...' : 'Найти упражнение для добавления...'} onChange={setSearch} />
               <div className="text-sm text-white/42">Найдено: {items.length}</div>
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              {muscleFilters.map((muscle) => (
-                <button
-                  key={muscle}
-                  type="button"
-                  onClick={() => toggleMuscleFilter(muscle)}
-                  className={cn(
-                    'inline-flex min-h-9 items-center rounded-full border px-3 py-2 text-xs font-semibold transition',
-                    selectedMuscles.includes(muscle)
-                      ? 'border-[#d6b05f]/28 bg-[#d6b05f]/12 text-[#f0d08c]'
-                      : 'border-white/8 bg-white/5 text-white/68 hover:bg-white/8 hover:text-white',
-                  )}
-                >
-                  {muscle}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedMuscles([])
-                  setSearch('')
-                }}
-                className="inline-flex min-h-9 items-center rounded-full border border-white/10 bg-white/4 px-3 py-2 text-xs font-semibold text-white/65 transition hover:bg-white/8 hover:text-white"
-              >
-                Сбросить
-              </button>
+            <div className="mt-4 space-y-3">
+              <div>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/38">Группы мышц</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {muscleFilters.map((muscle) => (
+                    <button
+                      key={muscle}
+                      type="button"
+                      onClick={() => toggleMuscleFilter(muscle)}
+                      className={cn(
+                        'inline-flex min-h-9 items-center rounded-full border px-3 py-2 text-xs font-semibold transition',
+                        selectedMuscles.includes(muscle)
+                          ? 'border-[#d6b05f]/28 bg-[#d6b05f]/12 text-[#f0d08c]'
+                          : 'border-white/8 bg-white/5 text-white/68 hover:bg-white/8 hover:text-white',
+                      )}
+                    >
+                      {muscle}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/38">Инвентарь</div>
+                <div className="flex flex-wrap items-center gap-2">
+                  {equipmentFilters.map((equipment) => (
+                    <button
+                      key={equipment}
+                      type="button"
+                      onClick={() => toggleEquipmentFilter(equipment)}
+                      className={cn(
+                        'inline-flex min-h-9 items-center rounded-full border px-3 py-2 text-xs font-semibold transition',
+                        selectedEquipment.includes(equipment)
+                          ? 'border-[#d6b05f]/28 bg-[#d6b05f]/12 text-[#f0d08c]'
+                          : 'border-white/8 bg-white/5 text-white/68 hover:bg-white/8 hover:text-white',
+                      )}
+                    >
+                      {equipment}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedMuscles([])
+                      setSelectedEquipment([])
+                      setSearch('')
+                    }}
+                    className="inline-flex min-h-9 items-center rounded-full border border-white/10 bg-white/4 px-3 py-2 text-xs font-semibold text-white/65 transition hover:bg-white/8 hover:text-white"
+                  >
+                    Сбросить
+                  </button>
+                </div>
+              </div>
             </div>
             {mode === 'replace' && currentExerciseDetails?.muscles.length ? (
               <div className="mt-3 text-xs text-white/45">
