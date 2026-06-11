@@ -134,12 +134,12 @@ export function EmergencyStopButton({ onClick }: { onClick: () => void }) {
   )
 }
 
-export function FormaShell({ children, machine, onStop }: PropsWithChildren<{ userName: string; machine: MachineHealth; onStop: () => void }>) {
+export function FormaShell({ children, machine, onStop, hideNavigation = false }: PropsWithChildren<{ userName: string; machine: MachineHealth; onStop: () => void; hideNavigation?: boolean }>) {
   const liveMachine = useHardwareStore((state) => state.snapshot?.machine)
 
   return (
     <div className="flex min-h-screen w-full gap-6 px-4 py-4 xl:px-6">
-      <LeftNavigationMenu />
+      {hideNavigation ? null : <LeftNavigationMenu />}
       <main className="flex-1 space-y-6 pb-24 xl:pb-28">
         <TopSystemBar machine={liveMachine ?? machine} onStop={onStop} />
         {children}

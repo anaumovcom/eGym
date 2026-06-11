@@ -10,6 +10,8 @@ from app.schemas.analytics import (
     BodyMeasurementCreateSchema,
     BodyMeasurementListResponseSchema,
     FatigueDataSchema,
+    FatigueResetResultSchema,
+    FatigueResetSchema,
     FatigueHistoryResponseSchema,
     ProgressDataSchema,
     ProgressPhotoAssetSchema,
@@ -41,6 +43,21 @@ def get_fatigue(
     session: Session = Depends(get_session),
 ) -> FatigueDataSchema:
     return progress_service.get_fatigue(session, user_id=user_id, mode=mode)
+
+
+@router.post("/fatigue/reset", response_model=FatigueResetResultSchema)
+def reset_fatigue(
+    payload: FatigueResetSchema,
+    session: Session = Depends(get_session),
+) -> FatigueResetResultSchema:
+    reset_at, reset_count = progress_service.reset_fatigue(session, user_id=payload.user_id)
+    session.commit()
+    return FatigueResetResultSchema(
+        status="ok",
+        user_id=payload.user_id,
+        reset_at=reset_at,
+        reset_count=reset_count,
+    )
 
 
 @router.get("/fatigue/history", response_model=FatigueHistoryResponseSchema)

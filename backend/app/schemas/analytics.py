@@ -149,6 +149,17 @@ class FatigueDataSchema(SchemaModel):
     recovery_note: str
 
 
+class FatigueResetSchema(SchemaModel):
+    user_id: str
+
+
+class FatigueResetResultSchema(SchemaModel):
+    status: str
+    user_id: str
+    reset_at: str
+    reset_count: int
+
+
 class FatigueHistoryPointSchema(SchemaModel):
     label: str
     score: int

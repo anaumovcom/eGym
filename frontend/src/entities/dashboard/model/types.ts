@@ -12,8 +12,20 @@ export type DashboardWorkout = {
 export type DashboardBuilderWorkout = {
   id: string
   title: string
-  exercises: string[]
+  exercises: Array<{
+    slug: string
+    name: string
+    status?: 'idle' | 'in_progress' | 'completed'
+    completedSets?: number
+    targetSets?: number
+    progressPercent?: number
+  }>
   duration: string
+  todayStatus?: 'idle' | 'in_progress' | 'completed' | 'partial' | 'aborted'
+  todayProgressPercent?: number
+  todayCompletedExercises?: number
+  todayTotalExercises?: number
+  resumeAvailable?: boolean
 }
 
 export type DashboardWorkoutSnapshot = {

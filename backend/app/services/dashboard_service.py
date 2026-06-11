@@ -4,16 +4,18 @@ from typing import Literal, TypedDict
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.analytics import WorkoutSession
-from app.models.enums import NotificationTone, WorkoutSessionStatus
+from app.models.analytics import ExerciseSession, WorkoutSession
+from app.models.enums import ExerciseSessionStatus, NotificationTone, RuntimeFlowSource, WorkoutSessionStatus
 from app.models.profile import BodyMeasurement
 from app.models.settings import AppSetting
 from app.models.training import ExerciseHistoryRecord, UserExerciseState
 from app.repositories.user_repository import UserRepository
 from app.schemas.dashboard import (
     DashboardAlertSchema,
+    DashboardBuilderWorkoutExerciseSchema,
     DashboardBuilderWorkoutSchema,
     DashboardDataSchema,
+    DashboardDayProgressResetResultSchema,
     DashboardProgressMetricSchema,
     DashboardQuickStartItemSchema,
     DashboardRecommendationSchema,
@@ -54,6 +56,8 @@ TODAY_WORKOUT_PLAN: tuple[DashboardWorkoutPlan, ...] = (
 )
 
 TODAY_PLAN_SETTING_KEY = "training.today.plan"
+BUILDER_PROGRESS_RESET_SETTING_KEY = "training.builder.progress.reset_at"
+TRAINING_DAY_RESET_HOUR = 3
 
 
 class DashboardService:
@@ -98,6 +102,25 @@ class DashboardService:
             muscles=self._muscle_cards(session, user_id),
         )
         return self._apply_scenario(base_dashboard, scenario_name)
+
+    def reset_day_progress(self, session: Session, user_id: str) -> DashboardDayProgressResetResultSchema:
+        user = self.user_repository.get_user(session, user_id)
+        if user is None:
+            raise LookupError(f"Unknown user: {user_id}")
+
+        reset_at = datetime.now(UTC)
+        statement = select(AppSetting).where(AppSetting.user_id == user_id, AppSetting.key == BUILDER_PROGRESS_RESET_SETTING_KEY)
+        setting = session.scalars(statement).first()
+        value = {"resetAt": reset_at.isoformat()}
+
+        if setting is None:
+            setting = AppSetting(user_id=user_id, key=BUILDER_PROGRESS_RESET_SETTING_KEY, value=value)
+            session.add(setting)
+        else:
+            setting.value = value
+
+        session.commit()
+        return DashboardDayProgressResetResultSchema(status="ok", user_id=user_id, effective_from=reset_at)
 
     def _progress_metrics(self, session: Session, user_id: str) -> list[DashboardProgressMetricSchema]:
         now = datetime.now(UTC)
@@ -189,21 +212,139 @@ class DashboardService:
         )
 
     def _builder_workouts(self, session: Session, user_id: str) -> list[DashboardBuilderWorkoutSchema]:
+        programs = list(self.training_service._programs(session, user_id))
+        progress_by_title = self._builder_progress_by_title(session, user_id, programs)
         workouts: list[DashboardBuilderWorkoutSchema] = []
-        for program in self.training_service._programs(session, user_id):
+        for program in programs:
             builder_value = self.training_service._builder_setting_value(session, user_id, program.id)
             groups = self.training_service._builder_groups(session, user_id, program)
             duration_minutes = self.training_service._builder_estimated_duration_minutes(groups, program.duration_minutes)
-            exercise_names = [item.name for group in groups for item in group.items]
+            workout_title = self.training_service._builder_workout_name(builder_value, program)
+            progress = progress_by_title.get(workout_title)
+            exercise_rows = self._builder_workout_exercises(groups, progress)
             workouts.append(
                 DashboardBuilderWorkoutSchema(
                     id=program.id,
-                    title=self.training_service._builder_workout_name(builder_value, program),
-                    exercises=exercise_names,
+                    title=workout_title,
+                    exercises=exercise_rows,
                     duration=f"≈ {duration_minutes} минут" if duration_minutes > 0 else f"{program.duration_minutes} минут",
+                    today_status=progress["status"] if progress else "idle",
+                    today_progress_percent=progress["progress_percent"] if progress else 0,
+                    today_completed_exercises=progress["completed_exercises"] if progress else 0,
+                    today_total_exercises=len(exercise_rows),
+                    resume_available=bool(progress and progress["status"] == WorkoutSessionStatus.in_progress.value),
                 )
             )
         return workouts
+
+    def _builder_progress_by_title(self, session: Session, user_id: str, programs: list[object]) -> dict[str, dict[str, object]]:
+        if not programs:
+            return {}
+
+        titles = []
+        totals_by_title: dict[str, int] = {}
+        for program in programs:
+            builder_value = self.training_service._builder_setting_value(session, user_id, program.id)
+            title = self.training_service._builder_workout_name(builder_value, program)
+            groups = self.training_service._builder_groups(session, user_id, program)
+            titles.append(title)
+            totals_by_title[title] = sum(len(group.items) for group in groups)
+
+        effective_start = self._effective_builder_progress_start(session, user_id)
+        statement = (
+            select(WorkoutSession)
+            .where(
+                WorkoutSession.user_id == user_id,
+                WorkoutSession.source == RuntimeFlowSource.builder,
+                WorkoutSession.title.in_(titles),
+                WorkoutSession.started_at >= effective_start,
+            )
+            .order_by(WorkoutSession.started_at.desc(), WorkoutSession.id.desc())
+        )
+        sessions_by_title: dict[str, list[WorkoutSession]] = {}
+        for workout_session in session.scalars(statement):
+            sessions_by_title.setdefault(workout_session.title, []).append(workout_session)
+
+        progress_by_title: dict[str, dict[str, object]] = {}
+        for title, workout_sessions in sessions_by_title.items():
+            active_session = next((item for item in workout_sessions if item.status == WorkoutSessionStatus.in_progress), workout_sessions[0])
+            total_exercises = max(totals_by_title.get(title, 0), len(active_session.exercise_sessions), 1)
+            completed_exercises = sum(1 for exercise in active_session.exercise_sessions if exercise.status != ExerciseSessionStatus.in_progress)
+            started_exercises = sum(1 for exercise in active_session.exercise_sessions if exercise.status == ExerciseSessionStatus.in_progress)
+            progress_units = completed_exercises + (0.5 if started_exercises else 0.0)
+            progress_percent = min(100, int(round((progress_units / total_exercises) * 100)))
+            if active_session.status in {WorkoutSessionStatus.completed, WorkoutSessionStatus.partial, WorkoutSessionStatus.aborted}:
+                progress_percent = max(progress_percent, int(round((completed_exercises / total_exercises) * 100)))
+            progress_by_title[title] = {
+                "status": active_session.status.value,
+                "progress_percent": progress_percent,
+                "completed_exercises": completed_exercises,
+                "exercise_sessions": sorted(active_session.exercise_sessions, key=lambda item: item.order_index),
+            }
+
+        return progress_by_title
+
+    def _builder_workout_exercises(self, groups: list[object], progress: dict[str, object] | None) -> list[DashboardBuilderWorkoutExerciseSchema]:
+        exercise_sessions = progress.get("exercise_sessions") if isinstance(progress, dict) else []
+        exercise_sessions_by_order = {
+            item.order_index: item
+            for item in exercise_sessions
+            if isinstance(item, ExerciseSession)
+        }
+
+        rows: list[DashboardBuilderWorkoutExerciseSchema] = []
+        flattened_items = [item for group in groups for item in group.items]
+        for index, item in enumerate(flattened_items, start=1):
+            target_sets = len(item.strength_plan) or self.training_service._parse_sets(item.sets)
+            exercise_session = exercise_sessions_by_order.get(index)
+            completed_sets = len(exercise_session.set_results) if exercise_session is not None else 0
+
+            if exercise_session is None:
+                status = "idle"
+            elif exercise_session.status == ExerciseSessionStatus.completed:
+                status = "completed"
+            elif completed_sets > 0:
+                status = "in_progress"
+            else:
+                status = "idle"
+
+            rows.append(
+                DashboardBuilderWorkoutExerciseSchema(
+                    slug=item.slug,
+                    name=item.name,
+                    status=status,
+                    completed_sets=completed_sets,
+                    target_sets=target_sets,
+                    progress_percent=min(100, int(round((completed_sets / max(target_sets, 1)) * 100))),
+                )
+            )
+
+        return rows
+
+    def _effective_builder_progress_start(self, session: Session, user_id: str, now: datetime | None = None) -> datetime:
+        day_start = self._training_day_start(now)
+        statement = select(AppSetting).where(AppSetting.user_id == user_id, AppSetting.key == BUILDER_PROGRESS_RESET_SETTING_KEY)
+        setting = session.scalars(statement).first()
+        if setting is None or not isinstance(setting.value, dict):
+            return day_start
+
+        reset_at_raw = setting.value.get("resetAt")
+        if not isinstance(reset_at_raw, str):
+            return day_start
+
+        try:
+            reset_at = self._as_utc(datetime.fromisoformat(reset_at_raw))
+        except ValueError:
+            return day_start
+
+        return reset_at if reset_at >= day_start else day_start
+
+    def _training_day_start(self, now: datetime | None = None) -> datetime:
+        effective_now = (now or datetime.now().astimezone()).astimezone()
+        day_start = effective_now.replace(hour=TRAINING_DAY_RESET_HOUR, minute=0, second=0, microsecond=0)
+        if effective_now < day_start:
+            day_start -= timedelta(days=1)
+        return day_start.astimezone(UTC)
 
     def _preview_video_url(self, exercise: ImportedExercise | None, user_id: str) -> str | None:
         if exercise is None or not exercise.videos:

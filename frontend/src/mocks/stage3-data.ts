@@ -65,25 +65,25 @@ function detectKind(slug: string, fallback?: RuntimeExerciseKind): RuntimeExerci
 function buildPlan(kind: RuntimeExerciseKind, detailsSlug: string, settings: { weight: number; reps: number; restSeconds: number }, strengthModeId = 'basic', strengthDayType?: string | null): RuntimeSetPlan[] {
   if (kind === 'timed' || detailsSlug === 'forearm-plank') {
     return [
-      { targetSeconds: 45, weightLabel: 'собственный вес', restSeconds: 60 },
-      { targetSeconds: 45, weightLabel: 'собственный вес', restSeconds: 60 },
-      { targetSeconds: 45, weightLabel: 'собственный вес', restSeconds: 60 },
+      { targetSeconds: 45, weightLabel: 'собственный вес', restSeconds: settings.restSeconds },
+      { targetSeconds: 45, weightLabel: 'собственный вес', restSeconds: settings.restSeconds },
+      { targetSeconds: 45, weightLabel: 'собственный вес', restSeconds: settings.restSeconds },
     ]
   }
 
   if (kind === 'bodyweight') {
     return [
-      { targetReps: 12, weightLabel: 'собственный вес', restSeconds: 60 },
-      { targetReps: 12, weightLabel: 'собственный вес', restSeconds: 60 },
-      { targetReps: 12, weightLabel: 'собственный вес', restSeconds: 60 },
+      { targetReps: 12, weightLabel: 'собственный вес', restSeconds: settings.restSeconds },
+      { targetReps: 12, weightLabel: 'собственный вес', restSeconds: settings.restSeconds },
+      { targetReps: 12, weightLabel: 'собственный вес', restSeconds: settings.restSeconds },
     ]
   }
 
   if (kind === 'group') {
-    return [{ setType: 'work', targetReps: 10, targetMinReps: 10, targetMaxReps: 10, weightLabel: '45 кг', recommendedWeightKg: 45, restSeconds: 30, rirLabel: '2–3 в запасе', note: 'Короткий шаг группы.' }]
+    return [{ setType: 'work', targetReps: 10, targetMinReps: 10, targetMaxReps: 10, weightLabel: '45 кг', recommendedWeightKg: 45, restSeconds: settings.restSeconds, rirLabel: '2–3 в запасе', note: 'Короткий шаг группы.' }]
   }
 
-  return buildStrengthPlan(strengthModeId, strengthDayType, settings, kind).map(toRuntimeSetPlan)
+  return buildStrengthPlan(strengthModeId, strengthDayType, settings, kind).map((plan) => toRuntimeSetPlan(plan, settings.reps))
 }
 
 export function buildRuntimeExercisePlan(slug: string, order: number, override: ExerciseOverride = {}): RuntimeExercisePlan {
@@ -189,7 +189,7 @@ function buildWorkoutExercises(source: RuntimeFlowSource, slug?: string, calibra
         secondaryName: 'Alternating Group',
         muscles: ['Спина', 'Ноги'],
         calibrationState: 'not-needed',
-        plan: [{ targetReps: 10, weightLabel: '45 кг', restSeconds: 30 }],
+        plan: [{ targetReps: 10, weightLabel: '45 кг', restSeconds: 120 }],
         groupMeta: {
           groupName: 'Подтягивания + Присед',
           currentRound: 1,
@@ -213,7 +213,7 @@ function buildWorkoutExercises(source: RuntimeFlowSource, slug?: string, calibra
       secondaryName: 'Alternating Group',
       muscles: ['Спина', 'Ноги'],
       calibrationState: 'not-needed',
-      plan: [{ targetReps: 10, weightLabel: '45 кг', restSeconds: 30 }],
+      plan: [{ targetReps: 10, weightLabel: '45 кг', restSeconds: 120 }],
       groupMeta: {
         groupName: 'Подтягивания + Присед',
         currentRound: 1,
@@ -244,6 +244,7 @@ export function createRuntimeSession(options: {
     programId: options.programId,
     runId: options.runId,
     dataSource: 'mock',
+    startedAt: new Date().toISOString(),
     view: photoMode ? 'photo-progress' : 'exercise-setup',
     machine: machineScenarios.ready,
     workoutTitle: options.source === 'quick-start' || options.source === 'catalog' ? firstExercise.name : 'Спина + бицепс',
@@ -266,7 +267,9 @@ export function buildExerciseSession(session: RuntimeWorkoutSession): RuntimeExe
   const exercise = getCurrentExercise(session)
   const setPlan = exercise.plan[session.currentSetIndex] ?? exercise.plan[exercise.plan.length - 1]
   const targetValue = setPlan.targetMaxReps ?? setPlan.targetReps ?? setPlan.targetSeconds ?? 0
-  const targetLabel = setPlan.targetMinReps && setPlan.targetMaxReps && setPlan.targetMinReps !== setPlan.targetMaxReps
+  const targetLabel = setPlan.setType === 'failure'
+    ? `цель ${targetValue}+ повторов`
+    : setPlan.targetMinReps && setPlan.targetMaxReps && setPlan.targetMinReps !== setPlan.targetMaxReps
     ? `цель ${setPlan.targetMinReps}–${setPlan.targetMaxReps} повторов`
     : exercise.kind === 'timed'
       ? `цель ${setPlan.targetSeconds} сек`
@@ -469,9 +472,54 @@ function formatRuntimeTargetLabel(plan: RuntimeSetPlan | undefined, fallback: nu
   return `${plan?.targetReps ?? plan?.targetMaxReps ?? fallback} повторов`
 }
 
+function formatLoadLabel(weightKg?: number | null, reps?: number | null, sets?: number | null) {
+  if (typeof weightKg === 'number' && weightKg > 0) {
+    const parts = [`${weightKg} кг`]
+    if (typeof reps === 'number' && reps > 0) {
+      parts.push(`${reps} повт.`)
+    }
+    if (typeof sets === 'number' && sets > 0) {
+      parts.push(`${sets} подх.`)
+    }
+    return parts.join(' × ')
+  }
+
+  if (typeof reps === 'number' && reps > 0) {
+    const parts = [`${reps} повт.`]
+    if (typeof sets === 'number' && sets > 0) {
+      parts.push(`${sets} подх.`)
+    }
+    return parts.join(' × ')
+  }
+
+  return null
+}
+
+function getSummaryLoadSnapshot(exercise: RuntimeWorkoutSession['exercises'][number]) {
+  const workPlan = exercise.plan.filter((item) => item.setType !== 'warmup')
+  const relevantPlan = (workPlan.length > 0 ? workPlan : exercise.plan)[0]
+  const reps = relevantPlan?.targetMaxReps ?? relevantPlan?.targetReps ?? null
+  const sets = workPlan.length > 0 ? workPlan.length : exercise.plan.length
+  const weightKg = exercise.kind === 'machine'
+    ? (relevantPlan?.recommendedWeightKg ?? exercise.loadSettings.weight)
+    : null
+  const restSeconds = relevantPlan?.restSeconds ?? null
+
+  return {
+    loadLabel: formatLoadLabel(weightKg, reps, sets),
+    weightKg,
+    reps,
+    sets,
+    restSeconds,
+    trainingMode: exercise.strengthMode.id,
+    trainingDayType: exercise.strengthMode.dayType ?? null,
+  }
+}
+
 export function buildExerciseSummary(session: RuntimeWorkoutSession, outcome: RuntimeExerciseOutcome): RuntimeExerciseSummaryState {
   const exercise = getCurrentExercise(session)
   const results = session.completedSets[exercise.id] ?? []
+  const loadSnapshot = getSummaryLoadSnapshot(exercise)
   const totalValue = results.reduce((sum, item) => sum + item.actualValue, 0)
   const totalVolumeValue = results.reduce((sum, item) => sum + (item.volumeKg ?? ((item.weightKg ?? 0) * (item.reps ?? item.actualValue ?? 0))), 0)
   const totalVolume = exercise.kind === 'machine' ? `${Math.round(totalVolumeValue)} кг` : exercise.kind === 'timed' ? `${totalValue} сек` : `${totalValue} повторов`
@@ -483,8 +531,30 @@ export function buildExerciseSummary(session: RuntimeWorkoutSession, outcome: Ru
   return {
     outcome,
     exerciseId: exercise.id,
-    title: outcome === 'aborted' ? 'Упражнение завершено досрочно' : exercise.kind === 'group' ? 'Группа завершена' : 'Упражнение завершено',
-    subtitle: `${exercise.name} · ${results.length} подхода выполнено`,
+    exerciseSlug: exercise.slug,
+    title: outcome === 'skipped'
+      ? 'Упражнение пропущено'
+      : outcome === 'partial'
+        ? 'Упражнение сохранено частично'
+        : outcome === 'aborted'
+          ? 'Упражнение завершено досрочно'
+          : exercise.kind === 'group'
+            ? 'Группа завершена'
+            : 'Упражнение завершено',
+    subtitle: outcome === 'skipped' ? `${exercise.name} · пропуск сохранён` : `${exercise.name} · ${results.length} подхода выполнено`,
+    kind: exercise.kind,
+    currentLoad: loadSnapshot.loadLabel,
+    currentWeightKg: loadSnapshot.weightKg,
+    currentReps: loadSnapshot.reps,
+    currentSets: loadSnapshot.sets,
+    nextLoad: loadSnapshot.loadLabel,
+    nextWeightKg: loadSnapshot.weightKg,
+    nextReps: loadSnapshot.reps,
+    nextSets: loadSnapshot.sets,
+    restSeconds: loadSnapshot.restSeconds,
+    nextRestSeconds: loadSnapshot.restSeconds,
+    trainingMode: loadSnapshot.trainingMode,
+    trainingDayType: loadSnapshot.trainingDayType,
     setResults: results,
     totals: {
       setsCompleted: `${results.length} из ${exercise.plan.length}`,
@@ -499,7 +569,9 @@ export function buildExerciseSummary(session: RuntimeWorkoutSession, outcome: Ru
       { label: exercise.kind === 'timed' ? 'Секунды' : 'Повторы', plan: `${plannedTotal}`, fact: `${totalValue}`, delta: `${totalValue - plannedTotal}` },
       { label: 'Вес', plan: exercise.kind === 'machine' ? `${exercise.loadSettings.weight} кг` : '—', fact: exercise.kind === 'machine' ? `${exercise.loadSettings.weight} кг` : '—', delta: '—' },
     ],
-    recommendation: buildLocalStrengthRecommendation(exercise.strengthMode.id, exercise.strengthMode.dayType, results),
+    recommendation: outcome === 'skipped'
+      ? 'Пропуск сохранён. Можно перейти к следующему упражнению без изменения нагрузки.'
+      : buildLocalStrengthRecommendation(exercise.strengthMode.id, exercise.strengthMode.dayType, results),
     nextStepLabel: session.exercises[exercise.order] ? 'Перейти к следующему упражнению' : 'Открыть итог тренировки',
   }
 }
@@ -559,19 +631,129 @@ function buildLocalStrengthRecommendation(modeId: string, dayType: string | null
   return `Ты выполнил ${resultLine}. Вес подобран нормально: сохрани его и добирай повторы в заданном диапазоне.`
 }
 
+function getRuntimeSetFatigueFactor(setType?: RuntimeSetResult['setType']) {
+  if (setType === 'warmup') {
+    return 0.6
+  }
+
+  if (setType === 'failure') {
+    return 1.2
+  }
+
+  return 1
+}
+
+function getRuntimeFatigueStatus(score: number): MuscleCard['status'] {
+  if (score >= 100) {
+    return 'critical'
+  }
+
+  if (score >= 60) {
+    return 'high'
+  }
+
+  if (score >= 30) {
+    return 'medium'
+  }
+
+  if (score >= 10) {
+    return 'light'
+  }
+
+  return 'ready'
+}
+
 function effectsForWorkout(exercises: RuntimeExercisePlan[], completedSets: Record<string, RuntimeSetResult[]>): MuscleCard[] {
-  const machineLoad = Object.values(completedSets).flat().length
-  return exercises.map((exercise) => {
-    const score = exercise.kind === 'machine' ? 60 + machineLoad * 4 : exercise.kind === 'timed' ? 28 : 38
+  const totals = new Map<string, number>()
+
+  for (const exercise of exercises) {
+    const results = completedSets[exercise.id] ?? []
+    if (results.length === 0) {
+      continue
+    }
+
+    const muscles = exercise.muscles.filter(Boolean)
+    if (muscles.length === 0) {
+      continue
+    }
+
+    const setLoad = results.reduce((total, result) => total + getRuntimeSetFatigueFactor(result.setType), 0)
+    muscles.forEach((muscle, index) => {
+      const roleFactor = index === 0 ? 1 : index === 1 ? 0.6 : index === 2 ? 0.35 : 0.2
+      const score = setLoad * roleFactor * 12
+      totals.set(muscle, (totals.get(muscle) ?? 0) + score)
+    })
+  }
+
+  return Array.from(totals.entries())
+    .map(([name, score]) => ({
+      name,
+      score: Math.min(100, Math.round(score)),
+      status: getRuntimeFatigueStatus(score),
+    }))
+    .sort((left, right) => right.score - left.score)
+}
+
+function formatWorkoutExerciseResult(exercise: RuntimeWorkoutSession['exercises'][number], results: RuntimeSetResult[]) {
+  if (results.length === 0) {
+    return 'перенесено'
+  }
+
+  const totalValue = results.reduce((sum, item) => sum + (item.reps ?? item.actualValue), 0)
+  if (exercise.kind === 'timed') {
+    return `${results.length} подхода • ${totalValue} сек`
+  }
+
+  const totalVolume = results.reduce((sum, item) => sum + (item.volumeKg ?? ((item.weightKg ?? 0) * (item.reps ?? item.actualValue ?? 0))), 0)
+  const valueLabel = `${totalValue} ${totalValue % 10 === 1 && totalValue % 100 !== 11 ? 'повтор' : totalValue % 10 >= 2 && totalValue % 10 <= 4 && (totalValue % 100 < 12 || totalValue % 100 > 14) ? 'повтора' : 'повторов'}`
+
+  return exercise.kind === 'machine'
+    ? `${results.length} подхода • ${valueLabel} • ${Math.round(totalVolume)} кг`
+    : `${results.length} подхода • ${valueLabel}`
+}
+
+function buildWorkoutSummaryExercises(session: RuntimeWorkoutSession): RuntimeWorkoutSummaryState['exercises'] {
+  return session.exercises.map((exercise) => {
+    const results = session.completedSets[exercise.id] ?? []
+    const loadSnapshot = getSummaryLoadSnapshot(exercise)
+    const outcome = session.exerciseOutcomes?.[exercise.id]
+    const plannedSetCount = exercise.plan.length
+    const completedSetCount = results.length
+    const remainingSetCount = Math.max(0, plannedSetCount - completedSetCount)
+    const status = completedSetCount === 0
+      ? (outcome === 'skipped' ? 'skipped' : 'moved')
+      : remainingSetCount > 0 || (outcome && outcome !== 'completed')
+        ? 'partial'
+        : 'done'
+
     return {
-      name: exercise.muscles[0] ?? exercise.name,
-      status: (score > 80 ? 'high' : score > 60 ? 'medium' : score > 40 ? 'light' : 'ready') as MuscleCard['status'],
-      score: Math.min(100, score),
+      exerciseSessionId: session.backendExerciseSessionIds?.[exercise.id] ?? null,
+      exerciseSlug: exercise.slug,
+      exerciseId: exercise.id,
+      name: exercise.name,
+      result: completedSetCount === 0 ? (status === 'skipped' ? 'пропущено' : 'перенесено') : formatWorkoutExerciseResult(exercise, results),
+      status,
+      completedSetCount,
+      plannedSetCount,
+      remainingSetCount,
+      kind: exercise.kind,
+      currentLoad: loadSnapshot.loadLabel,
+      currentWeightKg: loadSnapshot.weightKg,
+      currentReps: loadSnapshot.reps,
+      currentSets: loadSnapshot.sets,
+      nextLoad: loadSnapshot.loadLabel,
+      nextWeightKg: loadSnapshot.weightKg,
+      nextReps: loadSnapshot.reps,
+      nextSets: loadSnapshot.sets,
+      restSeconds: loadSnapshot.restSeconds,
+      nextRestSeconds: loadSnapshot.restSeconds,
+      trainingMode: loadSnapshot.trainingMode,
+      trainingDayType: loadSnapshot.trainingDayType,
     }
   })
 }
 
-export function buildWorkoutSummary(muscleLoad: ReturnType<typeof effectsForWorkout>, outcome: RuntimeWorkoutOutcome): RuntimeWorkoutSummaryState {
+export function buildWorkoutSummary(muscleLoad: ReturnType<typeof effectsForWorkout>, outcome: RuntimeWorkoutOutcome, session?: RuntimeWorkoutSession): RuntimeWorkoutSummaryState {
   return {
     outcome,
     title: outcome === 'aborted' ? 'Тренировка завершена частично' : 'Тренировка завершена',
@@ -592,22 +774,23 @@ export function buildWorkoutSummary(muscleLoad: ReturnType<typeof effectsForWork
             { label: 'повторов', value: '164', hint: 'суммарно' },
             { label: 'объём', value: '6 420 кг', hint: 'общий объём' },
           ],
-    exercises:
+    exercises: session ? buildWorkoutSummaryExercises(session) : (
       outcome === 'aborted'
         ? [
-            { name: 'Тяга верхнего блока', result: '4 подхода • 48 повторов • 1 920 кг', status: 'done' },
-            { name: 'Тяга горизонтального блока', result: '4 подхода • 32 повтора • 1 280 кг', status: 'done' },
-            { name: 'Сгибание рук с гантелями', result: '4 подхода • 16 повторов • 640 кг', status: 'done' },
+            { name: 'Тяга верхнего блока', result: '4 подхода • 48 повторов • 1 920 кг', status: 'done', currentLoad: '40 кг × 12 повт. × 4 подх.', nextLoad: '40 кг × 12 повт. × 4 подх.', currentWeightKg: 40, nextWeightKg: 40, currentReps: 12, nextReps: 12, currentSets: 4, nextSets: 4, restSeconds: 75, nextRestSeconds: 75, trainingMode: 'double_progression', trainingDayType: 'heavy' },
+            { name: 'Тяга горизонтального блока', result: '4 подхода • 32 повтора • 1 280 кг', status: 'done', currentLoad: '40 кг × 8 повт. × 4 подх.', nextLoad: '40 кг × 8 повт. × 4 подх.', currentWeightKg: 40, nextWeightKg: 40, currentReps: 8, nextReps: 8, currentSets: 4, nextSets: 4, restSeconds: 90, nextRestSeconds: 90, trainingMode: 'strength', trainingDayType: 'heavy' },
+            { name: 'Сгибание рук с гантелями', result: '4 подхода • 16 повторов • 640 кг', status: 'done', currentLoad: '20 кг × 4 повт. × 4 подх.', nextLoad: '20 кг × 4 повт. × 4 подх.', currentWeightKg: 20, nextWeightKg: 20, currentReps: 4, nextReps: 4, currentSets: 4, nextSets: 4, restSeconds: 90, nextRestSeconds: 90, trainingMode: 'strength', trainingDayType: 'heavy' },
             { name: 'Тяга штанги в наклоне', result: 'перенесено', status: 'moved' },
             { name: 'Молотковые сгибания', result: 'перенесено', status: 'moved' },
           ]
         : [
-            { name: 'Тяга сверху', result: '4 подхода • 40 повторов • 1 600 кг', status: 'done' },
-            { name: 'Тяга к поясу', result: '4 подхода • 36 повторов • 1 440 кг', status: 'done' },
-            { name: 'Сгибание рук', result: '4 подхода • 32 повтора • 960 кг', status: 'done' },
-            { name: 'Тяга прямыми руками', result: '3 подхода • 30 повторов • 720 кг', status: 'done' },
-            { name: 'Планка', result: '3 подхода • 170 сек', status: 'done' },
-          ],
+            { name: 'Тяга сверху', result: '4 подхода • 40 повторов • 1 600 кг', status: 'done', currentLoad: '40 кг × 10 повт. × 4 подх.', nextLoad: '40 кг × 10 повт. × 4 подх.', currentWeightKg: 40, nextWeightKg: 40, currentReps: 10, nextReps: 10, currentSets: 4, nextSets: 4, restSeconds: 75, nextRestSeconds: 75, trainingMode: 'double_progression', trainingDayType: 'heavy' },
+            { name: 'Тяга к поясу', result: '4 подхода • 36 повторов • 1 440 кг', status: 'done', currentLoad: '40 кг × 9 повт. × 4 подх.', nextLoad: '40 кг × 9 повт. × 4 подх.', currentWeightKg: 40, nextWeightKg: 40, currentReps: 9, nextReps: 9, currentSets: 4, nextSets: 4, restSeconds: 90, nextRestSeconds: 90, trainingMode: 'strength', trainingDayType: 'heavy' },
+            { name: 'Сгибание рук', result: '4 подхода • 32 повтора • 960 кг', status: 'done', currentLoad: '30 кг × 8 повт. × 4 подх.', nextLoad: '30 кг × 8 повт. × 4 подх.', currentWeightKg: 30, nextWeightKg: 30, currentReps: 8, nextReps: 8, currentSets: 4, nextSets: 4, restSeconds: 75, nextRestSeconds: 75, trainingMode: 'double_progression', trainingDayType: 'medium' },
+            { name: 'Тяга прямыми руками', result: '3 подхода • 30 повторов • 720 кг', status: 'done', currentLoad: '24 кг × 10 повт. × 3 подх.', nextLoad: '24 кг × 10 повт. × 3 подх.', currentWeightKg: 24, nextWeightKg: 24, currentReps: 10, nextReps: 10, currentSets: 3, nextSets: 3, restSeconds: 60, nextRestSeconds: 60, trainingMode: 'basic', trainingDayType: null },
+            { name: 'Планка', result: '3 подхода • 170 сек', status: 'done', currentLoad: '57 повт. × 3 подх.', nextLoad: '57 повт. × 3 подх.', currentReps: 57, nextReps: 57, currentSets: 3, nextSets: 3, restSeconds: 45, nextRestSeconds: 45, trainingMode: 'technique_light', trainingDayType: 'light' },
+          ]
+    ),
     muscleLoad,
     recommendation:
       outcome === 'aborted'
@@ -623,6 +806,6 @@ export function rebuildSessionSnapshots(session: RuntimeWorkoutSession, outcome:
   const muscleLoad = effectsForWorkout(session.exercises, session.completedSets)
   return {
     sessionState: buildExerciseSession(session),
-    workoutSummary: buildWorkoutSummary(muscleLoad, outcome),
+    workoutSummary: buildWorkoutSummary(muscleLoad, outcome, session),
   }
 }

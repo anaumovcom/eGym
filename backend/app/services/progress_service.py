@@ -175,6 +175,11 @@ class ProgressService:
             recovery_note="Восстановление рассчитывается по persisted timestamp и фактической разнице времени, без таймеров в памяти.",
         )
 
+    def reset_fatigue(self, session: Session, *, user_id: str) -> tuple[str, int]:
+        reset_at = self._as_utc(datetime.now(UTC)).isoformat()
+        reset_count = self.fatigue_service.reset_user_fatigue(session, user_id=user_id)
+        return reset_at, reset_count
+
     def get_fatigue_history(self, session: Session, *, user_id: str, muscle_id: str) -> FatigueHistoryResponseSchema:
         events = self.fatigue_service.muscle_history(session, user_id, muscle_id)
         points = []

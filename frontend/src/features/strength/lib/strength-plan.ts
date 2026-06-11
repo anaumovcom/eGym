@@ -166,14 +166,15 @@ export function buildStrengthPlan(modeId: string | undefined, dayType: string | 
   ]
 }
 
-export function toRuntimeSetPlan(plan: StrengthSetPlan): RuntimeSetPlan {
+export function toRuntimeSetPlan(plan: StrengthSetPlan, fallbackTargetReps = 1): RuntimeSetPlan {
   const target = parseTargetRange(plan.targetRepsLabel)
   const weight = Number(plan.recommendedWeightLabel.replace(',', '.').match(/\d+(?:\.\d+)?/)?.[0] ?? '0')
+  const resolvedTargetMax = target.max ?? (plan.setType === 'failure' ? Math.max(1, fallbackTargetReps) : undefined)
   return {
     setType: plan.setType,
-    targetReps: target.max,
+    targetReps: resolvedTargetMax,
     targetMinReps: target.min,
-    targetMaxReps: target.max,
+    targetMaxReps: resolvedTargetMax,
     weightLabel: plan.recommendedWeightLabel,
     recommendedWeightKg: weight,
     restSeconds: plan.restSeconds,

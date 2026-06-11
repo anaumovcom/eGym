@@ -40,11 +40,6 @@ type BuilderRuntimeSessionOptions = {
   calibrationState?: RuntimeCalibrationState
 }
 
-type BuilderExerciseEntry = {
-  group: BuilderWorkoutGroup
-  item: BuilderExerciseItem
-}
-
 export async function buildBackendBuilderRuntimeSession(options: BuilderRuntimeSessionOptions): Promise<RuntimeWorkoutSession> {
   const builderParams = new URLSearchParams({ userId: options.userId, programId: options.programId })
   const [builderData, machine] = await Promise.all([
@@ -93,6 +88,7 @@ export async function buildBackendBuilderRuntimeSession(options: BuilderRuntimeS
     programId: options.programId,
     runId: options.runId,
     dataSource: 'backend',
+    startedAt: new Date().toISOString(),
     view: photoMode ? 'photo-progress' : 'exercise-setup',
     machine,
     workoutTitle: builderData.info.name,
@@ -209,7 +205,27 @@ function buildRuntimeSetPlan({
   }
 
   if (item.strengthPlan?.length) {
-    return item.strengthPlan.map(toRuntimeSetPlan)
+    let lastResolvedTargetMin = Math.max(1, loadSettings.reps)
+
+    return item.strengthPlan.map((plan) => {
+      const parsedTarget = parseStrengthPlanTargetRange(plan.targetRepsLabel)
+      const inheritedTargetMin = parsedTarget.min ?? lastResolvedTargetMin
+      const fallbackTargetReps = plan.setType === 'failure' ? inheritedTargetMin : Math.max(1, loadSettings.reps)
+      const runtimePlan = toRuntimeSetPlan(plan, fallbackTargetReps)
+      const resolvedTargetMin = runtimePlan.targetMinReps ?? (plan.setType === 'failure' ? inheritedTargetMin : parsedTarget.min)
+      const resolvedTargetMax = runtimePlan.targetMaxReps ?? (plan.setType === 'failure' ? inheritedTargetMin : parsedTarget.max)
+
+      if (resolvedTargetMin) {
+        lastResolvedTargetMin = resolvedTargetMin
+      }
+
+      return {
+        ...runtimePlan,
+        targetReps: runtimePlan.targetReps ?? resolvedTargetMax ?? resolvedTargetMin,
+        targetMinReps: resolvedTargetMin,
+        targetMaxReps: resolvedTargetMax ?? resolvedTargetMin,
+      }
+    })
   }
 
   if (loadType === 'bodyweight') {
@@ -222,7 +238,7 @@ function buildRuntimeSetPlan({
     }))
   }
 
-  return buildStrengthPlan(modeId, dayType, loadSettings, 'weighted').map(toRuntimeSetPlan)
+  return buildStrengthPlan(modeId, dayType, loadSettings, 'weighted').map((plan) => toRuntimeSetPlan(plan, loadSettings.reps))
 }
 
 function inferBuilderLoadType(item: Pick<BuilderExerciseItem, 'load' | 'sets' | 'loadType'>): BuilderLoadType {
@@ -266,6 +282,19 @@ function parseTargetReps(value: string, fallback: number) {
 
   const fallbackMatch = value.match(/\d+/)
   return Math.max(1, Number(fallbackMatch?.[0] ?? fallback))
+}
+
+function parseStrengthPlanTargetRange(value: string) {
+  const numbers = [...value.matchAll(/\d+/g)].map((match) => Number(match[0]))
+  if (numbers.length >= 2) {
+    return { min: numbers[0], max: numbers[1] }
+  }
+
+  if (numbers.length === 1) {
+    return { min: numbers[0], max: numbers[0] }
+  }
+
+  return { min: undefined, max: undefined }
 }
 
 function parseDurationSeconds(value: string, fallback: number) {

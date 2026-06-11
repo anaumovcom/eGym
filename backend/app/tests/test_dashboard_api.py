@@ -251,3 +251,159 @@ def test_dashboard_uses_saved_today_plan_after_delete(client: TestClient) -> Non
     assert response.status_code == 200
     payload = response.json()
     assert [item["slug"] for item in payload["todayWorkout"]["list"]] == ["machine-pulldown", "barbell-curl"]
+
+
+def test_dashboard_builder_workouts_show_today_progress(client: TestClient) -> None:
+    dashboard_response = client.get("/api/dashboard", params={"userId": "alexey"})
+
+    assert dashboard_response.status_code == 200
+    workout = dashboard_response.json()["workouts"][0]
+
+    save_response = client.post(
+        "/api/runtime/workouts",
+        json={
+            "userId": "alexey",
+            "source": "builder",
+            "title": workout["title"],
+            "status": "in_progress",
+            "startedAt": (datetime.now(UTC) - timedelta(minutes=15)).isoformat(),
+            "finishedAt": None,
+            "durationSeconds": 900,
+            "exercises": [
+                {
+                    "userId": "alexey",
+                    "exerciseSlug": "machine-pulldown",
+                    "exerciseName": "Тяга сверху",
+                    "kind": "machine",
+                    "orderIndex": 1,
+                    "status": "completed",
+                    "startedAt": (datetime.now(UTC) - timedelta(minutes=12)).isoformat(),
+                    "finishedAt": (datetime.now(UTC) - timedelta(minutes=5)).isoformat(),
+                    "targetSets": 1,
+                    "muscles": [
+                        {"muscleId": "back", "name": "Спина", "role": "primary"},
+                    ],
+                    "sets": [
+                        {
+                            "setNumber": 1,
+                            "plannedValue": 10,
+                            "actualValue": 10,
+                            "reps": 10,
+                            "weightKg": 45,
+                            "tempoLabel": "2-0-2",
+                            "subjectiveEffort": 7,
+                            "discomfortLevel": 0,
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    assert save_response.status_code == 200
+
+    updated_response = client.get("/api/dashboard", params={"userId": "alexey"})
+
+    assert updated_response.status_code == 200
+    updated_workout = next(item for item in updated_response.json()["workouts"] if item["id"] == workout["id"])
+    assert updated_workout["todayStatus"] == "in_progress"
+    assert updated_workout["resumeAvailable"] is True
+    assert updated_workout["todayCompletedExercises"] == 1
+    assert updated_workout["todayProgressPercent"] > 0
+    assert updated_workout["exercises"][0]["status"] == "completed"
+    assert updated_workout["exercises"][0]["completedSets"] == 1
+    assert updated_workout["exercises"][0]["targetSets"] >= 1
+
+
+def test_dashboard_day_progress_reset_hides_today_builder_progress(client: TestClient) -> None:
+    dashboard_response = client.get("/api/dashboard", params={"userId": "alexey"})
+
+    assert dashboard_response.status_code == 200
+    workout = dashboard_response.json()["workouts"][0]
+
+    save_response = client.post(
+        "/api/runtime/workouts",
+        json={
+            "userId": "alexey",
+            "source": "builder",
+            "title": workout["title"],
+            "status": "in_progress",
+            "startedAt": (datetime.now(UTC) - timedelta(minutes=10)).isoformat(),
+            "finishedAt": None,
+            "durationSeconds": 600,
+            "exercises": [],
+        },
+    )
+
+    assert save_response.status_code == 200
+
+    reset_response = client.post("/api/dashboard/day-progress/reset", json={"userId": "alexey"})
+
+    assert reset_response.status_code == 200
+    assert reset_response.json()["status"] == "ok"
+
+    updated_response = client.get("/api/dashboard", params={"userId": "alexey"})
+
+    assert updated_response.status_code == 200
+    updated_workout = next(item for item in updated_response.json()["workouts"] if item["id"] == workout["id"])
+    assert updated_workout["todayStatus"] == "idle"
+    assert updated_workout["todayProgressPercent"] == 0
+    assert updated_workout["resumeAvailable"] is False
+
+
+def test_dashboard_hides_builder_progress_from_previous_training_day(client: TestClient) -> None:
+    dashboard_response = client.get("/api/dashboard", params={"userId": "alexey"})
+
+    assert dashboard_response.status_code == 200
+    workout = dashboard_response.json()["workouts"][0]
+
+    save_response = client.post(
+        "/api/runtime/workouts",
+        json={
+            "userId": "alexey",
+            "source": "builder",
+            "title": workout["title"],
+            "status": "in_progress",
+            "startedAt": (datetime.now(UTC) - timedelta(hours=26)).isoformat(),
+            "finishedAt": None,
+            "durationSeconds": 600,
+            "exercises": [
+                {
+                    "userId": "alexey",
+                    "exerciseSlug": "machine-pulldown",
+                    "exerciseName": "Тяга сверху",
+                    "kind": "machine",
+                    "orderIndex": 1,
+                    "status": "in_progress",
+                    "startedAt": (datetime.now(UTC) - timedelta(hours=25, minutes=50)).isoformat(),
+                    "finishedAt": None,
+                    "targetSets": 4,
+                    "muscles": [
+                        {"muscleId": "back", "name": "Спина", "role": "primary"},
+                    ],
+                    "sets": [
+                        {
+                            "setNumber": 1,
+                            "plannedValue": 10,
+                            "actualValue": 10,
+                            "reps": 10,
+                            "weightKg": 45,
+                            "tempoLabel": "2-0-2",
+                            "subjectiveEffort": 7,
+                            "discomfortLevel": 0,
+                        }
+                    ],
+                }
+            ],
+        },
+    )
+
+    assert save_response.status_code == 200
+
+    updated_response = client.get("/api/dashboard", params={"userId": "alexey"})
+
+    assert updated_response.status_code == 200
+    updated_workout = next(item for item in updated_response.json()["workouts"] if item["id"] == workout["id"])
+    assert updated_workout["todayStatus"] == "idle"
+    assert updated_workout["todayProgressPercent"] == 0
+    assert all(item["completedSets"] == 0 for item in updated_workout["exercises"])

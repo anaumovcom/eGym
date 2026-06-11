@@ -1,16 +1,18 @@
-import { useQuery } from '@tanstack/react-query'
-import { Activity, ChevronRight, Clock3, Dumbbell, ListChecks, TrendingUp } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Activity, ChevronRight, Clock3, Dumbbell, ListChecks, RotateCcw, TrendingUp } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { MuscleCard } from '@/entities/muscle/model/types'
 import type { DashboardData } from '@/entities/dashboard/model/types'
-import { apiGet } from '@/shared/api/client'
+import { isSessionInCurrentTrainingDay, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
+import { apiGet, apiPost } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-components'
 import { CompactBodyMapGrid, type CompactBodyMapHover } from '@/shared/ui/stage2/screen-components'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { useAppStore } from '@/stores/app-store'
+import { useRuntimeStore } from '@/stores/runtime-store'
 
 const statusColors: Record<MuscleCard['status'], string> = {
   ready: 'bg-[#6ed36d]',
@@ -30,6 +32,24 @@ const statusLabels: Record<MuscleCard['status'], string> = {
   no_data: 'Нет данных',
 }
 
+function builderProgressWidthClass(progressPercent: number) {
+  if (progressPercent >= 96) return 'w-full'
+  if (progressPercent >= 88) return 'w-[88%]'
+  if (progressPercent >= 76) return 'w-[76%]'
+  if (progressPercent >= 64) return 'w-[64%]'
+  if (progressPercent >= 52) return 'w-[52%]'
+  if (progressPercent >= 40) return 'w-[40%]'
+  if (progressPercent >= 28) return 'w-[28%]'
+  if (progressPercent >= 16) return 'w-[16%]'
+  if (progressPercent > 0) return 'w-[8%]'
+  return 'w-0'
+}
+
+function matchesDashboardWorkout(runtimeExerciseSlugs: string[], dashboardExerciseSlugs: string[]) {
+  return runtimeExerciseSlugs.length === dashboardExerciseSlugs.length
+    && runtimeExerciseSlugs.every((slug, index) => slug === dashboardExerciseSlugs[index])
+}
+
 export type DashboardViewProps = {
   data: DashboardData
   userName: string
@@ -37,15 +57,20 @@ export type DashboardViewProps = {
   emergencyStopActive: boolean
   onStop: () => void
   onEmergencyStopChange: (open: boolean) => void
+  onResetDayProgress?: () => Promise<void> | void
+  resetInProgress?: boolean
 }
 
 export function DashboardScreen() {
   const selectedUserId = useAppStore((state) => state.selectedUserId)
   const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
+  const resetRuntimeSession = useRuntimeStore((state) => state.resetSession)
   const [searchParams] = useSearchParams()
+  const queryClient = useQueryClient()
   const scenario = searchParams.get('scenario') ?? 'default'
   const userId = selectedUserId ?? 'alexey'
+  const [resetInProgress, setResetInProgress] = useState(false)
 
   const { data } = useQuery({
     queryKey: ['dashboard', userId, scenario],
@@ -56,6 +81,21 @@ export function DashboardScreen() {
     return null
   }
 
+  async function handleResetDayProgress() {
+    if (resetInProgress) {
+      return
+    }
+
+    setResetInProgress(true)
+    try {
+      await apiPost('/api/dashboard/day-progress/reset', { userId })
+      resetRuntimeSession()
+      await queryClient.invalidateQueries({ queryKey: ['dashboard', userId, scenario] })
+    } finally {
+      setResetInProgress(false)
+    }
+  }
+
   return (
     <DashboardView
       data={data}
@@ -64,11 +104,13 @@ export function DashboardScreen() {
       emergencyStopActive={emergencyStopActive}
       onEmergencyStopChange={setEmergencyStopActive}
       onStop={() => setEmergencyStopActive(true)}
+      onResetDayProgress={handleResetDayProgress}
+      resetInProgress={resetInProgress}
     />
   )
 }
 
-export function DashboardView({ data, userName, figureGender, emergencyStopActive, onStop, onEmergencyStopChange }: DashboardViewProps) {
+export function DashboardView({ data, userName, figureGender, emergencyStopActive, onStop, onEmergencyStopChange, onResetDayProgress, resetInProgress = false }: DashboardViewProps) {
   return (
     <FormaShell userName={userName} machine={data.machine} onStop={onStop}>
       {data.alerts.length > 0 ? (
@@ -84,7 +126,7 @@ export function DashboardView({ data, userName, figureGender, emergencyStopActiv
       ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.6fr_1fr]">
-        <DashboardWorkoutsSection workouts={data.workouts ?? []} />
+        <DashboardWorkoutsSection workouts={data.workouts ?? []} onResetDayProgress={onResetDayProgress} resetInProgress={resetInProgress} />
         <div className="grid gap-6">
           <DashboardMuscleMapSection muscles={data.muscles} figureGender={figureGender} />
           <DashboardStatsSection progress={data.progress} />
@@ -161,14 +203,55 @@ function DashboardMuscleMapSection({ muscles, figureGender }: { muscles: Dashboa
   )
 }
 
-function DashboardWorkoutsSection({ workouts }: { workouts: NonNullable<DashboardData['workouts']> }) {
+function workoutRowClass(status: NonNullable<DashboardData['workouts']>[number]['exercises'][number]['status']) {
+  if (status === 'completed') {
+    return 'border-[#79de83]/28 bg-[#102015]'
+  }
+  if (status === 'in_progress') {
+    return 'border-[#d6b05f]/24 bg-[#151109]'
+  }
+  return 'border-white/7 bg-white/[0.045]'
+}
+
+function workoutRowCountClass(status: NonNullable<DashboardData['workouts']>[number]['exercises'][number]['status']) {
+  if (status === 'completed') {
+    return 'text-[#79de83]'
+  }
+  if (status === 'in_progress') {
+    return 'text-[#f0d08c]'
+  }
+  return 'text-white/38'
+}
+
+function DashboardWorkoutsSection({ workouts, onResetDayProgress, resetInProgress = false }: { workouts: NonNullable<DashboardData['workouts']>; onResetDayProgress?: () => Promise<void> | void; resetInProgress?: boolean }) {
   const navigate = useNavigate()
   const setSelectedProgramId = useAppStore((state) => state.setSelectedProgramId)
+  const runtimeSession = useRuntimeStore((state) => state.session)
+  const continueAfterExerciseSummary = useRuntimeStore((state) => state.continueAfterExerciseSummary)
 
   function handleStartWorkout(workoutId: string) {
-    const runId = Date.now().toString(36)
     setSelectedProgramId(workoutId)
-    navigate(`/exercise-setup?source=builder&programId=${encodeURIComponent(workoutId)}&photo=before&runId=${encodeURIComponent(runId)}`)
+
+    const workout = workouts.find((item) => item.id === workoutId)
+    const runtimeMatchesWorkout = runtimeSession && workout
+      ? matchesDashboardWorkout(
+          runtimeSession.exercises.map((exercise) => exercise.slug),
+          workout.exercises.map((exercise) => exercise.slug),
+        )
+      : false
+
+    const canResumeCurrentWorkout = runtimeSession?.source === 'builder'
+      && runtimeSession.programId === workoutId
+      && isSessionInCurrentTrainingDay(runtimeSession)
+      && runtimeMatchesWorkout
+
+    if (canResumeCurrentWorkout && runtimeSession.view === 'exercise-summary') {
+      continueAfterExerciseSummary()
+    }
+
+    const resumedSession = canResumeCurrentWorkout ? useRuntimeStore.getState().session : null
+    const path = canResumeCurrentWorkout ? runtimeViewPath(resumedSession?.view ?? runtimeSession.view) : '/exercise-setup'
+    navigate(`${path}?source=builder&programId=${encodeURIComponent(workoutId)}&photo=before`)
   }
 
   return (
@@ -178,10 +261,16 @@ function DashboardWorkoutsSection({ workouts }: { workouts: NonNullable<Dashboar
           <div className="text-sm uppercase tracking-[0.25em] text-white/35">Тренировки</div>
           <div className="mt-2 font-display text-3xl font-bold text-white">Выберите тренировку для старта</div>
         </div>
+        {workouts.length > 0 && onResetDayProgress ? (
+          <Button variant="ghost" className="shrink-0" disabled={resetInProgress} iconLeft={<RotateCcw className="h-4 w-4" />} onClick={() => void onResetDayProgress()}>
+            {resetInProgress ? 'Сбрасываю…' : 'Сбросить прогресс дня'}
+          </Button>
+        ) : null}
       </div>
       {workouts.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2">
           {workouts.map((workout) => {
+            const todayStatus = workout.todayStatus ?? 'idle'
             return (
               <button
                 key={workout.id}
@@ -214,10 +303,19 @@ function DashboardWorkoutsSection({ workouts }: { workouts: NonNullable<Dashboar
                   </div>
                   <div className="grid gap-2">
                     {workout.exercises.length > 0 ? workout.exercises.map((exercise, index) => (
-                      <div key={`${workout.id}-${exercise}-${index}`} className="grid grid-cols-[auto_1fr_auto] items-center gap-2 rounded-[16px] border border-white/7 bg-white/[0.045] px-2.5 py-2 transition group-hover:border-white/10 group-hover:bg-white/[0.06]">
-                        <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/7 text-[10px] font-semibold text-white/58">{index + 1}</span>
-                        <span className="truncate text-sm font-semibold text-white/78">{exercise}</span>
-                        <Dumbbell className="h-3.5 w-3.5 text-white/28" />
+                      <div key={`${workout.id}-${exercise.slug}-${index}`} className={`relative overflow-hidden rounded-[16px] border transition group-hover:border-white/10 group-hover:bg-white/[0.06] ${workoutRowClass(exercise.status)}`}>
+                        {exercise.status === 'in_progress' ? (
+                          <div className={`absolute inset-y-0 left-0 rounded-[16px] bg-linear-to-r from-[#1b3c25] via-[#6f5a22] to-[#8d7331] ${builderProgressWidthClass(exercise.progressPercent ?? 0)}`} />
+                        ) : null}
+                        <div className="relative z-10 grid grid-cols-[auto_1fr_auto] items-center gap-2 px-2.5 py-2">
+                          <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-white/7 text-[10px] font-semibold text-white/58">{index + 1}</span>
+                          <div className="min-w-0">
+                            <div className={`truncate text-sm font-semibold ${exercise.status === 'completed' ? 'text-[#c4f5c8]' : 'text-white/78'}`}>{exercise.name}</div>
+                          </div>
+                          <div className={`text-xs font-semibold ${workoutRowCountClass(exercise.status)}`}>
+                            {(exercise.completedSets ?? 0)}/{Math.max(exercise.targetSets ?? 0, 1)}
+                          </div>
+                        </div>
                       </div>
                     )) : (
                       <div className="rounded-[18px] border border-dashed border-white/10 bg-white/[0.035] px-3 py-3 text-sm text-white/45">Нет упражнений</div>
@@ -225,7 +323,7 @@ function DashboardWorkoutsSection({ workouts }: { workouts: NonNullable<Dashboar
                   </div>
                 </div>
                 <div className="relative z-10 mt-4 ml-2 inline-flex items-center gap-2 text-sm font-semibold text-[#f0d08c]/78 transition group-hover:text-[#f0d08c]">
-                  Нажмите, чтобы начать тренировку
+                  {todayStatus === 'in_progress' ? 'Продолжить тренировку' : todayStatus === 'completed' ? 'Начать заново после завершения' : 'Нажмите, чтобы начать тренировку'}
                   <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
                 </div>
               </button>

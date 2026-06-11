@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from app.schemas.base import SchemaModel
 
@@ -38,6 +39,7 @@ class SetResultSaveSchema(SetResultCreateSchema):
 
 
 class ExerciseSessionCreateSchema(SchemaModel):
+    exercise_session_id: int | None = None
     user_id: str
     workout_session_id: int | None = None
     exercise_slug: str
@@ -58,6 +60,7 @@ class ExerciseSessionCreateSchema(SchemaModel):
 
 
 class WorkoutSessionCreateSchema(SchemaModel):
+    workout_session_id: int | None = None
     user_id: str
     source: str
     title: str
@@ -69,6 +72,7 @@ class WorkoutSessionCreateSchema(SchemaModel):
     feeling: str | None = None
     discomfort: str | None = None
     notes: str | None = None
+    exercise_session_ids: list[int] = []
     exercises: list[ExerciseSessionCreateSchema] = []
 
 
@@ -129,9 +133,19 @@ class RuntimeWorkoutMetricSchema(SchemaModel):
 
 
 class RuntimeWorkoutExerciseRowSchema(SchemaModel):
+    exercise_session_id: int | None = None
+    exercise_slug: str | None = None
     name: str
     result: str
     status: str
+    kind: str | None = None
+    current_load: str | None = None
+    current_weight_kg: float | None = None
+    current_reps: int | None = None
+    current_sets: int | None = None
+    rest_seconds: int | None = None
+    training_mode: str | None = None
+    training_day_type: str | None = None
 
 
 class RuntimeWorkoutMuscleSchema(SchemaModel):
@@ -152,6 +166,33 @@ class RuntimeWorkoutSummarySchema(SchemaModel):
     next_workout: str
     feeling: str
     discomfort: str
+
+
+class LoadAdjustmentRequestSchema(SchemaModel):
+    user_id: str
+    exercise_slug: str
+    direction: Literal["increase", "decrease"]
+    training_mode: str | None = None
+    training_day_type: str | None = None
+    kind: str | None = None
+    current_weight_kg: float | None = None
+    current_reps: int | None = None
+    current_sets: int | None = None
+    rest_seconds: int | None = None
+
+
+class LoadAdjustmentResponseSchema(SchemaModel):
+    user_id: str
+    exercise_slug: str
+    direction: str
+    load_label: str
+    weight_kg: float | None = None
+    reps: int | None = None
+    sets: int | None = None
+    rest_seconds: int | None = None
+    training_mode: str | None = None
+    training_day_type: str | None = None
+    recommendation: str
 
 
 class SetFatigueDeltaSchema(SchemaModel):

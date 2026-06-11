@@ -16,12 +16,30 @@ def test_current_calibration_returns_null_without_404(client) -> None:
     assert response.json() is None
 
 
-def test_safety_gate_requires_calibration(client) -> None:
+def test_safety_gate_skips_calibration_for_band_exercises(client) -> None:
     response = client.post(
         "/api/hardware/safety-gate/check",
         json={
             "userId": "alexey",
             "exerciseSlug": "band-chest-press",
+            "calibrationRequired": True,
+            "rangeConfirmed": True,
+            "weightKg": 32,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["allowed"] is True
+    assert "Для запуска нужна актуальная калибровка." not in payload["blockingReasons"]
+
+
+def test_safety_gate_requires_calibration_for_barbell(client) -> None:
+    response = client.post(
+        "/api/hardware/safety-gate/check",
+        json={
+            "userId": "alexey",
+            "exerciseSlug": "barbell-floor-press",
             "calibrationRequired": True,
             "rangeConfirmed": True,
             "weightKg": 32,
@@ -104,11 +122,36 @@ def test_start_motion_records_audit_log(client, db_session) -> None:
     payload = response.json()
     assert payload["status"] == "completed"
     assert payload["snapshot"]["motion"]["moving"] is True
+    assert payload["snapshot"]["motion"]["lowerBoundMm"] == 620.0
+    assert payload["snapshot"]["motion"]["upperBoundMm"] == 1290.0
     assert payload["safetyGate"]["allowed"] is True
 
     actions = list(db_session.scalars(select(AuditLog.action).order_by(AuditLog.id.asc())))
     assert AuditAction.calibration_saved in actions
     assert AuditAction.hardware_command in actions
+
+
+def test_start_motion_allows_band_without_calibration(client) -> None:
+    response = client.post(
+        "/api/hardware/commands",
+        json={
+            "action": "start_motion",
+            "userId": "alexey",
+            "exerciseSlug": "band-chest-press",
+            "calibrationRequired": True,
+            "rangeConfirmed": True,
+            "weightKg": 36,
+            "targetSet": 1,
+            "targetReps": 8,
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["snapshot"]["motion"]["lowerBoundMm"] == 640.0
+    assert payload["snapshot"]["motion"]["upperBoundMm"] == 1320.0
+    assert payload["safetyGate"]["allowed"] is True
 
 
 def test_realtime_stream_receives_command_updates(client) -> None:
@@ -117,6 +160,8 @@ def test_realtime_stream_receives_command_updates(client) -> None:
         assert initial["eventType"] == "hardware.snapshot"
         assert initial["selectedUserId"] == "alexey"
         assert "barPositionMm" in initial["motion"]
+        assert "lowerBoundMm" in initial["motion"]
+        assert "upperBoundMm" in initial["motion"]
         assert "positionMm" in initial["drives"][0]
 
         response = client.post(

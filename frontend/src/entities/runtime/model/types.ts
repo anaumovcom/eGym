@@ -10,7 +10,7 @@ export type RuntimeWorkoutOutcome = 'completed' | 'partial' | 'aborted'
 export type RuntimePhotoMode = 'pre-workout' | 'post-workout' | 'manual'
 export type RuntimePhotoView = 'front' | 'side' | 'back'
 export type RuntimeCalibrationState = 'saved' | 'missing' | 'not-needed'
-export type RuntimeExerciseOutcome = 'completed' | 'partial' | 'aborted'
+export type RuntimeExerciseOutcome = 'completed' | 'partial' | 'aborted' | 'skipped'
 
 export type RuntimeSetPlan = {
   setType?: StrengthSetType
@@ -30,6 +30,7 @@ export type RuntimeSetResult = {
   setNumber: number
   plannedValue: number
   actualValue: number
+  completionStatus?: 'completed' | 'partial' | 'skipped'
   setType?: StrengthSetType | string | null
   targetMinReps?: number | null
   targetMaxReps?: number | null
@@ -143,10 +144,25 @@ export type RuntimeRestState = {
 }
 
 export type RuntimeExerciseSummaryState = {
+  exerciseSessionId?: number
   outcome: RuntimeExerciseOutcome
   exerciseId: string
+  exerciseSlug?: string | null
   title: string
   subtitle: string
+  kind?: RuntimeExerciseKind | string | null
+  currentLoad?: string | null
+  currentWeightKg?: number | null
+  currentReps?: number | null
+  currentSets?: number | null
+  nextLoad?: string | null
+  nextWeightKg?: number | null
+  nextReps?: number | null
+  nextSets?: number | null
+  restSeconds?: number | null
+  nextRestSeconds?: number | null
+  trainingMode?: string | null
+  trainingDayType?: string | null
   setResults: RuntimeSetResult[]
   totals: {
     setsCompleted: string
@@ -162,11 +178,35 @@ export type RuntimeExerciseSummaryState = {
 }
 
 export type RuntimeWorkoutSummaryState = {
+  workoutSessionId?: number
   outcome: RuntimeWorkoutOutcome
   title: string
   subtitle: string
   metrics: Array<{ label: string; value: string; hint: string }>
-  exercises: Array<{ name: string; result: string; status: 'done' | 'skipped' | 'moved' }>
+  exercises: Array<{
+    exerciseSessionId?: number | null
+    exerciseSlug?: string | null
+    exerciseId?: string | null
+    name: string
+    result: string
+    status: 'done' | 'partial' | 'skipped' | 'moved'
+    completedSetCount?: number | null
+    plannedSetCount?: number | null
+    remainingSetCount?: number | null
+    kind?: RuntimeExerciseKind | string | null
+    currentLoad?: string | null
+    currentWeightKg?: number | null
+    currentReps?: number | null
+    currentSets?: number | null
+    nextLoad?: string | null
+    nextWeightKg?: number | null
+    nextReps?: number | null
+    nextSets?: number | null
+    restSeconds?: number | null
+    nextRestSeconds?: number | null
+    trainingMode?: string | null
+    trainingDayType?: string | null
+  }>
   muscleLoad: MuscleCard[]
   recommendation: string
   nextWorkout: string
@@ -180,6 +220,11 @@ export type RuntimeWorkoutSession = {
   programId?: string
   runId?: string
   dataSource?: 'backend' | 'mock'
+  startedAt?: string
+  backendWorkoutSessionId?: number
+  backendWorkoutSaved?: boolean
+  backendExerciseSessionIds?: Record<string, number>
+  exerciseOutcomes?: Record<string, RuntimeExerciseOutcome>
   view: RuntimeView
   machine: MachineHealth
   workoutTitle: string

@@ -88,8 +88,51 @@ function statusTone(status: FatigueMuscle['status']) {
   return '#57c968'
 }
 
+const fatigueStatusPriority: Record<FatigueMuscle['status'], number> = {
+  critical: 6,
+  high: 5,
+  medium: 4,
+  light: 3,
+  ready: 2,
+  no_data: 1,
+}
+
+function buildSvgMuscleMap(muscles: FatigueMuscle[], view: BodyMapView) {
+  const bySvgId = new Map<string, FatigueMuscle>()
+
+  for (const muscle of muscles) {
+    const svgIds = resolveSvgIdsForMuscle(muscle.id).filter((svgId) => svgIdsByView[view].includes(svgId))
+
+    for (const svgId of svgIds) {
+      const currentMuscle = bySvgId.get(svgId)
+
+      if (!currentMuscle) {
+        bySvgId.set(svgId, muscle)
+        continue
+      }
+
+      const musclePriority = fatigueStatusPriority[muscle.status]
+      const currentPriority = fatigueStatusPriority[currentMuscle.status]
+
+      if (musclePriority > currentPriority || (musclePriority === currentPriority && muscle.score > currentMuscle.score)) {
+        bySvgId.set(svgId, muscle)
+      }
+    }
+  }
+
+  return bySvgId
+}
+
 function prefixSvgMarkup(svgMarkup: string, prefix: string) {
   return svgMarkup
+    .replace(/\sclass="([^"]*)"/g, (_match, className: string) => {
+      const sanitizedClassName = className
+        .split(/\s+/)
+        .filter((token) => token && token !== 'bodymap' && !token.startsWith('text-mw-') && !token.startsWith('active:text-mw-') && !token.startsWith('lg:hover:text-mw-'))
+        .join(' ')
+
+      return sanitizedClassName ? ` class="${sanitizedClassName}"` : ''
+    })
     .replace(/id="([^"]+)"/g, (_match, id: string) => `id="${prefix}${id}"`)
     .replace(/url\(#([^\)]+)\)/g, (_match, id: string) => `url(#${prefix}${id})`)
 }
@@ -410,60 +453,56 @@ function MuscleFigure({
       })
     }
 
-    for (const muscle of muscles) {
-      const svgIds = resolveSvgIdsForMuscle(muscle.id).filter((svgId) => svgIdsByView[view].includes(svgId))
+    for (const [svgId, muscle] of buildSvgMuscleMap(muscles, view)) {
+      const element = container.querySelector<SVGElement>(`[id="${svgIdPrefix}${svgId}"]`)
 
-      for (const svgId of svgIds) {
-        const element = container.querySelector<SVGElement>(`[id="${svgIdPrefix}${svgId}"]`)
-
-        if (!element) {
-          continue
-        }
-
-        const selected = selectedId === muscle.id
-        const activate = () => onSelect(muscle.id)
-        const handleKeyDown = (event: KeyboardEvent) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault()
-            activate()
-          }
-        }
-
-        element.style.color = statusTone(muscle.status)
-        element.style.opacity = selected ? '1' : '0.88'
-        element.style.filter = selected ? 'brightness(1.16) contrast(1.08) saturate(1.08) drop-shadow(0 0 16px rgba(243,209,139,0.34))' : 'none'
-  element.style.animation = 'none'
-        element.style.cursor = 'pointer'
-  element.style.transition = 'color 160ms ease, opacity 160ms ease, filter 160ms ease'
-        element.setAttribute('role', 'button')
-        element.setAttribute('tabindex', '0')
-        element.setAttribute('aria-label', `${muscle.name}: ${muscle.score} из 100`)
-        element.setAttribute('aria-pressed', selected ? 'true' : 'false')
-
-        element.querySelectorAll<SVGElement>('path, ellipse, polygon').forEach((child) => {
-          const fill = child.getAttribute('fill')
-
-          if (!selected || !fill || fill === 'none') {
-            child.style.stroke = ''
-            child.style.strokeWidth = ''
-            child.style.paintOrder = ''
-            child.style.fillOpacity = ''
-            child.style.animation = 'none'
-            return
-          }
-
-          child.style.fillOpacity = '1'
-          child.style.animation = 'fatigue-selected-fill-blink 1.2s ease-in-out infinite'
-        })
-
-        element.addEventListener('click', activate)
-        element.addEventListener('keydown', handleKeyDown)
-
-        clearups.push(() => {
-          element.removeEventListener('click', activate)
-          element.removeEventListener('keydown', handleKeyDown)
-        })
+      if (!element) {
+        continue
       }
+
+      const selected = selectedId === muscle.id
+      const activate = () => onSelect(muscle.id)
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          activate()
+        }
+      }
+
+      element.style.color = statusTone(muscle.status)
+      element.style.opacity = selected ? '1' : '0.88'
+      element.style.filter = selected ? 'brightness(1.16) contrast(1.08) saturate(1.08) drop-shadow(0 0 16px rgba(243,209,139,0.34))' : 'none'
+      element.style.animation = 'none'
+      element.style.cursor = 'pointer'
+      element.style.transition = 'color 160ms ease, opacity 160ms ease, filter 160ms ease'
+      element.setAttribute('role', 'button')
+      element.setAttribute('tabindex', '0')
+      element.setAttribute('aria-label', `${muscle.name}: ${muscle.score} из 100`)
+      element.setAttribute('aria-pressed', selected ? 'true' : 'false')
+
+      element.querySelectorAll<SVGElement>('path, ellipse, polygon').forEach((child) => {
+        const fill = child.getAttribute('fill')
+
+        if (!selected || !fill || fill === 'none') {
+          child.style.stroke = ''
+          child.style.strokeWidth = ''
+          child.style.paintOrder = ''
+          child.style.fillOpacity = ''
+          child.style.animation = 'none'
+          return
+        }
+
+        child.style.fillOpacity = '1'
+        child.style.animation = 'fatigue-selected-fill-blink 1.2s ease-in-out infinite'
+      })
+
+      element.addEventListener('click', activate)
+      element.addEventListener('keydown', handleKeyDown)
+
+      clearups.push(() => {
+        element.removeEventListener('click', activate)
+        element.removeEventListener('keydown', handleKeyDown)
+      })
     }
 
     return () => {

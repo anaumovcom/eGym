@@ -83,10 +83,6 @@ export const fatigueMuscleToSvgIds: Record<string, string[]> = {
   calves: ['calves'],
 }
 
-export function resolveSvgIdsForMuscle(muscleId: string) {
-  return fatigueMuscleToSvgIds[muscleId] ?? exerciseMuscleToSvgIds[muscleId] ?? []
-}
-
 const bodyMapLabelAliases: Record<string, string[]> = {
   'бицепс': ['biceps'],
   'бицепс бедра': ['hamstrings'],
@@ -118,6 +114,39 @@ const bodyMapLabelAliases: Record<string, string[]> = {
   'отводящие': ['hips'],
   'широчайшие': ['lats'],
   'ягодицы': ['glutes'],
+}
+
+function muscleIdLookupVariants(muscleId: string) {
+  const trimmed = muscleId.trim()
+  const lower = trimmed.toLowerCase()
+
+  return Array.from(new Set([
+    trimmed,
+    lower,
+    lower.replace(/\s+/g, '-'),
+    lower.replace(/\s+/g, '_'),
+    lower.replace(/_/g, '-'),
+    lower.replace(/_/g, ' '),
+    lower.replace(/-/g, ' '),
+  ]))
+}
+
+export function resolveSvgIdsForMuscle(muscleId: string) {
+  for (const candidate of muscleIdLookupVariants(muscleId)) {
+    const mappedSvgIds = fatigueMuscleToSvgIds[candidate] ?? exerciseMuscleToSvgIds[candidate]
+
+    if (mappedSvgIds) {
+      return mappedSvgIds
+    }
+
+    const aliasedMuscleIds = bodyMapLabelAliases[candidate]
+
+    if (aliasedMuscleIds) {
+      return Array.from(new Set(aliasedMuscleIds.flatMap((aliasedMuscleId) => fatigueMuscleToSvgIds[aliasedMuscleId] ?? exerciseMuscleToSvgIds[aliasedMuscleId] ?? [])))
+    }
+  }
+
+  return []
 }
 
 export function resolveSvgIdsForBodyMapLabel(label: string) {

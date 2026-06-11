@@ -33,6 +33,7 @@ export function ExercisePickerModal({
   onSelect,
 }: ExercisePickerModalProps) {
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [pendingSlug, setPendingSlug] = useState<string | null>(null)
   const [selectedMuscles, setSelectedMuscles] = useState<string[]>([])
   const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
@@ -41,12 +42,21 @@ export function ExercisePickerModal({
   useEffect(() => {
     if (!open) {
       setSearch('')
+      setDebouncedSearch('')
       setPendingSlug(null)
       setSelectedMuscles([])
       setSelectedEquipment([])
       setInitializedFilterSlug(null)
     }
   }, [open])
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setDebouncedSearch(search.trim())
+    }, 500)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [search])
 
   const { data: currentExerciseDetails } = useQuery({
     queryKey: ['exercise-picker-current-exercise', userId, currentExerciseSlug],
@@ -66,8 +76,8 @@ export function ExercisePickerModal({
   const queryString = useMemo(() => {
     const params = new URLSearchParams()
     params.set('userId', userId)
-    if (search.trim()) {
-      params.set('search', search.trim())
+    if (debouncedSearch) {
+      params.set('search', debouncedSearch)
     }
     if (selectedMuscles.length > 0) {
       params.set('muscles', selectedMuscles.join(','))
@@ -76,10 +86,10 @@ export function ExercisePickerModal({
       params.set('equipment', selectedEquipment.join(','))
     }
     return params.toString()
-  }, [search, selectedEquipment, selectedMuscles, userId])
+  }, [debouncedSearch, selectedEquipment, selectedMuscles, userId])
 
   const { data, isLoading } = useQuery({
-    queryKey: ['exercise-picker-catalog', userId, search, selectedMuscles.join(','), selectedEquipment.join(',')],
+    queryKey: ['exercise-picker-catalog', userId, debouncedSearch, selectedMuscles.join(','), selectedEquipment.join(',')],
     queryFn: () => apiGet<ExerciseCatalogResponse>(`/api/exercises?${queryString}`),
     enabled: open,
   })

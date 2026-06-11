@@ -24,9 +24,32 @@ from app.schemas.hardware import (
     SafetyGateResponseSchema,
 )
 from app.schemas.machine import MachineHealthSchema, SafetyStatusSchema
+from app.services.exercise_library import get_imported_exercise
 from app.services.hardware_runtime import hardware_runtime
 from app.repositories.audit_repository import AuditRepository
 from app.repositories.settings_repository import SettingsRepository
+
+
+CALIBRATION_EXEMPT_EQUIPMENT = {
+    "Bosu-Ball",
+    "BOSU Ball",
+    "Cardio",
+    "Dumbbells",
+    "Dumbbell",
+    "Kettlebells",
+    "Kettlebell",
+    "Medicine-Ball",
+    "Medicine Ball",
+    "Plate",
+    "Recovery",
+    "Stretches",
+    "TRX",
+    "Yoga",
+    "Band",
+    "Резина",
+    "Bodyweight",
+    "Собственный вес",
+}
 
 
 class HardwareService:
@@ -59,6 +82,16 @@ class HardwareService:
             .order_by(ExerciseCalibration.captured_at.desc())
         )
         return session.scalars(statement).first()
+
+    def _requires_calibration(self, exercise_slug: str, calibration_required: bool) -> bool:
+        if not calibration_required:
+            return False
+
+        exercise = get_imported_exercise(exercise_slug)
+        if exercise and exercise.equipment in CALIBRATION_EXEMPT_EQUIPMENT:
+            return False
+
+        return True
 
     def save_calibration(self, session: Session, payload: CalibrationSaveSchema) -> CalibrationSummarySchema:
         calibration = session.scalars(
@@ -131,6 +164,7 @@ class HardwareService:
     def evaluate_safety_gate(self, session: Session, payload: SafetyGateRequestSchema) -> SafetyGateResponseSchema:
         runtime = self.get_snapshot(session, payload.user_id)
         settings = self._get_safety_settings(session, payload.user_id)
+        calibration_required = self._requires_calibration(payload.exercise_slug, payload.calibration_required)
         calibration = self.get_current_calibration(session, payload.user_id or "", payload.exercise_slug) if payload.user_id else None
         checks = [
             self._check("user-selected", "Пользователь выбран", payload.user_id is not None and payload.user_id != "", "critical", "Пользователь выбран" if payload.user_id else "Сначала выберите пользователя."),
@@ -138,8 +172,8 @@ class HardwareService:
             self._check("estop", "СТОП не активен", runtime.safety.state != SafetyState.emergency_stop, "critical", "Аварийная остановка не активна" if runtime.safety.state != SafetyState.emergency_stop else "Сначала снимите аварийную остановку."),
             self._check("drives", "Оба привода доступны", all(drive.connected and drive.status != "error" for drive in runtime.drives), "critical", "Приводы доступны" if all(drive.connected and drive.status != "error" for drive in runtime.drives) else "Есть ошибка подключения или состояния привода."),
             self._check("critical-errors", "Нет критических ошибок", runtime.machine.machine_state != MachineState.blocked, "critical", "Критических ошибок нет" if runtime.machine.machine_state != MachineState.blocked else "Тренажёр заблокирован критической ошибкой."),
-            self._check("calibration", "Калибровка актуальна", not payload.calibration_required or (calibration is not None and self._is_calibration_actual(calibration)), "critical", "Калибровка найдена" if not payload.calibration_required or calibration is not None else "Для запуска нужна актуальная калибровка."),
-            self._check("range", "Диапазон подтверждён", (not payload.calibration_required) or payload.range_confirmed or bool(calibration and calibration.movement_range_confirmed), "warning", "Диапазон движения подтверждён" if (not payload.calibration_required) or payload.range_confirmed or bool(calibration and calibration.movement_range_confirmed) else "Подтвердите диапазон движения."),
+            self._check("calibration", "Калибровка актуальна", not calibration_required or (calibration is not None and self._is_calibration_actual(calibration)), "critical", "Калибровка найдена" if not calibration_required or calibration is not None else "Для запуска нужна актуальная калибровка."),
+            self._check("range", "Диапазон подтверждён", (not calibration_required) or payload.range_confirmed or bool(calibration and calibration.movement_range_confirmed), "warning", "Диапазон движения подтверждён" if (not calibration_required) or payload.range_confirmed or bool(calibration and calibration.movement_range_confirmed) else "Подтвердите диапазон движения."),
             self._check("weight", "Нагрузка допустима", payload.weight_kg <= self._parse_kg(settings.max_load), "critical", "Нагрузка допустима" if payload.weight_kg <= self._parse_kg(settings.max_load) else f"Превышен лимит нагрузки {settings.max_load}."),
             self._check("service-mode", "Сервисный режим не конфликтует", not runtime.service_mode, "critical", "Сервисный режим не активен" if not runtime.service_mode else "Отключите сервисный режим перед тренировкой."),
             self._check("limits", "Лимиты движения не нарушены", 0 <= runtime.motion.bar_position_mm <= 2100, "critical", "Позиция в пределах лимитов" if 0 <= runtime.motion.bar_position_mm <= 2100 else "Текущая позиция вне безопасного диапазона."),
@@ -171,6 +205,7 @@ class HardwareService:
                 raise PermissionError(safety_gate.blocking_reasons[0])
 
         calibration = self.get_current_calibration(session, payload.user_id or "", payload.exercise_slug or "") if payload.user_id and payload.exercise_slug else None
+        calibration_required = self._requires_calibration(payload.exercise_slug or "", payload.calibration_required)
 
         if payload.action == "trigger_emergency_stop":
             command = hardware_runtime.trigger_emergency_stop()
@@ -204,7 +239,7 @@ class HardwareService:
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.info
         elif payload.action == "start_motion":
-            if calibration is None and payload.calibration_required:
+            if calibration is None and calibration_required:
                 raise PermissionError("Calibration is required to start movement")
             lower_bound = calibration.lower_point_mm if calibration else 640.0
             upper_bound = calibration.upper_point_mm if calibration else 1320.0

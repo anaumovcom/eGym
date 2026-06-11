@@ -33,6 +33,8 @@ class MotionTelemetrySchema(SchemaModel):
     target_set: int
     target_reps: int
     direction: str
+    lower_bound_mm: float
+    upper_bound_mm: float
 
 
 class CommandSummarySchema(SchemaModel):

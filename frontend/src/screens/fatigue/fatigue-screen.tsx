@@ -1,10 +1,12 @@
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { RotateCcw } from 'lucide-react'
+import { useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { FatigueData } from '@/entities/stage4/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { FatigueMode } from '@/entities/stage4/model/types'
 import { fatigueModes } from '@/mocks/stage4-data'
-import { apiGet } from '@/shared/api/client'
+import { apiGet, apiPost } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
@@ -23,12 +25,14 @@ function asFatigueMode(value: string | null): FatigueMode {
 export function FatigueScreen() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
+  const queryClient = useQueryClient()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
   const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const mode = asFatigueMode(searchParams.get('mode'))
   const userId = selectedUserId ?? 'alexey'
   const fatigueFigureGender = selectedUserId === 'elena' ? 'female' : 'male'
+  const [resetInProgress, setResetInProgress] = useState(false)
   const { data, isLoading, error } = useQuery({
     queryKey: ['fatigue-screen', userId, mode],
     queryFn: () => apiGet<FatigueData>(`/api/fatigue?userId=${encodeURIComponent(userId)}&mode=${encodeURIComponent(mode)}`),
@@ -59,6 +63,23 @@ export function FatigueScreen() {
     })
   }
 
+  async function handleResetFatigue() {
+    if (resetInProgress) {
+      return
+    }
+
+    setResetInProgress(true)
+    try {
+      await apiPost('/api/fatigue/reset', { userId })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['fatigue-screen', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['dashboard', userId] }),
+      ])
+    } finally {
+      setResetInProgress(false)
+    }
+  }
+
   if (isLoading || !data) {
     return (
       <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
@@ -87,7 +108,14 @@ export function FatigueScreen() {
       <SectionTitle
         title="Усталость мышц"
         description="Следите за восстановлением мышц и выбирайте нагрузку без перегруза."
-        actions={<PeriodSwitcher periods={fatigueModes} active={mode} onChange={(value) => updateParams({ mode: value })} />}
+        actions={(
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            <PeriodSwitcher periods={fatigueModes} active={mode} onChange={(value) => updateParams({ mode: value })} />
+            <Button variant="ghost" disabled={resetInProgress} iconLeft={<RotateCcw className="h-4 w-4" />} onClick={() => void handleResetFatigue()}>
+              {resetInProgress ? 'Сбрасываю…' : 'Сбросить усталость'}
+            </Button>
+          </div>
+        )}
       />
 
       <div className="flex justify-end text-sm text-white/45">Данные обновлены: {data.updatedAt}</div>

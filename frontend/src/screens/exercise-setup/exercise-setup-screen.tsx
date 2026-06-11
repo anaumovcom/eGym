@@ -3,6 +3,7 @@ import { ArrowLeft, Camera, Play, RotateCcw } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
+import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { StrengthTrainingMode } from '@/entities/strength/model/types'
 import { buildBackendBuilderRuntimeSession } from '@/features/runtime/lib/backend-builder-session'
 import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exercise'
@@ -47,6 +48,35 @@ function formatRange(lowerPointMm?: number | null, upperPointMm?: number | null)
   return `${formatMillimeters(lowerPointMm)} - ${formatMillimeters(upperPointMm)}`
 }
 
+function areBackendBuilderSessionsEquivalent(currentSession: RuntimeWorkoutSession, nextSession: RuntimeWorkoutSession) {
+  if (currentSession.workoutTitle !== nextSession.workoutTitle || currentSession.exercises.length !== nextSession.exercises.length) {
+    return false
+  }
+
+  return currentSession.exercises.every((exercise, index) => {
+    const nextExercise = nextSession.exercises[index]
+    if (!nextExercise) {
+      return false
+    }
+
+    if (exercise.id !== nextExercise.id || exercise.slug !== nextExercise.slug || exercise.kind !== nextExercise.kind || exercise.plan.length !== nextExercise.plan.length) {
+      return false
+    }
+
+    return exercise.plan.every((setPlan, setIndex) => {
+      const nextSetPlan = nextExercise.plan[setIndex]
+      return Boolean(nextSetPlan)
+        && setPlan.targetReps === nextSetPlan.targetReps
+        && setPlan.targetMinReps === nextSetPlan.targetMinReps
+        && setPlan.targetMaxReps === nextSetPlan.targetMaxReps
+        && setPlan.targetSeconds === nextSetPlan.targetSeconds
+        && setPlan.recommendedWeightKg === nextSetPlan.recommendedWeightKg
+        && setPlan.restSeconds === nextSetPlan.restSeconds
+        && (setPlan.setType ?? null) === (nextSetPlan.setType ?? null)
+    })
+  })
+}
+
 export function ExerciseSetupScreen() {
   const navigate = useNavigate()
   const location = useLocation()
@@ -78,7 +108,7 @@ export function ExerciseSetupScreen() {
 
   const initOptions = useMemo(() => getRuntimeInitOptions(searchParams), [searchParams])
   const usesBackendBuilderSession = initOptions.source === 'builder' && Boolean(initOptions.programId)
-  const hasActiveBackendBuilderSession = usesBackendBuilderSession
+  const hasMatchingRuntimeBuilderSession = usesBackendBuilderSession
     ? session?.source === 'builder' && session.programId === initOptions.programId && session.dataSource === 'backend' && (!initOptions.runId || session.runId === initOptions.runId)
     : true
   const { data: backendBuilderSession, error: backendBuilderSessionError } = useQuery({
@@ -93,6 +123,21 @@ export function ExerciseSetupScreen() {
     enabled: usesBackendBuilderSession,
     staleTime: 0,
   })
+  const isStaleRuntimeBuilderSession = Boolean(
+    usesBackendBuilderSession
+    && hasMatchingRuntimeBuilderSession
+    && session
+    && backendBuilderSession
+    && !areBackendBuilderSessionsEquivalent(session, backendBuilderSession),
+  )
+  const shouldInitializeBackendBuilderSession = Boolean(
+    usesBackendBuilderSession
+    && backendBuilderSession
+    && (!hasMatchingRuntimeBuilderSession || isStaleRuntimeBuilderSession),
+  )
+  const hasActiveBackendBuilderSession = usesBackendBuilderSession
+    ? hasMatchingRuntimeBuilderSession && !isStaleRuntimeBuilderSession
+    : true
   const { data: strengthModes = [] } = useQuery({
     queryKey: ['strength-modes'],
     queryFn: () => apiGet<StrengthTrainingMode[]>('/api/strength-modes'),
@@ -108,14 +153,16 @@ export function ExerciseSetupScreen() {
   }, [ensureSession, initOptions, usesBackendBuilderSession])
 
   useEffect(() => {
-    if (!usesBackendBuilderSession || !backendBuilderSession || hasActiveBackendBuilderSession) {
+    if (!shouldInitializeBackendBuilderSession || !backendBuilderSession) {
       return
     }
 
     initializeBackendSession(backendBuilderSession, initOptions)
-  }, [backendBuilderSession, hasActiveBackendBuilderSession, initializeBackendSession, initOptions, usesBackendBuilderSession])
+  }, [backendBuilderSession, initOptions, initializeBackendSession, shouldInitializeBackendBuilderSession])
 
-  const exercise = hasActiveBackendBuilderSession
+  const exercise = shouldInitializeBackendBuilderSession
+    ? undefined
+    : hasActiveBackendBuilderSession
     ? session?.exercises.find((item) => item.id === session.currentExerciseId) ?? session?.exercises[0]
     : undefined
 
@@ -211,12 +258,13 @@ export function ExerciseSetupScreen() {
   const settings = exercise.loadSettings
   const currentStrengthMode = currentExercise.strengthMode ?? { id: 'basic', title: 'Базовый режим', dayType: null }
   const calibrationRequired = requiresMachineCalibration(currentExercise)
+  const savedCalibration = currentCalibration?.exerciseSlug === currentExercise.slug ? currentCalibration : null
   const setupVideo = currentExercise.details.videos.find((video) => video.gender === 'male' && video.view === 'side')
     ?? currentExercise.details.videos[0]
     ?? (currentExercise.summary.previewVideoUrl
       ? { url: currentExercise.summary.previewVideoUrl, label: `${currentExercise.name} · превью` }
       : null)
-  const startBlocked = calibrationRequired && (!currentCalibration || !selectedUserId)
+  const startBlocked = calibrationRequired && (!savedCalibration || !selectedUserId)
   const livePositionMm = snapshot?.motion.barPositionMm ?? null
   const liveLowerBoundMm = snapshot?.motion.lowerBoundMm ?? null
   const liveUpperBoundMm = snapshot?.motion.upperBoundMm ?? null
@@ -226,15 +274,15 @@ export function ExerciseSetupScreen() {
   const calibrationRangeLabel = calibrationRequired
     ? hasCompleteCalibrationRange
       ? formatRange(lowerPointMm, upperPointMm)
-      : currentCalibration
-        ? formatRange(currentCalibration.lowerPointMm, currentCalibration.upperPointMm)
+      : savedCalibration
+        ? formatRange(savedCalibration.lowerPointMm, savedCalibration.upperPointMm)
         : currentExercise.movementRangeLabel
     : currentExercise.movementRangeLabel
 
   function resetCalibrationDraft() {
-    if (currentCalibration && currentCalibration.exerciseSlug === currentExercise.slug) {
-      setCapturedLowerPointMm(currentCalibration.lowerPointMm)
-      setCapturedUpperPointMm(currentCalibration.upperPointMm)
+    if (savedCalibration) {
+      setCapturedLowerPointMm(savedCalibration.lowerPointMm)
+      setCapturedUpperPointMm(savedCalibration.upperPointMm)
       return
     }
 
@@ -283,8 +331,8 @@ export function ExerciseSetupScreen() {
   }
 
   async function handleCalibrationDelete() {
-    if (currentCalibration) {
-      await deleteCalibration(currentCalibration.id, selectedUserId)
+    if (savedCalibration) {
+      await deleteCalibration(savedCalibration.id, selectedUserId)
     }
     setCapturedLowerPointMm(null)
     setCapturedUpperPointMm(null)
@@ -443,7 +491,7 @@ export function ExerciseSetupScreen() {
                   <Button variant="ghost" iconLeft={<RotateCcw className="h-4 w-4" />} onClick={resetCalibrationDraft}>
                     Сбросить точки
                   </Button>
-                  {currentCalibration ? (
+                  {savedCalibration ? (
                     <Button variant="ghost" onClick={() => void handleCalibrationDelete()}>
                       Удалить калибровку
                     </Button>

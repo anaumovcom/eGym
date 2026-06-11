@@ -1,6 +1,7 @@
-import { CheckCircle2, CircleAlert } from 'lucide-react'
-import { useEffect } from 'react'
+import { ArrowRight, CircleAlert } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import { adjustExerciseLoadOnBackend } from '@/features/runtime/lib/runtime-persistence'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { getBestSetLabel, getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { cn } from '@/shared/lib/cn'
@@ -26,6 +27,10 @@ export function ExerciseSummaryScreen() {
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
   const continueAfterExerciseSummary = useRuntimeStore((state) => state.continueAfterExerciseSummary)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
+  const applyLoadAdjustment = useRuntimeStore((state) => state.applyLoadAdjustment)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [pendingAdjustment, setPendingAdjustment] = useState<'decrease' | 'increase' | null>(null)
+  const [adjustmentRecommendation, setAdjustmentRecommendation] = useState<string | null>(null)
 
   const initOptions = getRuntimeInitOptions(searchParams)
 
@@ -40,8 +45,43 @@ export function ExerciseSummaryScreen() {
   }
 
   const summary = session.exerciseSummary
+  const currentExercise = session.exercises.find((item) => item.id === session.currentExerciseId) ?? session.exercises[0]
+  const hasNextExercise = Boolean(currentExercise && session.exercises[currentExercise.order])
+  const nextStepLabel = hasNextExercise ? 'Перейти к следующему упражнению' : 'Открыть итог тренировки'
   const bestSet = summary.totals.bestSet ?? getBestSetLabel(summary.setResults)
   const hasWarning = summary.setResults.some((result) => result.pain || result.techniqueBreakdown || (result.discomfortLevel ?? 0) >= 5)
+  const currentLoadLabel = summary.currentLoad ?? '—'
+  const nextLoadLabel = summary.nextLoad ?? summary.currentLoad ?? '—'
+
+  async function handleAdjustLoad(direction: 'decrease' | 'increase') {
+    if (!summary.exerciseSlug || pendingAdjustment) {
+      return
+    }
+
+    setPendingAdjustment(direction)
+    setSaveError(null)
+
+    try {
+      const result = await adjustExerciseLoadOnBackend({
+        userId: selectedUserId ?? 'alexey',
+        exerciseSlug: summary.exerciseSlug,
+        direction,
+        trainingMode: summary.trainingMode,
+        trainingDayType: summary.trainingDayType,
+        kind: summary.kind,
+        currentWeightKg: summary.nextWeightKg ?? summary.currentWeightKg,
+        currentReps: summary.nextReps ?? summary.currentReps,
+        currentSets: summary.nextSets ?? summary.currentSets,
+        restSeconds: summary.nextRestSeconds ?? summary.restSeconds,
+      })
+      applyLoadAdjustment(summary.exerciseSlug, result)
+      setAdjustmentRecommendation(result.recommendation)
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Не удалось изменить нагрузку на backend.')
+    } finally {
+      setPendingAdjustment(null)
+    }
+  }
 
   return (
     <FormaShell userName={getUserName(selectedUserId)} machine={session.machine} onStop={() => setEmergencyStopActive(true)}>
@@ -54,6 +94,7 @@ export function ExerciseSummaryScreen() {
           </div>
         }
       />
+      {saveError ? <div className="mb-5 rounded-[22px] border border-[#eb5345]/25 bg-[#1b0f10] px-4 py-3 text-sm text-[#ffb4a7]">{saveError}</div> : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
         <section className="glass-panel rounded-[34px] p-6 xl:p-8">
@@ -104,6 +145,23 @@ export function ExerciseSummaryScreen() {
 
         <aside className="space-y-6">
           <section className="glass-panel rounded-[32px] p-5">
+            <div className="font-display text-3xl font-bold text-white">Нагрузка</div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <LoadMetric label="Текущая" value={currentLoadLabel} tone="muted" />
+              <LoadMetric label="Следующая" value={nextLoadLabel} tone="accent" />
+            </div>
+            {adjustmentRecommendation ? <div className="mt-4 rounded-[24px] border border-white/8 bg-white/4 px-4 py-4 text-sm leading-6 text-white/65">{adjustmentRecommendation}</div> : null}
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+              <Button variant="secondary" disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('decrease')}>
+                {pendingAdjustment === 'decrease' ? 'Сохраняю…' : 'Понизить нагрузку'}
+              </Button>
+              <Button variant="secondary" disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('increase')}>
+                {pendingAdjustment === 'increase' ? 'Сохраняю…' : 'Повысить нагрузку'}
+              </Button>
+            </div>
+          </section>
+
+          <section className="glass-panel rounded-[32px] p-5">
             <div className="font-display text-3xl font-bold text-white">План и факт</div>
             <div className="mt-4 space-y-3">
               {summary.planVsFact.map((item) => (
@@ -124,14 +182,15 @@ export function ExerciseSummaryScreen() {
             <div className="mt-3 text-sm leading-7 text-white/65">{summary.recommendation}</div>
             <div className="mt-5 flex flex-col gap-3">
               <Button
-                iconLeft={<CheckCircle2 className="h-4 w-4" />}
+                className="min-h-16 rounded-[24px] px-6 py-4 text-base"
+                iconLeft={<ArrowRight className="h-5 w-5" />}
                 onClick={() => {
                   continueAfterExerciseSummary()
                   const nextView = useRuntimeStore.getState().session?.view
                   navigate(withSearch(nextView === 'workout-summary' ? '/workout-summary' : '/exercise-setup', location.search))
                 }}
               >
-                {summary.nextStepLabel}
+                {nextStepLabel}
               </Button>
               <Button
                 variant="secondary"
@@ -174,6 +233,17 @@ function Metric({ label, value }: { label: string; value: string }) {
     <div className="rounded-[22px] border border-white/8 bg-white/4 p-4">
       <div className="text-sm text-white/45">{label}</div>
       <div className="mt-2 font-display text-3xl font-bold text-white">{value}</div>
+    </div>
+  )
+}
+
+function LoadMetric({ label, value, tone }: { label: string; value: string; tone: 'muted' | 'accent' }) {
+  return (
+    <div className={cn('rounded-[22px] border px-4 py-4', tone === 'accent' ? 'border-[#d6b05f]/22 bg-[#18140b]' : 'border-white/8 bg-white/4')}>
+      <div className="text-sm text-white/45">{label}</div>
+      <div className={cn('mt-2 text-lg font-semibold', tone === 'accent' ? 'text-[#f2cf87]' : 'text-white')}>
+        {value}
+      </div>
     </div>
   )
 }

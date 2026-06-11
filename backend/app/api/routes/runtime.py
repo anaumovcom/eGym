@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_session
 from app.schemas.runtime import (
     ExerciseSessionCreateSchema,
+    LoadAdjustmentRequestSchema,
+    LoadAdjustmentResponseSchema,
     RuntimeExerciseSummarySchema,
     RuntimeWorkoutSummarySchema,
     SavedSetResponseSchema,
@@ -38,7 +40,18 @@ def save_workout_session(
     payload: WorkoutSessionCreateSchema,
     session: Session = Depends(get_session),
 ) -> RuntimeWorkoutSummarySchema:
-    return runtime_service.save_workout_session(session, payload)
+    try:
+        return runtime_service.save_workout_session(session, payload)
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+
+@router.post("/runtime/exercises/load-adjustment", response_model=LoadAdjustmentResponseSchema)
+def adjust_exercise_load(
+    payload: LoadAdjustmentRequestSchema,
+    session: Session = Depends(get_session),
+) -> LoadAdjustmentResponseSchema:
+    return runtime_service.adjust_exercise_load(session, payload)
 
 
 @router.get("/runtime/exercises/{exercise_session_id}/summary", response_model=RuntimeExerciseSummarySchema)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from math import pow
@@ -16,6 +17,12 @@ ROLE_FACTORS: dict[MuscleRole, float] = {
     MuscleRole.secondary: 0.6,
     MuscleRole.assisting: 0.35,
     MuscleRole.stabilizer: 0.2,
+}
+
+SET_TYPE_FACTORS: dict[str, float] = {
+    "warmup": 0.6,
+    "work": 1.0,
+    "failure": 1.2,
 }
 
 
@@ -156,6 +163,20 @@ class FatigueService:
         session.flush()
         return snapshots
 
+    def reset_user_fatigue(self, session: Session, user_id: str, now: datetime | None = None) -> int:
+        effective_now = now or datetime.now(UTC)
+        self.migrate_legacy_muscle_data(session, user_id, effective_now)
+        statement = select(MuscleFatigueSnapshot).where(MuscleFatigueSnapshot.user_id == user_id)
+        snapshots = list(session.scalars(statement))
+
+        for snapshot in snapshots:
+            snapshot.fatigue_score = 0.0
+            snapshot.calculated_at = effective_now
+            snapshot.last_load_at = None
+
+        session.flush()
+        return len(snapshots)
+
     def build_set_updates(
         self,
         session: Session,
@@ -175,57 +196,92 @@ class FatigueService:
         amplitude_percent: float | None,
         subjective_effort: int | None,
         discomfort_level: int | None,
+        set_type: str | None = None,
+        completion_status: str | None = None,
     ) -> list[FatigueUpdate]:
-        effective_reps = reps or actual_value or 1
-        volume_factor = max(effective_reps / 10, 0.6) + ((duration_seconds or 0) / 60)
+        if completion_status == "skipped" or not self._has_performed_work(actual_value, reps, duration_seconds):
+            return []
+
+        effective_reps = max(reps if reps is not None else actual_value, 0)
+        effective_duration = max(duration_seconds or (actual_value if reps is None else 0), 0)
+        completion_factor = min(1.25, max(actual_value / planned_value, 0.15)) if planned_value > 0 else 1.0
+        set_factor = SET_TYPE_FACTORS.get(str(set_type or "work"), 1.0)
+        volume_factor = max(effective_reps / 10, 0.35) + (effective_duration / 60)
         intensity_factor = 1.0 + max((subjective_effort or 6) - 5, 0) * 0.08 + ((weight_kg or 0) / 100)
         quality_factor = 0.9 + (amplitude_percent or 90) / 1000
         subjective_factor = 1.0 + (discomfort_level or 0) * 0.05
-        completion_factor = max(actual_value / planned_value, 0.5) if planned_value else 1.0
-        base_load = 8.0 * max(volume_factor, 0.75) * intensity_factor * quality_factor * subjective_factor * completion_factor
+        base_load = 8.0 * max(volume_factor, 0.35) * intensity_factor * quality_factor * subjective_factor * completion_factor * set_factor
 
         updates: list[FatigueUpdate] = []
-        for target in muscle_targets:
-            role = MuscleRole(target.get("role", MuscleRole.secondary.value))
-            for canonical_id, weight in split_muscle_targets(target["muscle_id"]):
-                definition = get_muscle_definition(canonical_id)
-                delta = round(base_load * ROLE_FACTORS[role] * weight, 2)
-                snapshot = self.get_or_create_snapshot(
-                    session,
+        for canonical_id, (target_factor, role) in self._target_contributions(muscle_targets).items():
+            definition = get_muscle_definition(canonical_id)
+            delta = round(base_load * min(target_factor, 1.0), 2)
+            if delta <= 0:
+                continue
+            snapshot = self.get_or_create_snapshot(
+                session,
+                user_id=user_id,
+                muscle_id=canonical_id,
+                now=occurred_at,
+            )
+            self.hydrate_snapshot(snapshot, occurred_at)
+            snapshot.fatigue_score += delta
+            snapshot.last_load_at = occurred_at
+            session.add(
+                MuscleFatigueEvent(
                     user_id=user_id,
                     muscle_id=canonical_id,
-                    now=occurred_at,
+                    source=FatigueEventSource.exercise_set,
+                    workout_session_id=workout_session_id,
+                    exercise_session_id=exercise_session_id,
+                    set_result_id=set_result_id,
+                    occurred_at=occurred_at,
+                    fatigue_delta=delta,
+                    role=role,
+                    recovery_half_life_hours=snapshot.recovery_half_life_hours,
+                    note=exercise_name,
                 )
-                self.hydrate_snapshot(snapshot, occurred_at)
-                snapshot.fatigue_score += delta
-                snapshot.last_load_at = occurred_at
-                session.add(
-                    MuscleFatigueEvent(
-                        user_id=user_id,
-                        muscle_id=canonical_id,
-                        source=FatigueEventSource.exercise_set,
-                        workout_session_id=workout_session_id,
-                        exercise_session_id=exercise_session_id,
-                        set_result_id=set_result_id,
-                        occurred_at=occurred_at,
-                        fatigue_delta=delta,
-                        role=role,
-                        recovery_half_life_hours=snapshot.recovery_half_life_hours,
-                        note=exercise_name,
-                    )
+            )
+            updates.append(
+                FatigueUpdate(
+                    muscle_id=canonical_id,
+                    name=definition.name,
+                    delta=delta,
+                    current_score=int(round(snapshot.fatigue_score)),
+                    readiness_percent=self.readiness_percent(snapshot.fatigue_score),
+                    status=self.fatigue_status(snapshot.fatigue_score),
                 )
-                updates.append(
-                    FatigueUpdate(
-                        muscle_id=canonical_id,
-                        name=definition.name,
-                        delta=delta,
-                        current_score=int(round(snapshot.fatigue_score)),
-                        readiness_percent=self.readiness_percent(snapshot.fatigue_score),
-                        status=self.fatigue_status(snapshot.fatigue_score),
-                    )
-                )
+            )
         session.flush()
         return updates
+
+    def _has_performed_work(self, actual_value: int, reps: int | None, duration_seconds: int | None) -> bool:
+        return max(actual_value, reps or 0, duration_seconds or 0) > 0
+
+    def _safe_role(self, raw_role: object) -> MuscleRole:
+        try:
+            return MuscleRole(str(raw_role))
+        except ValueError:
+            return MuscleRole.secondary
+
+    def _target_contributions(self, muscle_targets: list[dict[str, str]]) -> dict[str, tuple[float, MuscleRole]]:
+        totals: defaultdict[str, float] = defaultdict(float)
+        dominant_roles: dict[str, MuscleRole] = {}
+
+        for target in muscle_targets:
+            muscle_id = target.get("muscle_id")
+            if not muscle_id:
+                continue
+
+            role = self._safe_role(target.get("role", MuscleRole.secondary.value))
+            role_factor = ROLE_FACTORS[role]
+            for canonical_id, split_weight in split_muscle_targets(muscle_id):
+                totals[canonical_id] += role_factor * split_weight
+                current_role = dominant_roles.get(canonical_id)
+                if current_role is None or ROLE_FACTORS[role] > ROLE_FACTORS[current_role]:
+                    dominant_roles[canonical_id] = role
+
+        return {muscle_id: (factor, dominant_roles[muscle_id]) for muscle_id, factor in totals.items()}
 
     def muscle_history(self, session: Session, user_id: str, muscle_id: str) -> list[MuscleFatigueEvent]:
         statement = (

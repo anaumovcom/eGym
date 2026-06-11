@@ -1,7 +1,7 @@
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
@@ -34,6 +34,21 @@ class Settings(BaseSettings):
         extra="ignore",
         populate_by_name=True,
     )
+
+    @field_validator("database_url")
+    @classmethod
+    def normalize_sqlite_url(cls, value: str) -> str:
+        for prefix in ("sqlite:///", "sqlite+pysqlite:///"):
+            if not value.startswith(prefix):
+                continue
+
+            database_path = value.removeprefix(prefix)
+            if database_path == ":memory:" or Path(database_path).is_absolute():
+                return value
+
+            return f"{prefix}{(BACKEND_ROOT / database_path).resolve().as_posix()}"
+
+        return value
 
 
 @lru_cache(maxsize=1)

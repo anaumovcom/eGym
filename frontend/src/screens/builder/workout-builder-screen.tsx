@@ -336,7 +336,7 @@ export function WorkoutBuilderScreen() {
 
   function adjustGroupBreak(groupId: string, delta: number) {
     void updateGroup(groupId, (group) => {
-      const currentRestSeconds = parseDurationSeconds(group.betweenRoundsRest) ?? 90
+      const currentRestSeconds = parseDurationSeconds(group.betweenRoundsRest) ?? 120
       return {
         ...group,
         betweenRoundsRest: `${Math.max(15, currentRestSeconds + delta * 15)} сек`,
@@ -371,7 +371,7 @@ export function WorkoutBuilderScreen() {
             id: 'new-group-1',
             kind: 'single',
             title: 'Новая группа',
-            betweenRoundsRest: '90 сек',
+            betweenRoundsRest: '120 сек',
             items: [],
           },
         ],
@@ -433,7 +433,7 @@ export function WorkoutBuilderScreen() {
         id: nextGroupId,
         kind: 'single' as const,
         title: 'Новая группа',
-        betweenRoundsRest: '90 сек',
+        betweenRoundsRest: '120 сек',
         items: [],
       },
     ]
@@ -693,6 +693,20 @@ export function WorkoutBuilderScreen() {
     void selectExercise(nextSelectedItem.id, { skipSave: true })
   }
 
+  function handleDownloadWorkoutJson() {
+    const exportData = buildBuilderWorkoutJsonExport(workoutTitleRef.current, groupsRef.current)
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json;charset=utf-8' })
+    const downloadUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+
+    link.href = downloadUrl
+    link.download = createBuilderWorkoutJsonFileName(workoutTitleRef.current)
+    document.body.append(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
+  }
+
   return (
     <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
       <SectionIntro
@@ -779,6 +793,7 @@ export function WorkoutBuilderScreen() {
                   )}
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
+                  {selectedProgram ? <Button variant="secondary" onClick={handleDownloadWorkoutJson}>JSON</Button> : null}
                   {selectedProgram ? <Button variant="secondary" onClick={() => void handleAddGroup()}>Добавить группу</Button> : null}
                   {selectedProgram ? (
                     <button
@@ -968,7 +983,7 @@ export function WorkoutBuilderScreen() {
                       <div className="inline-flex items-center gap-2 rounded-2xl border border-white/8 bg-white/4 px-2 py-1.5 text-xs text-white/68">
                         <span>Перерыв после группы</span>
                         <button type="button" onClick={() => adjustGroupBreak(group.id, -1)} className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-[#0d1116] text-white/72 transition hover:text-white">-</button>
-                        <span className="min-w-[54px] text-center font-semibold text-white">{group.betweenRoundsRest ?? '90 сек'}</span>
+                        <span className="min-w-[54px] text-center font-semibold text-white">{group.betweenRoundsRest ?? '120 сек'}</span>
                         <button type="button" onClick={() => adjustGroupBreak(group.id, 1)} className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-[#0d1116] text-white/72 transition hover:text-white">+</button>
                       </div>
                     </div>
@@ -1219,6 +1234,34 @@ function serializeBuilderGroups(groups: BuilderWorkoutGroup[]) {
 
 function createBuilderSaveSnapshot(userId: string, programId: string, workoutName: string, groups: BuilderWorkoutGroup[], selectedExerciseId: string | null, selectedExercise: WorkoutBuilderData['selectedExercise'] | null) {
   return JSON.stringify({ userId, programId, workoutName, groups: serializeBuilderGroups(groups), selectedExerciseId, selectedExercise })
+}
+
+function buildBuilderWorkoutJsonExport(workoutName: string, groups: BuilderWorkoutGroup[]) {
+  return {
+    workoutName,
+    exercises: groups.flatMap((group) =>
+      group.items.map((item) => {
+        const loadType = inferBuilderLoadTypeFromItem(item)
+
+        return {
+          name: item.name,
+          sets: item.strengthPlan?.length ?? parseBuilderSetCount(item.sets),
+          weightKg: loadType === 'weighted' ? parseBuilderWeightValue(item.load) : null,
+          durationSeconds: parseDurationSeconds(item.sets) ?? null,
+          restBetweenSetsSeconds: parseDurationSeconds(item.rest) ?? null,
+        }
+      }),
+    ),
+  }
+}
+
+function createBuilderWorkoutJsonFileName(workoutName: string) {
+  const sanitizedName = workoutName
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '')
+    .replace(/\s+/g, '-')
+
+  return `${sanitizedName || 'workout-plan'}.json`
 }
 
 function mergeBuilderGroupsWithLocalStrength(serverGroups: BuilderWorkoutGroup[], localGroups: BuilderWorkoutGroup[]) {
@@ -1693,7 +1736,7 @@ function ExercisePlanStrengthSets({ item, modes }: { item: BuilderExerciseItem; 
 
 function getBuilderItemSetParams(item: BuilderExerciseItem) {
   const reps = parseBuilderTargetValue(item.sets)
-  const restSeconds = parseDurationSeconds(item.rest) ?? 90
+  const restSeconds = parseDurationSeconds(item.rest) ?? 120
   const durationSeconds = parseDurationSeconds(item.sets)
 
   return {
