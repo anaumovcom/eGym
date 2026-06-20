@@ -1,2 +1,2 @@
-Backend supervisor следит за backend, exercises и exercise_name_translations.csv.
-Backend server запущен. PID: 18608
+Backend supervisor is watching backend, exercises and exercise_name_translations.csv.
+Backend server started. PID: 294215

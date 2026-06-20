@@ -1,4 +1,4 @@
-import { CalendarDays, Dumbbell, HeartPulse, House, OctagonAlert, PanelTop, Settings, Sparkles, UserRound, Wrench } from 'lucide-react'
+import { CalendarDays, Dumbbell, HeartPulse, House, OctagonAlert, PanelTop, Settings, Sparkles, Terminal, UserRound, Wrench } from 'lucide-react'
 import type { PropsWithChildren } from 'react'
 import { NavLink } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
@@ -7,7 +7,7 @@ import { getDriveLabel, getSafetyLabel } from '@/shared/lib/machine-status'
 import { cn } from '@/shared/lib/cn'
 import { useHardwareStore } from '@/stores/hardware-store'
 
-const icons = [House, Sparkles, PanelTop, CalendarDays, Wrench, Dumbbell, Dumbbell, Sparkles, HeartPulse, UserRound, Settings]
+const icons = [House, Sparkles, PanelTop, CalendarDays, Wrench, Dumbbell, Dumbbell, Sparkles, HeartPulse, UserRound, Settings, Terminal]
 
 type MachineProblem = {
   label: string

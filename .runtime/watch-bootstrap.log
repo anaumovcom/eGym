@@ -1,0 +1,6 @@
+Backend watch started. PID: 294192
+Log: /home/alex/DEV/eGym/.runtime/backend-watch-supervisor.log
+Errors: /home/alex/DEV/eGym/.runtime/backend-watch-supervisor.log.err
+Frontend watch started. PID: 294200
+Log: /home/alex/DEV/eGym/.runtime/frontend-watch.log
+Errors: /home/alex/DEV/eGym/.runtime/frontend-watch.log.err

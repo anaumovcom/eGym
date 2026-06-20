@@ -20,6 +20,7 @@ import { SystemSettingsScreen } from '@/screens/settings/system-settings-screen'
 import { TodayWorkoutScreen } from '@/screens/today/today-workout-screen'
 import { UserSelectionScreen } from '@/screens/user-selection/user-selection-screen'
 import { WorkoutSummaryScreen } from '@/screens/workout-summary/workout-summary-screen'
+import { ModbusDebugScreen } from '@/screens/modbus-debug/modbus-debug-screen'
 import { useAppStore } from '@/stores/app-store'
 
 const placeholderTitles = {
@@ -59,6 +60,7 @@ export function AppRouter() {
         <Route path="/rest" element={<ProtectedAppRoute><RestScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-summary" element={<ProtectedAppRoute><ExerciseSummaryScreen /></ProtectedAppRoute>} />
         <Route path="/workout-summary" element={<ProtectedAppRoute><WorkoutSummaryScreen /></ProtectedAppRoute>} />
+        <Route path="/modbus-debug" element={<ModbusDebugScreen />} />
         {Object.entries(placeholderTitles).map(([path, title]) => (
           <Route key={path} path={path} element={<ProtectedAppRoute><PlaceholderScreen title={title} /></ProtectedAppRoute>} />
         ))}

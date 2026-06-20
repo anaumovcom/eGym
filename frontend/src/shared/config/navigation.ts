@@ -10,4 +10,5 @@ export const navigationItems = [
   { label: 'Усталость', path: '/fatigue' },
   { label: 'Профиль', path: '/profile' },
   { label: 'Настройки', path: '/settings' },
+  { label: 'Modbus Debug', path: '/modbus-debug' },
 ] as const
