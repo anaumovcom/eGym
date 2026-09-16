@@ -24,7 +24,7 @@ describe('UserSelectionView', () => {
     expect(onSelectUser).toHaveBeenCalledWith('alexey')
   })
 
-  it('shows guest mode and disabled add-user action', () => {
+  it('shows guest mode without a non-working add-user action', () => {
     render(
       <UserSelectionView
         {...userSelectionScenarios.ready}
@@ -37,6 +37,7 @@ describe('UserSelectionView', () => {
     )
 
     expect(screen.getByRole('button', { name: 'Гость' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Добавить пользователя' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Добавить пользователя' })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^Выбрать профиль/ })).toHaveLength(userSelectionScenarios.ready.users.length)
   })
 })

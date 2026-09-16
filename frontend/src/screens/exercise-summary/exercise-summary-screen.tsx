@@ -1,19 +1,30 @@
-import { ArrowRight, CircleAlert } from 'lucide-react'
+import * as Dialog from '@radix-ui/react-dialog'
+import { ArrowRight, CheckCircle2, CircleAlert, ListChecks, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import type { MachineHealth } from '@/entities/machine/model/types'
 import { adjustExerciseLoadOnBackend } from '@/features/runtime/lib/runtime-persistence'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { getBestSetLabel, getSetTypeLabel } from '@/features/strength/lib/strength-plan'
-import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
+import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
-import { SectionIntro } from '@/shared/ui/stage2/screen-components'
+import { FormaState } from '@/shared/ui/status/forma-state'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
+}
+
+const fallbackMachine: MachineHealth = {
+  machineState: 'ready',
+  machineLabel: 'Тренажёр готов',
+  leftDrive: 'connected',
+  rightDrive: 'connected',
+  safety: 'enabled',
+  calibration: '—',
 }
 
 export function ExerciseSummaryScreen() {
@@ -31,6 +42,7 @@ export function ExerciseSummaryScreen() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pendingAdjustment, setPendingAdjustment] = useState<'decrease' | 'increase' | null>(null)
   const [adjustmentRecommendation, setAdjustmentRecommendation] = useState<string | null>(null)
+  const [detailsOpen, setDetailsOpen] = useState(false)
 
   const initOptions = getRuntimeInitOptions(searchParams)
 
@@ -41,7 +53,11 @@ export function ExerciseSummaryScreen() {
   }, [ensureSession, initOptions, session])
 
   if (!session || !session.exerciseSummary) {
-    return null
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={session?.machine ?? fallbackMachine} hideNavigation onStop={() => setEmergencyStopActive(true)}>
+        <FormaState tone="loading" title="Считаем итог упражнения…" />
+      </FormaShell>
+    )
   }
 
   const summary = session.exerciseSummary
@@ -77,81 +93,84 @@ export function ExerciseSummaryScreen() {
       applyLoadAdjustment(summary.exerciseSlug, result)
       setAdjustmentRecommendation(result.recommendation)
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Не удалось изменить нагрузку на backend.')
+      setSaveError(error instanceof Error ? error.message : 'Не удалось изменить нагрузку. Попробуйте ещё раз.')
     } finally {
       setPendingAdjustment(null)
     }
   }
 
+  const outcomeTone = summary.outcome === 'aborted' ? 'aborted' : summary.outcome === 'partial' || summary.outcome === 'skipped' ? 'partial' : 'done'
+  const outcomeLabel = summary.outcome === 'aborted' ? 'Упражнение прервано' : summary.outcome === 'skipped' ? 'Упражнение пропущено' : summary.outcome === 'partial' ? 'Выполнено частично' : 'Результат сохранён'
+
+  function handleContinue() {
+    continueAfterExerciseSummary()
+    const nextView = useRuntimeStore.getState().session?.view
+    navigate(withSearch(nextView === 'workout-summary' ? '/workout-summary' : '/exercise-setup', location.search))
+  }
+
   return (
-    <FormaShell userName={getUserName(selectedUserId)} machine={session.machine} onStop={() => setEmergencyStopActive(true)}>
-      <SectionIntro
-        title={summary.title}
-        description={summary.subtitle}
-        actions={
-          <div className={cn('rounded-[22px] px-4 py-3 text-sm', summary.outcome === 'aborted' ? 'border border-[#b83d38]/30 bg-[#311615] text-[#ffb3a9]' : 'border border-[#57c968]/18 bg-[#122b1d] text-[#92e09a]')}>
-            {summary.outcome === 'aborted' ? 'Упражнение завершено частично' : 'Результат сохранён'}
+    <FormaShell userName={getUserName(selectedUserId)} machine={session.machine} hideNavigation onStop={() => setEmergencyStopActive(true)}>
+      <div className="rt-screen">
+        <header className="rt-header">
+          <div className="rt-chips" style={{ justifyContent: 'flex-start' }} aria-label="Место в тренировке">
+            {currentExercise ? <span className="rt-chip">Упражнение {currentExercise.order} из {session.exercises.length}</span> : null}
           </div>
-        }
-      />
-      {saveError ? <div className="mb-5 rounded-[22px] border border-[#eb5345]/25 bg-[#1b0f10] px-4 py-3 text-sm text-[#ffb4a7]">{saveError}</div> : null}
+          <div className="rt-title">
+            <h1 className="font-display font-bold tracking-[-0.04em] text-white">{summary.title}</h1>
+            <p><span>{summary.subtitle}</span></p>
+          </div>
+          <div className="rt-chips" aria-label="Итог упражнения">
+            <span className="rt-outcome-badge" data-tone={outcomeTone}>
+              {outcomeTone === 'done' ? <CheckCircle2 aria-hidden="true" /> : <CircleAlert aria-hidden="true" />}
+              {outcomeLabel}
+            </span>
+          </div>
+        </header>
 
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <section className="glass-panel rounded-[34px] p-6 xl:p-8">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <Metric label="Подходы" value={summary.totals.setsCompleted} />
-            <Metric label="Повторы / время" value={summary.totals.repsOrTime} />
-            <Metric label="Объём" value={summary.totals.volume} />
-            <Metric label="Амплитуда" value={summary.totals.averageAmplitude ?? '—'} />
-            <Metric label="Темп" value={summary.totals.tempo} />
+        <div className="rt-body rt-summary-body">
+          <div className="rt-summary-metrics" role="list" aria-label="Итоги упражнения">
+            <article role="listitem"><span>Подходы</span><strong>{summary.totals.setsCompleted}</strong></article>
+            <article role="listitem"><span>Повторы / время</span><strong>{summary.totals.repsOrTime}</strong></article>
+            <article role="listitem"><span>Объём</span><strong>{summary.totals.volume}</strong></article>
+            <article role="listitem" data-accent="true"><span>Лучший подход</span><strong>{bestSet}</strong></article>
           </div>
 
-          <div className="mt-4 rounded-[24px] border border-[#d6b05f]/18 bg-[#18140b] px-5 py-4 text-[#f2cf87]">
-            <div className="text-sm uppercase tracking-[0.22em] text-[#f2cf87]/60">Лучший подход</div>
-            <div className="mt-2 font-display text-3xl font-bold text-white">{bestSet}</div>
-          </div>
-
-          {hasWarning ? (
-            <div className="mt-4 rounded-[24px] border border-[#eb5345]/25 bg-[#1b0f10] px-5 py-4 text-sm text-[#ffb4a7]">
-              Ты отметил боль или потерю техники. Не увеличивай вес на следующей тренировке.
-            </div>
-          ) : null}
-
-          <div className="mt-6 overflow-hidden rounded-[28px] border border-white/8">
-            <div className="grid grid-cols-[88px_140px_1fr_1fr_1fr_1fr] bg-white/4 px-4 py-3 text-sm text-white/45">
-              <div>Сет</div>
-              <div>Тип</div>
-              <div>План</div>
-              <div>Факт</div>
-              <div>Вес / объём</div>
-              <div>Качество</div>
-            </div>
-            {summary.setResults.map((result) => (
-              <div key={result.setNumber} className="grid grid-cols-[88px_140px_1fr_1fr_1fr_1fr] border-t border-white/8 px-4 py-4 text-sm text-white/72">
-                <div className="font-semibold text-white">#{result.setNumber}</div>
-                <div>
-                  <span className={cn('rounded-full px-2 py-1 text-xs', result.setType === 'warmup' ? 'bg-white/6 text-white/55' : result.setType === 'failure' ? 'bg-[#eb5345]/12 text-[#ffb1a8]' : 'bg-[#d6b05f]/12 text-[#f2cf87]')}>
-                    {getSetTypeLabel(result.setType)}
-                  </span>
-                </div>
-                <div>{formatSummaryPlan(result)}</div>
-                <div>{result.reps ?? result.actualValue}{typeof result.rir === 'number' ? ` • RIR ${result.rir}` : ''}</div>
-                <div>{result.weightKg ? `${result.weightKg} кг` : '—'}{result.volumeKg ? ` • ${Math.round(result.volumeKg)} кг` : ''}</div>
-                <div>{result.tempoLabel}{result.amplitudePercent ? ` • ${result.amplitudePercent}%` : ''}{result.pain ? ' • боль' : ''}{result.techniqueBreakdown ? ' • техника' : ''}</div>
+          {saveError ? (
+            <div className="rt-alert" data-tone="danger" role="alert">
+              <CircleAlert aria-hidden="true" />
+              <div>
+                <strong>Не удалось изменить нагрузку</strong>
+                <p>{saveError}</p>
               </div>
-            ))}
-          </div>
-        </section>
-
-        <aside className="space-y-6">
-          <section className="glass-panel rounded-[32px] p-5">
-            <div className="font-display text-3xl font-bold text-white">Нагрузка</div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              <LoadMetric label="Текущая" value={currentLoadLabel} tone="muted" />
-              <LoadMetric label="Следующая" value={nextLoadLabel} tone="accent" />
+              <Button variant="secondary" onClick={() => setSaveError(null)}>Скрыть</Button>
             </div>
-            {adjustmentRecommendation ? <div className="mt-4 rounded-[24px] border border-white/8 bg-white/4 px-4 py-4 text-sm leading-6 text-white/65">{adjustmentRecommendation}</div> : null}
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+          ) : hasWarning ? (
+            <div className="rt-alert" data-tone="danger" role="alert">
+              <CircleAlert aria-hidden="true" />
+              <div>
+                <strong>Отмечена боль или потеря техники</strong>
+                <p>Не увеличивайте вес на следующей тренировке.</p>
+              </div>
+              <span />
+            </div>
+          ) : (
+            <div className="rt-alert" role="note">
+              <Sparkles aria-hidden="true" />
+              <div>
+                <strong>Рекомендация Forma</strong>
+                <p>{adjustmentRecommendation ?? summary.recommendation}</p>
+              </div>
+              <span />
+            </div>
+          )}
+
+          <div className="rt-load">
+            <div>
+              <span>Нагрузка в следующий раз</span>
+              <strong>{nextLoadLabel}</strong>
+              <span>Сейчас: {currentLoadLabel}</span>
+            </div>
+            <div className="rt-load-actions">
               <Button variant="secondary" disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('decrease')}>
                 {pendingAdjustment === 'decrease' ? 'Сохраняю…' : 'Понизить нагрузку'}
               </Button>
@@ -159,52 +178,75 @@ export function ExerciseSummaryScreen() {
                 {pendingAdjustment === 'increase' ? 'Сохраняю…' : 'Повысить нагрузку'}
               </Button>
             </div>
-          </section>
+          </div>
+        </div>
 
-          <section className="glass-panel rounded-[32px] p-5">
-            <div className="font-display text-3xl font-bold text-white">План и факт</div>
-            <div className="mt-4 space-y-3">
-              {summary.planVsFact.map((item) => (
-                <div key={item.label} className="rounded-[24px] border border-white/8 bg-white/4 px-4 py-4 text-white/74">
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="font-medium text-white">{item.label}</span>
-                    <span className="text-sm text-white/45">Δ {item.delta}</span>
-                  </div>
-                  <div className="mt-2 text-sm">План: {item.plan}</div>
-                  <div className="mt-1 text-sm">Факт: {item.fact}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          <section className="glass-panel rounded-[32px] p-5">
-            <div className="flex items-center gap-3 text-[#f2cf87]"><CircleAlert className="h-5 w-5" />Рекомендация Forma</div>
-            <div className="mt-3 text-sm leading-7 text-white/65">{summary.recommendation}</div>
-            <div className="mt-5 flex flex-col gap-3">
-              <Button
-                className="min-h-16 rounded-[24px] px-6 py-4 text-base"
-                iconLeft={<ArrowRight className="h-5 w-5" />}
-                onClick={() => {
-                  continueAfterExerciseSummary()
-                  const nextView = useRuntimeStore.getState().session?.view
-                  navigate(withSearch(nextView === 'workout-summary' ? '/workout-summary' : '/exercise-setup', location.search))
-                }}
-              >
-                {nextStepLabel}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  completeWorkout('partial')
-                  navigate(withSearch('/workout-summary', location.search))
-                }}
-              >
-                Завершить тренировку сейчас
-              </Button>
-            </div>
-          </section>
-        </aside>
+        <div className="rt-actions" role="group" aria-label="Действия после упражнения">
+          <div className="rt-actions-group">
+            <Button variant="secondary" iconLeft={<ListChecks aria-hidden="true" />} onClick={() => setDetailsOpen(true)}>
+              Подробно
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                completeWorkout('partial')
+                navigate(withSearch('/workout-summary', location.search))
+              }}
+            >
+              Завершить тренировку сейчас
+            </Button>
+          </div>
+          <div className="rt-actions-note">{hasNextExercise ? <>Дальше: <strong>{session.exercises[currentExercise.order]?.name}</strong></> : 'Это было последнее упражнение тренировки'}</div>
+          <Button className="rt-primary" iconLeft={<ArrowRight aria-hidden="true" />} onClick={handleContinue}>
+            {nextStepLabel}
+          </Button>
+        </div>
       </div>
+
+      <Dialog.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="rt-details-panel">
+            <Dialog.Title className="font-display text-3xl font-bold">Подробно: {summary.title}</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/70">Все подходы, план и факт, темп и амплитуда.</Dialog.Description>
+            <div className="rt-details-body">
+              <section aria-label="Подходы">
+                <h3>Подходы</h3>
+                <div className="rt-table">
+                  <div><span>Сет</span><span>Тип</span><span>План</span><span>Факт</span><span>Вес / объём</span><span>Качество</span></div>
+                  {summary.setResults.map((result) => (
+                    <div key={result.setNumber}>
+                      <strong>#{result.setNumber}</strong>
+                      <span>{getSetTypeLabel(result.setType)}</span>
+                      <span>{formatSummaryPlan(result)}</span>
+                      <strong>{result.reps ?? result.actualValue}{typeof result.rir === 'number' ? ` • RIR ${result.rir}` : ''}</strong>
+                      <span>{result.weightKg ? `${result.weightKg} кг` : '—'}{result.volumeKg ? ` • ${Math.round(result.volumeKg)} кг` : ''}</span>
+                      <span>{result.tempoLabel}{result.amplitudePercent ? ` • ${result.amplitudePercent}%` : ''}{result.pain ? ' • боль' : ''}{result.techniqueBreakdown ? ' • техника' : ''}</span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <section aria-label="План и факт">
+                <h3>План и факт</h3>
+                <div className="rt-plan-fact">
+                  {summary.planVsFact.map((item) => (
+                    <div key={item.label}>
+                      <strong>{item.label}</strong>
+                      План: {item.plan} · Факт: {item.fact} · Δ {item.delta}
+                    </div>
+                  ))}
+                  <div><strong>Амплитуда</strong>{summary.totals.averageAmplitude ?? '—'}</div>
+                  <div><strong>Темп</strong>{summary.totals.tempo}</div>
+                </div>
+              </section>
+              <p className="text-sm text-white/70">{summary.recommendation}</p>
+            </div>
+            <div className="builder-dialog-actions">
+              <Dialog.Close asChild><Button>Закрыть</Button></Dialog.Close>
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <EmergencyStopOverlay
         open={emergencyStopActive}
@@ -226,24 +268,4 @@ function formatSummaryPlan(result: { targetMinReps?: number | null; targetMaxRep
   }
 
   return `${result.targetMaxReps ?? result.plannedValue}`
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[22px] border border-white/8 bg-white/4 p-4">
-      <div className="text-sm text-white/45">{label}</div>
-      <div className="mt-2 font-display text-3xl font-bold text-white">{value}</div>
-    </div>
-  )
-}
-
-function LoadMetric({ label, value, tone }: { label: string; value: string; tone: 'muted' | 'accent' }) {
-  return (
-    <div className={cn('rounded-[22px] border px-4 py-4', tone === 'accent' ? 'border-[#d6b05f]/22 bg-[#18140b]' : 'border-white/8 bg-white/4')}>
-      <div className="text-sm text-white/45">{label}</div>
-      <div className={cn('mt-2 text-lg font-semibold', tone === 'accent' ? 'text-[#f2cf87]' : 'text-white')}>
-        {value}
-      </div>
-    </div>
-  )
 }

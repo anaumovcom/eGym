@@ -85,7 +85,6 @@ export const handlers = [
   }),
   http.get('/api/calendar', ({ request }) => {
     const url = new URL(request.url)
-    const mode = url.searchParams.get('mode') === 'week' ? 'week' : 'month'
-    return HttpResponse.json(getWorkoutCalendarData(mode, url.searchParams.get('selectedDayId') ?? '2026-05-14'))
+    return HttpResponse.json(getWorkoutCalendarData(url.searchParams.get('month') ?? undefined))
   }),
 ]

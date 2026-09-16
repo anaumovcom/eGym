@@ -24,10 +24,18 @@ export function isSessionInCurrentTrainingDay(session: Pick<RuntimeWorkoutSessio
   return startedAt.getTime() >= getTrainingDayStart(reference).getTime()
 }
 
+export function getRuntimeResumeView(session: Pick<RuntimeWorkoutSession, 'view' | 'photoProgress'>): RuntimeView {
+  if (session.view === 'photo-progress') {
+    return session.photoProgress.mode === 'post-workout' ? 'workout-summary' : 'exercise-setup'
+  }
+
+  return session.view
+}
+
 export function runtimeViewPath(view: RuntimeView) {
   switch (view) {
     case 'photo-progress':
-      return '/photo-progress'
+      return '/exercise-setup'
     case 'exercise-session':
       return '/exercise-session'
     case 'rest':

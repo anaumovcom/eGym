@@ -1,6 +1,7 @@
+import * as Dialog from '@radix-ui/react-dialog'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, Dumbbell, Flame, Gauge, ListTree, OctagonAlert, Plus, Repeat2, Replace, Target, Timer, Trash2 } from 'lucide-react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Dumbbell, Flame, Gauge, OctagonAlert, Plus, Repeat2, Replace, Settings2, SlidersHorizontal, Target, Timer, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { BuilderExerciseEditor, BuilderExerciseItem, BuilderGroupKind, BuilderLoadType, BuilderWorkoutGroup, WorkoutBuilderData } from '@/entities/builder/model/types'
 import type { ExerciseDetails } from '@/entities/exercise/model/types'
@@ -11,9 +12,11 @@ import { apiDelete, apiGet, apiPost, apiPut } from '@/shared/api/client'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
+import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
-import { CompactBodyMapMini, ExerciseVideoPlayer, SectionIntro } from '@/shared/ui/stage2/screen-components'
-import { ExercisePickerModal } from '@/shared/ui/training/exercise-picker-modal'
+import { CompactBodyMapMini, ExerciseVideoPlayer } from '@/shared/ui/stage2/screen-components'
+import { ExercisePickerModal, isRecoveryEquipment, isWeightlessEquipment } from '@/shared/ui/training/exercise-picker-modal'
+import { ValueStepper } from '@/shared/ui/training/value-stepper'
 import { useAppStore } from '@/stores/app-store'
 
 function getUserName(userId: string | null) {
@@ -64,6 +67,7 @@ export function WorkoutBuilderScreen() {
 
   const selectedExerciseIdParam = searchParams.get('selectedExerciseId')
   const selectedProgramIdParam = searchParams.get('programId')
+  const addSlugParam = searchParams.get('add')
 
   const fallbackMachine: MachineHealth = {
     machineState: 'ready',
@@ -94,12 +98,19 @@ export function WorkoutBuilderScreen() {
   const [workoutTitle, setWorkoutTitle] = useState(data?.info.name ?? '')
   const [titleDraft, setTitleDraft] = useState(data?.info.name ?? '')
   const [isEditingWorkoutTitle, setIsEditingWorkoutTitle] = useState(false)
-  const [editingGroupId, setEditingGroupId] = useState<string | null>(null)
+  const [groupDialogId, setGroupDialogId] = useState<string | null>(null)
   const [groupTitleDraft, setGroupTitleDraft] = useState('')
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'error'>('saved')
   const [replaceModalOpen, setReplaceModalOpen] = useState(false)
   const [replaceTargetExerciseId, setReplaceTargetExerciseId] = useState<string | null>(null)
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [addTargetPosition, setAddTargetPosition] = useState<{ groupId: string; index: number } | null>(null)
+  const [createPending, setCreatePending] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const createPendingRef = useRef(false)
+  const createDialogOpen = searchParams.get('create') === 'new'
   const lastSavedSnapshotRef = useRef<string | null>(null)
   const lastSavePromiseRef = useRef<Promise<void> | null>(null)
   const groupsRef = useRef(groups)
@@ -156,12 +167,15 @@ export function WorkoutBuilderScreen() {
     lastSavedSnapshotRef.current = createBuilderSaveSnapshot(resolvedUserId, data.selectedProgramId, data.info.name, nextGroups, data.selectedExerciseId || null, nextEditor)
   }, [data, resolvedUserId])
 
-  const fatigueSummary = useMemo(() => buildBuilderFatigueSummary(groups), [groups])
+  useEffect(() => {
+    // Catalog hands over a chosen exercise: open the add flow on its configuration step.
+    if (addSlugParam && data && selectedProgramIdParam) setAddModalOpen(true)
+  }, [addSlugParam, data, selectedProgramIdParam])
 
   if (error) {
     return (
       <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
-        <div className="glass-panel rounded-[34px] border border-[#eb5345]/25 bg-[#1b0f10] p-8 text-[#ffb4a7]">Не удалось загрузить конструктор тренировки. Проверьте backend API.</div>
+        <div className="glass-panel rounded-[34px] border border-[#eb5345]/25 bg-[#1b0f10] p-8 text-[#ffb4a7]">Не удалось загрузить конструктор тренировки. Попробуйте открыть его ещё раз.</div>
       </FormaShell>
     )
   }
@@ -218,8 +232,11 @@ export function WorkoutBuilderScreen() {
     }
 
     savePromise = apiPut('/api/builder/plan', payload)
-      .then(() => undefined)
+      .then(() => {
+        setSaveStatus('saved')
+      })
       .catch(() => {
+        setSaveStatus('error')
         if (lastSavePromiseRef.current === savePromise) {
           lastSavedSnapshotRef.current = null
         }
@@ -230,8 +247,34 @@ export function WorkoutBuilderScreen() {
         }
       })
 
+    setSaveStatus('saving')
     lastSavePromiseRef.current = savePromise
     await savePromise
+  }
+
+  function goToList() {
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.delete('programId')
+      next.delete('selectedExerciseId')
+      next.delete('add')
+      return next
+    })
+  }
+
+  async function handleDone() {
+    if (selectedProgramId) {
+      await persistBuilderPlan(groupsRef.current, selectedExerciseId || null, editorRef.current, workoutTitleRef.current)
+      if (lastSavedSnapshotRef.current === null) {
+        return
+      }
+    }
+    goToList()
+  }
+
+  function retrySave() {
+    lastSavedSnapshotRef.current = null
+    void persistBuilderPlan(groupsRef.current, selectedExerciseId || null, editorRef.current, workoutTitleRef.current)
   }
 
   async function selectExercise(exerciseId: string, options?: { skipSave?: boolean }) {
@@ -323,15 +366,13 @@ export function WorkoutBuilderScreen() {
       return
     }
 
-    if (!normalizedTitle) {
+    if (!normalizedTitle || normalizedTitle === currentGroup.title) {
       setGroupTitleDraft(currentGroup.title)
-      setEditingGroupId(null)
       return
     }
 
     await updateGroup(groupId, (group) => ({ ...group, title: normalizedTitle }))
     setGroupTitleDraft(normalizedTitle)
-    setEditingGroupId(null)
   }
 
   function adjustGroupBreak(groupId: string, delta: number) {
@@ -348,43 +389,79 @@ export function WorkoutBuilderScreen() {
     void updateGroup(groupId, (group) => ({ ...group, kind }))
   }
 
-  async function handleCreateWorkout() {
-    if (!data) {
+  function setCreateDialogOpen(open: boolean) {
+    if (createPendingRef.current) {
       return
     }
 
-    const existingCustomPrograms = data.programs.filter((program) => program.name.startsWith('Новая тренировка')).length
-    const workoutName = existingCustomPrograms > 0 ? `Новая тренировка ${existingCustomPrograms + 1}` : 'Новая тренировка'
-
-    const response = await apiPost<ProgramMutationResult>('/api/programs', {
-      userId: resolvedUserId,
-      name: workoutName,
-      subtitle: 'Пустая тренировка',
-      programType: 'strength',
-      difficulty: 'easy',
-      durationMinutes: 45,
-      focusTags: [],
-      description: 'Пустая программа для ручной сборки.',
-      structure: {
-        builderGroups: [
-          {
-            id: 'new-group-1',
-            kind: 'single',
-            title: 'Новая группа',
-            betweenRoundsRest: '120 сек',
-            items: [],
-          },
-        ],
-      },
-      recommendedToday: false,
-    })
-
+    setCreateError(null)
     setSearchParams((current) => {
       const next = new URLSearchParams(current)
-      next.set('programId', response.id)
-      next.delete('selectedExerciseId')
+      if (open) next.set('create', 'new')
+      else next.delete('create')
       return next
-    })
+    }, { replace: true, preventScrollReset: true })
+  }
+
+  async function handleCreateWorkout() {
+    if (!data || !createDialogOpen || createPendingRef.current) {
+      return
+    }
+
+    createPendingRef.current = true
+    setCreatePending(true)
+    setCreateError(null)
+    try {
+      // Do not leave the current plan while an autosave is pending or failed.
+      if (selectedProgramId) {
+        await persistBuilderPlan(groupsRef.current, selectedExerciseId || null, editorRef.current, workoutTitleRef.current)
+        if (lastSavedSnapshotRef.current === null) {
+          setCreateError('Не удалось сохранить текущую тренировку. Повторите попытку перед созданием новой.')
+          return
+        }
+      }
+
+      const existingCustomPrograms = data.programs.filter((program) => program.name.startsWith('Новая тренировка')).length
+      const workoutName = existingCustomPrograms > 0 ? `Новая тренировка ${existingCustomPrograms + 1}` : 'Новая тренировка'
+
+      const response = await apiPost<ProgramMutationResult>('/api/programs', {
+        userId: resolvedUserId,
+        name: workoutName,
+        subtitle: 'Пустая тренировка',
+        programType: 'strength',
+        difficulty: 'easy',
+        durationMinutes: 45,
+        focusTags: [],
+        description: 'Пустая программа для ручной сборки.',
+        structure: {
+          builderGroups: [
+            {
+              id: 'new-group-1',
+              kind: 'single',
+              title: 'Новая группа',
+              betweenRoundsRest: '120 сек',
+              items: [],
+            },
+          ],
+        },
+        recommendedToday: false,
+      })
+
+      void queryClient.invalidateQueries({ queryKey: ['workout-builder', resolvedUserId], refetchType: 'none' })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', resolvedUserId] })
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current)
+        next.set('programId', response.id)
+        next.delete('selectedExerciseId')
+        next.delete('create')
+        return next
+      }, { replace: true, preventScrollReset: true })
+    } catch {
+      setCreateError('Не удалось создать тренировку. Попробуйте ещё раз.')
+    } finally {
+      createPendingRef.current = false
+      setCreatePending(false)
+    }
   }
 
   async function handleDeleteWorkout() {
@@ -392,7 +469,6 @@ export function WorkoutBuilderScreen() {
       return
     }
 
-    const fallbackProgram = data.programs.find((program) => program.id !== selectedProgramId)
     await apiDelete(`/api/programs/${selectedProgramId}?userId=${encodeURIComponent(resolvedUserId)}`)
 
     queryClient.setQueriesData<WorkoutBuilderData>({ queryKey: ['workout-builder', resolvedUserId] }, (current) => {
@@ -411,18 +487,9 @@ export function WorkoutBuilderScreen() {
     })
 
     await queryClient.invalidateQueries({ queryKey: ['workout-builder', resolvedUserId] })
-
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current)
-      if (fallbackProgram) {
-        next.set('programId', fallbackProgram.id)
-      }
-      else {
-        next.delete('programId')
-      }
-      next.delete('selectedExerciseId')
-      return next
-    })
+    void queryClient.invalidateQueries({ queryKey: ['dashboard', resolvedUserId] })
+    setDeleteDialogOpen(false)
+    goToList()
   }
 
   async function handleAddGroup() {
@@ -442,23 +509,32 @@ export function WorkoutBuilderScreen() {
   }
 
   async function handleDeleteGroup(groupId: string) {
-    const currentEditor = editorRef.current
-    if (!currentEditor) {
+    if (groupsRef.current.length <= 1) {
       return
     }
 
     const nextGroups = groupsRef.current.filter((group) => group.id !== groupId)
     const remainingItems = nextGroups.flatMap((group) => group.items)
-    if (remainingItems.length === 0) {
+    const selectedStillExists = remainingItems.some((item) => item.id === selectedExerciseId)
+    const nextSelectedExerciseId = selectedStillExists ? selectedExerciseId : remainingItems[0]?.id ?? null
+    await saveGroups(nextGroups, nextSelectedExerciseId, selectedStillExists ? editorRef.current : null)
+    if (nextSelectedExerciseId !== selectedExerciseId) {
+      moveSelection(nextSelectedExerciseId)
+    }
+  }
+
+  function moveSelection(exerciseId: string | null) {
+    if (exerciseId) {
+      void selectExercise(exerciseId, { skipSave: true })
       return
     }
-
-    const selectedStillExists = remainingItems.some((item) => item.id === selectedExerciseId)
-    const nextSelectedExerciseId = selectedStillExists ? selectedExerciseId : remainingItems[0].id
-    await saveGroups(nextGroups, nextSelectedExerciseId, currentEditor)
-    if (nextSelectedExerciseId !== selectedExerciseId) {
-      void selectExercise(nextSelectedExerciseId, { skipSave: true })
-    }
+    editorRef.current = null
+    setEditor(null)
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current)
+      next.delete('selectedExerciseId')
+      return next
+    }, { preventScrollReset: true })
   }
 
   function handleSelectProgram(programId: string) {
@@ -495,7 +571,7 @@ export function WorkoutBuilderScreen() {
                 name: details.name,
                 muscleGroup: formatBuilderMuscleGroup(details),
                 muscles: details.muscles,
-                affectsFatigue: details.equipment !== 'Recovery',
+                affectsFatigue: !isRecoveryEquipment(details.equipment),
                 sets: formatBuilderItemSets(loadType, details.loadSettings.sets, effectiveSetParams.reps, effectiveSetParams.durationSeconds),
                 load: formatBuilderItemLoad(loadType, effectiveSetParams.weight),
                 loadType,
@@ -584,7 +660,7 @@ export function WorkoutBuilderScreen() {
       name: details.name,
       muscleGroup: formatBuilderMuscleGroup(details),
       muscles: details.muscles,
-      affectsFatigue: details.equipment !== 'Recovery',
+      affectsFatigue: !isRecoveryEquipment(details.equipment),
       sets: formatBuilderItemSets(loadType, details.loadSettings.sets, effectiveSetParams.reps, effectiveSetParams.durationSeconds),
       rest: `${effectiveSetParams.restSeconds} сек`,
       load: formatBuilderItemLoad(loadType, effectiveSetParams.weight),
@@ -668,406 +744,191 @@ export function WorkoutBuilderScreen() {
   }
 
   async function handleDeleteExercise(exerciseId = selectedExerciseId) {
-    const nextGroups = groups
-      .map((group) => ({
-        ...group,
-        items: group.items.filter((item) => item.id !== exerciseId),
-      }))
-      .filter((group) => group.items.length > 0)
+    const nextGroups = groups.map((group) => ({
+      ...group,
+      items: group.items.filter((item) => item.id !== exerciseId),
+    }))
 
     const remainingItems = nextGroups.flatMap((group) => group.items)
     const nextSelectedItem = remainingItems.find((item) => item.id === selectedExerciseId) ?? remainingItems[0]
-    if (!nextSelectedItem) {
-      return
-    }
 
     await apiPut('/api/builder/plan', {
       userId: resolvedUserId,
       programId: selectedProgramId,
       workoutName: workoutTitleRef.current,
       groups: serializeBuilderGroups(nextGroups),
-      selectedExerciseId: nextSelectedItem.id,
+      ...(nextSelectedItem ? { selectedExerciseId: nextSelectedItem.id } : {}),
     })
 
+    groupsRef.current = nextGroups
     setGroups(nextGroups)
-    void selectExercise(nextSelectedItem.id, { skipSave: true })
+    moveSelection(nextSelectedItem?.id ?? null)
   }
 
-  function handleDownloadWorkoutJson() {
-    const exportData = buildBuilderWorkoutJsonExport(workoutTitleRef.current, groupsRef.current)
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json;charset=utf-8' })
-    const downloadUrl = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-
-    link.href = downloadUrl
-    link.download = createBuilderWorkoutJsonFileName(workoutTitleRef.current)
-    document.body.append(link)
-    link.click()
-    link.remove()
-    window.setTimeout(() => URL.revokeObjectURL(downloadUrl), 0)
-  }
+  const isListView = !selectedProgramIdParam
+  const groupDialog = groupDialogId ? groups.find((group) => group.id === groupDialogId) ?? null : null
+  const groupDialogIndex = groupDialog ? groups.indexOf(groupDialog) : -1
+  const weightlessSelected = selectedExerciseItem ? isWeightlessEquipment(selectedExerciseItem.item.load) || selectedExerciseItem.item.loadType === 'bodyweight' : false
 
   return (
     <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
-      <SectionIntro
-        title={data.title}
-        description=""
-        actions={
-          <div className="flex flex-wrap gap-3">
-            <Button iconLeft={<Plus className="h-4 w-4" />} onClick={() => void handleCreateWorkout()}>Новая тренировка</Button>
-          </div>
-        }
-      />
-
-      <section className="mb-6 glass-panel rounded-[32px] p-3">
-        <div className="flex flex-wrap gap-3">
-          {data.programs.map((program) => {
-            const active = program.id === selectedProgramId
-            return (
-              <button
-                key={program.id}
-                type="button"
-                onClick={() => handleSelectProgram(program.id)}
-                className={cn(
-                  'min-w-[190px] rounded-[24px] border px-5 py-4 text-left transition',
-                  active ? 'border-[#d6b05f]/35 bg-[#d6b05f]/12 text-white' : 'border-white/8 bg-white/4 text-white/64 hover:bg-white/7 hover:text-white',
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="font-display text-2xl font-bold tracking-[-0.04em]">{program.name}</span>
-                  {program.recommendedToday ? <span className="rounded-full bg-[#6ecf71]/14 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#9ff5a2]">Сегодня</span> : null}
-                </div>
-                <div className="mt-1 text-xs text-white/42">{program.subtitle}</div>
-              </button>
-            )
-          })}
-          {!hasPrograms ? <div className="px-3 py-4 text-sm text-white/48">Все тренировки удалены. Создайте новую тренировку.</div> : null}
-        </div>
-      </section>
-
-      <div className="grid gap-6 xl:grid-cols-[1.35fr_0.85fr]">
-        <section className="space-y-6">
-          <section className="glass-panel rounded-[32px] p-5">
-            <div className="mb-4 space-y-4">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <div className="text-sm uppercase tracking-[0.24em] text-white/35">План тренировки</div>
-                  {selectedProgram && isEditingWorkoutTitle ? (
-                    <input
-                      aria-label="Название тренировки"
-                      title="Название тренировки"
-                      value={titleDraft}
-                      onChange={(event) => setTitleDraft(event.target.value)}
-                      onBlur={() => {
-                        setTitleDraft(workoutTitle)
-                        setIsEditingWorkoutTitle(false)
-                      }}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter') {
-                          event.preventDefault()
-                          void saveWorkoutTitle(titleDraft)
-                          setIsEditingWorkoutTitle(false)
-                        }
-
-                        if (event.key === 'Escape') {
-                          setTitleDraft(workoutTitle)
-                          setIsEditingWorkoutTitle(false)
-                        }
-                      }}
-                      autoFocus
-                      className="mt-2 w-full rounded-[18px] border border-[#d6b05f]/35 bg-[#0f1217] px-3 py-2 font-display text-4xl font-bold text-white outline-none"
-                    />
-                  ) : selectedProgram ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setTitleDraft(workoutTitle)
-                        setIsEditingWorkoutTitle(true)
-                      }}
-                      className="mt-2 text-left font-display text-4xl font-bold text-white transition hover:text-[#f2cf87]"
-                    >
-                      {workoutTitle}
-                    </button>
-                  ) : (
-                    <div className="mt-2 font-display text-4xl font-bold text-white/72">{workoutTitle}</div>
-                  )}
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  {selectedProgram ? <Button variant="secondary" onClick={handleDownloadWorkoutJson}>JSON</Button> : null}
-                  {selectedProgram ? <Button variant="secondary" onClick={() => void handleAddGroup()}>Добавить группу</Button> : null}
-                  {selectedProgram ? (
-                    <button
-                      type="button"
-                      onClick={() => void handleDeleteWorkout()}
-                      aria-label={`Удалить тренировку ${workoutTitle}`}
-                      title="Удалить тренировку"
-                      className="inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-[#eb5345]/18 bg-[#eb5345]/8 px-4 text-sm font-semibold text-[#ff8d82] transition hover:bg-[#eb5345]/14 hover:text-[#ffb1a8]"
-                    >
-                      <Trash2 className="h-4.5 w-4.5" />
-                      <span>Удалить тренировку</span>
-                    </button>
-                  ) : null}
-                </div>
-              </div>
-              {data.warnings.length > 0 || data.info.duration ? (
-                <div className="flex flex-wrap gap-2">
-                  {data.info.duration ? (
-                    <div className="inline-flex h-11 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/4 px-3 text-xs font-semibold text-white/68">
-                      <Timer className="h-4 w-4 shrink-0" />
-                      <span>{data.info.duration}</span>
-                    </div>
-                  ) : null}
-                  {data.warnings.map((warning) => (
-                    <BuilderWarningIcon key={warning.title} warning={warning} />
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="space-y-4">
-              {groups.map((group, index) => (
-                <div key={group.id} className="rounded-[28px] border border-white/8 bg-[#111419] p-5 pb-8">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-xs uppercase tracking-[0.18em] text-white/30">{formatBuilderGroupKindLabel(group.kind)}</div>
-                      {editingGroupId === group.id ? (
-                        <input
-                          aria-label="Название группы"
-                          title="Название группы"
-                          value={groupTitleDraft}
-                          onChange={(event) => setGroupTitleDraft(event.target.value)}
-                          onBlur={() => {
-                            setGroupTitleDraft(group.title)
-                            setEditingGroupId(null)
-                          }}
-                          onKeyDown={(event) => {
-                            if (event.key === 'Enter') {
-                              event.preventDefault()
-                              void saveGroupTitle(group.id, groupTitleDraft)
-                            }
-
-                            if (event.key === 'Escape') {
-                              setGroupTitleDraft(group.title)
-                              setEditingGroupId(null)
-                            }
-                          }}
-                          autoFocus
-                          className="mt-2 w-full rounded-[16px] border border-[#d6b05f]/35 bg-[#0f1217] px-3 py-2 font-display text-3xl font-bold text-white outline-none"
-                        />
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setGroupTitleDraft(group.title)
-                            setEditingGroupId(group.id)
-                          }}
-                          className="mt-2 text-left font-display text-3xl font-bold text-white transition hover:text-[#f2cf87]"
-                        >
-                          {index + 1}. {group.title}
-                        </button>
-                      )}
-                      <div className="mt-2 text-sm text-white/45">{group.rounds ?? 'Основной блок'} {group.betweenExercisesRest ? `• Отдых между упражнениями ${group.betweenExercisesRest}` : ''}</div>
-                    </div>
-                    <div className="flex items-center gap-2 self-start">
-                      <div className="flex items-center gap-1.5">
-                        {BUILDER_GROUP_KIND_OPTIONS.map((option) => (
-                          <button
-                            key={option.id}
-                            type="button"
-                            onClick={() => changeGroupKind(group.id, option.id)}
-                            className={cn(
-                              'rounded-full border px-3 py-1.5 text-xs transition',
-                              group.kind === option.id
-                                ? 'border-[#d6b05f]/35 bg-[#d6b05f]/14 text-[#f2cf87]'
-                                : 'border-white/8 bg-white/4 text-white/55 hover:text-white',
-                            )}
-                          >
-                            {option.label}
-                          </button>
-                        ))}
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void handleDeleteGroup(group.id)}
-                        aria-label={`Удалить группу ${group.title}`}
-                        title="Удалить группу"
-                        className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-[#ff8d82] transition hover:bg-[#eb5345]/12 hover:text-[#ffb1a8]"
-                      >
-                        <Trash2 className="h-4.5 w-4.5" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="relative mt-4 rounded-[24px] border border-white/8">
-                    <div className="overflow-x-auto rounded-[24px]">
-                      <div>
-                        <div className="grid min-w-[1040px] grid-cols-[minmax(420px,0.95fr)_minmax(500px,1.2fr)] gap-4 bg-white/4 px-5 py-3 text-sm text-white/45">
-                          <div>Упражнение</div>
-                          <div>Режим и подходы</div>
-                        </div>
-                        {group.items.length > 0 ? (
-                          <InlineAddExerciseButton
-                            onClick={() => {
-                              setAddTargetPosition({ groupId: group.id, index: 0 })
-                              setAddModalOpen(true)
-                            }}
-                          />
-                        ) : (
-                          <div className="min-w-[1040px] border-t border-white/8 px-5 py-8 text-center">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setAddTargetPosition({ groupId: group.id, index: 0 })
-                                setAddModalOpen(true)
-                              }}
-                              className="inline-flex items-center gap-2 font-display text-2xl font-bold tracking-[-0.03em] text-white/58 transition hover:text-[#f2cf87]"
-                            >
-                              <Plus className="h-5 w-5" />
-                              Добавь упражнения
-                            </button>
-                          </div>
-                        )}
-                        {group.items.map((item, itemIndex) => (
-                          <div key={item.id}>
-                            <div
-                              className={cn(
-                                'relative grid min-w-[1040px] grid-cols-[minmax(420px,0.95fr)_minmax(500px,1.2fr)] items-stretch gap-4 border-t border-white/8 py-4 pl-4 pr-2 text-sm text-white/74 transition hover:bg-white/[0.035]',
-                                item.id === selectedExerciseId ? 'bg-[#d6b05f]/8 shadow-[inset_3px_0_0_rgba(214,176,95,0.55)]' : undefined,
-                              )}
-                            >
-                              <button
-                                type="button"
-                                onClick={() => void selectExercise(item.id)}
-                                aria-label={`Выбрать упражнение ${item.name}`}
-                                title={`Выбрать упражнение ${item.name}`}
-                                className="col-span-2 grid grid-cols-[minmax(420px,0.95fr)_minmax(500px,1.2fr)] gap-4 pr-10 text-left text-sm text-white/74"
-                              >
-                                <ExercisePlanMediaCard item={item} />
-                                <ExercisePlanStrengthSets item={item} modes={data.strengthModes} />
-                              </button>
-                              <div className="absolute right-2 top-4 z-20">
-                                <ExercisePlanRightPanel
-                                  item={item}
-                                  onReplace={() => {
-                                    void selectExercise(item.id)
-                                    setReplaceTargetExerciseId(item.id)
-                                    setReplaceModalOpen(true)
-                                  }}
-                                  onDelete={() => void handleDeleteExercise(item.id)}
-                                />
-                              </div>
-                            </div>
-                            {itemIndex < group.items.length - 1 ? (
-                              <InlineAddExerciseButton
-                                onClick={() => {
-                                  setAddTargetPosition({ groupId: group.id, index: itemIndex + 1 })
-                                  setAddModalOpen(true)
-                                }}
-                              />
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                    {group.items.length > 0 ? (
-                      <BottomInlineAddExerciseButton
-                        onClick={() => {
-                          setAddTargetPosition({ groupId: group.id, index: group.items.length })
-                          setAddModalOpen(true)
-                        }}
-                      />
-                    ) : null}
-                  </div>
-                  {index < groups.length - 1 ? (
-                    <div className="mt-5 flex justify-end">
-                      <div className="inline-flex items-center gap-2 rounded-2xl border border-white/8 bg-white/4 px-2 py-1.5 text-xs text-white/68">
-                        <span>Перерыв после группы</span>
-                        <button type="button" onClick={() => adjustGroupBreak(group.id, -1)} className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-[#0d1116] text-white/72 transition hover:text-white">-</button>
-                        <span className="min-w-[54px] text-center font-semibold text-white">{group.betweenRoundsRest ?? '120 сек'}</span>
-                        <button type="button" onClick={() => adjustGroupBreak(group.id, 1)} className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/10 bg-[#0d1116] text-white/72 transition hover:text-white">+</button>
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
+      <Dialog.Root open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        {isListView ? (
+          <section className="builder-list" aria-labelledby="builder-title">
+            <header className="home-heading">
+              <h1 id="builder-title" className="font-display font-bold text-white">Мои тренировки</h1>
+              <p className="text-white/60">{hasPrograms ? 'Выберите тренировку, чтобы изменить упражнения и нагрузку.' : 'Все тренировки удалены. Создайте новую тренировку.'}</p>
+            </header>
+            <div className="builder-list-grid" data-count={data.programs.length}>
+              {data.programs.map((program) => (
+                <button key={program.id} type="button" className="home-workout-card builder-card" aria-label={`Открыть тренировку «${program.name}»`} onClick={() => handleSelectProgram(program.id)}>
+                  <span className="home-card-top"><span className="home-card-icon"><Dumbbell aria-hidden="true" /></span></span>
+                  <span className="home-card-title">{program.name}</span>
+                  <span className="home-card-exercises">{program.subtitle}</span>
+                  <span className="home-card-select">Изменить <ArrowRight aria-hidden="true" className="h-5 w-5" /></span>
+                </button>
               ))}
+              <Dialog.Trigger asChild>
+                <button type="button" className="home-workout-card home-create-card" aria-label="Новая тренировка" disabled={createPending}>
+                  <Plus aria-hidden="true" />
+                  <span className="home-card-title">Новая тренировка</span>
+                  <span className="text-sm text-white/60">Пустая тренировка для ручной сборки</span>
+                </button>
+              </Dialog.Trigger>
             </div>
           </section>
+        ) : (
+          <section className="builder-editor" aria-labelledby="builder-title">
+            <header className="builder-header">
+              <Button variant="secondary" iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => void handleDone()}>Мои тренировки</Button>
+              <div className="builder-title">
+                <h1 id="builder-title" className="builder-title-heading font-display font-bold text-white">
+                {selectedProgram && isEditingWorkoutTitle ? (
+                  <input
+                    aria-label="Название тренировки"
+                    title="Название тренировки"
+                    value={titleDraft}
+                    onChange={(event) => setTitleDraft(event.target.value)}
+                    onBlur={() => {
+                      setTitleDraft(workoutTitle)
+                      setIsEditingWorkoutTitle(false)
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter') {
+                        event.preventDefault()
+                        void saveWorkoutTitle(titleDraft)
+                        setIsEditingWorkoutTitle(false)
+                      }
+                      if (event.key === 'Escape') {
+                        setTitleDraft(workoutTitle)
+                        setIsEditingWorkoutTitle(false)
+                      }
+                    }}
+                    autoFocus
+                    className="builder-title-input font-display font-bold text-white"
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    aria-label={`Название тренировки: ${workoutTitle}. Нажмите, чтобы переименовать`}
+                    onClick={() => {
+                      setTitleDraft(workoutTitle)
+                      setIsEditingWorkoutTitle(true)
+                    }}
+                    className="builder-title-button font-display font-bold text-white"
+                  >
+                    {workoutTitle}
+                  </button>
+                )}
+                </h1>
+                <div className="builder-title-meta">
+                  {data.info.duration ? <span className="inline-flex items-center gap-2"><Timer aria-hidden="true" className="h-5 w-5" />{data.info.duration}</span> : null}
+                  {data.warnings.map((warning) => <BuilderWarningIcon key={warning.title} warning={warning} />)}
+                </div>
+              </div>
+              <Dialog.Trigger asChild>
+                <Button variant="secondary" iconLeft={<Plus aria-hidden="true" />} disabled={createPending}>Новая тренировка</Button>
+              </Dialog.Trigger>
+            </header>
 
-          <div className="grid gap-6">
-            <section className="glass-panel rounded-[32px] p-5">
-              <div className="mb-4 flex items-center gap-3 text-white/45"><ListTree className="h-4 w-4" />Сводка тренировки</div>
-              <div className="grid gap-4 md:grid-cols-4">
-                {data.summaryCards.map((card) => (
-                  <div key={card.label} className="rounded-[24px] border border-white/8 bg-white/4 p-4">
-                    <div className="font-display text-4xl font-bold text-white">{card.value}</div>
-                    <div className="mt-2 text-sm text-white/45">{card.label}</div>
-                    <div className="mt-1 text-xs text-white/32">{card.hint}</div>
-                  </div>
+            <div className="builder-body">
+              <aside className="builder-side" aria-label="Упражнения тренировки">
+                {groups.map((group, index) => (
+                  <section key={group.id} className="builder-group" aria-label={`Группа ${index + 1}: ${group.title}`}>
+                    <header className="builder-group-heading">
+                      <span className="min-w-0">
+                        <small>{formatBuilderGroupKindLabel(group.kind)}</small>
+                        <strong>{index + 1}. {group.title}</strong>
+                      </span>
+                      <button type="button" className="builder-icon-button" aria-label={`Настроить группу ${group.title}`} aria-haspopup="dialog" onClick={() => { setGroupTitleDraft(group.title); setGroupDialogId(group.id) }}>
+                        <Settings2 aria-hidden="true" />
+                      </button>
+                    </header>
+                    {group.items.length ? (
+                      <ol className="builder-items">
+                        {group.items.map((item, itemIndex) => (
+                          <li key={item.id}>
+                            <button
+                              type="button"
+                              className="builder-item"
+                              aria-current={item.id === selectedExerciseId ? 'true' : undefined}
+                              aria-label={`Выбрать упражнение ${item.name}`}
+                              title={`Выбрать упражнение ${item.name}`}
+                              onClick={() => void selectExercise(item.id)}
+                            >
+                              <span className="builder-item-index">{itemIndex + 1}</span>
+                              <span className="builder-item-body">
+                                <span className="builder-item-name">{item.name}</span>
+                                <span className="builder-item-summary">{formatBuilderItemSummary(item)}</span>
+                              </span>
+                            </button>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : null}
+                    <button
+                      type="button"
+                      className="builder-add"
+                      onClick={() => {
+                        setAddTargetPosition({ groupId: group.id, index: group.items.length })
+                        setAddModalOpen(true)
+                      }}
+                    >
+                      <Plus aria-hidden="true" />
+                      {group.items.length ? 'Добавить упражнение' : 'Добавь упражнения'}
+                    </button>
+                    {index < groups.length - 1 ? <div className="builder-group-rest">Перерыв после группы · {group.betweenRoundsRest ?? '120 сек'}</div> : null}
+                  </section>
                 ))}
-              </div>
-              <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-                <div className="rounded-[28px] border border-white/8 bg-[#0d1116]/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="flex items-center gap-2 text-sm text-white/45">
-                        <Flame className="h-4 w-4 text-[#f08b2e]" />
-                        Суммарная усталость мышц
-                      </div>
-                      <div className="mt-2 font-display text-4xl font-bold text-white">{fatigueSummary.totalScore}</div>
-                    </div>
-                    <div className="rounded-full border border-white/8 bg-white/5 px-3 py-1 text-xs text-white/58">
-                      {fatigueSummary.muscles.length} мышц
-                    </div>
-                  </div>
-                  <div className="mt-4 rounded-[26px] border border-white/6 bg-[#0b1017]/72 p-3">
-                    <CompactBodyMapMini
-                      muscles={fatigueSummary.highlightedMuscles}
-                      figureGender={figureGender}
-                      label="Суммарная усталость мышц тренировки"
-                      className="rounded-[26px] border-white/6 bg-transparent p-0"
-                      figureContainerClassName="h-[220px] p-0"
-                      figureMarkupClassName="max-w-[112px]"
-                    />
-                  </div>
-                </div>
+                <Button variant="secondary" className="w-full" onClick={() => void handleAddGroup()}>Добавить группу</Button>
+              </aside>
 
-                <div className="rounded-[28px] border border-white/8 bg-[#0d1116]/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-                  <div className="text-sm text-white/45">Наиболее нагруженные мышцы</div>
-                  <div className="mt-3 grid gap-2">
-                    {fatigueSummary.muscles.length > 0 ? fatigueSummary.muscles.map((muscle) => (
-                      <div key={muscle.name} className="rounded-[18px] border border-white/8 bg-white/4 px-3 py-2">
-                        <div className="flex items-center justify-between gap-3 text-sm">
-                          <span className="truncate text-white/78">{muscle.name}</span>
-                          <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', getBuilderFatigueToneClass(muscle.status))}>{muscle.score}</span>
-                        </div>
-                        <div className="mt-2 h-2 rounded-full bg-white/8">
-                          <div className={cn('h-full rounded-full transition-all', getBuilderFatigueBarClass(muscle.status), getBuilderFatigueWidthClass(muscle.score))} />
-                        </div>
+              <section className="builder-stage" aria-label="Выбранное упражнение">
+                {editor && selectedExerciseItem ? (
+                  <>
+                    <header className="builder-stage-heading">
+                      <div className="min-w-0">
+                        <h2 className="font-display font-bold text-white">{editor.name}</h2>
+                        <p className="text-white/60">{editor.subtitle}</p>
                       </div>
-                    )) : (
-                      <div className="rounded-[18px] border border-white/8 bg-white/4 px-3 py-4 text-sm text-white/45">
-                        В плане пока нет упражнений, создающих заметную усталость мышц.
+                      <div className="builder-stage-actions">
+                        <Button
+                          variant="secondary"
+                          iconLeft={<Replace aria-hidden="true" />}
+                          aria-label={`Заменить упражнение ${editor.name}`}
+                          onClick={() => {
+                            setReplaceTargetExerciseId(selectedExerciseId)
+                            setReplaceModalOpen(true)
+                          }}
+                        >
+                          Заменить
+                        </Button>
+                        <Button variant="secondary" className="builder-danger" iconLeft={<Trash2 aria-hidden="true" />} aria-label={`Удалить упражнение ${editor.name}`} onClick={() => void handleDeleteExercise(selectedExerciseId)}>Удалить</Button>
                       </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        </section>
+                    </header>
 
-        <aside className="space-y-6">
-          <section className="glass-panel flex flex-col rounded-[32px] p-5 xl:sticky xl:top-4 xl:max-h-[calc(100vh-32px)] xl:self-start xl:overflow-hidden">
-            {editor ? (
-              <>
-                <div className="shrink-0">
-                  <div className="font-display text-2xl font-bold tracking-[-0.035em] text-white">{editor.name}</div>
-                  <div className="mb-3 mt-2 text-white/45">{editor.subtitle}</div>
-                </div>
-
-                <div className="scrollbar-hidden min-h-0 flex-1 xl:overflow-y-auto xl:overscroll-contain">
-                  {selectedExerciseItem ? (
-                    <div className="mt-5 rounded-[30px] border border-white/8 bg-white/[0.035] p-3">
+                    <div className="builder-stage-media">
+                      <ExercisePlanVideo videoUrl={selectedExerciseItem.item.previewVideoUrl} title={selectedExerciseItem.item.name} />
                       <ExercisePlanMuscleMap
                         muscles={selectedExerciseItem.item.muscles}
                         fallbackLabel={selectedExerciseItem.item.muscleGroup}
@@ -1075,81 +936,184 @@ export function WorkoutBuilderScreen() {
                         title={selectedExerciseItem.item.name}
                       />
                     </div>
-                  ) : null}
 
-                  <div className="mt-5 grid gap-4 md:grid-cols-2">
-                    <ControlBlock
-                      label="Повторы"
-                      value={editor.setParams.reps}
-                      onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, reps: Math.max(1, state.setParams.reps + delta) } }))}
-                      onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, reps: Math.max(1, value ?? state.setParams.reps) } }))}
-                    />
-                    <ControlBlock
-                      label="Вес"
-                      value={editor.setParams.weight > 0 ? editor.setParams.weight : null}
-                      suffix="кг"
-                      emptyLabel="—"
-                      onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: Math.max(0, state.setParams.weight + delta) } }))}
-                      onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: Math.max(0, value ?? 0) } }))}
-                      onReset={() => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: 0 } }))}
-                      resetLabel="Убрать"
-                    />
-                    <ControlBlock
-                      label="Длительность"
-                      value={editor.setParams.durationSeconds ?? null}
-                      suffix={editor.setParams.durationSeconds ? 'сек' : undefined}
-                      emptyLabel="не задана"
-                      compactEmpty
-                      onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: adjustOptionalSeconds(state.setParams.durationSeconds, delta, 15) } }))}
-                      onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: value ?? undefined } }))}
-                      onReset={() => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: undefined } }))}
-                      resetLabel="Убрать"
-                    />
-                    <ControlBlock
-                      label="Отдых"
-                      value={editor.setParams.restSeconds}
-                      suffix="сек"
-                      onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, state.setParams.restSeconds + delta * 15) } }))}
-                      onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, value ?? state.setParams.restSeconds) } }))}
-                    />
-                  </div>
-
-                  <div className="mt-5 space-y-4">
-                    <StrengthModeSelector
-                      modes={data.strengthModes}
-                      selectedMode={selectedStrengthMode}
-                      selectedModeId={editor.strengthModeId}
-                      selectedDayType={editor.strengthDayType}
-                      onSelect={(modeId, dayType) => updateEditor((state) => ({ ...state, strengthModeId: modeId, strengthDayType: dayType }))}
-                    />
-                    <div>
-                      <div className="mb-2 text-sm text-white/45">Комментарий</div>
-                      <textarea
-                        ref={noteTextareaRef}
-                        rows={3}
-                        value={editor.note}
-                        onChange={(event) => updateEditor((state) => ({ ...state, note: event.target.value }))}
-                        onInput={(event) => resizeBuilderTextarea(event.currentTarget)}
-                        aria-label="Комментарий к упражнению"
-                        title="Комментарий к упражнению"
-                        placeholder="Добавьте заметку по технике или нагрузке"
-                        className="w-full resize-none overflow-hidden rounded-[24px] border border-white/8 bg-white/4 px-4 py-3 text-sm text-white outline-none placeholder:text-white/24"
+                    <div className="builder-steppers">
+                      <ValueStepper
+                        label="Повторы"
+                        value={editor.setParams.reps}
+                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, reps: Math.max(1, state.setParams.reps + delta) } }))}
+                        onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, reps: Math.max(1, value ?? state.setParams.reps) } }))}
+                      />
+                      <ValueStepper
+                        label="Вес"
+                        unit="кг"
+                        value={editor.setParams.weight > 0 ? editor.setParams.weight : null}
+                        emptyLabel={weightlessSelected ? 'вес тела' : '—'}
+                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: Math.max(0, state.setParams.weight + delta) } }))}
+                        onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: Math.max(0, value ?? 0) } }))}
+                        onReset={() => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: 0 } }))}
+                      />
+                      <ValueStepper
+                        label="Отдых"
+                        unit="сек"
+                        value={editor.setParams.restSeconds}
+                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, state.setParams.restSeconds + delta * 15) } }))}
+                        onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, value ?? state.setParams.restSeconds) } }))}
+                      />
+                      <ValueStepper
+                        label="Длительность"
+                        unit="сек"
+                        value={editor.setParams.durationSeconds ?? null}
+                        emptyLabel="не задана"
+                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: adjustOptionalSeconds(state.setParams.durationSeconds, delta, 15) } }))}
+                        onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: value ?? undefined } }))}
+                        onReset={() => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: undefined } }))}
                       />
                     </div>
+
+                    <ExercisePlanStrengthSets item={selectedExerciseItem.item} modes={data.strengthModes} />
+
+                    <div>
+                      <Button variant="secondary" iconLeft={<SlidersHorizontal aria-hidden="true" />} aria-haspopup="dialog" onClick={() => setDetailsOpen(true)}>Режим и комментарий</Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="forma-state">
+                    <p className="font-display text-3xl font-bold text-white">Добавьте упражнение</p>
+                    <p>Выберите упражнение слева или добавьте новое — здесь появятся видео, подходы и нагрузка.</p>
+                  </div>
+                )}
+              </section>
+            </div>
+
+            <div className="builder-actions" role="group" aria-label="Действия с тренировкой">
+              <Button onClick={() => void handleDone()} disabled={saveStatus === 'saving'}>Готово</Button>
+              <span className="builder-save-status" role="status" data-status={saveStatus}>
+                {saveStatus === 'saving' ? 'Сохранение…' : saveStatus === 'error' ? 'Не удалось сохранить изменения' : 'Все изменения сохранены'}
+              </span>
+              {saveStatus === 'error' ? <Button variant="secondary" onClick={retrySave}>Повторить</Button> : null}
+              {selectedProgram ? (
+                <Button variant="secondary" className="builder-danger builder-actions-delete" iconLeft={<Trash2 aria-hidden="true" />} aria-haspopup="dialog" onClick={() => setDeleteDialogOpen(true)}>Удалить тренировку</Button>
+              ) : null}
+            </div>
+          </section>
+        )}
+
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="builder-dialog" aria-busy={createPending}>
+            <Dialog.Title className="font-display text-3xl font-bold">Создать новую тренировку?</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/70">
+              Будет создана пустая тренировка для добавления упражнений. Существующие тренировки сохранятся.
+            </Dialog.Description>
+            {createError ? <p role="alert" className="mt-4 text-[#ffb4a7]">{createError}</p> : null}
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Dialog.Close asChild><Button variant="secondary" disabled={createPending}>Отмена</Button></Dialog.Close>
+              <Button disabled={createPending} onClick={() => void handleCreateWorkout()}>
+                {createPending ? 'Создание…' : 'Создать тренировку'}
+              </Button>
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <Dialog.Root open={Boolean(groupDialog)} onOpenChange={(open) => { if (!open) setGroupDialogId(null) }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="builder-dialog">
+            {groupDialog ? (
+              <>
+                <Dialog.Title className="font-display text-3xl font-bold">Группа {groupDialogIndex + 1}</Dialog.Title>
+                <Dialog.Description className="mt-2 text-sm text-white/70">Название, режим выполнения и перерыв после группы.</Dialog.Description>
+                <label className="builder-field">
+                  <span>Название группы</span>
+                  <input
+                    value={groupTitleDraft}
+                    onChange={(event) => setGroupTitleDraft(event.target.value)}
+                    onBlur={() => void saveGroupTitle(groupDialog.id, groupTitleDraft)}
+                    onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); void saveGroupTitle(groupDialog.id, groupTitleDraft) } }}
+                  />
+                </label>
+                <div className="builder-field">
+                  <span id="group-kind-label">Режим выполнения</span>
+                  <div className="builder-chips" role="group" aria-labelledby="group-kind-label">
+                    {BUILDER_GROUP_KIND_OPTIONS.map((option) => (
+                      <button key={option.id} type="button" aria-pressed={groupDialog.kind === option.id} className={cn('picker-chip', groupDialog.kind === option.id && 'picker-chip-active')} onClick={() => changeGroupKind(groupDialog.id, option.id)}>
+                        {option.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
-              </>
-            ) : (
-              <div className="flex min-h-[360px] flex-1 items-center justify-center rounded-[28px] border border-white/8 bg-white/[0.035] px-6 text-center">
-                <div>
-                  <div className="font-display text-3xl font-bold tracking-[-0.035em] text-white">Добавьте упражнение</div>
-                  <div className="mt-2 text-sm text-white/45">Выберите упражнение в пустой группе, чтобы справа появились параметры нагрузки.</div>
+                {groupDialogIndex < groups.length - 1 ? (
+                  <ValueStepper
+                    label="Перерыв после группы"
+                    unit="сек"
+                    value={parseDurationSeconds(groupDialog.betweenRoundsRest) ?? 120}
+                    onChange={(delta) => adjustGroupBreak(groupDialog.id, delta)}
+                  />
+                ) : null}
+                <div className="builder-dialog-actions">
+                  <Button variant="secondary" className="builder-danger" iconLeft={<Trash2 aria-hidden="true" />} disabled={groups.length <= 1} onClick={() => { setGroupDialogId(null); void handleDeleteGroup(groupDialog.id) }}>Удалить группу</Button>
+                  <Dialog.Close asChild><Button>Готово</Button></Dialog.Close>
                 </div>
-              </div>
-            )}
-          </section>
-        </aside>
-      </div>
+              </>
+            ) : null}
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <Dialog.Root open={detailsOpen && Boolean(editor)} onOpenChange={setDetailsOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="builder-dialog">
+            {editor ? (
+              <>
+                <Dialog.Title className="font-display text-3xl font-bold">Режим и комментарий</Dialog.Title>
+                <Dialog.Description className="mt-2 text-sm text-white/70">{editor.name}</Dialog.Description>
+                <div className="mt-5 space-y-5">
+                  <StrengthModeSelector
+                    modes={data.strengthModes}
+                    selectedMode={selectedStrengthMode}
+                    selectedModeId={editor.strengthModeId}
+                    selectedDayType={editor.strengthDayType}
+                    onSelect={(modeId, dayType) => updateEditor((state) => ({ ...state, strengthModeId: modeId, strengthDayType: dayType }))}
+                  />
+                  <label className="builder-field">
+                    <span>Комментарий</span>
+                    <textarea
+                      ref={noteTextareaRef}
+                      rows={3}
+                      value={editor.note}
+                      onChange={(event) => updateEditor((state) => ({ ...state, note: event.target.value }))}
+                      onInput={(event) => resizeBuilderTextarea(event.currentTarget)}
+                      aria-label="Комментарий к упражнению"
+                      title="Комментарий к упражнению"
+                      placeholder="Добавьте заметку по технике или нагрузке"
+                    />
+                  </label>
+                </div>
+                <div className="builder-dialog-actions">
+                  <Dialog.Close asChild><Button>Готово</Button></Dialog.Close>
+                </div>
+              </>
+            ) : null}
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <Dialog.Root open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="builder-dialog">
+            <Dialog.Title className="font-display text-3xl font-bold">Удалить тренировку «{workoutTitle}»?</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/70">Тренировка исчезнет из списка и с главной. История выполнений в календаре сохранится.</Dialog.Description>
+            <div className="builder-dialog-actions">
+              <Dialog.Close asChild><Button variant="secondary">Отмена</Button></Dialog.Close>
+              <Button variant="secondary" className="builder-danger" iconLeft={<Trash2 aria-hidden="true" />} onClick={() => void handleDeleteWorkout()}>Удалить</Button>
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
       <ExercisePickerModal
@@ -1172,17 +1136,27 @@ export function WorkoutBuilderScreen() {
           setAddModalOpen(open)
           if (!open) {
             setAddTargetPosition(null)
+            if (addSlugParam) {
+              setSearchParams((current) => {
+                const next = new URLSearchParams(current)
+                next.delete('add')
+                return next
+              }, { replace: true, preventScrollReset: true })
+            }
           }
         }}
         userId={resolvedUserId}
         mode="add"
-        title="Добавить упражнение"
-        description="Каталог открыт в режиме быстрого добавления в текущую группу плана."
+        initialSlug={addSlugParam}
         excludeSlugs={(addTargetPosition?.groupId ?? activeGroupId) ? groups.find((group) => group.id === (addTargetPosition?.groupId ?? activeGroupId))?.items.map((item) => item.slug) : undefined}
         onSelect={handleAddExercise}
       />
     </FormaShell>
   )
+}
+
+function formatBuilderItemSummary(item: BuilderExerciseItem) {
+  return [item.sets, item.load, item.rest ? `отдых ${item.rest}` : null].filter(Boolean).join(' · ')
 }
 
 function formatBuilderMuscleGroup(details: ExerciseDetails) {
@@ -1234,34 +1208,6 @@ function serializeBuilderGroups(groups: BuilderWorkoutGroup[]) {
 
 function createBuilderSaveSnapshot(userId: string, programId: string, workoutName: string, groups: BuilderWorkoutGroup[], selectedExerciseId: string | null, selectedExercise: WorkoutBuilderData['selectedExercise'] | null) {
   return JSON.stringify({ userId, programId, workoutName, groups: serializeBuilderGroups(groups), selectedExerciseId, selectedExercise })
-}
-
-function buildBuilderWorkoutJsonExport(workoutName: string, groups: BuilderWorkoutGroup[]) {
-  return {
-    workoutName,
-    exercises: groups.flatMap((group) =>
-      group.items.map((item) => {
-        const loadType = inferBuilderLoadTypeFromItem(item)
-
-        return {
-          name: item.name,
-          sets: item.strengthPlan?.length ?? parseBuilderSetCount(item.sets),
-          weightKg: loadType === 'weighted' ? parseBuilderWeightValue(item.load) : null,
-          durationSeconds: parseDurationSeconds(item.sets) ?? null,
-          restBetweenSetsSeconds: parseDurationSeconds(item.rest) ?? null,
-        }
-      }),
-    ),
-  }
-}
-
-function createBuilderWorkoutJsonFileName(workoutName: string) {
-  const sanitizedName = workoutName
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, '')
-    .replace(/\s+/g, '-')
-
-  return `${sanitizedName || 'workout-plan'}.json`
 }
 
 function mergeBuilderGroupsWithLocalStrength(serverGroups: BuilderWorkoutGroup[], localGroups: BuilderWorkoutGroup[]) {
@@ -1337,7 +1283,7 @@ function getBuilderLoadType(details: Pick<ExerciseDetails, 'equipment' | 'force'
     return 'timed'
   }
 
-  if (details.equipment === 'Bodyweight' || details.equipment === 'Собственный вес' || details.equipment === 'Stretches' || details.equipment === 'Recovery') {
+  if (['Bodyweight', 'Собственный вес', 'Stretches', 'Растяжка', 'Recovery', 'Восстановление'].includes(details.equipment)) {
     return 'bodyweight'
   }
 
@@ -1461,192 +1407,8 @@ function getEffectiveBuilderSetParams(loadType: BuilderLoadType, setParams: Buil
   }
 }
 
-type BuilderFatigueStatus = 'ready' | 'light' | 'medium' | 'high' | 'critical'
-
-function buildBuilderFatigueSummary(groups: BuilderWorkoutGroup[]) {
-  const totals = new Map<string, number>()
-
-  for (const group of groups) {
-    for (const item of group.items) {
-      if (item.affectsFatigue === false) {
-        continue
-      }
-
-      const muscleLabels = item.muscles?.length
-        ? item.muscles
-        : item.muscleGroup.split(',').map((entry) => entry.trim()).filter(Boolean)
-
-      if (muscleLabels.length === 0) {
-        continue
-      }
-
-      const setLoad = item.strengthPlan?.length
-        ? item.strengthPlan.reduce((total, set) => total + getBuilderSetFatigueFactor(set.setType), 0)
-        : parseBuilderSetCount(item.sets)
-
-      muscleLabels.forEach((muscle, index) => {
-        const roleFactor = index === 0 ? 1 : index === 1 ? 0.6 : index === 2 ? 0.35 : 0.2
-        const score = setLoad * roleFactor * 12
-        totals.set(muscle, (totals.get(muscle) ?? 0) + score)
-      })
-    }
-  }
-
-  const muscles = Array.from(totals.entries())
-    .map(([name, score]) => ({
-      name,
-      score: Math.min(100, Math.round(score)),
-      status: getBuilderFatigueStatus(score),
-    }))
-    .sort((left, right) => right.score - left.score)
-
-  return {
-    totalScore: muscles.reduce((total, muscle) => total + muscle.score, 0),
-    muscles,
-    highlightedMuscles: muscles.map((muscle) => muscle.name),
-  }
-}
-
-function getBuilderSetFatigueFactor(setType: StrengthSetType) {
-  if (setType === 'warmup') {
-    return 0.6
-  }
-
-  if (setType === 'failure') {
-    return 1.2
-  }
-
-  return 1
-}
-
-function getBuilderFatigueStatus(score: number): BuilderFatigueStatus {
-  if (score >= 100) {
-    return 'critical'
-  }
-
-  if (score >= 60) {
-    return 'high'
-  }
-
-  if (score >= 30) {
-    return 'medium'
-  }
-
-  if (score >= 10) {
-    return 'light'
-  }
-
-  return 'ready'
-}
-
-function getBuilderFatigueToneClass(status: BuilderFatigueStatus) {
-  return {
-    ready: 'bg-[#163720] text-[#9ef0a8]',
-    light: 'bg-[#2e3316] text-[#dfe890]',
-    medium: 'bg-[#3a2b14] text-[#f2cf87]',
-    high: 'bg-[#3a2014] text-[#f5b17e]',
-    critical: 'bg-[#3a1816] text-[#ffb4a7]',
-  }[status]
-}
-
-function getBuilderFatigueBarClass(status: BuilderFatigueStatus) {
-  return {
-    ready: 'bg-[#57c968]',
-    light: 'bg-[#b9d94b]',
-    medium: 'bg-[#f0bf43]',
-    high: 'bg-[#f08b2e]',
-    critical: 'bg-[#eb5345]',
-  }[status]
-}
-
-function getBuilderFatigueWidthClass(score: number) {
-  if (score >= 95) {
-    return 'w-full'
-  }
-
-  if (score >= 85) {
-    return 'w-11/12'
-  }
-
-  if (score >= 75) {
-    return 'w-10/12'
-  }
-
-  if (score >= 65) {
-    return 'w-8/12'
-  }
-
-  if (score >= 50) {
-    return 'w-7/12'
-  }
-
-  if (score >= 35) {
-    return 'w-5/12'
-  }
-
-  if (score >= 20) {
-    return 'w-4/12'
-  }
-
-  if (score >= 10) {
-    return 'w-3/12'
-  }
-
-  return 'w-2/12'
-}
-
 function formatBuilderWeight(weight: number) {
   return `${weight}`.replace(/(\.\d*?)0+$/, '$1').replace(/\.0$/, '')
-}
-
-function ExercisePlanMediaCard({ item }: { item: BuilderExerciseItem }) {
-  const muscleLabels = item.muscles?.length ? item.muscles : [item.muscleGroup]
-
-  return (
-    <div className="h-full rounded-[28px] border border-white/8 bg-[#0d1116]/82 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition hover:border-[#d6b05f]/18">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="truncate font-display text-2xl font-bold tracking-[-0.035em] text-white">{item.name}</div>
-        </div>
-      </div>
-
-      <div className="grid gap-3">
-        <ExercisePlanVideo videoUrl={item.previewVideoUrl} title={item.name} />
-        <div className="flex flex-wrap gap-1.5">
-          {muscleLabels.slice(0, 4).map((muscle) => (
-            <span key={muscle} className="rounded-full border border-white/8 bg-white/5 px-2 py-1 text-[11px] text-white/55">
-              {muscle}
-            </span>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ExercisePlanRightPanel({ item, onReplace, onDelete }: { item: BuilderExerciseItem; onReplace: () => void; onDelete: () => void }) {
-  return (
-    <div className="flex flex-col items-center gap-1.5">
-      <button
-        type="button"
-        onClick={onReplace}
-        aria-label={`Заменить упражнение ${item.name}`}
-        title="Заменить"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-white/58 transition hover:bg-white/6 hover:text-white"
-      >
-        <Replace className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        onClick={onDelete}
-        aria-label={`Удалить упражнение ${item.name}`}
-        title="Удалить"
-        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-[#ffb1a8]/78 transition hover:bg-[#eb5345]/12 hover:text-[#ffb1a8]"
-      >
-        <Trash2 className="h-4 w-4" />
-      </button>
-    </div>
-  )
 }
 
 function ExercisePlanVideo({ videoUrl, title }: { videoUrl?: string; title: string }) {
@@ -1866,40 +1628,6 @@ function BuilderWarningIcon({ warning }: { warning: WorkoutBuilderData['warnings
   )
 }
 
-function InlineAddExerciseButton({ onClick }: { onClick: () => void }) {
-  return (
-    <div className="relative z-10 h-0 min-w-[1040px]">
-      <div className="absolute inset-x-0 top-0 flex -translate-y-1/2 justify-center pointer-events-none">
-        <button
-          type="button"
-          onClick={onClick}
-          aria-label="Добавить упражнение в эту позицию"
-          title="Добавить упражнение"
-          className="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/8 bg-[#111419] text-white/26 transition hover:border-[#d6b05f]/24 hover:text-[#d6b05f]/80"
-        >
-          <Plus className="h-3 w-3" />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function BottomInlineAddExerciseButton({ onClick }: { onClick: () => void }) {
-  return (
-    <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex translate-y-1/2 justify-center">
-      <button
-        type="button"
-        onClick={onClick}
-        aria-label="Добавить упражнение в конец группы"
-        title="Добавить упражнение"
-        className="pointer-events-auto inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/8 bg-[#111419] text-white/26 transition hover:border-[#d6b05f]/24 hover:text-[#d6b05f]/80"
-      >
-        <Plus className="h-3 w-3" />
-      </button>
-    </div>
-  )
-}
-
 function StrengthModeSelector({ modes, selectedMode, selectedModeId, selectedDayType, onSelect }: { modes: StrengthTrainingMode[]; selectedMode?: StrengthTrainingMode; selectedModeId: string; selectedDayType?: string | null; onSelect: (modeId: string, dayType?: string | null) => void }) {
   const [open, setOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -1994,74 +1722,6 @@ function StrengthModeSelector({ modes, selectedMode, selectedModeId, selectedDay
           ))}
         </div>
       ) : null}
-    </div>
-  )
-}
-
-function ControlBlock({ label, value, suffix, onChange, readOnly = false, onReset, resetLabel = 'Сбросить', onValueCommit, emptyLabel = '', compactEmpty = false }: { label: string; value: number | null; suffix?: string; onChange: (delta: number) => void; readOnly?: boolean; onReset?: () => void; resetLabel?: string; onValueCommit?: (value: number | null) => void; emptyLabel?: string; compactEmpty?: boolean }) {
-  const [draft, setDraft] = useState(value === null ? '' : String(value))
-  const isEmpty = value === null
-
-  useEffect(() => {
-    setDraft(value === null ? '' : String(value))
-  }, [value])
-
-  function commitDraft() {
-    if (!onValueCommit) {
-      setDraft(value === null ? '' : String(value))
-      return
-    }
-
-    const normalized = draft.trim()
-    if (!normalized) {
-      onValueCommit(null)
-      return
-    }
-
-    const parsed = Number(normalized.replace(',', '.'))
-    if (!Number.isFinite(parsed)) {
-      setDraft(value === null ? '' : String(value))
-      return
-    }
-
-    onValueCommit(Math.round(parsed))
-  }
-
-  return (
-    <div className={cn('rounded-[24px] border border-white/8 bg-white/4 p-4 transition-opacity', isEmpty ? 'opacity-75' : undefined)}>
-      <div className="flex items-center justify-between gap-3 text-sm text-white/45">
-        <span>{label}</span>
-        {onReset ? <button type="button" onClick={onReset} className="text-xs text-white/32 transition hover:text-white/64">{resetLabel}</button> : null}
-      </div>
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <button type="button" disabled={readOnly} onClick={() => onChange(-1)} className={cn('inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[#0d1116] text-white/72', readOnly ? 'cursor-default opacity-35' : undefined)}>-</button>
-        <div className="min-w-0 flex-1 text-center">
-          <input
-            type="text"
-            inputMode="numeric"
-            value={draft}
-            onChange={(event) => setDraft(event.target.value.replace(/[^\d.,-]/g, ''))}
-            onBlur={commitDraft}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter') {
-                event.preventDefault()
-                commitDraft()
-              }
-
-              if (event.key === 'Escape') {
-                setDraft(value === null ? '' : String(value))
-              }
-            }}
-            placeholder={emptyLabel}
-            className={cn(
-              'w-full bg-transparent text-center font-display font-bold text-white outline-none placeholder:text-white/30',
-              compactEmpty ? 'text-[1.55rem]' : 'text-3xl',
-            )}
-          />
-          {suffix ? <div className="text-xs text-white/35">{suffix}</div> : null}
-        </div>
-        <button type="button" disabled={readOnly} onClick={() => onChange(1)} className={cn('inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-[#0d1116] text-white/72', readOnly ? 'cursor-default opacity-35' : undefined)}>+</button>
-      </div>
     </div>
   )
 }

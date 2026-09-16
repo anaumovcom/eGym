@@ -1,40 +1,39 @@
-export type CalendarViewMode = 'week' | 'month'
+export type CalendarWorkoutStatus = 'completed' | 'partial' | 'aborted'
 
-export type CalendarDayStatus = 'completed' | 'planned' | 'skipped' | 'rest' | 'overload' | 'today' | 'empty'
-
-export type CalendarDayCard = {
-  id: string
-  dateLabel: string
-  title: string
-  badges: string[]
-  status: CalendarDayStatus
-  readinessPercent?: number
-  duration?: string
-  exerciseCount?: number
-  selected?: boolean
+export type CalendarWorkoutExercise = {
+  name: string
+  status: string
+  setCount: number
+  result: string
 }
 
-export type CalendarDayDetails = {
-  dateLabel: string
+export type CalendarWorkout = {
+  id: number
   title: string
-  subtitle: string
+  status: CalendarWorkoutStatus
+  startedAt: string
+  finishedAt: string | null
+  timeLabel: string
+  duration: string
   exerciseCount: number
   setCount: number
-  duration: string
-  targetMuscles: string
-  statusText: string
-  readinessPercent: number
-  recommendation: string
+  volume: string
+  exercises: CalendarWorkoutExercise[]
+}
+
+export type CalendarDay = {
+  id: string
+  day: number
+  inMonth: boolean
+  isToday: boolean
+  workouts: CalendarWorkout[]
 }
 
 export type WorkoutCalendarData = {
-  mode: CalendarViewMode
+  month: string
   title: string
-  legend: string[]
-  days: CalendarDayCard[]
-  selectedDayId: string
-  selectedDay: CalendarDayDetails
-  quickActions: string[]
-  summary: Array<{ label: string; value: string }>
-  muscleBalance: Array<{ label: string; value: string; tone: 'low' | 'medium' | 'high' }>
+  today: string
+  weekdays: string[]
+  days: CalendarDay[]
+  workoutCount: number
 }

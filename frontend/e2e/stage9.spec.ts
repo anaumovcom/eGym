@@ -1,6 +1,7 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import { expectPrimaryNavigation, openCatalogExerciseSetup, test as readOnlyTest } from './fixtures/navigation'
 
-async function openAppAsAlexey(page: Parameters<typeof test>[0]['page']) {
+async function openAppAsAlexey(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
   const selectionHeading = page.getByRole('heading', { name: 'Кто тренируется?' })
@@ -16,20 +17,20 @@ async function openAppAsAlexey(page: Parameters<typeof test>[0]['page']) {
   await expect(page).toHaveURL(/\/dashboard/)
 }
 
-test('dashboard survives hard reload with persisted user selection', async ({ page }) => {
+readOnlyTest('dashboard survives hard reload with persisted user selection', async ({ page }) => {
   await openAppAsAlexey(page)
 
   await page.reload({ waitUntil: 'domcontentloaded' })
 
   await expect(page).toHaveURL(/\/dashboard/)
-  await expect(page.getByText('Добрый день, Алексей')).toBeVisible()
+  await expectPrimaryNavigation(page)
+  await expect(page.getByRole('button', { name: 'Меню профиля: Алексей' })).toBeVisible()
 })
 
 test('runtime session survives reload and STOP aborts workout from rest state', async ({ page }) => {
   await openAppAsAlexey(page)
 
-  await page.getByRole('link', { name: 'Быстрый старт' }).click()
-  await page.getByText(/^Начать:/).first().click()
+  await openCatalogExerciseSetup(page)
   await expect(page).toHaveURL(/\/exercise-setup/)
 
   await page.getByRole('button', { name: 'Амплитуда сохранена' }).click()
@@ -66,5 +67,5 @@ test('progress screen shows blocking error when backend is unavailable', async (
   await page.getByRole('link', { name: 'Прогресс' }).click()
 
   await expect(page).toHaveURL(/\/progress/)
-  await expect(page.getByText('Не удалось загрузить прогресс. Проверьте backend API.')).toBeVisible()
+  await expect(page.getByText('Не удалось загрузить прогресс. Попробуйте открыть его ещё раз.')).toBeVisible()
 })

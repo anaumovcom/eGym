@@ -1,2 +1,692 @@
-Backend supervisor is watching backend, exercises and exercise_name_translations.csv.
-Backend server started. PID: 294215
+Backend supervisor следит за backend, exercises и exercise_name_translations.csv.
+Backend server запущен. PID: 19852
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_dashboard_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25536
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\dashboard.py, D:\eGym\backend\app\services\dashboard_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21896
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_dashboard_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27784
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\dashboard.py, D:\eGym\backend\app\services\dashboard_service.py, D:\eGym\backend\app\tests\test_dashboard_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28052
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\training.py, D:\eGym\backend\app\schemas\training.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29528
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19040
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26312
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21792
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 16644
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19604
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 10924
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19000
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21228
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21132
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26876
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24224
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18696
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21196
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25908
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26632
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28224
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25612
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25652
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26652
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25520
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 540
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 16592
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26576
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 14148
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27480
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23880
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25960
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29144
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18444
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 14692
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26292
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 11496
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28064
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22912
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26532
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24136
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24912
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 4516
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21928
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28308
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25368
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26648
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18956
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20720
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25068
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24572
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18736
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21316
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29196
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26848
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 12564
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26308
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26932
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19808
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27504
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26544
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 4436
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19648
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18576
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 16544
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18960
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22928
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 13696
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29004
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27940
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24360
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29260
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23688
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26996
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27012
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22532
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21316
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22284
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24172
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20512
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23852
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23020
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 12772
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26700
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 11112
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 8824
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19732
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23256
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25400
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20088
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22836
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 11624
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27940
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28508
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28104
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25692
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27748
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25068
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26172
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28972
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23604
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27480
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28956
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27412
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28724
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_calendar_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26124
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_calendar_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 12756
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\training.py, D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_calendar_api.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26904
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24000
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 12696
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\users.py, D:\eGym\backend\app\repositories\user_repository.py, D:\eGym\backend\app\schemas\user.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14328
+Обнаружены изменения backend данных: D:\eGym\backend\app\repositories\user_repository.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22904
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_users_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24776
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\users.py, D:\eGym\backend\app\repositories\user_repository.py, D:\eGym\backend\app\schemas\user.py, D:\eGym\backend\app\tests\test_users_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24664
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\__init__.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19744
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\parameters.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 16876
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\adapter.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 4804
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\emulator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28804
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\emulator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10868
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\modbus_adapter.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27240
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\controller.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26536
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\recorder.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30036
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\procedures.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29844
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\keyboard_monitor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30288
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18968
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19084
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20452
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21512
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 336
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22784
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 12388
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26672
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 12784
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20020
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 4000
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25004
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29824
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28304
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 2468
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29904
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22112
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 7452
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30240
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20540
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23532
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24976
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 9916
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 4824
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23488
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25328
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19796
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 15704
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30068
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 12496
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18756
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27064
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26176
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 17804
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 2372
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29912
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 15848
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22516
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22352
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 10040
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22396
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 7132
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 8412
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26824
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21116
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25676
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25832
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21796
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25284
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30260
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26940
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22720
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 15704
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 17276
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25004
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 9716
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25660
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30408
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 13992
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19012
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 12884
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27464
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23940
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27056
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26020
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 6776
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30428
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19268
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30380
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 13692
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23560
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28744
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 4256
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 14760
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19744
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20556
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 14080
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20592
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30112
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26712
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18772
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 7452
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26120
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27628
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30056
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 10864
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29428
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22912
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29980
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 13996
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22040
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29968
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 3552
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30312
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19792
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27428
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26668
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24560
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25560
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30572
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25960
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30080
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20872
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29360
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30396
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30328
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27964
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27464
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28744
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21124
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19508
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 15700
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23988
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 552
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 7968
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20104
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 8836
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 7452
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27856
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30444
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22108
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30212
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24976
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27032
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30232
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24968
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 6328
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 12908
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 4804
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24032
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21352
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22728
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 604
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20824
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27764
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23696
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27192
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21288
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22328
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25260
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 3364
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28456
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30136
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30224
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 8412
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19116
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 5428
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19568
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21836
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23624
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18292
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 560
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14012
+Обнаружены изменения backend данных: D:\eGym\backend\app\core\config.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\motion\controller.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30200
+Обнаружены изменения backend данных: D:\eGym\backend\scripts\_smoke_motion.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22688
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\emulator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27856
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23380
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26488
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21976
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27656
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 4984
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\emulator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20836
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\controller.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 3376
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\controller.py, D:\eGym\backend\app\services\motion\parameters.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20588
+Обнаружены изменения backend данных: D:\eGym\backend\scripts\_smoke_motion2.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 8008
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\motion\controller.py, D:\eGym\backend\scripts\_smoke_motion.py, D:\eGym\backend\scripts\_smoke_motion2.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22952
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\controller.py, D:\eGym\backend\app\services\motion\emulator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27324
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\emulator.py, D:\eGym\backend\scripts\_smoke_motion2.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28072
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\hardware.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18748
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24640
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30244
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30388
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 5416
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\hardware.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22492
+Обнаружены изменения backend данных: D:\eGym\backend\app\main.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 4800
+Обнаружены изменения backend данных: D:\eGym\backend\app\main.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 6996
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage8_hardware_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18960
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21868
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage12_motion_control.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26876
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage12_motion_control.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22424
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\motion\controller.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30460
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\test_stage12_motion_control.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19760
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\test_stage12_motion_control.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 9612
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\motion\recorder.py, D:\eGym\backend\app\tests\test_stage12_motion_control.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10228
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_calendar_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18804
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\hardware.py, D:\eGym\backend\app\api\routes\training.py, D:\eGym\backend\app\api\routes\users.py, D:\eGym\backend\app\core\config.py, D:\eGym\backend\app\main.py, D:\eGym\backend\app\repositories\user_repository.py, D:\eGym\backend\app\schemas\dashboard.py, D:\eGym\backend\app\schemas\hardware.py, D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\schemas\user.py, D:\eGym\backend\app\services\dashboard_service.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\hardware_service.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_dashboard_api.py, D:\eGym\backend\app\tests\test_stage8_hardware_api.py, D:\eGym\backend\app\tests\test_stage9_training_api.py, D:\eGym\backend\app\tests\test_users_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30152
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\hardware.py, D:\eGym\backend\app\api\routes\training.py, D:\eGym\backend\app\api\routes\users.py, D:\eGym\backend\app\core\config.py, D:\eGym\backend\app\main.py, D:\eGym\backend\app\repositories\user_repository.py, D:\eGym\backend\app\schemas\dashboard.py, D:\eGym\backend\app\schemas\hardware.py, D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\schemas\user.py, D:\eGym\backend\app\services\dashboard_service.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\hardware_service.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_calendar_api.py, D:\eGym\backend\app\tests\test_dashboard_api.py, D:\eGym\backend\app\tests\test_stage8_hardware_api.py, D:\eGym\backend\app\tests\test_stage9_training_api.py, D:\eGym\backend\app\tests\test_users_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19748
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25648
+Обнаружены изменения backend данных: D:\eGym\backend\scripts\_smoke_motion.py, D:\eGym\backend\scripts\_smoke_motion2.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 16892
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\motion\__init__.py, D:\eGym\backend\app\services\motion\adapter.py, D:\eGym\backend\app\services\motion\controller.py, D:\eGym\backend\app\services\motion\emulator.py, D:\eGym\backend\app\services\motion\modbus_adapter.py, D:\eGym\backend\app\services\motion\parameters.py, D:\eGym\backend\app\services\motion\procedures.py, D:\eGym\backend\app\services\motion\recorder.py, D:\eGym\backend\app\tests\test_stage12_motion_control.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27968

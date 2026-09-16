@@ -1,17 +1,17 @@
-import { expect, test } from '@playwright/test'
+import { expect, test, type Page } from '@playwright/test'
+import { openCatalogExerciseSetup, test as readOnlyTest } from './fixtures/navigation'
 
-async function openAppAsAlexey(page: Parameters<typeof test>[0]['page']) {
+async function openAppAsAlexey(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: 'Кто тренируется?' })).toBeVisible()
   await page.getByRole('button', { name: 'Выбрать профиль Алексей' }).click()
   await expect(page).toHaveURL(/\/dashboard/)
 }
 
-test('quick start runtime reaches workout summary', async ({ page }) => {
+test('catalog standalone runtime reaches workout summary', async ({ page }) => {
   await openAppAsAlexey(page)
 
-  await page.getByRole('link', { name: 'Быстрый старт' }).click()
-  await page.getByText(/^Начать:/).first().click()
+  await openCatalogExerciseSetup(page)
 
   await expect(page).toHaveURL(/\/exercise-setup/)
   await page.getByRole('button', { name: 'Запустить упражнение' }).click()
@@ -34,28 +34,28 @@ test('quick start runtime reaches workout summary', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Тренировка завершена' })).toBeVisible()
 })
 
-test('today flow auto-opens photo progress before setup', async ({ page }) => {
-  await openAppAsAlexey(page)
+for (const photo of ['before', 'after']) {
+  for (const route of ['exercise-setup', 'photo-progress']) {
+    readOnlyTest(`legacy photo=${photo} at ${route} stays in setup without camera`, async ({ page, navigationApi }) => {
+      await openAppAsAlexey(page)
+      await page.goto(`/${route}?source=catalog&slug=machine-pulldown&photo=${photo}`, { waitUntil: 'domcontentloaded' })
+      await expect(page).toHaveURL(new RegExp(`/exercise-setup\\?source=catalog&slug=machine-pulldown&photo=${photo}$`))
+      await expect(page.getByRole('heading', { name: 'Настройка упражнения' })).toBeVisible()
+      await expect(page.getByRole('heading', { name: /Фото до тренировки|Фото после тренировки/ })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Сделать снимок' })).toHaveCount(0)
 
-  await page.getByRole('link', { name: 'Сегодня' }).click()
-  await page.getByRole('button', { name: 'Начать тренировку' }).click()
-
-  await expect(page).toHaveURL(/\/photo-progress/)
-  await expect(page.getByRole('heading', { name: 'Фото до тренировки' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Сделать снимок' }).click()
-  await page.getByRole('button', { name: 'Сделать снимок' }).click()
-  await page.getByRole('button', { name: 'Сделать снимок' }).click()
-  await page.getByRole('button', { name: 'Продолжить к настройке' }).click()
-
-  await expect(page).toHaveURL(/\/exercise-setup/)
-  await expect(page.getByRole('heading', { name: 'Настройка упражнения' })).toBeVisible()
-})
+      await page.reload({ waitUntil: 'domcontentloaded' })
+      await expect(page).toHaveURL(/\/exercise-setup\?/)
+      await expect(page.getByRole('heading', { name: 'Настройка упражнения' })).toBeVisible()
+      expect(navigationApi.cameraRequests).toEqual([])
+    })
+  }
+}
 
 test('builder exposes group runtime scenario', async ({ page }) => {
   await openAppAsAlexey(page)
 
-  await page.getByRole('link', { name: 'Конструктор' }).click()
+  await page.getByRole('link', { name: 'Мои тренировки' }).click()
   await page.getByRole('button', { name: 'Запустить runtime группы' }).click()
 
   await expect(page).toHaveURL(/\/exercise-setup/)

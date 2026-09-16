@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from app.models.enums import NotificationTone
 from app.schemas.base import SchemaModel
@@ -47,6 +48,8 @@ class DashboardBuilderWorkoutSchema(SchemaModel):
     title: str
     exercises: list[DashboardBuilderWorkoutExerciseSchema]
     duration: str
+    last_performed_at: datetime | None = None
+    last_status: Literal["completed", "partial", "aborted"] | None = None
     today_status: str = "idle"
     today_progress_percent: int = 0
     today_completed_exercises: int = 0

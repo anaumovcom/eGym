@@ -80,8 +80,6 @@ export async function buildBackendBuilderRuntimeSession(options: BuilderRuntimeS
     nextExerciseId: allExercises[index + 1]?.id,
   }))
 
-  const photoMode = options.photoMode ?? null
-
   return {
     id: `backend-builder-${options.programId}-${options.runId ?? exercises.map((exercise) => exercise.id).join('-')}`,
     source: 'builder',
@@ -89,13 +87,13 @@ export async function buildBackendBuilderRuntimeSession(options: BuilderRuntimeS
     runId: options.runId,
     dataSource: 'backend',
     startedAt: new Date().toISOString(),
-    view: photoMode ? 'photo-progress' : 'exercise-setup',
+    view: 'exercise-setup',
     machine,
     workoutTitle: builderData.info.name,
     workoutSubtitle: [builderData.info.type, builderData.info.duration].filter(Boolean).join(' · '),
     currentExerciseId: exercises[0].id,
     currentSetIndex: 0,
-    photoProgress: buildPhotoProgressState(photoMode ?? 'manual', false),
+    photoProgress: buildPhotoProgressState('manual', false),
     exercises,
     completedSets: {},
     completedExerciseIds: [],
@@ -324,7 +322,7 @@ function buildPhotoShots(): RuntimePhotoShot[] {
 function buildPhotoProgressState(mode: RuntimePhotoMode, completed = false): RuntimePhotoProgressState {
   return {
     mode,
-    autoPrompt: mode !== 'manual',
+    autoPrompt: false,
     completed,
     currentView: completed ? 'back' : 'front',
     shots: completed
@@ -336,7 +334,7 @@ function buildPhotoProgressState(mode: RuntimePhotoMode, completed = false): Run
         }))
       : buildPhotoShots(),
     timerSeconds: 2,
-    readyMessage: mode === 'post-workout' ? 'Фото после тренировки помогут увидеть динамику восстановления.' : 'Фото нужны только для личного прогресса.',
+    readyMessage: 'Фото нужны только для личного прогресса.',
     privacyNote: 'Фото сохраняются только в профиль текущего пользователя и не используются для сравнения с другими.',
   }
 }

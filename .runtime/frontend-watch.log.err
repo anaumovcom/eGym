@@ -1,0 +1,1617 @@
+[2m15:06:34[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: Failed to load url /src/screens/dashboard/home-recovery.tsx (resolved id: D:/eGym/frontend/src/screens/dashboard/home-recovery.tsx) in D:/eGym/frontend/src/screens/dashboard/dashboard-screen.tsx. Does the file exist?
+[2m16:10:12[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:10:12[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:11:45[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:11:45[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:12:04[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:12:04[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:12:24[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:12:24[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:12:50[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:12:50[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:13:07[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:13:07[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1185:6)
+
+[0m [90m 1183 |[31m       [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+ [90m 1184 |[31m
+[31m[1m>[22m[31m[90m 1185 |[31m       [33m<[31m[33mdiv[31m className[33m=[31m[32m"grid gap-6 xl:grid-cols-[1.35fr_0.85fr]"[31m[33m>[31m
+ [90m      |[31m       [31m[1m^[22m[31m
+ [90m 1186 |[31m         [33m<[31m[33msection[31m className[33m=[31m[32m"space-y-6"[31m[33m>[31m
+ [90m 1187 |[31m           [33m<[31m[33msection[31m className[33m=[31m[32m"glass-panel rounded-[32px] p-5"[31m[33m>[31m
+ [90m 1188 |[31m             [33m<[31m[33mdiv[31m className[33m=[31m[32m"mb-4 space-y-4"[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1185:6
+[33m  1205 |                            void saveWorkoutTitle(titleDraft)
+  1206 |                            setIsEditingWorkoutTitle(false)
+  1207 |                          }
+       |                           ^
+  1208 |  
+  1209 |                          if (event.key === 'Escape') {[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:13:39[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1181:22)
+
+[0m [90m 1179 |[31m                           className[33m=[31m[32m"mt-2 w-full rounded-[16px] border border-[#d6b05f]/35 bg-[#0f1217] px-3 py-2 font-display text-3xl font-bold text-white outline-none"[31m
+ [90m 1180 |[31m                         [33m/[31m[33m>[31m
+[31m[1m>[22m[31m[90m 1181 |[31m                       ) [33m:[31m (
+ [90m      |[31m                       [31m[1m^[22m[31m
+ [90m 1182 |[31m                         [33m<[31m[33mbutton[31m
+ [90m 1183 |[31m                           type[33m=[31m[32m"button"[31m
+ [90m 1184 |[31m                           onClick[33m=[31m{() [33m=>[31m {[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1181:22
+[33m  1200 |                              type="button"
+  1201 |                              onClick={() => changeGroupKind(group.id, option.id)}
+  1202 |                              className={cn(
+       |            ^
+  1203 |                                'rounded-full border px-3 py-1.5 text-xs transition',
+  1204 |                                group.kind === option.id[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.unexpected (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6636:16)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11459:22)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4776:20)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9803:20)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:13:39[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1181:22)
+
+[0m [90m 1179 |[31m                           className[33m=[31m[32m"mt-2 w-full rounded-[16px] border border-[#d6b05f]/35 bg-[#0f1217] px-3 py-2 font-display text-3xl font-bold text-white outline-none"[31m
+ [90m 1180 |[31m                         [33m/[31m[33m>[31m
+[31m[1m>[22m[31m[90m 1181 |[31m                       ) [33m:[31m (
+ [90m      |[31m                       [31m[1m^[22m[31m
+ [90m 1182 |[31m                         [33m<[31m[33mbutton[31m
+ [90m 1183 |[31m                           type[33m=[31m[32m"button"[31m
+ [90m 1184 |[31m                           onClick[33m=[31m{() [33m=>[31m {[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1181:22
+[33m  1200 |                              type="button"
+  1201 |                              onClick={() => changeGroupKind(group.id, option.id)}
+  1202 |                              className={cn(
+       |            ^
+  1203 |                                'rounded-full border px-3 py-1.5 text-xs transition',
+  1204 |                                group.kind === option.id[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.unexpected (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6636:16)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11459:22)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4776:20)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9803:20)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:13:48[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1181:22)
+
+[0m [90m 1179 |[39m                           className[33m=[39m[32m"mt-2 w-full rounded-[16px] border border-[#d6b05f]/35 bg-[#0f1217] px-3 py-2 font-display text-3xl font-bold text-white outline-none"[39m
+ [90m 1180 |[39m                         [33m/[39m[33m>[39m
+[31m[1m>[22m[39m[90m 1181 |[39m                       ) [33m:[39m (
+ [90m      |[39m                       [31m[1m^[22m[39m
+ [90m 1182 |[39m                         [33m<[39m[33mbutton[39m
+ [90m 1183 |[39m                           type[33m=[39m[32m"button"[39m
+ [90m 1184 |[39m                           onClick[33m=[39m{() [33m=>[39m {[0m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1181:22
+[33m  1200 |                              type="button"
+  1201 |                              onClick={() => changeGroupKind(group.id, option.id)}
+  1202 |                              className={cn(
+       |            ^
+  1203 |                                'rounded-full border px-3 py-1.5 text-xs transition',
+  1204 |                                group.kind === option.id[39m
+[2m16:13:48[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1181:22)
+
+[0m [90m 1179 |[31m                           className[33m=[31m[32m"mt-2 w-full rounded-[16px] border border-[#d6b05f]/35 bg-[#0f1217] px-3 py-2 font-display text-3xl font-bold text-white outline-none"[31m
+ [90m 1180 |[31m                         [33m/[31m[33m>[31m
+[31m[1m>[22m[31m[90m 1181 |[31m                       ) [33m:[31m (
+ [90m      |[31m                       [31m[1m^[22m[31m
+ [90m 1182 |[31m                         [33m<[31m[33mbutton[31m
+ [90m 1183 |[31m                           type[33m=[31m[32m"button"[31m
+ [90m 1184 |[31m                           onClick[33m=[31m{() [33m=>[31m {[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1181:22
+[33m  1200 |                              type="button"
+  1201 |                              onClick={() => changeGroupKind(group.id, option.id)}
+  1202 |                              className={cn(
+       |            ^
+  1203 |                                'rounded-full border px-3 py-1.5 text-xs transition',
+  1204 |                                group.kind === option.id[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.unexpected (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6636:16)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11459:22)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4776:20)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9803:20)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:13:52[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1181:22)
+
+[0m [90m 1179 |[31m                           className[33m=[31m[32m"mt-2 w-full rounded-[16px] border border-[#d6b05f]/35 bg-[#0f1217] px-3 py-2 font-display text-3xl font-bold text-white outline-none"[31m
+ [90m 1180 |[31m                         [33m/[31m[33m>[31m
+[31m[1m>[22m[31m[90m 1181 |[31m                       ) [33m:[31m (
+ [90m      |[31m                       [31m[1m^[22m[31m
+ [90m 1182 |[31m                         [33m<[31m[33mbutton[31m
+ [90m 1183 |[31m                           type[33m=[31m[32m"button"[31m
+ [90m 1184 |[31m                           onClick[33m=[31m{() [33m=>[31m {[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1181:22
+[33m  1200 |                              type="button"
+  1201 |                              onClick={() => changeGroupKind(group.id, option.id)}
+  1202 |                              className={cn(
+       |            ^
+  1203 |                                'rounded-full border px-3 py-1.5 text-xs transition',
+  1204 |                                group.kind === option.id[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.unexpected (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6636:16)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11459:22)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4776:20)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9803:20)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:14:00[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1181:22)
+
+[0m [90m 1179 |[31m                           className[33m=[31m[32m"mt-2 w-full rounded-[16px] border border-[#d6b05f]/35 bg-[#0f1217] px-3 py-2 font-display text-3xl font-bold text-white outline-none"[31m
+ [90m 1180 |[31m                         [33m/[31m[33m>[31m
+[31m[1m>[22m[31m[90m 1181 |[31m                       ) [33m:[31m (
+ [90m      |[31m                       [31m[1m^[22m[31m
+ [90m 1182 |[31m                         [33m<[31m[33mbutton[31m
+ [90m 1183 |[31m                           type[33m=[31m[32m"button"[31m
+ [90m 1184 |[31m                           onClick[33m=[31m{() [33m=>[31m {[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1181:22
+[33m  1200 |                              type="button"
+  1201 |                              onClick={() => changeGroupKind(group.id, option.id)}
+  1202 |                              className={cn(
+       |            ^
+  1203 |                                'rounded-full border px-3 py-1.5 text-xs transition',
+  1204 |                                group.kind === option.id[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.unexpected (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6636:16)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11459:22)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4776:20)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9803:20)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:14:00[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1181:22)
+
+[0m [90m 1179 |[31m                           className[33m=[31m[32m"mt-2 w-full rounded-[16px] border border-[#d6b05f]/35 bg-[#0f1217] px-3 py-2 font-display text-3xl font-bold text-white outline-none"[31m
+ [90m 1180 |[31m                         [33m/[31m[33m>[31m
+[31m[1m>[22m[31m[90m 1181 |[31m                       ) [33m:[31m (
+ [90m      |[31m                       [31m[1m^[22m[31m
+ [90m 1182 |[31m                         [33m<[31m[33mbutton[31m
+ [90m 1183 |[31m                           type[33m=[31m[32m"button"[31m
+ [90m 1184 |[31m                           onClick[33m=[31m{() [33m=>[31m {[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1181:22
+[33m  1200 |                              type="button"
+  1201 |                              onClick={() => changeGroupKind(group.id, option.id)}
+  1202 |                              className={cn(
+       |            ^
+  1203 |                                'rounded-full border px-3 py-1.5 text-xs transition',
+  1204 |                                group.kind === option.id[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.unexpected (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6636:16)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11459:22)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4776:20)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9803:20)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:14:09[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1158:31)
+
+[0m [90m 1156 |[31m
+ [90m 1157 |[31m [90m/* __LEGACY_BUILDER_JSX__ */[31m
+[31m[1m>[22m[31m[90m 1158 |[31m                               [33m<[31m[33m/[31m[33mbutton[31m[33m>[31m
+ [90m      |[31m                                [31m[1m^[22m[31m
+ [90m 1159 |[31m                               [33m<[31m[33mdiv[31m className[33m=[31m[32m"absolute right-2 top-4 z-20"[31m[33m>[31m
+ [90m 1160 |[31m                                 [33m<[31m[33mExercisePlanRightPanel[31m
+ [90m 1161 |[31m                                   item[33m=[31m{item}[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1158:31
+[33m  1178 |                              ) : null}
+  1179 |                            </div>
+  1180 |                          ))}
+       |                       ^
+  1181 |                        </div>
+  1182 |                      </div>[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.unexpected (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6636:16)
+      at TypeScriptParserMixin.jsxParseIdentifier (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4581:12)
+      at TypeScriptParserMixin.jsxParseNamespacedName (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4588:23)
+      at TypeScriptParserMixin.jsxParseElementName (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4597:21)
+      at TypeScriptParserMixin.jsxParseOpeningElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4673:22)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4698:33)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+[2m16:14:09[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1158:31)
+
+[0m [90m 1156 |[39m
+ [90m 1157 |[39m [90m/* __LEGACY_BUILDER_JSX__ */[39m
+[31m[1m>[22m[39m[90m 1158 |[39m                               [33m<[39m[33m/[39m[33mbutton[39m[33m>[39m
+ [90m      |[39m                                [31m[1m^[22m[39m
+ [90m 1159 |[39m                               [33m<[39m[33mdiv[39m className[33m=[39m[32m"absolute right-2 top-4 z-20"[39m[33m>[39m
+ [90m 1160 |[39m                                 [33m<[39m[33mExercisePlanRightPanel[39m
+ [90m 1161 |[39m                                   item[33m=[39m{item}[0m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1158:31
+[33m  1178 |                              ) : null}
+  1179 |                            </div>
+  1180 |                          ))}
+       |                       ^
+  1181 |                        </div>
+  1182 |                      </div>[39m
+[2m16:14:09[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1158:31)
+
+[0m [90m 1156 |[31m
+ [90m 1157 |[31m [90m/* __LEGACY_BUILDER_JSX__ */[31m
+[31m[1m>[22m[31m[90m 1158 |[31m                               [33m<[31m[33m/[31m[33mbutton[31m[33m>[31m
+ [90m      |[31m                                [31m[1m^[22m[31m
+ [90m 1159 |[31m                               [33m<[31m[33mdiv[31m className[33m=[31m[32m"absolute right-2 top-4 z-20"[31m[33m>[31m
+ [90m 1160 |[31m                                 [33m<[31m[33mExercisePlanRightPanel[31m
+ [90m 1161 |[31m                                   item[33m=[31m{item}[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1158:31
+[33m  1178 |                              ) : null}
+  1179 |                            </div>
+  1180 |                          ))}
+       |                       ^
+  1181 |                        </div>
+  1182 |                      </div>[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.unexpected (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6636:16)
+      at TypeScriptParserMixin.jsxParseIdentifier (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4581:12)
+      at TypeScriptParserMixin.jsxParseNamespacedName (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4588:23)
+      at TypeScriptParserMixin.jsxParseElementName (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4597:21)
+      at TypeScriptParserMixin.jsxParseOpeningElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4673:22)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4698:33)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+[2m16:14:40[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1249:8)
+
+[0m [90m 1247 |[31m             )}
+ [90m 1248 |[31m           [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+[31m[1m>[22m[31m[90m 1249 |[31m         [33m<[31m[33m/[31m[33maside[31m[33m>[31m
+ [90m      |[31m         [31m[1m^[22m[31m
+ [90m 1250 |[31m       [33m<[31m[33m/[31m[33mdiv[31m[33m>[31m
+ [90m 1251 |[31m
+ [90m 1252 |[31m       [33m<[31m[33mEmergencyStopOverlay[31m open[33m=[31m{emergencyStopActive} onOpenChange[33m=[31m{setEmergencyStopActive} [33m/[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1249:8
+[33m  1281 |        />
+  1282 |      </FormaShell>
+  1283 |    )
+       |     ^
+  1284 |  }
+  1285 |  [39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:14:40[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1249:8)
+
+[0m [90m 1247 |[39m             )}
+ [90m 1248 |[39m           [33m<[39m[33m/[39m[33msection[39m[33m>[39m
+[31m[1m>[22m[39m[90m 1249 |[39m         [33m<[39m[33m/[39m[33maside[39m[33m>[39m
+ [90m      |[39m         [31m[1m^[22m[39m
+ [90m 1250 |[39m       [33m<[39m[33m/[39m[33mdiv[39m[33m>[39m
+ [90m 1251 |[39m
+ [90m 1252 |[39m       [33m<[39m[33mEmergencyStopOverlay[39m open[33m=[39m{emergencyStopActive} onOpenChange[33m=[39m{setEmergencyStopActive} [33m/[39m[33m>[39m[0m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1249:8
+[33m  1281 |        />
+  1282 |      </FormaShell>
+  1283 |    )
+       |     ^
+  1284 |  }
+  1285 |  [39m
+[2m16:14:41[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Adjacent JSX elements must be wrapped in an enclosing tag. Did you want a JSX fragment <>...</>? (1249:8)
+
+[0m [90m 1247 |[31m             )}
+ [90m 1248 |[31m           [33m<[31m[33m/[31m[33msection[31m[33m>[31m
+[31m[1m>[22m[31m[90m 1249 |[31m         [33m<[31m[33m/[31m[33maside[31m[33m>[31m
+ [90m      |[31m         [31m[1m^[22m[31m
+ [90m 1250 |[31m       [33m<[31m[33m/[31m[33mdiv[31m[33m>[31m
+ [90m 1251 |[31m
+ [90m 1252 |[31m       [33m<[31m[33mEmergencyStopOverlay[31m open[33m=[31m{emergencyStopActive} onOpenChange[33m=[31m{setEmergencyStopActive} [33m/[31m[33m>[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1249:8
+[33m  1281 |        />
+  1282 |      </FormaShell>
+  1283 |    )
+       |     ^
+  1284 |  }
+  1285 |  [39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.jsxParseElementAt (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4754:18)
+      at TypeScriptParserMixin.jsxParseElement (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4761:17)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4774:19)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:39
+      at TypeScriptParserMixin.tryParse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6924:20)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9792:18)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:15:11[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1161:8)
+
+[0m [90m 1159 |[31m             setAddTargetPosition([36mnull[31m)
+ [90m 1160 |[31m           }
+[31m[1m>[22m[31m[90m 1161 |[31m         }}
+ [90m      |[31m         [31m[1m^[22m[31m
+ [90m 1162 |[31m         userId[33m=[31m{resolvedUserId}
+ [90m 1163 |[31m         mode[33m=[31m[32m"add"[31m
+ [90m 1164 |[31m         title[33m=[31m[32m"Добавить упражнение"[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1161:8
+[33m  1185 |  }
+  1186 |  
+  1187 |  function resizeBuilderTextarea(textarea: HTMLTextAreaElement | null) {
+       |                                                                  ^
+  1188 |    if (!textarea) {
+  1189 |      return[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.unexpected (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6636:16)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11459:22)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4776:20)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9803:20)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+[2m16:15:11[22m [31m[1m[vite][22m[39m [31m[2m(client)[22m[39m Pre-transform error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1161:8)
+
+[0m [90m 1159 |[39m             setAddTargetPosition([36mnull[39m)
+ [90m 1160 |[39m           }
+[31m[1m>[22m[39m[90m 1161 |[39m         }}
+ [90m      |[39m         [31m[1m^[22m[39m
+ [90m 1162 |[39m         userId[33m=[39m{resolvedUserId}
+ [90m 1163 |[39m         mode[33m=[39m[32m"add"[39m
+ [90m 1164 |[39m         title[33m=[39m[32m"Добавить упражнение"[39m[0m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1161:8
+[33m  1185 |  }
+  1186 |  
+  1187 |  function resizeBuilderTextarea(textarea: HTMLTextAreaElement | null) {
+       |                                                                  ^
+  1188 |    if (!textarea) {
+  1189 |      return[39m
+[2m16:15:12[22m [31m[1m[vite][22m[39m [31mInternal server error: D:\eGym\frontend\src\screens\builder\workout-builder-screen.tsx: Unexpected token (1161:8)
+
+[0m [90m 1159 |[31m             setAddTargetPosition([36mnull[31m)
+ [90m 1160 |[31m           }
+[31m[1m>[22m[31m[90m 1161 |[31m         }}
+ [90m      |[31m         [31m[1m^[22m[31m
+ [90m 1162 |[31m         userId[33m=[31m{resolvedUserId}
+ [90m 1163 |[31m         mode[33m=[31m[32m"add"[31m
+ [90m 1164 |[31m         title[33m=[31m[32m"Добавить упражнение"[31m[0m[39m
+  Plugin: [35mvite:react-babel[39m
+  File: [36mD:/eGym/frontend/src/screens/builder/workout-builder-screen.tsx[39m:1161:8
+[33m  1185 |  }
+  1186 |  
+  1187 |  function resizeBuilderTextarea(textarea: HTMLTextAreaElement | null) {
+       |                                                                  ^
+  1188 |    if (!textarea) {
+  1189 |      return[39m
+      at constructor (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:365:19)
+      at TypeScriptParserMixin.raise (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6616:19)
+      at TypeScriptParserMixin.unexpected (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:6636:16)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11459:22)
+      at TypeScriptParserMixin.parseExprAtom (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:4776:20)
+      at TypeScriptParserMixin.parseExprSubscripts (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11098:23)
+      at TypeScriptParserMixin.parseUpdate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11083:21)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:11063:23)
+      at TypeScriptParserMixin.parseMaybeUnary (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9854:18)
+      at TypeScriptParserMixin.parseMaybeUnaryOrPrivate (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10916:61)
+      at TypeScriptParserMixin.parseExprOps (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10921:23)
+      at TypeScriptParserMixin.parseMaybeConditional (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10898:23)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10848:21)
+      at TypeScriptParserMixin.parseMaybeAssign (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9803:20)
+      at TypeScriptParserMixin.parseExpressionBase (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10801:23)
+      at D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:39
+      at TypeScriptParserMixin.allowInAnd (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12438:16)
+      at TypeScriptParserMixin.parseExpression (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10797:17)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12912:23)
+      at TypeScriptParserMixin.parseStatementContent (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:9525:18)
+      at TypeScriptParserMixin.parseStatementLike (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12784:17)
+      at TypeScriptParserMixin.parseModuleItem (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12761:17)
+      at TypeScriptParserMixin.parseBlockOrModuleBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13333:36)
+      at TypeScriptParserMixin.parseBlockBody (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:13326:10)
+      at TypeScriptParserMixin.parseProgram (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12639:10)
+      at TypeScriptParserMixin.parseTopLevel (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:12629:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14505:25)
+      at TypeScriptParserMixin.parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:10143:18)
+      at parse (D:\eGym\frontend\node_modules\@babel\parser\lib\index.js:14539:38)
+      at parser (D:\eGym\frontend\node_modules\@babel\core\lib\parser\index.js:41:34)
+      at parser.next (<anonymous>)
+      at normalizeFile (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\normalize-file.js:64:37)
+      at normalizeFile.next (<anonymous>)
+      at run (D:\eGym\frontend\node_modules\@babel\core\lib\transformation\index.js:22:50)
+      at run.next (<anonymous>)
+      at transform (D:\eGym\frontend\node_modules\@babel\core\lib\transform.js:22:33)
+      at transform.next (<anonymous>)
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:261:32)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)
+      at D:\eGym\frontend\node_modules\gensync\index.js:189:28
+      at D:\eGym\frontend\node_modules\@babel\core\lib\gensync-utils\async.js:67:7
+      at D:\eGym\frontend\node_modules\gensync\index.js:113:33
+      at step (D:\eGym\frontend\node_modules\gensync\index.js:287:14)
+      at D:\eGym\frontend\node_modules\gensync\index.js:273:13
+      at async.call.result.err.err (D:\eGym\frontend\node_modules\gensync\index.js:223:11)

@@ -68,6 +68,24 @@
         }
       }
     },
+    "/api/users/{user_id}/profile": {
+      "put": {
+        "tags": ["users"],
+        "summary": "Update User Profile",
+        "operationId": "update_user_profile_api_users__user_id__profile_put",
+        "parameters": [
+          { "name": "user_id", "in": "path", "required": true, "schema": { "type": "string", "title": "User Id" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": { "application/json": { "schema": { "$ref": "#/components/schemas/UserProfileUpdateSchema" } } }
+        },
+        "responses": {
+          "200": { "description": "Successful Response", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CurrentUserSchema" } } } },
+          "422": { "description": "Validation Error", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/HTTPValidationError" } } } }
+        }
+      }
+    },
     "/api/users/select": {
       "post": {
         "tags": [
@@ -150,6 +168,67 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DashboardDataSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/calendar": {
+      "get": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Get Calendar",
+        "description": "Monthly history journal: 42 Monday-first grid days with the user's saved completed/partial/aborted workout sessions. No planning data.",
+        "operationId": "get_calendar_api_calendar_get",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "alexey",
+              "title": "Userid"
+            }
+          },
+          {
+            "name": "month",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d{4}-(0[1-9]|1[0-2])$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutCalendarDataSchema"
                 }
               }
             }
@@ -408,6 +487,60 @@
   },
   "components": {
     "schemas": {
+      "CalendarWorkoutExerciseSchema": {
+        "properties": {
+          "name": { "type": "string", "title": "Name" },
+          "status": { "type": "string", "title": "Status" },
+          "setCount": { "type": "integer", "title": "Setcount" },
+          "result": { "type": "string", "title": "Result" }
+        },
+        "type": "object",
+        "required": ["name", "status", "setCount", "result"],
+        "title": "CalendarWorkoutExerciseSchema"
+      },
+      "CalendarWorkoutSchema": {
+        "properties": {
+          "id": { "type": "integer", "title": "Id" },
+          "title": { "type": "string", "title": "Title" },
+          "status": { "type": "string", "enum": ["completed", "partial", "aborted"], "title": "Status" },
+          "startedAt": { "type": "string", "format": "date-time", "title": "Startedat" },
+          "finishedAt": { "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }], "title": "Finishedat" },
+          "timeLabel": { "type": "string", "title": "Timelabel" },
+          "duration": { "type": "string", "title": "Duration" },
+          "exerciseCount": { "type": "integer", "title": "Exercisecount" },
+          "setCount": { "type": "integer", "title": "Setcount" },
+          "volume": { "type": "string", "title": "Volume" },
+          "exercises": { "items": { "$ref": "#/components/schemas/CalendarWorkoutExerciseSchema" }, "type": "array", "title": "Exercises" }
+        },
+        "type": "object",
+        "required": ["id", "title", "status", "startedAt", "finishedAt", "timeLabel", "duration", "exerciseCount", "setCount", "volume", "exercises"],
+        "title": "CalendarWorkoutSchema"
+      },
+      "CalendarDaySchema": {
+        "properties": {
+          "id": { "type": "string", "title": "Id", "description": "ISO date YYYY-MM-DD" },
+          "day": { "type": "integer", "title": "Day" },
+          "inMonth": { "type": "boolean", "title": "Inmonth" },
+          "isToday": { "type": "boolean", "title": "Istoday" },
+          "workouts": { "items": { "$ref": "#/components/schemas/CalendarWorkoutSchema" }, "type": "array", "title": "Workouts" }
+        },
+        "type": "object",
+        "required": ["id", "day", "inMonth", "isToday", "workouts"],
+        "title": "CalendarDaySchema"
+      },
+      "WorkoutCalendarDataSchema": {
+        "properties": {
+          "month": { "type": "string", "title": "Month", "description": "YYYY-MM" },
+          "title": { "type": "string", "title": "Title" },
+          "today": { "type": "string", "title": "Today", "description": "ISO date of the server-local current day" },
+          "weekdays": { "items": { "type": "string" }, "type": "array", "title": "Weekdays" },
+          "days": { "items": { "$ref": "#/components/schemas/CalendarDaySchema" }, "type": "array", "title": "Days", "description": "Always 42 days, Monday first" },
+          "workoutCount": { "type": "integer", "title": "Workoutcount" }
+        },
+        "type": "object",
+        "required": ["month", "title", "today", "weekdays", "days", "workoutCount"],
+        "title": "WorkoutCalendarDataSchema"
+      },
       "AccessRole": {
         "type": "string",
         "enum": [
@@ -538,6 +671,128 @@
         ],
         "title": "DashboardAlertSchema"
       },
+      "DashboardBuilderWorkoutExerciseSchema": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "idle"
+          },
+          "completedSets": {
+            "type": "integer",
+            "title": "Completedsets",
+            "default": 0
+          },
+          "targetSets": {
+            "type": "integer",
+            "title": "Targetsets",
+            "default": 0
+          },
+          "progressPercent": {
+            "type": "integer",
+            "title": "Progresspercent",
+            "default": 0
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name"
+        ],
+        "title": "DashboardBuilderWorkoutExerciseSchema"
+      },
+      "DashboardBuilderWorkoutSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "exercises": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardBuilderWorkoutExerciseSchema"
+            },
+            "type": "array",
+            "title": "Exercises"
+          },
+          "duration": {
+            "type": "string",
+            "title": "Duration"
+          },
+          "lastPerformedAt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastperformedat"
+          },
+          "lastStatus": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "completed",
+                  "partial",
+                  "aborted"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Laststatus"
+          },
+          "todayStatus": {
+            "type": "string",
+            "title": "Todaystatus",
+            "default": "idle"
+          },
+          "todayProgressPercent": {
+            "type": "integer",
+            "title": "Todayprogresspercent",
+            "default": 0
+          },
+          "todayCompletedExercises": {
+            "type": "integer",
+            "title": "Todaycompletedexercises",
+            "default": 0
+          },
+          "todayTotalExercises": {
+            "type": "integer",
+            "title": "Todaytotalexercises",
+            "default": 0
+          },
+          "resumeAvailable": {
+            "type": "boolean",
+            "title": "Resumeavailable",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "exercises",
+          "duration"
+        ],
+        "title": "DashboardBuilderWorkoutSchema"
+      },
       "DashboardDataSchema": {
         "properties": {
           "greeting": {
@@ -565,6 +820,13 @@
                 "type": "null"
               }
             ]
+          },
+          "workouts": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardBuilderWorkoutSchema"
+            },
+            "type": "array",
+            "title": "Workouts"
           },
           "machine": {
             "$ref": "#/components/schemas/MachineHealthSchema"
@@ -612,6 +874,7 @@
           "recommendationText",
           "readinessPercent",
           "todayWorkout",
+          "workouts",
           "machine",
           "alerts",
           "recommendedExercises",
@@ -1050,6 +1313,22 @@
           "userId"
         ],
         "title": "SelectUserRequestSchema"
+      },
+      "UserProfileUpdateSchema": {
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 120, "title": "Name" },
+          "birthDate": { "anyOf": [{ "type": "string", "format": "date" }, { "type": "null" }], "title": "Birthdate" },
+          "heightCm": { "anyOf": [{ "type": "integer", "minimum": 80, "maximum": 250 }, { "type": "null" }], "title": "Heightcm" },
+          "weightKg": { "anyOf": [{ "type": "number", "minimum": 20, "maximum": 400 }, { "type": "null" }], "title": "Weightkg" },
+          "notes": { "anyOf": [{ "type": "string", "maxLength": 2000 }, { "type": "null" }], "title": "Notes" },
+          "goalLabel": { "type": "string", "minLength": 1, "maxLength": 120, "title": "Goallabel" },
+          "goalType": { "type": "string", "default": "habit", "title": "Goaltype" },
+          "targetValue": { "anyOf": [{ "type": "number" }, { "type": "null" }], "title": "Targetvalue" },
+          "targetUnit": { "anyOf": [{ "type": "string", "maxLength": 32 }, { "type": "null" }], "title": "Targetunit" }
+        },
+        "type": "object",
+        "required": ["name", "goalLabel"],
+        "title": "UserProfileUpdateSchema"
       },
       "SelectUserResponseSchema": {
         "properties": {

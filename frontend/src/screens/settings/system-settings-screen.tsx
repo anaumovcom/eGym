@@ -1,15 +1,24 @@
 import { CheckCircle2, Download, PlayCircle, RefreshCw, Shield, Wifi } from 'lucide-react'
 import { useEffect, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import type { SettingsTab, SystemSettingsData } from '@/entities/stage4/model/types'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { buildSystemSettingsData, settingsTabs } from '@/mocks/stage4-data'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
+import { ServiceAccessGate } from '@/shared/ui/layout/service-access'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { MetricCardGrid, Panel, SectionTitle, TabStrip } from '@/shared/ui/stage4/screen-components'
 import { useStage4Screen } from '@/features/stage4/lib/use-stage4-screen'
 import { useStage4Store } from '@/stores/stage4-store'
+
+const normalSettingsTabs = [
+  { id: 'overview', label: 'Обзор' },
+  { id: 'safety', label: 'Безопасность' },
+  { id: 'common', label: 'Общие' },
+  { id: 'service', label: 'Сервис' },
+]
+const serviceSettingsTabs = settingsTabs.filter(({ id }) => !['overview', 'safety', 'common'].includes(id))
 
 function asSettingsTab(value: string | null): SettingsTab {
   if (value === 'overview' || value === 'safety' || value === 'mechanics' || value === 'diagnostics' || value === 'calibrations' || value === 'service' || value === 'journal' || value === 'common') {
@@ -84,6 +93,7 @@ export function SystemSettingsScreen() {
   const updateSafetySettings = useHardwareStore((state) => state.updateSafetySettings)
   const runCommand = useHardwareStore((state) => state.runCommand)
   const tab = asSettingsTab(searchParams.get('tab'))
+  const isServiceTab = serviceSettingsTabs.some(({ id }) => id === tab)
 
   const fallbackData = useMemo(() => buildSystemSettingsData(dev), [dev])
 
@@ -273,11 +283,22 @@ export function SystemSettingsScreen() {
         setEmergencyStopActive(true)
       }}
     >
-      <SectionTitle title="Настройки, безопасность и диагностика" description="Управление тренажёром, безопасностью и обслуживанием." />
+      <SectionTitle title="Настройки" description={isServiceTab ? 'Сервисный раздел: приводы, диагностика, калибровки, Modbus и журнал. Только для обслуживания тренажёра.' : 'Пользовательские настройки: обзор, безопасность и общие параметры. Сервисный раздел открывается отдельно и защищён от случайного входа.'} />
 
-      {hardwareError ? <div className="rounded-[24px] border border-[#eb5345]/25 bg-[#1b0f10] px-5 py-4 text-sm text-[#ffb4a7]">{hardwareError}</div> : null}
+      {hardwareError ? (
+        <div className="rt-alert" data-tone="danger" role="alert">
+          <div />
+          <div>
+            <strong>Ошибка тренажёра</strong>
+            <p>{hardwareError}</p>
+          </div>
+          <span />
+        </div>
+      ) : null}
 
-      <TabStrip tabs={settingsTabs} active={tab} onChange={updateTab} />
+      <nav aria-label="Настройки">
+        <TabStrip tabs={normalSettingsTabs} active={isServiceTab ? 'service' : tab} onChange={updateTab} />
+      </nav>
 
       {tab === 'overview' ? (
         <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
@@ -298,9 +319,7 @@ export function SystemSettingsScreen() {
               </Panel>
               <Panel title="Быстрые действия">
                 <div className="space-y-3">
-                  {['Запустить диагностику', 'Открыть журнал', 'Сервисный режим'].map((action) => (
-                    <button key={action} type="button" className="flex w-full items-center justify-between rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-left text-sm text-white/75">{action}<span>›</span></button>
-                  ))}
+                  <Link to="/settings?tab=service" className="flex w-full items-center justify-between rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-left text-sm text-white/75">Открыть сервисный раздел<span aria-hidden="true">›</span></Link>
                 </div>
               </Panel>
               <Panel title="Калибровки">
@@ -358,6 +377,14 @@ export function SystemSettingsScreen() {
           </Panel>
         </div>
       ) : null}
+
+      {isServiceTab ? (
+        <ServiceAccessGate embedded>
+          <section aria-label="Сервисный раздел" className="space-y-6">
+            <nav aria-label="Сервисные настройки">
+              <TabStrip tabs={serviceSettingsTabs} active={tab} onChange={updateTab} />
+            </nav>
+            <Button asChild variant="secondary"><Link to="/modbus">Modbus Debug</Link></Button>
 
       {tab === 'mechanics' ? (
         <div className="space-y-6">
@@ -532,6 +559,10 @@ export function SystemSettingsScreen() {
         </div>
       ) : null}
 
+          </section>
+        </ServiceAccessGate>
+      ) : null}
+
       {tab === 'common' ? (
         <div className="grid gap-6 xl:grid-cols-[1fr_1fr_1fr]">
           <Panel title="Интерфейс">
@@ -594,7 +625,7 @@ function ToggleField({ label, checked, editable, onChange }: { label: string; ch
     <div className="mb-3 flex items-center justify-between gap-3 rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/75">
       <div className="flex items-center gap-2"><Shield className="h-4 w-4 text-[#f2cf87]" />{label}</div>
       {editable ? (
-        <button type="button" title={label} aria-label={label} onClick={() => onChange(!checked)} className={`inline-flex h-7 w-12 items-center rounded-full border px-1 transition ${checked ? 'justify-end border-[#d6b05f]/40 bg-[#20170b]' : 'justify-start border-white/10 bg-black/20'}`}>
+        <button type="button" role="switch" aria-checked={checked} title={label} aria-label={label} onClick={() => onChange(!checked)} className={`inline-flex h-7 min-h-0 w-12 items-center rounded-full border px-1 transition ${checked ? 'justify-end border-[#d6b05f]/40 bg-[#20170b]' : 'justify-start border-white/10 bg-black/20'}`}>
           <span className={`h-5 w-5 rounded-full ${checked ? 'bg-[#f3d18b]' : 'bg-white/35'}`} />
         </button>
       ) : (

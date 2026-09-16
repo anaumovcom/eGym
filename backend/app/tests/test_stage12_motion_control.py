@@ -1,0 +1,320 @@
+"""Stage 12 — motion control: emulator physics, controller behaviour and tuning API."""
+
+from __future__ import annotations
+
+import pytest
+
+from app.core.config import get_settings
+from app.services.hardware_runtime import HardwareRuntime, hardware_runtime
+from app.services.motion.controller import ControlMode
+from app.services.motion.parameters import MotionParameters, ParameterValidationError
+
+
+def _run(runtime: HardwareRuntime, seconds: float, *, until=None) -> None:  # noqa: ANN001
+    ticks = int(seconds / runtime.tick_seconds)
+    for _ in range(ticks):
+        runtime._tick_motion()
+        if until is not None and until():
+            return
+
+
+@pytest.fixture()
+def runtime(monkeypatch) -> HardwareRuntime:  # noqa: ANN001
+    monkeypatch.setenv("HARDWARE_KEYBOARD_SIMULATION_ENABLED", "false")
+    get_settings.cache_clear()
+    instance = HardwareRuntime()
+    _run(instance, 0.5)
+    yield instance
+    get_settings.cache_clear()
+
+
+# ---------------------------------------------------------------- parameters
+def test_parameter_registry_validates_hard_limits_and_relations() -> None:
+    params = MotionParameters()
+    with pytest.raises(ParameterValidationError):
+        params.set_many({"limits.maxSpeedMmPerSec": 5000}, temporary=True)
+    with pytest.raises(ParameterValidationError):
+        params.set_many({"sync.warningMm": 10, "sync.criticalMm": 4}, temporary=True)
+    with pytest.raises(ParameterValidationError):
+        params.set_many({"unknown.key": 1}, temporary=True)
+    changes = params.set_many({"compensation.barMassKg": 22.5}, temporary=True)
+    assert changes == {"compensation.barMassKg": (20.0, 22.5)}
+    assert params.get("compensation.barMassKg") == 22.5
+    assert params.revert_temporary() == ["compensation.barMassKg"]
+    assert params.get("compensation.barMassKg") == 20.0
+
+
+# ------------------------------------------------------------------ safety
+def test_power_on_self_test_leads_to_idle_with_brakes(runtime: HardwareRuntime) -> None:
+    control = runtime.controller.state
+    assert control.post_status == "passed"
+    assert control.mode == ControlMode.idle
+    assert control.brake_engaged is True
+    assert control.position_known is True
+
+
+def test_weightless_bar_stays_put_and_follows_hand(runtime: HardwareRuntime) -> None:
+    runtime.enter_weightless()
+    start = runtime.controller.state.position_mm
+    _run(runtime, 2.0)
+    assert abs(runtime.controller.state.position_mm - start) < 3, "gravity compensation must hold the bar"
+    assert runtime.controller.state.mode == ControlMode.weightless
+
+    runtime.emulator.set_user_force(4.0)
+    _run(runtime, 1.5)
+    moved = runtime.controller.state.position_mm
+    assert moved > start + 30, "a light push must move the weightless bar"
+    runtime.emulator.set_user_force(0.0)
+    _run(runtime, 2.0)
+    assert runtime.controller.state.mode == ControlMode.weightless
+    assert abs(runtime.controller.state.velocity_mm_s) < 5
+    assert runtime.controller.state.still_ms >= float(runtime.parameters.get("regulator.stillnessMs"))
+
+
+def test_capture_points_in_weightless_mode_requires_stillness(runtime: HardwareRuntime) -> None:
+    with pytest.raises(PermissionError):
+        runtime.capture_point("lower")
+    runtime.enter_weightless()
+    _run(runtime, 1.5)
+    _, lower = runtime.capture_point("lower")
+    runtime.emulator.set_user_force(5.0)
+    _run(runtime, 1.0)
+    with pytest.raises(PermissionError):
+        runtime.capture_point("upper")
+    runtime.emulator.set_user_force(0.0)
+    _run(runtime, 2.0)
+    _, upper = runtime.capture_point("upper")
+    assert upper > lower + 20
+    assert runtime.snapshot_payload()["motion"]["lower_bound_mm"] == lower
+    assert runtime.snapshot_payload()["motion"]["upper_bound_mm"] == upper
+
+
+def test_training_with_virtual_user_counts_full_reps_and_estimates_force(runtime: HardwareRuntime) -> None:
+    runtime.start_motion(
+        calibration_id=None,
+        lower_bound_mm=700,
+        upper_bound_mm=1000,
+        target_set=1,
+        target_reps=3,
+        motion_profile="training",
+        load_kg=30,
+        auto_user=True,
+    )
+    _run(runtime, 25.0, until=lambda: runtime.controller.state.target_reached)
+    control = runtime.controller.state
+    assert control.repetition_count == 3
+    assert control.target_reached is True
+    assert control.load_effective_kg == pytest.approx(30.0, abs=0.5)
+    assert 20 < control.user_force_kg < 40, "estimated user force must be close to the load"
+    assert control.sync_status in {"norm", "ok"}
+    kinds = [event.kind for event in runtime.controller.events]
+    assert kinds.count("rep") == 3
+    assert "target" in kinds
+
+
+def test_start_hold_detects_grip_and_switches_to_training(runtime: HardwareRuntime) -> None:
+    runtime.move_to_start(lower_bound_mm=700, upper_bound_mm=1000, start_point="lower", load_kg=20)
+    _run(runtime, 30.0, until=lambda: runtime.controller.state.mode == ControlMode.start_hold)
+    assert runtime.controller.state.mode == ControlMode.start_hold
+    assert abs(runtime.controller.state.position_mm - 700) < 5
+    runtime.emulator.set_user_force(12.0)
+    _run(runtime, 1.0, until=lambda: runtime.controller.state.mode == ControlMode.training)
+    assert runtime.controller.state.mode == ControlMode.training
+    assert runtime.controller.state.grip_detected is True
+
+
+def test_released_bar_under_load_goes_to_hold(runtime: HardwareRuntime) -> None:
+    runtime.start_motion(calibration_id=None, lower_bound_mm=700, upper_bound_mm=1000, target_set=1, target_reps=5, motion_profile="training", load_kg=30, auto_user=True)
+    _run(runtime, 4.0)
+    runtime.emulator.set_scenario("none")
+    runtime.emulator.set_user_force(0.0)
+    _run(runtime, 3.0, until=lambda: runtime.controller.state.mode == ControlMode.paused)
+    assert runtime.controller.state.mode == ControlMode.paused
+    assert runtime.controller.state.released or runtime.controller.state.failure_detected
+    _run(runtime, 1.0)  # let the position servo settle after catching the bar
+    position = runtime.controller.state.position_mm
+    _run(runtime, 1.0)
+    assert abs(runtime.controller.state.position_mm - position) < 3, "held bar must not sag"
+
+
+def test_spotter_engages_when_user_fails(runtime: HardwareRuntime) -> None:
+    runtime.update_parameters({"detection.spotterDelaySec": 0.6}, temporary=True)
+    runtime.start_motion(calibration_id=None, lower_bound_mm=700, upper_bound_mm=1000, target_set=1, target_reps=10, motion_profile="training", load_kg=40, auto_user=False)
+    runtime.emulator.set_scenario("failure", strength_kg=55, lower_mm=700, upper_mm=1000, period_s=2.5, fail_after_reps=1)
+    _run(runtime, 20.0, until=lambda: runtime.controller.state.spotter_active or runtime.controller.state.mode != ControlMode.training)
+    kinds = [event.kind for event in runtime.controller.events]
+    assert "spotter" in kinds or "failure" in kinds
+
+
+def test_fixed_position_hold_test_and_load_based_reps(runtime: HardwareRuntime) -> None:
+    runtime.start_fixed_position(position_mm=1500, target_reps=2, rep_count_source="load")
+    _run(runtime, 40.0, until=lambda: runtime.controller.state.fixed_hold_test_passed)
+    control = runtime.controller.state
+    assert control.mode == ControlMode.fixed_hold
+    assert control.fixed_hold_test_passed is True
+    assert abs(control.position_mm - 1500) < 3
+    # a pull-up: user hangs (pulls down) and releases twice
+    for _ in range(2):
+        runtime.emulator.set_user_force(-70.0)
+        _run(runtime, 0.8)
+        runtime.emulator.set_user_force(0.0)
+        _run(runtime, 0.8)
+    assert control.repetition_count == 2
+    assert abs(control.position_mm - 1500) < float(runtime.parameters.get("fixed.driftToleranceMm")) * 3
+
+
+def test_power_loss_engages_brakes_and_requires_homing(runtime: HardwareRuntime) -> None:
+    runtime.enter_weightless()
+    _run(runtime, 0.5)
+    position = runtime.controller.state.position_mm
+    runtime.emulator_control("fault", fault="power_loss")
+    _run(runtime, 1.0)
+    control = runtime.controller.state
+    assert control.mode == ControlMode.fault
+    assert abs(control.position_mm - position) < 1, "bar must not drop on power loss"
+    runtime.emulator_control("fault", fault="power_restore")
+    _run(runtime, 0.2)
+    assert runtime.last_telemetry.left.homed is False
+    runtime.reset_fault()
+    _run(runtime, 0.2)
+    assert control.position_known is False
+    assert any("homing" in alert for alert in runtime.snapshot_payload()["alerts"])
+    runtime.home()
+    _run(runtime, 120.0, until=lambda: control.mode in {ControlMode.idle, ControlMode.fault} and control.homed)
+    assert control.homed is True
+    assert control.position_known is True
+
+
+def test_communication_loss_faults_and_incident_is_recorded(runtime: HardwareRuntime) -> None:
+    runtime.enter_weightless()
+    _run(runtime, 0.5)
+    runtime.emulator_control("fault", fault="comm_lost", side="right")
+    _run(runtime, 0.5)
+    assert runtime.controller.state.mode == ControlMode.fault
+    assert "E-COMM-02" in (runtime.controller.state.fault_code or "")
+    assert runtime.recorder.incidents, "black box must capture the incident"
+    snapshot = runtime.snapshot_payload()
+    assert snapshot["drives"][1]["status"] == "error"
+
+
+def test_desync_hold_action_when_sides_tilt(runtime: HardwareRuntime) -> None:
+    runtime.update_parameters({"sync.desyncAction": "hold", "sync.criticalMm": 6}, temporary=True)
+    runtime.enter_weightless()
+    _run(runtime, 0.5)
+    runtime.emulator.set_physics(coupling_kg_per_mm=0.05, coupling_damping=0.01)
+    runtime.emulator.set_user_force(20.0, bias=1.0)
+    _run(runtime, 3.0, until=lambda: runtime.controller.state.mode == ControlMode.paused)
+    assert runtime.controller.state.mode == ControlMode.paused
+    assert any(event.kind == "desync" for event in runtime.controller.events)
+
+
+def test_emergency_stop_blocks_motion_and_holds_position(runtime: HardwareRuntime) -> None:
+    runtime.start_motion(calibration_id=None, lower_bound_mm=700, upper_bound_mm=1000, target_set=1, target_reps=5, motion_profile="training", load_kg=30, auto_user=True)
+    _run(runtime, 2.0)
+    runtime.trigger_emergency_stop()
+    position = runtime.controller.state.position_mm
+    _run(runtime, 1.0)
+    assert runtime.controller.state.mode == ControlMode.estop
+    assert abs(runtime.controller.state.position_mm - position) < 1
+    assert runtime.last_telemetry.left.brake_engaged is True
+    runtime.clear_emergency_stop()
+    _run(runtime, 0.2)
+    assert runtime.controller.state.mode == ControlMode.paused
+
+
+def test_measurement_wizard_estimates_bar_mass(runtime: HardwareRuntime) -> None:
+    runtime.state.service_mode = True
+    runtime.start_procedure("bar_mass")
+    _run(runtime, 6.0, until=lambda: runtime.procedure.status != "running")
+    assert runtime.procedure.status == "done"
+    result = runtime.procedure.result or {}
+    expected = runtime.emulator.physics.total_mass_kg
+    assert result["measuredTotalMassKg"] == pytest.approx(expected, abs=1.5)
+    assert "compensation.barMassKg" in result["suggested"]
+
+
+def test_scenario_weightless_drift_passes(runtime: HardwareRuntime) -> None:
+    runtime.start_procedure("weightless_drift")
+    _run(runtime, 8.0, until=lambda: runtime.procedure.status != "running")
+    assert runtime.procedure.status == "done"
+    assert runtime.procedure.result["passed"] is True
+
+
+# --------------------------------------------------------------------- API
+def test_tuning_api_requires_service_mode_and_persists(client, db_session) -> None:  # noqa: ANN001
+    schema = client.get("/api/hardware/tuning/schema").json()
+    assert any(group["id"] == "compensation" for group in schema["groups"])
+    assert any(param["key"] == "compensation.barMassKg" for param in schema["parameters"])
+    assert schema["procedures"]["measurements"]
+
+    denied = client.put("/api/hardware/tuning", json={"values": {"compensation.barMassKg": 21}, "apply": "temporary"})
+    assert denied.status_code == 409
+
+    toggled = client.post("/api/hardware/commands", json={"action": "toggle_service_mode", "serviceMode": True, "userId": "alexey"})
+    assert toggled.status_code == 200
+
+    temporary = client.put("/api/hardware/tuning", json={"values": {"compensation.barMassKg": 21}, "apply": "temporary"})
+    assert temporary.status_code == 200
+    assert temporary.json()["temporary"] == {"compensation.barMassKg": 21.0}
+
+    invalid = client.put("/api/hardware/tuning", json={"values": {"limits.maxSpeedMmPerSec": 9999}, "apply": "temporary"})
+    assert invalid.status_code == 400
+
+    persisted = client.put("/api/hardware/tuning", json={"values": {"compensation.barMassKg": 22}, "apply": "persist", "actorUserId": "alexey"})
+    assert persisted.status_code == 200
+    current = client.get("/api/hardware/tuning").json()
+    assert current["values"]["compensation.barMassKg"] == 22.0
+    assert current["temporary"] == {}
+
+    reverted = client.post("/api/hardware/tuning/revert").json()
+    assert reverted["values"]["compensation.barMassKg"] == 22.0
+
+    presets = client.get("/api/hardware/tuning/presets").json()
+    assert any(item["id"] == "factory" for item in presets)
+    saved = client.post("/api/hardware/tuning/presets", json={"title": "Мой стенд", "description": "test"})
+    assert saved.status_code == 200
+    diff = client.get("/api/hardware/tuning/presets/factory/diff").json()
+    assert any(item["key"] == "compensation.barMassKg" for item in diff["differences"])
+
+    # leaving service mode drops temporary values
+    client.put("/api/hardware/tuning", json={"values": {"compensation.barMassKg": 25}, "apply": "temporary"})
+    client.post("/api/hardware/commands", json={"action": "toggle_service_mode", "serviceMode": False, "userId": "alexey"})
+    assert client.get("/api/hardware/tuning").json()["values"]["compensation.barMassKg"] == 22.0
+
+
+def test_commands_weightless_capture_and_snapshot_control(client) -> None:  # noqa: ANN001
+    response = client.post("/api/hardware/commands", json={"action": "enter_weightless", "userId": "alexey"})
+    assert response.status_code == 200
+    assert response.json()["snapshot"]["control"]["mode"] == "weightless"
+    for _ in range(int(1.5 / hardware_runtime.tick_seconds)):
+        hardware_runtime._tick_motion()
+    captured = client.post("/api/hardware/commands", json={"action": "capture_point", "which": "lower", "userId": "alexey"})
+    assert captured.status_code == 200, captured.text
+    assert captured.json()["capturedPositionMm"] is not None
+    snapshot = client.get("/api/hardware/status", params={"userId": "alexey"}).json()
+    assert snapshot["control"]["mode"] == "weightless"
+    assert "components" in snapshot["control"]
+    hold = client.post("/api/hardware/commands", json={"action": "hold", "userId": "alexey"})
+    assert hold.json()["snapshot"]["control"]["mode"] == "paused"
+
+
+def test_emulator_and_recordings_endpoints(client) -> None:  # noqa: ANN001
+    emulator = client.get("/api/hardware/tuning/emulator").json()
+    assert emulator["active"] is True
+    pushed = client.post("/api/hardware/tuning/emulator", json={"action": "user_force", "forceKg": 5})
+    assert pushed.status_code == 200
+    assert pushed.json()["userForceKg"] == 5.0
+    started = client.post("/api/hardware/tuning/recordings", json={"action": "start"})
+    assert started.json()["recording"] is True
+    for _ in range(10):
+        hardware_runtime._tick_motion()
+    stopped = client.post("/api/hardware/tuning/recordings", json={"action": "stop", "title": "Проба"})
+    assert stopped.status_code == 200
+    recording_id = stopped.json()["id"]
+    detail = client.get(f"/api/hardware/tuning/recordings/{recording_id}").json()
+    assert detail["fields"][0] == "t"
+    assert len(detail["samples"]) >= 10
+    with client.websocket_connect("/api/hardware/telemetry-debug") as websocket:
+        batch = websocket.receive_json()
+        assert batch["eventType"] == "telemetry.batch"
+        assert "fields" in batch

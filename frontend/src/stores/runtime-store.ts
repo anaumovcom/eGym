@@ -12,7 +12,7 @@ import type {
   RuntimeWorkoutSession,
 } from '@/entities/runtime/model/types'
 import type { LoadAdjustmentResponse } from '@/features/runtime/lib/runtime-persistence'
-import { isSessionInCurrentTrainingDay } from '@/features/runtime/lib/runtime-day'
+import { getRuntimeResumeView, isSessionInCurrentTrainingDay } from '@/features/runtime/lib/runtime-day'
 import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exercise'
 import { buildStrengthPlan, getStrengthModeTitle, normalizeStrengthDayType, normalizeStrengthModeId, toRuntimeSetPlan } from '@/features/strength/lib/strength-plan'
 import { buildExerciseSession, buildExerciseSummary, buildPhotoProgressState, buildRestState, buildWorkoutSummary, createRuntimeSession, rebuildSessionSnapshots, simulateSetResult } from '@/mocks/stage3-data'
@@ -55,7 +55,24 @@ type RuntimeStore = {
 }
 
 function buildSignature(options: RuntimeSessionInitOptions) {
-  return [options.source, options.slug ?? '', options.programId ?? '', options.runId ?? '', options.photoMode ?? '', options.calibrationState ?? ''].join(':')
+  // Keep the legacy photo slot empty: photos no longer identify a workout session.
+  return [options.source, options.slug ?? '', options.programId ?? '', options.runId ?? '', '', options.calibrationState ?? ''].join(':')
+}
+
+function normalizeSignature(signature: string | null) {
+  return signature?.replace(/:(?:pre-workout|post-workout|manual):([^:]*)$/, '::$1') ?? null
+}
+
+function withoutRuntimePhotoStep(session: RuntimeWorkoutSession): RuntimeWorkoutSession {
+  if (session.view !== 'photo-progress' && !session.photoProgress.autoPrompt) {
+    return session
+  }
+
+  return {
+    ...session,
+    view: getRuntimeResumeView(session),
+    photoProgress: { ...session.photoProgress, autoPrompt: false },
+  }
 }
 
 function getCurrentExercise(session: RuntimeWorkoutSession) {
@@ -136,15 +153,23 @@ export const useRuntimeStore = create<RuntimeStore>()(
     set({ session: { ...session, ...snapshots }, sessionSignature: buildSignature(options) })
   },
   initializeBackendSession: (session, options) => {
-    set({ session, sessionSignature: buildSignature(options) })
+    set({ session: withoutRuntimePhotoStep(session), sessionSignature: buildSignature(options) })
   },
   ensureSession: (options) => {
     if (get().session && !isSessionInCurrentTrainingDay(get().session)) {
       set({ session: null, sessionSignature: null })
     }
 
-    if (!get().session || get().sessionSignature !== buildSignature(options)) {
+    const session = get().session
+    const signature = buildSignature(options)
+    if (!session || normalizeSignature(get().sessionSignature) !== signature) {
       get().initializeSession(options)
+      return
+    }
+
+    const normalizedSession = withoutRuntimePhotoStep(session)
+    if (normalizedSession !== session || get().sessionSignature !== signature) {
+      set({ session: normalizedSession, sessionSignature: signature })
     }
   },
   setView: (view) =>
@@ -180,14 +205,13 @@ export const useRuntimeStore = create<RuntimeStore>()(
         },
       }
     }),
-  openPhotoProgress: (mode) =>
+  openPhotoProgress: () =>
     set((state) =>
       state.session
         ? {
             session: {
               ...state.session,
-              photoProgress: buildPhotoProgressState(mode, false),
-              view: 'photo-progress',
+              photoProgress: buildPhotoProgressState('manual', false),
             },
           }
         : state,
@@ -209,8 +233,7 @@ export const useRuntimeStore = create<RuntimeStore>()(
         ? {
             session: {
               ...state.session,
-              photoProgress: buildPhotoProgressState(state.session.photoProgress.mode, false),
-              view: 'exercise-setup',
+              photoProgress: buildPhotoProgressState('manual', false),
             },
           }
         : state,
@@ -222,7 +245,6 @@ export const useRuntimeStore = create<RuntimeStore>()(
             session: {
               ...state.session,
               photoProgress: { ...state.session.photoProgress, completed: true },
-              view: 'exercise-setup',
             },
           }
         : state,
@@ -718,6 +740,15 @@ export const useRuntimeStore = create<RuntimeStore>()(
         session: state.session,
         sessionSignature: state.sessionSignature,
       }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<Pick<RuntimeStore, 'session' | 'sessionSignature'>> | undefined
+        const merged = { ...currentState, ...persisted }
+        return {
+          ...merged,
+          session: merged.session ? withoutRuntimePhotoStep(merged.session) : null,
+          sessionSignature: normalizeSignature(merged.sessionSignature),
+        }
+      },
     },
   ),
 )

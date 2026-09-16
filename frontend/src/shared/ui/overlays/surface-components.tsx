@@ -3,6 +3,7 @@ import * as Popover from '@radix-ui/react-popover'
 import { X } from 'lucide-react'
 import type { PropsWithChildren, ReactNode } from 'react'
 import { Button } from '@/shared/ui/button'
+import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 
 export function EmergencyStopOverlay({
   open,
@@ -19,12 +20,12 @@ export function EmergencyStopOverlay({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[#05080f]/78 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(520px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 rounded-[32px] border border-[#eb5345]/30 bg-[#12090a] p-8 text-white shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
+        <SafetyDialogContent className="w-[min(40rem,calc(100vw-24px))] rounded-[32px] border border-[#eb5345]/30 bg-[#12090a] p-8 text-white shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
           <Dialog.Title className="font-display text-3xl font-bold text-[#ffb4a7]">Аварийная остановка активна</Dialog.Title>
           <Dialog.Description className="mt-3 text-base leading-7 text-white/75">
             Движение заблокировано. Для продолжения потребуется ручная проверка статуса безопасности и приводов.
           </Dialog.Description>
-          <div className="mt-6 flex gap-3">
+          <div className="mt-6 flex flex-wrap gap-3">
             <Button variant="secondary" onClick={() => onOpenChange(false)}>
               Закрыть оверлей
             </Button>
@@ -32,10 +33,10 @@ export function EmergencyStopOverlay({
               {actionLabel}
             </Button>
           </div>
-          <Dialog.Close className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70">
+          <Dialog.Close aria-label="Закрыть сообщение об остановке" className="mt-4 inline-flex w-16 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white/70">
             <X className="h-4 w-4" />
           </Dialog.Close>
-        </Dialog.Content>
+        </SafetyDialogContent>
       </Dialog.Portal>
     </Dialog.Root>
   )
@@ -47,10 +48,10 @@ export function Modal({ title, description, trigger }: { title: string; descript
       <Dialog.Trigger asChild>{trigger}</Dialog.Trigger>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/60" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(560px,calc(100vw-24px))] -translate-x-1/2 -translate-y-1/2 rounded-[28px] border border-white/10 bg-[#09101a] p-6 text-white">
+        <SafetyDialogContent className="w-[min(40rem,calc(100vw-24px))] rounded-[28px] border border-white/10 bg-[#09101a] p-6 text-white">
           <Dialog.Title className="font-display text-2xl font-bold">{title}</Dialog.Title>
           <Dialog.Description className="mt-2 text-sm text-white/70">{description}</Dialog.Description>
-        </Dialog.Content>
+        </SafetyDialogContent>
       </Dialog.Portal>
     </Dialog.Root>
   )
@@ -95,7 +96,7 @@ export function ActionSheet({ title, items }: { title: string; items: string[] }
 
 export function ToastNotification({ title, description }: { title: string; description: string }) {
   return (
-    <div className="fixed bottom-6 right-6 z-50 w-[320px] rounded-2xl border border-[#d6b05f]/25 bg-[#0c1420] p-4 text-white shadow-2xl">
+    <div className="forma-toast fixed right-6 z-50 w-[320px] rounded-2xl border border-[#d6b05f]/25 bg-[#0c1420] p-4 text-white shadow-2xl">
       <div className="font-semibold text-[#f1d391]">{title}</div>
       <div className="mt-1 text-sm text-white/70">{description}</div>
     </div>

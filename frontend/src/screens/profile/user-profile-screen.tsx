@@ -1,693 +1,225 @@
+import * as Dialog from '@radix-ui/react-dialog'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Camera, Check, Pencil, Trash2, X } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
-import type { ExerciseCatalogResponse } from '@/entities/exercise/model/types'
+import { Camera, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import type { ExerciseCatalogResponse, ExerciseSummary } from '@/entities/exercise/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
-import type { ProfilePhotoShot, ProfileTab, UserProfileData } from '@/entities/stage4/model/types'
-import { apiDelete, apiGet, resolveApiAssetUrl } from '@/shared/api/client'
+import { apiDelete, apiGet, apiPost, apiPut, resolveApiAssetUrl } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
+import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
-import { Panel, PhotoPreviewCard, SectionTitle, TabStrip } from '@/shared/ui/stage4/screen-components'
+import { PhotoCaptureDialog } from '@/shared/ui/photo/photo-capture-dialog'
 import { useAppStore } from '@/stores/app-store'
 
-type CurrentUserResponse = {
-  id: string
-  name: string
-  role: string
-  readinessPercent: number
-  accent: 'gold' | 'green'
-  profile: {
-    birthDate: string | null
-    heightCm: number | null
-    weightKg: number | null
-    photoUrl: string | null
-    notes: string | null
-  } | null
-  goals: Array<{
-    id: number
-    goalType: string
-    label: string
-    targetValue: number | null
-    targetUnit: string | null
-    isPrimary: boolean
-  }>
+type ProfileTab = 'overview' | 'measurements' | 'photo' | 'restrictions'
+type CurrentUser = {
+  id: string; name: string; readinessPercent: number
+  profile: { birthDate: string | null; heightCm: number | null; weightKg: number | null; photoUrl: string | null; notes: string | null } | null
+  goals: Array<{ id: number; goalType: string; label: string; targetValue: number | null; targetUnit: string | null; isPrimary: boolean }>
 }
+type Measurement = { id: number; measuredAt: string; weightKg: number | null; bodyFatPercent: number | null; chestCm: number | null; waistCm: number | null; hipsCm: number | null }
+type Photo = { id: number; view: 'front' | 'side' | 'back'; takenAt: string; imageUrl: string; thumbnailUrl: string; width: number; height: number }
+type ProfileData = { user: CurrentUser; measurements: Measurement[]; photos: Photo[]; exercises: ExerciseSummary[] }
+type EditDraft = { name: string; birthDate: string; heightCm: string; weightKg: string; notes: string; goalLabel: string; goalType: string; targetValue: string; targetUnit: string }
+type MeasurementDraft = { weightKg: string; bodyFatPercent: string; chestCm: string; waistCm: string; hipsCm: string }
 
-type BodyMeasurementsResponse = {
-  measurements: Array<{
-    id: number
-    measuredAt: string
-    weightKg: number | null
-    bodyFatPercent: number | null
-    chestCm: number | null
-    waistCm: number | null
-    hipsCm: number | null
-  }>
-}
-
-type ProgressPhotosResponse = {
-  photos: Array<{
-    id: number
-    mode: string
-    view: 'front' | 'side' | 'back'
-    takenAt: string
-    imageUrl: string
-    thumbnailUrl: string
-    width: number
-    height: number
-    note: string | null
-  }>
-}
-
-type AchievementsResponse = {
-  achievements: Array<{
-    id: string
-    title: string
-    description: string
-    unlocked: boolean
-    unlockedAt: string | null
-  }>
-}
-
-const profileTabs: Array<{ id: ProfileTab; label: string }> = [
-  { id: 'summary', label: 'Сводка' },
-  { id: 'general', label: 'Общее' },
-  { id: 'goals', label: 'Цели' },
-  { id: 'body', label: 'Данные тела' },
-  { id: 'photo', label: 'Фото прогресса' },
-  { id: 'blacklist', label: 'Чёрный список упражнений' },
+const tabs: Array<{ id: ProfileTab; label: string }> = [
+  { id: 'overview', label: 'Обзор' }, { id: 'measurements', label: 'Измерения' }, { id: 'photo', label: 'Фото' }, { id: 'restrictions', label: 'Ограничения' },
 ]
-
-function formatDate(value: string) {
-  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(value))
-}
-
-function formatShortDate(value: string) {
-  return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value))
-}
-
-function getPhotoViewLabel(view: 'front' | 'side' | 'back') {
-  return view === 'front' ? 'Спереди' : view === 'side' ? 'Сбоку' : 'Сзади'
-}
-
-function buildGuestProfile(): UserProfileData {
-  return {
-    id: 'guest',
-    name: 'Гость',
-    avatarLabel: 'Г',
-    goal: 'Ознакомительный режим',
-    heightCm: 0,
-    weightKg: 0,
-    level: 'не задан',
-    email: '',
-    notes: '',
-    locale: 'Русский',
-    units: 'kg / cm',
-    theme: 'Тёмная',
-    createdAt: 'Сегодня',
-    trainingFrequency: 'не задано',
-    workoutDuration: 'не задано',
-    workoutStyle: 'ознакомительный режим',
-    autoPrograms: false,
-    priorityMuscles: [],
-    considerationNotes: ['Выберите пользователя, чтобы загрузить персональные данные и историю.'],
-    bodyMeasurements: [],
-    photos: [],
-  }
-}
-
-function buildProfileData(currentUser: CurrentUserResponse, measurements: BodyMeasurementsResponse['measurements'], photos: ProgressPhotosResponse['photos'], achievements: AchievementsResponse['achievements']): UserProfileData {
-  const sortedMeasurements = [...measurements].sort((left, right) => new Date(right.measuredAt).getTime() - new Date(left.measuredAt).getTime())
-  const sortedPhotos = [...photos].sort((left, right) => new Date(right.takenAt).getTime() - new Date(left.takenAt).getTime())
-  const unlockedAchievements = achievements.filter((item) => item.unlocked)
-  const groupedPhotos = new Map<string, { id: string; date: string; views: ProfilePhotoShot[] }>()
-
-  sortedPhotos.forEach((photo) => {
-    const key = formatDate(photo.takenAt)
-    const existing = groupedPhotos.get(key) ?? { id: String(photo.id), date: key, views: [] }
-    if (!existing.views.some((item) => item.id === photo.view)) {
-      existing.views.push({
-        id: photo.view,
-        photoId: photo.id,
-        label: getPhotoViewLabel(photo.view),
-        takenAt: formatShortDate(photo.takenAt),
-        imageUrl: resolveApiAssetUrl(photo.imageUrl) ?? photo.imageUrl,
-        thumbnailUrl: resolveApiAssetUrl(photo.thumbnailUrl) ?? photo.thumbnailUrl,
-        width: photo.width,
-        height: photo.height,
-      })
-    }
-    groupedPhotos.set(key, existing)
-  })
-
-  const primaryGoal = currentUser.goals.find((item) => item.isPrimary) ?? currentUser.goals[0]
-  const latestMeasurement = sortedMeasurements[0]
-  const avatarLabel = currentUser.name.trim().charAt(0).toUpperCase() || 'П'
-  const readiness = currentUser.readinessPercent
-  const level = readiness >= 80 ? 'продвинутый' : readiness >= 55 ? 'средний' : 'начальный'
-  const createdAt = sortedMeasurements.at(-1)?.measuredAt ?? photos.at(-1)?.takenAt ?? new Date().toISOString()
-
-  return {
-    id: currentUser.id,
-    name: currentUser.name,
-    avatarLabel,
-    goal: primaryGoal?.label ?? 'Поддержание активности',
-    heightCm: currentUser.profile?.heightCm ?? 0,
-    weightKg: currentUser.profile?.weightKg ?? latestMeasurement?.weightKg ?? 0,
-    level,
-    email: '',
-    notes: currentUser.profile?.notes ?? '',
-    locale: 'Русский',
-    units: 'kg / cm',
-    theme: 'Тёмная',
-    createdAt: formatDate(createdAt),
-    trainingFrequency: unlockedAchievements.length > 0 ? `${Math.max(unlockedAchievements.length, 1)} активных вех` : 'недостаточно данных',
-    workoutDuration: latestMeasurement ? '45 минут' : 'не задано',
-    workoutStyle: primaryGoal?.label ?? 'индивидуальный режим',
-    autoPrograms: currentUser.id !== 'guest',
-    priorityMuscles: primaryGoal?.label.toLowerCase().includes('сила') ? ['Спина', 'Грудь'] : primaryGoal?.label.toLowerCase().includes('актив') ? ['Ноги', 'Кор'] : [],
-    considerationNotes: unlockedAchievements.length > 0 ? unlockedAchievements.slice(0, 3).map((item) => item.title) : ['Недостаточно истории для персональных рекомендаций.'],
-    bodyMeasurements: sortedMeasurements.map((item) => ({
-      date: formatShortDate(item.measuredAt),
-      weight: item.weightKg ?? 0,
-      waistCm: item.waistCm ?? 0,
-      chestCm: item.chestCm ?? 0,
-      hipsCm: item.hipsCm ?? 0,
-      shouldersCm: 0,
-      bicepsCm: 0,
-    })),
-    photos: Array.from(groupedPhotos.values()).map((entry) => ({
-      ...entry,
-      views: [...entry.views].sort((left, right) => photoViewOrder[left.id] - photoViewOrder[right.id]),
-    })),
-  }
-}
-
-const photoViewOrder: Record<'front' | 'side' | 'back', number> = {
-  front: 0,
-  side: 1,
-  back: 2,
-}
-
-function formatMetric(value: number, suffix: string) {
-  return value > 0 ? `${value} ${suffix}` : '—'
-}
-
-function asProfileTab(value: string | null): ProfileTab {
-  if (value === 'summary' || value === 'general' || value === 'goals' || value === 'body' || value === 'photo' || value === 'blacklist') {
-    return value
-  }
-
-  return 'summary'
-}
+const fallbackMachine: MachineHealth = { machineState: 'ready', machineLabel: 'Загрузка статуса', leftDrive: 'connected', rightDrive: 'connected', safety: 'enabled', calibration: 'Проверка подключения...' }
 
 export function UserProfileScreen() {
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
-  const [searchParams, setSearchParams] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
-  const blacklistedExerciseSlugs = useAppStore((state) => state.blacklistedExerciseSlugs)
-  const toggleBlacklistedExercise = useAppStore((state) => state.toggleBlacklistedExercise)
+  const blacklisted = useAppStore((state) => state.blacklistedExerciseSlugs)
+  const toggleBlacklisted = useAppStore((state) => state.toggleBlacklistedExercise)
   const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
-  const tab = asProfileTab(searchParams.get('tab'))
-  const resolvedUserId = selectedUserId ?? 'alexey'
-  const userName = resolvedUserId === 'elena' ? 'Елена' : resolvedUserId === 'guest' ? 'Гость' : 'Алексей'
-  const fallbackMachine: MachineHealth = {
-    machineState: 'ready',
-    machineLabel: 'Загрузка статуса',
-    leftDrive: 'connected',
-    rightDrive: 'connected',
-    safety: 'enabled',
-    calibration: 'Проверка подключения...',
-  }
+  const userId = selectedUserId ?? 'alexey'
+  const userName = userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
+  const tab = asTab(params.get('tab'))
+  const [editOpen, setEditOpen] = useState(false)
+  const [measureOpen, setMeasureOpen] = useState(false)
+  const [photoOpen, setPhotoOpen] = useState(false)
+  const [editDraft, setEditDraft] = useState<EditDraft | null>(null)
+  const [measurementDraft, setMeasurementDraft] = useState<MeasurementDraft>({ weightKg: '', bodyFatPercent: '', chestCm: '', waistCm: '', hipsCm: '' })
+  const [pending, setPending] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [deletingPhotoId, setDeletingPhotoId] = useState<number | null>(null)
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['user-profile-screen', resolvedUserId],
-    enabled: resolvedUserId !== 'guest',
-    queryFn: async () => {
-      const [currentUser, measurements, photos, achievements, catalog] = await Promise.all([
-        apiGet<CurrentUserResponse>('/api/users/current'),
-        apiGet<BodyMeasurementsResponse>(`/api/body-measurements?userId=${encodeURIComponent(resolvedUserId)}`),
-        apiGet<ProgressPhotosResponse>(`/api/photo-progress?userId=${encodeURIComponent(resolvedUserId)}`),
-        apiGet<AchievementsResponse>(`/api/achievements?userId=${encodeURIComponent(resolvedUserId)}`),
-        apiGet<ExerciseCatalogResponse>(`/api/exercises?userId=${encodeURIComponent(resolvedUserId)}`),
+  const { data, isPending, error, refetch } = useQuery({
+    queryKey: ['user-profile-screen', userId],
+    enabled: userId !== 'guest',
+    queryFn: async (): Promise<ProfileData> => {
+      const [user, measurements, photos, catalog] = await Promise.all([
+        apiGet<CurrentUser>('/api/users/current'),
+        apiGet<{ measurements: Measurement[] }>(`/api/body-measurements?userId=${encodeURIComponent(userId)}`),
+        apiGet<{ photos: Photo[] }>(`/api/photo-progress?userId=${encodeURIComponent(userId)}`),
+        apiGet<ExerciseCatalogResponse>(`/api/exercises?userId=${encodeURIComponent(userId)}`),
       ])
-
       return {
-        profile: buildProfileData(currentUser, measurements.measurements, photos.photos, achievements.achievements),
-        exerciseChoices: catalog.items.map((exercise) => ({ slug: exercise.slug, name: exercise.name, secondaryName: exercise.secondaryName })),
+        user,
+        measurements: [...measurements.measurements].sort((left, right) => new Date(right.measuredAt).getTime() - new Date(left.measuredAt).getTime()),
+        photos: [...photos.photos].sort((left, right) => new Date(right.takenAt).getTime() - new Date(left.takenAt).getTime()),
+        exercises: catalog.items,
       }
     },
   })
 
-  const guestProfile = useMemo(() => buildGuestProfile(), [])
-  const [profileOverride, setProfileOverride] = useState<UserProfileData | null>(null)
-  const [profileDraft, setProfileDraft] = useState<UserProfileData | null>(null)
-  const [deletingPhotoId, setDeletingPhotoId] = useState<number | null>(null)
+  const guest = useMemo<ProfileData>(() => ({ user: { id: 'guest', name: 'Гость', readinessPercent: 0, profile: null, goals: [] }, measurements: [], photos: [], exercises: [] }), [])
+  const profile = data ?? guest
+  const primaryGoal = profile.user.goals.find((goal) => goal.isPrimary) ?? profile.user.goals[0]
+  const latestMeasurement = profile.measurements[0]
+  const latestPhotos = latestPhotoSet(profile.photos)
+  const age = calculateAge(profile.user.profile?.birthDate)
+  const target = primaryGoal?.targetValue != null ? `${primaryGoal.targetValue} ${primaryGoal.targetUnit ?? ''}`.trim() : 'Ориентир не задан'
+  const excludedExercises = blacklisted.map((slug) => profile.exercises.find((item) => item.slug === slug) ?? { slug, name: humanizeSlug(slug), imageUrl: undefined } as ExerciseSummary)
 
-  useEffect(() => {
-    setProfileOverride(null)
-    setProfileDraft(null)
-  }, [resolvedUserId])
-
-  const profile = profileOverride ?? data?.profile ?? guestProfile
-  const exerciseChoices = data?.exerciseChoices ?? []
-
-  const viewProfile = profileDraft ?? profile
-  const editing = Boolean(profileDraft)
-  const latestMeasurement = viewProfile.bodyMeasurements[0]
-
-  function startProfileEdit() {
-    setProfileDraft(structuredClone(viewProfile))
+  function updateTab(next: ProfileTab) {
+    setParams((current) => { const nextParams = new URLSearchParams(current); if (next === 'overview') nextParams.delete('tab'); else nextParams.set('tab', next); return nextParams })
   }
 
-  function updateProfileDraft<K extends keyof UserProfileData>(key: K, value: UserProfileData[K]) {
-    setProfileDraft((state) => (state ? { ...state, [key]: value } : state))
-  }
-
-  function saveProfileDraft() {
-    if (!profileDraft) {
-      return
-    }
-
-    setProfileOverride(structuredClone(profileDraft))
-    setProfileDraft(null)
-  }
-
-  function cancelProfileEdit() {
-    setProfileDraft(null)
-  }
-
-  function updateTab(nextTab: string) {
-    setSearchParams((current) => {
-      const next = new URLSearchParams(current)
-      next.set('tab', nextTab)
-      return next
+  function openEdit() {
+    setEditDraft({
+      name: profile.user.name, birthDate: profile.user.profile?.birthDate ?? '', heightCm: String(profile.user.profile?.heightCm ?? ''), weightKg: String(profile.user.profile?.weightKg ?? ''),
+      notes: profile.user.profile?.notes ?? '', goalLabel: primaryGoal?.label ?? 'Поддержание активности', goalType: primaryGoal?.goalType ?? 'habit',
+      targetValue: String(primaryGoal?.targetValue ?? ''), targetUnit: primaryGoal?.targetUnit ?? '',
     })
+    setFormError(null); setEditOpen(true)
   }
 
-  function togglePriority(name: string) {
-    const current = new Set(viewProfile.priorityMuscles)
-    if (current.has(name)) {
-      current.delete(name)
-    } else {
-      current.add(name)
-    }
-    updateProfileDraft('priorityMuscles', [...current])
-  }
-
-  async function handleDeletePhoto(photoId: number) {
-    if (deletingPhotoId != null) {
-      return
-    }
-
-    const confirmed = window.confirm('Удалить фото прогресса? Это действие нельзя отменить.')
-    if (!confirmed) {
-      return
-    }
-
+  async function saveProfile() {
+    if (!editDraft || pending) return
+    setPending(true); setFormError(null)
     try {
-      setDeletingPhotoId(photoId)
-      await apiDelete(`/api/photo-progress/${photoId}?confirm=true`)
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['user-profile-screen', resolvedUserId] }),
-        queryClient.invalidateQueries({ queryKey: ['progress-screen', resolvedUserId] }),
-      ])
-    } catch (deleteError) {
-      window.alert(deleteError instanceof Error ? deleteError.message : 'Не удалось удалить фото прогресса.')
-    } finally {
-      setDeletingPhotoId(null)
-    }
+      await apiPut(`/api/users/${encodeURIComponent(userId)}/profile`, {
+        name: editDraft.name.trim(), birthDate: editDraft.birthDate || null, heightCm: optionalNumber(editDraft.heightCm), weightKg: optionalNumber(editDraft.weightKg), notes: editDraft.notes || null,
+        goalLabel: editDraft.goalLabel.trim(), goalType: editDraft.goalType, targetValue: optionalNumber(editDraft.targetValue), targetUnit: editDraft.targetUnit || null,
+      })
+      await queryClient.invalidateQueries({ queryKey: ['user-profile-screen', userId] })
+      setEditOpen(false)
+    } catch (saveError) { setFormError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить профиль.') }
+    finally { setPending(false) }
   }
 
-  if ((isLoading && resolvedUserId !== 'guest') || !viewProfile) {
-    return (
-      <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
-        <div className="glass-panel rounded-[34px] p-8 text-white/72">Загрузка профиля…</div>
-      </FormaShell>
-    )
+  async function saveMeasurement() {
+    if (pending) return
+    setPending(true); setFormError(null)
+    try {
+      await apiPost('/api/body-measurements', { userId, measuredAt: new Date().toISOString(), ...Object.fromEntries(Object.entries(measurementDraft).map(([key, value]) => [key, optionalNumber(value)])) })
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ['user-profile-screen', userId] }), queryClient.invalidateQueries({ queryKey: ['progress-screen', userId] })])
+      setMeasureOpen(false); setMeasurementDraft({ weightKg: '', bodyFatPercent: '', chestCm: '', waistCm: '', hipsCm: '' })
+    } catch (saveError) { setFormError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить измерение.') }
+    finally { setPending(false) }
   }
 
-  if (error && resolvedUserId !== 'guest') {
-    return (
-      <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
-        <div className="glass-panel rounded-[34px] border border-[#eb5345]/25 bg-[#1b0f10] p-8 text-[#ffb4a7]">Не удалось загрузить профиль пользователя. Проверьте backend API.</div>
-      </FormaShell>
-    )
+  async function deletePhoto(id: number) {
+    if (deletingPhotoId != null) return
+    setDeletingPhotoId(id)
+    try { await apiDelete(`/api/photo-progress/${id}?confirm=true`); await queryClient.invalidateQueries({ queryKey: ['user-profile-screen', userId] }) }
+    finally { setDeletingPhotoId(null) }
   }
+
+  if (isPending && userId !== 'guest') return <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}><div className="forma-state" role="status">Загрузка профиля…</div></FormaShell>
+  if (error && userId !== 'guest') return <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}><div className="forma-state" role="alert"><p>Не удалось загрузить профиль.</p><Button onClick={() => void refetch()}>Повторить</Button></div></FormaShell>
 
   return (
     <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
-      <SectionTitle
-        title="Профиль пользователя"
-        description="Данные пользователя, цели, тело, фото прогресса и персональные ограничения."
-        actions={
-          <div className="flex flex-wrap gap-3">
-            {!editing ? (
-              <Button variant="secondary" iconLeft={<Pencil className="h-4 w-4" />} onClick={startProfileEdit}>
-                Редактировать профиль
-              </Button>
-            ) : null}
-            <Button variant="secondary" iconLeft={<Camera className="h-4 w-4" />} onClick={() => navigate('/photo-progress?source=profile&photo=manual')}>
-              Сделать фото прогресса
-            </Button>
+      <section className="profile-center" aria-labelledby="profile-name">
+        <header className="profile-hero">
+          <div className="profile-avatar">
+            {profile.user.profile?.photoUrl ? <img src={resolveApiAssetUrl(profile.user.profile.photoUrl) ?? profile.user.profile.photoUrl} alt="Фотография пользователя" /> : <span aria-hidden="true">{profile.user.name.charAt(0).toUpperCase()}</span>}
           </div>
-        }
-      />
+          <div className="profile-identity">
+            <h1 id="profile-name" className="font-display font-bold text-white">{profile.user.name}</h1>
+            <p>{[age != null ? `${age} лет` : null, profile.user.profile?.heightCm ? `${profile.user.profile.heightCm} см` : null, profile.user.profile?.weightKg ? `${profile.user.profile.weightKg} кг` : null].filter(Boolean).join(' · ') || 'Персональные данные не заполнены'}</p>
+            <div className="profile-goal"><span>Основная цель</span><strong>{primaryGoal?.label ?? 'Поддержание активности'}</strong><small>Ближайший ориентир: {target}</small></div>
+          </div>
+          <Button iconLeft={<Pencil aria-hidden="true" />} onClick={openEdit} disabled={userId === 'guest'}>Редактировать</Button>
+        </header>
 
-      <section className="glass-panel rounded-[34px] p-6 xl:p-8">
-        <div className="grid gap-6 xl:grid-cols-[220px_1fr_auto]">
-          <div className="flex items-center justify-center">
-            <div className="flex h-40 w-40 items-center justify-center rounded-full border border-[#d6b05f]/20 bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.16),transparent_40%),linear-gradient(180deg,#171a20,#0d0f13)] text-6xl font-display font-bold text-[#f3d18b]">
-              {viewProfile.avatarLabel}
-            </div>
+        <nav className="profile-tabs" aria-label="Разделы профиля">
+          {tabs.map((item) => <button key={item.id} type="button" aria-current={tab === item.id ? 'page' : undefined} onClick={() => updateTab(item.id)}>{item.label}</button>)}
+        </nav>
+
+        {tab === 'overview' ? (
+          <div className="profile-overview">
+            <ProfilePanel title="Текущие показатели">
+              <dl className="profile-metrics">
+                <Metric label="Вес" value={profile.user.profile?.weightKg ? `${profile.user.profile.weightKg} кг` : '—'} />
+                <Metric label="Талия" value={metric(latestMeasurement?.waistCm, 'см')} />
+                <Metric label="Грудь" value={metric(latestMeasurement?.chestCm, 'см')} />
+                <Metric label="Бёдра" value={metric(latestMeasurement?.hipsCm, 'см')} />
+              </dl>
+            </ProfilePanel>
+            <ProfilePanel title="Изменения">
+              {profile.measurements.length >= 2 ? <MeasurementChanges latest={profile.measurements[0]} first={profile.measurements.at(-1)!} /> : <ProfileEmpty text="Добавьте минимум два измерения, чтобы увидеть изменения." action={<Button variant="secondary" onClick={() => setMeasureOpen(true)}>Добавить измерение</Button>} />}
+            </ProfilePanel>
+            <ProfilePanel title="Последнее фото">
+              {latestPhotos.length ? <div className="profile-photo-row">{latestPhotos.map((photo) => <img key={photo.id} src={resolveApiAssetUrl(photo.thumbnailUrl) ?? photo.thumbnailUrl} alt={viewLabel(photo.view)} />)}</div> : <ProfileEmpty text="Фото прогресса пока нет." action={<Button variant="secondary" iconLeft={<Camera aria-hidden="true" />} onClick={() => setPhotoOpen(true)}>Фотофиксация</Button>} />}
+            </ProfilePanel>
+            <ProfilePanel title="Краткая история">
+              <ul className="profile-history">
+                {profile.measurements.slice(0, 3).map((item) => <li key={item.id}><span>{formatDate(item.measuredAt)}</span><strong>{metric(item.weightKg, 'кг')}</strong></li>)}
+                {profile.photos[0] ? <li><span>{formatDate(profile.photos[0].takenAt)}</span><strong>Фотофиксация</strong></li> : null}
+                {!profile.measurements.length && !profile.photos.length ? <li><span>История пока пуста</span></li> : null}
+              </ul>
+            </ProfilePanel>
           </div>
-          <div>
-            <div className="font-display text-6xl font-bold tracking-[-0.07em] text-white">{viewProfile.name}</div>
-            <div className="mt-5 grid gap-4 md:grid-cols-4">
-              <ProfileStat label="Цель" value={viewProfile.goal} />
-              <ProfileStat label="Рост" value={`${viewProfile.heightCm} см`} />
-              <ProfileStat label="Вес" value={viewProfile.weightKg > 0 ? `${viewProfile.weightKg} кг` : '—'} />
-              <ProfileStat label="Уровень" value={viewProfile.level} />
-            </div>
-          </div>
-          {editing ? (
-            <div className="flex flex-col gap-3">
-              <Button iconLeft={<Check className="h-4 w-4" />} onClick={saveProfileDraft}>Сохранить изменения</Button>
-              <Button variant="secondary" iconLeft={<X className="h-4 w-4" />} onClick={cancelProfileEdit}>Отменить</Button>
-            </div>
-          ) : null}
-        </div>
+        ) : null}
+
+        {tab === 'measurements' ? (
+          <ProfilePanel title="История измерений" action={<Button iconLeft={<Plus aria-hidden="true" />} onClick={() => setMeasureOpen(true)}>Добавить измерение</Button>}>
+            {profile.measurements.length ? <div className="profile-measurements">{profile.measurements.map((item) => <div key={item.id}><strong>{formatDate(item.measuredAt)}</strong><span>{metric(item.weightKg, 'кг')}</span><span>Талия {metric(item.waistCm, 'см')}</span><span>Грудь {metric(item.chestCm, 'см')}</span><span>Бёдра {metric(item.hipsCm, 'см')}</span></div>)}</div> : <ProfileEmpty text="Измерений пока нет." action={<Button onClick={() => setMeasureOpen(true)}>Добавить первое измерение</Button>} />}
+          </ProfilePanel>
+        ) : null}
+
+        {tab === 'photo' ? (
+          <ProfilePanel title="Фото прогресса" action={<Button iconLeft={<Camera aria-hidden="true" />} onClick={() => setPhotoOpen(true)}>Фотофиксация</Button>}>
+            {profile.photos.length ? <div className="profile-gallery">{profile.photos.map((photo) => <article key={photo.id}><img src={resolveApiAssetUrl(photo.thumbnailUrl) ?? photo.thumbnailUrl} alt={viewLabel(photo.view)} /><div><strong>{viewLabel(photo.view)}</strong><span>{formatDate(photo.takenAt)}</span></div><Button variant="secondary" iconLeft={<Trash2 aria-hidden="true" />} disabled={deletingPhotoId === photo.id} onClick={() => void deletePhoto(photo.id)}>Удалить</Button></article>)}</div> : <ProfileEmpty text="Сделайте первую фотофиксацию — снимки появятся здесь." action={<Button onClick={() => setPhotoOpen(true)}>Сделать фото</Button>} />}
+          </ProfilePanel>
+        ) : null}
+
+        {tab === 'restrictions' ? (
+          <ProfilePanel title="Исключённые упражнения" description="Исключённые упражнения не предлагаются в рекомендациях. Нажмите карточку, чтобы изменить состояние.">
+            {excludedExercises.length ? <div className="profile-restrictions">{excludedExercises.map((exercise) => <button key={exercise.slug} type="button" aria-pressed="true" onClick={() => toggleBlacklisted(exercise.slug)}><div className="profile-exercise-image">{exercise.imageUrl ? <img src={resolveApiAssetUrl(exercise.imageUrl) ?? exercise.imageUrl} alt="" /> : <span aria-hidden="true">{exercise.name.charAt(0)}</span>}</div><span><strong>{exercise.name}</strong><small>{exercise.muscles?.slice(0, 2).join(' · ') || 'Упражнение'}</small></span><em>Исключено · нажмите, чтобы разрешить</em></button>)}</div> : <ProfileEmpty text="Исключённых упражнений нет. Добавить ограничение можно из карточки упражнения в каталоге." />}
+            {excludedExercises.length ? <p className="profile-restrictions-count">Исключено: {excludedExercises.length}</p> : null}
+          </ProfilePanel>
+        ) : null}
       </section>
 
-      <TabStrip tabs={profileTabs} active={tab} onChange={updateTab} />
-
-      {tab === 'summary' ? (
-        <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-          <div className="space-y-6">
-            <Panel title="Основная информация">
-              <InfoGrid rows={[
-                ['Имя', viewProfile.name],
-                ['Рост', `${viewProfile.heightCm} см`],
-                ['Вес', viewProfile.weightKg > 0 ? `${viewProfile.weightKg} кг` : '—'],
-                ['Уровень', viewProfile.level],
-                ['Основная цель', viewProfile.goal],
-              ]} />
-            </Panel>
-            <div className="grid gap-6 xl:grid-cols-2">
-              <Panel title="Последние данные тела">
-                {latestMeasurement ? (
-                  <InfoGrid rows={[
-                    ['Вес', `${latestMeasurement.weight} кг`],
-                    ['Талия', `${latestMeasurement.waistCm} см`],
-                    ['Грудь', `${latestMeasurement.chestCm} см`],
-                    ['Бёдра', `${latestMeasurement.hipsCm} см`],
-                  ]} />
-                ) : (
-                  <div className="text-sm text-white/45">Данных пока нет.</div>
-                )}
-              </Panel>
-              <Panel title="Фото прогресса">
-                <div className="grid gap-3 md:grid-cols-3">
-                  {(viewProfile.photos[0]?.views ?? []).map((view) => (
-                    <PhotoPreviewCard key={view.id} title={view.label} label={view.label} imageUrl={view.thumbnailUrl} takenAt={view.takenAt} />
-                  ))}
-                </div>
-              </Panel>
-            </div>
-          </div>
-          <div className="space-y-6">
-            <Panel title="Краткая сводка">
-              <InfoGrid rows={[
-                ['Дата последнего фото', viewProfile.photos[0]?.date ?? 'Нет данных'],
-                ['Текущий вес', viewProfile.weightKg > 0 ? `${viewProfile.weightKg} кг` : '—'],
-                ['Цель', viewProfile.goal],
-                ['Частота тренировок', viewProfile.trainingFrequency],
-                ['Рекомендация', viewProfile.considerationNotes[0] ?? 'Нет персональной рекомендации'],
-              ]} />
-            </Panel>
-            <Panel title="Чёрный список упражнений">
-              {blacklistedExerciseSlugs.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {blacklistedExerciseSlugs.map((slug) => (
-                    <button key={slug} type="button" onClick={() => toggleBlacklistedExercise(slug)} className="rounded-full border border-white/10 bg-white/4 px-3 py-2 text-sm text-white/74">{slug}</button>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-sm text-white/45">Нет исключённых упражнений.</div>
-              )}
-            </Panel>
-          </div>
-        </div>
-      ) : null}
-
-      {tab === 'general' ? (
-        <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-          <Panel title="Основные данные">
-            <EditableField label="Имя" value={viewProfile.name} editing={editing} onChange={(value) => updateProfileDraft('name', value)} />
-            <EditableField label="Рост" value={String(viewProfile.heightCm)} editing={editing} suffix="см" onChange={(value) => updateProfileDraft('heightCm', Number(value) || 0)} />
-            <EditableField label="Вес" value={String(viewProfile.weightKg)} editing={editing} suffix="кг" onChange={(value) => updateProfileDraft('weightKg', Number(value) || 0)} />
-            <EditableField label="Уровень подготовки" value={viewProfile.level} editing={editing} onChange={(value) => updateProfileDraft('level', value)} />
-            <EditableField label="Основная цель" value={viewProfile.goal} editing={editing} onChange={(value) => updateProfileDraft('goal', value)} />
-            <EditableField label="Дата создания профиля" value={viewProfile.createdAt} editing={editing} onChange={(value) => updateProfileDraft('createdAt', value)} />
-          </Panel>
-          <div className="space-y-6">
-            <Panel title="Профиль и персонализация">
-              <EditableField label="Язык интерфейса" value={viewProfile.locale} editing={editing} onChange={(value) => updateProfileDraft('locale', value)} />
-              <EditableField label="Единицы измерения" value={viewProfile.units} editing={editing} onChange={(value) => updateProfileDraft('units', value)} />
-              <EditableField label="Тема интерфейса" value={viewProfile.theme} editing={editing} onChange={(value) => updateProfileDraft('theme', value)} />
-            </Panel>
-            <Panel title="Контакт и заметки">
-              <EditableField label="Email" value={viewProfile.email || 'не указан'} editing={editing} onChange={(value) => updateProfileDraft('email', value === 'не указан' ? '' : value)} />
-              <EditableTextarea label="Личные заметки" value={viewProfile.notes} editing={editing} onChange={(value) => updateProfileDraft('notes', value)} />
-            </Panel>
-          </div>
-        </div>
-      ) : null}
-
-      {tab === 'goals' ? (
-        <div className="grid gap-6 xl:grid-cols-[1fr_1fr]">
-          <Panel title="Главная цель">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {['Сила + общая форма', 'Мышечная масса', 'Поддержание активности', 'Выносливость', 'Восстановительный режим'].map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  disabled={!editing}
-                  onClick={() => updateProfileDraft('goal', item.toLowerCase())}
-                  className={`rounded-[20px] border px-4 py-4 text-left text-sm transition ${viewProfile.goal.toLowerCase() === item.toLowerCase() ? 'border-[#d6b05f]/40 bg-[#20170b] text-[#f3d18b]' : 'border-white/8 bg-white/4 text-white/72'}`}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </Panel>
-          <Panel title="Параметры тренировок">
-            <EditableField label="Частота" value={viewProfile.trainingFrequency} editing={editing} onChange={(value) => updateProfileDraft('trainingFrequency', value)} />
-            <EditableField label="Длительность" value={viewProfile.workoutDuration} editing={editing} onChange={(value) => updateProfileDraft('workoutDuration', value)} />
-            <EditableField label="Стиль" value={viewProfile.workoutStyle} editing={editing} onChange={(value) => updateProfileDraft('workoutStyle', value)} />
-            <EditableBoolean label="Автогенерация программ" value={viewProfile.autoPrograms} editing={editing} onChange={(value) => updateProfileDraft('autoPrograms', value)} />
-          </Panel>
-          <Panel title="Приоритетные мышечные группы">
-            <div className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
-              {['Грудь', 'Спина', 'Ноги', 'Плечи', 'Руки', 'Кор'].map((item) => (
-                <button
-                  key={item}
-                  type="button"
-                  disabled={!editing}
-                  onClick={() => togglePriority(item)}
-                  className={`rounded-[20px] border px-4 py-4 text-sm transition ${viewProfile.priorityMuscles.includes(item) ? 'border-[#d6b05f]/40 bg-[#20170b] text-[#f3d18b]' : 'border-white/8 bg-white/4 text-white/72'}`}
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </Panel>
-          <Panel title="Что учитывать при подборе">
-            <EditableList items={viewProfile.considerationNotes} editing={editing} onChange={(items) => updateProfileDraft('considerationNotes', items)} />
-          </Panel>
-        </div>
-      ) : null}
-
-      {tab === 'body' ? (
-        <div className="grid gap-6 xl:grid-cols-[1fr_1fr_0.7fr]">
-          <Panel title="Текущие показатели">
-            {latestMeasurement ? (
-              <InfoGrid rows={[
-                ['Вес', `${latestMeasurement.weight} кг`],
-                ['Талия', `${latestMeasurement.waistCm} см`],
-                ['Грудь', `${latestMeasurement.chestCm} см`],
-                ['Бёдра', `${latestMeasurement.hipsCm} см`],
-                ['Плечи', formatMetric(latestMeasurement.shouldersCm, 'см')],
-                ['Бицепс', formatMetric(latestMeasurement.bicepsCm, 'см')],
-              ]} />
-            ) : (
-              <div className="text-sm text-white/45">Нет измерений.</div>
-            )}
-          </Panel>
-          <Panel title="История измерений">
-            <div className="space-y-3">
-              {viewProfile.bodyMeasurements.map((item) => (
-                <div key={item.date} className="grid grid-cols-[1fr_repeat(5,auto)] gap-3 rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/75">
-                  <span>{item.date}</span>
-                  <span>{formatMetric(item.weight, 'кг')}</span>
-                  <span>{formatMetric(item.waistCm, 'см')}</span>
-                  <span>{formatMetric(item.chestCm, 'см')}</span>
-                  <span>{formatMetric(item.hipsCm, 'см')}</span>
-                  <span>{formatMetric(item.bicepsCm, 'см')}</span>
-                </div>
-              ))}
-            </div>
-          </Panel>
-          <Panel title="Краткий вывод">
-            <div className="text-sm leading-7 text-white/68">Вес снижается плавно, динамика стабильная.</div>
-          </Panel>
-        </div>
-      ) : null}
-
-      {tab === 'photo' ? (
-        <Panel title="Фото прогресса">
-          {viewProfile.photos.length === 0 ? (
-            <div className="text-sm text-white/45">Фотографии пока не добавлены.</div>
-          ) : (
-            <div className="space-y-4">
-              {viewProfile.photos.map((photo) => (
-                <div key={photo.id} className="rounded-[24px] border border-white/8 bg-white/4 p-4">
-                  <div className="font-semibold text-white">{photo.date}</div>
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    {photo.views.map((view) => (
-                      <PhotoPreviewCard
-                        key={`${photo.id}-${view.id}`}
-                        title={view.label}
-                        label={view.label}
-                        imageUrl={view.thumbnailUrl}
-                        takenAt={view.takenAt}
-                        action={
-                          <Button
-                            variant="secondary"
-                            className="w-full"
-                            iconLeft={<Trash2 className="h-4 w-4" />}
-                            onClick={() => handleDeletePhoto(view.photoId)}
-                            disabled={deletingPhotoId === view.photoId}
-                          >
-                            {deletingPhotoId === view.photoId ? 'Удаление…' : 'Удалить фото'}
-                          </Button>
-                        }
-                      />
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </Panel>
-      ) : null}
-
-      {tab === 'blacklist' ? (
-        <div className="grid gap-6 xl:grid-cols-[0.8fr_1.2fr]">
-          <Panel title="Исключено упражнений">
-            <div className="text-5xl font-display font-bold text-white">{blacklistedExerciseSlugs.length}</div>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {blacklistedExerciseSlugs.length > 0 ? blacklistedExerciseSlugs.map((slug) => (
-                <button key={slug} type="button" onClick={() => toggleBlacklistedExercise(slug)} className="rounded-full border border-white/10 bg-white/4 px-3 py-2 text-sm text-white/74">{slug}</button>
-              )) : <span className="text-sm text-white/45">Чёрный список пуст.</span>}
-            </div>
-          </Panel>
-          <Panel title="Управление ограничениями">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-              {exerciseChoices.map((exercise) => {
-                const active = blacklistedExerciseSlugs.includes(exercise.slug)
-                return (
-                  <button key={exercise.slug} type="button" onClick={() => toggleBlacklistedExercise(exercise.slug)} className={`rounded-[22px] border p-4 text-left ${active ? 'border-[#d6b05f]/40 bg-[#20170b] text-[#f3d18b]' : 'border-white/8 bg-white/4 text-white/72'}`}>
-                    <div className="font-medium">{exercise.name}</div>
-                    <div className="mt-1 text-xs text-white/45">{exercise.secondaryName}</div>
-                    <div className="mt-3 text-xs">{active ? 'Исключено' : 'Разрешено'}</div>
-                  </button>
-                )
-              })}
-            </div>
-          </Panel>
-        </div>
-      ) : null}
-
+      <EditProfileDialog open={editOpen} onOpenChange={setEditOpen} draft={editDraft} setDraft={setEditDraft} pending={pending} error={formError} onSave={saveProfile} />
+      <MeasurementDialog open={measureOpen} onOpenChange={setMeasureOpen} draft={measurementDraft} setDraft={setMeasurementDraft} pending={pending} error={formError} onSave={saveMeasurement} />
+      <PhotoCaptureDialog open={photoOpen} onOpenChange={setPhotoOpen} userId={userId} />
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
     </FormaShell>
   )
 }
 
-function ProfileStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[22px] border border-white/8 bg-white/4 p-4">
-      <div className="text-sm text-white/45">{label}</div>
-      <div className="mt-2 font-semibold text-white">{value}</div>
-    </div>
-  )
+function ProfilePanel({ title, description, action, children }: { title: string; description?: string; action?: ReactNode; children: ReactNode }) { return <section className="profile-panel"><header><div><h2>{title}</h2>{description ? <p>{description}</p> : null}</div>{action}</header>{children}</section> }
+function Metric({ label, value }: { label: string; value: string }) { return <div><dt>{label}</dt><dd>{value}</dd></div> }
+function ProfileEmpty({ text, action }: { text: string; action?: ReactNode }) { return <div className="profile-empty"><p>{text}</p>{action}</div> }
+function MeasurementChanges({ latest, first }: { latest: Measurement; first: Measurement }) { const rows: Array<[string, number | null, number | null, string]> = [['Вес', latest.weightKg, first.weightKg, 'кг'], ['Талия', latest.waistCm, first.waistCm, 'см'], ['Грудь', latest.chestCm, first.chestCm, 'см']]; return <dl className="profile-changes">{rows.map(([label, now, before, unit]) => <div key={label}><dt>{label}</dt><dd>{now != null && before != null ? `${(now - before) >= 0 ? '+' : ''}${(now - before).toFixed(1)} ${unit}` : '—'}</dd></div>)}</dl> }
+
+function EditProfileDialog({ open, onOpenChange, draft, setDraft, pending, error, onSave }: { open: boolean; onOpenChange: (open: boolean) => void; draft: EditDraft | null; setDraft: Dispatch<SetStateAction<EditDraft | null>>; pending: boolean; error: string | null; onSave: () => Promise<void> }) {
+  if (!draft) return null
+  const field = (key: keyof EditDraft, label: string, type = 'text') => <label className="profile-field"><span>{label}</span><input type={type} value={draft[key]} onChange={(event) => setDraft((current) => current ? { ...current, [key]: event.target.value } : current)} /></label>
+  return <Dialog.Root open={open} onOpenChange={(next) => { if (!pending) onOpenChange(next) }}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" /><SafetyDialogContent className="profile-dialog"><Dialog.Title className="font-display text-3xl font-bold">Редактировать профиль</Dialog.Title><Dialog.Description className="mt-2 text-sm text-white/60">Основные данные и ближайший измеримый ориентир.</Dialog.Description><div className="profile-form">{field('name', 'Имя')}{field('birthDate', 'Дата рождения', 'date')}{field('heightCm', 'Рост, см', 'number')}{field('weightKg', 'Вес, кг', 'number')}{field('goalLabel', 'Основная цель')}{field('targetValue', 'Целевое значение', 'number')}{field('targetUnit', 'Единица цели')}<label className="profile-field profile-field-wide"><span>Заметки</span><textarea value={draft.notes} onChange={(event) => setDraft((current) => current ? { ...current, notes: event.target.value } : current)} /></label></div>{error ? <p role="alert" className="text-[#ffb4a7]">{error}</p> : null}<div className="profile-dialog-actions"><Dialog.Close asChild><Button variant="secondary" disabled={pending}>Отмена</Button></Dialog.Close><Button disabled={pending || !draft.name.trim() || !draft.goalLabel.trim()} onClick={() => void onSave()}>{pending ? 'Сохранение…' : 'Сохранить'}</Button></div></SafetyDialogContent></Dialog.Portal></Dialog.Root>
 }
 
-function InfoGrid({ rows }: { rows: Array<[string, string]> }) {
-  return (
-    <div className="space-y-3">
-      {rows.map(([label, value]) => (
-        <div key={label} className="grid grid-cols-[200px_1fr] items-center gap-3 rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/75">
-          <span>{label}</span>
-          <span className="text-white">{value}</span>
-        </div>
-      ))}
-    </div>
-  )
+function MeasurementDialog({ open, onOpenChange, draft, setDraft, pending, error, onSave }: { open: boolean; onOpenChange: (open: boolean) => void; draft: MeasurementDraft; setDraft: Dispatch<SetStateAction<MeasurementDraft>>; pending: boolean; error: string | null; onSave: () => Promise<void> }) {
+  const labels: Record<keyof MeasurementDraft, string> = { weightKg: 'Вес, кг', bodyFatPercent: 'Жир, %', chestCm: 'Грудь, см', waistCm: 'Талия, см', hipsCm: 'Бёдра, см' }
+  return <Dialog.Root open={open} onOpenChange={(next) => { if (!pending) onOpenChange(next) }}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" /><SafetyDialogContent className="profile-dialog"><Dialog.Title className="font-display text-3xl font-bold">Новое измерение</Dialog.Title><Dialog.Description className="mt-2 text-sm text-white/60">Заполните доступные значения. Пустые поля не сохраняются.</Dialog.Description><div className="profile-form">{(Object.keys(labels) as Array<keyof MeasurementDraft>).map((key) => <label key={key} className="profile-field"><span>{labels[key]}</span><input type="number" step="0.1" value={draft[key]} onChange={(event) => setDraft((current) => ({ ...current, [key]: event.target.value }))} /></label>)}</div>{error ? <p role="alert" className="text-[#ffb4a7]">{error}</p> : null}<div className="profile-dialog-actions"><Dialog.Close asChild><Button variant="secondary" disabled={pending}>Отмена</Button></Dialog.Close><Button disabled={pending || !Object.values(draft).some(Boolean)} onClick={() => void onSave()}>{pending ? 'Сохранение…' : 'Сохранить измерение'}</Button></div></SafetyDialogContent></Dialog.Portal></Dialog.Root>
 }
 
-function EditableField({ label, value, editing, onChange, suffix }: { label: string; value: string; editing: boolean; onChange: (value: string) => void; suffix?: string }) {
-  return (
-    <div className="mb-3 grid grid-cols-[220px_1fr] items-center gap-3 rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/75">
-      <span>{label}</span>
-      {editing ? (
-        <div className="flex items-center gap-2">
-          <input title={label} aria-label={label} placeholder={label} value={value} onChange={(event) => onChange(event.target.value)} className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none" />
-          {suffix ? <span className="text-white/45">{suffix}</span> : null}
-        </div>
-      ) : (
-        <span className="text-white">{value}</span>
-      )}
-    </div>
-  )
-}
-
-function EditableTextarea({ label, value, editing, onChange }: { label: string; value: string; editing: boolean; onChange: (value: string) => void }) {
-  return (
-    <div className="rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/75">
-      <div>{label}</div>
-      {editing ? <textarea title={label} aria-label={label} placeholder={label} value={value} onChange={(event) => onChange(event.target.value)} className="mt-3 min-h-28 w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none" /> : <div className="mt-3 text-white">{value || '—'}</div>}
-    </div>
-  )
-}
-
-function EditableBoolean({ label, value, editing, onChange }: { label: string; value: boolean; editing: boolean; onChange: (value: boolean) => void }) {
-  return (
-    <div className="mb-3 flex items-center justify-between gap-3 rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/75">
-      <span>{label}</span>
-      {editing ? (
-        <button type="button" title={label} aria-label={label} onClick={() => onChange(!value)} className={`inline-flex h-7 w-12 items-center rounded-full border px-1 transition ${value ? 'justify-end border-[#d6b05f]/40 bg-[#20170b]' : 'justify-start border-white/10 bg-black/20'}`}>
-          <span className={`h-5 w-5 rounded-full ${value ? 'bg-[#f3d18b]' : 'bg-white/35'}`} />
-        </button>
-      ) : (
-        <span className="text-white">{value ? 'включена' : 'выключена'}</span>
-      )}
-    </div>
-  )
-}
-
-function EditableList({ items, editing, onChange }: { items: string[]; editing: boolean; onChange: (value: string[]) => void }) {
-  return (
-    <div className="space-y-3">
-      {items.map((item, index) => (
-        <div key={`${item}-${index}`} className="rounded-[20px] border border-white/8 bg-white/4 px-4 py-4 text-sm text-white/75">
-          {editing ? <input title={`Пункт ${index + 1}`} aria-label={`Пункт ${index + 1}`} placeholder={`Пункт ${index + 1}`} value={item} onChange={(event) => onChange(items.map((current, itemIndex) => (itemIndex === index ? event.target.value : current)))} className="w-full rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-white outline-none" /> : item}
-        </div>
-      ))}
-    </div>
-  )
-}
+function asTab(value: string | null): ProfileTab { return value === 'measurements' || value === 'photo' || value === 'restrictions' ? value : 'overview' }
+function optionalNumber(value: string) { const parsed = Number(value.replace(',', '.')); return value.trim() && Number.isFinite(parsed) ? parsed : null }
+function calculateAge(value: string | null | undefined) { if (!value) return null; const birth = new Date(`${value}T00:00:00`); const now = new Date(); let age = now.getFullYear() - birth.getFullYear(); if (now.getMonth() < birth.getMonth() || (now.getMonth() === birth.getMonth() && now.getDate() < birth.getDate())) age--; return age }
+function metric(value: number | null | undefined, unit: string) { return value != null && value > 0 ? `${value} ${unit}` : '—' }
+function formatDate(value: string) { return new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)) }
+function latestPhotoSet(photos: Photo[]) { if (!photos.length) return []; const date = photos[0].takenAt.slice(0, 10); return photos.filter((photo) => photo.takenAt.startsWith(date)).slice(0, 3) }
+function viewLabel(view: Photo['view']) { return view === 'front' ? 'Спереди' : view === 'side' ? 'Сбоку' : 'Сзади' }
+function humanizeSlug(slug: string) { return slug.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ') }

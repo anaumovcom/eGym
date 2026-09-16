@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import Field
@@ -9,8 +9,7 @@ from app.schemas.machine import MachineHealthSchema
 from app.schemas.muscle import MuscleCardSchema
 
 ProgramDifficulty = Literal["novice", "easy", "medium", "advanced"]
-CalendarViewMode = Literal["week", "month"]
-CalendarDayStatus = Literal["completed", "planned", "skipped", "rest", "overload", "today", "empty"]
+CalendarWorkoutStatus = Literal["completed", "partial", "aborted"]
 BuilderGroupKind = Literal["single", "alternating", "superset", "circuit"]
 BuilderLoadType = Literal["weighted", "bodyweight", "timed"]
 StrengthSetType = Literal["warmup", "work", "failure"]
@@ -206,41 +205,42 @@ class ProgramLibraryDataSchema(SchemaModel):
     selected_program: ProgramDetailsSchema
 
 
-class CalendarDayCardSchema(SchemaModel):
-    id: str
-    date_label: str
-    title: str
-    badges: list[str]
-    status: CalendarDayStatus
-    readiness_percent: int | None = None
-    duration: str | None = None
-    exercise_count: int | None = None
-    selected: bool | None = None
+class CalendarWorkoutExerciseSchema(SchemaModel):
+    name: str
+    status: str
+    set_count: int
+    result: str
 
 
-class CalendarDayDetailsSchema(SchemaModel):
-    date_label: str
+class CalendarWorkoutSchema(SchemaModel):
+    id: int
     title: str
-    subtitle: str
+    status: CalendarWorkoutStatus
+    started_at: datetime
+    finished_at: datetime | None
+    time_label: str
+    duration: str
     exercise_count: int
     set_count: int
-    duration: str
-    target_muscles: str
-    status_text: str
-    readiness_percent: int
-    recommendation: str
+    volume: str
+    exercises: list[CalendarWorkoutExerciseSchema]
+
+
+class CalendarDaySchema(SchemaModel):
+    id: str
+    day: int
+    in_month: bool
+    is_today: bool
+    workouts: list[CalendarWorkoutSchema]
 
 
 class WorkoutCalendarDataSchema(SchemaModel):
-    mode: CalendarViewMode
+    month: str
     title: str
-    legend: list[str]
-    days: list[CalendarDayCardSchema]
-    selected_day_id: str
-    selected_day: CalendarDayDetailsSchema
-    quick_actions: list[str]
-    summary: list[dict[str, str]]
-    muscle_balance: list[dict[str, str]]
+    today: str
+    weekdays: list[str]
+    days: list[CalendarDaySchema]
+    workout_count: int
 
 
 class BuilderExerciseItemSchema(SchemaModel):

@@ -76,11 +76,16 @@ const muscleTranslations: Record<string, string> = {
   upper_back: 'Верх спины',
   lower_back: 'Низ спины',
   traps: 'Трапеции',
+  'traps-middle': 'Средняя трапеция',
   abs: 'Пресс',
-  obliques: 'Косые мышцы',
+  abdominals: 'Пресс',
+  obliques: 'Косые мышцы живота',
   glutes: 'Ягодицы',
-  quads: 'Квадрицепс',
+  quads: 'Квадрицепсы',
   hamstrings: 'Бицепс бедра',
+  'front-shoulders': 'Передние дельты',
+  'rear-shoulders': 'Задние дельты',
+  lowerback: 'Низ спины',
   adductors: 'Приводящие',
   abductors: 'Отводящие',
   calves: 'Икры',
@@ -94,13 +99,25 @@ const muscleTranslations: Record<string, string> = {
 const equipmentTranslations: Record<string, string> = {
   Barbell: 'Штанга',
   Dumbbell: 'Гантели',
+  Dumbbells: 'Гантели',
   Machine: 'Тренажёр',
   Cable: 'Кроссовер',
+  Cables: 'Кроссовер',
   Bodyweight: 'Собственный вес',
   'Smith Machine': 'Машина Смита',
+  'Smith-Machine': 'Машина Смита',
   Band: 'Резина',
   Kettlebell: 'Гиря',
-  'BOSU Ball': 'BOSU',
+  Kettlebells: 'Гири',
+  Recovery: 'Восстановление',
+  Yoga: 'Йога',
+  Plate: 'Диск',
+  Stretches: 'Растяжка',
+  Cardio: 'Кардио',
+  'Medicine-Ball': 'Медбол',
+  'Bosu-Ball': 'Босу',
+  'BOSU Ball': 'Босу',
+  TRX: 'Петли TRX',
   'Stability Ball': 'Фитбол',
   'EZ Curl Bar': 'EZ-штанга',
 }
@@ -116,6 +133,9 @@ const gripTranslations: Record<string, string> = {
   Underhand: 'Обратный',
   Neutral: 'Нейтральный',
   Mixed: 'Смешанный',
+  Rotating: 'Вращающийся',
+  'Pinch Grip': 'Щипковый',
+  None: 'Без хвата',
 }
 
 const statusSeverity: Record<MuscleStatus, number> = {
@@ -194,7 +214,7 @@ function translateEquipment(value: string) {
 }
 
 function translateGrip(value: string) {
-  return gripTranslations[value] ?? value
+  return value.split(',').map((part) => part.trim()).filter(Boolean).map((part) => gripTranslations[part] ?? part).join(', ') || value
 }
 
 function hashString(value: string) {
@@ -310,7 +330,7 @@ function buildSummary(entry: GeneratedEntry, userId: KnownUserId, preferences?: 
 
 function buildDescription(entry: GeneratedEntry) {
   const muscles = entry.muscles.slice(0, 2).map(translateMuscle).join(' и ').toLowerCase()
-  return `${entry.nameRu} — упражнение для группы ${muscles || 'основных мышц'}, которое выполняется с оборудованием «${translateEquipment(entry.equipment)}». В mock-сценарии экран показывает технику, совместимость и рекомендуемую нагрузку на сегодня.`
+  return `${entry.nameRu} — упражнение для группы ${muscles || 'основных мышц'}, которое выполняется с оборудованием «${translateEquipment(entry.equipment)}».`
 }
 
 function buildCompatibility(entry: GeneratedEntry, userId: KnownUserId, preferences?: Partial<PreferenceState>): ExerciseCompatibility {
@@ -817,87 +837,49 @@ export function getProgramLibraryData(selectedProgramId = 'back-biceps'): Progra
   }
 }
 
-const monthDays: WorkoutCalendarData['days'] = [
-  { id: '2026-04-27', dateLabel: '27', title: 'Отдых', badges: [], status: 'rest' },
-  { id: '2026-04-28', dateLabel: '28', title: 'Спина', badges: ['Выполнено'], status: 'completed' },
-  { id: '2026-04-29', dateLabel: '29', title: 'Ноги', badges: ['Выполнено'], status: 'completed' },
-  { id: '2026-04-30', dateLabel: '30', title: 'Грудь', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-01', dateLabel: '1', title: 'Кор', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-02', dateLabel: '2', title: 'Отдых', badges: [], status: 'rest' },
-  { id: '2026-05-03', dateLabel: '3', title: 'Отдых', badges: [], status: 'rest' },
-  { id: '2026-05-04', dateLabel: '4', title: 'Спина', badges: ['Выполнено'], status: 'completed' },
-  { id: '2026-05-05', dateLabel: '5', title: 'Ноги', badges: ['Выполнено'], status: 'completed' },
-  { id: '2026-05-06', dateLabel: '6', title: 'Грудь', badges: ['Выполнено'], status: 'completed' },
-  { id: '2026-05-07', dateLabel: '7', title: 'Кор', badges: ['Выполнено'], status: 'completed' },
-  { id: '2026-05-08', dateLabel: '8', title: 'Плечи', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-09', dateLabel: '9', title: 'Отдых', badges: [], status: 'rest' },
-  { id: '2026-05-10', dateLabel: '10', title: 'Отдых', badges: [], status: 'rest' },
-  { id: '2026-05-11', dateLabel: '11', title: 'Спина', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-12', dateLabel: '12', title: 'Плечи', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-13', dateLabel: '13', title: 'Спина', badges: ['Выполнено'], status: 'completed' },
-  { id: '2026-05-14', dateLabel: '14', title: 'Спина + бицепс', badges: ['Сегодня'], status: 'today', selected: true, readinessPercent: 78, duration: '45 мин', exerciseCount: 5 },
-  { id: '2026-05-15', dateLabel: '15', title: 'Ноги', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-16', dateLabel: '16', title: 'Отдых', badges: [], status: 'rest' },
-  { id: '2026-05-17', dateLabel: '17', title: 'Грудь', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-18', dateLabel: '18', title: 'Спина', badges: ['Перегруз'], status: 'overload' },
-  { id: '2026-05-19', dateLabel: '19', title: 'Плечи', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-20', dateLabel: '20', title: 'Фуллбоди', badges: ['Выполнено'], status: 'completed' },
-  { id: '2026-05-21', dateLabel: '21', title: 'Кор', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-22', dateLabel: '22', title: 'Отдых', badges: [], status: 'rest' },
-  { id: '2026-05-23', dateLabel: '23', title: 'Отдых', badges: [], status: 'rest' },
-  { id: '2026-05-24', dateLabel: '24', title: 'Кор', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-25', dateLabel: '25', title: 'Ноги', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-26', dateLabel: '26', title: 'Спина', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-27', dateLabel: '27', title: 'Грудь', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-28', dateLabel: '28', title: 'Плечи', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-29', dateLabel: '29', title: 'Фуллбоди', badges: ['Запланировано'], status: 'planned' },
-  { id: '2026-05-30', dateLabel: '30', title: 'Отдых', badges: [], status: 'rest' },
-  { id: '2026-05-31', dateLabel: '31', title: 'Отдых', badges: [], status: 'rest' },
-]
-
-const weekDays: WorkoutCalendarData['days'] = [
-  { id: '2026-05-13', dateLabel: 'Пн 13', title: 'Спина + бицепс', badges: ['Выполнено'], status: 'completed', duration: '45 мин', exerciseCount: 5 },
-  { id: '2026-05-14', dateLabel: 'Вт 14', title: 'Спина + бицепс', badges: ['Сегодня'], status: 'today', readinessPercent: 78, duration: '45 мин', exerciseCount: 5, selected: true },
-  { id: '2026-05-15', dateLabel: 'Ср 15', title: 'День отдыха', badges: ['Запланировано'], status: 'rest' },
-  { id: '2026-05-16', dateLabel: 'Чт 16', title: 'Нет тренировки', badges: ['Свободный день'], status: 'empty' },
-  { id: '2026-05-17', dateLabel: 'Пт 17', title: 'Грудь + плечи', badges: ['Запланировано'], status: 'planned', duration: '40 мин', exerciseCount: 4 },
-  { id: '2026-05-18', dateLabel: 'Сб 18', title: 'Ноги + кор', badges: ['Запланировано'], status: 'planned', duration: '50 мин', exerciseCount: 5 },
-  { id: '2026-05-19', dateLabel: 'Вс 19', title: 'Отдых', badges: ['Восстановление'], status: 'rest' },
-]
-
-export function getWorkoutCalendarData(mode: 'week' | 'month' = 'month', selectedDayId = '2026-05-14'): WorkoutCalendarData {
-  const days = (mode === 'week' ? weekDays : monthDays).map((day) => ({ ...day, selected: day.id === selectedDayId }))
-  return {
-    mode,
-    title: mode === 'week' ? 'Неделя 13–19 мая' : 'Май 2026',
-    legend: ['Выполнено', 'Запланировано', 'Пропущено', 'Отдых'],
-    days,
-    selectedDayId,
-    selectedDay: {
-      dateLabel: '14 мая',
-      title: 'Спина + бицепс',
-      subtitle: 'Сегодня',
-      exerciseCount: 5,
-      setCount: 18,
+export function getWorkoutCalendarData(month?: string, today = '2026-05-14'): WorkoutCalendarData {
+  const monthNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь']
+  const [year, monthIndex] = (month ?? today.slice(0, 7)).split('-').map(Number)
+  const first = new Date(Date.UTC(year, monthIndex - 1, 1))
+  const gridStart = new Date(first)
+  gridStart.setUTCDate(first.getUTCDate() - ((first.getUTCDay() + 6) % 7))
+  const days = Array.from({ length: 42 }, (_, offset) => {
+    const date = new Date(gridStart)
+    date.setUTCDate(gridStart.getUTCDate() + offset)
+    const id = date.toISOString().slice(0, 10)
+    const inMonth = date.getUTCMonth() === monthIndex - 1
+    const workouts = inMonth && date.getUTCDate() % 3 === 2 && id <= today ? [{
+      id: Number(id.replace(/-/g, '')),
+      title: ['Спина + бицепс', 'Грудь + плечи', 'Ноги + кор'][date.getUTCDate() % 3],
+      status: date.getUTCDate() % 9 === 5 ? 'partial' as const : 'completed' as const,
+      startedAt: `${id}T18:05:00Z`,
+      finishedAt: `${id}T18:50:00Z`,
+      timeLabel: '18:05–18:50',
       duration: '45 минут',
-      targetMuscles: 'спина, бицепс, предплечья',
-      statusText: 'запланирована',
-      readinessPercent: 78,
-      recommendation: 'Грудь лучше не нагружать до пятницы — так вы избежите избыточной нагрузки и улучшите прогресс.',
-    },
-    quickActions: ['Сгенерировать месяц', 'Добавить тренировку', 'Скопировать прошлый месяц'],
-    summary: [
-      { label: 'запланировано', value: '22' },
-      { label: 'выполнено', value: '16' },
-      { label: 'минут', value: '780' },
-      { label: 'выполнение', value: '72%' },
-    ],
-    muscleBalance: [
-      { label: 'Спина', value: 'Высокая', tone: 'high' },
-      { label: 'Грудь', value: 'Средняя', tone: 'medium' },
-      { label: 'Ноги', value: 'Высокая', tone: 'high' },
-      { label: 'Кор', value: 'Средняя', tone: 'medium' },
-    ],
+      exerciseCount: 2,
+      setCount: 6,
+      volume: '1 850 кг',
+      exercises: [
+        { name: 'Тяга сверху', status: 'completed', setCount: 3, result: '3 подх. · 30 повт. · до 50 кг' },
+        { name: 'Сгибание рук со штангой', status: 'completed', setCount: 3, result: '3 подх. · 30 повт. · до 20 кг' },
+      ],
+    }] : []
+    if (id === today) {
+      workouts.push({
+        id: 99001, title: 'Фуллбоди', status: 'completed', startedAt: `${id}T07:10:00Z`, finishedAt: `${id}T07:40:00Z`, timeLabel: '07:10–07:40', duration: '30 минут',
+        exerciseCount: 1, setCount: 2, volume: '—', exercises: [{ name: 'Планка', status: 'completed', setCount: 2, result: '2 подх. · 90 сек' }],
+      })
+      workouts.sort((a, b) => a.startedAt.localeCompare(b.startedAt))
+    }
+    return { id, day: date.getUTCDate(), inMonth, isToday: id === today, workouts }
+  })
+  return {
+    month: `${year}-${String(monthIndex).padStart(2, '0')}`,
+    title: `${monthNames[monthIndex - 1]} ${year}`,
+    today,
+    weekdays: ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'],
+    days,
+    workoutCount: days.reduce((total, day) => total + (day.inMonth ? day.workouts.length : 0), 0),
   }
 }
 

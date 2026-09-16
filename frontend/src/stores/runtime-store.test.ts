@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useRuntimeStore } from '@/stores/runtime-store'
 
-describe('runtime store photo progress', () => {
+describe('runtime store', () => {
   beforeEach(() => {
     localStorage.clear()
     useRuntimeStore.setState({ session: null, sessionSignature: null })
@@ -11,18 +11,77 @@ describe('runtime store photo progress', () => {
     vi.useRealTimers()
   })
 
-  it('skips pre-workout photo progress to exercise setup', () => {
-    useRuntimeStore.getState().initializeSession({ source: 'today', photoMode: 'pre-workout' })
+  it.each(['pre-workout', 'post-workout', 'manual'] as const)('does not initialize a workout photo step for %s', (photoMode) => {
+    useRuntimeStore.getState().initializeSession({ source: 'today', photoMode })
 
-    expect(useRuntimeStore.getState().session?.view).toBe('photo-progress')
+    expect(useRuntimeStore.getState().session?.view).toBe('exercise-setup')
+    expect(useRuntimeStore.getState().session?.photoProgress.autoPrompt).toBe(false)
+  })
 
+  it.each(['pre-workout', 'post-workout', 'manual'] as const)('preserves a running session when legacy %s is removed from its URL', (photoMode) => {
+    useRuntimeStore.getState().initializeSession({ source: 'today', photoMode })
+    useRuntimeStore.getState().startExercise()
+    useRuntimeStore.getState().finishCurrentSet()
+    useRuntimeStore.getState().setBackendWorkoutSessionId(42)
+    const session = useRuntimeStore.getState().session
+    useRuntimeStore.setState({ sessionSignature: `today::::${photoMode}:` })
+
+    useRuntimeStore.getState().ensureSession({ source: 'today' })
+
+    expect(useRuntimeStore.getState().session).toBe(session)
+    expect(useRuntimeStore.getState().session?.view).toBe('rest')
+    expect(useRuntimeStore.getState().sessionSignature).toBe('today:::::')
+    useRuntimeStore.getState().ensureSession({ source: 'today', photoMode })
+    expect(useRuntimeStore.getState().session).toBe(session)
+  })
+
+  it.each([
+    ['pre-workout', 'exercise-setup'],
+    ['post-workout', 'workout-summary'],
+  ] as const)('rehydrates a legacy %s step without losing saved results', async (mode, view) => {
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    useRuntimeStore.getState().startExercise()
+    useRuntimeStore.getState().finishCurrentSet()
+    useRuntimeStore.getState().setBackendWorkoutSessionId(42)
+    const session = useRuntimeStore.getState().session!
+    const legacySession = {
+      ...session,
+      view: 'photo-progress' as const,
+      photoProgress: { ...session.photoProgress, mode, autoPrompt: true },
+    }
+    useRuntimeStore.setState({ session: null, sessionSignature: null })
+    localStorage.setItem('egym-runtime-store', JSON.stringify({
+      state: { session: legacySession, sessionSignature: `today::::${mode}:` },
+      version: 0,
+    }))
+
+    await useRuntimeStore.persist.rehydrate()
+
+    expect(useRuntimeStore.getState().session).toEqual({
+      ...legacySession,
+      view,
+      photoProgress: { ...legacySession.photoProgress, autoPrompt: false },
+    })
+    expect(useRuntimeStore.getState().sessionSignature).toBe('today:::::')
+  })
+
+  it('keeps standalone manual photos separate from the active workout view and identity', () => {
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    useRuntimeStore.getState().startExercise()
+    useRuntimeStore.getState().finishCurrentSet()
+    const session = useRuntimeStore.getState().session!
+    const signature = useRuntimeStore.getState().sessionSignature
+
+    useRuntimeStore.getState().openPhotoProgress('manual')
+    useRuntimeStore.getState().completePhotoShot('front', 'data:image/jpeg;base64,photo')
+    useRuntimeStore.getState().continueAfterPhoto()
     useRuntimeStore.getState().skipPhotoProgress()
 
-    const session = useRuntimeStore.getState().session
-
-    expect(session?.view).toBe('exercise-setup')
-    expect(session?.photoProgress.completed).toBe(false)
-    expect(session?.photoProgress.mode).toBe('pre-workout')
+    expect(useRuntimeStore.getState().session).toEqual({
+      ...session,
+      photoProgress: expect.objectContaining({ mode: 'manual', autoPrompt: false, completed: false }),
+    })
+    expect(useRuntimeStore.getState().sessionSignature).toBe(signature)
   })
 
   it('ticks and pauses rest timer', () => {

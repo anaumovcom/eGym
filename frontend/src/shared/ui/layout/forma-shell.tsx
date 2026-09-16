@@ -1,13 +1,24 @@
-import { CalendarDays, Dumbbell, HeartPulse, House, OctagonAlert, PanelTop, Settings, Sparkles, Terminal, UserRound, Wrench } from 'lucide-react'
-import type { PropsWithChildren } from 'react'
+import * as Popover from '@radix-ui/react-popover'
+import { CalendarDays, ChevronDown, Cpu, Dumbbell, House, ListChecks, OctagonAlert, Settings, TrendingUp, UserRound, Wrench } from 'lucide-react'
+import { useState, type PropsWithChildren, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import { navigationItems } from '@/shared/config/navigation'
 import { getDriveLabel, getSafetyLabel } from '@/shared/lib/machine-status'
 import { cn } from '@/shared/lib/cn'
 import { useHardwareStore } from '@/stores/hardware-store'
+import { useSafetyDockTarget } from '@/shared/ui/overlays/safety-dialog'
 
-const icons = [House, Sparkles, PanelTop, CalendarDays, Wrench, Dumbbell, Dumbbell, Sparkles, HeartPulse, UserRound, Settings, Terminal]
+const navigationIcons = {
+  '/dashboard': House,
+  '/builder': ListChecks,
+  '/catalog': Dumbbell,
+  '/calendar': CalendarDays,
+  '/progress': TrendingUp,
+  '/modbus': Cpu,
+  '/settings/mechanics': Wrench,
+}
 
 type MachineProblem = {
   label: string
@@ -48,22 +59,21 @@ function getMachineProblems(machine: MachineHealth): MachineProblem[] {
   return problems
 }
 
-export function LeftNavigationMenu() {
+export function TopNavigationMenu({ userName, systemBar }: { userName: string; systemBar?: ReactNode }) {
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false)
+
   return (
-    <aside className="glass-panel hidden w-[260px] shrink-0 rounded-[28px] p-5 xl:block">
-      <div className="mb-8 flex items-center gap-3 px-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-[#edcb86] to-[#9b6f22] text-2xl font-black text-[#100a00]">
+    <header className="forma-navigation forma-header glass-panel rounded-[28px] p-3">
+      <div className="forma-header-brand flex items-center gap-3">
+        <div aria-hidden="true" className="flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-[#edcb86] to-[#9b6f22] text-2xl font-black text-[#100a00]">
           F
         </div>
-        <div>
-          <div className="font-display text-[32px] font-bold tracking-[-0.04em] text-[#f4dfb4]">Forma</div>
-          <div className="text-xs uppercase tracking-[0.3em] text-white/35">Stage 1 shell</div>
-        </div>
+        <div className="forma-header-wordmark font-display text-[32px] font-bold tracking-[-0.04em] text-[#f4dfb4]">Forma</div>
       </div>
 
-      <nav className="space-y-2">
-        {navigationItems.map((item, index) => {
-          const Icon = icons[index]
+      <nav aria-label="Основная навигация" className="forma-header-nav flex flex-wrap justify-center gap-2">
+        {navigationItems.map((item) => {
+          const Icon = navigationIcons[item.path]
 
           return (
             <NavLink
@@ -71,54 +81,86 @@ export function LeftNavigationMenu() {
               to={item.path}
               className={({ isActive }) =>
                 cn(
-                  'flex min-h-14 items-center gap-3 rounded-2xl border px-4 text-sm font-medium transition',
+                  'flex min-h-14 items-center gap-3 rounded-2xl border px-4 text-base font-medium transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f4dfb4]',
                   isActive
                     ? 'border-[#d9ba71]/60 bg-[#d9ba71]/8 text-white shadow-[0_0_0_1px_rgba(217,186,113,0.1)]'
                     : 'border-transparent bg-transparent text-white/65 hover:border-white/10 hover:bg-white/4 hover:text-white',
                 )
               }
             >
-              <Icon className="h-5 w-5" />
+              <Icon className="h-5 w-5" aria-hidden="true" />
               {item.label}
             </NavLink>
           )
         })}
       </nav>
-    </aside>
+      <div className="forma-header-side">
+        <Popover.Root open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
+          <Popover.Trigger asChild>
+            <button type="button" aria-label={`Меню профиля: ${userName}`} className="flex min-h-14 items-center gap-3 rounded-2xl border border-white/15 px-3 text-white hover:bg-white/6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f4dfb4]">
+              <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-full bg-[#d6b05f]/20 text-xl font-bold text-[#f4dfb4]">{userName.trim().charAt(0)}</span>
+              <ChevronDown className="h-5 w-5" aria-hidden="true" />
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal>
+            <Popover.Content aria-label="Профиль и настройки" align="end" sideOffset={12} className="z-40 w-72 rounded-2xl border border-white/15 bg-[#111925] p-3 text-white shadow-2xl">
+              <div className="px-4 py-3 text-lg font-semibold">{userName}</div>
+              <nav aria-label="Меню пользователя" className="space-y-2">
+                {[
+                  { path: '/profile', label: 'Профиль', icon: UserRound },
+                  { path: '/settings', label: 'Настройки', icon: Settings },
+                ].map((item) => (
+                  <NavLink key={item.path} to={item.path} onClick={() => setProfileMenuOpen(false)} className="flex min-h-14 items-center gap-3 rounded-xl px-4 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-[#f4dfb4]">
+                    <item.icon className="h-5 w-5" aria-hidden="true" />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </nav>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
+        {systemBar}
+      </div>
+    </header>
   )
 }
 
 export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onStop: () => void }) {
   const problems = machine ? getMachineProblems(machine) : []
+  const connectionStatus = useHardwareStore((state) => state.connectionStatus)
+  const connectionLost = connectionStatus === 'error' || connectionStatus === 'disconnected'
+  const target = useSafetyDockTarget()
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const urgentProblem = machine?.safety === 'emergency_stop' ? getSafetyLabel(machine.safety) : problems.find((problem) => problem.tone === 'danger')?.label
+  const status = urgentProblem ?? (connectionLost ? 'Нет связи с тренажёром' : problems[0]?.label ?? machine?.machineLabel ?? 'Статус тренажёра неизвестен')
 
-  return (
-    <header className="pointer-events-none fixed right-3 bottom-2 z-50 xl:right-4 xl:bottom-3">
-      <div className="flex max-w-[calc(100vw-1.5rem)] items-end justify-end gap-3 xl:max-w-[calc(100vw-18rem)]">
-        {problems.length > 0 ? (
-          <div className="pointer-events-auto flex max-w-[min(58vw,560px)] flex-wrap justify-end gap-2">
-            {problems.map((problem) => (
-              <NavLink
-                key={problem.label}
-                to="/settings?tab=mechanics"
-                className={cn(
-                  'inline-flex min-h-12 items-center rounded-2xl border px-4 py-2 text-sm font-semibold leading-5 backdrop-blur transition',
-                  problem.tone === 'danger'
-                    ? 'border-[#ff9589]/45 bg-[#62221f]/80 text-[#ffd0ca] hover:bg-[#79302b]/85'
-                    : 'border-[#f0d08c]/45 bg-[#5b4821]/80 text-[#f8df9e] hover:bg-[#6f5927]/85',
-                )}
-                title="Открыть Настройки, вкладка Приводы и ШВП"
-              >
-                {problem.label}
-              </NavLink>
-            ))}
-          </div>
-        ) : null}
-        <div className="pointer-events-auto shrink-0">
-          <EmergencyStopButton onClick={onStop} />
-        </div>
+  const dock = (
+    <div role="group" className="forma-system-dock" style={{ pointerEvents: 'auto' }} aria-label="Состояние тренажёра и безопасность">
+      <div className="forma-machine-status">
+        <Popover.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <Popover.Trigger asChild>
+            <button type="button" className="forma-machine-status-button" aria-label={`Состояние тренажёра: ${status}`}>
+              <span aria-hidden="true" className={cn('h-3 w-3 shrink-0 rounded-full', urgentProblem ? 'bg-red-500' : connectionLost || problems.length || !machine ? 'bg-amber-500' : 'bg-emerald-500')} />
+              <span role="status" className="forma-machine-status-text">{status}</span>
+              <ChevronDown aria-hidden="true" className="h-5 w-5 shrink-0" />
+            </button>
+          </Popover.Trigger>
+          <Popover.Portal container={target ?? undefined}>
+            <Popover.Content side="bottom" align="end" sideOffset={12} className="z-[110] max-h-[50vh] w-[min(90vw,32rem)] overflow-auto rounded-2xl border border-white/15 bg-[#111925] p-5 text-white shadow-2xl">
+              <div className="font-semibold">Состояние тренажёра</div>
+              {connectionLost ? <p className="mt-3 text-sm text-amber-500">Нет связи. Последние полученные данные могут быть неактуальны.</p> : null}
+              <ul className="mt-3 space-y-3 text-sm">
+                {(problems.length ? problems.map((problem) => problem.label) : [status, ...(machine ? [getSafetyLabel(machine.safety), getDriveLabel('left', machine.leftDrive), getDriveLabel('right', machine.rightDrive)] : [])]).map((label) => <li key={label}>{label}</li>)}
+              </ul>
+            </Popover.Content>
+          </Popover.Portal>
+        </Popover.Root>
       </div>
-    </header>
+      <EmergencyStopButton onClick={onStop} />
+    </div>
   )
+
+  return target ? createPortal(dock, target) : dock
 }
 
 export function EmergencyStopButton({ onClick }: { onClick: () => void }) {
@@ -126,22 +168,24 @@ export function EmergencyStopButton({ onClick }: { onClick: () => void }) {
     <button
       type="button"
       onClick={onClick}
-      className="sand-glow inline-flex min-h-16 items-center justify-center gap-3 rounded-[24px] bg-linear-to-r from-[#891610] via-[#d52f22] to-[#a61612] px-8 text-lg font-extrabold tracking-[0.12em] text-white"
+      className="forma-stop inline-flex items-center justify-center gap-2 bg-linear-to-r from-[#891610] via-[#d52f22] to-[#a61612] font-extrabold text-white"
     >
-      <OctagonAlert className="h-6 w-6" />
-      Аварийная остановка
+      <OctagonAlert className="h-6 w-6" aria-hidden="true" />
+      <span>Аварийная остановка</span>
     </button>
   )
 }
 
-export function FormaShell({ children, machine, onStop, hideNavigation = false }: PropsWithChildren<{ userName: string; machine: MachineHealth; onStop: () => void; hideNavigation?: boolean }>) {
+export function FormaShell({ children, userName, machine, onStop, hideNavigation = false }: PropsWithChildren<{ userName: string; machine: MachineHealth; onStop: () => void; hideNavigation?: boolean }>) {
   const liveMachine = useHardwareStore((state) => state.snapshot?.machine)
+  const systemBar = <TopSystemBar machine={liveMachine ?? machine} onStop={onStop} />
 
   return (
-    <div className="flex min-h-screen w-full gap-6 px-4 py-4 xl:px-6">
-      {hideNavigation ? null : <LeftNavigationMenu />}
-      <main className="flex-1 space-y-6 pb-24 xl:pb-28">
-        <TopSystemBar machine={liveMachine ?? machine} onStop={onStop} />
+    <div className="forma-shell">
+      {hideNavigation
+        ? <header className="forma-navigation forma-navigation-compact">{systemBar}</header>
+        : <TopNavigationMenu key={userName} userName={userName} systemBar={systemBar} />}
+      <main className="forma-main">
         {children}
       </main>
     </div>

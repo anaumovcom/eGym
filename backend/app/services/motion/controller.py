@@ -1,0 +1,1119 @@
+"""Motion controller: turns telemetry + parameters + intent into drive commands.
+
+Runs every control tick (10–20 ms) on top of a :class:`DriveAdapter`.  Every
+rule from the mechanics backlog that can be expressed in software lives here:
+compensations, load modes, synchronisation, rep detection, spotter, limits,
+start/park/fixed-position logic and safety reactions.
+"""
+
+from __future__ import annotations
+
+import math
+from collections import deque
+from dataclasses import dataclass, field
+from enum import StrEnum
+from typing import Any, Literal
+
+from app.services.motion.adapter import SIDES, AdapterTelemetry, DriveCommand, SelfTestResult, Side, SideCommand
+from app.services.motion.parameters import MotionParameters
+
+G_MM_S2 = 9810.0
+
+LoadMode = Literal[
+    "normal_weight",
+    "assist_up",
+    "negative_phase",
+    "light_mode",
+    "isokinetic",
+    "bodyweight",
+    "no_machine",
+    "fixed_position",
+    "isometric",
+]
+StartPoint = Literal["lower", "upper", "custom"]
+RepCountSource = Literal["motion", "load", "manual", "timer"]
+
+
+class ControlMode(StrEnum):
+    idle = "idle"
+    post = "post"
+    homing = "homing"
+    moving = "moving"
+    weightless = "weightless"
+    start_hold = "start_hold"
+    training = "training"
+    fixed_hold = "fixed_hold"
+    isometric = "isometric"
+    paused = "paused"
+    parked = "parked"
+    estop = "estop"
+    fault = "fault"
+
+
+@dataclass
+class TrainingConfig:
+    lower_mm: float = 640.0
+    upper_mm: float = 1320.0
+    start_point: StartPoint = "lower"
+    start_custom_mm: float | None = None
+    load_kg: float = 20.0
+    load_mode: LoadMode = "normal_weight"
+    target_reps: int = 10
+    target_set: int = 1
+    warmup: bool = False
+    guest: bool = False
+    asymmetric_allowed: bool = False
+    rep_count_source: RepCountSource = "motion"
+    fixed_position_mm: float | None = None
+    isometric_position_mm: float | None = None
+    isometric_duration_s: float = 20.0
+    motion_profile: str = "training"
+    calibration_id: int | None = None
+
+    @property
+    def start_mm(self) -> float:
+        if self.start_point == "upper":
+            return self.upper_mm
+        if self.start_point == "custom" and self.start_custom_mm is not None:
+            return self.start_custom_mm
+        return self.lower_mm
+
+    @property
+    def far_mm(self) -> float:
+        return self.lower_mm if self.start_point == "upper" else self.upper_mm
+
+    @property
+    def range_mm(self) -> float:
+        return max(1.0, self.upper_mm - self.lower_mm)
+
+
+@dataclass
+class MoveRequest:
+    target_mm: float
+    profile: str
+    then: ControlMode
+    label: str
+    obstacle_check: bool = True
+
+
+@dataclass
+class ControllerEvent:
+    time: float
+    kind: str
+    message: str
+    payload: dict[str, Any] = field(default_factory=dict)
+
+    def to_payload(self) -> dict[str, Any]:
+        return {"time": round(self.time, 3), "kind": self.kind, "message": self.message, **self.payload}
+
+
+@dataclass
+class ControllerState:
+    mode: ControlMode = ControlMode.post
+    mode_since: float = 0.0
+    label: str = "Самотест"
+    message: str = ""
+    time: float = 0.0
+    # kinematics
+    position_mm: float = 860.0
+    velocity_mm_s: float = 0.0
+    acceleration_mm_s2: float = 0.0
+    direction: str = "up"
+    moving: bool = False
+    amplitude_percent: int = 0
+    # user / load
+    user_force_kg: float = 0.0
+    user_force_left_kg: float = 0.0
+    user_force_right_kg: float = 0.0
+    load_target_kg: float = 0.0
+    load_effective_kg: float = 0.0
+    components: dict[str, float] = field(default_factory=dict)
+    # reps
+    repetition_count: int = 0
+    partial_reps: int = 0
+    concentric_s: float = 0.0
+    eccentric_s: float = 0.0
+    tempo_label: str = "—"
+    target_reached: bool = False
+    rep_quality: float = 0.0
+    # sync
+    sync_delta_mm: float = 0.0
+    sync_status: str = "norm"
+    asymmetry_percent: float = 0.0
+    # detection
+    grip_detected: bool = False
+    released: bool = False
+    stall_s: float = 0.0
+    spotter_active: bool = False
+    failure_detected: bool = False
+    still_ms: float = 0.0
+    # readiness
+    post_status: str = "pending"
+    post_results: list[dict[str, Any]] = field(default_factory=list)
+    homed: bool = False
+    position_known: bool = False
+    heartbeat_ok: bool = True
+    comm_ok: bool = True
+    power_ok: bool = True
+    brake_engaged: bool = True
+    fixed_hold_test_passed: bool = False
+    fixed_drift_mm: float = 0.0
+    isometric_elapsed_s: float = 0.0
+    move_target_mm: float | None = None
+    move_progress_percent: int = 0
+    alerts: list[str] = field(default_factory=list)
+    fault_code: str | None = None
+    tick_latency_ms: float = 0.0
+    missed_ticks: int = 0
+    idle_s: float = 0.0
+    # counters
+    travel_mm_total: float = 0.0
+    cycles_total: int = 0
+    loaded_seconds_total: float = 0.0
+
+
+class MotionController:
+    def __init__(self, parameters: MotionParameters) -> None:
+        self.params = parameters
+        self.state = ControllerState()
+        self.config = TrainingConfig()
+        self.events: deque[ControllerEvent] = deque(maxlen=400)
+        self._move: MoveRequest | None = None
+        self._prev_velocity = 0.0
+        self._filtered_force = 0.0
+        self._filtered_force_left = 0.0
+        self._filtered_force_right = 0.0
+        self._filtered_velocity = 0.0
+        self._load_ramp_kg = 0.0
+        self._rep_armed = False
+        self._excursion_min = 0.0
+        self._excursion_max = 0.0
+        self._phase_started = 0.0
+        self._last_direction_sign = 0
+        self._release_s = 0.0
+        self._obstacle_s = 0.0
+        self._hold_position_mm: float | None = None
+        self._isokinetic_load = 0.0
+        self._prev_torque: dict[Side, float] = {"left": 0.0, "right": 0.0}
+        self._prev_mode: dict[Side, str] = {"left": "brake", "right": "brake"}
+        self._load_peak_state = 0
+        self._rep_started_at = 0.0
+        self._estop_requested = False
+        self._pending_self_test: list[SelfTestResult] | None = None
+        self._homing_stage = 0
+        self._last_alert_time = 0.0
+        self._loaded_active = False
+        self._move_start_mm = 0.0
+        self._drift_s = 0.0
+        self._last_sync_correction: dict[Side, float] = {"left": 0.0, "right": 0.0}
+
+    # ------------------------------------------------------------------ intents
+    def request_post(self, results: list[SelfTestResult]) -> None:
+        self._pending_self_test = results
+        self._enter(ControlMode.post, "Самотест", "Проверка связи, тормозов, концевиков и температуры.")
+
+    def request_homing(self) -> None:
+        self._homing_stage = 0
+        self._enter(ControlMode.homing, "Homing", "Поиск нулевой позиции на низкой скорости.")
+
+    def request_move(self, target_mm: float, *, profile: str, then: ControlMode, label: str, obstacle_check: bool = True) -> None:
+        target = self._clamp_soft(target_mm)
+        self._move = MoveRequest(target, profile, then, label, obstacle_check)
+        self.state.move_target_mm = target
+        self._enter(ControlMode.moving, label, f"Перемещение к {target:.0f} мм, профиль {profile}.")
+
+    def request_weightless(self) -> None:
+        self.state.still_ms = 0.0
+        self._enter(ControlMode.weightless, "Невесомый гриф", "Гриф скомпенсирован — переместите его рукой в нужную точку.")
+
+    def request_start_hold(self, config: TrainingConfig) -> None:
+        self.config = config
+        self._reset_set_counters()
+        self.state.grip_detected = False
+        self._hold_position_mm = config.start_mm
+        self._enter(ControlMode.start_hold, "Ожидание захвата", "Возьмитесь за гриф — движение начнётся автоматически.")
+
+    def request_training(self, config: TrainingConfig) -> None:
+        self.config = config
+        self._reset_set_counters()
+        self.state.grip_detected = True
+        if config.load_mode == "fixed_position":
+            self._hold_position_mm = config.fixed_position_mm if config.fixed_position_mm is not None else self.state.position_mm
+            self.state.fixed_hold_test_passed = False
+            self._enter(ControlMode.fixed_hold, "Фиксированная позиция", "Гриф жёстко удерживается на заданной высоте.")
+            return
+        if config.load_mode == "isometric":
+            self._hold_position_mm = config.isometric_position_mm if config.isometric_position_mm is not None else self.state.position_mm
+            self.state.isometric_elapsed_s = 0.0
+            self._enter(ControlMode.isometric, "Изометрия", "Удерживайте гриф — нагрузка приложена.")
+            return
+        self._enter(ControlMode.training, "Движение выполняется", "Безопасный профиль движения активен.")
+
+    def request_pause(self) -> None:
+        self._hold_position_mm = self.state.position_mm
+        self._enter(ControlMode.paused, "Пауза", "Гриф удерживается на месте.")
+
+    def request_resume(self) -> None:
+        if self.config.load_mode == "fixed_position":
+            self._enter(ControlMode.fixed_hold, "Фиксированная позиция", "Удержание продолжается.")
+        elif self.config.load_mode == "isometric":
+            self._enter(ControlMode.isometric, "Изометрия", "Удержание продолжается.")
+        else:
+            self.state.spotter_active = False
+            self.state.failure_detected = False
+            self._enter(ControlMode.training, "Движение выполняется", "Продолжайте подход.")
+
+    def request_hold(self, label: str = "Удержание", message: str = "Гриф удерживается на месте.") -> None:
+        self._hold_position_mm = self.state.position_mm
+        self._enter(ControlMode.paused, label, message)
+
+    def request_park(self) -> None:
+        park = float(self.params.get("start.parkPositionMm"))
+        self.request_move(park, profile="return", then=ControlMode.parked, label="Парковка")
+
+    def request_idle(self) -> None:
+        self._enter(ControlMode.idle, "Тренажёр готов", "Приводы в удержании.")
+
+    def request_emergency_stop(self) -> None:
+        self._estop_requested = True
+        self._enter(ControlMode.estop, "СТОП активирован", "Аварийная остановка активна. Любое движение заблокировано.")
+
+    def clear_emergency_stop(self) -> None:
+        self._estop_requested = False
+        self._hold_position_mm = self.state.position_mm
+        self._enter(ControlMode.paused, "СТОП снят", "Приводы в удержании. Проверьте синхронность и продолжайте.")
+
+    def set_load(self, load_kg: float) -> None:
+        self.config.load_kg = self._clamp_load(load_kg)
+        self._emit("load_change", f"Нагрузка изменена: {self.config.load_kg:.1f} кг")
+
+    def manual_rep(self) -> None:
+        self.state.repetition_count += 1
+        self._emit("rep", f"Повтор {self.state.repetition_count} (вручную)")
+        self._check_target()
+
+    def complete_set(self) -> None:
+        self.state.cycles_total += 1
+        self._hold_position_mm = self.state.position_mm
+        self._enter(ControlMode.paused, "Подход завершён", "Нагрузка снята, гриф удерживается.")
+
+    def mark_position_captured(self, which: str) -> float:
+        self._emit("capture", f"Зафиксирована точка: {which} = {self.state.position_mm:.1f} мм", {"which": which, "positionMm": self.state.position_mm})
+        return self.state.position_mm
+
+    # -------------------------------------------------------------------- tick
+    def tick(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        state = self.state
+        state.time += dt
+        self._update_kinematics(telemetry, dt)
+        self._update_safety(telemetry, dt)
+        self._update_sync(telemetry)
+        self._estimate_user_force(telemetry, dt)
+
+        if self._estop_requested or telemetry.physical_estop:
+            if state.mode != ControlMode.estop:
+                self._enter(ControlMode.estop, "СТОП активирован", "Аварийная остановка активна.")
+            return self._brake_command()
+
+        if state.mode == ControlMode.fault:
+            return self._brake_command()
+
+        handler = {
+            ControlMode.idle: self._tick_idle,
+            ControlMode.post: self._tick_post,
+            ControlMode.homing: self._tick_homing,
+            ControlMode.moving: self._tick_moving,
+            ControlMode.weightless: self._tick_weightless,
+            ControlMode.start_hold: self._tick_start_hold,
+            ControlMode.training: self._tick_training,
+            ControlMode.fixed_hold: self._tick_fixed_hold,
+            ControlMode.isometric: self._tick_isometric,
+            ControlMode.paused: self._tick_paused,
+            ControlMode.parked: self._tick_idle,
+            ControlMode.estop: lambda _t, _d: self._brake_command(),
+        }[state.mode]
+        command = handler(telemetry, dt)
+        self._apply_torque_rate_limit(command, dt)
+        state.brake_engaged = command.left.mode == "brake" and command.right.mode == "brake"
+        state.moving = abs(state.velocity_mm_s) > float(self.params.get("detection.stallSpeedMmPerSec"))
+        self._update_counters(dt)
+        return command
+
+    # ------------------------------------------------------------- estimators
+    def _update_kinematics(self, telemetry: AdapterTelemetry, dt: float) -> None:
+        state = self.state
+        alpha = self._alpha(float(self.params.get("regulator.velocityFilterHz")), dt)
+        raw_velocity = telemetry.bar_velocity_mm_s
+        self._filtered_velocity += alpha * (raw_velocity - self._filtered_velocity)
+        acceleration = (self._filtered_velocity - self._prev_velocity) / dt if dt > 0 else 0.0
+        self._prev_velocity = self._filtered_velocity
+        state.acceleration_mm_s2 += 0.5 * (acceleration - state.acceleration_mm_s2)
+        state.velocity_mm_s = round(self._filtered_velocity, 2)
+        previous_position = state.position_mm
+        state.position_mm = round(telemetry.bar_position_mm, 2)
+        state.travel_mm_total += abs(state.position_mm - previous_position)
+        stall_speed = float(self.params.get("detection.stallSpeedMmPerSec"))
+        if state.velocity_mm_s > stall_speed:
+            state.direction = "up"
+        elif state.velocity_mm_s < -stall_speed:
+            state.direction = "down"
+        if abs(state.velocity_mm_s) < stall_speed:
+            state.still_ms += dt * 1000
+        else:
+            state.still_ms = 0.0
+        lower, upper = self.config.lower_mm, self.config.upper_mm
+        state.amplitude_percent = int(max(0, min(100, round((state.position_mm - lower) / max(1.0, upper - lower) * 100))))
+
+    def _update_safety(self, telemetry: AdapterTelemetry, dt: float) -> None:
+        state = self.state
+        alerts: list[str] = []
+        state.heartbeat_ok = telemetry.heartbeat_ok
+        state.power_ok = telemetry.power_ok
+        state.comm_ok = telemetry.left.connected and telemetry.right.connected
+        state.homed = telemetry.left.homed and telemetry.right.homed
+        encoder_incremental = self.params.get("screw.encoderType") == "incremental"
+        state.position_known = state.homed or (not encoder_incremental and state.power_ok)
+        current_warn = float(self.params.get("safety.currentWarnA"))
+        current_max = float(self.params.get("safety.currentMaxA"))
+        temp_warn = float(self.params.get("safety.tempWarnC"))
+        temp_max = float(self.params.get("safety.tempMaxC"))
+        fault: str | None = None
+        for side in SIDES:
+            side_t = telemetry.side(side)
+            name = "Левый" if side == "left" else "Правый"
+            if not side_t.connected:
+                fault = fault or f"{name} привод: {side_t.error_message or 'нет связи'} ({side_t.error_code or 'E-COMM'})"
+            if side_t.current_a >= current_max:
+                fault = fault or f"{name} привод: ток {side_t.current_a:.1f} А выше предела"
+            elif side_t.current_a >= current_warn:
+                alerts.append(f"{name} привод: высокий ток {side_t.current_a:.1f} А")
+            if side_t.temperature_c >= temp_max:
+                fault = fault or f"{name} привод: перегрев {side_t.temperature_c:.0f} °C"
+            elif side_t.temperature_c >= temp_warn:
+                alerts.append(f"{name} привод: температура {side_t.temperature_c:.0f} °C")
+        if not telemetry.power_ok:
+            fault = fault or "Пропадание питания приводов — тормоза сработали"
+        if not telemetry.heartbeat_ok:
+            alerts.append("Heartbeat потерян — приводы в удержании")
+        if not state.position_known and state.mode not in {ControlMode.post, ControlMode.homing, ControlMode.fault, ControlMode.estop}:
+            alerts.append("Позиция не определена — требуется homing")
+        if fault and state.mode not in {ControlMode.estop, ControlMode.fault}:
+            self._fault(fault)
+        elif state.mode == ControlMode.fault and not fault and state.comm_ok and state.power_ok:
+            pass  # cleared explicitly via reset_fault
+        state.alerts = alerts
+
+    def _update_sync(self, telemetry: AdapterTelemetry) -> None:
+        state = self.state
+        delta = telemetry.sync_delta_mm
+        state.sync_delta_mm = round(abs(delta), 2)
+        norm = float(self.params.get("sync.normMm"))
+        warn = float(self.params.get("sync.warningMm"))
+        crit = float(self.params.get("sync.criticalMm"))
+        if state.sync_delta_mm <= norm:
+            state.sync_status = "norm"
+        elif state.sync_delta_mm <= warn:
+            state.sync_status = "ok"
+        elif state.sync_delta_mm <= crit:
+            state.sync_status = "warning"
+        else:
+            state.sync_status = "critical"
+        if state.sync_status == "warning":
+            state.alerts.append(f"Рассинхрон сторон {state.sync_delta_mm:.1f} мм")
+        if state.sync_status == "critical" and state.mode in {ControlMode.training, ControlMode.moving, ControlMode.weightless, ControlMode.start_hold, ControlMode.homing}:
+            action = str(self.params.get("sync.desyncAction"))
+            self._emit("desync", f"Критический рассинхрон {state.sync_delta_mm:.1f} мм → {action}")
+            if action == "estop":
+                self.request_emergency_stop()
+            elif action == "hold":
+                self.request_hold("Перекос грифа", f"Рассинхрон {state.sync_delta_mm:.1f} мм. Гриф удержан, выровняйте стороны.")
+            # 'slow' handled in load/velocity scaling via _slow_factor()
+
+    def _estimate_user_force(self, telemetry: AdapterTelemetry, dt: float) -> None:
+        """F_user = m_eff·a/g + m·g_comp − F_drives + friction·sign(v)  (all in kg-equivalent)."""
+
+        state = self.state
+        mass = self._bar_mass()
+        inertial = float(self.params.get("compensation.equivalentMassKg"))
+        friction = float(self.params.get("compensation.frictionUpKg")) if state.velocity_mm_s > 0 else float(self.params.get("compensation.frictionDownKg"))
+        sign = 0.0 if abs(state.velocity_mm_s) < 1 else math.copysign(1.0, state.velocity_mm_s)
+        drives = telemetry.total_force_kg
+        raw = (mass + inertial) * state.acceleration_mm_s2 / G_MM_S2 + mass - drives + friction * sign
+        if sign == 0.0:
+            # at rest static friction hides up to ±friction of user force: apply a dead-zone
+            static = (float(self.params.get("compensation.frictionUpKg")) + float(self.params.get("compensation.frictionDownKg"))) / 2
+            raw = math.copysign(max(0.0, abs(raw) - static), raw)
+        alpha = self._alpha(float(self.params.get("load.forceFilterHz")), dt)
+        self._filtered_force += alpha * (raw - self._filtered_force)
+        state.user_force_kg = round(self._filtered_force, 2)
+        for side, attr in (("left", "_filtered_force_left"), ("right", "_filtered_force_right")):
+            side_t = telemetry.side(side)
+            raw_side = (mass + inertial) / 2 * state.acceleration_mm_s2 / G_MM_S2 + mass / 2 - side_t.force_kg + friction / 2 * sign
+            setattr(self, attr, getattr(self, attr) + alpha * (raw_side - getattr(self, attr)))
+        state.user_force_left_kg = round(self._filtered_force_left, 2)
+        state.user_force_right_kg = round(self._filtered_force_right, 2)
+        total = abs(state.user_force_left_kg) + abs(state.user_force_right_kg)
+        state.asymmetry_percent = round(abs(state.user_force_left_kg - state.user_force_right_kg) / total * 100, 1) if total > 2 else 0.0
+        if (
+            state.mode == ControlMode.training
+            and not self.config.asymmetric_allowed
+            and state.asymmetry_percent > float(self.params.get("sync.asymmetryTolerancePercent"))
+        ):
+            state.alerts.append(f"Асимметрия усилий {state.asymmetry_percent:.0f} %")
+
+    # ---------------------------------------------------------------- modes
+    def _tick_idle(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        self.state.idle_s += dt
+        return self._brake_command()
+
+    def _tick_post(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        state = self.state
+        if self._pending_self_test is not None:
+            results = self._pending_self_test
+            self._pending_self_test = None
+            state.post_results = [
+                {"id": item.id, "label": item.label, "passed": item.passed, "detail": item.detail, "severity": item.severity}
+                for item in results
+            ]
+            failed_critical = [item for item in results if not item.passed and item.severity == "critical"]
+            state.post_status = "failed" if failed_critical else "passed"
+            self._emit("post", "Самотест пройден" if not failed_critical else f"Самотест не пройден: {failed_critical[0].label}")
+            if failed_critical:
+                self._fault(f"POST: {failed_critical[0].label} — {failed_critical[0].detail}")
+            elif not state.homed and bool(self.params.get("safety.homingRequiredAfterPowerLoss")):
+                self.request_homing()
+            else:
+                self.request_idle()
+        return self._brake_command()
+
+    def _tick_homing(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        state = self.state
+        speed = float(self.params.get("profile.calibration.speedMmPerSec"))
+        limit = self._torque_percent_to_kg(float(self.params.get("profile.calibration.torqueLimitPercent")))
+        both_low = telemetry.left.limit_switch_low and telemetry.right.limit_switch_low
+        if self._homing_stage == 0:
+            if both_low:
+                self._homing_stage = 1
+                self._emit("home", "Концевики достигнуты, нулевая позиция установлена")
+                return self._brake_command()
+            command = self._velocity_command(-speed, limit, feedforward=self._gravity_comp_per_side())
+            self._check_obstacle(telemetry, dt, limit)
+            return command
+        # stage 1: adapter.home() is invoked by runtime when it sees homing_stage == 1; then move to park
+        if state.homed:
+            self._homing_stage = 2
+            self.request_move(float(self.params.get("start.parkPositionMm")), profile="return", then=ControlMode.idle, label="Выход из нуля")
+        return self._brake_command()
+
+    @property
+    def homing_ready_to_zero(self) -> bool:
+        return self.state.mode == ControlMode.homing and self._homing_stage == 1
+
+    def _tick_moving(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        state = self.state
+        move = self._move
+        if move is None:
+            return self._brake_command()
+        speed_max = float(self.params.get(f"profile.{move.profile}.speedMmPerSec")) * self._slow_factor()
+        accel = float(self.params.get(f"profile.{move.profile}.accelMmPerSec2"))
+        limit = self._torque_percent_to_kg(float(self.params.get(f"profile.{move.profile}.torqueLimitPercent")))
+        remaining = move.target_mm - state.position_mm
+        distance = abs(remaining)
+        total = max(1.0, abs(move.target_mm - self._move_start_mm))
+        state.move_progress_percent = int(max(0, min(100, 100 - distance / total * 100)))
+        if distance <= 1.5 and abs(state.velocity_mm_s) < 15:
+            state.move_target_mm = None
+            self._emit("arrived", f"{move.label}: позиция {state.position_mm:.0f} мм достигнута")
+            next_mode = move.then
+            self._move = None
+            if next_mode == ControlMode.start_hold:
+                self._hold_position_mm = self.config.start_mm
+                self._enter(ControlMode.start_hold, "Ожидание захвата", "Возьмитесь за гриф — движение начнётся автоматически.")
+            elif next_mode == ControlMode.fixed_hold:
+                self._hold_position_mm = move.target_mm
+                state.fixed_hold_test_passed = False
+                self._enter(ControlMode.fixed_hold, "Фиксированная позиция", "Проверка удержания перед стартом.")
+            elif next_mode == ControlMode.parked:
+                self._enter(ControlMode.parked, "Гриф запаркован", "Приводы в удержании, тренажёр готов к следующему упражнению.")
+            elif next_mode == ControlMode.weightless:
+                self.request_weightless()
+            elif next_mode == ControlMode.paused:
+                self._hold_position_mm = move.target_mm
+                self._enter(ControlMode.paused, "Показ диапазона завершён", "Диапазон подтверждён, гриф удерживается.")
+            else:
+                self.request_idle()
+            return self._position_command(move.target_mm, limit)
+        # trapezoidal profile: v = min(vmax, sqrt(2·a·d))
+        v_target = math.copysign(min(speed_max, math.sqrt(2 * accel * distance)), remaining)
+        v_cmd = self._ramp_velocity(v_target, accel, dt)
+        if move.obstacle_check:
+            self._check_obstacle(telemetry, dt, limit)
+        return self._velocity_command(v_cmd, limit, feedforward=self._gravity_comp_per_side())
+
+    def _tick_weightless(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        state = self.state
+        damping = float(self.params.get("regulator.calibrationDampingKgPerMmPerSec"))
+        max_speed = float(self.params.get("regulator.calibrationMaxSpeedMmPerSec"))
+        if abs(state.velocity_mm_s) > max_speed:
+            damping *= 3
+        drift_limit = float(self.params.get("regulator.weightlessMaxDriftMmPerSec"))
+        release_force = float(self.params.get("detection.releaseForceKg"))
+        settled = (state.time - state.mode_since) > 0.4
+        if settled and abs(state.velocity_mm_s) > drift_limit and abs(state.user_force_kg) < release_force:
+            self._drift_s += dt
+        else:
+            self._drift_s = 0.0
+        if self._drift_s >= 0.5:
+            self._drift_s = 0.0
+            self._emit("drift", f"Дрейф невесомого грифа {state.velocity_mm_s:.0f} мм/с → удержание")
+            self.request_hold("Дрейф грифа", "Гриф уходил без усилия пользователя — переведён в удержание.")
+            return self._position_command(state.position_mm, self._capacity_per_side())
+        base = self._compensation_per_side(dt)
+        viscous = -damping * state.velocity_mm_s / 2
+        bumper = self._soft_bumper_per_side()
+        components = {"gravity": base["gravity"] * 2, "friction": base["friction"] * 2, "inertia": base["inertia"] * 2, "damping": viscous * 2, "bumper": bumper * 2, "load": 0.0, "sync": 0.0, "spotter": 0.0}
+        force = base["total"] + viscous + bumper
+        state.components = {key: round(value, 2) for key, value in components.items()}
+        limit = self._torque_percent_to_kg(float(self.params.get("profile.calibration.torqueLimitPercent"))) + self._gravity_comp_per_side()
+        return self._torque_command(force, limit, sync=True)
+
+    def _tick_start_hold(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        state = self.state
+        hold_at = self._hold_position_mm if self._hold_position_mm is not None else self.config.start_mm
+        tolerance = float(self.params.get("start.holdToleranceMm"))
+        grip_delta = float(self.params.get("start.gripDetectDeltaMm"))
+        grip_force = float(self.params.get("start.gripDetectForceKg"))
+        pretension = float(self.params.get("start.holdTorquePercent"))
+        if abs(state.position_mm - hold_at) > grip_delta or abs(state.user_force_kg) > grip_force:
+            state.grip_detected = True
+            self._emit("grip", f"Захват грифа обнаружен (усилие {state.user_force_kg:.1f} кг)")
+            self._phase_started = state.time
+            self._rep_armed = True
+            self._excursion_min = self._excursion_max = state.position_mm
+            self._enter(ControlMode.training, "Движение выполняется", "Безопасный профиль движения активен.")
+            return self._tick_training(telemetry, dt)
+        elapsed = state.time - state.mode_since
+        if elapsed > float(self.params.get("start.holdTimeoutSec")):
+            self._emit("timeout", "Захват не обнаружен — гриф паркуется")
+            self.request_park()
+            return self._brake_command()
+        limit = max(self._gravity_comp_per_side() + 1.0, self._torque_percent_to_kg(pretension))
+        state.components = {"gravity": self._gravity_comp_per_side() * 2, "pretension": pretension}
+        if abs(state.position_mm - hold_at) > tolerance:
+            state.alerts.append("Гриф вне стартовой точки")
+        return self._position_command(hold_at, limit)
+
+    def _tick_training(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        state = self.state
+        config = self.config
+        if config.load_mode in {"bodyweight", "no_machine"}:
+            return self._position_command(state.position_mm, self._capacity_per_side())
+
+        target_load = self._target_load_kg()
+        state.load_target_kg = round(target_load, 2)
+        rate = float(self.params.get("load.changeRateKgPerSec"))
+        ramp_in = float(self.params.get("load.rampInSec"))
+        since = state.time - state.mode_since
+        ramp_cap = target_load if ramp_in <= 0 else target_load * min(1.0, since / ramp_in)
+        step = rate * dt
+        desired = min(target_load, ramp_cap)
+        if self._load_ramp_kg < desired:
+            self._load_ramp_kg = min(desired, self._load_ramp_kg + step)
+        else:
+            self._load_ramp_kg = max(desired, self._load_ramp_kg - step)
+
+        direction_factor = self._direction_factor()
+        curve_factor = self._curve_factor()
+        load = self._load_ramp_kg * direction_factor * curve_factor * self._slow_factor()
+
+        # isokinetic: adapt load to keep concentric speed constant
+        if config.load_mode == "isokinetic":
+            v_target = float(self.params.get("load.isokineticSpeedMmPerSec"))
+            if state.velocity_mm_s > 0:
+                self._isokinetic_load += 0.05 * (state.velocity_mm_s - v_target) * dt * 10
+            self._isokinetic_load = max(0.0, min(self._clamp_load(float(self.params.get("load.maxKg"))), self._isokinetic_load))
+            load = self._isokinetic_load
+
+        self._detect_stall_and_failure(dt)
+        spotter = 0.0
+        if state.spotter_active:
+            spotter = load * float(self.params.get("detection.spotterAssistPercent")) / 100
+            load -= spotter
+        if state.failure_detected:
+            return self._position_command(state.position_mm, self._capacity_per_side())
+
+        self._update_reps()
+        self._update_release(dt)
+
+        base = self._compensation_per_side(dt)
+        descent_brake = self._descent_brake_per_side()
+        bumper = self._soft_bumper_per_side()
+        force_per_side = base["total"] - load / 2 + descent_brake + bumper
+        state.load_effective_kg = round(load, 2)
+        state.components = {
+            "gravity": round(base["gravity"] * 2, 2),
+            "friction": round(base["friction"] * 2, 2),
+            "inertia": round(base["inertia"] * 2, 2),
+            "load": round(-load, 2),
+            "descentBrake": round(descent_brake * 2, 2),
+            "bumper": round(bumper * 2, 2),
+            "spotter": round(spotter, 2),
+        }
+        self._loaded_active = load > 1
+        limit = self._capacity_per_side() * float(self.params.get(f"profile.{config.motion_profile if config.motion_profile in self._profiles() else 'training'}.torqueLimitPercent")) / 100
+        if config.guest:
+            limit = min(limit, self._capacity_per_side() * float(self.params.get("profile.guest.torqueLimitPercent")) / 100)
+        return self._torque_command(force_per_side, max(limit, self._gravity_comp_per_side() + 1.0), sync=True)
+
+    def _tick_fixed_hold(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        state = self.state
+        hold_at = self._hold_position_mm if self._hold_position_mm is not None else state.position_mm
+        tolerance = float(self.params.get("fixed.driftToleranceMm"))
+        state.fixed_drift_mm = round(abs(state.position_mm - hold_at), 2)
+        since = state.time - state.mode_since
+        if not state.fixed_hold_test_passed and since >= float(self.params.get("fixed.holdTestSec")):
+            if state.fixed_drift_mm <= tolerance and state.sync_status in {"norm", "ok"}:
+                state.fixed_hold_test_passed = True
+                self._emit("hold_test", "Тест удержания пройден — можно начинать")
+                state.message = "Гриф зафиксирован. Можно начинать упражнение."
+            else:
+                state.alerts.append("Тест удержания: дрейф или рассинхрон")
+        if state.fixed_drift_mm > tolerance:
+            state.alerts.append(f"Дрейф удержания {state.fixed_drift_mm:.1f} мм")
+        total_down = max(0.0, -telemetry.total_force_kg + self._bar_mass())
+        if total_down > float(self.params.get("safety.holdOverloadKg")):
+            state.alerts.append(f"Перегрузка удержания {total_down:.0f} кг")
+        if self.config.rep_count_source == "load":
+            self._count_reps_by_load()
+        limit = self._capacity_per_side() * float(self.params.get("fixed.torquePercent")) / 100
+        state.components = {"gravity": self._gravity_comp_per_side() * 2, "hold": limit * 2}
+        self._loaded_active = abs(state.user_force_kg) > 5
+        return self._position_command(hold_at, limit)
+
+    def _tick_isometric(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        state = self.state
+        hold_at = self._hold_position_mm if self._hold_position_mm is not None else state.position_mm
+        state.isometric_elapsed_s += dt
+        load = self._clamp_load(self.config.load_kg)
+        state.load_effective_kg = round(load, 2)
+        drift = abs(state.position_mm - hold_at)
+        if drift > float(self.params.get("fixed.driftToleranceMm")) * 5:
+            state.alerts.append(f"Изометрия: смещение {drift:.0f} мм")
+        if state.isometric_elapsed_s >= self.config.isometric_duration_s:
+            state.target_reached = True
+            self._emit("target", "Время изометрии выполнено")
+            self.complete_set()
+        # drive pulls down with the load; position servo only prevents runaway beyond tolerance band
+        base = self._compensation_per_side(dt)
+        force = base["total"] - load / 2 + self._descent_brake_per_side() + self._soft_bumper_per_side()
+        self._loaded_active = True
+        state.components = {"gravity": base["gravity"] * 2, "load": -load}
+        return self._torque_command(force, self._capacity_per_side(), sync=True)
+
+    def _tick_paused(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        state = self.state
+        hold_at = self._hold_position_mm if self._hold_position_mm is not None else state.position_mm
+        self._update_release(dt)
+        if state.released and (state.time - state.mode_since) > float(self.params.get("start.holdTimeoutSec")):
+            self._emit("timeout", "Гриф без пользователя — парковка")
+            self.request_park()
+            return self._brake_command()
+        state.components = {"gravity": self._gravity_comp_per_side() * 2}
+        return self._position_command(hold_at, self._capacity_per_side())
+
+    # ------------------------------------------------------------- physics
+    def _bar_mass(self) -> float:
+        return float(self.params.get("compensation.barMassKg")) + float(self.params.get("compensation.movingPartsMassKg"))
+
+    def _gravity_comp_per_side(self) -> float:
+        if not bool(self.params.get("compensation.gravityEnabled")):
+            return 0.0
+        return self._bar_mass() * float(self.params.get("compensation.gravityGain")) / 100 / 2
+
+    def _compensation_per_side(self, dt: float) -> dict[str, float]:
+        state = self.state
+        gravity = self._gravity_comp_per_side()
+        friction = 0.0
+        if bool(self.params.get("compensation.frictionEnabled")):
+            stall = float(self.params.get("detection.stallSpeedMmPerSec"))
+            blend = max(-1.0, min(1.0, state.velocity_mm_s / max(stall, 1.0)))
+            coefficient = float(self.params.get("compensation.frictionUpKg")) if blend > 0 else float(self.params.get("compensation.frictionDownKg"))
+            friction = coefficient * blend / 2
+        inertia = 0.0
+        if bool(self.params.get("compensation.inertiaEnabled")):
+            equivalent = float(self.params.get("compensation.equivalentMassKg"))
+            gain = float(self.params.get("compensation.inertiaGain")) / 100
+            cap = float(self.params.get("compensation.inertiaMaxKg"))
+            inertia = max(-cap, min(cap, equivalent * state.acceleration_mm_s2 / G_MM_S2 * gain)) / 2
+        return {"gravity": gravity, "friction": friction, "inertia": inertia, "total": gravity + friction + inertia}
+
+    def _direction_factor(self) -> float:
+        """Load multiplier by phase with an S-curve blend across the reversal (velocity → 0)."""
+
+        config = self.config
+        up_factor = 1.0
+        down_factor = 1.0
+        if config.load_mode == "assist_up":
+            up_factor = float(self.params.get("load.assistUpFactor"))
+        elif config.load_mode == "negative_phase":
+            down_factor = float(self.params.get("load.negativePhaseFactor"))
+        if config.start_point == "upper":  # pull: concentric is downward
+            up_factor, down_factor = down_factor, up_factor
+        if up_factor == down_factor:
+            return up_factor
+        zone = max(1.0, float(self.params.get("compensation.reversalZoneMm")))
+        v_ref = zone * 4  # mm/s at which the blend saturates
+        w = max(0.0, min(1.0, (self.state.velocity_mm_s / v_ref + 1) / 2))
+        w = w * w * (3 - 2 * w)
+        return down_factor + (up_factor - down_factor) * w
+
+    def _curve_factor(self) -> float:
+        curve = str(self.params.get("load.curve"))
+        depth = float(self.params.get("load.curveDepthPercent")) / 100
+        amp = self.state.amplitude_percent / 100
+        if curve == "band":
+            return 1 - depth / 2 + depth * amp
+        if curve == "chain":
+            return 1 - depth / 2 + depth * (math.floor(amp * 4) / 4)
+        if curve == "descending":
+            return 1 + depth / 2 - depth * amp
+        return 1.0
+
+    def _target_load_kg(self) -> float:
+        config = self.config
+        load = self._clamp_load(config.load_kg)
+        if config.load_mode == "light_mode":
+            load *= float(self.params.get("load.lightModeFactor"))
+        if config.warmup:
+            load *= float(self.params.get("load.warmupFactor"))
+        return load * float(self.params.get("load.kgToTorqueFactor"))
+
+    def _clamp_load(self, load_kg: float) -> float:
+        cap = float(self.params.get("load.maxKg"))
+        if self.config.guest:
+            cap = min(cap, float(self.params.get("load.guestMaxKg")))
+        return max(0.0, min(cap, load_kg))
+
+    def _descent_brake_per_side(self) -> float:
+        state = self.state
+        max_descent = float(self.params.get("limits.maxDescentSpeedMmPerSec"))
+        max_user = float(self.params.get("limits.maxUserSpeedMmPerSec"))
+        force = 0.0
+        if state.velocity_mm_s < -max_descent:
+            excess = -state.velocity_mm_s - max_descent
+            force += 0.05 * excess * self._bar_mass() / 10
+        if abs(state.velocity_mm_s) > max_user:
+            excess = abs(state.velocity_mm_s) - max_user
+            force += -math.copysign(0.02 * excess, state.velocity_mm_s)
+            if state.time - self._last_alert_time > 1.0:
+                self._emit("speed", f"Скорость {abs(state.velocity_mm_s):.0f} мм/с выше допустимой")
+                self._last_alert_time = state.time
+        return force / 2
+
+    def _soft_bumper_per_side(self) -> float:
+        """Virtual bumpers: decelerate near exercise bounds, hard stop at soft limits."""
+
+        state = self.state
+        kp = float(self.params.get("regulator.positionKp"))
+        kd = float(self.params.get("regulator.positionKd"))
+        zone = float(self.params.get("limits.decelZoneMm"))
+        soft_min = float(self.params.get("limits.softMinMm"))
+        soft_max = float(self.params.get("limits.softMaxMm"))
+        force = 0.0
+        if state.position_mm < soft_min:
+            force += kp * (soft_min - state.position_mm) - kd * state.velocity_mm_s
+        elif state.position_mm > soft_max:
+            force += kp * (soft_max - state.position_mm) - kd * state.velocity_mm_s
+        if self.state.mode in {ControlMode.training, ControlMode.isometric} and zone > 0:
+            lower, upper = self.config.lower_mm, self.config.upper_mm
+            margin = 5.0
+            if state.position_mm < lower - margin and state.velocity_mm_s < 0:
+                force += -kd * 4 * state.velocity_mm_s * min(1.0, (lower - margin - state.position_mm) / zone)
+            if state.position_mm > upper + margin and state.velocity_mm_s > 0:
+                force += -kd * 4 * state.velocity_mm_s * min(1.0, (state.position_mm - upper - margin) / zone)
+        return force / 2
+
+    def _sync_correction(self, telemetry: AdapterTelemetry) -> dict[Side, float]:
+        mode = str(self.params.get("sync.mode"))
+        gain = float(self.params.get("sync.correctionGain"))
+        cap = float(self.params.get("sync.correctionMaxMmPerSec")) * 0.1  # kg-equivalent cap
+        delta = telemetry.left.position_mm - telemetry.right.position_mm  # >0: left higher
+        correction = max(-cap, min(cap, gain * delta))
+        if mode == "master_slave":  # left is master, right follows
+            return {"left": 0.0, "right": correction}
+        return {"left": -correction / 2, "right": correction / 2}
+
+    # ------------------------------------------------------------ detection
+    def _detect_stall_and_failure(self, dt: float) -> None:
+        state = self.state
+        config = self.config
+        stall_speed = float(self.params.get("detection.stallSpeedMmPerSec"))
+        release_force = float(self.params.get("detection.releaseForceKg"))
+        hysteresis = float(self.params.get("detection.repHysteresisMm"))
+        in_far_zone = abs(state.position_mm - config.far_mm) <= hysteresis
+        in_start_zone = abs(state.position_mm - config.start_mm) <= hysteresis
+        under_load = abs(state.user_force_kg) > release_force
+        if under_load and abs(state.velocity_mm_s) < stall_speed and not in_far_zone and not in_start_zone:
+            state.stall_s += dt
+        else:
+            state.stall_s = 0.0
+            if state.spotter_active and in_far_zone:
+                state.spotter_active = False
+                self._emit("spotter_off", "Страховка снята — верхняя точка достигнута")
+        timeout = float(self.params.get("detection.stallTimeoutSec"))
+        delay = float(self.params.get("detection.spotterDelaySec"))
+        if state.stall_s >= delay and bool(self.params.get("detection.spotterEnabled")) and not state.spotter_active:
+            state.spotter_active = True
+            self._emit("spotter", f"Застревание {state.stall_s:.1f} с → страховка {self.params.get('detection.spotterAssistPercent')} %")
+        elif state.stall_s >= timeout and not bool(self.params.get("detection.spotterEnabled")):
+            if "Гриф остановился — снизьте нагрузку или завершите подход" not in state.alerts:
+                state.alerts.append("Гриф остановился — снизьте нагрузку или завершите подход")
+        failure_speed = float(self.params.get("detection.failureDescentSpeedMmPerSec"))
+        concentric_down = config.start_point == "upper"
+        pushing_up = state.user_force_kg > release_force
+        cannot_hold = state.user_force_kg < 0.6 * state.load_effective_kg + 1.0
+        if state.velocity_mm_s < -failure_speed and pushing_up and cannot_hold and not concentric_down and not state.failure_detected:
+            state.failure_detected = True
+            self._hold_position_mm = state.position_mm
+            self._emit("failure", f"Потеря контроля: опускание {abs(state.velocity_mm_s):.0f} мм/с → удержание")
+            self._enter(ControlMode.paused, "Спасение", "Гриф удержан. Нажмите «Продолжить», когда будете готовы.")
+
+    def _update_release(self, dt: float) -> None:
+        state = self.state
+        release_force = float(self.params.get("detection.releaseForceKg"))
+        if abs(state.user_force_kg) < release_force:
+            self._release_s += dt
+        else:
+            self._release_s = 0.0
+            state.released = False
+        if self._release_s >= float(self.params.get("detection.releaseTimeoutSec")) and not state.released:
+            state.released = True
+            if state.mode == ControlMode.training and (state.time - state.mode_since) > 1.0:
+                self._emit("release", "Гриф отпущен — удержание")
+                self.request_hold("Гриф отпущен", "Нет усилия на грифе. Гриф удерживается.")
+
+    def _update_reps(self) -> None:
+        state = self.state
+        config = self.config
+        hysteresis = float(self.params.get("detection.repHysteresisMm"))
+        full = float(self.params.get("detection.fullRepPercent")) / 100
+        partial = float(self.params.get("detection.partialRepPercent")) / 100
+        pos = state.position_mm
+        self._excursion_min = min(self._excursion_min, pos)
+        self._excursion_max = max(self._excursion_max, pos)
+        in_start = abs(pos - config.start_mm) <= hysteresis
+        in_far = abs(pos - config.far_mm) <= hysteresis
+        stall = float(self.params.get("detection.stallSpeedMmPerSec")) * 3
+        sign = 1 if state.velocity_mm_s > stall else (-1 if state.velocity_mm_s < -stall else 0)
+        if sign != 0 and sign != self._last_direction_sign:
+            if self._last_direction_sign != 0:
+                phase_time = state.time - self._phase_started
+                if self._last_direction_sign > 0:
+                    state.concentric_s = round(phase_time, 2) if config.start_point != "upper" else state.concentric_s
+                    state.eccentric_s = round(phase_time, 2) if config.start_point == "upper" else state.eccentric_s
+                else:
+                    state.eccentric_s = round(phase_time, 2) if config.start_point != "upper" else state.eccentric_s
+                    state.concentric_s = round(phase_time, 2) if config.start_point == "upper" else state.concentric_s
+                self._emit("reversal", f"Смена направления на {pos:.0f} мм", {"positionMm": pos})
+            self._phase_started = state.time
+            self._last_direction_sign = sign
+        if config.rep_count_source != "motion":
+            return
+        if in_start and not self._rep_armed:
+            excursion = (self._excursion_max - self._excursion_min) / config.range_mm
+            if partial <= excursion < full:
+                state.partial_reps += 1
+                self._emit("partial_rep", f"Частичный повтор ({excursion * 100:.0f} %)")
+            self._rep_armed = True
+            self._excursion_min = self._excursion_max = pos
+            self._rep_started_at = state.time
+        elif in_far and self._rep_armed:
+            excursion = (self._excursion_max - self._excursion_min) / config.range_mm
+            if excursion >= full:
+                state.repetition_count += 1
+                duration = state.time - self._rep_started_at
+                state.rep_quality = round(min(1.0, excursion) * (1.0 if 1.0 <= duration <= 6.0 else 0.8), 2)
+                state.tempo_label = "быстро" if duration < 1.2 else ("медленно" if duration > 5 else "хорошо")
+                self._emit("rep", f"Повтор {state.repetition_count} · {duration:.1f} с", {"repetition": state.repetition_count, "durationS": round(duration, 2)})
+                self._check_target()
+            self._rep_armed = False
+            self._excursion_min = self._excursion_max = pos
+
+    def _count_reps_by_load(self) -> None:
+        """Count reps for fixed-position exercises by user force oscillations."""
+
+        state = self.state
+        force = abs(state.user_force_kg)
+        high = 15.0
+        low = 5.0
+        if self._load_peak_state == 0 and force > high:
+            self._load_peak_state = 1
+        elif self._load_peak_state == 1 and force < low:
+            self._load_peak_state = 0
+            state.repetition_count += 1
+            self._emit("rep", f"Повтор {state.repetition_count} (по усилию)")
+            self._check_target()
+
+    def _check_target(self) -> None:
+        state = self.state
+        if state.repetition_count >= self.config.target_reps and not state.target_reached:
+            state.target_reached = True
+            state.label = "Цель подхода достигнута"
+            self._emit("target", "Цель подхода выполнена")
+            action = str(self.params.get("detection.onTargetReached"))
+            if action == "hold":
+                self.request_hold("Цель подхода достигнута", "Гриф удерживается. Завершите подход.")
+            elif action == "unload":
+                self.config.load_kg = 0.0
+                state.message = "Нагрузка снята — цель подхода выполнена."
+
+    def _check_obstacle(self, telemetry: AdapterTelemetry, dt: float, limit: float) -> None:
+        state = self.state
+        threshold = float(self.params.get("safety.obstacleForceKg"))
+        stall_speed = float(self.params.get("detection.stallSpeedMmPerSec"))
+        near_limit = abs(telemetry.total_force_kg - self._gravity_comp_per_side() * 2) >= min(threshold, limit * 2 * 0.9)
+        if near_limit and abs(state.velocity_mm_s) < stall_speed:
+            self._obstacle_s += dt
+        else:
+            self._obstacle_s = 0.0
+        if self._obstacle_s >= 0.3:
+            self._obstacle_s = 0.0
+            self._emit("obstacle", f"Препятствие на {state.position_mm:.0f} мм — остановка")
+            self.request_hold("Препятствие", "Обнаружено сопротивление движению. Освободите зону и повторите.")
+
+    # ------------------------------------------------------------- commands
+    def _capacity_per_side(self) -> float:
+        return (float(self.params.get("load.maxKg")) + self._bar_mass()) / 2
+
+    def _torque_percent_to_kg(self, percent: float) -> float:
+        return self._capacity_per_side() * percent / 100
+
+    def _profiles(self) -> set[str]:
+        return {"training", "calibration", "rangePreview", "service", "return", "guest"}
+
+    def _slow_factor(self) -> float:
+        if self.state.sync_status == "critical" and str(self.params.get("sync.desyncAction")) == "slow":
+            return 0.5
+        return 1.0
+
+    def _brake_command(self) -> DriveCommand:
+        return DriveCommand(SideCommand(mode="brake"), SideCommand(mode="brake"))
+
+    def _position_command(self, target_mm: float, limit_kg: float) -> DriveCommand:
+        feedforward = self._gravity_comp_per_side()
+        target = self._clamp_soft(target_mm)
+        return DriveCommand(
+            SideCommand(mode="position", target_position_mm=target, force_limit_kg=limit_kg, feedforward_kg=feedforward),
+            SideCommand(mode="position", target_position_mm=target, force_limit_kg=limit_kg, feedforward_kg=feedforward),
+        )
+
+    def _velocity_command(self, velocity_mm_s: float, limit_kg: float, *, feedforward: float) -> DriveCommand:
+        velocity = max(-float(self.params.get("limits.maxSpeedMmPerSec")), min(float(self.params.get("limits.maxSpeedMmPerSec")), velocity_mm_s))
+        return DriveCommand(
+            SideCommand(mode="velocity", target_velocity_mm_s=velocity, force_limit_kg=limit_kg, feedforward_kg=feedforward),
+            SideCommand(mode="velocity", target_velocity_mm_s=velocity, force_limit_kg=limit_kg, feedforward_kg=feedforward),
+        )
+
+    def _torque_command(self, force_per_side: float, limit_kg: float, *, sync: bool) -> DriveCommand:
+        corrections = self._last_sync_correction if sync else {"left": 0.0, "right": 0.0}
+        left = force_per_side + corrections["left"]
+        right = force_per_side + corrections["right"]
+        self.state.components["sync"] = round(corrections["right"] - corrections["left"], 2)
+        return DriveCommand(
+            SideCommand(mode="torque", force_kg=left, force_limit_kg=limit_kg),
+            SideCommand(mode="torque", force_kg=right, force_limit_kg=limit_kg),
+        )
+
+    def _apply_torque_rate_limit(self, command: DriveCommand, dt: float) -> None:
+        rate = float(self.params.get("safety.torqueRateLimitPercentPerSec")) / 100 * self._capacity_per_side() * dt
+        gravity = self._gravity_comp_per_side()
+        for side in SIDES:
+            side_command = command.side(side)
+            if side_command.mode == "torque":
+                if self._prev_mode[side] != "torque":
+                    # brake release / servo hand-over: pre-load the gravity share so the bar does not sag
+                    self._prev_torque[side] = gravity
+                previous = self._prev_torque[side]
+                side_command.force_kg = max(previous - rate, min(previous + rate, side_command.force_kg))
+                self._prev_torque[side] = side_command.force_kg
+            elif side_command.mode != "brake":
+                self._prev_torque[side] = side_command.feedforward_kg
+            self._prev_mode[side] = side_command.mode
+
+    def _ramp_velocity(self, target: float, accel: float, dt: float) -> float:
+        current = self._filtered_velocity
+        step = accel * dt
+        return max(current - step, min(current + step, target))
+
+    def _clamp_soft(self, position_mm: float) -> float:
+        return max(float(self.params.get("limits.softMinMm")), min(float(self.params.get("limits.softMaxMm")), position_mm))
+
+    # --------------------------------------------------------------- misc
+    def prepare_sync(self, telemetry: AdapterTelemetry) -> None:
+        self._last_sync_correction = self._sync_correction(telemetry)
+
+    def refresh_position(self, telemetry: AdapterTelemetry) -> None:
+        """Publish the freshest position after the adapter step (removes one-tick lag in snapshots)."""
+
+        self.state.position_mm = round(telemetry.bar_position_mm, 2)
+        self.state.sync_delta_mm = round(abs(telemetry.sync_delta_mm), 2)
+
+    def _update_counters(self, dt: float) -> None:
+        if self._loaded_active:
+            self.state.loaded_seconds_total += dt
+        if self.state.mode not in {ControlMode.idle, ControlMode.parked}:
+            self.state.idle_s = 0.0
+
+    def _reset_set_counters(self) -> None:
+        state = self.state
+        state.repetition_count = 0
+        state.partial_reps = 0
+        state.target_reached = False
+        state.spotter_active = False
+        state.failure_detected = False
+        state.released = False
+        state.stall_s = 0.0
+        state.concentric_s = 0.0
+        state.eccentric_s = 0.0
+        state.tempo_label = "—"
+        self._load_ramp_kg = 0.0
+        self._isokinetic_load = self._clamp_load(self.config.load_kg)
+        self._release_s = 0.0
+        self._rep_armed = abs(state.position_mm - self.config.start_mm) <= float(self.params.get("detection.repHysteresisMm"))
+        self._excursion_min = self._excursion_max = state.position_mm
+        self._phase_started = state.time
+        self._last_direction_sign = 0
+        self._rep_started_at = state.time
+
+    def _fault(self, message: str) -> None:
+        self.state.fault_code = message
+        self._enter(ControlMode.fault, "Тренажёр заблокирован", message)
+        self._emit("fault", message)
+
+    def reset_fault(self) -> None:
+        self.state.fault_code = None
+        self._hold_position_mm = self.state.position_mm
+        self._enter(ControlMode.paused, "Ошибка сброшена", "Приводы в удержании.")
+
+    def _enter(self, mode: ControlMode, label: str, message: str) -> None:
+        state = self.state
+        if state.mode != mode:
+            self._emit("mode", f"{state.mode.value} → {mode.value}: {label}", {"from": state.mode.value, "to": mode.value})
+        state.mode = mode
+        state.mode_since = state.time
+        state.label = label
+        state.message = message
+        if mode in {ControlMode.moving}:
+            self._move_start_mm = state.position_mm
+        if mode not in {ControlMode.training}:
+            self._loaded_active = False
+
+    def _emit(self, kind: str, message: str, payload: dict[str, Any] | None = None) -> None:
+        self.events.append(ControllerEvent(self.state.time, kind, message, payload or {}))
+
+    @staticmethod
+    def _alpha(cutoff_hz: float, dt: float) -> float:
+        if cutoff_hz <= 0:
+            return 1.0
+        rc = 1 / (2 * math.pi * cutoff_hz)
+        return dt / (rc + dt)

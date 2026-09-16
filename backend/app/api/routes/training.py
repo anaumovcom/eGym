@@ -142,11 +142,11 @@ def delete_program(
 
 @router.get("/calendar", response_model=WorkoutCalendarDataSchema)
 def get_calendar(
-    mode: str = Query("month"),
-    selected_day_id: str | None = Query(default=None, alias="selectedDayId"),
+    user_id: str = Query("alexey", alias="userId"),
+    month: str | None = Query(default=None, pattern=r"^\d{4}-(0[1-9]|1[0-2])$"),
     session: Session = Depends(get_session),
 ) -> WorkoutCalendarDataSchema:
-    return training_service.get_calendar(session, mode=mode, selected_day_id=selected_day_id)
+    return training_service.get_calendar(session, user_id=user_id, month=month)
 
 
 @router.get("/builder", response_model=WorkoutBuilderDataSchema)

@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from 'react-router-dom'
 import { DashboardScreen } from '@/screens/dashboard/dashboard-screen'
 import { WorkoutBuilderScreen } from '@/screens/builder/workout-builder-screen'
 import { WorkoutCalendarScreen } from '@/screens/calendar/workout-calendar-screen'
@@ -8,20 +8,17 @@ import { ExerciseDetailsScreen } from '@/screens/catalog/exercise-details-screen
 import { ExerciseSessionScreen } from '@/screens/exercise-session/exercise-session-screen'
 import { ExerciseSetupScreen } from '@/screens/exercise-setup/exercise-setup-screen'
 import { ExerciseSummaryScreen } from '@/screens/exercise-summary/exercise-summary-screen'
-import { FatigueScreen } from '@/screens/fatigue/fatigue-screen'
 import { PlaceholderScreen } from '@/screens/placeholder/placeholder-screen'
-import { PhotoProgressScreen } from '@/screens/photo-progress/photo-progress-screen'
 import { UserProfileScreen } from '@/screens/profile/user-profile-screen'
-import { ProgramLibraryScreen } from '@/screens/programs/program-library-screen'
 import { ProgressScreen } from '@/screens/progress/progress-screen'
-import { QuickStartScreen } from '@/screens/quick-start/quick-start-screen'
 import { RestScreen } from '@/screens/rest/rest-screen'
 import { SystemSettingsScreen } from '@/screens/settings/system-settings-screen'
-import { TodayWorkoutScreen } from '@/screens/today/today-workout-screen'
 import { UserSelectionScreen } from '@/screens/user-selection/user-selection-screen'
 import { WorkoutSummaryScreen } from '@/screens/workout-summary/workout-summary-screen'
 import { ModbusDebugScreen } from '@/screens/modbus-debug/modbus-debug-screen'
+import { MechanicsTuningScreen } from '@/screens/mechanics-tuning/mechanics-tuning-screen'
 import { useAppStore } from '@/stores/app-store'
+import { ServiceAccessGate, SettingsLayout } from '@/shared/ui/layout/service-access'
 
 const placeholderTitles = {
   '/settings/legacy': 'Настройки',
@@ -37,34 +34,53 @@ function ProtectedAppRoute({ children }: { children: ReactElement }) {
   return children
 }
 
-export function AppRouter() {
+function RecoveryRedirect() {
+  const [params] = useSearchParams()
+  const next = new URLSearchParams(params)
+  next.set('tab', 'recovery')
+  return <Navigate to={`/progress?${next}`} replace />
+}
+
+function PhotoProgressRedirect() {
+  const [params] = useSearchParams()
+  return <Navigate to={params.get('source') === 'profile' ? '/profile?tab=photo' : '/progress?tab=photo'} replace />
+}
+
+export function AppRoutes() {
   return (
-    <BrowserRouter>
       <Routes>
         <Route path="/" element={<UserSelectionScreen />} />
         <Route path="/dashboard" element={<ProtectedAppRoute><DashboardScreen /></ProtectedAppRoute>} />
-        <Route path="/quick-start" element={<ProtectedAppRoute><QuickStartScreen /></ProtectedAppRoute>} />
-        <Route path="/today" element={<ProtectedAppRoute><TodayWorkoutScreen /></ProtectedAppRoute>} />
+        <Route path="/quick-start" element={<ProtectedAppRoute><Navigate to="/catalog" replace /></ProtectedAppRoute>} />
+        <Route path="/today" element={<ProtectedAppRoute><Navigate to="/dashboard" replace /></ProtectedAppRoute>} />
         <Route path="/calendar" element={<ProtectedAppRoute><WorkoutCalendarScreen /></ProtectedAppRoute>} />
         <Route path="/builder" element={<ProtectedAppRoute><WorkoutBuilderScreen /></ProtectedAppRoute>} />
-        <Route path="/programs" element={<ProtectedAppRoute><ProgramLibraryScreen /></ProtectedAppRoute>} />
+        <Route path="/programs" element={<ProtectedAppRoute><Navigate to="/builder" replace /></ProtectedAppRoute>} />
         <Route path="/catalog" element={<ProtectedAppRoute><ExerciseCatalogScreen /></ProtectedAppRoute>} />
         <Route path="/catalog/:slug" element={<ProtectedAppRoute><ExerciseDetailsScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-setup" element={<ProtectedAppRoute><ExerciseSetupScreen /></ProtectedAppRoute>} />
-        <Route path="/photo-progress" element={<ProtectedAppRoute><PhotoProgressScreen /></ProtectedAppRoute>} />
+        <Route path="/photo-progress" element={<ProtectedAppRoute><PhotoProgressRedirect /></ProtectedAppRoute>} />
         <Route path="/progress" element={<ProtectedAppRoute><ProgressScreen /></ProtectedAppRoute>} />
-        <Route path="/fatigue" element={<ProtectedAppRoute><FatigueScreen /></ProtectedAppRoute>} />
+        <Route path="/fatigue" element={<ProtectedAppRoute><RecoveryRedirect /></ProtectedAppRoute>} />
         <Route path="/profile" element={<ProtectedAppRoute><UserProfileScreen /></ProtectedAppRoute>} />
-        <Route path="/settings" element={<ProtectedAppRoute><SystemSettingsScreen /></ProtectedAppRoute>} />
+        <Route path="/settings" element={<ProtectedAppRoute><SettingsLayout /></ProtectedAppRoute>}>
+          <Route index element={<SystemSettingsScreen />} />
+          <Route path="service/modbus" element={<Navigate to="/modbus" replace />} />
+          <Route path="mechanics" element={<ServiceAccessGate><MechanicsTuningScreen /></ServiceAccessGate>} />
+        </Route>
+        <Route path="/modbus" element={<ProtectedAppRoute><ModbusDebugScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-session" element={<ProtectedAppRoute><ExerciseSessionScreen /></ProtectedAppRoute>} />
         <Route path="/rest" element={<ProtectedAppRoute><RestScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-summary" element={<ProtectedAppRoute><ExerciseSummaryScreen /></ProtectedAppRoute>} />
         <Route path="/workout-summary" element={<ProtectedAppRoute><WorkoutSummaryScreen /></ProtectedAppRoute>} />
-        <Route path="/modbus-debug" element={<ModbusDebugScreen />} />
+        <Route path="/modbus-debug" element={<ProtectedAppRoute><Navigate to="/modbus" replace /></ProtectedAppRoute>} />
         {Object.entries(placeholderTitles).map(([path, title]) => (
           <Route key={path} path={path} element={<ProtectedAppRoute><PlaceholderScreen title={title} /></ProtectedAppRoute>} />
         ))}
       </Routes>
-    </BrowserRouter>
   )
+}
+
+export function AppRouter() {
+  return <BrowserRouter><AppRoutes /></BrowserRouter>
 }

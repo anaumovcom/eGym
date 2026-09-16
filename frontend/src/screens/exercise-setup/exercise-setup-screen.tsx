@@ -1,11 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Camera, Play, RotateCcw } from 'lucide-react'
+import * as Dialog from '@radix-ui/react-dialog'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Play, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { StrengthTrainingMode } from '@/entities/strength/model/types'
 import { buildBackendBuilderRuntimeSession } from '@/features/runtime/lib/backend-builder-session'
+import { getRuntimeResumeView, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
 import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exercise'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { useHardwareStore } from '@/stores/hardware-store'
@@ -13,14 +15,24 @@ import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/cn'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
+import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
-import { WarningBanner } from '@/shared/ui/status/status-components'
-import { CalibrationStatusBlock, ExerciseVideoPlayer, LoadSettingsControl, MuscleStatusList, SectionIntro } from '@/shared/ui/stage2/screen-components'
+import { FormaState } from '@/shared/ui/status/forma-state'
+import { ExerciseVideoPlayer, LoadModeSelector } from '@/shared/ui/stage2/screen-components'
+import { ValueStepper } from '@/shared/ui/training/value-stepper'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
+}
+
+const exerciseKindLabels: Record<RuntimeWorkoutSession['exercises'][number]['kind'], string> = {
+  machine: 'Тренажёр',
+  bodyweight: 'Своим весом',
+  timed: 'На время',
+  stretch: 'Растяжка',
+  group: 'Группа / суперсет',
 }
 
 const fallbackMachine: MachineHealth = {
@@ -91,7 +103,7 @@ export function ExerciseSetupScreen() {
   const updateCalibrationState = useRuntimeStore((state) => state.updateCalibrationState)
   const updateLoadSettings = useRuntimeStore((state) => state.updateLoadSettings)
   const selectStrengthMode = useRuntimeStore((state) => state.selectStrengthMode)
-  const openPhotoProgress = useRuntimeStore((state) => state.openPhotoProgress)
+  const setView = useRuntimeStore((state) => state.setView)
   const startExercise = useRuntimeStore((state) => state.startExercise)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
   const snapshot = useHardwareStore((state) => state.snapshot)
@@ -105,6 +117,8 @@ export function ExerciseSetupScreen() {
   const runCommand = useHardwareStore((state) => state.runCommand)
   const [capturedLowerPointMm, setCapturedLowerPointMm] = useState<number | null>(null)
   const [capturedUpperPointMm, setCapturedUpperPointMm] = useState<number | null>(null)
+  const [calibrationOpen, setCalibrationOpen] = useState(false)
+  const [modeDialogOpen, setModeDialogOpen] = useState(false)
 
   const initOptions = useMemo(() => getRuntimeInitOptions(searchParams), [searchParams])
   const usesBackendBuilderSession = initOptions.source === 'builder' && Boolean(initOptions.programId)
@@ -112,12 +126,11 @@ export function ExerciseSetupScreen() {
     ? session?.source === 'builder' && session.programId === initOptions.programId && session.dataSource === 'backend' && (!initOptions.runId || session.runId === initOptions.runId)
     : true
   const { data: backendBuilderSession, error: backendBuilderSessionError } = useQuery({
-    queryKey: ['runtime-builder-session', resolvedUserId, initOptions.programId, initOptions.runId, initOptions.photoMode, initOptions.calibrationState],
+    queryKey: ['runtime-builder-session', resolvedUserId, initOptions.programId, initOptions.runId, initOptions.calibrationState],
     queryFn: () => buildBackendBuilderRuntimeSession({
       userId: resolvedUserId,
       programId: initOptions.programId!,
       runId: initOptions.runId,
-      photoMode: initOptions.photoMode,
       calibrationState: initOptions.calibrationState,
     }),
     enabled: usesBackendBuilderSession,
@@ -180,10 +193,14 @@ export function ExerciseSetupScreen() {
   }, [exercise, location.search, navigate, session, startExercise])
 
   useEffect(() => {
-    if (session?.view === 'photo-progress' && session.photoProgress.autoPrompt && !session.photoProgress.completed) {
-      navigate(withSearch('/photo-progress', location.search), { replace: true })
+    if (session?.view === 'photo-progress') {
+      const nextView = getRuntimeResumeView(session)
+      setView(nextView)
+      if (nextView === 'workout-summary') {
+        navigate(withSearch(runtimeViewPath(nextView), location.search), { replace: true })
+      }
     }
-  }, [location.search, navigate, session])
+  }, [location.search, navigate, session, setView])
 
   useEffect(() => {
     if (!exercise) {
@@ -242,16 +259,20 @@ export function ExerciseSetupScreen() {
   }, [currentCalibration, exercise?.kind, exercise?.slug])
 
   if (usesBackendBuilderSession && backendBuilderSessionError) {
-    const message = backendBuilderSessionError instanceof Error ? backendBuilderSessionError.message : 'Проверьте доступность backend API.'
+    const message = backendBuilderSessionError instanceof Error ? backendBuilderSessionError.message : 'Попробуйте открыть тренировку ещё раз.'
     return (
       <FormaShell userName={getUserName(selectedUserId)} machine={session?.machine ?? fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
-        <WarningBanner title="Не удалось загрузить тренировку" description={message} />
+        <FormaState tone="error" title="Не удалось загрузить тренировку" description={message} action={{ label: 'К моим тренировкам', onClick: () => navigate('/builder') }} />
       </FormaShell>
     )
   }
 
   if (!session || !exercise) {
-    return null
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={session?.machine ?? fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <FormaState tone="loading" title="Готовим упражнение…" />
+      </FormaShell>
+    )
   }
 
   const currentExercise = exercise
@@ -266,6 +287,9 @@ export function ExerciseSetupScreen() {
       : null)
   const startBlocked = calibrationRequired && (!savedCalibration || !selectedUserId)
   const livePositionMm = snapshot?.motion.barPositionMm ?? null
+  const controlMode = snapshot?.control?.mode ?? snapshot?.motion.controlMode
+  const weightlessActive = controlMode === 'weightless'
+  const barStill = (snapshot?.control?.stillMs ?? 0) >= 500
   const liveLowerBoundMm = snapshot?.motion.lowerBoundMm ?? null
   const liveUpperBoundMm = snapshot?.motion.upperBoundMm ?? null
   const lowerPointMm = capturedLowerPointMm ?? null
@@ -298,12 +322,47 @@ export function ExerciseSetupScreen() {
 
     setHardwareError(null)
 
+    if (weightlessActive) {
+      // the controller validates stillness and records the point with the drives compensated
+      void runCommand({ action: 'capture_point', which: point, userId: selectedUserId })
+        .then((response) => {
+          const captured = response.capturedPositionMm ?? livePositionMm
+          if (point === 'lower') setCapturedLowerPointMm(captured)
+          else setCapturedUpperPointMm(captured)
+        })
+        .catch((error: unknown) => setHardwareError(error instanceof Error ? error.message : 'Не удалось зафиксировать точку.'))
+      return
+    }
+
     if (point === 'lower') {
       setCapturedLowerPointMm(livePositionMm)
       return
     }
 
     setCapturedUpperPointMm(livePositionMm)
+  }
+
+  async function toggleWeightless() {
+    setHardwareError(null)
+    try {
+      if (weightlessActive) {
+        await runCommand({ action: 'hold', userId: selectedUserId })
+      } else {
+        await runCommand({ action: 'enter_weightless', userId: selectedUserId, exerciseSlug: currentExercise.slug, mode: 'service' })
+      }
+    } catch (error) {
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось переключить режим невесомого грифа.')
+    }
+  }
+
+  async function previewRange() {
+    if (!hasCompleteCalibrationRange) return
+    setHardwareError(null)
+    try {
+      await runCommand({ action: 'range_preview', userId: selectedUserId, exerciseSlug: currentExercise.slug, lowerMm: lowerPointMm, upperMm: upperPointMm, mode: 'service' })
+    } catch (error) {
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить показ диапазона.')
+    }
   }
 
   async function handleCalibrationSave() {
@@ -376,6 +435,13 @@ export function ExerciseSetupScreen() {
     navigate(withSearch('/exercise-session', location.search))
   }
 
+  const showCalibrationPanel = calibrationRequired && (startBlocked || calibrationOpen)
+  const readyNote = (
+    <>
+      Готово к старту: <strong>{settings.sets} × {settings.reps}</strong> · вес {settings.weight} кг · отдых {settings.restSeconds} с
+    </>
+  )
+
   return (
     <FormaShell
       userName={getUserName(selectedUserId)}
@@ -385,162 +451,216 @@ export function ExerciseSetupScreen() {
         setEmergencyStopActive(true)
       }}
     >
-      <SectionIntro
-        title="Настройка упражнения"
-        description="Подтвердите параметры перед стартом, проверьте калибровку и при необходимости сделайте фотофиксацию перед упражнением."
-        actions={
-          <Button variant="ghost" iconLeft={<ArrowLeft className="h-4 w-4" />} onClick={() => navigate(-1)}>
+      <div className="rt-screen">
+        <header className="rt-header">
+          <Button variant="secondary" iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => navigate(-1)}>
             Назад
           </Button>
-        }
-      />
-
-      <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-        <section className="glass-panel rounded-[34px] p-6 xl:p-8">
-          <div className="text-sm uppercase tracking-[0.24em] text-white/35">Выбранное упражнение</div>
-          <div className="mt-2 font-display text-5xl font-bold text-white">{exercise.name}</div>
-          <div className="mt-2 text-2xl text-white/45">{exercise.secondaryName}</div>
-          <div className="mt-5 flex flex-wrap gap-2">
-            {exercise.muscles.map((item) => (
-              <span key={item} className="inline-flex items-center rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/68">{item}</span>
-            ))}
+          <div className="rt-title">
+            <h1 className="font-display font-bold tracking-[-0.04em] text-white">Настройка упражнения</h1>
+            <p>
+              <span>{session.workoutTitle}</span>
+              <span>Упражнение {exercise.order} из {session.exercises.length}</span>
+              <span>{exerciseKindLabels[exercise.kind]}</span>
+            </p>
           </div>
-          {setupVideo ? (
-            <div className="mt-6 overflow-hidden rounded-[30px] border border-white/8">
-              <ExerciseVideoPlayer videoUrl={setupVideo.url} videoLabel={setupVideo.label} wrapperClassName="rounded-[30px]" />
-            </div>
-          ) : null}
-          <div className="mt-6 rounded-[30px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.18),transparent_35%),linear-gradient(180deg,#161b22,#0a0c0f)] p-6 text-white/62">
-            {calibrationRequired
-              ? 'Для тренажёрного упражнения важно проверить сохранённую амплитуду и только потом переходить к выполнению.'
-              : exercise.kind === 'timed'
-                ? 'Для упражнения на время калибровка не требуется. Важнее выбрать удобный режим и убедиться, что таймер вас не будет отвлекать.'
-                : 'Для упражнения без тренажёра можно сразу переходить к выполнению. При желании сохраните фото до старта.'}
-          </div>
-
-          {session.photoProgress.completed ? <WarningBanner title="Фото сохранены" description="Фотофиксация перед тренировкой завершена, можно запускать упражнение." /> : null}
-          {startBlocked ? <WarningBanner title="Нужна калибровка" description="Перед первым стартом переместите гриф в нижнюю и верхнюю безопасные точки, зафиксируйте их ниже и сохраните диапазон движения." /> : null}
-          {hardwareError ? <WarningBanner title="Hardware API" description={hardwareError} /> : null}
-
-          <div className="mt-6 space-y-5">
-            <LoadSettingsControl
-              settings={settings}
-              onAdjustWeight={(delta) => updateLoadSettings({ weight: Math.max(0, settings.weight + delta) })}
-              onAdjustSets={(delta) => updateLoadSettings({ sets: Math.max(1, settings.sets + delta) })}
-              onAdjustReps={(delta) => updateLoadSettings({ reps: Math.max(1, settings.reps + delta) })}
-              onAdjustRest={(delta) => updateLoadSettings({ restSeconds: Math.max(15, settings.restSeconds + delta) })}
-              onModeChange={(mode) => updateLoadSettings({ mode })}
-            />
-            <StrengthModeSelector
-              modes={strengthModes}
-              selectedModeId={currentStrengthMode.id}
-              selectedDayType={currentStrengthMode.dayType}
-              onSelect={(modeId, dayType) => selectStrengthMode(modeId, dayType)}
-            />
-            <CalibrationStatusBlock calibration={settings.calibration} />
+          <div className="rt-chips" role="group" aria-label="Готовность к старту">
             {calibrationRequired ? (
-              <div className="rounded-[28px] border border-[#d6b05f]/18 bg-[linear-gradient(180deg,rgba(214,176,95,0.10),rgba(255,255,255,0.02))] p-5 text-white">
-                <div className="flex flex-wrap items-start justify-between gap-4">
+              savedCalibration ? (
+                <button type="button" className="rt-chip" data-tone="good" aria-pressed={calibrationOpen} onClick={() => setCalibrationOpen((current) => !current)}>
+                  <CheckCircle2 aria-hidden="true" />
+                  Калибровка: {calibrationRangeLabel}
+                </button>
+              ) : (
+                <span className="rt-chip" data-tone="warning"><AlertTriangle aria-hidden="true" />Нужна калибровка</span>
+              )
+            ) : (
+              <span className="rt-chip" data-tone="good"><CheckCircle2 aria-hidden="true" />Калибровка не нужна</span>
+            )}
+          </div>
+        </header>
+
+        <div className="rt-body rt-setup-body">
+          <div className="rt-setup-media">
+            <div className="rt-media">
+              <div className="rt-media-frame">
+                {setupVideo ? (
+                  <ExerciseVideoPlayer videoUrl={setupVideo.url} videoLabel={setupVideo.label} wrapperClassName="rounded-[var(--ui-radius)] border border-white/8" />
+                ) : (
+                  <div className="flex aspect-video items-center justify-center rounded-[var(--ui-radius)] border border-white/8 bg-[#0b1017] text-white/45">Видео упражнения недоступно</div>
+                )}
+                <div className="rt-media-caption" aria-hidden="true">
+                  <span>{exercise.muscles.slice(0, 2).join(' · ') || exerciseKindLabels[exercise.kind]}</span>
+                  <span>План: <strong>{settings.sets} × {settings.reps}</strong></span>
+                </div>
+              </div>
+            </div>
+
+            {showCalibrationPanel ? (
+              <section className="rt-calibration" data-saved={Boolean(savedCalibration)} aria-label="Калибровка амплитуды">
+                <header>
                   <div>
-                    <div className="text-sm uppercase tracking-[0.22em] text-[#f2cf87]/70">Калибровка амплитуды</div>
-                    <div className="mt-2 font-display text-3xl font-bold text-white">Зафиксируйте рабочий диапазон грифа</div>
-                    <div className="mt-2 max-w-3xl text-sm leading-7 text-white/68">
-                      Подведите гриф к нижней безопасной точке, нажмите кнопку фиксации, затем переместите его к верхней точке и сохраните диапазон. Если границы уже сохранены, их можно переснять или удалить.
-                    </div>
+                    <h3>{savedCalibration ? 'Амплитуда сохранена' : 'Нужна калибровка амплитуды'}</h3>
+                    <p>
+                      {hasCompleteCalibrationRange
+                        ? 'Нижняя и верхняя точки зафиксированы. Сохраните амплитуду, чтобы открыть старт.'
+                        : 'Опустите гриф в нижнюю безопасную точку и зафиксируйте её, затем поднимите в верхнюю точку и зафиксируйте. После этого сохраните амплитуду.'}
+                    </p>
                   </div>
-                  <div className="rounded-[22px] border border-white/10 bg-black/20 px-4 py-3 text-right">
-                    <div className="text-xs uppercase tracking-[0.2em] text-white/45">Диапазон</div>
-                    <div className="mt-2 font-display text-3xl font-bold text-white">{calibrationRangeLabel}</div>
+                  <div className="rt-calibration-links">
+                    <Button variant="ghost" iconLeft={<RotateCcw aria-hidden="true" />} onClick={resetCalibrationDraft}>
+                      Сбросить точки
+                    </Button>
+                    {savedCalibration ? (
+                      <Button variant="ghost" onClick={() => void handleCalibrationDelete()}>
+                        Удалить калибровку
+                      </Button>
+                    ) : null}
+                    {savedCalibration ? (
+                      <Button variant="ghost" onClick={() => setCalibrationOpen(false)}>Свернуть</Button>
+                    ) : null}
                   </div>
-                </div>
-
-                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-[24px] border border-white/8 bg-white/4 px-4 py-4">
-                    <div className="text-xs uppercase tracking-[0.2em] text-white/45">Текущая позиция</div>
-                    <div className="mt-2 font-display text-3xl font-bold text-white">{formatMillimeters(livePositionMm)}</div>
-                    <div className="mt-2 text-sm leading-6 text-white/58">Физически переместите гриф в нужную точку и затем зафиксируйте её кнопкой ниже.</div>
+                </header>
+                <dl className="rt-calibration-values">
+                  <div>
+                    <dt>Текущая позиция</dt>
+                    <dd>{formatMillimeters(livePositionMm)}</dd>
+                    <small>Гриф сейчас</small>
                   </div>
-                  <div className="rounded-[24px] border border-white/8 bg-white/4 px-4 py-4">
-                    <div className="text-xs uppercase tracking-[0.2em] text-white/45">Нижняя точка</div>
-                    <div className="mt-2 font-display text-3xl font-bold text-white">{formatMillimeters(lowerPointMm)}</div>
-                    <div className="mt-2 text-sm leading-6 text-white/58">Live-низ: {formatMillimeters(liveLowerBoundMm)}</div>
+                  <div>
+                    <dt>Нижняя точка</dt>
+                    <dd>{formatMillimeters(lowerPointMm)}</dd>
+                    <small>Live-низ: {formatMillimeters(liveLowerBoundMm)}</small>
                   </div>
-                  <div className="rounded-[24px] border border-white/8 bg-white/4 px-4 py-4">
-                    <div className="text-xs uppercase tracking-[0.2em] text-white/45">Верхняя точка</div>
-                    <div className="mt-2 font-display text-3xl font-bold text-white">{formatMillimeters(upperPointMm)}</div>
-                    <div className="mt-2 text-sm leading-6 text-white/58">Live-верх: {formatMillimeters(liveUpperBoundMm)}</div>
+                  <div>
+                    <dt>Верхняя точка</dt>
+                    <dd>{formatMillimeters(upperPointMm)}</dd>
+                    <small>Live-верх: {formatMillimeters(liveUpperBoundMm)}</small>
                   </div>
-                </div>
-
-                <div className="mt-4 rounded-[24px] border border-white/8 bg-black/20 px-4 py-4 text-sm leading-7 text-white/68">
-                  {hasCompleteCalibrationRange
-                    ? 'Нижняя и верхняя точки зафиксированы. Теперь можно сохранить амплитуду и разблокировать старт упражнения.'
-                    : 'Шаг 1: опустите гриф в нижнюю безопасную точку. Шаг 2: нажмите «Зафиксировать нижнюю точку». Шаг 3: переместите гриф в верхнюю точку и зафиксируйте её. Шаг 4: сохраните амплитуду.'}
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-3">
-                  <Button variant="secondary" onClick={() => captureCalibrationPoint('lower')}>
+                </dl>
+                <div className="rt-calibration-actions">
+                  <Button variant={weightlessActive ? 'primary' : 'secondary'} onClick={() => void toggleWeightless()}>
+                    {weightlessActive ? 'Невесомый гриф: вкл — удержать' : 'Невесомый гриф'}
+                  </Button>
+                  <Button variant="secondary" disabled={weightlessActive && !barStill} onClick={() => captureCalibrationPoint('lower')}>
                     Зафиксировать нижнюю точку
                   </Button>
-                  <Button variant="secondary" onClick={() => captureCalibrationPoint('upper')}>
+                  <Button variant="secondary" disabled={weightlessActive && !barStill} onClick={() => captureCalibrationPoint('upper')}>
                     Зафиксировать верхнюю точку
+                  </Button>
+                  <Button variant="ghost" disabled={!hasCompleteCalibrationRange} onClick={() => void previewRange()}>
+                    Показать диапазон
                   </Button>
                   <Button disabled={!hasCompleteCalibrationRange} onClick={() => void handleCalibrationSave()}>
                     Сохранить амплитуду
                   </Button>
-                  <Button variant="ghost" iconLeft={<RotateCcw className="h-4 w-4" />} onClick={resetCalibrationDraft}>
-                    Сбросить точки
-                  </Button>
-                  {savedCalibration ? (
-                    <Button variant="ghost" onClick={() => void handleCalibrationDelete()}>
-                      Удалить калибровку
-                    </Button>
-                  ) : null}
                 </div>
-              </div>
+                {weightlessActive ? (
+                  <p className="rt-calibration-hint">
+                    Гриф скомпенсирован — переместите его руками в нужную точку и отпустите. {barStill ? 'Гриф неподвижен — можно фиксировать точку.' : 'Дождитесь остановки грифа.'}
+                  </p>
+                ) : null}
+              </section>
             ) : null}
           </div>
-        </section>
 
-        <aside className="space-y-6">
-          <section className="glass-panel rounded-[32px] p-5">
-            <div className="font-display text-3xl font-bold text-white">Проверка совместимости</div>
-            <div className="mt-4 rounded-[24px] border border-[#d6b05f]/18 bg-[#18140b] p-4 text-[#f2cf87]">
-              <div className="font-semibold">{exercise.details.compatibility.title}</div>
-              <div className="mt-2 text-sm leading-7">{exercise.details.compatibility.description}</div>
+          <section className="rt-panel rt-panel-scroll" aria-label="Параметры упражнения">
+            <div className="rt-exercise">
+              <h2>{exercise.name}</h2>
+              {exercise.secondaryName ? <p>{exercise.secondaryName}</p> : null}
+              {exercise.muscles.length ? <div className="rt-muscles">{exercise.muscles.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div> : null}
             </div>
-            <div className="mt-4">
-              <MuscleStatusList muscles={exercise.details.compatibility.affectedMuscles} />
+
+            {hardwareError ? (
+              <div className="rt-alert" data-tone="danger" role="alert">
+                <AlertTriangle aria-hidden="true" />
+                <div>
+                  <strong>Ошибка тренажёра</strong>
+                  <p>{hardwareError}</p>
+                </div>
+                <Button variant="secondary" onClick={() => setHardwareError(null)}>Скрыть</Button>
+              </div>
+            ) : null}
+
+            <div className="rt-steppers">
+              <ValueStepper
+                label="Вес"
+                unit="кг"
+                value={settings.weight}
+                onChange={(delta) => updateLoadSettings({ weight: Math.max(0, settings.weight + delta * 2.5) })}
+                onValueCommit={(value) => updateLoadSettings({ weight: Math.max(0, value ?? 0) })}
+              />
+              <ValueStepper
+                label="Подходы"
+                value={settings.sets}
+                onChange={(delta) => updateLoadSettings({ sets: Math.max(1, settings.sets + delta) })}
+                onValueCommit={(value) => updateLoadSettings({ sets: Math.max(1, value ?? 1) })}
+              />
+              <ValueStepper
+                label={exercise.kind === 'timed' ? 'Секунды' : 'Повторы'}
+                value={settings.reps}
+                onChange={(delta) => updateLoadSettings({ reps: Math.max(1, settings.reps + delta) })}
+                onValueCommit={(value) => updateLoadSettings({ reps: Math.max(1, value ?? 1) })}
+              />
+              <ValueStepper
+                label="Отдых"
+                unit="сек"
+                value={settings.restSeconds}
+                onChange={(delta) => updateLoadSettings({ restSeconds: Math.max(15, settings.restSeconds + delta * 15) })}
+                onValueCommit={(value) => updateLoadSettings({ restSeconds: Math.max(15, value ?? 15) })}
+              />
             </div>
-            <div className="mt-5 flex flex-col gap-3">
-              <Button variant="secondary" iconLeft={<Camera className="h-4 w-4" />} onClick={() => {
-                openPhotoProgress(session.photoProgress.mode === 'post-workout' ? 'manual' : session.photoProgress.mode || 'manual')
-                navigate(withSearch('/photo-progress', location.search))
-              }}>
-                Фотофиксация
-              </Button>
-              <Button className="w-full" disabled={startBlocked} iconLeft={<Play className="h-4 w-4" />} onClick={() => void handleStartExercise()}>
-                {startBlocked ? 'Старт недоступен' : 'Запустить упражнение'}
+
+            <div className="rt-secondary-row">
+              <p>{currentStrengthMode.title} · {settings.mode} · безопасный диапазон {settings.safeRange[0]}–{settings.safeRange[1]} кг</p>
+              <Button variant="secondary" iconLeft={<SlidersHorizontal aria-hidden="true" />} onClick={() => setModeDialogOpen(true)}>
+                Режим тренировки
               </Button>
             </div>
           </section>
+        </div>
 
-          <section className="glass-panel rounded-[32px] p-5">
-            <div className="font-display text-3xl font-bold text-white">Текущий сценарий</div>
-            <div className="mt-4 space-y-3 text-sm text-white/72">
-              <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Источник</span><span>{session.source}</span></div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Режим</span><span>{exercise.kind}</span></div>
-              <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Диапазон</span><span>{calibrationRangeLabel}</span></div>
-            </div>
-            <Button className="mt-5 w-full" variant="secondary" onClick={() => {
+        <div className="rt-actions" role="group" aria-label="Действия с упражнением">
+          <Button
+            variant="secondary"
+            onClick={() => {
               completeWorkout('aborted')
               navigate(withSearch('/workout-summary', location.search))
-            }}>
-              Завершить тренировку сейчас
-            </Button>
-          </section>
-        </aside>
+            }}
+          >
+            Завершить тренировку
+          </Button>
+          <div className="rt-actions-note">{startBlocked ? 'Сначала сохраните амплитуду — после этого старт откроется.' : readyNote}</div>
+          <Button className="rt-primary" disabled={startBlocked} iconLeft={<Play aria-hidden="true" />} onClick={() => void handleStartExercise()}>
+            {startBlocked ? 'Старт недоступен' : 'Запустить упражнение'}
+          </Button>
+        </div>
       </div>
+
+      <Dialog.Root open={modeDialogOpen} onOpenChange={setModeDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="rt-details-panel">
+            <Dialog.Title className="font-display text-3xl font-bold">Режим тренировки</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/70">{exercise.name} · {settings.recommendation}</Dialog.Description>
+            <div className="rt-details-body">
+              <StrengthModeSelector
+                modes={strengthModes}
+                selectedModeId={currentStrengthMode.id}
+                selectedDayType={currentStrengthMode.dayType}
+                onSelect={(modeId, dayType) => selectStrengthMode(modeId, dayType)}
+              />
+              <div>
+                <h3>Режим нагрузки</h3>
+                <LoadModeSelector value={settings.mode} options={['Обычный вес', 'Контроль техники', 'Лёгкий режим']} onChange={(mode) => updateLoadSettings({ mode })} />
+              </div>
+            </div>
+            <div className="builder-dialog-actions">
+              <Dialog.Close asChild><Button>Готово</Button></Dialog.Close>
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <EmergencyStopOverlay
         open={emergencyStopActive}

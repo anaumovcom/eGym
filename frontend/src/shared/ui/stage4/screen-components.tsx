@@ -684,7 +684,7 @@ function DevToggle({ label, checked, onChange }: { label: string; checked: boole
   return (
     <label className="flex items-center justify-between gap-3 rounded-[18px] border border-white/8 bg-white/4 px-4 py-3 text-sm text-white/76">
       <span>{label}</span>
-      <button type="button" title={label} aria-label={label} onClick={() => onChange(!checked)} className={cn('inline-flex h-7 w-12 items-center rounded-full border px-1 transition', checked ? 'border-[#d6b05f]/40 bg-[#3c2b12] justify-end' : 'border-white/10 bg-black/25 justify-start')}>
+      <button type="button" role="switch" aria-checked={checked} title={label} aria-label={label} onClick={() => onChange(!checked)} className={cn('inline-flex h-7 min-h-0 w-12 items-center rounded-full border px-1 transition', checked ? 'border-[#d6b05f]/40 bg-[#3c2b12] justify-end' : 'border-white/10 bg-black/25 justify-start')}>
         <span className={cn('h-5 w-5 rounded-full', checked ? 'bg-[#f3d18b]' : 'bg-white/35')} />
       </button>
     </label>

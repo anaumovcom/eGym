@@ -63,3 +63,15 @@ class SelectUserRequestSchema(SchemaModel):
 
 class SelectUserResponseSchema(SchemaModel):
     current_user: CurrentUserSchema
+
+
+class UserProfileUpdateSchema(SchemaModel):
+    name: str = Field(min_length=1, max_length=120)
+    birth_date: date | None = None
+    height_cm: int | None = Field(default=None, ge=80, le=250)
+    weight_kg: float | None = Field(default=None, ge=20, le=400)
+    notes: str | None = Field(default=None, max_length=2000)
+    goal_label: str = Field(min_length=1, max_length=120)
+    goal_type: str = "habit"
+    target_value: float | None = None
+    target_unit: str | None = Field(default=None, max_length=32)

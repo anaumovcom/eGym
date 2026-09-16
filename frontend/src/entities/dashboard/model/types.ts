@@ -21,6 +21,8 @@ export type DashboardBuilderWorkout = {
     progressPercent?: number
   }>
   duration: string
+  lastPerformedAt?: string | null
+  lastStatus?: 'completed' | 'partial' | 'aborted' | null
   todayStatus?: 'idle' | 'in_progress' | 'completed' | 'partial' | 'aborted'
   todayProgressPercent?: number
   todayCompletedExercises?: number

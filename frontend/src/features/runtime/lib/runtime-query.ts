@@ -9,14 +9,6 @@ export function parseRuntimeSource(value: string | null): RuntimeFlowSource {
 }
 
 export function parseRuntimePhotoMode(value: string | null): RuntimePhotoMode | null {
-  if (value === 'before') {
-    return 'pre-workout'
-  }
-
-  if (value === 'after') {
-    return 'post-workout'
-  }
-
   if (value === 'manual') {
     return 'manual'
   }

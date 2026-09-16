@@ -1,20 +1,32 @@
-import { Activity, ArrowDown, Camera, CheckCircle2, ChevronRight, CircleDashed, Clock3, Dumbbell, Flame, House, Play, SkipForward, Sparkles } from 'lucide-react'
+import * as Dialog from '@radix-ui/react-dialog'
+import { ArrowDown, CheckCircle2, CircleDashed, Clock3, Dumbbell, Flame, House, ListChecks, Play, SkipForward, Sparkles } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import type { MachineHealth } from '@/entities/machine/model/types'
 import type { RuntimeWorkoutSummaryState } from '@/entities/runtime/model/types'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { adjustExerciseLoadOnBackend, resolveWorkoutSaveStatus, saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
 import type { LoadAdjustmentDirection, LoadAdjustmentResponse } from '@/features/runtime/lib/runtime-persistence'
-import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
+import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
-import { CompactBodyMapMini, SectionIntro } from '@/shared/ui/stage2/screen-components'
+import { FormaState } from '@/shared/ui/status/forma-state'
+import { CompactBodyMapMini } from '@/shared/ui/stage2/screen-components'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
+}
+
+const fallbackMachine: MachineHealth = {
+  machineState: 'ready',
+  machineLabel: 'Тренажёр готов',
+  leftDrive: 'connected',
+  rightDrive: 'connected',
+  safety: 'enabled',
+  calibration: '—',
 }
 
 export function WorkoutSummaryScreen() {
@@ -26,7 +38,6 @@ export function WorkoutSummaryScreen() {
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const session = useRuntimeStore((state) => state.session)
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
-  const openPhotoProgress = useRuntimeStore((state) => state.openPhotoProgress)
   const replaceWorkoutSummary = useRuntimeStore((state) => state.replaceWorkoutSummary)
   const applyLoadAdjustment = useRuntimeStore((state) => state.applyLoadAdjustment)
   const resumeWorkoutExercise = useRuntimeStore((state) => state.resumeWorkoutExercise)
@@ -34,6 +45,8 @@ export function WorkoutSummaryScreen() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pendingAdjustment, setPendingAdjustment] = useState<string | null>(null)
   const [adjustmentResults, setAdjustmentResults] = useState<Record<string, LoadAdjustmentResponse>>({})
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const [retryToken, setRetryToken] = useState(0)
 
   const initOptions = getRuntimeInitOptions(searchParams)
 
@@ -54,12 +67,16 @@ export function WorkoutSummaryScreen() {
       .then((summary) => replaceWorkoutSummary(summary, true))
       .catch((error) => {
         saveTriggeredRef.current = false
-        setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить итог тренировки на backend.')
+        setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить итог тренировки. Попробуйте ещё раз.')
       })
-  }, [replaceWorkoutSummary, selectedUserId, session])
+  }, [replaceWorkoutSummary, retryToken, selectedUserId, session])
 
   if (!session) {
-    return null
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+        <FormaState tone="loading" title="Считаем итог тренировки…" />
+      </FormaShell>
+    )
   }
 
   const summary = session.workoutSummary
@@ -92,7 +109,7 @@ export function WorkoutSummaryScreen() {
       applyLoadAdjustment(exercise.exerciseSlug, result)
       setAdjustmentResults((current) => ({ ...current, [exercise.exerciseSlug!]: result }))
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Не удалось изменить нагрузку на backend.')
+      setSaveError(error instanceof Error ? error.message : 'Не удалось изменить нагрузку. Попробуйте ещё раз.')
     } finally {
       setPendingAdjustment(null)
     }
@@ -111,253 +128,211 @@ export function WorkoutSummaryScreen() {
     navigate(withSearch(nextView === 'exercise-session' ? '/exercise-session' : '/exercise-setup', location.search))
   }
 
+  const outcomeTone = summary.outcome === 'aborted' ? 'aborted' : summary.outcome === 'partial' ? 'partial' : 'done'
+  const outcomeLabel = summary.outcome === 'aborted' ? 'Тренировка прервана' : summary.outcome === 'partial' ? 'Завершена частично' : 'Тренировка выполнена'
+  const doneCount = summary.exercises.filter((exercise) => exercise.status === 'done').length
+  const primaryMetrics = summary.metrics.slice(0, 4)
+
   return (
     <FormaShell userName={getUserName(selectedUserId)} machine={session.machine} onStop={() => setEmergencyStopActive(true)}>
-      <SectionIntro title={summary.title} description={summary.subtitle} />
-      {saveError ? <div className="mb-5 rounded-[22px] border border-[#eb5345]/25 bg-[#1b0f10] px-4 py-3 text-sm text-[#ffb4a7]">{saveError}</div> : null}
-      {resumableExercises.length > 0 ? (
-        <div className="mb-5 rounded-[24px] border border-[#f0bf43]/20 bg-[#18140b] px-5 py-4 text-sm text-[#f2cf87]">
-          Можно вернуться к незавершённым подходам и пропущенным упражнениям прямо из этого экрана.
-        </div>
-      ) : null}
+      <div className="rt-screen">
+        <header className="rt-header">
+          <div className="rt-chips" style={{ justifyContent: 'flex-start' }} aria-label="Тренировка">
+            <span className="rt-chip">{session.workoutTitle}</span>
+          </div>
+          <div className="rt-title">
+            <h1 className="font-display font-bold tracking-[-0.04em] text-white">{summary.title}</h1>
+            <p><span>{summary.subtitle}</span></p>
+          </div>
+          <div className="rt-chips" aria-label="Итог тренировки">
+            <span className="rt-outcome-badge" data-tone={outcomeTone}>
+              {outcomeTone === 'done' ? <CheckCircle2 aria-hidden="true" /> : <CircleDashed aria-hidden="true" />}
+              {outcomeLabel} · {doneCount} из {summary.exercises.length}
+            </span>
+          </div>
+        </header>
 
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <section className="glass-panel rounded-[34px] p-6 xl:p-8">
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            {summary.metrics.map((metric) => (
-              <div key={metric.label} className="rounded-[24px] border border-white/8 bg-white/4 p-4">
-                <div className="text-sm text-white/45">{metric.label}</div>
-                <div className="mt-2 font-display text-3xl font-bold text-white">{metric.value}</div>
-                <div className="mt-1 text-xs text-white/35">{metric.hint}</div>
-              </div>
+        <div className="rt-body rt-summary-body">
+          <div className="rt-summary-metrics" role="list" aria-label="Итоги тренировки">
+            {primaryMetrics.map((metric) => (
+              <article key={metric.label} role="listitem">
+                <span>{metric.label}</span>
+                <strong>{metric.value}</strong>
+                <small>{metric.hint}</small>
+              </article>
             ))}
           </div>
 
-          <div className="mt-6 overflow-hidden rounded-[28px] border border-white/8">
-            <div className="bg-white/4 px-4 py-3 text-sm uppercase tracking-[0.24em] text-white/35">Упражнения тренировки</div>
-            <div className="space-y-4 p-4">
-              {summary.exercises.map((exercise, index) => {
-                const adjustedLoad = exercise.exerciseSlug ? adjustmentResults[exercise.exerciseSlug] : undefined
-                const decreaseKey = `${exercise.exerciseSlug}:decrease`
-                const increaseKey = `${exercise.exerciseSlug}:increase`
-                const currentLoadLabel = exercise.currentLoad ?? '—'
-                const nextLoadLabel = exercise.nextLoad ?? exercise.currentLoad ?? adjustedLoad?.loadLabel ?? '—'
-                const statusBadge = getWorkoutStatusMeta(exercise.status)
-                const cardToneClass = getWorkoutCardToneClass(exercise.status)
-                const canResume = exercise.status !== 'done' && (exercise.remainingSetCount ?? 0) > 0
-                const canAdjustLoad = Boolean(exercise.exerciseSlug) && exercise.status !== 'skipped'
-                const resumeLabel = getResumeLabel(exercise)
-                const showResultLine = !(exercise.status === 'skipped' && exercise.result === 'пропущено')
-                const showInfoChips = Boolean(exercise.completedSetCount || canResume)
-                const showLoadMetrics = exercise.status !== 'skipped' && Boolean(exercise.currentLoad || exercise.nextLoad || adjustedLoad)
+          {saveError ? (
+            <div className="rt-alert" data-tone="danger" role="alert">
+              <CircleDashed aria-hidden="true" />
+              <div>
+                <strong>Не удалось сохранить</strong>
+                <p>{saveError}</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setSaveError(null); saveTriggeredRef.current = false; setRetryToken((current) => current + 1) }}>Повторить</Button>
+            </div>
+          ) : (
+            <div className="rt-alert" role="note">
+              <Sparkles aria-hidden="true" />
+              <div>
+                <strong>{summary.nextWorkout}</strong>
+                <p>{summary.recommendation}</p>
+              </div>
+              <span />
+            </div>
+          )}
 
+          {resumableExercises.length > 0 ? (
+            <section className="rt-summary-list" aria-label="Незавершённые упражнения">
+              {resumableExercises.map((exercise, index) => {
+                const statusMeta = getWorkoutStatusMeta(exercise.status)
                 return (
-                  <div
-                    key={exercise.exerciseId ?? (exercise.exerciseSessionId != null ? `session-${exercise.exerciseSessionId}` : `${exercise.exerciseSlug ?? exercise.name}-${index}`)}
-                    className={cn('rounded-[24px] border p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]', cardToneClass)}
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start gap-3">
-                          <div className={cn('mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-[16px] border', statusBadge.iconClass)}>
-                            <statusBadge.icon className="h-5 w-5" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-white">{exercise.name}</div>
-                            {showResultLine ? <div className="mt-1 text-sm text-white/45">{exercise.result}</div> : null}
-                          </div>
-                        </div>
-                      </div>
-                      <div className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium', statusBadge.badgeClass)}>
-                        <statusBadge.icon className="h-3.5 w-3.5" />
-                        {statusBadge.label}
-                      </div>
+                  <div key={exercise.exerciseId ?? `${exercise.exerciseSlug ?? exercise.name}-${index}`} className="rt-summary-item" data-status={exercise.status}>
+                    <div className="rt-summary-item-icon" aria-hidden="true"><statusMeta.icon /></div>
+                    <div className="rt-summary-item-body">
+                      <strong>{exercise.name}</strong>
+                      <span>{statusMeta.label} · осталось {exercise.remainingSetCount} {pluralizeSets(exercise.remainingSetCount ?? 0)}</span>
                     </div>
-
-                    {showInfoChips ? (
-                      <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {exercise.completedSetCount ? <InfoChip icon={Activity} label={`Сделано ${exercise.completedSetCount} из ${exercise.plannedSetCount ?? exercise.completedSetCount} подходов`} /> : null}
-                        {canResume ? <InfoChip icon={Play} label={`Осталось ${exercise.remainingSetCount} подхода`} accent /> : null}
-                      </div>
-                    ) : null}
-
-                    <div className={cn('grid gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-end', showInfoChips ? 'mt-3' : 'mt-2')}>
-                      <div>
-                        {showLoadMetrics ? (
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <LoadMetric label="Текущая нагрузка" value={currentLoadLabel} tone="muted" />
-                            <LoadMetric label="Нагрузка в следующий раз" value={nextLoadLabel} tone="accent" />
-                          </div>
-                        ) : null}
-                        {showLoadMetrics && adjustedLoad ? <div className="mt-2 text-xs leading-6 text-white/40">{adjustedLoad.recommendation}</div> : null}
-                      </div>
-
-                      <div className="flex flex-wrap items-center justify-start gap-2 xl:justify-end">
-                        {canResume ? (
-                          <Button variant="secondary" iconLeft={<Play className="h-4 w-4" />} onClick={() => handleResumeExercise(exercise.exerciseId)}>
-                            {resumeLabel}
-                          </Button>
-                        ) : null}
-                        {canAdjustLoad ? (
-                          <div className="flex flex-col items-stretch gap-2">
-                            <Button variant="secondary" disabled={pendingAdjustment !== null} iconLeft={<Dumbbell className="h-4 w-4" />} onClick={() => void handleAdjustLoad(exercise, 'increase')}>
-                              {pendingAdjustment === increaseKey ? 'Сохраняю…' : 'Повысить'}
-                            </Button>
-                            <Button variant="secondary" disabled={pendingAdjustment !== null} iconLeft={<ArrowDown className="h-4 w-4" />} onClick={() => void handleAdjustLoad(exercise, 'decrease')}>
-                              {pendingAdjustment === decreaseKey ? 'Сохраняю…' : 'Снизить'}
-                            </Button>
-                          </div>
-                        ) : null}
-                      </div>
+                    <div className="rt-summary-item-actions">
+                      <Button variant="secondary" iconLeft={<Play aria-hidden="true" />} onClick={() => handleResumeExercise(exercise.exerciseId)}>
+                        {getResumeLabel(exercise)}
+                      </Button>
                     </div>
                   </div>
                 )
               })}
-            </div>
+            </section>
+          ) : null}
+        </div>
+
+        <div className="rt-actions" role="group" aria-label="Действия после тренировки">
+          <div className="rt-actions-group">
+            <Button variant="secondary" iconLeft={<ListChecks aria-hidden="true" />} onClick={() => setDetailsOpen(true)}>
+              Подробно
+            </Button>
+            <Button variant="secondary" iconLeft={<Flame aria-hidden="true" />} onClick={() => navigate('/progress?tab=recovery')}>
+              Усталость и восстановление
+            </Button>
           </div>
-        </section>
-
-        <aside className="space-y-6">
-          <section className="glass-panel rounded-[32px] p-5">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 text-sm text-white/45"><Flame className="h-4 w-4 text-[#f08b2e]" />Усталость мышц</div>
-                <div className="mt-2 font-display text-4xl font-bold text-white">{totalFatigueScore}</div>
-              </div>
-              <div className="rounded-full border border-white/8 bg-white/5 px-3 py-1 text-xs text-white/58">{summary.muscleLoad.length} мышц</div>
-            </div>
-
-            <div className="mt-4 rounded-[26px] border border-white/6 bg-[#0b1017]/72 p-3">
-              <CompactBodyMapMini
-                muscles={highlightedMuscles}
-                label="Суммарная усталость мышц за выполненные подходы"
-                className="rounded-[26px] border-white/6 bg-transparent p-0"
-                figureContainerClassName="h-[220px] p-0"
-                figureMarkupClassName="max-w-[112px]"
-              />
-            </div>
-
-            <div className="mt-4 text-sm leading-6 text-white/55">
-              Учитываются только фактически выполненные подходы. Пропущенные упражнения и не сделанные подходы в расчёт не входят.
-            </div>
-
-            <div className="mt-4 grid gap-2">
-              {summary.muscleLoad.length > 0 ? summary.muscleLoad.map((muscle) => (
-                <div key={muscle.name} className="rounded-[18px] border border-white/8 bg-white/4 px-3 py-3">
-                  <div className="flex items-center justify-between gap-3 text-sm">
-                    <span className="truncate text-white/78">{muscle.name}</span>
-                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', getFatigueToneClass(muscle.status))}>{muscle.score}</span>
-                  </div>
-                  <div className="mt-2 h-2 rounded-full bg-white/8">
-                    <div className={cn('h-full rounded-full transition-all', getFatigueBarClass(muscle.status), getFatigueWidthClass(muscle.score))} />
-                  </div>
-                </div>
-              )) : (
-                <div className="rounded-[18px] border border-white/8 bg-white/4 px-3 py-4 text-sm text-white/45">
-                  Пока нет выполненных подходов, которые создают заметную усталость мышц.
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="glass-panel rounded-[32px] p-5">
-            <div className="flex items-center gap-3 text-[#f2cf87]"><Sparkles className="h-5 w-5" />Следующий шаг</div>
-            <div className="mt-3 text-sm leading-7 text-white/65">{summary.recommendation}</div>
-            <div className="mt-4 rounded-[24px] border border-white/8 bg-white/4 px-4 py-4 text-white/72">{summary.nextWorkout}</div>
-            <div className="mt-5 flex flex-col gap-3">
-              <Button
-                iconLeft={<Camera className="h-4 w-4" />}
-                onClick={() => {
-                  openPhotoProgress('post-workout')
-                  navigate(withSearch('/photo-progress', location.search))
-                }}
-              >
-                Фото после тренировки
-              </Button>
-              <Button variant="secondary" iconLeft={<ChevronRight className="h-4 w-4" />} onClick={() => navigate('/today')}>
-                Открыть план на сегодня
-              </Button>
-              <Button variant="secondary" iconLeft={<House className="h-4 w-4" />} onClick={() => navigate('/dashboard')}>
-                На дашборд
-              </Button>
-            </div>
-          </section>
-        </aside>
+          <div className="rt-actions-note">
+            {session.backendWorkoutSaved ? 'Результат сохранён в календаре' : saveError ? 'Результат пока не сохранён' : 'Сохраняем результат…'}
+          </div>
+          <Button className="rt-primary" iconLeft={<House aria-hidden="true" />} onClick={() => navigate('/dashboard')}>
+            На главную
+          </Button>
+        </div>
       </div>
+
+      <Dialog.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="rt-details-panel">
+            <Dialog.Title className="font-display text-3xl font-bold">Подробно: {summary.title}</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/70">Упражнения, нагрузка на следующий раз и усталость мышц по выполненным подходам.</Dialog.Description>
+            <div className="rt-details-body">
+              <section aria-label="Упражнения тренировки">
+                <h3>Упражнения</h3>
+                <div className="rt-summary-list" style={{ overflow: 'visible' }}>
+                  {summary.exercises.map((exercise, index) => {
+                    const adjustedLoad = exercise.exerciseSlug ? adjustmentResults[exercise.exerciseSlug] : undefined
+                    const statusMeta = getWorkoutStatusMeta(exercise.status)
+                    const canAdjustLoad = Boolean(exercise.exerciseSlug) && exercise.status !== 'skipped'
+                    const nextLoadLabel = exercise.nextLoad ?? exercise.currentLoad ?? adjustedLoad?.loadLabel
+                    return (
+                      <div key={exercise.exerciseId ?? (exercise.exerciseSessionId != null ? `session-${exercise.exerciseSessionId}` : `${exercise.exerciseSlug ?? exercise.name}-${index}`)} className="rt-summary-item" data-status={exercise.status}>
+                        <div className="rt-summary-item-icon" aria-hidden="true"><statusMeta.icon /></div>
+                        <div className="rt-summary-item-body">
+                          <strong>{exercise.name}</strong>
+                          <span>{statusMeta.label}{exercise.result && exercise.result !== 'пропущено' ? ` · ${exercise.result}` : ''}</span>
+                          {exercise.status !== 'skipped' && (exercise.currentLoad || nextLoadLabel) ? <span>Сейчас: {exercise.currentLoad ?? '—'} · В следующий раз: {nextLoadLabel ?? '—'}</span> : null}
+                          {adjustedLoad ? <span>{adjustedLoad.recommendation}</span> : null}
+                        </div>
+                        <div className="rt-summary-item-actions">
+                          {canAdjustLoad ? (
+                            <>
+                              <Button variant="secondary" disabled={pendingAdjustment !== null} iconLeft={<ArrowDown aria-hidden="true" />} onClick={() => void handleAdjustLoad(exercise, 'decrease')}>
+                                {pendingAdjustment === `${exercise.exerciseSlug}:decrease` ? 'Сохраняю…' : 'Снизить'}
+                              </Button>
+                              <Button variant="secondary" disabled={pendingAdjustment !== null} iconLeft={<Dumbbell aria-hidden="true" />} onClick={() => void handleAdjustLoad(exercise, 'increase')}>
+                                {pendingAdjustment === `${exercise.exerciseSlug}:increase` ? 'Сохраняю…' : 'Повысить'}
+                              </Button>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+              <section aria-label="Усталость мышц">
+                <h3>Усталость мышц · {totalFatigueScore}</h3>
+                <div className="rt-muscle-load">
+                  <CompactBodyMapMini
+                    muscles={highlightedMuscles}
+                    label="Суммарная усталость мышц за выполненные подходы"
+                    className="rounded-[var(--ui-radius)] border-white/6 bg-[#0b1017] p-2"
+                    figureContainerClassName="h-[240px] p-0"
+                    figureMarkupClassName="max-w-[120px]"
+                  />
+                  <div className="rt-muscle-list">
+                    {summary.muscleLoad.length > 0 ? summary.muscleLoad.map((muscle) => (
+                      <div key={muscle.name} data-tone={muscle.status} style={{ ['--recovery-tone' as string]: getFatigueColor(muscle.status) }}>
+                        <span>{muscle.name}</span>
+                        <strong>{muscle.score}</strong>
+                        <div><div style={{ width: `${Math.max(4, Math.min(100, muscle.score))}%` }} /></div>
+                      </div>
+                    )) : <p className="text-sm text-white/60">Пока нет выполненных подходов, которые создают заметную усталость мышц.</p>}
+                  </div>
+                </div>
+                <p className="mt-3 text-sm text-white/60">Учитываются только фактически выполненные подходы. Пропущенные упражнения и не сделанные подходы в расчёт не входят.</p>
+              </section>
+            </div>
+            <div className="builder-dialog-actions">
+              <Dialog.Close asChild><Button>Закрыть</Button></Dialog.Close>
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
     </FormaShell>
   )
 }
 
-function LoadMetric({ label, value, tone }: { label: string; value: string; tone: 'muted' | 'accent' }) {
-  return (
-    <div className={cn('rounded-[18px] border px-3 py-3 text-xs', tone === 'accent' ? 'border-[#d6b05f]/22 bg-[#18140b] text-[#f2cf87]' : 'border-white/8 bg-white/4 text-white/68')}>
-      <div className="text-[10px] uppercase tracking-[0.18em] text-white/40">{label}</div>
-      <div className="mt-1 text-sm font-semibold">{value}</div>
-    </div>
-  )
+function pluralizeSets(count: number) {
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 === 1 && mod100 !== 11) return 'подход'
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'подхода'
+  return 'подходов'
 }
 
-function InfoChip({ icon: Icon, label, accent = false }: { icon: typeof Activity; label: string; accent?: boolean }) {
-  return (
-    <div className={cn('inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs', accent ? 'border-[#d6b05f]/20 bg-[#18140b] text-[#f2cf87]' : 'border-white/8 bg-white/4 text-white/55')}>
-      <Icon className="h-3.5 w-3.5" />
-      {label}
-    </div>
-  )
+function getFatigueColor(status: 'ready' | 'light' | 'medium' | 'high' | 'critical' | 'no_data') {
+  return {
+    ready: '#57c968',
+    light: '#b9d94b',
+    medium: '#f0bf43',
+    high: '#f08b2e',
+    critical: '#eb5345',
+    no_data: '#8793a6',
+  }[status]
 }
 
 function getWorkoutStatusMeta(status: RuntimeWorkoutSummaryState['exercises'][number]['status']) {
   if (status === 'done') {
-    return {
-      label: 'Выполнено',
-      icon: CheckCircle2,
-      badgeClass: 'border-[#57c968]/18 bg-[#122b1d] text-[#92e09a]',
-      iconClass: 'border-[#57c968]/20 bg-[#122b1d] text-[#92e09a]',
-    }
+    return { label: 'Выполнено', icon: CheckCircle2 }
   }
 
   if (status === 'partial') {
-    return {
-      label: 'Не закончено',
-      icon: CircleDashed,
-      badgeClass: 'border-[#f0bf43]/18 bg-[#18140b] text-[#f2cf87]',
-      iconClass: 'border-[#f0bf43]/18 bg-[#18140b] text-[#f2cf87]',
-    }
+    return { label: 'Не закончено', icon: CircleDashed }
   }
 
   if (status === 'skipped') {
-    return {
-      label: 'Пропущено',
-      icon: SkipForward,
-      badgeClass: 'border-[#eb5345]/18 bg-[#1b0f10] text-[#ffb4a7]',
-      iconClass: 'border-[#eb5345]/18 bg-[#1b0f10] text-[#ffb4a7]',
-    }
+    return { label: 'Пропущено', icon: SkipForward }
   }
 
-  return {
-    label: 'Не начато',
-    icon: Clock3,
-    badgeClass: 'border-white/10 bg-white/4 text-white/60',
-    iconClass: 'border-white/10 bg-white/4 text-white/60',
-  }
-}
-
-function getWorkoutCardToneClass(status: RuntimeWorkoutSummaryState['exercises'][number]['status']) {
-  if (status === 'done') {
-    return 'border-[#57c968]/18 bg-[#12201a]/90'
-  }
-
-  if (status === 'partial') {
-    return 'border-[#f0bf43]/18 bg-[#21180c]/90'
-  }
-
-  if (status === 'skipped') {
-    return 'border-[#eb5345]/18 bg-[#241113]/90'
-  }
-
-  return 'border-white/8 bg-[#0f151c]/86'
+  return { label: 'Не начато', icon: Clock3 }
 }
 
 function getResumeLabel(exercise: RuntimeWorkoutSummaryState['exercises'][number]) {
@@ -367,70 +342,4 @@ function getResumeLabel(exercise: RuntimeWorkoutSummaryState['exercises'][number
 
   const remaining = exercise.remainingSetCount ?? 0
   return remaining > 1 ? `Доделать ${remaining} подхода` : 'Доделать подход'
-}
-
-function getFatigueToneClass(status: 'ready' | 'light' | 'medium' | 'high' | 'critical' | 'no_data') {
-  return {
-    ready: 'bg-[#163720] text-[#9ef0a8]',
-    light: 'bg-[#2e3316] text-[#dfe890]',
-    medium: 'bg-[#3a2b14] text-[#f2cf87]',
-    high: 'bg-[#3a2014] text-[#f5b17e]',
-    critical: 'bg-[#3a1816] text-[#ffb4a7]',
-    no_data: 'bg-white/8 text-white/45',
-  }[status]
-}
-
-function getFatigueBarClass(status: 'ready' | 'light' | 'medium' | 'high' | 'critical' | 'no_data') {
-  return {
-    ready: 'bg-[#57c968]',
-    light: 'bg-[#b9d94b]',
-    medium: 'bg-[#f0bf43]',
-    high: 'bg-[#f08b2e]',
-    critical: 'bg-[#eb5345]',
-    no_data: 'bg-white/20',
-  }[status]
-}
-
-function getFatigueWidthClass(score: number) {
-  if (score >= 95) {
-    return 'w-full'
-  }
-
-  if (score >= 85) {
-    return 'w-11/12'
-  }
-
-  if (score >= 75) {
-    return 'w-10/12'
-  }
-
-  if (score >= 65) {
-    return 'w-8/12'
-  }
-
-  if (score >= 55) {
-    return 'w-7/12'
-  }
-
-  if (score >= 45) {
-    return 'w-6/12'
-  }
-
-  if (score >= 35) {
-    return 'w-5/12'
-  }
-
-  if (score >= 25) {
-    return 'w-4/12'
-  }
-
-  if (score >= 15) {
-    return 'w-3/12'
-  }
-
-  if (score >= 8) {
-    return 'w-2/12'
-  }
-
-  return 'w-1/12'
 }

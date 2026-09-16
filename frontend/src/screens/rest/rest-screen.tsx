@@ -1,12 +1,16 @@
-import { Minus, PauseCircle, Plus } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
+import { AlertTriangle, CheckCircle2, Plus, SkipForward, Square } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import type { MachineHealth } from '@/entities/machine/model/types'
+import type { RuntimeRestState, RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
+import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
-import { SectionIntro } from '@/shared/ui/stage2/screen-components'
+import { FormaState } from '@/shared/ui/status/forma-state'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 
@@ -14,25 +18,22 @@ function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
 }
 
+const fallbackMachine: MachineHealth = {
+  machineState: 'ready',
+  machineLabel: 'Тренажёр готов',
+  leftDrive: 'connected',
+  rightDrive: 'connected',
+  safety: 'enabled',
+  calibration: '—',
+}
+
 export function RestScreen() {
-  const navigate = useNavigate()
-  const location = useLocation()
   const [searchParams] = useSearchParams()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
-  const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const session = useRuntimeStore((state) => state.session)
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
-  const beginNextStep = useRuntimeStore((state) => state.beginNextStep)
-  const adjustRestSeconds = useRuntimeStore((state) => state.adjustRestSeconds)
-  const tickRestTimer = useRuntimeStore((state) => state.tickRestTimer)
-  const pauseRestTimer = useRuntimeStore((state) => state.pauseRestTimer)
-  const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
   const snapshot = useHardwareStore((state) => state.snapshot)
-  const hardwareError = useHardwareStore((state) => state.errorMessage)
-  const runCommand = useHardwareStore((state) => state.runCommand)
-  const autoAdvanceTriggeredRef = useRef(false)
-
   const initOptions = getRuntimeInitOptions(searchParams)
 
   useEffect(() => {
@@ -41,18 +42,40 @@ export function RestScreen() {
     }
   }, [ensureSession, initOptions, session])
 
+  if (!session || !session.restState) {
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={snapshot?.machine ?? session?.machine ?? fallbackMachine} hideNavigation onStop={() => setEmergencyStopActive(true)}>
+        <FormaState tone="loading" title="Загружаем отдых…" />
+      </FormaShell>
+    )
+  }
+
+  return <RestView session={session} rest={session.restState} />
+}
+
+function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: RuntimeRestState }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const selectedUserId = useAppStore((state) => state.selectedUserId)
+  const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
+  const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
+  const beginNextStep = useRuntimeStore((state) => state.beginNextStep)
+  const adjustRestSeconds = useRuntimeStore((state) => state.adjustRestSeconds)
+  const tickRestTimer = useRuntimeStore((state) => state.tickRestTimer)
+  const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
+  const snapshot = useHardwareStore((state) => state.snapshot)
+  const hardwareError = useHardwareStore((state) => state.errorMessage)
+  const runCommand = useHardwareStore((state) => state.runCommand)
+  const autoAdvanceTriggeredRef = useRef(false)
+  const [finishDialogOpen, setFinishDialogOpen] = useState(false)
+
   useEffect(() => {
     if (snapshot?.safety.state === 'emergency_stop') {
       setEmergencyStopActive(true)
     }
   }, [setEmergencyStopActive, snapshot?.safety.state])
 
-  if (!session || !session.restState) {
-    return null
-  }
-
   const activeSession = session
-  const rest = session.restState
   const currentExercise = activeSession.exercises.find((item) => item.id === activeSession.currentExerciseId) ?? activeSession.exercises[0]
   const hasNextSet = activeSession.currentSetIndex < currentExercise.plan.length - 1
   const nextExercisePlan = hasNextSet ? currentExercise : activeSession.exercises[currentExercise.order]
@@ -101,76 +124,103 @@ export function RestScreen() {
     navigate(withSearch('/exercise-session', location.search))
   }
 
+  const progressPercent = rest.totalSeconds > 0 ? Math.round(((rest.totalSeconds - rest.remainingSeconds) / rest.totalSeconds) * 100) : 100
+  const nextTitle = rest.nextExercise?.name ?? (hasNextSet ? `${currentExercise.name} · подход ${activeSession.currentSetIndex + 2} из ${currentExercise.plan.length}` : 'Следующий подход')
+  const nextTarget = rest.nextExercise?.target ?? 'повторить текущую нагрузку'
+  const completedAmplitude = snapshot?.motion ? `${snapshot.motion.amplitudePercent}%` : rest.completedSet.amplitudePercent ? `${rest.completedSet.amplitudePercent}%` : null
+
   return (
     <FormaShell
       userName={getUserName(selectedUserId)}
       machine={snapshot?.machine ?? session.machine}
+      hideNavigation
       onStop={() => {
         void runCommand({ action: 'trigger_emergency_stop', userId: selectedUserId })
         setEmergencyStopActive(true)
       }}
     >
-      <SectionIntro title={rest.title} description={rest.subtitle} />
-
-      <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <section className="glass-panel rounded-[34px] p-6 xl:p-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <div className="text-sm uppercase tracking-[0.24em] text-white/35">Таймер отдыха</div>
-              <div className="mt-3 font-display text-7xl font-bold text-white">{rest.remainingSeconds}с</div>
-              <div className="mt-2 text-base text-white/55">Рекомендуемый отдых: {rest.totalSeconds} секунд</div>
-            </div>
-            <div className="flex gap-3">
-              <button type="button" title="Уменьшить отдых на 15 секунд" aria-label="Уменьшить отдых на 15 секунд" onClick={() => adjustRestSeconds(-15)} className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/4 text-white/72"><Minus className="h-4 w-4" /></button>
-              <button type="button" title="Увеличить отдых на 15 секунд" aria-label="Увеличить отдых на 15 секунд" onClick={() => adjustRestSeconds(15)} className="inline-flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/4 text-white/72"><Plus className="h-4 w-4" /></button>
-            </div>
+      <div className="rt-screen rt-rest">
+        <header className="rt-header">
+          <div className="rt-chips" style={{ justifyContent: 'flex-start' }} aria-label="Место в тренировке">
+            <span className="rt-chip">Упражнение {currentExercise.order} из {activeSession.exercises.length}</span>
           </div>
+          <div className="rt-title">
+            <h1 className="font-display font-bold tracking-[-0.04em] text-white">{rest.title}</h1>
+            <p><span>{rest.subtitle}</span></p>
+          </div>
+          <div className="rt-chips" aria-label="Завершённый подход">
+            <span className="rt-chip" data-tone={rest.completedSet.actualValue >= rest.completedSet.plannedValue ? 'good' : 'warning'}>
+              <CheckCircle2 aria-hidden="true" />
+              Подход {rest.completedSet.setNumber}: {rest.completedSet.actualValue} из {rest.completedSet.plannedValue}
+            </span>
+          </div>
+        </header>
 
-          <div className="mt-6 rounded-[28px] border border-white/8 bg-white/4 p-5">
-            <div className="text-sm uppercase tracking-[0.24em] text-white/35">Завершённый подход</div>
-            <div className="mt-4 grid gap-4 md:grid-cols-4">
-              <Metric label="План" value={`${rest.completedSet.plannedValue}`} />
-              <Metric label="Факт" value={`${rest.completedSet.actualValue}`} />
-              <Metric label="Темп" value={rest.completedSet.tempoLabel} />
-              <Metric label="Амплитуда" value={snapshot?.motion ? `${snapshot.motion.amplitudePercent}%` : rest.completedSet.amplitudePercent ? `${rest.completedSet.amplitudePercent}%` : '—'} />
+        <section className="rt-rest-center" aria-label="Таймер отдыха">
+          <div className="rt-rest-timer" role="timer" aria-live="off" aria-label={`Осталось ${rest.remainingSeconds} секунд`}>
+            {formatTimer(rest.remainingSeconds)}
+          </div>
+          <div className="rt-progress rt-rest-progress" role="progressbar" aria-label="Прогресс отдыха" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
+            <div style={{ width: `${progressPercent}%` }} />
+          </div>
+          <div className="rt-rest-next">
+            <span>Дальше</span>
+            <strong>{nextTitle}</strong>
+            <p>Цель: {nextTarget}{rest.nextExercise?.restLabel ? ` · отдых ${rest.nextExercise.restLabel}` : ''}</p>
+          </div>
+          <div className="rt-rest-facts">
+            <span>План <strong>{rest.completedSet.plannedValue}</strong></span>
+            <span>Факт <strong>{rest.completedSet.actualValue}</strong></span>
+            {rest.completedSet.weightKg ? <span>Вес <strong>{rest.completedSet.weightKg} кг</strong></span> : null}
+            <span>Темп <strong>{rest.completedSet.tempoLabel}</strong></span>
+            {completedAmplitude ? <span>Амплитуда <strong>{completedAmplitude}</strong></span> : null}
+          </div>
+          {hardwareError ? (
+            <div className="rt-alert" data-tone="danger" role="alert" style={{ width: 'min(100%, 48rem)' }}>
+              <AlertTriangle aria-hidden="true" />
+              <div>
+                <strong>Ошибка тренажёра</strong>
+                <p>{hardwareError}</p>
+              </div>
+              <span />
             </div>
-          </div>
-
-          {hardwareError ? <div className="mt-6 rounded-[24px] border border-[#eb5345]/25 bg-[#1b0f10] px-5 py-4 text-sm text-[#ffb4a7]">{hardwareError}</div> : null}
-
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button iconLeft={<PauseCircle className="h-4 w-4" />} variant="secondary" onClick={pauseRestTimer}>
-              {rest.timerPaused ? 'Продолжить таймер' : 'Пауза таймера'}
-            </Button>
-            <Button onClick={() => void handleBeginNextStep()}>
-              {rest.remainingSeconds > 0 ? 'Пропустить отдых' : rest.nextActionLabel}
-            </Button>
-          </div>
+          ) : null}
         </section>
 
-        <aside className="space-y-6">
-          <section className="glass-panel rounded-[32px] p-5">
-            <div className="font-display text-3xl font-bold text-white">Что дальше</div>
-            <div className="mt-4 rounded-[24px] border border-[#d6b05f]/18 bg-[#18140b] p-4 text-[#f2cf87]">
-              <div className="font-semibold">{rest.nextExercise?.name ?? 'Следующий подход'}</div>
-              <div className="mt-2 text-sm">Цель: {rest.nextExercise?.target ?? 'повторить текущую нагрузку'}</div>
-              <div className="mt-1 text-sm">Отдых: {rest.nextExercise?.restLabel ?? `${rest.totalSeconds} сек`}</div>
-            </div>
-            <div className="mt-4 text-sm leading-7 text-white/65">{rest.recommendation}</div>
-          </section>
-
-          {snapshot?.motion ? (
-            <section className="glass-panel rounded-[32px] p-5">
-              <div className="font-display text-3xl font-bold text-white">Live hardware</div>
-              <div className="mt-4 space-y-3 text-sm text-white/72">
-                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Позиция</span><span>{Math.round(snapshot.motion.barPositionMm)} мм</span></div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Синхронность</span><span>{(snapshot.motion.syncDeltaMm ?? Math.abs(snapshot.motion.leftPositionMm - snapshot.motion.rightPositionMm)).toFixed(1)} мм</span></div>
-                <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/4 px-4 py-3"><span>Профиль</span><span>{snapshot.motion.motionProfile}</span></div>
-              </div>
-            </section>
-          ) : null}
-        </aside>
+        <div className="rt-rest-actions" role="group" aria-label="Действия во время отдыха">
+          <Button variant="secondary" iconLeft={<Plus aria-hidden="true" />} onClick={() => adjustRestSeconds(30)}>
+            +30 сек
+          </Button>
+          <Button iconLeft={<SkipForward aria-hidden="true" />} onClick={() => void handleBeginNextStep()}>
+            Пропустить
+          </Button>
+          <Button variant="secondary" iconLeft={<Square aria-hidden="true" />} onClick={() => setFinishDialogOpen(true)}>
+            Завершить тренировку
+          </Button>
+        </div>
       </div>
+
+      <Dialog.Root open={finishDialogOpen} onOpenChange={setFinishDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="builder-dialog">
+            <Dialog.Title className="font-display text-3xl font-bold">Завершить тренировку сейчас?</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/70">Выполненные подходы сохранятся, оставшиеся упражнения останутся незавершёнными.</Dialog.Description>
+            <div className="builder-dialog-actions">
+              <Dialog.Close asChild><Button variant="secondary">Продолжить отдых</Button></Dialog.Close>
+              <Button
+                onClick={() => {
+                  setFinishDialogOpen(false)
+                  completeWorkout('partial')
+                  navigate(withSearch('/workout-summary', location.search))
+                }}
+              >
+                Завершить тренировку
+              </Button>
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <EmergencyStopOverlay
         open={emergencyStopActive}
@@ -186,11 +236,12 @@ export function RestScreen() {
   )
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[22px] border border-white/8 bg-[#0f1217] p-4">
-      <div className="text-sm text-white/45">{label}</div>
-      <div className="mt-2 font-display text-3xl font-bold text-white">{value}</div>
-    </div>
-  )
+function formatTimer(totalSeconds: number) {
+  const seconds = Math.max(0, totalSeconds)
+  if (seconds < 60) {
+    return <>{seconds}<small> сек</small></>
+  }
+
+  const minutes = Math.floor(seconds / 60)
+  return <>{minutes}:{String(seconds % 60).padStart(2, '0')}</>
 }

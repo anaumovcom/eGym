@@ -159,7 +159,7 @@ function buildPhotoShots(): RuntimePhotoShot[] {
 export function buildPhotoProgressState(mode: RuntimePhotoMode, completed = false): RuntimePhotoProgressState {
   return {
     mode,
-    autoPrompt: mode !== 'manual',
+    autoPrompt: false,
     completed,
     currentView: completed ? 'back' : 'front',
     shots: completed
@@ -171,7 +171,7 @@ export function buildPhotoProgressState(mode: RuntimePhotoMode, completed = fals
         }))
       : buildPhotoShots(),
     timerSeconds: 2,
-    readyMessage: mode === 'post-workout' ? 'Фото после тренировки помогут увидеть динамику восстановления.' : 'Фото нужны только для личного прогресса.',
+    readyMessage: 'Фото нужны только для личного прогресса.',
     privacyNote: 'Фото сохраняются только в профиль текущего пользователя и не используются для сравнения с другими.',
   }
 }
@@ -236,7 +236,6 @@ export function createRuntimeSession(options: {
 }): RuntimeWorkoutSession {
   const exercises = buildWorkoutExercises(options.source, options.slug, options.calibrationState)
   const firstExercise = exercises[0]
-  const photoMode = options.photoMode ?? null
 
   return {
     id: `${options.source}-${Date.now()}`,
@@ -245,13 +244,13 @@ export function createRuntimeSession(options: {
     runId: options.runId,
     dataSource: 'mock',
     startedAt: new Date().toISOString(),
-    view: photoMode ? 'photo-progress' : 'exercise-setup',
+    view: 'exercise-setup',
     machine: machineScenarios.ready,
     workoutTitle: options.source === 'quick-start' || options.source === 'catalog' ? firstExercise.name : 'Спина + бицепс',
     workoutSubtitle: options.source === 'quick-start' || options.source === 'catalog' ? 'Одиночное упражнение' : 'Полная тренировка на моках',
     currentExerciseId: firstExercise.id,
     currentSetIndex: 0,
-    photoProgress: buildPhotoProgressState(photoMode ?? 'manual', false),
+    photoProgress: buildPhotoProgressState('manual', false),
     exercises,
     completedSets: {},
     completedExerciseIds: [],

@@ -1,48 +1,43 @@
-import { expect, test } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
+import { openCatalogExerciseSetup, savedBrowserState, test } from './fixtures/navigation'
 
-async function openAppAsAlexey(page: Parameters<typeof test>[0]['page']) {
+async function openAppAsAlexey(page: Page) {
   await page.goto('/', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { name: 'Кто тренируется?' })).toBeVisible()
   await page.getByRole('button', { name: 'Выбрать профиль Алексей' }).click()
   await expect(page).toHaveURL(/\/dashboard/)
 }
 
-test('quick start flow reaches exercise setup', async ({ page }) => {
+test('catalog card reaches exercise setup without starting hardware', async ({ page }) => {
   await openAppAsAlexey(page)
-
-  await page.getByRole('link', { name: 'Быстрый старт' }).click()
-  await expect(page.getByRole('heading', { name: 'Быстрый старт' })).toBeVisible()
-
-  await page.getByText(/^Начать:/).first().click()
-
-  await expect(page).toHaveURL(/\/exercise-setup/)
-  await expect(page.getByRole('heading', { name: 'Настройка упражнения' })).toBeVisible()
+  await openCatalogExerciseSetup(page)
 })
 
-test('calendar flow opens runtime setup', async ({ page }) => {
+test('calendar is read-only with no start, plan or add actions', async ({ page }) => {
   await openAppAsAlexey(page)
 
   await page.getByRole('link', { name: 'Календарь' }).click()
-  await expect(page.getByRole('heading', { name: 'Календарь тренировок' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Май 2026' })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Начать|Запустить|Планировать|Запланировать|Назначить|Добавить|Сгенерировать|Скопировать|Неделя|Месяц/ })).toHaveCount(0)
 
-  await page.getByRole('button', { name: 'Начать тренировку' }).click()
-
-  await expect(page).toHaveURL(/\/photo-progress|\/exercise-setup/)
-  await expect(page.getByRole('heading', { name: /Фото до тренировки|Настройка упражнения/ })).toBeVisible()
+  await page.getByRole('button', { name: 'Предыдущий месяц' }).click()
+  await expect(page).toHaveURL(/\/calendar\?month=2026-04$/)
+  await expect(page.getByRole('heading', { name: 'Апрель 2026' })).toBeVisible()
+  await page.getByRole('button', { name: 'Сегодня', exact: true }).click()
+  await expect(page).toHaveURL(/\/calendar$/)
+  await expect(page.getByRole('button', { name: /Начать|Запустить|Планировать|Запланировать|Назначить|Добавить|Сгенерировать|Скопировать/ })).toHaveCount(0)
 })
 
-test('program library supports adapt and calendar actions', async ({ page }) => {
+test('legacy programs redirects to builder without changing saved data', async ({ page, navigationApi }) => {
   await openAppAsAlexey(page)
+  const savedState = await savedBrowserState(page)
+  const savedPlan = structuredClone(navigationApi.builder)
 
-  await page.getByRole('link', { name: 'Программы' }).click()
-  await expect(page.getByRole('heading', { name: 'Библиотека готовых программ' })).toBeVisible()
-
-  await page.getByRole('button', { name: 'Адаптировать под меня' }).click()
-  await expect(page.getByRole('heading', { name: 'Конструктор тренировок' })).toBeVisible()
-
-  await page.getByRole('link', { name: 'Программы' }).click()
-  await page.getByRole('button', { name: 'Назначить в календарь' }).click()
-
-  await expect(page).toHaveURL(/\/calendar/)
-  await expect(page.getByRole('heading', { name: 'Календарь тренировок' })).toBeVisible()
+  await page.goto('/programs?selected=old-template&programId=legacy-template', { waitUntil: 'domcontentloaded' })
+  await expect(page).toHaveURL(/\/builder$/)
+  await expect(page.getByRole('heading', { name: 'Мои тренировки' })).toBeVisible()
+  await expect(page.getByRole('button', { name: `Открыть тренировку «${savedPlan.info.name}»`, exact: true })).toBeVisible()
+  expect(await savedBrowserState(page)).toEqual(savedState)
+  expect(navigationApi.builder).toEqual(savedPlan)
+  expect(navigationApi.requests.filter(({ path }) => path === '/api/builder').every(({ search }) => !new URLSearchParams(search).has('programId'))).toBe(true)
 })

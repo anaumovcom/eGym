@@ -152,7 +152,7 @@ export function ExerciseDetailsScreen() {
                   <ExerciseVideoPlayer videoUrl={activeVideo.url} videoLabel={activeVideo.label} />
                 ) : (
                   <div className="flex aspect-video items-center rounded-[24px] border border-white/8 bg-[linear-gradient(180deg,#161b22,#0a0c0f)] p-5">
-                    <WarningBanner title="Видео недоступно" description="Для этого упражнения в stage 2 включено состояние без локального видео. Вместо него доступны техника выполнения и текстовые подсказки." />
+                    <WarningBanner title="Видео недоступно" description="Посмотрите описание техники выполнения и текстовые подсказки ниже." />
                   </div>
                 )}
               </div>

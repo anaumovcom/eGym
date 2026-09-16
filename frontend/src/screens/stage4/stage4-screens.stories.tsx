@@ -1,9 +1,12 @@
 import type { Meta, StoryObj } from '@storybook/react-vite'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { FatigueScreen } from '@/screens/fatigue/fatigue-screen'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useLayoutEffect, useState } from 'react'
+import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { buildFatigueData, buildProgressData, fatigueModes, getProfileSeed, stage4Periods } from '@/mocks/stage4-data'
 import { UserProfileScreen } from '@/screens/profile/user-profile-screen'
 import { ProgressScreen } from '@/screens/progress/progress-screen'
 import { SystemSettingsScreen } from '@/screens/settings/system-settings-screen'
+import { SettingsLayout } from '@/shared/ui/layout/service-access'
 import { useAppStore } from '@/stores/app-store'
 import { useStage4Store } from '@/stores/stage4-store'
 
@@ -36,31 +39,64 @@ function prepareState(userId: 'alexey' | 'elena' | 'guest' = 'alexey', devPatch:
   useStage4Store.getState().patchDevFlags(devPatch)
 }
 
+function ProgressStory({ initialEntry }: { initialEntry: string }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [queryClient] = useState(() => {
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, retry: false } } })
+    const { selectedUserId, blacklistedExerciseSlugs } = useAppStore.getState()
+    const userId = selectedUserId ?? 'alexey'
+    const user = getProfileSeed(userId)
+    const dev = useStage4Store.getState().dev
+
+    for (const { id: period } of stage4Periods) {
+      const data = buildProgressData({ user, period, blacklistedSlugs: blacklistedExerciseSlugs, dev })
+      const slugs = new Set(['machine-pulldown', ...data.exerciseOptions.map((exercise) => exercise.slug)])
+      for (const slug of slugs) {
+        client.setQueryData(['progress-screen', userId, period, slug], data)
+      }
+    }
+
+    for (const { id: mode } of fatigueModes) {
+      client.setQueryData(['fatigue-screen', userId, mode], buildFatigueData({ dev }))
+    }
+
+    return client
+  })
+
+  // The global preview already supplies MemoryRouter; do not nest another router.
+  useLayoutEffect(() => {
+    navigate(initialEntry, { replace: true })
+  }, [initialEntry, navigate])
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      {location.pathname === '/progress' ? <ProgressScreen /> : null}
+    </QueryClientProvider>
+  )
+}
+
 export const ProgressOverview: Story = {
   render: () => {
     prepareState('alexey')
 
-    return (
-      <MemoryRouter initialEntries={['/progress?tab=summary&period=30d']}>
-        <Routes>
-          <Route path="/progress" element={<ProgressScreen />} />
-        </Routes>
-      </MemoryRouter>
-    )
+    return <ProgressStory initialEntry="/progress?tab=summary&period=30d" />
   },
 }
 
-export const FatigueHighLoad: Story = {
+export const ProgressRecoveryHighLoad: Story = {
   render: () => {
     prepareState('alexey', { highFatigue: true })
 
-    return (
-      <MemoryRouter initialEntries={['/fatigue?mode=current&muscle=chest']}>
-        <Routes>
-          <Route path="/fatigue" element={<FatigueScreen />} />
-        </Routes>
-      </MemoryRouter>
-    )
+    return <ProgressStory initialEntry="/progress?tab=recovery&period=30d&mode=current&muscle=chest" />
+  },
+}
+
+export const ProgressRecoveryAfterWorkout: Story = {
+  render: () => {
+    prepareState('elena')
+
+    return <ProgressStory initialEntry="/progress?tab=recovery&period=3m&mode=after-workout&muscle=quads" />
   },
 }
 
@@ -79,16 +115,25 @@ export const UserProfileGeneral: Story = {
   },
 }
 
+function SettingsDiagnosticsStory() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  useLayoutEffect(() => {
+    navigate('/settings?tab=diagnostics', { replace: true })
+  }, [navigate])
+
+  return location.pathname === '/settings' ? (
+    <Routes>
+      <Route path="/settings" element={<SettingsLayout />}>
+        <Route index element={<SystemSettingsScreen />} />
+      </Route>
+    </Routes>
+  ) : null
+}
+
 export const SettingsDiagnostics: Story = {
   render: () => {
     prepareState('alexey')
-
-    return (
-      <MemoryRouter initialEntries={['/settings?tab=diagnostics']}>
-        <Routes>
-          <Route path="/settings" element={<SystemSettingsScreen />} />
-        </Routes>
-      </MemoryRouter>
-    )
+    return <SettingsDiagnosticsStory />
   },
 }

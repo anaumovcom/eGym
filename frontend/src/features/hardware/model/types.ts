@@ -32,6 +32,79 @@ export type HardwareMotionTelemetry = {
   direction: string
   lowerBoundMm?: number
   upperBoundMm?: number
+  controlMode?: string
+  partialReps?: number
+  loadTargetKg?: number
+  loadEffectiveKg?: number
+  loadMode?: string
+  userForceKg?: number
+  velocityMmPerSec?: number
+  startPoint?: string
+  fixedPositionMm?: number | null
+}
+
+export type HardwareControlState = {
+  mode: string
+  label: string
+  message: string
+  positionMm: number
+  velocityMmPerSec: number
+  accelerationMmPerSec2: number
+  userForceKg: number
+  userForceLeftKg: number
+  userForceRightKg: number
+  loadTargetKg: number
+  loadEffectiveKg: number
+  components: Record<string, number>
+  repetitionCount: number
+  partialReps: number
+  concentricS: number
+  eccentricS: number
+  tempoLabel: string
+  repQuality: number
+  targetReached: boolean
+  syncDeltaMm: number
+  syncStatus: 'norm' | 'ok' | 'warning' | 'critical'
+  asymmetryPercent: number
+  gripDetected: boolean
+  released: boolean
+  stallS: number
+  spotterActive: boolean
+  failureDetected: boolean
+  stillMs: number
+  postStatus: string
+  postResults: { id: string; label: string; passed: boolean; detail: string; severity: string }[]
+  homed: boolean
+  positionKnown: boolean
+  heartbeatOk: boolean
+  commOk: boolean
+  powerOk: boolean
+  brakeEngaged: boolean
+  fixedHoldTestPassed: boolean
+  fixedDriftMm: number
+  isometricElapsedS: number
+  moveTargetMm: number | null
+  moveProgressPercent: number
+  faultCode: string | null
+  tickLatencyMs: number
+  missedTicks: number
+  counters: { travelMmTotal: number; cyclesTotal: number; loadedSecondsTotal: number }
+  config: { lowerMm: number; upperMm: number; startPoint: string; loadKg: number; loadMode: string; targetReps: number; fixedPositionMm: number | null }
+  brakes: Record<string, boolean>
+  limitSwitches: Record<string, boolean>
+  adapter: string
+  temporaryParameters: number
+}
+
+export type HardwareProcedureStatus = {
+  name: string | null
+  label: string
+  status: 'idle' | 'running' | 'done' | 'failed'
+  step: string
+  progressTicks: number
+  result: Record<string, unknown> | null
+  startedAt: string | null
+  finishedAt: string | null
 }
 
 export type HardwareCommandSummary = {
@@ -61,6 +134,8 @@ export type HardwareSnapshot = {
   userSelected: boolean
   drives: HardwareDriveTelemetry[]
   motion: HardwareMotionTelemetry
+  control?: HardwareControlState
+  procedure?: HardwareProcedureStatus
   calibrationRequired: boolean
   calibrationActual: boolean
   activeCalibrationId: number | null
@@ -129,6 +204,20 @@ export type HardwareCommandRequest = {
   direction?: string
   distanceMm?: number
   serviceMode?: boolean
+  loadMode?: string
+  startPoint?: string
+  positionMm?: number
+  lowerMm?: number
+  upperMm?: number
+  which?: 'lower' | 'upper' | 'fixed'
+  waitForGrip?: boolean
+  warmup?: boolean
+  guest?: boolean
+  asymmetricAllowed?: boolean
+  repCountSource?: string
+  bodyWeightKg?: number
+  isometricDurationS?: number
+  autoUser?: boolean
 }
 
 export type HardwareCommandResponse = {
@@ -137,6 +226,7 @@ export type HardwareCommandResponse = {
   message: string
   snapshot: HardwareSnapshot
   safetyGate: HardwareSafetyGateResponse | null
+  capturedPositionMm?: number | null
 }
 
 export type HardwareCalibrationPayload = {

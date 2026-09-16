@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { RotateCcw } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type PropsWithChildren } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { FatigueData } from '@/entities/stage4/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
@@ -22,13 +22,12 @@ function asFatigueMode(value: string | null): FatigueMode {
   return 'current'
 }
 
-export function FatigueScreen() {
+// Embedded mode leaves the shell and emergency-stop overlay to ProgressScreen.
+export function FatigueScreen({ embedded = false }: { embedded?: boolean }) {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const queryClient = useQueryClient()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
-  const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
-  const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const mode = asFatigueMode(searchParams.get('mode'))
   const userId = selectedUserId ?? 'alexey'
   const fatigueFigureGender = selectedUserId === 'elena' ? 'female' : 'male'
@@ -37,15 +36,6 @@ export function FatigueScreen() {
     queryKey: ['fatigue-screen', userId, mode],
     queryFn: () => apiGet<FatigueData>(`/api/fatigue?userId=${encodeURIComponent(userId)}&mode=${encodeURIComponent(mode)}`),
   })
-  const userName = selectedUserId === 'elena' ? 'Елена' : selectedUserId === 'guest' ? 'Гость' : 'Алексей'
-  const fallbackMachine: MachineHealth = {
-    machineState: 'ready',
-    machineLabel: 'Загрузка статуса',
-    leftDrive: 'connected',
-    rightDrive: 'connected',
-    safety: 'enabled',
-    calibration: 'Загрузка...',
-  }
 
   function updateParams(patch: Record<string, string | null>) {
     setSearchParams((current) => {
@@ -80,31 +70,31 @@ export function FatigueScreen() {
     }
   }
 
-  if (isLoading || !data) {
-    return (
-      <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
-        <div className="glass-panel rounded-[34px] p-8 text-white/72">Загрузка карты усталости…</div>
-      </FormaShell>
-    )
-  }
-
-  const muscles = ensureFatigueMuscleCoverage(data.muscles)
+  const muscles = data ? ensureFatigueMuscleCoverage(data.muscles) : []
   const selectedId = searchParams.get('muscle') ?? muscles[0]?.id ?? 'chest'
   const selectedMuscle = muscles.find((item) => item.id === selectedId) ?? muscles[0]
   const highOrCritical = muscles.filter((item) => item.status === 'high' || item.status === 'critical')
   const medium = muscles.filter((item) => item.status === 'medium')
   const ready = muscles.filter((item) => item.status === 'ready' || item.status === 'light')
 
-  if (error || !selectedMuscle) {
+  if (error || (data && !selectedMuscle)) {
     return (
-      <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+      <FatigueFrame embedded={embedded}>
         <div className="glass-panel rounded-[34px] border border-[#eb5345]/25 bg-[#1b0f10] p-8 text-[#ffb4a7]">Не удалось загрузить данные усталости.</div>
-      </FormaShell>
+      </FatigueFrame>
+    )
+  }
+
+  if (isLoading || !data || !selectedMuscle) {
+    return (
+      <FatigueFrame embedded={embedded}>
+        <div className="glass-panel rounded-[34px] p-8 text-white/72">Загрузка карты усталости…</div>
+      </FatigueFrame>
     )
   }
 
   return (
-    <FormaShell userName={userName} machine={data.machine} onStop={() => setEmergencyStopActive(true)}>
+    <FatigueFrame embedded={embedded} machine={data.machine}>
       <SectionTitle
         title="Усталость мышц"
         description="Следите за восстановлением мышц и выбирайте нагрузку без перегруза."
@@ -158,13 +148,41 @@ export function FatigueScreen() {
           <Panel title="Рекомендация Forma">
             <div className="text-sm leading-7 text-white/68">{data.recommendedPlan}</div>
             <div className="mt-5 flex flex-col gap-3">
-              <Button onClick={() => navigate('/today')}>Сгенерировать тренировку</Button>
+              <Button onClick={() => navigate('/dashboard')}>Выбрать тренировку</Button>
               <Button variant="secondary" onClick={() => navigate('/calendar')}>Открыть календарь</Button>
             </div>
           </Panel>
         </div>
       </div>
+    </FatigueFrame>
+  )
+}
 
+function FatigueFrame({ embedded, machine, children }: PropsWithChildren<{ embedded: boolean; machine?: MachineHealth }>) {
+  if (embedded) {
+    return <>{children}</>
+  }
+
+  return <StandaloneFatigueFrame machine={machine}>{children}</StandaloneFatigueFrame>
+}
+
+function StandaloneFatigueFrame({ machine, children }: PropsWithChildren<{ machine?: MachineHealth }>) {
+  const selectedUserId = useAppStore((state) => state.selectedUserId)
+  const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
+  const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
+  const userName = selectedUserId === 'elena' ? 'Елена' : selectedUserId === 'guest' ? 'Гость' : 'Алексей'
+  const fallbackMachine: MachineHealth = {
+    machineState: 'ready',
+    machineLabel: 'Загрузка статуса',
+    leftDrive: 'connected',
+    rightDrive: 'connected',
+    safety: 'enabled',
+    calibration: 'Загрузка...',
+  }
+
+  return (
+    <FormaShell userName={userName} machine={machine ?? fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
+      {children}
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
     </FormaShell>
   )

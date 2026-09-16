@@ -38,7 +38,7 @@ def test_stage2_real_api_routes_return_frontend_shapes(client: TestClient) -> No
     quick_start = client.get("/api/quick-start", params={"userId": "alexey", "selected": "machine-pulldown"})
     today = client.get("/api/today", params={"userId": "alexey", "scenario": "planned", "selected": "machine-pulldown"})
     programs = client.get("/api/programs", params={"selected": "back-biceps"})
-    calendar = client.get("/api/calendar", params={"mode": "week", "selectedDayId": "2026-05-14"})
+    calendar = client.get("/api/calendar", params={"userId": "alexey", "month": "2026-05"})
     builder = client.get("/api/builder", params={"selectedExerciseId": "group-pullups-1"})
 
     assert quick_start.status_code == 200
@@ -53,9 +53,11 @@ def test_stage2_real_api_routes_return_frontend_shapes(client: TestClient) -> No
 
     assert calendar.status_code == 200
     calendar_payload = calendar.json()
-    assert calendar_payload["mode"] == "week"
-    assert calendar_payload["selectedDayId"] == "2026-05-14"
-    assert len(calendar_payload["days"]) >= 5
+    assert calendar_payload["month"] == "2026-05"
+    assert calendar_payload["title"] == "Май 2026"
+    assert len(calendar_payload["days"]) == 42
+    assert calendar_payload["days"][0]["id"] == "2026-04-27"
+    assert calendar_payload["weekdays"][0] == "Пн"
 
     assert builder.status_code == 200
     builder_payload = builder.json()

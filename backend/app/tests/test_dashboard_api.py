@@ -1,6 +1,24 @@
+import json
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
+import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
+
+from app.schemas.dashboard import DashboardBuilderWorkoutSchema
+
+
+@pytest.fixture(autouse=True)
+def isolated_dashboard_lifespan(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Requests use conftest's temporary SQLite DB; do not start local DB/hardware services.
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        yield
+
+    monkeypatch.setattr("app.main.lifespan", lifespan)
 
 
 def test_dashboard_matches_mock_contract(client: TestClient) -> None:
@@ -313,6 +331,82 @@ def test_dashboard_builder_workouts_show_today_progress(client: TestClient) -> N
     assert updated_workout["exercises"][0]["status"] == "completed"
     assert updated_workout["exercises"][0]["completedSets"] == 1
     assert updated_workout["exercises"][0]["targetSets"] >= 1
+    assert updated_workout["lastPerformedAt"] is None
+    assert updated_workout["lastStatus"] is None
+
+
+def test_dashboard_builder_last_execution_empty_history(client: TestClient) -> None:
+    response = client.get("/api/dashboard", params={"userId": "alexey"})
+
+    assert response.status_code == 200
+    workouts = response.json()["workouts"]
+    assert workouts
+    assert all(item["lastPerformedAt"] is None and item["lastStatus"] is None for item in workouts)
+
+
+@pytest.mark.parametrize("status", ["completed", "partial", "aborted"])
+@pytest.mark.parametrize("has_finished_at", [True, False])
+def test_dashboard_builder_last_execution_previous_day(
+    client: TestClient, status: str, has_finished_at: bool,
+) -> None:
+    response = client.get("/api/dashboard", params={"userId": "alexey"})
+    assert response.status_code == 200
+    workout = response.json()["workouts"][0]
+    started_at = datetime.now(UTC) - timedelta(days=2)
+    finished_at = started_at + timedelta(minutes=30) if has_finished_at else None
+    expected_at = finished_at or started_at
+
+    # Insert out of chronological order to ensure the latest execution wins, not the last row.
+    for user_id, source, title, session_status, started, finished in [
+        ("alexey", "builder", workout["title"], status, started_at, finished_at),
+        ("alexey", "builder", workout["title"], "completed", started_at - timedelta(days=1), None),
+        ("elena", "builder", workout["title"], "completed", started_at + timedelta(hours=1), None),
+        ("alexey", "catalog", workout["title"], "completed", started_at + timedelta(hours=2), None),
+        ("alexey", "builder", "Other workout", "completed", started_at + timedelta(hours=3), None),
+        ("alexey", "builder", workout["title"], "in_progress", started_at + timedelta(hours=4), None),
+    ]:
+        saved = client.post(
+            "/api/runtime/workouts",
+            json={
+                "userId": user_id,
+                "source": source,
+                "title": title,
+                "status": session_status,
+                "startedAt": started.isoformat(),
+                "finishedAt": finished.isoformat() if finished else None,
+                "exercises": [],
+            },
+        )
+        assert saved.status_code == 200
+
+    # Resetting today's progress must not erase the last execution from earlier days.
+    reset = client.post("/api/dashboard/day-progress/reset", json={"userId": "alexey"})
+    assert reset.status_code == 200
+    updated = client.get("/api/dashboard", params={"userId": "alexey"})
+    assert updated.status_code == 200
+    result = next(item for item in updated.json()["workouts"] if item["id"] == workout["id"])
+    assert result["todayStatus"] == "idle"
+    assert result["lastStatus"] == status
+    assert datetime.fromisoformat(result["lastPerformedAt"]) == expected_at
+
+
+def test_dashboard_builder_last_execution_fields_are_optional(client: TestClient) -> None:
+    workout = DashboardBuilderWorkoutSchema(id="test", title="Test", exercises=[], duration="0")
+    assert workout.last_performed_at is None
+    assert workout.last_status is None
+    schemas = client.get("/api/openapi.json").json()["components"]["schemas"]
+    schema = schemas["DashboardBuilderWorkoutSchema"]
+    assert "lastPerformedAt" not in schema["required"]
+    assert "lastStatus" not in schema["required"]
+    assert schema["properties"]["lastStatus"]["anyOf"] == [
+        {"type": "string", "enum": ["completed", "partial", "aborted"]},
+        {"type": "null"},
+    ]
+    artifact = Path(__file__).resolve().parents[2] / "openapi" / "openapi.json"
+    exported = json.loads(artifact.read_text(encoding="utf-8"))["components"]["schemas"]
+    for name in ("DashboardBuilderWorkoutSchema", "DashboardBuilderWorkoutExerciseSchema"):
+        assert exported[name] == schemas[name]
+    assert exported["DashboardDataSchema"]["properties"]["workouts"] == schemas["DashboardDataSchema"]["properties"]["workouts"]
 
 
 def test_dashboard_day_progress_reset_hides_today_builder_progress(client: TestClient) -> None:

@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Literal, TypedDict
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.analytics import ExerciseSession, WorkoutSession
@@ -235,7 +235,42 @@ class DashboardService:
                     resume_available=bool(progress and progress["status"] == WorkoutSessionStatus.in_progress.value),
                 )
             )
+
+        last_sessions = self._builder_last_sessions_by_title(session, user_id, [workout.title for workout in workouts])
+        for workout in workouts:
+            last_session = last_sessions.get(workout.title)
+            if last_session is not None:
+                workout.last_performed_at = self._as_utc(last_session.finished_at or last_session.started_at)
+                workout.last_status = last_session.status.value
         return workouts
+
+    def _builder_last_sessions_by_title(
+        self, session: Session, user_id: str, titles: list[str],
+    ) -> dict[str, WorkoutSession]:
+        if not titles:
+            return {}
+
+        # WorkoutSession does not persist program_id. Like today's progress, this
+        # can only match exact titles within a user's builder sessions; renames
+        # and identically named programs cannot be disambiguated.
+        statement = (
+            select(WorkoutSession)
+            .where(
+                WorkoutSession.user_id == user_id,
+                WorkoutSession.source == RuntimeFlowSource.builder,
+                WorkoutSession.title.in_(titles),
+                WorkoutSession.status.in_([
+                    WorkoutSessionStatus.completed,
+                    WorkoutSessionStatus.partial,
+                    WorkoutSessionStatus.aborted,
+                ]),
+            )
+            .order_by(func.coalesce(WorkoutSession.finished_at, WorkoutSession.started_at).desc(), WorkoutSession.id.desc())
+        )
+        last_sessions: dict[str, WorkoutSession] = {}
+        for workout_session in session.scalars(statement):
+            last_sessions.setdefault(workout_session.title, workout_session)
+        return last_sessions
 
     def _builder_progress_by_title(self, session: Session, user_id: str, programs: list[object]) -> dict[str, dict[str, object]]:
         if not programs:

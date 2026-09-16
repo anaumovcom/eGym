@@ -1,9 +1,9 @@
-﻿import { CheckCircle2, Dumbbell, Gauge, Minus, Plus, SkipForward, Timer } from 'lucide-react'
-import { useEffect, useId, useRef, useState } from 'react'
+﻿import { CheckCircle2, Dumbbell, Minus, Plus, SkipForward, Timer } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { HardwareCalibration, HardwareMotionTelemetry } from '@/features/hardware/model/types'
-import type { RuntimeExerciseOutcome, RuntimeExerciseSummaryState, RuntimeSetResult, RuntimeWorkoutSession } from '@/entities/runtime/model/types'
+import type { RuntimeExerciseOutcome, RuntimeExerciseSessionState, RuntimeExerciseSummaryState, RuntimeSetResult, RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { hasMovableMachineLoad } from '@/features/runtime/lib/runtime-exercise'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
@@ -11,9 +11,12 @@ import { getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { apiPost } from '@/shared/api/client'
 import { cn } from '@/shared/lib/cn'
+import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
+import { FormaState } from '@/shared/ui/status/forma-state'
 import { ExerciseVideoPlayer } from '@/shared/ui/stage2/screen-components'
+import { ValueStepper } from '@/shared/ui/training/value-stepper'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 
@@ -89,12 +92,6 @@ const RAIL_HEIGHT_CLASSES = [
   'h-[92%]',
 ] as const
 
-const factActionStyles: Record<CompletionStatus, string> = {
-  completed: 'border-[#8bdd92]/45 bg-[#15351f] text-[#bff3c3] hover:bg-[#1a4428]',
-  partial: 'border-[#f0d08c]/45 bg-[#3a2b12] text-[#f7d98f] hover:bg-[#4a3718]',
-  skipped: 'border-[#ff9a90]/42 bg-[#3a1715] text-[#ffc2bb] hover:bg-[#4a1d1a]',
-}
-
 const currentRailStyles: Record<MotionRailTone, { fill: string; knob: string; ping: string; badge: string; value: string; line: string; leftArrow: string; rightArrow: string }> = {
   lower: {
     fill: `${FAST_PULSE_CLASS} bg-[#00ff66] shadow-[0_0_26px_rgba(0,255,102,0.72)]`,
@@ -130,6 +127,15 @@ const currentRailStyles: Record<MotionRailTone, { fill: string; knob: string; pi
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
+}
+
+const fallbackMachine: RuntimeWorkoutSession['machine'] = {
+  machineState: 'ready',
+  machineLabel: 'Тренажёр готов',
+  leftDrive: 'connected',
+  rightDrive: 'connected',
+  safety: 'enabled',
+  calibration: '—',
 }
 
 function getPreferredVideoGender(userId: string | null): ExerciseVideoGender {
@@ -216,35 +222,13 @@ function playRepCountedSound() {
 }
 
 export function ExerciseSessionScreen() {
-  const navigate = useNavigate()
-  const location = useLocation()
   const [searchParams] = useSearchParams()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
-  const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const session = useRuntimeStore((state) => state.session)
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
   const startExercise = useRuntimeStore((state) => state.startExercise)
-  const finishCurrentSet = useRuntimeStore((state) => state.finishCurrentSet)
-  const finishExerciseWithResults = useRuntimeStore((state) => state.finishExerciseWithResults)
-  const replaceExerciseSummary = useRuntimeStore((state) => state.replaceExerciseSummary)
-  const setBackendWorkoutSessionId = useRuntimeStore((state) => state.setBackendWorkoutSessionId)
-  const setBackendExerciseSessionId = useRuntimeStore((state) => state.setBackendExerciseSessionId)
-  const markExerciseSaved = useRuntimeStore((state) => state.markExerciseSaved)
-  const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
   const snapshot = useHardwareStore((state) => state.snapshot)
-  const currentCalibration = useHardwareStore((state) => state.currentCalibration)
-  const hardwareError = useHardwareStore((state) => state.errorMessage)
-  const loadCurrentCalibration = useHardwareStore((state) => state.loadCurrentCalibration)
-  const runCommand = useHardwareStore((state) => state.runCommand)
-  const lastRepCountRef = useRef<number | null>(null)
-  const autoFinishTriggeredRef = useRef(false)
-  const [actualReps, setActualReps] = useState(0)
-  const [repAdjustment, setRepAdjustment] = useState(0)
-  const [actualWeight, setActualWeight] = useState(0)
-  const [pendingAction, setPendingAction] = useState<CompletionStatus | null>(null)
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [sessionVideoIndex, setSessionVideoIndex] = useState(0)
   const initOptions = getRuntimeInitOptions(searchParams)
 
   useEffect(() => {
@@ -258,19 +242,53 @@ export function ExerciseSessionScreen() {
     }
   }, [ensureSession, initOptions, session, startExercise])
 
+  if (!session || !session.sessionState) {
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={snapshot?.machine ?? session?.machine ?? fallbackMachine} hideNavigation onStop={() => setEmergencyStopActive(true)}>
+        <FormaState tone="loading" title="Готовим подход…" />
+      </FormaShell>
+    )
+  }
+
+  return <ExerciseSessionView session={session} state={session.sessionState} />
+}
+
+function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSession; state: RuntimeExerciseSessionState }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const selectedUserId = useAppStore((state) => state.selectedUserId)
+  const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
+  const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
+  const finishCurrentSet = useRuntimeStore((state) => state.finishCurrentSet)
+  const finishExerciseWithResults = useRuntimeStore((state) => state.finishExerciseWithResults)
+  const replaceExerciseSummary = useRuntimeStore((state) => state.replaceExerciseSummary)
+  const setBackendWorkoutSessionId = useRuntimeStore((state) => state.setBackendWorkoutSessionId)
+  const setBackendExerciseSessionId = useRuntimeStore((state) => state.setBackendExerciseSessionId)
+  const markExerciseSaved = useRuntimeStore((state) => state.markExerciseSaved)
+  const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
+  const snapshot = useHardwareStore((state) => state.snapshot)
+  const currentCalibration = useHardwareStore((state) => state.currentCalibration)
+  const hardwareError = useHardwareStore((state) => state.errorMessage)
+  const setHardwareError = useHardwareStore((state) => state.setErrorMessage)
+  const loadCurrentCalibration = useHardwareStore((state) => state.loadCurrentCalibration)
+  const runCommand = useHardwareStore((state) => state.runCommand)
+  const lastRepCountRef = useRef<number | null>(null)
+  const autoFinishTriggeredRef = useRef(false)
+  const [actualReps, setActualReps] = useState(0)
+  const [repAdjustment, setRepAdjustment] = useState(0)
+  const [actualWeight, setActualWeight] = useState(0)
+  const [pendingAction, setPendingAction] = useState<CompletionStatus | null>(null)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [sessionVideoIndex, setSessionVideoIndex] = useState(0)
+
   useEffect(() => {
     if (snapshot?.safety.state === 'emergency_stop') {
       setEmergencyStopActive(true)
     }
   }, [setEmergencyStopActive, snapshot?.safety.state])
 
-  if (!session || !session.sessionState) {
-    return null
-  }
-
   const activeSession = session
   const exercise = activeSession.exercises.find((item) => item.id === activeSession.currentExerciseId) ?? activeSession.exercises[0]
-  const state = session.sessionState
   const setPlan = exercise.plan[session.currentSetIndex] ?? exercise.plan[exercise.plan.length - 1]
   const isFailureSet = (state.setType ?? setPlan.setType) === 'failure'
   const isMachineExercise = hasMovableMachineLoad(exercise)
@@ -292,7 +310,6 @@ export function ExerciseSessionScreen() {
     ? correctedLiveRepetitionCount
     : actualReps
   const taskValue = state.kind === 'timed' ? `${state.currentValue} сек` : targetText
-  const taskCaption = state.kind === 'timed' ? 'осталось в интервале' : 'цель подхода'
   const progressPercent = state.kind === 'timed'
     ? Math.round(((plannedValue - state.currentValue) / Math.max(1, plannedValue)) * 100)
     : correctedLiveRepetitionCount != null && liveMotion
@@ -370,7 +387,7 @@ export function ExerciseSessionScreen() {
       return summary.workoutSessionId
     }
 
-    throw new Error('Backend не вернул идентификатор тренировки.')
+    throw new Error('Не удалось сохранить тренировку. Попробуйте ещё раз.')
   }
 
   async function ensureBackendExerciseSession(workoutSessionId: number) {
@@ -382,7 +399,7 @@ export function ExerciseSessionScreen() {
 
     const summary = await saveExerciseResultToBackend(exercise, [], selectedUserId ?? 'alexey', 'in_progress', workoutSessionId, undefined, 'preserve')
     if (!summary.exerciseSessionId) {
-      throw new Error('Backend не вернул идентификатор упражнения.')
+      throw new Error('Не удалось сохранить упражнение. Попробуйте ещё раз.')
     }
     setBackendExerciseSessionId(exercise.id, summary.exerciseSessionId)
     return summary.exerciseSessionId
@@ -429,7 +446,7 @@ export function ExerciseSessionScreen() {
 
       navigate(withSearch(nextView === 'exercise-summary' ? '/exercise-summary' : '/rest', location.search))
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить результат упражнения на backend.')
+      setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить результат упражнения. Попробуйте ещё раз.')
       setPendingAction(null)
     }
   }
@@ -448,7 +465,7 @@ export function ExerciseSessionScreen() {
           setPlan,
           liveMotion,
           actualReps: completionStatus === 'completed'
-            ? plannedValue
+            ? (isFailureSet ? Math.max(plannedValue, factValue) : plannedValue)
             : Math.max(0, Math.min(plannedValue, factValue)),
           actualWeight,
           completionStatus,
@@ -498,10 +515,28 @@ export function ExerciseSessionScreen() {
       replaceExerciseSummary(summary)
       navigate(withSearch('/exercise-summary', location.search))
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить результат упражнения на backend.')
+      setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить результат упражнения. Попробуйте ещё раз.')
       setPendingAction(null)
     }
   }
+
+  function changeFactValue(nextValue: number) {
+    const bounded = isFailureSet || state.kind === 'timed' ? Math.max(0, nextValue) : clamp(nextValue, 0, plannedValue)
+    if (state.kind !== 'timed' && liveMotion) {
+      setRepAdjustment(bounded - liveMotion.repetitionCount)
+      return
+    }
+
+    setActualReps(bounded)
+  }
+
+  function handleFinishSet() {
+    return handleRecordFact(factValue >= plannedValue ? 'completed' : 'partial')
+  }
+
+  const errorMessage = saveError ?? hardwareError
+  const setTypeLabel = getSetTypeLabel(state.setType)
+  const factLabel = state.kind === 'timed' ? 'Секунды' : 'Повторы'
 
   return (
     <FormaShell
@@ -513,134 +548,107 @@ export function ExerciseSessionScreen() {
         setEmergencyStopActive(true)
       }}
     >
-      <div className="-mb-24 flex h-[calc(100vh-2rem)] min-h-0 flex-col gap-4 overflow-hidden xl:-mb-28">
-        <header className="glass-panel shrink-0 rounded-[30px] border border-[#d6b05f]/14 px-5 py-4">
-          <div className="flex h-full items-center justify-between gap-5">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-3 text-xs font-semibold uppercase tracking-[0.22em] text-white/38">
-                <span>Упражнение {exercise.order} из {session.exercises.length}</span>
-                <span className="h-1 w-1 rounded-full bg-[#d6b05f]/50" />
-                <span>{exercise.strengthMode.title}</span>
-                <span className="h-1 w-1 rounded-full bg-[#d6b05f]/50" />
-                <span>{getSetTypeLabel(state.setType)}</span>
-              </div>
-              <div className="mt-2 truncate font-display text-4xl font-bold tracking-[-0.04em] text-white xl:text-5xl">{exercise.name}</div>
-            </div>
-            <div className="grid shrink-0 grid-cols-3 gap-3 text-center">
-              <HeaderStat label="Подход" value={`${state.setNumber}/${state.totalSets}`} />
-              <HeaderStat label="Вес" value={state.weightLabel} />
-              <HeaderStat label="Отдых" value={`${setPlan.restSeconds}с`} />
-            </div>
+      <div className="rt-screen">
+        <header className="rt-header">
+          <div className="rt-chips" style={{ justifyContent: 'flex-start' }} aria-label="Место в тренировке">
+            <span className="rt-chip">Упражнение {exercise.order} из {session.exercises.length}</span>
+            <span className="rt-chip">{exercise.strengthMode.title}</span>
+          </div>
+          <div className="rt-title">
+            <h1 className="font-display font-bold tracking-[-0.04em] text-white">{exercise.name}</h1>
+            <p>
+              <span>Подход {state.setNumber} из {state.totalSets}</span>
+              {setTypeLabel ? <span>{setTypeLabel}</span> : null}
+              <span>Отдых после подхода {setPlan.restSeconds} с</span>
+            </p>
+          </div>
+          <div className="rt-chips" aria-label="Текущий подход">
+            <span className="rt-chip" data-tone="good"><Dumbbell aria-hidden="true" />{state.weightLabel}</span>
+            {state.kind === 'timed' ? <span className="rt-chip"><Timer aria-hidden="true" />{taskValue}</span> : null}
           </div>
         </header>
 
-        <div className={cn('grid min-h-0 flex-1 gap-4', motionRail ? 'xl:grid-cols-[minmax(0,1.18fr)_minmax(350px,0.82fr)_190px]' : 'xl:grid-cols-[minmax(0,1.18fr)_minmax(350px,0.82fr)]')}>
-          <section className="min-h-0 rounded-[34px] border border-white/8 bg-[#080b10]/78 p-4 shadow-[0_28px_90px_rgba(0,0,0,0.35)]">
-            <div className="flex h-full min-h-0 flex-col gap-4">
-              <div className="relative overflow-hidden rounded-[30px] border border-[#d6b05f]/18 bg-black shadow-[0_22px_70px_rgba(0,0,0,0.45)]">
-                {sessionVideo ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (sessionVideoSequence.length > 1) {
-                        setSessionVideoIndex((currentIndex) => (currentIndex + 1) % sessionVideoSequence.length)
-                      }
-                    }}
-                    className={cn('block w-full text-left', sessionVideoSequence.length > 1 ? 'cursor-pointer' : 'cursor-default')}
-                    aria-label={sessionVideoSequence.length > 1 ? 'Переключить видео упражнения' : sessionVideo.label}
-                    disabled={sessionVideoSequence.length <= 1}
-                  >
-                    <ExerciseVideoPlayer videoUrl={sessionVideo.url} videoLabel={sessionVideo.label} wrapperClassName="rounded-[30px]" />
-                  </button>
-                ) : (
-                  <div className="flex aspect-video items-center justify-center rounded-[30px] bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.16),transparent_40%),linear-gradient(180deg,#151a22,#05070a)] text-white/45">Видео упражнения недоступно</div>
-                )}
-                <div className="pointer-events-none absolute right-4 bottom-4 left-4 flex items-end justify-between gap-3">
-                  <div className="rounded-[22px] border border-black/30 bg-black/52 px-4 py-3 text-sm text-white/76 backdrop-blur-xl">
-                    <div className="text-xs uppercase tracking-[0.2em] text-white/38">Техника</div>
-                    <div className="mt-1 text-base font-semibold text-white">Смотрите на темп и амплитуду</div>
-                  </div>
-                  <div className="rounded-[22px] border border-[#d6b05f]/22 bg-[#18140b]/72 px-4 py-3 text-right text-[#f2cf87] backdrop-blur-xl">
-                    <div className="text-xs uppercase tracking-[0.2em] text-[#f2cf87]/60">Цель</div>
-                    <div className="mt-1 text-lg font-bold">{targetText}</div>
-                  </div>
-                </div>
-              </div>
-              <div className={cn('grid shrink-0 gap-3', liveMetrics.length >= 4 ? 'grid-cols-4' : 'grid-cols-3')}>
-                {liveMetrics.slice(0, 4).map((metric) => <MetricPill key={metric.label} label={metric.label} value={metric.value} tone={metric.tone} />)}
+        <div className="rt-body rt-session-body" data-rail={Boolean(motionRail)}>
+          <div className="rt-media">
+            <div className="rt-media-frame">
+              {sessionVideo ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (sessionVideoSequence.length > 1) {
+                      setSessionVideoIndex((currentIndex) => (currentIndex + 1) % sessionVideoSequence.length)
+                    }
+                  }}
+                  className={cn('block w-full text-left', sessionVideoSequence.length > 1 ? 'cursor-pointer' : 'cursor-default')}
+                  aria-label={sessionVideoSequence.length > 1 ? 'Переключить видео упражнения' : sessionVideo.label}
+                  disabled={sessionVideoSequence.length <= 1}
+                >
+                  <ExerciseVideoPlayer videoUrl={sessionVideo.url} videoLabel={sessionVideo.label} wrapperClassName="rounded-[var(--ui-radius)] border border-white/8" />
+                </button>
+              ) : (
+                <div className="flex aspect-video items-center justify-center rounded-[var(--ui-radius)] border border-white/8 bg-[#0b1017] text-white/45">Видео упражнения недоступно</div>
+              )}
+              <div className="rt-media-caption" aria-hidden="true">
+                <span>Следите за темпом и амплитудой</span>
+                <span>Цель: <strong>{targetText}</strong></span>
               </div>
             </div>
-          </section>
-          <aside className="flex min-h-0 flex-col gap-4">
-            <section className="glass-panel min-h-0 shrink-0 overflow-hidden rounded-[34px] border border-[#d6b05f]/16 px-5 pt-5 pb-3">
-              <div className="flex min-h-0 flex-col">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <div className="text-sm uppercase tracking-[0.24em] text-white/35">Задание сейчас</div>
-                    <div className="mt-2 text-sm text-white/55">Вес, цель и факт всегда под рукой.</div>
-                  </div>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-[#d6b05f]/24 bg-[#d6b05f]/10 text-[#f2cf87]">{state.kind === 'timed' ? <Timer className="h-6 w-6" /> : <Dumbbell className="h-6 w-6" />}</div>
-                </div>
+          </div>
 
-                <TaskTargetCard
-                  label={taskCaption}
-                  value={taskValue}
-                  secondaryValue={state.rirLabel ?? '1–3 в запасе'}
-                  progressPercent={progressPercent}
+          <section className="rt-panel rt-session-center" aria-label="Текущий подход">
+            <RepCounter
+              label={factLabel}
+              value={factValue}
+              targetText={targetText}
+              onChange={changeFactValue}
+            />
+            <div className="rt-progress" role="progressbar" aria-label="Прогресс подхода" aria-valuemin={0} aria-valuemax={100} aria-valuenow={clamp(progressPercent, 0, 100)}>
+              <div style={{ width: `${clamp(progressPercent, 0, 100)}%` }} />
+            </div>
+            <div className="rt-session-secondary">
+              {showWeightControl ? (
+                <ValueStepper
+                  label="Вес"
+                  unit="кг"
+                  value={actualWeight}
+                  onChange={(delta) => setActualWeight(Math.max(0, actualWeight + delta))}
+                  onValueCommit={(value) => setActualWeight(Math.max(0, value ?? 0))}
                 />
-
-                <div className="mt-4 grid grid-cols-2 gap-3">
-                  <FactAdjustCard
-                    label={state.kind === 'timed' ? 'Факт интервала' : 'Повторы'}
-                    value={factValue}
-                    min={0}
-                    max={isFailureSet ? undefined : plannedValue}
-                    accent="emerald"
-                    onChange={(value) => {
-                      if (state.kind !== 'timed' && liveMotion) {
-                        setRepAdjustment(value - liveMotion.repetitionCount)
-                        return
-                      }
-
-                      setActualReps(value)
-                    }}
-                  />
-                  {showWeightControl ? (
-                    <FactAdjustCard
-                      label="Вес, кг."
-                      value={actualWeight}
-                      min={0}
-                      step={1}
-                      accent="gold"
-                      onChange={setActualWeight}
-                    />
-                  ) : (
-                    <FactAdjustCard
-                      label="Вес, кг."
-                      value={parseWeightLabel(state.weightLabel)}
-                      min={0}
-                      accent="gold"
-                      readOnly
-                      onChange={() => undefined}
-                    />
-                  )}
+              ) : null}
+              <div className="rt-metrics" aria-label="Показатели движения">
+                {liveMetrics.slice(0, 3).map((metric) => (
+                  <div key={metric.label} data-tone={metric.tone}>
+                    <span>{metric.label}</span>
+                    <strong>{metric.value}</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {state.groupMeta ? <p className="rt-actions-note">{state.groupMeta.groupName} · круг {state.groupMeta.currentRound}/{state.groupMeta.totalRounds} · дальше {state.groupMeta.nextStepLabel}</p> : null}
+            {errorMessage ? (
+              <div className="rt-overlay" role="alert">
+                <div>
+                  <strong>Не удалось сохранить подход</strong>
+                  <p>{errorMessage}</p>
+                  <Button variant="secondary" onClick={() => { setSaveError(null); setHardwareError(null) }}>Понятно</Button>
                 </div>
-                {state.groupMeta ? <div className="mt-3 rounded-[22px] border border-[#d6b05f]/18 bg-[#18140b] px-4 py-3 text-sm text-[#f2cf87]">{state.groupMeta.groupName} · круг {state.groupMeta.currentRound}/{state.groupMeta.totalRounds} · дальше {state.groupMeta.nextStepLabel}</div> : null}
-                {(hardwareError || saveError || state.setWarning) ? <div className="mt-3 rounded-[22px] border border-[#eb5345]/25 bg-[#1b0f10] px-4 py-3 text-sm text-[#ffb4a7]">{saveError ?? hardwareError ?? state.setWarning}</div> : null}
               </div>
-            </section>
-
-            <section className="shrink-0 rounded-[30px] border border-white/8 bg-[#090c12]/90 p-4">
-              <div className="mb-3 text-sm uppercase tracking-[0.22em] text-white/35">Факт подхода</div>
-              <div className="grid grid-cols-3 gap-3">
-                <FactButton status="completed" title="Выполнено" hint="план закрыт" icon={<CheckCircle2 className="h-5 w-5" />} pendingAction={pendingAction} onClick={() => void handleRecordFact('completed')} />
-                <FactButton status="partial" title="Частично" hint="сохранить факт" icon={<Gauge className="h-5 w-5" />} pendingAction={pendingAction} onClick={() => void handleRecordFact('partial')} />
-                <FactButton status="skipped" title="Пропуск" hint="без подхода" icon={<SkipForward className="h-5 w-5" />} pendingAction={pendingAction} onClick={() => void handleRecordFact('skipped')} />
-              </div>
-            </section>
-          </aside>
+            ) : null}
+          </section>
 
           {motionRail ? <MachinePositionRail rail={motionRail} amplitudePercent={liveMotion?.amplitudePercent} syncDeltaMm={syncDeltaMm} /> : null}
+        </div>
+
+        <div className="rt-actions" role="group" aria-label="Действия с подходом">
+          <Button variant="secondary" disabled={pendingAction !== null} iconLeft={<SkipForward aria-hidden="true" />} onClick={() => void handleRecordFact('skipped')}>
+            {pendingAction === 'skipped' ? 'Сохраняю…' : 'Пропустить упражнение'}
+          </Button>
+          <div className="rt-actions-note">
+            {state.setWarning ?? state.setNote ?? <>{state.rirLabel ?? '1–3 повтора в запасе'} · после подхода начнётся отдых <strong>{setPlan.restSeconds} с</strong></>}
+          </div>
+          <Button className="rt-primary" disabled={pendingAction !== null} iconLeft={<CheckCircle2 aria-hidden="true" />} onClick={() => void handleFinishSet()}>
+            {pendingAction && pendingAction !== 'skipped' ? 'Сохраняю…' : 'Завершить подход'}
+          </Button>
         </div>
       </div>
 
@@ -658,12 +666,47 @@ export function ExerciseSessionScreen() {
   )
 }
 
-function HeaderStat({ label, value }: { label: string; value: string }) {
-  return <div className="min-w-28 rounded-[22px] border border-white/8 bg-white/5 px-4 py-3"><div className="text-xs uppercase tracking-[0.18em] text-white/35">{label}</div><div className="mt-1 font-display text-2xl font-bold text-white">{value}</div></div>
-}
+function RepCounter({ label, value, targetText, onChange }: { label: string; value: number; targetText: string; onChange: (value: number) => void }) {
+  const [draft, setDraft] = useState(String(value))
+  const [isEditing, setIsEditing] = useState(false)
 
-function MetricPill({ label, value, tone }: { label: string; value: string; tone: 'good' | 'warning' | 'neutral' }) {
-  return <div className="rounded-[22px] border border-white/8 bg-white/4 p-4"><div className="text-xs uppercase tracking-[0.16em] text-white/35">{label}</div><div className={cn('mt-2 truncate font-display text-2xl font-bold', tone === 'good' ? 'text-[#92e09a]' : tone === 'warning' ? 'text-[#f2cf87]' : 'text-white')}>{value}</div></div>
+  useEffect(() => {
+    if (!isEditing) {
+      setDraft(String(value))
+    }
+  }, [isEditing, value])
+
+  function commitDraft() {
+    const parsed = Number(draft.replace(',', '.').trim())
+    if (draft.trim() && Number.isFinite(parsed)) {
+      onChange(Math.round(parsed))
+    } else {
+      setDraft(String(value))
+    }
+  }
+
+  return (
+    <div className="rt-counter" role="group" aria-label={label}>
+      <button type="button" aria-label={`Уменьшить: ${label}`} onClick={() => onChange(value - 1)} disabled={value <= 0}><Minus aria-hidden="true" /></button>
+      <label className="rt-counter-value">
+        <input
+          type="text"
+          inputMode="numeric"
+          aria-label={label}
+          value={isEditing ? draft : String(value)}
+          onFocus={(event) => { setIsEditing(true); event.currentTarget.select() }}
+          onBlur={() => { setIsEditing(false); commitDraft() }}
+          onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, ''))}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') event.currentTarget.blur()
+            if (event.key === 'Escape') { setDraft(String(value)); event.currentTarget.blur() }
+          }}
+        />
+        <span>{label.toLowerCase()} · цель <strong>{targetText}</strong></span>
+      </label>
+      <button type="button" aria-label={`Увеличить: ${label}`} onClick={() => onChange(value + 1)}><Plus aria-hidden="true" /></button>
+    </div>
+  )
 }
 
 function MachinePositionRail({ rail, amplitudePercent, syncDeltaMm }: { rail: MotionRail; amplitudePercent?: number; syncDeltaMm: number | null }) {
@@ -674,9 +717,9 @@ function MachinePositionRail({ rail, amplitudePercent, syncDeltaMm }: { rail: Mo
   const currentStyle = currentRailStyles[rail.currentTone]
 
   return (
-    <section className="glass-panel relative min-h-0 overflow-hidden rounded-[34px] border border-[#d6b05f]/16 p-4">
-      <div className="relative flex h-full min-h-[520px] flex-col items-center">
-        <div className="relative min-h-0 w-full flex-1">
+    <section className="rt-rail" aria-label="Положение грифа">
+      <div className="relative flex h-full min-h-0 flex-col items-center">
+        <div className="rt-rail-track w-full">
           <div className="absolute top-0 bottom-0 left-1/2 w-5 -translate-x-1/2 rounded-full border border-white/12 bg-white/7 shadow-[inset_0_0_18px_rgba(255,255,255,0.08)]">
             <div className={cn('absolute right-0 left-0 rounded-full transition-colors duration-200', currentStyle.fill, fillClassName)} />
           </div>
@@ -711,172 +754,6 @@ function RailLimitMarker({ positionClassName, tone, children }: { positionClassN
       <div className={cn('h-px flex-1', lineClassName)} />
       <div className={cn('rounded-2xl border px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.14em]', badgeClassName)}>{children}</div>
       <div className={cn('h-px flex-1', lineClassName)} />
-    </div>
-  )
-}
-
-function FactButton({ status, title, hint, icon, pendingAction, onClick }: { status: CompletionStatus; title: string; hint: string; icon: ReactNode; pendingAction: CompletionStatus | null; onClick: () => void }) {
-  return <button type="button" disabled={pendingAction !== null} onClick={onClick} className={cn('min-h-24 rounded-[24px] border px-3 py-4 text-left transition disabled:pointer-events-none disabled:opacity-55', factActionStyles[status])}><div className="flex items-center gap-2 font-semibold">{icon}{pendingAction === status ? 'Сохраняю…' : title}</div><div className="mt-2 text-xs opacity-72">{hint}</div></button>
-}
-
-function FactAdjustCard({ label, value, min, max, step = 1, helperText, accent, readOnly = false, onChange }: { label: string; value: number; min: number; max?: number; step?: number; helperText?: string; accent: 'emerald' | 'gold'; readOnly?: boolean; onChange: (value: number) => void }) {
-  const [draftValue, setDraftValue] = useState(String(value))
-  const [isEditing, setIsEditing] = useState(false)
-  const inputRef = useRef<HTMLInputElement | null>(null)
-
-  const accentClasses = accent === 'emerald'
-    ? {
-        panel: 'border-[#8bdd92]/20 bg-[linear-gradient(180deg,rgba(16,34,24,0.95),rgba(7,13,10,0.96))]',
-        icon: 'border-[#8bdd92]/22 bg-[#8bdd92]/10 text-[#bff3c3]',
-        value: 'text-[#d9ffe0]',
-        helper: 'border-[#8bdd92]/16 bg-[#0f1a13] text-[#8bdd92]',
-        button: 'border-[#8bdd92]/16 bg-[#122117] text-[#d9ffe0] hover:bg-[#18301f]',
-        surface: 'border-[#8bdd92]/10 bg-[linear-gradient(180deg,rgba(3,16,10,0.72),rgba(2,9,6,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]',
-        display: 'border-[#8bdd92]/12 bg-[radial-gradient(circle_at_top,rgba(139,221,146,0.06),transparent_55%),rgba(0,0,0,0.18)]',
-      }
-    : {
-        panel: 'border-[#d6b05f]/20 bg-[linear-gradient(180deg,rgba(33,24,9,0.95),rgba(11,12,10,0.96))]',
-        icon: 'border-[#d6b05f]/24 bg-[#d6b05f]/10 text-[#f2cf87]',
-        value: 'text-[#fff1cb]',
-        helper: 'border-[#d6b05f]/16 bg-[#1b160c] text-[#f2cf87]',
-        button: 'border-[#d6b05f]/16 bg-[#241d11] text-[#fff1cb] hover:bg-[#312617]',
-        surface: 'border-[#d6b05f]/10 bg-[linear-gradient(180deg,rgba(22,16,5,0.72),rgba(9,8,4,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]',
-        display: 'border-[#d6b05f]/12 bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.06),transparent_55%),rgba(0,0,0,0.18)]',
-      }
-
-  useEffect(() => {
-    if (!isEditing) {
-      setDraftValue(String(value))
-    }
-  }, [isEditing, value])
-
-  function update(delta: number) {
-    if (readOnly) {
-      return
-    }
-
-    const next = value + delta * step
-    onChange(Math.min(max ?? Number.POSITIVE_INFINITY, Math.max(min, next)))
-  }
-
-  function commitDraft(nextDraft: string) {
-    const normalizedDraft = nextDraft.replace(',', '.').trim()
-    if (!normalizedDraft) {
-      setDraftValue(String(value))
-      return
-    }
-
-    const parsedValue = Number(normalizedDraft)
-    if (!Number.isFinite(parsedValue)) {
-      setDraftValue(String(value))
-      return
-    }
-
-    const nextValue = clamp(parsedValue, min, max ?? Number.POSITIVE_INFINITY)
-    setDraftValue(String(nextValue))
-    onChange(nextValue)
-  }
-
-  const displayValue = (isEditing ? draftValue : String(value)).trim() || '0'
-
-  return (
-    <div className={cn('rounded-[28px] border p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]', accentClasses.panel)}>
-      {helperText ? <div className={cn('mt-4 inline-flex rounded-full border px-3 py-1 text-xs font-medium', accentClasses.helper)}>{helperText}</div> : null}
-      <div className={cn('rounded-[26px] border p-3', accentClasses.surface, helperText ? 'mt-4' : 'mt-1')}>
-        <div className="grid grid-cols-[56px_minmax(0,1fr)_56px] items-center gap-3">
-          <button type="button" title="Уменьшить значение" aria-label="Уменьшить значение" disabled={readOnly} onClick={() => update(-1)} className={cn('inline-flex min-h-[124px] items-center justify-center text-white/78 transition hover:text-white disabled:cursor-default disabled:opacity-35', accent === 'emerald' ? 'text-[#d9ffe0]' : 'text-[#fff1cb]')}>
-            <Minus className="h-9 w-9" strokeWidth={2.4} />
-          </button>
-        {readOnly ? (
-          <div className={cn('rounded-[22px] border px-4 py-5 text-center', accentClasses.display)}>
-            <div className={cn('font-display !text-[5.5rem] !leading-none !tracking-[-0.06em] font-black', accentClasses.value)}>{value}</div>
-            <div className="mt-3 text-sm uppercase tracking-[0.22em] text-white/34">{label}</div>
-          </div>
-        ) : (
-          <div className="relative flex-1">
-            <div
-              role="button"
-              tabIndex={0}
-              onClick={() => inputRef.current?.focus()}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault()
-                  inputRef.current?.focus()
-                }
-              }}
-              className={cn('rounded-[22px] border px-4 py-5 text-center outline-none transition focus:border-white/18', accentClasses.display)}
-            >
-              <div className={cn('font-display !text-[5.5rem] !leading-none !tracking-[-0.06em] font-black', accentClasses.value)}>{displayValue}</div>
-              <div className="mt-3 text-sm uppercase tracking-[0.22em] text-white/34">{label}</div>
-            </div>
-            <input
-              ref={inputRef}
-              type="text"
-              inputMode="numeric"
-              value={draftValue}
-              onFocus={(event) => {
-                setIsEditing(true)
-                event.currentTarget.select()
-              }}
-              onBlur={() => {
-                setIsEditing(false)
-                commitDraft(draftValue)
-              }}
-              onChange={(event) => setDraftValue(event.target.value.replace(/[^\d.,]/g, ''))}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  event.currentTarget.blur()
-                }
-                if (event.key === 'Escape') {
-                  setDraftValue(String(value))
-                  setIsEditing(false)
-                  event.currentTarget.blur()
-                }
-              }}
-              aria-label={label}
-              className="absolute inset-0 h-full w-full opacity-0"
-            />
-          </div>
-        )}
-          <button type="button" title="Увеличить значение" aria-label="Увеличить значение" disabled={readOnly} onClick={() => update(1)} className={cn('inline-flex min-h-[124px] items-center justify-center text-white/78 transition hover:text-white disabled:cursor-default disabled:opacity-35', accent === 'emerald' ? 'text-[#d9ffe0]' : 'text-[#fff1cb]')}>
-            <Plus className="h-9 w-9" strokeWidth={2.4} />
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function TaskTargetCard({ label, value, secondaryValue, progressPercent }: { label: string; value: string; secondaryValue: string; progressPercent: number }) {
-  const normalizedProgressPercent = clamp(progressPercent, 0, 100)
-  const progressGradientId = useId()
-
-  return (
-    <div className="mt-5 rounded-[28px] border border-[#d6b05f]/20 bg-[linear-gradient(180deg,rgba(33,24,9,0.95),rgba(11,12,10,0.96))] p-4 shadow-[0_18px_40px_rgba(0,0,0,0.22)]">
-      <div className="text-xs font-semibold uppercase tracking-[0.22em] text-white/40">
-        {label}
-      </div>
-      <div className="mt-4 rounded-[26px] bg-[linear-gradient(180deg,rgba(22,16,5,0.72),rgba(9,8,4,0.92))] p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-        <div className="rounded-[22px] border border-[#d6b05f]/12 bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.06),transparent_55%),rgba(0,0,0,0.18)] px-4 py-5 text-center">
-          <div className="font-display text-6xl leading-none font-black tracking-[-0.06em] text-[#fff1cb] xl:text-7xl">{value}</div>
-          <div className="mt-4 flex items-center justify-between gap-3 text-sm text-white/50">
-            <span>{secondaryValue}</span>
-            <span>{Math.round(normalizedProgressPercent)}%</span>
-          </div>
-          <div className="mt-4 h-3 overflow-hidden rounded-[4px] bg-white/7">
-            <svg className="h-full w-full" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <linearGradient id={progressGradientId} x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#8edb92" />
-                  <stop offset="50%" stopColor="#d6b05f" />
-                  <stop offset="100%" stopColor="#f2cf87" />
-                </linearGradient>
-              </defs>
-              {normalizedProgressPercent > 0 ? <rect x="0" y="0" width={normalizedProgressPercent} height="12" fill={"url(#" + progressGradientId + ")"} /> : null}
-            </svg>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

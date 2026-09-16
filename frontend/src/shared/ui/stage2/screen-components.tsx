@@ -1,7 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { CalendarDays, ChevronRight, CircleAlert, Clock3, Dumbbell, Flame, Grid2x2, List, LoaderCircle, Play, Search, ShieldAlert, Star, X } from 'lucide-react'
+import { CalendarDays, ChevronRight, CircleAlert, Dumbbell, Flame, Grid2x2, List, LoaderCircle, Play, Search, ShieldAlert, Star, X } from 'lucide-react'
 import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import type { CalendarDayCard as CalendarDayCardData, CalendarDayDetails } from '@/entities/calendar/model/types'
 import type { ExerciseDetails, ExerciseLoadSettings, ExerciseSummary } from '@/entities/exercise/model/types'
 import type { MuscleCard } from '@/entities/muscle/model/types'
 import type { ProgramDetails, ProgramSummary } from '@/entities/program/model/types'
@@ -9,6 +8,7 @@ import type { WorkoutExerciseRow as WorkoutExerciseRowData } from '@/entities/wo
 import { resolveApiAssetUrl } from '@/shared/api/client'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
+import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { resolveSvgIdsForBodyMapLabel, svgIdsByView, type BodyMapView } from '@/shared/ui/stage4/fatigue-muscle-map'
 
 const toneClasses = {
@@ -27,20 +27,10 @@ const muscleDotClasses: Record<MuscleCard['status'], string> = {
   no_data: 'bg-[#677084]',
 }
 
-const calendarToneClasses: Record<CalendarDayCardData['status'], string> = {
-  completed: 'border-[#53c86f]/25 bg-[#123221] text-[#92e09a]',
-  planned: 'border-[#d6b05f]/25 bg-[#211a0c] text-[#f0d08c]',
-  skipped: 'border-[#d05e55]/30 bg-[#311615] text-[#f7a29a]',
-  rest: 'border-white/10 bg-white/5 text-white/55',
-  overload: 'border-[#cb6940]/30 bg-[#301a10] text-[#f5ae81]',
-  today: 'border-[#d6b05f]/45 bg-[#241c0c] text-[#f5d998]',
-  empty: 'border-white/8 bg-transparent text-white/45',
-}
-
 type CompactFigureGender = 'male' | 'female'
 type CompactMapTone = MuscleCard['status'] | 'primary' | 'secondary' | 'stabilizer'
-type CompactMapHighlight = { label: string; tone: CompactMapTone }
-export type CompactBodyMapHover = { label: string; tone: CompactMapTone }
+type CompactMapHighlight = { label: string; tone: CompactMapTone; description?: string }
+export type CompactBodyMapHover = { label: string; tone: CompactMapTone; anchor?: { top: number; left: number } }
 
 const compactInlineSvgCache = new Map<string, string>()
 
@@ -451,59 +441,34 @@ function resolveExerciseVideoSequence(exercise: ExerciseDetails, preferredVideoG
   return sequence
 }
 
-export function ExercisePreviewCard({ exercise, listMode = false, onOpen, onFavorite }: { exercise: ExerciseSummary; listMode?: boolean; onOpen?: () => void; onFavorite?: () => void }) {
+export function ExercisePreviewCard({ exercise, onOpen, onFavorite }: { exercise: ExerciseSummary; onOpen?: () => void; onFavorite?: () => void }) {
+  const compatibilityText = exercise.compatibilityTone === 'recommended' ? 'Рекомендуется' : exercise.compatibilityTone === 'blocked' ? 'Блокировка' : exercise.compatibilityTone === 'caution' ? 'Осторожно' : 'Можно выполнять'
   return (
-    <article className={cn('rounded-[28px] border border-white/8 bg-[#121418] p-4 shadow-[0_16px_36px_rgba(0,0,0,0.24)]', listMode ? 'grid gap-4 md:grid-cols-[220px_1fr_auto]' : 'space-y-4')}>
-      <div className={cn(listMode ? '' : 'space-y-4')}>
-        <ExerciseMedia
-          title={exercise.name}
-          accent={exercise.recommended ? 'ring-1 ring-[#6ecf71]/25' : undefined}
-          videoUrl={exercise.previewVideoUrl}
-          videoLabel={exercise.previewVideoUrl ? `${exercise.name} · превью` : undefined}
-          lazyLoadVideo={Boolean(exercise.previewVideoUrl)}
-        />
-      </div>
-
-      <div className="flex min-w-0 flex-col justify-between gap-4">
-        <div>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="font-display text-3xl font-bold tracking-[-0.04em] text-white">{exercise.name}</h3>
-              <div className="mt-1 text-lg text-white/48">{exercise.secondaryName}</div>
-            </div>
-            <button
-              type="button"
-              onClick={onFavorite}
-              aria-label={exercise.favorite ? 'Убрать из избранного' : 'Добавить в избранное'}
-              title={exercise.favorite ? 'Убрать из избранного' : 'Добавить в избранное'}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/8 bg-white/4 text-white/60 hover:text-[#f3d18b]"
-            >
-              <Star className={cn('h-4 w-4', exercise.favorite ? 'fill-[#f3d18b] text-[#f3d18b]' : '')} />
-            </button>
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {exercise.badges.map((badge) => (
-              <MetricTag key={badge} label={badge} />
-            ))}
-            <CompatibilityBadge
-              tone={exercise.compatibilityTone}
-              text={exercise.compatibilityTone === 'recommended' ? 'Рекомендуется' : exercise.compatibilityTone === 'blocked' ? 'Блокировка' : exercise.compatibilityTone === 'caution' ? 'Осторожно' : 'Можно выполнять'}
-            />
-          </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            {exercise.muscles.slice(0, 3).map((muscle) => (
-              <MetricTag key={muscle} label={muscle} />
-            ))}
-            <MetricTag label={exercise.equipment} />
-            <MetricTag label={exercise.difficultyLabel} />
-          </div>
+    <article className="catalog-card" aria-label={exercise.name}>
+      <ExerciseMedia
+        title={exercise.name}
+        accent={exercise.recommended ? 'ring-1 ring-[#6ecf71]/25' : undefined}
+        videoUrl={exercise.previewVideoUrl}
+        videoLabel={exercise.previewVideoUrl ? `${exercise.name} · превью` : undefined}
+        lazyLoadVideo={Boolean(exercise.previewVideoUrl)}
+      />
+      <div className="catalog-card-body">
+        <div className="catalog-card-heading">
+          <h3 className="font-display font-bold text-white">{exercise.name}</h3>
+          <button
+            type="button"
+            onClick={onFavorite}
+            aria-pressed={exercise.favorite}
+            aria-label={exercise.favorite ? `Убрать из избранного: ${exercise.name}` : `Добавить в избранное: ${exercise.name}`}
+            className="catalog-card-favorite"
+          >
+            <Star className={cn('h-5 w-5', exercise.favorite ? 'fill-[#f3d18b] text-[#f3d18b]' : '')} aria-hidden="true" />
+          </button>
         </div>
-
-        <div className={cn('flex items-center gap-3', listMode ? 'justify-end' : 'justify-between')}>
-          <div className="text-sm text-white/45">{exercise.force === 'Push' ? 'Жим / толчок' : exercise.force === 'Pull' ? 'Тяга' : exercise.force === 'Stretch' ? 'Растяжка' : 'Статика'}</div>
-          <Button variant="secondary" onClick={onOpen}>
-            Открыть
-          </Button>
+        <p className="catalog-card-muscles">{exercise.muscles.slice(0, 2).join(' · ') || exercise.equipment}</p>
+        <div className="catalog-card-footer">
+          <CompatibilityBadge tone={exercise.compatibilityTone} text={compatibilityText} />
+          <Button variant="secondary" onClick={onOpen} aria-label={`Открыть ${exercise.name}`}>Открыть</Button>
         </div>
       </div>
     </article>
@@ -624,20 +589,26 @@ export const CompactBodyMapGrid = memo(function CompactBodyMapGrid({
   onHighlightHover,
   showFigureTitles = true,
   plainFigures = false,
+  figureContainerClassName,
+  figureMarkupClassName,
+  className,
 }: {
   highlights: CompactMapHighlight[]
   figureGender?: CompactFigureGender
   onHighlightHover?: (highlight: CompactBodyMapHover | null) => void
   showFigureTitles?: boolean
   plainFigures?: boolean
+  figureContainerClassName?: string
+  figureMarkupClassName?: string
+  className?: string
 }) {
   const highlightDataMap = useMemo(() => buildHighlightDataMap(highlights), [highlights])
   const highlightToneMap = useMemo(() => buildHighlightToneMap(highlights), [highlights])
 
   return (
-    <div className="grid items-start gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]">
-      <CompactBodyMapFigure title="Передняя цепь" view="front" figureGender={figureGender} highlightToneMap={highlightToneMap} highlightDataMap={highlightDataMap} onHighlightHover={onHighlightHover} showTitle={showFigureTitles} plain={plainFigures} />
-      <CompactBodyMapFigure title="Задняя цепь" view="back" figureGender={figureGender} highlightToneMap={highlightToneMap} highlightDataMap={highlightDataMap} onHighlightHover={onHighlightHover} showTitle={showFigureTitles} plain={plainFigures} />
+    <div className={cn('grid items-start gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]', className)}>
+      <CompactBodyMapFigure title="Передняя цепь" view="front" figureGender={figureGender} highlightToneMap={highlightToneMap} highlightDataMap={highlightDataMap} onHighlightHover={onHighlightHover} showTitle={showFigureTitles} plain={plainFigures} containerClassName={figureContainerClassName} markupClassName={figureMarkupClassName} />
+      <CompactBodyMapFigure title="Задняя цепь" view="back" figureGender={figureGender} highlightToneMap={highlightToneMap} highlightDataMap={highlightDataMap} onHighlightHover={onHighlightHover} showTitle={showFigureTitles} plain={plainFigures} containerClassName={figureContainerClassName} markupClassName={figureMarkupClassName} />
     </div>
   )
 })
@@ -915,19 +886,46 @@ function CompactBodyMapFigure({
         onHighlightHover({
           label: highlight.label,
           tone: highlight.tone,
+          anchor: { top: element.getBoundingClientRect().top, left: element.getBoundingClientRect().left },
         })
       }
 
       const handlePointerOut = () => {
         resetHighlightStyles(highlight)
+        if (highlight.description) onHighlightHover(null)
+      }
+      const handleKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          handlePointerEnter()
+        }
       }
 
       element.style.cursor = 'pointer'
       element.addEventListener('pointerenter', handlePointerEnter)
       element.addEventListener('pointerleave', handlePointerOut)
+      // Described regions opt into keyboard/touch access without changing existing maps.
+      if (highlight.description) {
+        element.setAttribute('tabindex', '0')
+        element.setAttribute('role', 'button')
+        element.setAttribute('aria-label', highlight.description)
+        element.addEventListener('focus', handlePointerEnter)
+        element.addEventListener('blur', handlePointerOut)
+        element.addEventListener('click', handlePointerEnter)
+        element.addEventListener('keydown', handleKeyDown)
+      }
       cleanupCallbacks.push(() => {
         element.removeEventListener('pointerenter', handlePointerEnter)
         element.removeEventListener('pointerleave', handlePointerOut)
+        if (highlight.description) {
+          element.removeAttribute('tabindex')
+          element.removeAttribute('role')
+          element.removeAttribute('aria-label')
+          element.removeEventListener('focus', handlePointerEnter)
+          element.removeEventListener('blur', handlePointerOut)
+          element.removeEventListener('click', handlePointerEnter)
+          element.removeEventListener('keydown', handleKeyDown)
+        }
       })
     }
 
@@ -978,13 +976,13 @@ export function ExerciseDetailsModal({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-50 w-[min(1280px,calc(100vw-24px))] max-h-[calc(100vh-24px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[34px] border border-white/10 bg-[#0c0f14] p-6 text-white shadow-[0_30px_100px_rgba(0,0,0,0.55)] xl:p-8">
-          <Dialog.Close aria-label="Закрыть модальное окно" title="Закрыть модальное окно" className="absolute right-6 top-6 inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/10 bg-white/4 text-white/65 xl:right-8 xl:top-8">
+        <SafetyDialogContent className="fixed left-1/2 top-1/2 z-50 w-[min(1280px,calc(100vw-24px))] max-h-[calc(100vh-24px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[34px] border border-white/10 bg-[#0c0f14] p-6 text-white shadow-[0_30px_100px_rgba(0,0,0,0.55)] xl:p-8">
+          <Dialog.Close aria-label="Закрыть модальное окно" title="Закрыть модальное окно" className="absolute right-6 top-6 inline-flex h-[var(--ui-control)] w-[var(--ui-control)] items-center justify-center rounded-full border border-white/10 bg-white/4 text-white/65 xl:right-8 xl:top-8">
             <X className="h-4 w-4" />
           </Dialog.Close>
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_360px] xl:items-start">
             <div className="space-y-6">
-              <div className="pr-16 xl:pr-20">
+              <div className="pr-[calc(var(--ui-control)+1rem)]">
                 <div className="min-w-0">
                   <Dialog.Title className="font-display text-5xl font-bold tracking-[-0.06em] text-white">{exercise.name}</Dialog.Title>
                   <Dialog.Description className="mt-2 text-2xl text-white/45">{exercise.secondaryName}</Dialog.Description>
@@ -1030,11 +1028,12 @@ export function ExerciseDetailsModal({
                       </li>
                     ))}
                   </ol>
+                  {onOpenFullScreen ? <button type="button" onClick={onOpenFullScreen} className="mt-4 text-sm text-[#f2cf87] underline-offset-4 hover:underline">Подробнее о технике</button> : null}
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4 xl:sticky xl:top-24 xl:pt-2">
+            <div className="space-y-4 xl:sticky xl:top-24 xl:pt-[calc(var(--ui-control)+1rem)]">
               <div className={cn('rounded-[28px] border p-5', toneClasses[exercise.compatibility.tone])}>
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 font-semibold">
@@ -1048,6 +1047,13 @@ export function ExerciseDetailsModal({
                 <p className="mt-3 text-sm leading-7">{exercise.compatibility.description}</p>
               </div>
 
+              {onStart || onAdd ? (
+                <div className="flex flex-col gap-3">
+                  {onStart ? <Button onClick={onStart} iconLeft={<Play className="h-4 w-4" />}>Начать упражнение</Button> : null}
+                  {onAdd ? <Button variant="secondary" onClick={onAdd} iconLeft={<Dumbbell className="h-4 w-4" />}>Добавить в тренировку</Button> : null}
+                </div>
+              ) : null}
+
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                 <DataStat label="Мышцы" value={exercise.muscles.join(', ')} icon={<Dumbbell className="h-4 w-4" />} />
                 <DataStat label="Оборудование" value={exercise.equipment} icon={<ShieldAlert className="h-4 w-4" />} />
@@ -1058,7 +1064,7 @@ export function ExerciseDetailsModal({
               </div>
             </div>
           </div>
-        </Dialog.Content>
+        </SafetyDialogContent>
       </Dialog.Portal>
     </Dialog.Root>
   )
@@ -1174,69 +1180,6 @@ export function ProgramDetailsPanel({ details, onPrimary, onAdapt, onCalendar, o
         <DataStat label="Оборудование" value={details.equipmentCoverage} />
       </div>
     </aside>
-  )
-}
-
-export function CalendarDayCard({ day, onSelect }: { day: CalendarDayCardData; onSelect?: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={cn('flex min-h-[120px] flex-col justify-between rounded-[24px] border p-4 text-left transition', calendarToneClasses[day.status], day.selected ? 'ring-1 ring-[#d6b05f]/50' : 'hover:border-white/14')}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-xs uppercase tracking-[0.24em] text-current/75">{day.dateLabel}</div>
-          <div className="mt-3 font-display text-2xl font-bold text-current">{day.title}</div>
-        </div>
-        {day.readinessPercent ? <div className="rounded-full border border-current/25 px-3 py-1 text-xs">{day.readinessPercent}%</div> : null}
-      </div>
-      <div className="flex flex-wrap gap-2">
-        {day.badges.map((badge) => (
-          <MetricTag key={badge} label={badge} />
-        ))}
-      </div>
-    </button>
-  )
-}
-
-export function DayDetailsPanel({ details, onStart, onOpenPlan }: { details: CalendarDayDetails; onStart?: () => void; onOpenPlan?: () => void }) {
-  return (
-    <aside className="rounded-[32px] border border-white/8 bg-[#111419] p-5">
-      <div className="flex items-center justify-between gap-4">
-        <div className="text-sm uppercase tracking-[0.24em] text-white/35">Выбранный день</div>
-        <div className="text-xl text-[#f2cf87]">{details.dateLabel}</div>
-      </div>
-      <div className="mt-5 font-display text-4xl font-bold text-white">{details.title}</div>
-      <div className="mt-2 text-white/45">{details.subtitle}</div>
-      <div className="mt-6 grid gap-4 md:grid-cols-3">
-        <MiniMetric icon={<Dumbbell className="h-4 w-4" />} value={`${details.exerciseCount}`} label="упражнений" />
-        <MiniMetric icon={<Grid2x2 className="h-4 w-4" />} value={`${details.setCount}`} label="подходов" />
-        <MiniMetric icon={<Clock3 className="h-4 w-4" />} value={details.duration} label="длительность" />
-      </div>
-      <div className="mt-5 rounded-[24px] border border-white/8 bg-white/4 p-4">
-        <div className="text-sm text-white/45">Целевые мышцы</div>
-        <div className="mt-2 text-white">{details.targetMuscles}</div>
-        <div className="mt-4 text-sm text-white/45">Статус</div>
-        <div className="mt-1 text-white">{details.statusText}</div>
-      </div>
-      <Button className="mt-5 w-full" iconLeft={<Play className="h-4 w-4" />} onClick={onStart}>
-        Начать тренировку
-      </Button>
-      <Button variant="secondary" className="mt-3 w-full" onClick={onOpenPlan}>
-        Открыть план
-      </Button>
-      <div className="mt-5 rounded-[24px] border border-[#d6b05f]/18 bg-[#18140b] p-4 text-sm leading-7 text-[#f2cf87]">{details.recommendation}</div>
-    </aside>
-  )
-}
-
-function MiniMetric({ icon, value, label }: { icon: ReactNode; value: string; label: string }) {
-  return (
-    <div className="rounded-[24px] border border-white/8 bg-white/4 p-4">
-      <div className="flex items-center gap-2 text-white/45">{icon}<span className="text-xs uppercase tracking-[0.2em]">{label}</span></div>
-      <div className="mt-3 font-display text-3xl font-bold text-white">{value}</div>
-    </div>
   )
 }
 

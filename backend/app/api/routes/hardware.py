@@ -6,16 +6,27 @@ from app.schemas.hardware import (
     CalibrationListResponseSchema,
     CalibrationSaveSchema,
     CalibrationSummarySchema,
+    EmulatorControlSchema,
     HardwareCommandRequestSchema,
     HardwareCommandResponseSchema,
     HardwareDiagnosticRecordSchema,
     HardwareSafetySettingsSchema,
     HardwareSnapshotSchema,
+    ProcedureStartSchema,
+    RecordingControlSchema,
     SafetyGateRequestSchema,
     SafetyGateResponseSchema,
+    TuningPresetDiffSchema,
+    TuningPresetSaveSchema,
+    TuningPresetSchema,
+    TuningUpdateResultSchema,
+    TuningUpdateSchema,
+    TuningValuesSchema,
 )
 from app.services.hardware_runtime import hardware_runtime
 from app.services.hardware_service import HardwareService
+from app.services.motion.parameters import ParameterValidationError, schema_payload
+from app.services.motion.procedures import MEASUREMENTS, PROCEDURE_LABELS, SCENARIOS
 
 router = APIRouter(prefix="/hardware")
 
@@ -123,3 +134,183 @@ async def hardware_realtime(websocket: WebSocket) -> None:
             await websocket.send_json(HardwareSnapshotSchema.model_validate(payload).model_dump(mode="json", by_alias=True))
     except WebSocketDisconnect:
         hardware_runtime.unsubscribe(queue)
+
+
+# ---------------------------------------------------------------- tuning
+
+
+def _raise_for(error: Exception) -> None:
+    if isinstance(error, PermissionError):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+    if isinstance(error, LookupError):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    if isinstance(error, ParameterValidationError | ValueError):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    raise error
+
+
+@router.get("/tuning/schema")
+def get_tuning_schema() -> dict[str, object]:
+    return {
+        **schema_payload(),
+        "procedures": {
+            "measurements": [{"id": key, "label": PROCEDURE_LABELS.get(key, key)} for key in MEASUREMENTS],
+            "scenarios": [{"id": key, "label": PROCEDURE_LABELS.get(key, key)} for key in SCENARIOS],
+        },
+    }
+
+
+@router.get("/tuning", response_model=TuningValuesSchema)
+def get_tuning(session: Session = Depends(get_session)) -> TuningValuesSchema:
+    return hardware_service.get_tuning(session)
+
+
+@router.put("/tuning", response_model=TuningUpdateResultSchema)
+def update_tuning(payload: TuningUpdateSchema, session: Session = Depends(get_session)) -> TuningUpdateResultSchema:
+    try:
+        return hardware_service.update_tuning(session, payload)
+    except (PermissionError, LookupError, ValueError) as error:
+        _raise_for(error)
+        raise
+
+
+@router.post("/tuning/revert", response_model=TuningValuesSchema)
+def revert_tuning(session: Session = Depends(get_session)) -> TuningValuesSchema:
+    return hardware_service.revert_temporary_tuning(session)
+
+
+@router.post("/tuning/reset", response_model=TuningValuesSchema)
+def reset_tuning(actor_user_id: str | None = Query(default=None, alias="actorUserId"), session: Session = Depends(get_session)) -> TuningValuesSchema:
+    try:
+        return hardware_service.reset_tuning(session, actor_user_id)
+    except PermissionError as error:
+        _raise_for(error)
+        raise
+
+
+@router.get("/tuning/presets", response_model=list[TuningPresetSchema])
+def list_presets(session: Session = Depends(get_session)) -> list[TuningPresetSchema]:
+    return hardware_service.list_presets(session)
+
+
+@router.post("/tuning/presets", response_model=TuningPresetSchema)
+def save_preset(payload: TuningPresetSaveSchema, session: Session = Depends(get_session)) -> TuningPresetSchema:
+    return hardware_service.save_preset(session, payload)
+
+
+@router.delete("/tuning/presets/{preset_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_preset(preset_id: str, session: Session = Depends(get_session)) -> None:
+    try:
+        hardware_service.delete_preset(session, preset_id)
+    except LookupError as error:
+        _raise_for(error)
+
+
+@router.get("/tuning/presets/{preset_id}/diff", response_model=TuningPresetDiffSchema)
+def diff_preset(preset_id: str, session: Session = Depends(get_session)) -> TuningPresetDiffSchema:
+    try:
+        return hardware_service.diff_preset(session, preset_id)
+    except LookupError as error:
+        _raise_for(error)
+        raise
+
+
+@router.post("/tuning/presets/{preset_id}/apply", response_model=TuningUpdateResultSchema)
+def apply_preset(
+    preset_id: str,
+    apply: str = Query(default="temporary"),
+    actor_user_id: str | None = Query(default=None, alias="actorUserId"),
+    session: Session = Depends(get_session),
+) -> TuningUpdateResultSchema:
+    try:
+        return hardware_service.apply_preset(session, preset_id, apply=apply, actor_user_id=actor_user_id)
+    except (PermissionError, LookupError, ValueError) as error:
+        _raise_for(error)
+        raise
+
+
+@router.post("/tuning/procedures/{name}")
+def start_procedure(name: str, payload: ProcedureStartSchema, session: Session = Depends(get_session)) -> dict[str, object]:
+    try:
+        return hardware_service.start_procedure(session, name, payload)
+    except (PermissionError, LookupError, ValueError, TypeError) as error:
+        _raise_for(error if not isinstance(error, TypeError) else ValueError(str(error)))
+        raise
+
+
+@router.post("/tuning/procedures/abort")
+def abort_procedure() -> dict[str, object]:
+    return hardware_runtime.abort_procedure().to_payload()
+
+
+@router.get("/tuning/procedure")
+def get_procedure() -> dict[str, object]:
+    return hardware_runtime.procedure.to_payload()
+
+
+@router.get("/tuning/events")
+def get_events(limit: int = Query(default=100, ge=1, le=400)) -> list[dict[str, object]]:
+    return hardware_runtime.events_payload(limit)
+
+
+@router.get("/tuning/emulator")
+def get_emulator() -> dict[str, object]:
+    return hardware_runtime.emulator_payload()
+
+
+@router.post("/tuning/emulator")
+def control_emulator(payload: EmulatorControlSchema) -> dict[str, object]:
+    data = payload.model_dump(exclude_none=True)
+    action = data.pop("action")
+    if action == "physics":
+        data = dict(payload.physics or {})
+    try:
+        return hardware_runtime.emulator_control(action, **data)
+    except (PermissionError, ValueError) as error:
+        _raise_for(error)
+        raise
+
+
+@router.get("/tuning/recordings")
+def list_recordings() -> dict[str, object]:
+    recorder = hardware_runtime.recorder
+    return {
+        "recording": recorder.manual_active,
+        "recordings": [item.to_summary() for item in recorder.recordings],
+        "incidents": [item.to_summary() for item in recorder.incidents],
+    }
+
+
+@router.post("/tuning/recordings")
+def control_recording(payload: RecordingControlSchema) -> dict[str, object]:
+    try:
+        return hardware_runtime.recording_control(payload.action, **payload.model_dump(exclude_none=True, exclude={"action"}))
+    except ValueError as error:
+        _raise_for(error)
+        raise
+
+
+@router.get("/tuning/recordings/{recording_id}")
+def get_recording(recording_id: int) -> dict[str, object]:
+    recording = hardware_runtime.recorder.get(recording_id)
+    if recording is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена")
+    return recording.to_payload()
+
+
+@router.delete("/tuning/recordings/{recording_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_recording(recording_id: int) -> None:
+    if not hardware_runtime.recorder.delete(recording_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Запись не найдена")
+
+
+@router.websocket("/telemetry-debug")
+async def telemetry_debug(websocket: WebSocket) -> None:
+    await websocket.accept()
+    queue = await hardware_runtime.subscribe_debug()
+    try:
+        while True:
+            payload = await queue.get()
+            await websocket.send_json(payload)
+    except WebSocketDisconnect:
+        hardware_runtime.unsubscribe_debug(queue)

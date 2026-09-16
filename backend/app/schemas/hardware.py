@@ -1,4 +1,7 @@
 from datetime import datetime
+from typing import Any
+
+from pydantic import Field
 
 from app.schemas.base import SchemaModel
 from app.schemas.machine import MachineHealthSchema, SafetyStatusSchema
@@ -35,6 +38,26 @@ class MotionTelemetrySchema(SchemaModel):
     direction: str
     lower_bound_mm: float
     upper_bound_mm: float
+    control_mode: str = "idle"
+    partial_reps: int = 0
+    load_target_kg: float = 0.0
+    load_effective_kg: float = 0.0
+    load_mode: str = "normal_weight"
+    user_force_kg: float = 0.0
+    velocity_mm_per_sec: float = 0.0
+    start_point: str = "lower"
+    fixed_position_mm: float | None = None
+
+
+class ProcedureStatusSchema(SchemaModel):
+    name: str | None = None
+    label: str = ""
+    status: str = "idle"
+    step: str = ""
+    progress_ticks: int = 0
+    result: dict[str, Any] | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
 
 
 class CommandSummarySchema(SchemaModel):
@@ -56,6 +79,8 @@ class HardwareSnapshotSchema(SchemaModel):
     user_selected: bool
     drives: list[DriveTelemetrySchema]
     motion: MotionTelemetrySchema
+    control: dict[str, Any] = Field(default_factory=dict)
+    procedure: ProcedureStatusSchema = Field(default_factory=ProcedureStatusSchema)
     calibration_required: bool
     calibration_actual: bool
     active_calibration_id: int | None = None
@@ -134,6 +159,21 @@ class HardwareCommandRequestSchema(SchemaModel):
     direction: str | None = None
     distance_mm: float | None = None
     service_mode: bool | None = None
+    # motion-control extensions
+    load_mode: str | None = None
+    start_point: str | None = None
+    position_mm: float | None = None
+    lower_mm: float | None = None
+    upper_mm: float | None = None
+    which: str | None = None
+    wait_for_grip: bool = False
+    warmup: bool = False
+    guest: bool = False
+    asymmetric_allowed: bool = False
+    rep_count_source: str | None = None
+    body_weight_kg: float = 0.0
+    isometric_duration_s: float | None = None
+    auto_user: bool | None = None
 
 
 class HardwareCommandResponseSchema(SchemaModel):
@@ -142,6 +182,82 @@ class HardwareCommandResponseSchema(SchemaModel):
     message: str
     snapshot: HardwareSnapshotSchema
     safety_gate: SafetyGateResponseSchema | None = None
+    captured_position_mm: float | None = None
+
+
+# ---------------------------------------------------------------- tuning API
+
+
+class TuningValuesSchema(SchemaModel):
+    values: dict[str, Any]
+    persisted: dict[str, Any]
+    temporary: dict[str, Any]
+    service_mode: bool
+    adapter: str
+
+
+class TuningUpdateSchema(SchemaModel):
+    values: dict[str, Any]
+    apply: str = "temporary"  # temporary | persist
+    actor_user_id: str | None = None
+
+
+class TuningUpdateResultSchema(SchemaModel):
+    changed: dict[str, dict[str, Any]]
+    values: dict[str, Any]
+    temporary: dict[str, Any]
+
+
+class TuningPresetSchema(SchemaModel):
+    id: str
+    title: str
+    description: str = ""
+    created_at: str
+    values: dict[str, Any]
+    builtin: bool = False
+
+
+class TuningPresetSaveSchema(SchemaModel):
+    title: str
+    description: str = ""
+    values: dict[str, Any] | None = None  # None → snapshot of current effective values
+    actor_user_id: str | None = None
+
+
+class TuningPresetDiffSchema(SchemaModel):
+    preset_id: str
+    differences: list[dict[str, Any]]
+
+
+class ProcedureStartSchema(SchemaModel):
+    args: dict[str, Any] = Field(default_factory=dict)
+    actor_user_id: str | None = None
+
+
+class EmulatorControlSchema(SchemaModel):
+    action: str  # user_force | scenario | fault | clear_faults | physics
+    force_kg: float | None = None
+    bias: float | None = None
+    name: str | None = None
+    strength_kg: float | None = None
+    period_s: float | None = None
+    lower_mm: float | None = None
+    upper_mm: float | None = None
+    fail_after_reps: int | None = None
+    tilt_bias: float | None = None
+    jerk_kg: float | None = None
+    release_after_s: float | None = None
+    fault: str | None = None
+    side: str | None = None
+    value: float | None = None
+    physics: dict[str, float] | None = None
+
+
+class RecordingControlSchema(SchemaModel):
+    action: str  # start | stop | snapshot
+    title: str | None = None
+    comment: str | None = None
+    seconds: float | None = None
 
 
 class HardwareDiagnosticRecordSchema(SchemaModel):

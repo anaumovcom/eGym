@@ -1,5 +1,6 @@
 import { useSearchParams } from 'react-router-dom'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
+import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { ConnectionPanel } from './tabs/connection-panel'
 import { DiagnosticsPanel } from './tabs/diagnostics-panel'
@@ -44,14 +45,16 @@ export function ModbusDebugScreen() {
   const tab = asTab(searchParams.get('tab'))
   const snapshot = useHardwareStore((state) => state.snapshot)
   const runCommand = useHardwareStore((state) => state.runCommand)
+  const selectedUserId = useAppStore((state) => state.selectedUserId)
+  const userName = selectedUserId === 'elena' ? 'Елена' : selectedUserId === 'guest' ? 'Гость' : 'Алексей'
 
   const setTab = (t: ModbusTab) => setSearchParams({ tab: t })
 
   return (
     <FormaShell
-      userName="Debug"
+      userName={userName}
       machine={snapshot?.machine ?? { machineState: 'ready', machineLabel: 'Debug', safety: 'enabled', leftDrive: 'connected', rightDrive: 'connected', calibration: '—' }}
-      onStop={() => { void runCommand({ action: 'trigger_emergency_stop', userId: null }) }}
+      onStop={() => { void runCommand({ action: 'trigger_emergency_stop', userId: selectedUserId }) }}
     >
       <div className="flex flex-col gap-4">
         {/* Header */}

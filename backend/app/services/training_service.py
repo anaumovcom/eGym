@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 import re
 from typing import Any, Literal
 
@@ -8,8 +8,10 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.models.analytics import ExerciseSession, WorkoutSession
+from app.models.enums import ExerciseSessionStatus, RuntimeExerciseKind, WorkoutSessionStatus
 from app.models.settings import AppSetting
-from app.models.training import ExerciseHistoryRecord, UserExerciseState, UserHiddenWorkoutProgram, WorkoutProgram, WorkoutScheduleEntry
+from app.models.training import ExerciseHistoryRecord, UserExerciseState, UserHiddenWorkoutProgram, WorkoutProgram
 from app.schemas.exercise import (
     ExerciseCatalogAvailableFiltersSchema,
     ExerciseCatalogResponseSchema,
@@ -55,14 +57,18 @@ from app.schemas.training import (
     WorkoutExercisePanelSchema,
     WorkoutExerciseRowSchema,
     WorkoutProgressSchema,
-    CalendarDayCardSchema,
-    CalendarDayDetailsSchema,
+    CalendarDaySchema,
+    CalendarWorkoutExerciseSchema,
+    CalendarWorkoutSchema,
 )
 from app.schemas.analytics import MuscleCardSchema
 from app.services.exercise_library import ImportedExercise, get_imported_exercise, load_imported_exercises
 from app.services.fatigue_service import FatigueService
 from app.services.machine_service import MachineService
+from app.services.muscle_catalog import CANONICAL_MUSCLE_DEFINITIONS
 
+
+RU_MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
 
 FEATURED = {
     "quick_start": ["machine-pulldown", "machine-seated-cable-row", "barbell-curl"],
@@ -185,11 +191,12 @@ MUSCLE_TRANSLATIONS = {
     "lats": "Широчайшие",
     "upper_back": "Верх спины",
     "lower_back": "Низ спины",
+    "lowerback": "Низ спины",
     "traps": "Трапеции",
     "abs": "Пресс",
-    "obliques": "Косые мышцы",
+    "obliques": "Косые мышцы живота",
     "glutes": "Ягодицы",
-    "quads": "Квадрицепс",
+    "quads": "Квадрицепсы",
     "hamstrings": "Бицепс бедра",
     "adductors": "Приводящие",
     "abductors": "Отводящие",
@@ -204,12 +211,26 @@ MUSCLE_TRANSLATIONS = {
 EQUIPMENT_TRANSLATIONS = {
     "Barbell": "Штанга",
     "Dumbbell": "Гантели",
+    "Dumbbells": "Гантели",
     "Machine": "Тренажёр",
     "Cable": "Кроссовер",
+    "Cables": "Кроссовер",
     "Bodyweight": "Собственный вес",
     "Smith Machine": "Машина Смита",
+    "Smith-Machine": "Машина Смита",
     "Band": "Резина",
     "Kettlebell": "Гиря",
+    "Kettlebells": "Гири",
+    "Recovery": "Восстановление",
+    "Yoga": "Йога",
+    "Plate": "Диск",
+    "Stretches": "Растяжка",
+    "Cardio": "Кардио",
+    "Medicine-Ball": "Медбол",
+    "Medicine Ball": "Медбол",
+    "Bosu-Ball": "Босу",
+    "BOSU Ball": "Босу",
+    "TRX": "Петли TRX",
 }
 
 GRIP_TRANSLATIONS = {
@@ -217,6 +238,9 @@ GRIP_TRANSLATIONS = {
     "Underhand": "Обратный",
     "Neutral": "Нейтральный",
     "Mixed": "Смешанный",
+    "Rotating": "Вращающийся",
+    "Pinch Grip": "Щипковый",
+    "None": "Без хвата",
 }
 
 DIFFICULTY_LABELS = {
@@ -560,48 +584,81 @@ class TrainingService:
         session.commit()
         return True
 
-    def get_calendar(self, session: Session, *, mode: str, selected_day_id: str | None) -> WorkoutCalendarDataSchema:
-        entries = self._schedule_entries(session)
-        selected_entry = next((item for item in entries if str(item.scheduled_date) == selected_day_id), entries[0])
-        if mode == "week":
-            days = entries[:7]
-            title = f"Неделя {days[0].scheduled_date.strftime('%d.%m')}–{days[-1].scheduled_date.strftime('%d.%m')}"
-        else:
-            days = entries
-            title = selected_entry.scheduled_date.strftime("%B %Y").capitalize()
-        card_days = [self._calendar_day(entry, str(entry.scheduled_date) == (selected_day_id or str(selected_entry.scheduled_date)), mode) for entry in days]
-        return WorkoutCalendarDataSchema(
-            mode="week" if mode == "week" else "month",
-            title=title,
-            legend=["Выполнено", "Запланировано", "Пропущено", "Отдых"],
-            days=card_days,
-            selected_day_id=str(selected_entry.scheduled_date),
-            selected_day=CalendarDayDetailsSchema(
-                date_label=selected_entry.scheduled_date.strftime("%d %B"),
-                title=selected_entry.title,
-                subtitle="Сегодня" if selected_entry.status == "today" else "План",
-                exercise_count=selected_entry.exercise_count or 0,
-                set_count=selected_entry.set_count or 0,
-                duration=f"{selected_entry.duration_minutes or 0} минут",
-                target_muscles=selected_entry.target_muscles or "спина, бицепс",
-                status_text=selected_entry.status,
-                readiness_percent=selected_entry.readiness_percent or 0,
-                recommendation=selected_entry.recommendation or "Сохраните план и контролируйте мышечный баланс по неделе.",
-            ),
-            quick_actions=["Сгенерировать месяц", "Добавить тренировку", "Скопировать прошлую неделю"],
-            summary=[
-                {"label": "запланировано", "value": str(sum(1 for item in entries if item.status in {"planned", "today"}))},
-                {"label": "выполнено", "value": str(sum(1 for item in entries if item.status == "completed"))},
-                {"label": "минут", "value": str(sum(item.duration_minutes or 0 for item in entries))},
-                {"label": "выполнение", "value": f"{int(round(sum(1 for item in entries if item.status == 'completed') / max(len(entries), 1) * 100))}%"},
-            ],
-            muscle_balance=[
-                {"label": "Спина", "value": "Высокая", "tone": "high"},
-                {"label": "Грудь", "value": "Средняя", "tone": "medium"},
-                {"label": "Ноги", "value": "Высокая", "tone": "high"},
-                {"label": "Кор", "value": "Средняя", "tone": "medium"},
-            ],
+    def get_calendar(self, session: Session, *, user_id: str, month: str | None) -> WorkoutCalendarDataSchema:
+        # History journal only: days come from the calendar month, entries from
+        # saved WorkoutSession results. Nothing here is planned or scheduled.
+        today = datetime.now().astimezone().date()
+        first_day = date.fromisoformat(f"{month}-01") if month else today.replace(day=1)
+        grid_start = first_day - timedelta(days=first_day.weekday())
+        grid_days = [grid_start + timedelta(days=offset) for offset in range(42)]
+        statement = (
+            select(WorkoutSession)
+            .where(
+                WorkoutSession.user_id == user_id,
+                WorkoutSession.status.in_([WorkoutSessionStatus.completed, WorkoutSessionStatus.partial, WorkoutSessionStatus.aborted]),
+                WorkoutSession.started_at >= datetime.combine(grid_days[0] - timedelta(days=1), time.min, tzinfo=UTC),
+                WorkoutSession.started_at < datetime.combine(grid_days[-1] + timedelta(days=2), time.min, tzinfo=UTC),
+            )
+            .order_by(WorkoutSession.started_at.asc(), WorkoutSession.id.asc())
         )
+        workouts_by_day: dict[date, list[CalendarWorkoutSchema]] = {}
+        for workout_session in session.scalars(statement):
+            local_started = self._as_local(workout_session.started_at)
+            workouts_by_day.setdefault(local_started.date(), []).append(self._calendar_workout(workout_session, local_started))
+        days = [
+            CalendarDaySchema(
+                id=day.isoformat(),
+                day=day.day,
+                in_month=day.month == first_day.month,
+                is_today=day == today,
+                workouts=workouts_by_day.get(day, []),
+            )
+            for day in grid_days
+        ]
+        return WorkoutCalendarDataSchema(
+            month=first_day.strftime("%Y-%m"),
+            title=f"{RU_MONTHS[first_day.month - 1]} {first_day.year}",
+            today=today.isoformat(),
+            weekdays=["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"],
+            days=days,
+            workout_count=sum(len(day.workouts) for day in days if day.in_month),
+        )
+
+    def _calendar_workout(self, workout_session: WorkoutSession, local_started: datetime) -> CalendarWorkoutSchema:
+        exercises = sorted(workout_session.exercise_sessions, key=lambda item: (item.order_index, item.id))
+        set_results = [result for exercise in exercises for result in exercise.set_results]
+        volume = int(round(sum((result.weight_kg or 0) * (result.reps or result.actual_value or 0) for result in set_results)))
+        finished_local = self._as_local(workout_session.finished_at) if workout_session.finished_at else None
+        duration_minutes = max(1, int(round(workout_session.duration_seconds / 60))) if workout_session.duration_seconds else None
+        return CalendarWorkoutSchema(
+            id=workout_session.id,
+            title=workout_session.title,
+            status=workout_session.status.value,
+            started_at=workout_session.started_at.astimezone(UTC) if workout_session.started_at.tzinfo else workout_session.started_at.replace(tzinfo=UTC),
+            finished_at=(workout_session.finished_at.astimezone(UTC) if workout_session.finished_at.tzinfo else workout_session.finished_at.replace(tzinfo=UTC)) if workout_session.finished_at else None,
+            time_label=f"{local_started:%H:%M}–{finished_local:%H:%M}" if finished_local else f"{local_started:%H:%M}",
+            duration=f"{duration_minutes} минут" if duration_minutes else "—",
+            exercise_count=len(exercises),
+            set_count=len(set_results),
+            volume=f"{volume:,} кг".replace(",", " ") if volume > 0 else "—",
+            exercises=[self._calendar_exercise(exercise) for exercise in exercises],
+        )
+
+    def _calendar_exercise(self, exercise: ExerciseSession) -> CalendarWorkoutExerciseSchema:
+        results = sorted(exercise.set_results, key=lambda item: item.set_number)
+        if exercise.status == ExerciseSessionStatus.skipped or not results:
+            result = "пропущено" if exercise.status == ExerciseSessionStatus.skipped else "без сохранённых подходов"
+        elif exercise.kind == RuntimeExerciseKind.timed:
+            result = f"{len(results)} подх. · {sum(item.duration_seconds or item.actual_value or 0 for item in results)} сек"
+        else:
+            total_reps = sum(item.reps or item.actual_value or 0 for item in results)
+            weights = [item.weight_kg for item in results if item.weight_kg]
+            result = f"{len(results)} подх. · {total_reps} повт." + (f" · до {max(weights):g} кг" if weights else "")
+        return CalendarWorkoutExerciseSchema(name=exercise.exercise_name, status=exercise.status.value, set_count=len(results), result=result)
+
+    def _as_local(self, value: datetime) -> datetime:
+        normalized = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+        return normalized.astimezone()
 
     def get_builder(self, session: Session, *, user_id: str, program_id: str | None, selected_exercise_id: str | None) -> WorkoutBuilderDataSchema:
         programs = self._programs(session, user_id)
@@ -1500,13 +1557,18 @@ class TrainingService:
         return badges
 
     def _translate_muscle(self, value: str) -> str:
-        return MUSCLE_TRANSLATIONS.get(value, value.replace("_", " ").title())
+        translated = MUSCLE_TRANSLATIONS.get(value)
+        if translated is not None:
+            return translated
+        if value in CANONICAL_MUSCLE_DEFINITIONS:
+            return CANONICAL_MUSCLE_DEFINITIONS[value].name
+        return value.replace("_", " ").replace("-", " ").title()
 
     def _translate_equipment(self, value: str) -> str:
         return EQUIPMENT_TRANSLATIONS.get(value, value)
 
     def _translate_grip(self, value: str) -> str:
-        return GRIP_TRANSLATIONS.get(value, value)
+        return ", ".join(GRIP_TRANSLATIONS.get(part.strip(), part.strip()) for part in value.split(",") if part.strip()) or value
 
     def _description(self, exercise: ImportedExercise) -> str:
         muscles = " и ".join(self._translate_muscle(item).lower() for item in exercise.muscles[:2])
@@ -1585,52 +1647,6 @@ class TrainingService:
     def _load_settings_fallback(self, slug: str, exercise: ImportedExercise | None) -> ExerciseLoadSettingsSchema:
         base_weight = 45.0 if exercise and exercise.equipment == "Machine" else (40.0 if exercise and exercise.equipment == "Barbell" else 20.0)
         return ExerciseLoadSettingsSchema(weight=base_weight, sets=3, reps=10, rest_seconds=60, mode="Обычный вес", tempo="Обычный", recommendation="Можно сохранить рабочий вес и контролировать амплитуду движения.", safe_range=(max(0.0, base_weight - 10.0), base_weight + 5.0), calibration="required" if exercise and exercise.equipment == "Machine" else "recommended")
-
-    def _schedule_entries(self, session: Session) -> list[WorkoutScheduleEntry]:
-        entries = list(session.scalars(select(WorkoutScheduleEntry).order_by(WorkoutScheduleEntry.scheduled_date.asc())))
-        if entries:
-            return entries
-        base_days = [
-            (date(2026, 5, 13), "Спина + бицепс", "completed", ["Выполнено"], 45, 5, 18, 78),
-            (date(2026, 5, 14), "Спина + бицепс", "today", ["Сегодня"], 45, 5, 18, 78),
-            (date(2026, 5, 15), "День отдыха", "rest", ["Восстановление"], None, None, None, None),
-            (date(2026, 5, 16), "Грудь + плечи", "planned", ["Запланировано"], 40, 4, 14, 66),
-            (date(2026, 5, 17), "Ноги + кор", "planned", ["Запланировано"], 50, 5, 18, 58),
-            (date(2026, 5, 18), "Фуллбоди", "completed", ["Выполнено"], 42, 4, 16, 74),
-            (date(2026, 5, 19), "Плечи", "planned", ["Запланировано"], 35, 3, 12, 71),
-        ]
-        return [
-            WorkoutScheduleEntry(
-                user_id="alexey",
-                scheduled_date=scheduled_date,
-                title=title,
-                subtitle="Сегодня" if status == "today" else None,
-                status=status,
-                badges=badges,
-                duration_minutes=duration_minutes,
-                exercise_count=exercise_count,
-                set_count=set_count,
-                readiness_percent=readiness_percent,
-                target_muscles="спина, бицепс, предплечья" if title == "Спина + бицепс" else ("грудь, плечи" if title == "Грудь + плечи" else "ноги, кор"),
-                recommendation="Грудь лучше не нагружать до следующей сессии." if title == "Спина + бицепс" else "Держите объём в пределах готовности и корректируйте нагрузку по ощущениям.",
-                metadata_json={},
-            )
-            for scheduled_date, title, status, badges, duration_minutes, exercise_count, set_count, readiness_percent in base_days
-        ]
-
-    def _calendar_day(self, entry: WorkoutScheduleEntry, selected: bool, mode: str) -> CalendarDayCardSchema:
-        date_label = entry.scheduled_date.strftime("%d") if mode == "month" else entry.scheduled_date.strftime("%a %d")
-        return CalendarDayCardSchema(
-            id=str(entry.scheduled_date),
-            date_label=date_label,
-            title=entry.title,
-            badges=list(entry.badges),
-            status=entry.status,
-            readiness_percent=entry.readiness_percent,
-            duration=f"{entry.duration_minutes} мин" if entry.duration_minutes is not None else None,
-            exercise_count=entry.exercise_count,
-            selected=selected,
-        )
 
     def _format_date(self, value: datetime) -> str:
         normalized = value if value.tzinfo is not None else value.replace(tzinfo=UTC)

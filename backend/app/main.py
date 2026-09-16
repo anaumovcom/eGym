@@ -13,6 +13,7 @@ from app.db.seed import seed_dev_data, seed_stage7_data, seed_stage8_data
 from app.db.session import SessionLocal, engine
 from app.services.exercise_library import EXERCISES_ROOT
 from app.services.hardware_runtime import hardware_runtime
+from app.services.hardware_service import HardwareService
 
 
 def bootstrap_local_data() -> None:
@@ -32,9 +33,18 @@ def bootstrap_local_data() -> None:
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     hardware_runtime.reset()
     bootstrap_local_data()
+    load_hardware_parameters()
     await hardware_runtime.start()
     yield
     await hardware_runtime.stop()
+
+
+def load_hardware_parameters() -> None:
+    try:
+        with SessionLocal() as session:
+            HardwareService().load_parameters_from_db(session)
+    except Exception:  # noqa: BLE001 - parameters fall back to registry defaults
+        return
 
 
 def create_app() -> FastAPI:

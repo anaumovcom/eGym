@@ -16,9 +16,7 @@ export default meta
 type Story = StoryObj<typeof meta>
 
 const baseArgs = {
-  userId: 'alexey',
   userName: 'Алексей',
-  figureGender: 'male' as const,
   emergencyStopActive: false,
   onStop: () => undefined,
   onEmergencyStopChange: () => undefined,
@@ -27,7 +25,13 @@ const baseArgs = {
 export const Default: Story = {
   args: {
     ...baseArgs,
-    data: dashboardStoryScenarios.default,
+    data: {
+      ...dashboardStoryScenarios.default,
+      workouts: ['Спина и бицепс', 'Грудь и плечи', 'Ноги', 'Общая тренировка'].map((title, index) => ({
+        id: `personal-${index}`, title, duration: '≈ 45 минут',
+        exercises: [{ slug: 'machine-pulldown', name: 'Тяга сверху' }, { slug: 'barbell-curl', name: 'Сгибание рук со штангой' }],
+      })),
+    },
   },
 }
 
@@ -57,4 +61,8 @@ export const DriveError: Story = {
     ...baseArgs,
     data: dashboardStoryScenarios['drive-error'],
   },
+}
+
+export const ThreeWorkouts: Story = {
+  args: { ...baseArgs, data: { ...Default.args!.data!, workouts: Default.args!.data!.workouts!.slice(0, 3) } },
 }

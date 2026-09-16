@@ -1,4 +1,4 @@
-import { Slot } from '@radix-ui/react-slot'
+import { Slot, Slottable } from '@radix-ui/react-slot'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/shared/lib/cn'
 
@@ -23,15 +23,16 @@ export function Button({ asChild, className, variant = 'primary', iconLeft, chil
 
   return (
     <Comp
+      data-variant={variant}
       className={cn(
-        'inline-flex min-h-12 items-center justify-center gap-3 rounded-2xl px-5 py-3 text-sm font-semibold transition duration-200 disabled:pointer-events-none disabled:opacity-50',
+        'forma-button inline-flex items-center justify-center gap-3 px-5 py-3 font-semibold transition duration-200 disabled:pointer-events-none disabled:opacity-50',
         variants[variant],
         className,
       )}
       {...props}
     >
       {iconLeft}
-      {children}
+      <Slottable>{children}</Slottable>
     </Comp>
   )
 }

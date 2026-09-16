@@ -1,4 +1,5 @@
-import { expect, test } from '@playwright/test'
+import { expect } from '@playwright/test'
+import { expectPrimaryNavigation, test } from './fixtures/navigation'
 
 test('user can choose a profile and reach dashboard', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' })
@@ -7,6 +8,7 @@ test('user can choose a profile and reach dashboard', async ({ page }) => {
   await page.getByRole('button', { name: 'Выбрать профиль Алексей' }).click()
 
   await expect(page).toHaveURL(/\/dashboard/)
-  await expect(page.getByText('Добрый день, Алексей')).toBeVisible()
-  await expect(page.getByText('Статус тренажёра')).toBeVisible()
+  await expectPrimaryNavigation(page)
+  await expect(page.getByText('Добрый день, Алексей')).toHaveCount(0)
+  await expect(page.getByText('Статус тренажёра')).toHaveCount(0)
 })

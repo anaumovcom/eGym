@@ -1,215 +1,41 @@
+"""Hardware runtime: control loop on top of a drive adapter + realtime publishing.
+
+The runtime owns the adapter (physics emulator or Modbus), the motion
+controller, the parameter registry, the telemetry recorder and multi-tick
+procedures.  It exposes a thread-safe command API for ``HardwareService`` and
+publishes snapshots to realtime subscribers.
+"""
+
 from __future__ import annotations
 
 import asyncio
 import os
+import time
 from collections import deque
+from collections.abc import Generator
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from threading import RLock
 from typing import Any
 
-if os.name == "nt":
-    import ctypes
-    from ctypes import wintypes
-
-try:
-    import keyboard as keyboard_module
-except ImportError:  # pragma: no cover - optional runtime dependency before install
-    keyboard_module = None
-
 from app.core.config import get_settings
 from app.models.enums import DriveState, MachineState, SafetyState
+from app.services.motion.adapter import SIDES, AdapterTelemetry, DriveAdapter, DriveCommand
+from app.services.motion.controller import ControlMode, MotionController, TrainingConfig
+from app.services.motion.emulator import PhysicsEmulatorAdapter
+from app.services.motion.keyboard_monitor import KeyboardCombinationMonitor
+from app.services.motion.modbus_adapter import ModbusDriveAdapter
+from app.services.motion.parameters import MotionParameters
+from app.services.motion.procedures import MEASUREMENTS, PROCEDURE_LABELS, SCENARIOS, ProcedureContext
+from app.services.motion.recorder import SAMPLE_FIELDS, TelemetryRecorder
 
-DEFAULT_MOTION_TICK_SECONDS = 0.1
-KEYBOARD_SIMULATION_TICK_SECONDS = 0.02
-VK_CONTROL = 0x11
-VK_LCONTROL = 0xA2
-VK_RCONTROL = 0xA3
-VK_UP = 0x26
-VK_DOWN = 0x28
+DEFAULT_MOTION_TICK_SECONDS = 0.02
+BROADCAST_INTERVAL_SECONDS = 0.1
+DEBUG_BROADCAST_INTERVAL_SECONDS = 0.1
+KEYBOARD_FORCE_KG = 35.0
 
-if os.name == "nt":
-    WH_KEYBOARD_LL = 13
-    HC_ACTION = 0
-    WM_KEYDOWN = 0x0100
-    WM_KEYUP = 0x0101
-    WM_SYSKEYDOWN = 0x0104
-    WM_SYSKEYUP = 0x0105
-    WM_QUIT = 0x0012
-
-
-if os.name == "nt":
-    class KBDLLHOOKSTRUCT(ctypes.Structure):
-        _fields_ = [
-            ("vkCode", wintypes.DWORD),
-            ("scanCode", wintypes.DWORD),
-            ("flags", wintypes.DWORD),
-            ("time", wintypes.DWORD),
-            ("dwExtraInfo", ctypes.POINTER(ctypes.c_ulong)),
-        ]
-
-
-class KeyboardCombinationMonitor:
-    def __init__(self) -> None:
-        self._lock = RLock()
-        self._pressed_keys: set[int] = set()
-        self._pressed_names: set[str] = set()
-        self._backend: str | None = None
-        self._keyboard_hook: Any = None
-        self._thread: Any = None
-        self._thread_id: int | None = None
-        self._hook_id: Any = None
-        self._callback: Any = None
-        self._ready_event: Any = None
-
-    def start(self) -> None:
-        if os.name != "nt":
-            return
-
-        if keyboard_module is not None:
-            with self._lock:
-                if self._backend == "keyboard":
-                    return
-                self._pressed_keys.clear()
-                self._pressed_names.clear()
-                self._keyboard_hook = keyboard_module.hook(self._handle_keyboard_event)
-                self._backend = "keyboard"
-            return
-
-        import threading
-
-        with self._lock:
-            if self._thread is not None and self._thread.is_alive():
-                return
-            self._pressed_keys.clear()
-            self._pressed_names.clear()
-            self._ready_event = threading.Event()
-            self._thread = threading.Thread(target=self._run, name="hardware-keyboard-monitor", daemon=True)
-            self._thread.start()
-            ready_event = self._ready_event
-            self._backend = "win32"
-
-        if ready_event is not None:
-            ready_event.wait(timeout=2.0)
-
-    def stop(self) -> None:
-        if os.name != "nt":
-            return
-
-        backend = None
-        keyboard_hook = None
-
-        thread = None
-        thread_id = None
-        with self._lock:
-            backend = self._backend
-            keyboard_hook = self._keyboard_hook
-            thread = self._thread
-            thread_id = self._thread_id
-            self._backend = None
-            self._keyboard_hook = None
-            self._thread = None
-            self._thread_id = None
-            self._ready_event = None
-            self._pressed_keys.clear()
-            self._pressed_names.clear()
-
-        if backend == "keyboard" and keyboard_module is not None and keyboard_hook is not None:
-            keyboard_module.unhook(keyboard_hook)
-            return
-
-        if thread_id is not None:
-            ctypes.windll.user32.PostThreadMessageW(thread_id, WM_QUIT, 0, 0)
-
-        if thread is not None:
-            thread.join(timeout=2.0)
-
-    def get_direction(self) -> str | None:
-        with self._lock:
-            if self._backend == "keyboard":
-                ctrl_pressed = "ctrl" in self._pressed_names
-                up_pressed = "up" in self._pressed_names
-                down_pressed = "down" in self._pressed_names
-            else:
-                ctrl_pressed = any(key in self._pressed_keys for key in (VK_CONTROL, VK_LCONTROL, VK_RCONTROL))
-                up_pressed = VK_UP in self._pressed_keys
-                down_pressed = VK_DOWN in self._pressed_keys
-
-        if not ctrl_pressed or up_pressed == down_pressed:
-            return None
-
-        return "up" if up_pressed else "down"
-
-    def _handle_keyboard_event(self, event: Any) -> None:
-        normalized_name = self._normalize_key_name(getattr(event, "name", None))
-        if normalized_name is None:
-            return
-
-        event_type = getattr(event, "event_type", "")
-        with self._lock:
-            if event_type == "down":
-                self._pressed_names.add(normalized_name)
-            elif event_type == "up":
-                self._pressed_names.discard(normalized_name)
-
-    @staticmethod
-    def _normalize_key_name(name: str | None) -> str | None:
-        if name is None:
-            return None
-
-        normalized = name.lower()
-        if normalized in {"ctrl", "left ctrl", "right ctrl"}:
-            return "ctrl"
-        if normalized in {"up", "down"}:
-            return normalized
-
-        return None
-
-    def _run(self) -> None:
-        if os.name != "nt":
-            return
-
-        user32 = ctypes.windll.user32
-        kernel32 = ctypes.windll.kernel32
-        LowLevelKeyboardProc = ctypes.WINFUNCTYPE(ctypes.c_longlong, ctypes.c_int, wintypes.WPARAM, wintypes.LPARAM)
-
-        def keyboard_proc(code: int, w_param: int, l_param: int) -> int:
-            if code == HC_ACTION:
-                keyboard_data = ctypes.cast(l_param, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
-                vk_code = int(keyboard_data.vkCode)
-                if w_param in (WM_KEYDOWN, WM_SYSKEYDOWN):
-                    with self._lock:
-                        self._pressed_keys.add(vk_code)
-                elif w_param in (WM_KEYUP, WM_SYSKEYUP):
-                    with self._lock:
-                        self._pressed_keys.discard(vk_code)
-
-            return int(user32.CallNextHookEx(self._hook_id, code, w_param, l_param))
-
-        callback = LowLevelKeyboardProc(keyboard_proc)
-        hook_id = user32.SetWindowsHookExW(WH_KEYBOARD_LL, callback, kernel32.GetModuleHandleW(None), 0)
-
-        with self._lock:
-            self._callback = callback
-            self._hook_id = hook_id
-            self._thread_id = int(kernel32.GetCurrentThreadId())
-            if self._ready_event is not None:
-                self._ready_event.set()
-
-        if not hook_id:
-            return
-
-        message = wintypes.MSG()
-        while user32.GetMessageW(ctypes.byref(message), 0, 0, 0) != 0:
-            user32.TranslateMessage(ctypes.byref(message))
-            user32.DispatchMessageW(ctypes.byref(message))
-
-        with self._lock:
-            if self._hook_id:
-                user32.UnhookWindowsHookEx(self._hook_id)
-            self._hook_id = None
-            self._callback = None
-            self._pressed_keys.clear()
+INCIDENT_EVENT_KINDS = {"fault", "desync", "failure", "obstacle"}
+LOAD_MODES = {"normal_weight", "assist_up", "negative_phase", "light_mode", "isokinetic", "bodyweight", "no_machine", "fixed_position", "isometric"}
 
 
 @dataclass
@@ -245,6 +71,16 @@ class MotionRuntimeState:
     direction: str = "up"
     lower_bound_mm: float = 640.0
     upper_bound_mm: float = 1320.0
+    # extended fields
+    control_mode: str = "post"
+    partial_reps: int = 0
+    load_target_kg: float = 0.0
+    load_effective_kg: float = 0.0
+    load_mode: str = "normal_weight"
+    user_force_kg: float = 0.0
+    velocity_mm_per_sec: float = 0.0
+    start_point: str = "lower"
+    fixed_position_mm: float | None = None
 
 
 @dataclass
@@ -262,6 +98,30 @@ class HardwareCommandRecord:
             "status": self.status,
             "createdAt": self.created_at.astimezone(UTC).isoformat(),
             "payload": self.payload,
+        }
+
+
+@dataclass
+class ProcedureStatus:
+    name: str | None = None
+    label: str = ""
+    status: str = "idle"  # idle | running | done | failed
+    step: str = ""
+    progress_ticks: int = 0
+    result: dict[str, Any] | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "name": self.name,
+            "label": self.label,
+            "status": self.status,
+            "step": self.step,
+            "progressTicks": self.progress_ticks,
+            "result": self.result,
+            "startedAt": self.started_at,
+            "finishedAt": self.finished_at,
         }
 
 
@@ -291,52 +151,93 @@ class HardwareRuntime:
         self._loop: asyncio.AbstractEventLoop | None = None
         self._task: asyncio.Task[None] | None = None
         self._subscribers: set[asyncio.Queue[dict[str, object]]] = set()
+        self._debug_subscribers: set[asyncio.Queue[dict[str, object]]] = set()
         self._command_counter = 0
         self._keyboard_simulation_enabled = False
-        self._rep_armed = False
-        self._tick_interval_seconds = DEFAULT_MOTION_TICK_SECONDS
         self._keyboard_monitor = KeyboardCombinationMonitor()
+        self.tick_seconds = DEFAULT_MOTION_TICK_SECONDS
+        self.parameters = MotionParameters()
+        self.parameters_dirty = False
+        self.emulator: PhysicsEmulatorAdapter | None = None
+        self.adapter: DriveAdapter = self._build_adapter()
+        self.controller = MotionController(self.parameters)
+        self.recorder = TelemetryRecorder(tick_seconds=self.tick_seconds)
+        self.last_telemetry: AdapterTelemetry | None = None
+        self.last_command: DriveCommand | None = None
+        self.procedure = ProcedureStatus()
+        self._procedure_generator: Generator[str, None, dict[str, Any]] | None = None
+        self._events_seen = 0
+        self._last_broadcast = 0.0
+        self._last_debug_broadcast = 0.0
+        self._debug_batch: list[list[Any]] = []
+        self._last_tick_wall = 0.0
+        self._last_digest: tuple[Any, ...] = ()
         self.state = self._build_default_state()
         self._refresh_runtime_options()
+        self._bootstrap_controller()
+
+    # ------------------------------------------------------------- lifecycle
+    def _build_adapter(self) -> DriveAdapter:
+        settings = get_settings()
+        if getattr(settings, "hardware_adapter", "emulator") == "modbus":
+            self.emulator = None
+            return ModbusDriveAdapter()
+        self.emulator = PhysicsEmulatorAdapter()
+        self.emulator.heartbeat_timeout_s = float(self.parameters.get("safety.heartbeatTimeoutMs")) / 1000
+        return self.emulator
 
     def _build_default_state(self) -> HardwareRuntimeState:
         return HardwareRuntimeState(
+            emulator_mode=self.emulator is not None,
             drives={
-                "left": DriveRuntimeState(
-                    side="left",
+                side: DriveRuntimeState(
+                    side=side,
                     status=DriveState.connected,
                     connected=True,
-                    position_mm=860.0,
-                    speed_mm_per_sec=1000.0,
-                    acceleration_mm_per_sec2=110.0,
-                    jerk_mm_per_sec3=210.0,
-                    torque_limit_percent=72,
-                    current_a=1.2,
-                    temperature_c=31.4,
-                ),
-                "right": DriveRuntimeState(
-                    side="right",
-                    status=DriveState.connected,
-                    connected=True,
-                    position_mm=860.4,
-                    speed_mm_per_sec=1000.0,
-                    acceleration_mm_per_sec2=111.0,
-                    jerk_mm_per_sec3=208.0,
-                    torque_limit_percent=72,
-                    current_a=1.1,
-                    temperature_c=31.2,
-                ),
-            }
+                    position_mm=860.0 if side == "left" else 860.4,
+                    speed_mm_per_sec=0.0,
+                    acceleration_mm_per_sec2=0.0,
+                    jerk_mm_per_sec3=0.0,
+                    torque_limit_percent=100,
+                    current_a=0.0,
+                    temperature_c=31.0,
+                )
+                for side in SIDES
+            },
         )
+
+    def _bootstrap_controller(self) -> None:
+        """Power-on sequence: POST → (homing) → idle. Runs inside the control loop."""
+
+        if bool(self.parameters.get("safety.postRequired")):
+            self.controller.request_post(self.adapter.self_test())
+        else:
+            self.controller.state.post_status = "skipped"
+            self.controller.request_idle()
 
     def reset(self) -> None:
         self._refresh_runtime_options()
         with self._lock:
             subscribers = self._subscribers
+            debug_subscribers = self._debug_subscribers
+            self.parameters = MotionParameters()
+            self.adapter = self._build_adapter()
+            self.controller = MotionController(self.parameters)
+            self.recorder = TelemetryRecorder(tick_seconds=self.tick_seconds)
+            self.last_telemetry = None
+            self.last_command = None
+            self.procedure = ProcedureStatus()
+            self._procedure_generator = None
+            self._events_seen = 0
+            self._last_digest = ()
             self.state = self._build_default_state()
             self._subscribers = subscribers
+            self._debug_subscribers = debug_subscribers
             self._command_counter = 0
-            self._rep_armed = False
+            self._bootstrap_controller()
+            # settle POST/homing synchronously so the first snapshot is meaningful
+            for _ in range(5):
+                self._tick_motion()
         self._schedule_broadcast()
 
     async def start(self) -> None:
@@ -367,6 +268,66 @@ class HardwareRuntime:
         with self._lock:
             self._subscribers.discard(queue)
 
+    async def subscribe_debug(self) -> asyncio.Queue[dict[str, object]]:
+        queue: asyncio.Queue[dict[str, object]] = asyncio.Queue(maxsize=50)
+        with self._lock:
+            self._debug_subscribers.add(queue)
+            recent = self.recorder.recent(250)
+        await queue.put({"eventType": "telemetry.batch", "fields": list(SAMPLE_FIELDS), "samples": recent, "events": self.events_payload(40)})
+        return queue
+
+    def unsubscribe_debug(self, queue: asyncio.Queue[dict[str, object]]) -> None:
+        with self._lock:
+            self._debug_subscribers.discard(queue)
+
+    # ----------------------------------------------------------- parameters
+    def load_parameters(self, values: dict[str, Any]) -> None:
+        with self._lock:
+            self.parameters.load_persisted(values)
+            self._apply_parameter_side_effects()
+
+    def update_parameters(self, values: dict[str, Any], *, temporary: bool) -> dict[str, tuple[Any, Any]]:
+        with self._lock:
+            changes = self.parameters.set_many(values, temporary=temporary)
+            self._apply_parameter_side_effects()
+            for key, (old, new) in changes.items():
+                self.controller._emit("param", f"{key}: {old} → {new}", {"key": key, "old": old, "new": new, "temporary": temporary})
+            if not temporary and changes:
+                self.parameters_dirty = True
+        self._schedule_broadcast()
+        return changes
+
+    def revert_temporary_parameters(self) -> list[str]:
+        with self._lock:
+            keys = self.parameters.revert_temporary()
+            self._apply_parameter_side_effects()
+            if keys:
+                self.controller._emit("param", f"Временные параметры сброшены: {len(keys)}", {"keys": keys})
+        self._schedule_broadcast()
+        return keys
+
+    def reset_parameters(self) -> None:
+        with self._lock:
+            self.parameters.reset_to_defaults()
+            self._apply_parameter_side_effects()
+            self.parameters_dirty = True
+        self._schedule_broadcast()
+
+    def _apply_parameter_side_effects(self) -> None:
+        if self.emulator is not None:
+            self.emulator.heartbeat_timeout_s = float(self.parameters.get("safety.heartbeatTimeoutMs")) / 1000
+            self.emulator.physics.working_min_mm = float(self.parameters.get("limits.workingMinMm"))
+            self.emulator.physics.working_max_mm = float(self.parameters.get("limits.workingMaxMm"))
+
+    def parameters_payload(self) -> dict[str, Any]:
+        with self._lock:
+            return {
+                "values": self.parameters.effective(),
+                "persisted": dict(self.parameters.persisted),
+                "temporary": dict(self.parameters.temporary),
+            }
+
+    # ------------------------------------------------------------ selection
     def set_selected_user(self, user_id: str | None, *, broadcast: bool = True) -> None:
         with self._lock:
             self.state.selected_user_id = user_id
@@ -380,24 +341,30 @@ class HardwareRuntime:
             self.state.calibration_actual = actual
         self._schedule_broadcast()
 
+    # -------------------------------------------------------------- commands
     def trigger_emergency_stop(self) -> HardwareCommandRecord:
         with self._lock:
+            self.adapter.emergency_stop()
+            self.controller.request_emergency_stop()
+            self._abort_procedure("Аварийная остановка")
             self.state.safety_state = SafetyState.emergency_stop
             self.state.machine_state = MachineState.blocked
             self.state.machine_label = "СТОП активирован"
             self.state.safety_message = "Аварийная остановка активна. Любое движение заблокировано."
-            self.state.motion.moving = False
             self.state.alerts = ["Аварийная остановка активна"]
+            self.recorder.capture_incident("Аварийная остановка", self.parameters.effective(), self.events_payload(80), now=self.controller.state.time)
             command = self._record_command("trigger_emergency_stop", {})
         self._schedule_broadcast()
         return command
 
     def clear_emergency_stop(self) -> HardwareCommandRecord:
         with self._lock:
+            self.adapter.release_emergency_stop()
+            self.controller.clear_emergency_stop()
             self.state.safety_state = SafetyState.enabled
             self.state.machine_state = MachineState.ready
-            self.state.machine_label = "Тренажёр готов"
-            self.state.safety_message = "Система безопасности готова к тренировке."
+            self.state.machine_label = "СТОП снят"
+            self.state.safety_message = "Приводы в удержании. Проверьте синхронность перед продолжением."
             self.state.alerts = []
             command = self._record_command("clear_emergency_stop", {})
         self._schedule_broadcast()
@@ -406,54 +373,58 @@ class HardwareRuntime:
     def set_service_mode(self, enabled: bool) -> HardwareCommandRecord:
         with self._lock:
             self.state.service_mode = enabled
-            self.state.machine_state = MachineState.warning if enabled else MachineState.ready
-            self.state.machine_label = "Сервисный режим" if enabled else "Тренажёр готов"
-            self.state.alerts = ["Сервисный режим активен"] if enabled else []
+            if not enabled:
+                reverted = self.parameters.revert_temporary()
+                self._apply_parameter_side_effects()
+                if reverted:
+                    self.controller._emit("param", f"Выход из сервисного режима: сброшено {len(reverted)} временных параметров")
             command = self._record_command("toggle_service_mode", {"enabled": enabled})
         self._schedule_broadcast()
         return command
 
     def run_diagnostics(self) -> HardwareCommandRecord:
         with self._lock:
-            self.state.diagnostics_status = "passed"
+            results = self.adapter.self_test()
+            self.controller.state.post_results = [
+                {"id": item.id, "label": item.label, "passed": item.passed, "detail": item.detail, "severity": item.severity}
+                for item in results
+            ]
+            failed = [item for item in results if not item.passed and item.severity == "critical"]
+            self.state.diagnostics_status = "failed" if failed else "passed"
             self.state.last_diagnostics_at = datetime.now(UTC)
-            self.state.machine_label = "Диагностика пройдена"
-            command = self._record_command("run_diagnostics", {})
+            command = self._record_command("run_diagnostics", {"checks": len(results), "failed": len(failed)})
+        self._schedule_broadcast()
+        return command
+
+    def run_self_test(self) -> HardwareCommandRecord:
+        with self._lock:
+            self.controller.request_post(self.adapter.self_test())
+            command = self._record_command("run_self_test", {})
         self._schedule_broadcast()
         return command
 
     def home(self) -> HardwareCommandRecord:
         with self._lock:
-            self.state.motion.bar_position_mm = 0.0
-            self.state.motion.left_position_mm = 0.0
-            self.state.motion.right_position_mm = 0.0
-            self.state.motion.amplitude_percent = 0
-            for drive in self.state.drives.values():
-                drive.position_mm = 0.0
+            self.controller.request_homing()
             command = self._record_command("home", {})
         self._schedule_broadcast()
         return command
 
     def reset_zero_position(self) -> HardwareCommandRecord:
         with self._lock:
-            midpoint = (self.state.motion.lower_bound_mm + self.state.motion.upper_bound_mm) / 2
-            self.state.motion.bar_position_mm = midpoint
-            self.state.motion.left_position_mm = midpoint
-            self.state.motion.right_position_mm = midpoint + 0.4
-            for drive in self.state.drives.values():
-                drive.position_mm = midpoint if drive.side == "left" else midpoint + 0.4
-            command = self._record_command("reset_zero_position", {"positionMm": midpoint})
+            self.adapter.home()
+            position = self.controller.state.position_mm
+            self.controller._emit("zero", f"Нулевая позиция переустановлена на {position:.1f} мм")
+            command = self._record_command("reset_zero_position", {"positionMm": position})
         self._schedule_broadcast()
         return command
 
     def manual_move(self, direction: str, distance_mm: float, profile: str) -> HardwareCommandRecord:
         with self._lock:
             delta = distance_mm if direction == "up" else -distance_mm
-            next_position = self._clamp_position(self.state.motion.bar_position_mm + delta)
+            target = self.controller.state.position_mm + delta
+            self.controller.request_move(target, profile="service" if profile == "service" else "return", then=ControlMode.paused, label="Ручное перемещение")
             self.state.motion.motion_profile = profile
-            self._set_position(next_position)
-            self.state.motion.direction = direction
-            self.state.machine_state = MachineState.warning if profile == "service" else self.state.machine_state
             command = self._record_command("manual_move", {"direction": direction, "distanceMm": distance_mm, "profile": profile})
         self._schedule_broadcast()
         return command
@@ -467,25 +438,64 @@ class HardwareRuntime:
         target_set: int,
         target_reps: int,
         motion_profile: str,
+        load_kg: float = 20.0,
+        load_mode: str = "normal_weight",
+        start_point: str = "lower",
+        warmup: bool = False,
+        guest: bool = False,
+        asymmetric_allowed: bool = False,
+        rep_count_source: str = "motion",
+        fixed_position_mm: float | None = None,
+        isometric_duration_s: float = 20.0,
+        wait_for_grip: bool = False,
+        auto_user: bool | None = None,
     ) -> HardwareCommandRecord:
         with self._lock:
+            config = TrainingConfig(
+                lower_mm=lower_bound_mm,
+                upper_mm=upper_bound_mm,
+                start_point=start_point if start_point in {"lower", "upper", "custom"} else "lower",  # type: ignore[arg-type]
+                load_kg=load_kg,
+                load_mode=load_mode if load_mode in LOAD_MODES else "normal_weight",  # type: ignore[arg-type]
+                target_reps=min(max(target_reps, 1), 50),
+                target_set=min(max(target_set, 1), 12),
+                warmup=warmup,
+                guest=guest,
+                asymmetric_allowed=asymmetric_allowed,
+                rep_count_source=rep_count_source if rep_count_source in {"motion", "load", "manual", "timer"} else "motion",  # type: ignore[arg-type]
+                fixed_position_mm=fixed_position_mm,
+                isometric_position_mm=fixed_position_mm,
+                isometric_duration_s=isometric_duration_s,
+                motion_profile="training" if motion_profile in {"machine", "normal", "training"} else motion_profile,
+                calibration_id=calibration_id,
+            )
             self.state.active_calibration_id = calibration_id
             self.state.calibration_required = True
             self.state.calibration_actual = calibration_id is not None
-            self.state.motion.moving = True
-            self.state.motion.motion_profile = motion_profile
+            self.state.motion.motion_profile = config.motion_profile
             self.state.motion.lower_bound_mm = lower_bound_mm
             self.state.motion.upper_bound_mm = upper_bound_mm
-            self.state.motion.current_set = min(max(target_set, 1), 12)
-            self.state.motion.target_set = min(max(target_set, 1), 12)
-            self.state.motion.target_reps = min(max(target_reps, 1), 50)
-            self.state.motion.repetition_count = 0
-            self.state.motion.direction = "up"
-            self._update_motion_metrics(self.state.motion.bar_position_mm)
-            self._rep_armed = self.state.motion.bar_position_mm <= lower_bound_mm or self.state.motion.amplitude_percent == 0
+            self.state.motion.current_set = config.target_set
+            self.state.motion.target_set = config.target_set
+            self.state.motion.target_reps = config.target_reps
+            self.state.motion.load_mode = config.load_mode
+            self.state.motion.start_point = config.start_point
+            self.state.motion.fixed_position_mm = fixed_position_mm
+            if wait_for_grip:
+                self.controller.request_start_hold(config)
+            else:
+                self.controller.request_training(config)
+            use_auto_user = auto_user if auto_user is not None else (self.emulator is not None and not self._keyboard_simulation_enabled)
+            if self.emulator is not None and use_auto_user and config.load_mode not in {"fixed_position", "isometric", "bodyweight", "no_machine"}:
+                self.emulator.set_scenario(
+                    "steady_set",
+                    strength_kg=max(40.0, load_kg * 1.8),
+                    lower_mm=lower_bound_mm,
+                    upper_mm=upper_bound_mm,
+                    period_s=3.0,
+                )
             self.state.machine_state = MachineState.ready
-            self.state.machine_label = "Движение выполняется"
-            self.state.safety_message = "Безопасный профиль движения активен."
+            self.state.motion.moving = True
             self.state.alerts = []
             command = self._record_command(
                 "start_motion",
@@ -495,23 +505,327 @@ class HardwareRuntime:
                     "upperBoundMm": upper_bound_mm,
                     "targetSet": target_set,
                     "targetReps": target_reps,
-                    "motionProfile": motion_profile,
+                    "motionProfile": config.motion_profile,
+                    "loadKg": load_kg,
+                    "loadMode": config.load_mode,
+                    "startPoint": config.start_point,
                 },
             )
         self._schedule_broadcast()
         return command
 
-    def complete_set(self) -> HardwareCommandRecord:
+    def move_to_start(self, *, lower_bound_mm: float, upper_bound_mm: float, start_point: str = "lower", custom_mm: float | None = None, **training_kwargs: Any) -> HardwareCommandRecord:
+        """Bring the bar to the exercise start point and wait for grip."""
+
         with self._lock:
-            self.state.motion.moving = False
-            self._rep_armed = False
-            self.state.machine_label = "Подход завершён"
-            command = self._record_command("complete_set", {"repetitionCount": self.state.motion.repetition_count})
+            config = TrainingConfig(
+                lower_mm=lower_bound_mm,
+                upper_mm=upper_bound_mm,
+                start_point=start_point if start_point in {"lower", "upper", "custom"} else "lower",  # type: ignore[arg-type]
+                start_custom_mm=custom_mm,
+                load_kg=float(training_kwargs.get("load_kg", 20.0)),
+                load_mode=training_kwargs.get("load_mode", "normal_weight"),
+                target_reps=int(training_kwargs.get("target_reps", 10)),
+                target_set=int(training_kwargs.get("target_set", 1)),
+                guest=bool(training_kwargs.get("guest", False)),
+                warmup=bool(training_kwargs.get("warmup", False)),
+                calibration_id=training_kwargs.get("calibration_id"),
+            )
+            self.controller.config = config
+            self.controller._reset_set_counters()
+            self.state.motion.lower_bound_mm = lower_bound_mm
+            self.state.motion.upper_bound_mm = upper_bound_mm
+            self.state.motion.start_point = config.start_point
+            self.state.motion.load_mode = config.load_mode
+            self.controller.request_move(config.start_mm, profile="return", then=ControlMode.start_hold, label="Подвод в стартовую точку")
+            if self.emulator is not None:
+                self.emulator.set_scenario("none")
+            command = self._record_command("move_to_start", {"targetMm": config.start_mm, "startPoint": config.start_point})
         self._schedule_broadcast()
         return command
 
+    def start_fixed_position(self, *, position_mm: float, target_reps: int = 10, rep_count_source: str = "load", body_weight_kg: float = 0.0) -> HardwareCommandRecord:
+        with self._lock:
+            config = TrainingConfig(
+                lower_mm=position_mm - 1,
+                upper_mm=position_mm + 1,
+                load_mode="fixed_position",
+                fixed_position_mm=position_mm,
+                target_reps=target_reps,
+                rep_count_source=rep_count_source if rep_count_source in {"motion", "load", "manual", "timer"} else "load",  # type: ignore[arg-type]
+            )
+            self.controller.config = config
+            self.controller._reset_set_counters()
+            self.state.motion.load_mode = "fixed_position"
+            self.state.motion.fixed_position_mm = position_mm
+            self.state.motion.target_reps = target_reps
+            self.controller.request_move(position_mm, profile="return", then=ControlMode.fixed_hold, label="Выход на высоту фиксации")
+            if self.emulator is not None:
+                self.emulator.set_scenario("none")
+            command = self._record_command("start_fixed_position", {"positionMm": position_mm, "bodyWeightKg": body_weight_kg})
+        self._schedule_broadcast()
+        return command
+
+    def range_preview(self, lower_mm: float, upper_mm: float) -> HardwareCommandRecord:
+        with self._lock:
+            self.controller.config.lower_mm = lower_mm
+            self.controller.config.upper_mm = upper_mm
+            self.state.motion.lower_bound_mm = lower_mm
+            self.state.motion.upper_bound_mm = upper_mm
+            self._start_procedure("range_preview", self._range_preview_procedure(lower_mm, upper_mm))
+            command = self._record_command("range_preview", {"lowerMm": lower_mm, "upperMm": upper_mm})
+        self._schedule_broadcast()
+        return command
+
+    def _range_preview_procedure(self, lower_mm: float, upper_mm: float) -> Generator[str, None, dict[str, Any]]:
+        ctx = ProcedureContext(self)
+        self.controller.request_move(lower_mm, profile="rangePreview", then=ControlMode.paused, label="Показ диапазона: нижняя точка")
+        yield from ctx.wait_until(lambda: self.controller.state.mode != ControlMode.moving, 90.0, "Нижняя точка")
+        yield from ctx.wait(0.6, "Пауза в нижней точке")
+        self.controller.request_move(upper_mm, profile="rangePreview", then=ControlMode.paused, label="Показ диапазона: верхняя точка")
+        yield from ctx.wait_until(lambda: self.controller.state.mode != ControlMode.moving, 120.0, "Верхняя точка")
+        return {"lowerMm": lower_mm, "upperMm": upper_mm, "confirmed": True}
+
+    def enter_weightless(self) -> HardwareCommandRecord:
+        with self._lock:
+            self.controller.request_weightless()
+            if self.emulator is not None:
+                self.emulator.set_scenario("none")
+            command = self._record_command("enter_weightless", {})
+        self._schedule_broadcast()
+        return command
+
+    def capture_point(self, which: str) -> tuple[HardwareCommandRecord, float | None]:
+        with self._lock:
+            state = self.controller.state
+            still_needed = float(self.parameters.get("regulator.stillnessMs"))
+            if state.mode != ControlMode.weightless:
+                raise PermissionError("Фиксация точки доступна только в режиме невесомого грифа")
+            if state.still_ms < still_needed:
+                raise PermissionError(f"Гриф должен быть неподвижен не менее {still_needed:.0f} мс")
+            position = self.controller.mark_position_captured(which)
+            if which == "lower":
+                self.state.motion.lower_bound_mm = position
+                self.controller.config.lower_mm = position
+            elif which == "upper":
+                self.state.motion.upper_bound_mm = position
+                self.controller.config.upper_mm = position
+            elif which == "fixed":
+                self.state.motion.fixed_position_mm = position
+                self.controller.config.fixed_position_mm = position
+            command = self._record_command("capture_point", {"which": which, "positionMm": position})
+        self._schedule_broadcast()
+        return command, position
+
+    def hold(self) -> HardwareCommandRecord:
+        with self._lock:
+            self.controller.request_hold()
+            self._abort_procedure("Удержание по команде")
+            if self.emulator is not None:
+                self.emulator.set_scenario("none")
+            command = self._record_command("hold", {})
+        self._schedule_broadcast()
+        return command
+
+    def pause(self) -> HardwareCommandRecord:
+        with self._lock:
+            self.controller.request_pause()
+            if self.emulator is not None:
+                self.emulator.set_scenario("none")
+            command = self._record_command("pause", {})
+        self._schedule_broadcast()
+        return command
+
+    def resume(self) -> HardwareCommandRecord:
+        with self._lock:
+            self.controller.request_resume()
+            if self.emulator is not None and self.controller.config.load_mode not in {"fixed_position", "isometric"} and not self._keyboard_simulation_enabled:
+                config = self.controller.config
+                self.emulator.set_scenario("steady_set", strength_kg=max(40.0, config.load_kg * 1.8), lower_mm=config.lower_mm, upper_mm=config.upper_mm, period_s=3.0)
+            command = self._record_command("resume", {})
+        self._schedule_broadcast()
+        return command
+
+    def park(self) -> HardwareCommandRecord:
+        with self._lock:
+            self.controller.request_park()
+            if self.emulator is not None:
+                self.emulator.set_scenario("none")
+            command = self._record_command("park", {})
+        self._schedule_broadcast()
+        return command
+
+    def set_load(self, load_kg: float) -> HardwareCommandRecord:
+        with self._lock:
+            self.controller.set_load(load_kg)
+            self.state.motion.load_target_kg = self.controller.config.load_kg
+            command = self._record_command("set_load", {"loadKg": self.controller.config.load_kg})
+        self._schedule_broadcast()
+        return command
+
+    def manual_rep(self) -> HardwareCommandRecord:
+        with self._lock:
+            self.controller.manual_rep()
+            command = self._record_command("manual_rep", {"repetitionCount": self.controller.state.repetition_count})
+        self._schedule_broadcast()
+        return command
+
+    def complete_set(self) -> HardwareCommandRecord:
+        with self._lock:
+            self.controller.complete_set()
+            if self.emulator is not None:
+                self.emulator.set_scenario("none")
+            self.state.machine_label = "Подход завершён"
+            command = self._record_command("complete_set", {"repetitionCount": self.controller.state.repetition_count})
+        self._schedule_broadcast()
+        return command
+
+    def reset_fault(self) -> HardwareCommandRecord:
+        with self._lock:
+            self.adapter.reset_errors()
+            if self.emulator is not None:
+                self.emulator.clear_faults()
+            self.controller.reset_fault()
+            command = self._record_command("reset_fault", {})
+        self._schedule_broadcast()
+        return command
+
+    def align_sides(self) -> HardwareCommandRecord:
+        with self._lock:
+            if not self.state.service_mode:
+                raise PermissionError("Выравнивание сторон доступно только в сервисном режиме")
+            self.controller.request_move(self.controller.state.position_mm, profile="service", then=ControlMode.paused, label="Выравнивание сторон", obstacle_check=False)
+            command = self._record_command("align_sides", {"syncDeltaMm": self.controller.state.sync_delta_mm})
+        self._schedule_broadcast()
+        return command
+
+    # ---------------------------------------------------------- procedures
+    def start_procedure(self, name: str, **kwargs: Any) -> ProcedureStatus:
+        with self._lock:
+            factory = MEASUREMENTS.get(name) or SCENARIOS.get(name)
+            if factory is None:
+                raise LookupError(f"Неизвестная процедура: {name}")
+            if self.controller.state.mode in {ControlMode.estop, ControlMode.fault}:
+                raise PermissionError("Процедуры недоступны при СТОП или ошибке")
+            if self.procedure.status == "running":
+                raise PermissionError(f"Уже выполняется: {self.procedure.label}")
+            generator = factory(ProcedureContext(self), **kwargs) if kwargs else factory(ProcedureContext(self))
+            self._start_procedure(name, generator)
+            self._record_command("procedure", {"name": name, **kwargs})
+        self._schedule_broadcast()
+        return self.procedure
+
+    def _start_procedure(self, name: str, generator: Generator[str, None, dict[str, Any]]) -> None:
+        self._procedure_generator = generator
+        self.procedure = ProcedureStatus(name=name, label=PROCEDURE_LABELS.get(name, name), status="running", started_at=datetime.now(UTC).isoformat())
+        self.controller._emit("procedure", f"Запуск: {self.procedure.label}")
+
+    def abort_procedure(self) -> ProcedureStatus:
+        with self._lock:
+            self._abort_procedure("Прервано пользователем")
+            if self.controller.state.mode not in {ControlMode.estop, ControlMode.fault}:
+                self.controller.request_hold("Процедура прервана", "Гриф удерживается.")
+            if self.emulator is not None:
+                self.emulator.set_scenario("none")
+                self.emulator.set_user_force(0.0)
+        self._schedule_broadcast()
+        return self.procedure
+
+    def _abort_procedure(self, reason: str) -> None:
+        if self._procedure_generator is not None:
+            self._procedure_generator.close()
+            self._procedure_generator = None
+            self.procedure.status = "failed"
+            self.procedure.result = {"error": reason}
+            self.procedure.finished_at = datetime.now(UTC).isoformat()
+
+    def _step_procedure(self) -> None:
+        generator = self._procedure_generator
+        if generator is None:
+            return
+        try:
+            step = next(generator)
+            self.procedure.step = step
+            self.procedure.progress_ticks += 1
+        except StopIteration as stop:
+            self._procedure_generator = None
+            self.procedure.status = "done" if not (isinstance(stop.value, dict) and stop.value.get("error")) else "failed"
+            self.procedure.result = stop.value if isinstance(stop.value, dict) else {}
+            self.procedure.finished_at = datetime.now(UTC).isoformat()
+            self.controller._emit("procedure", f"Завершено: {self.procedure.label}", {"result": self.procedure.result})
+            if self.emulator is not None:
+                self.emulator.set_scenario("none")
+                self.emulator.set_user_force(0.0)
+        except Exception as error:  # noqa: BLE001 - procedure failures must not kill the loop
+            self._procedure_generator = None
+            self.procedure.status = "failed"
+            self.procedure.result = {"error": str(error)}
+            self.procedure.finished_at = datetime.now(UTC).isoformat()
+
+    # ------------------------------------------------------------- emulator
+    def emulator_control(self, action: str, **kwargs: Any) -> dict[str, Any]:
+        with self._lock:
+            if self.emulator is None:
+                raise PermissionError("Эмулятор не активен — команда доступна только в режиме эмуляции")
+            if action == "user_force":
+                self.emulator.set_user_force(float(kwargs.get("force_kg", 0.0)), float(kwargs.get("bias", 0.0)))
+            elif action == "scenario":
+                self.emulator.set_scenario(kwargs.get("name", "none"), **{k: v for k, v in kwargs.items() if k != "name"})
+            elif action == "fault":
+                self.emulator.inject_fault(kwargs["fault"], kwargs.get("side"), kwargs.get("value"))
+            elif action == "clear_faults":
+                self.emulator.clear_faults()
+            elif action == "physics":
+                self.emulator.set_physics(**{k: v for k, v in kwargs.items() if v is not None})
+            else:
+                raise ValueError(f"Неизвестное действие эмулятора: {action}")
+            self._record_command(f"emulator:{action}", {k: v for k, v in kwargs.items() if v is not None})
+            payload = self.emulator_payload()
+        self._schedule_broadcast()
+        return payload
+
+    def emulator_payload(self) -> dict[str, Any]:
+        if self.emulator is None:
+            return {"active": False}
+        scenario = self.emulator.scenario
+        return {
+            "active": True,
+            "physics": asdict(self.emulator.physics),
+            "userForceKg": scenario.manual_force_kg,
+            "userBias": scenario.manual_bias,
+            "scenario": {"name": scenario.name, "strengthKg": scenario.strength_kg, "periodS": scenario.period_s, "repsDone": scenario.reps_done, "tiltBias": scenario.tilt_bias},
+            "faults": {
+                "powerLoss": self.emulator.faults.power_loss,
+                "physicalEstop": self.emulator.faults.physical_estop,
+                "commLost": sorted(self.emulator.faults.comm_lost),
+                "encoderDrift": dict(self.emulator.faults.encoder_drift),
+                "overheat": sorted(self.emulator.faults.overheat),
+            },
+            "events": self.emulator.events[-20:],
+        }
+
+    # ------------------------------------------------------------ recording
+    def recording_control(self, action: str, **kwargs: Any) -> dict[str, Any]:
+        with self._lock:
+            if action == "start":
+                self.recorder.start_manual(len(self.controller.events))
+                return {"recording": True}
+            if action == "stop":
+                recording = self.recorder.stop_manual(kwargs.get("title") or "Запись", kwargs.get("comment") or "", self.parameters.effective(), self.events_payload(400))
+                return recording.to_summary()
+            if action == "snapshot":
+                recording = self.recorder.save_snapshot(kwargs.get("title") or "Снимок", kwargs.get("comment") or "", self.parameters.effective(), self.events_payload(400), seconds=float(kwargs.get("seconds", 20)), tick=self.tick_seconds)
+                return recording.to_summary()
+            raise ValueError(f"Неизвестное действие записи: {action}")
+
+    def events_payload(self, limit: int = 100) -> list[dict[str, Any]]:
+        events = list(self.controller.events)[-limit:]
+        return [event.to_payload() for event in events]
+
+    # -------------------------------------------------------------- snapshot
     def snapshot_payload(self) -> dict[str, object]:
         with self._lock:
+            control = self.controller.state
             drives = [asdict(item) for item in self.state.drives.values()]
             machine_state = self.state.machine_state
             payload = {
@@ -544,6 +858,8 @@ class HardwareRuntime:
                     for drive in drives
                 ],
                 "motion": asdict(self.state.motion),
+                "control": self._control_payload(),
+                "procedure": self.procedure.to_payload(),
                 "calibrationRequired": self.state.calibration_required,
                 "calibrationActual": self.state.calibration_actual,
                 "activeCalibrationId": self.state.active_calibration_id,
@@ -551,113 +867,268 @@ class HardwareRuntime:
                 "lastCommand": self.state.recent_commands[-1].to_payload() if self.state.recent_commands else None,
                 "diagnosticsStatus": self.state.diagnostics_status,
                 "lastDiagnosticsAt": self.state.last_diagnostics_at.isoformat() if self.state.last_diagnostics_at else None,
-                "alerts": list(self.state.alerts),
+                "alerts": list(dict.fromkeys([*self.state.alerts, *control.alerts])),
             }
         return payload
 
+    def _control_payload(self) -> dict[str, Any]:
+        control = self.controller.state
+        telemetry = self.last_telemetry
+        return {
+            "mode": control.mode.value,
+            "label": control.label,
+            "message": control.message,
+            "positionMm": control.position_mm,
+            "velocityMmPerSec": control.velocity_mm_s,
+            "accelerationMmPerSec2": round(control.acceleration_mm_s2, 1),
+            "userForceKg": control.user_force_kg,
+            "userForceLeftKg": control.user_force_left_kg,
+            "userForceRightKg": control.user_force_right_kg,
+            "loadTargetKg": control.load_target_kg,
+            "loadEffectiveKg": control.load_effective_kg,
+            "components": control.components,
+            "repetitionCount": control.repetition_count,
+            "partialReps": control.partial_reps,
+            "concentricS": control.concentric_s,
+            "eccentricS": control.eccentric_s,
+            "tempoLabel": control.tempo_label,
+            "repQuality": control.rep_quality,
+            "targetReached": control.target_reached,
+            "syncDeltaMm": control.sync_delta_mm,
+            "syncStatus": control.sync_status,
+            "asymmetryPercent": control.asymmetry_percent,
+            "gripDetected": control.grip_detected,
+            "released": control.released,
+            "stallS": round(control.stall_s, 2),
+            "spotterActive": control.spotter_active,
+            "failureDetected": control.failure_detected,
+            "stillMs": round(control.still_ms),
+            "postStatus": control.post_status,
+            "postResults": control.post_results,
+            "homed": control.homed,
+            "positionKnown": control.position_known,
+            "heartbeatOk": control.heartbeat_ok,
+            "commOk": control.comm_ok,
+            "powerOk": control.power_ok,
+            "brakeEngaged": control.brake_engaged,
+            "fixedHoldTestPassed": control.fixed_hold_test_passed,
+            "fixedDriftMm": control.fixed_drift_mm,
+            "isometricElapsedS": round(control.isometric_elapsed_s, 1),
+            "moveTargetMm": control.move_target_mm,
+            "moveProgressPercent": control.move_progress_percent,
+            "faultCode": control.fault_code,
+            "tickLatencyMs": control.tick_latency_ms,
+            "missedTicks": control.missed_ticks,
+            "counters": {
+                "travelMmTotal": round(control.travel_mm_total),
+                "cyclesTotal": control.cycles_total,
+                "loadedSecondsTotal": round(control.loaded_seconds_total),
+            },
+            "config": {
+                "lowerMm": self.controller.config.lower_mm,
+                "upperMm": self.controller.config.upper_mm,
+                "startPoint": self.controller.config.start_point,
+                "loadKg": self.controller.config.load_kg,
+                "loadMode": self.controller.config.load_mode,
+                "targetReps": self.controller.config.target_reps,
+                "fixedPositionMm": self.controller.config.fixed_position_mm,
+            },
+            "brakes": {side: telemetry.side(side).brake_engaged for side in SIDES} if telemetry else {},
+            "limitSwitches": {side: telemetry.side(side).limit_switch_low for side in SIDES} if telemetry else {},
+            "adapter": self.adapter.name,
+            "temporaryParameters": len(self.parameters.temporary),
+        }
+
+    # ------------------------------------------------------------- the loop
     async def _run(self) -> None:
         try:
+            next_tick = time.monotonic()
             while True:
-                await asyncio.sleep(self._tick_interval_seconds)
-                if self._tick_motion():
+                next_tick += self.tick_seconds
+                delay = next_tick - time.monotonic()
+                if delay > 0:
+                    await asyncio.sleep(delay)
+                else:
+                    next_tick = time.monotonic()  # fell behind (e.g. blocked loop) — resync instead of bursting
+                    await asyncio.sleep(0)
+                changed = self._tick_motion()
+                now = time.monotonic()
+                if changed and now - self._last_broadcast >= BROADCAST_INTERVAL_SECONDS:
+                    self._last_broadcast = now
                     await self._broadcast_snapshot()
+                if self._debug_subscribers and now - self._last_debug_broadcast >= DEBUG_BROADCAST_INTERVAL_SECONDS:
+                    self._last_debug_broadcast = now
+                    await self._broadcast_debug()
         except asyncio.CancelledError:
             raise
 
     def _tick_motion(self) -> bool:
+        """One control tick. Returns True when state changed (always true while running)."""
+
         with self._lock:
-            if self.state.safety_state == SafetyState.emergency_stop:
-                return False
+            wall = time.perf_counter()
+            if self._last_tick_wall:
+                latency = (wall - self._last_tick_wall) * 1000
+                self.controller.state.tick_latency_ms = round(latency, 1)
+                if latency > self.tick_seconds * 1000 * 2.5:
+                    self.controller.state.missed_ticks += 1
+            self._last_tick_wall = wall
 
-            if self._keyboard_simulation_enabled:
-                return self._tick_keyboard_simulation()
+            dt = self.tick_seconds
+            self._apply_keyboard_virtual_hand()
+            telemetry = self.last_telemetry or self.adapter.read()
+            self.controller.prepare_sync(telemetry)
+            command = self.controller.tick(telemetry, dt)
+            if self.controller.homing_ready_to_zero:
+                self.adapter.home()
+            telemetry = self.adapter.step(command, dt)
+            self.last_telemetry = telemetry
+            self.last_command = command
+            self.controller.refresh_position(telemetry)
+            self._step_procedure()
+            self._sync_runtime_state(telemetry, command)
+            self._record_sample(telemetry, command)
+            self._handle_new_events()
+            digest = self._digest()
+            changed = digest != self._last_digest
+            self._last_digest = digest
+            return changed
 
-            if not self.state.motion.moving:
-                return False
-
-            step = max(self.state.drives["left"].speed_mm_per_sec, self.state.drives["right"].speed_mm_per_sec) * DEFAULT_MOTION_TICK_SECONDS
-            delta = step if self.state.motion.direction == "up" else -step
-            next_position = self.state.motion.bar_position_mm + delta
-            completed_rep = False
-
-            if next_position >= self.state.motion.upper_bound_mm:
-                next_position = self.state.motion.upper_bound_mm
-                if self.state.motion.direction == "up" and self._rep_armed:
-                    completed_rep = True
-                    self._rep_armed = False
-                self.state.motion.direction = "down"
-            elif next_position <= self.state.motion.lower_bound_mm:
-                next_position = self.state.motion.lower_bound_mm
-                if self.state.motion.direction == "down":
-                    self._rep_armed = True
-                self.state.motion.direction = "up"
-
-            self._set_position(next_position)
-            if completed_rep:
-                self.state.motion.repetition_count += 1
-                if self.state.motion.repetition_count >= self.state.motion.target_reps:
-                    self.state.motion.moving = False
-                    self.state.machine_label = "Цель подхода достигнута"
-            self._update_motion_metrics(next_position)
-            return True
-
-    def _tick_keyboard_simulation(self) -> bool:
-        direction = self._get_keyboard_direction()
-        if direction is None:
-            if not self.state.motion.moving and self.state.motion.motion_profile != "keyboard-sim":
-                return False
-            self.state.motion.moving = False
-            self.state.motion.motion_profile = "manual"
-            self.state.motion.tempo_label = "остановлен"
-            self.state.machine_label = "Тренажёр готов"
-            self.state.safety_message = "Система безопасности готова к тренировке."
-            return True
-
-        step = max(self.state.drives["left"].speed_mm_per_sec, self.state.drives["right"].speed_mm_per_sec) * KEYBOARD_SIMULATION_TICK_SECONDS
-        delta = step if direction == "up" else -step
-        next_position = self._clamp_position(self.state.motion.bar_position_mm + delta)
-        if abs(next_position - self.state.motion.bar_position_mm) < 0.05 and self.state.motion.moving and self.state.motion.direction == direction:
-            return False
-
-        reached_upper_bound = direction == "up" and next_position >= self.state.motion.upper_bound_mm
-        reached_lower_bound = direction == "down" and next_position <= self.state.motion.lower_bound_mm
-        completed_rep = reached_upper_bound and self._rep_armed
-
-        self.state.motion.moving = True
-        self.state.motion.motion_profile = "keyboard-sim"
-        self.state.motion.direction = direction
-        self.state.machine_state = MachineState.ready
-        self.state.machine_label = "Симуляция движения грифа"
-        self.state.safety_message = "Положение грифа управляется комбинацией Ctrl + стрелка вверх/вниз."
-        self._set_position(next_position)
-
-        if reached_lower_bound:
-            self._rep_armed = True
-
-        if completed_rep:
-            self.state.motion.repetition_count += 1
-            self._rep_armed = False
-            if self.state.motion.repetition_count >= self.state.motion.target_reps:
-                self.state.motion.moving = False
-                self.state.machine_label = "Цель подхода достигнута"
-
-        self._update_motion_metrics(next_position)
-        return True
-
-    def _update_motion_metrics(self, position_mm: float) -> None:
-        amplitude = (position_mm - self.state.motion.lower_bound_mm) / max(
-            self.state.motion.upper_bound_mm - self.state.motion.lower_bound_mm,
-            1.0,
+    def _digest(self) -> tuple[Any, ...]:
+        control = self.controller.state
+        return (
+            control.mode,
+            round(control.position_mm),
+            control.repetition_count,
+            control.partial_reps,
+            control.sync_status,
+            control.label,
+            tuple(control.alerts),
+            self.procedure.status,
+            self.procedure.step,
+            round(control.user_force_kg),
+            round(control.load_effective_kg),
+            self.state.machine_state,
+            control.still_ms >= float(self.parameters.get("regulator.stillnessMs")),
         )
-        self.state.motion.amplitude_percent = max(0, min(100, int(round(amplitude * 100))))
-        self.state.motion.tempo_label = "стабилен" if self.state.motion.repetition_count % 2 == 0 else "ускорение"
-        self.state.motion.sync_delta_mm = abs(self.state.motion.left_position_mm - self.state.motion.right_position_mm)
-        self.state.machine_state = MachineState.warning if self.state.motion.sync_delta_mm > 5 else MachineState.ready
+
+    def _apply_keyboard_virtual_hand(self) -> None:
+        if not self._keyboard_simulation_enabled or self.emulator is None:
+            return
+        direction = self._get_keyboard_direction()
+        if direction is not None and self.controller.state.mode == ControlMode.paused and self.controller.state.released:
+            self.controller.request_resume()
+        if direction == "up":
+            self.emulator.set_user_force(KEYBOARD_FORCE_KG + self.controller.state.load_effective_kg)
+        elif direction == "down":
+            self.emulator.set_user_force(-KEYBOARD_FORCE_KG)
+        elif self.emulator.scenario.name == "none" and self.emulator.scenario.manual_force_kg != 0.0 and getattr(self, "_keyboard_was_pressed", False):
+            self.emulator.set_user_force(0.0)
+        self._keyboard_was_pressed = direction is not None
+
+    def _sync_runtime_state(self, telemetry: AdapterTelemetry, command: DriveCommand) -> None:
+        control = self.controller.state
+        motion = self.state.motion
+        motion.moving = control.moving or control.mode in {ControlMode.training, ControlMode.moving, ControlMode.homing}
+        motion.bar_position_mm = round(control.position_mm, 1)
+        motion.left_position_mm = round(telemetry.left.position_mm, 1)
+        motion.right_position_mm = round(telemetry.right.position_mm, 1)
+        motion.sync_delta_mm = control.sync_delta_mm
+        motion.amplitude_percent = control.amplitude_percent
+        motion.tempo_label = control.tempo_label if control.mode == ControlMode.training else ("остановлен" if not control.moving else "движение")
+        motion.repetition_count = control.repetition_count
+        motion.partial_reps = control.partial_reps
+        motion.direction = control.direction
+        motion.control_mode = control.mode.value
+        motion.load_target_kg = control.load_target_kg
+        motion.load_effective_kg = control.load_effective_kg
+        motion.user_force_kg = control.user_force_kg
+        motion.velocity_mm_per_sec = control.velocity_mm_s
+        motion.lower_bound_mm = self.controller.config.lower_mm
+        motion.upper_bound_mm = self.controller.config.upper_mm
+        if control.mode == ControlMode.training:
+            motion.motion_profile = self.controller.config.motion_profile
+        elif control.mode == ControlMode.weightless:
+            motion.motion_profile = "weightless"
+        elif control.mode in {ControlMode.moving, ControlMode.homing}:
+            motion.motion_profile = "return" if control.mode == ControlMode.moving else "calibration"
+
+        for side in SIDES:
+            side_t = telemetry.side(side)
+            drive = self.state.drives[side]
+            drive.position_mm = round(side_t.position_mm, 1)
+            drive.speed_mm_per_sec = round(abs(side_t.velocity_mm_s), 1)
+            drive.acceleration_mm_per_sec2 = round(abs(control.acceleration_mm_s2), 1)
+            drive.current_a = side_t.current_a
+            drive.temperature_c = side_t.temperature_c
+            drive.torque_limit_percent = int(min(100, round(command.side(side).force_limit_kg / max(1.0, self.controller._capacity_per_side()) * 100)))
+            drive.connected = side_t.connected
+            drive.error_code = side_t.error_code
+            drive.error_message = side_t.error_message
+            if not side_t.connected or side_t.error_code:
+                drive.status = DriveState.error
+            elif side_t.temperature_c >= float(self.parameters.get("safety.tempWarnC")) or side_t.current_a >= float(self.parameters.get("safety.currentWarnA")):
+                drive.status = DriveState.warning
+            else:
+                drive.status = DriveState.connected
+
+        if self.state.safety_state == SafetyState.emergency_stop:
+            return
+        if control.mode == ControlMode.fault:
+            self.state.machine_state = MachineState.blocked
+            self.state.machine_label = "Тренажёр заблокирован"
+            self.state.safety_message = control.fault_code or control.message
+        elif control.sync_status in {"warning", "critical"} or self.state.service_mode or control.mode == ControlMode.post or not control.position_known:
+            self.state.machine_state = MachineState.warning
+            self.state.machine_label = "Сервисный режим" if self.state.service_mode and control.mode in {ControlMode.idle, ControlMode.parked, ControlMode.paused} else control.label
+            self.state.safety_message = control.message
+        else:
+            self.state.machine_state = MachineState.ready
+            self.state.machine_label = control.label
+            self.state.safety_message = control.message or "Система безопасности готова к тренировке."
+        self.state.alerts = ["Сервисный режим активен"] if self.state.service_mode else []
+
+    def _record_sample(self, telemetry: AdapterTelemetry, command: DriveCommand) -> None:
+        control = self.controller.state
+        sample = [
+            round(control.time, 3),
+            control.mode.value,
+            round(telemetry.left.position_mm, 2),
+            round(telemetry.right.position_mm, 2),
+            round(telemetry.left.velocity_mm_s, 1),
+            round(telemetry.right.velocity_mm_s, 1),
+            control.velocity_mm_s,
+            round(control.acceleration_mm_s2, 1),
+            telemetry.left.force_kg,
+            telemetry.right.force_kg,
+            control.user_force_kg,
+            control.load_target_kg,
+            control.load_effective_kg,
+            round(telemetry.sync_delta_mm, 2),
+            telemetry.left.current_a,
+            telemetry.right.current_a,
+            telemetry.left.temperature_c,
+            telemetry.right.temperature_c,
+            control.repetition_count,
+            control.amplitude_percent,
+            round(command.left.force_kg if command.left.mode == "torque" else command.left.feedforward_kg, 2),
+            round(command.right.force_kg if command.right.mode == "torque" else command.right.feedforward_kg, 2),
+        ]
+        self.recorder.append(sample)
+        if self._debug_subscribers:
+            self._debug_batch.append(sample)
+
+    def _handle_new_events(self) -> None:
+        events = list(self.controller.events)
+        new_events = events[self._events_seen :] if self._events_seen <= len(events) else events
+        self._events_seen = len(events)
+        for event in new_events:
+            if event.kind in INCIDENT_EVENT_KINDS:
+                self.recorder.capture_incident(event.message, self.parameters.effective(), self.events_payload(80), now=self.controller.state.time)
 
     def _refresh_runtime_options(self) -> None:
         settings = get_settings()
         self._keyboard_simulation_enabled = bool(settings.hardware_keyboard_simulation_enabled and os.name == "nt")
-        self._tick_interval_seconds = KEYBOARD_SIMULATION_TICK_SECONDS if self._keyboard_simulation_enabled else DEFAULT_MOTION_TICK_SECONDS
         if self._keyboard_simulation_enabled:
             self._keyboard_monitor.start()
         else:
@@ -666,21 +1137,7 @@ class HardwareRuntime:
     def _get_keyboard_direction(self) -> str | None:
         if not self._keyboard_simulation_enabled:
             return None
-
         return self._keyboard_monitor.get_direction()
-
-    def _set_position(self, position_mm: float) -> None:
-        right_position = self._clamp_position(position_mm + 0.4)
-        left_position = self._clamp_position(position_mm)
-        self.state.motion.bar_position_mm = round(position_mm, 1)
-        self.state.motion.left_position_mm = round(left_position, 1)
-        self.state.motion.right_position_mm = round(right_position, 1)
-        self.state.drives["left"].position_mm = round(left_position, 1)
-        self.state.drives["right"].position_mm = round(right_position, 1)
-        self.state.motion.sync_delta_mm = round(abs(right_position - left_position), 2)
-
-    def _clamp_position(self, position_mm: float) -> float:
-        return max(0.0, min(2100.0, position_mm))
 
     def _record_command(self, action: str, payload: dict[str, object]) -> HardwareCommandRecord:
         self._command_counter += 1
@@ -713,6 +1170,21 @@ class HardwareRuntime:
             with self._lock:
                 for subscriber in stale:
                     self._subscribers.discard(subscriber)
+
+    async def _broadcast_debug(self) -> None:
+        with self._lock:
+            batch = self._debug_batch
+            self._debug_batch = []
+            subscribers = list(self._debug_subscribers)
+            events = self.events_payload(10)
+            control = self._control_payload()
+        payload = {"eventType": "telemetry.batch", "fields": list(SAMPLE_FIELDS), "samples": batch, "events": events, "control": control}
+        for subscriber in subscribers:
+            try:
+                subscriber.put_nowait(payload)
+            except asyncio.QueueFull:
+                with self._lock:
+                    self._debug_subscribers.discard(subscriber)
 
 
 hardware_runtime = HardwareRuntime()

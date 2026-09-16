@@ -15,6 +15,11 @@ const loadCurrentCalibrationMock = vi.fn<(...args: unknown[]) => Promise<null>>(
 const buildBackendBuilderRuntimeSessionMock = vi.fn<(...args: unknown[]) => Promise<RuntimeWorkoutSession>>()
 let currentSearch = '?source=catalog&slug=barbell-floor-press&calibration=missing'
 
+vi.mock('@/shared/api/client', async () => ({
+  ...await vi.importActual<typeof import('@/shared/api/client')>('@/shared/api/client'),
+  apiGet: vi.fn().mockResolvedValue([]),
+}))
+
 vi.mock('@/features/runtime/lib/backend-builder-session', () => ({
   buildBackendBuilderRuntimeSession: (...args: unknown[]) => buildBackendBuilderRuntimeSessionMock(...args),
 }))
@@ -96,6 +101,42 @@ describe('ExerciseSetupScreen', () => {
     })
   })
 
+  it.each(['', '&photo=before', '&photo=after', '&photo=manual'])('opens setup without photo prompts and keeps calibration gating (%s)', async (photo) => {
+    currentSearch += photo
+    useRuntimeStore.setState({ session: null, sessionSignature: null })
+
+    renderScreen()
+
+    await waitFor(() => expect(loadCurrentCalibrationMock).toHaveBeenCalledWith('alexey', 'barbell-floor-press'))
+    expect(useRuntimeStore.getState().session?.view).toBe('exercise-setup')
+    expect(screen.queryByRole('button', { name: /фото/i })).not.toBeInTheDocument()
+    expect(screen.queryByText(/фото/i)).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Старт недоступен' })).toBeDisabled()
+    expect(navigateMock).not.toHaveBeenCalled()
+    expect(useHardwareStore.getState().runCommand).not.toHaveBeenCalled()
+  })
+
+  it.each(['', '&photo=before', '&photo=after'])('keeps the bodyweight exercise flow without a photo detour (%s)', async (photo) => {
+    currentSearch = `?source=catalog&slug=push-up${photo}`
+    useRuntimeStore.setState({ session: null, sessionSignature: null })
+
+    renderScreen()
+
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-session${currentSearch}`, { replace: true }))
+    expect(useRuntimeStore.getState().session?.view).toBe('exercise-session')
+    expect(navigateMock.mock.calls.some(([path]) => String(path).includes('/photo-progress'))).toBe(false)
+    expect(useHardwareStore.getState().runCommand).not.toHaveBeenCalled()
+  })
+
+  it('does not show a runtime photo confirmation for saved legacy photos', () => {
+    const session = useRuntimeStore.getState().session!
+    useRuntimeStore.setState({ session: { ...session, photoProgress: { ...session.photoProgress, completed: true, mode: 'pre-workout' } } })
+
+    renderScreen()
+
+    expect(screen.queryByText(/фото/i)).not.toBeInTheDocument()
+  })
+
   it('keeps captured calibration points after rerendering the same exercise without a saved calibration', async () => {
     const user = userEvent.setup()
 
@@ -171,5 +212,26 @@ describe('ExerciseSetupScreen', () => {
 
     await waitFor(() => expect(buildBackendBuilderRuntimeSessionMock).toHaveBeenCalled())
     await waitFor(() => expect(useRuntimeStore.getState().session?.exercises[0]?.slug).toBe('new-exercise'))
+    expect(buildBackendBuilderRuntimeSessionMock).toHaveBeenCalledWith({ userId: 'alexey', programId: 'back-biceps', runId: undefined, calibrationState: undefined })
+    expect(navigateMock.mock.calls.some(([path]) => String(path).includes('/photo-progress'))).toBe(false)
+  })
+
+  it('preserves a matching backend session and saved results when reopening without the old photo parameter', async () => {
+    currentSearch = '?source=builder&programId=back-biceps'
+    const initialSession = useRuntimeStore.getState().session!
+    const session: RuntimeWorkoutSession = {
+      ...initialSession,
+      source: 'builder', programId: 'back-biceps', dataSource: 'backend', backendWorkoutSessionId: 42,
+      currentSetIndex: 1,
+      completedSets: { [initialSession.currentExerciseId]: [{ setNumber: 1, plannedValue: 10, actualValue: 10, tempoLabel: 'хорошо' }] },
+    }
+    useRuntimeStore.setState({ session, sessionSignature: 'builder::back-biceps::pre-workout:' })
+    buildBackendBuilderRuntimeSessionMock.mockResolvedValue({ ...session, currentSetIndex: 0, completedSets: {}, backendWorkoutSessionId: undefined })
+
+    renderScreen()
+
+    await waitFor(() => expect(buildBackendBuilderRuntimeSessionMock).toHaveBeenCalled())
+    expect(useRuntimeStore.getState().session).toMatchObject({ id: session.id, backendWorkoutSessionId: 42, currentSetIndex: 1, completedSets: session.completedSets })
+    expect(navigateMock).not.toHaveBeenCalled()
   })
 })

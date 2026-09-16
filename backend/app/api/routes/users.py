@@ -10,6 +10,7 @@ from app.schemas.user import (
     SelectUserRequestSchema,
     SelectUserResponseSchema,
     UsersResponseSchema,
+    UserProfileUpdateSchema,
     UserSummarySchema,
 )
 
@@ -50,3 +51,16 @@ def select_user(payload: SelectUserRequestSchema, session: Session = Depends(get
     )
     session.commit()
     return SelectUserResponseSchema(current_user=CurrentUserSchema.model_validate(user))
+
+
+@router.put("/{user_id}/profile", response_model=CurrentUserSchema)
+def update_user_profile(
+    user_id: str,
+    payload: UserProfileUpdateSchema,
+    session: Session = Depends(get_session),
+) -> CurrentUserSchema:
+    user = user_repository.update_profile(session, user_id, payload)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    session.commit()
+    return CurrentUserSchema.model_validate(user)
