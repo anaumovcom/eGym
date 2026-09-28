@@ -6,7 +6,8 @@ import pytest
 
 from app.core.config import get_settings
 from app.services.hardware_runtime import HardwareRuntime, hardware_runtime
-from app.services.motion.controller import ControlMode
+from app.services.motion.adapter import AdapterTelemetry, SideTelemetry
+from app.services.motion.controller import ControlMode, HomingPhase, MotionController
 from app.services.motion.parameters import MotionParameters, ParameterValidationError
 
 
@@ -16,6 +17,14 @@ def _run(runtime: HardwareRuntime, seconds: float, *, until=None) -> None:  # no
         runtime._tick_motion()
         if until is not None and until():
             return
+
+
+def _telemetry(position: float, *, low: tuple[bool, bool] = (False, False), high: tuple[bool, bool] = (False, False)) -> AdapterTelemetry:
+    return AdapterTelemetry(
+        timestamp=0.0,
+        left=SideTelemetry(side="left", position_mm=position, limit_switch_low=low[0], limit_switch_high=high[0]),
+        right=SideTelemetry(side="right", position_mm=position, limit_switch_low=low[1], limit_switch_high=high[1]),
+    )
 
 
 @pytest.fixture()
@@ -51,6 +60,70 @@ def test_power_on_self_test_leads_to_idle_with_brakes(runtime: HardwareRuntime) 
     assert control.mode == ControlMode.idle
     assert control.brake_engaged is True
     assert control.position_known is True
+
+
+def test_pair_based_two_pass_homing_calibrates_both_physical_limits() -> None:
+    params = MotionParameters()
+    params.set_many(
+        {
+            "homing.stopSettleMs": 10,
+            "homing.pairTimeWindowMs": 100,
+            "homing.releaseTimeoutMs": 500,
+            "homing.phaseTimeoutSec": 5,
+            "homing.totalTimeoutSec": 30,
+            "homing.maximumSearchDistanceMm": 2000,
+        },
+        temporary=True,
+    )
+    controller = MotionController(params)
+    controller.request_homing()
+
+    controller.tick(_telemetry(100), 0.01)
+    controller.tick(_telemetry(50, low=(True, False)), 0.01)
+    assert controller.state.homing_phase == HomingPhase.bottom_creep
+    controller.tick(_telemetry(49, low=(True, True)), 0.01)
+    assert controller.state.homing_phase == HomingPhase.bottom_stop
+    controller.tick(_telemetry(49, low=(True, True)), 0.02)
+    controller.tick(_telemetry(58), 0.01)
+    assert controller.state.homing_phase == HomingPhase.bottom_fine
+    controller.tick(_telemetry(51, low=(False, True)), 0.01)
+    controller.tick(_telemetry(50, low=(True, True)), 0.01)
+    assert controller.homing_ready_to_zero is True
+    controller.mark_homing_reference_applied()
+
+    controller.tick(_telemetry(500), 0.01)
+    controller.tick(_telemetry(989, high=(True, False)), 0.01)
+    controller.tick(_telemetry(990, high=(True, True)), 0.01)
+    assert controller.state.homing_phase == HomingPhase.top_stop
+    controller.tick(_telemetry(990, high=(True, True)), 0.02)
+    controller.tick(_telemetry(981), 0.01)
+    assert controller.state.homing_phase == HomingPhase.top_fine
+    controller.tick(_telemetry(989, high=(False, True)), 0.01)
+    controller.tick(_telemetry(990, high=(True, True)), 0.01)
+    assert controller.state.homing_phase == HomingPhase.move_safe_top
+    controller.tick(_telemetry(985), 0.01)
+
+    assert controller.state.mode == ControlMode.idle
+    assert controller.state.homing_phase == HomingPhase.complete
+    assert controller.state.physical_bottom_mm == pytest.approx(0)
+    assert controller.state.physical_top_mm == pytest.approx(990)
+    assert controller.state.working_bottom_mm == pytest.approx(5)
+    assert controller.state.working_top_mm == pytest.approx(985)
+    assert controller.state.full_travel_mm == pytest.approx(990)
+
+
+def test_homing_rejects_pair_that_completes_outside_first_edge_window() -> None:
+    params = MotionParameters()
+    params.set_many({"homing.pairTimeWindowMs": 50}, temporary=True)
+    controller = MotionController(params)
+    controller.request_homing()
+    controller.tick(_telemetry(100), 0.01)
+    controller.tick(_telemetry(50, low=(True, False)), 0.01)
+    controller.tick(_telemetry(49, low=(True, True)), 0.05)
+
+    assert controller.state.mode == ControlMode.fault
+    assert controller.state.homing_phase == HomingPhase.fault
+    assert "sensor_pair_timeout" in (controller.state.fault_code or "")
 
 
 def test_weightless_bar_stays_put_and_follows_hand(runtime: HardwareRuntime) -> None:
@@ -161,6 +234,67 @@ def test_fixed_position_hold_test_and_load_based_reps(runtime: HardwareRuntime) 
         _run(runtime, 0.8)
     assert control.repetition_count == 2
     assert abs(control.position_mm - 1500) < float(runtime.parameters.get("fixed.driftToleranceMm")) * 3
+
+
+def test_bar_jog_requires_hold_and_reaches_the_requested_step(runtime: HardwareRuntime) -> None:
+    runtime.start_motion(calibration_id=9, lower_bound_mm=700, upper_bound_mm=1000, target_set=1, target_reps=8, motion_profile="training", auto_user=False)
+    with pytest.raises(PermissionError):
+        runtime.manual_move("up", 10, "service")
+    runtime.pause()
+    position = runtime.controller.state.position_mm
+    with pytest.raises(ValueError):
+        runtime.manual_move("up", 51, "service")
+    runtime.controller.state.user_force_kg = 25
+    with pytest.raises(PermissionError, match="Освободите гриф"):
+        runtime.manual_move("up", 10, "service")
+    runtime.controller.state.user_force_kg = 0
+    runtime.manual_move("up", 10, "service")
+    with pytest.raises(PermissionError):
+        runtime.manual_move("down", 10, "service")
+    _run(runtime, 8.0, until=lambda: runtime.controller.state.mode == ControlMode.paused)
+    assert runtime.controller.state.mode == ControlMode.paused
+    assert runtime.controller.state.position_mm == pytest.approx(position + 10, abs=3)
+    runtime.resume(lower_mm=position + 10, upper_mm=1000)
+    assert runtime.controller.config.lower_mm == pytest.approx(position + 10)
+    assert runtime.controller.state.mode == ControlMode.training
+
+
+def test_fixed_hold_cannot_be_moved_until_paused(runtime: HardwareRuntime) -> None:
+    runtime.start_fixed_position(position_mm=860, calibration_id=12)
+    _run(runtime, 5.0, until=lambda: runtime.controller.state.mode == ControlMode.fixed_hold)
+    with pytest.raises(PermissionError):
+        runtime.manual_move("up", 10, "service")
+    runtime.pause()
+    runtime.manual_move("up", 10, "service")
+    _run(runtime, 8.0, until=lambda: runtime.controller.state.mode == ControlMode.paused)
+    with pytest.raises(PermissionError):
+        runtime.resume(fixed_position_mm=860)
+    runtime.resume(fixed_position_mm=runtime.controller.state.position_mm)
+    assert runtime.controller.state.mode == ControlMode.fixed_hold
+
+
+def test_hold_to_jog_stops_on_release_and_watchdog(runtime: HardwareRuntime, monkeypatch) -> None:  # noqa: ANN001
+    clock = [100.0]
+    monkeypatch.setattr("app.services.hardware_runtime.time.monotonic", lambda: clock[0])
+    runtime.start_jog("up", "press-1", "alexey", "barbell-floor-press")
+    with pytest.raises(PermissionError):
+        runtime.refresh_jog("press-1", "elena", "barbell-floor-press")
+    start = runtime.controller.state.position_mm
+    for _ in range(15):
+        _run(runtime, 0.2)
+        clock[0] += 0.2
+        runtime.refresh_jog("press-1", "alexey", "barbell-floor-press")
+    assert runtime.controller.state.position_mm > start + 20
+    assert runtime.controller.state.mode == ControlMode.moving
+    runtime.stop_jog("press-1", "alexey", "barbell-floor-press")
+    assert runtime.controller.state.mode == ControlMode.paused
+    with pytest.raises(PermissionError):
+        runtime.refresh_jog("press-1", "alexey", "barbell-floor-press")
+    runtime.start_jog("down", "press-2", "alexey", "barbell-floor-press")
+    clock[0] += 0.7
+    runtime._tick_motion()
+    assert runtime.controller.state.mode == ControlMode.paused
+    assert not runtime.jog_active
 
 
 def test_power_loss_engages_brakes_and_requires_homing(runtime: HardwareRuntime) -> None:

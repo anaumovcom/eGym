@@ -54,6 +54,8 @@ function getErrorMessage(error: unknown) {
   return 'Не удалось связаться с hardware API.'
 }
 
+let calibrationRequestId = 0
+
 export const useHardwareStore = create<HardwareStore>((set, get) => ({
   snapshot: null,
   settings: null,
@@ -87,17 +89,18 @@ export const useHardwareStore = create<HardwareStore>((set, get) => ({
     }
   },
   loadCurrentCalibration: async (userId, exerciseSlug) => {
+    const requestId = ++calibrationRequestId
     try {
       const calibration = await fetchCurrentCalibration(userId, exerciseSlug)
-      set({ currentCalibration: calibration, errorMessage: null })
+      if (requestId === calibrationRequestId) set({ currentCalibration: calibration, errorMessage: null })
       return calibration
     } catch (error) {
       if (error instanceof ApiError && error.status === 404) {
-        set({ currentCalibration: null, errorMessage: null })
+        if (requestId === calibrationRequestId) set({ currentCalibration: null, errorMessage: null })
         return null
       }
       const errorMessage = getErrorMessage(error)
-      set({ errorMessage })
+      if (requestId === calibrationRequestId) set({ errorMessage })
       throw error
     }
   },
@@ -113,6 +116,7 @@ export const useHardwareStore = create<HardwareStore>((set, get) => ({
     }
   },
   saveCalibration: async (payload) => {
+    ++calibrationRequestId
     try {
       const calibration = await saveHardwareCalibration(payload)
       const calibrations = get().calibrations.filter((item) => item.id !== calibration.id)
@@ -129,6 +133,7 @@ export const useHardwareStore = create<HardwareStore>((set, get) => ({
     }
   },
   deleteCalibration: async (calibrationId, actorUserId) => {
+    ++calibrationRequestId
     try {
       await deleteHardwareCalibration(calibrationId, actorUserId)
       set({

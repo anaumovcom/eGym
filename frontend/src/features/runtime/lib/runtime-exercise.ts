@@ -37,3 +37,8 @@ export function requiresMachineCalibration(exercise: Pick<RuntimeExercisePlan, '
 
   return hasMovableMachineLoad(exercise)
 }
+
+export function supportsFixedBarSetup(exercise: Pick<RuntimeExercisePlan, 'slug' | 'kind' | 'loadSettings' | 'details'>) {
+  return (exercise.kind === 'machine' && !CALIBRATION_EXEMPT_EQUIPMENT.has(exercise.details.equipment))
+    || /(?:pull-?up|chin-?up)/i.test(exercise.slug)
+}

@@ -16,6 +16,37 @@ class Settings(BaseSettings):
     debug: bool = Field(default=True, alias="APP_DEBUG")
     hardware_keyboard_simulation_enabled: bool = Field(default=False, alias="HARDWARE_KEYBOARD_SIMULATION_ENABLED")
     hardware_adapter: str = Field(default="emulator", alias="HARDWARE_ADAPTER")
+    hardware_panel_enabled: bool = Field(default=False, alias="HARDWARE_PANEL_ENABLED")
+    hardware_panel_port: str | None = Field(default=None, alias="HARDWARE_PANEL_PORT")
+    hardware_panel_baud: int = Field(default=115200, ge=1200, le=3_000_000, alias="HARDWARE_PANEL_BAUD")
+    hardware_panel_heartbeat_interval_seconds: float = Field(
+        default=0.5,
+        ge=0.05,
+        le=1.0,
+        alias="HARDWARE_PANEL_HEARTBEAT_INTERVAL_SECONDS",
+    )
+    hardware_panel_reconnect_delay_seconds: float = Field(
+        default=1.0,
+        ge=0.1,
+        le=60.0,
+        alias="HARDWARE_PANEL_RECONNECT_DELAY_SECONDS",
+    )
+    hardware_panel_status_interval_seconds: float = Field(
+        default=0.25,
+        ge=0.05,
+        le=10.0,
+        alias="HARDWARE_PANEL_STATUS_INTERVAL_SECONDS",
+    )
+    hardware_panel_rx_watchdog_seconds: float = Field(
+        default=2.0,
+        gt=0.05,
+        le=30.0,
+        alias="HARDWARE_PANEL_RX_WATCHDOG_SECONDS",
+    )
+    hardware_panel_load_step_kg: float = Field(default=2.5, gt=0, le=25, alias="HARDWARE_PANEL_LOAD_STEP_KG")
+    hardware_panel_service_move_mm: float = Field(default=5.0, gt=0, le=50, alias="HARDWARE_PANEL_SERVICE_MOVE_MM")
+    hardware_panel_night_mode: bool = Field(default=False, alias="HARDWARE_PANEL_NIGHT_MODE")
+    hardware_panel_brightness: float = Field(default=1.0, ge=0.1, le=1.0, alias="HARDWARE_PANEL_BRIGHTNESS")
     api_prefix: str = "/api"
     database_url: str = Field(default=f"sqlite:///{DEFAULT_SQLITE_PATH.as_posix()}", alias="DATABASE_URL")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
@@ -49,6 +80,13 @@ class Settings(BaseSettings):
 
             return f"{prefix}{(BACKEND_ROOT / database_path).resolve().as_posix()}"
 
+        return value
+
+    @field_validator("hardware_panel_port", mode="before")
+    @classmethod
+    def normalize_panel_port(cls, value: object) -> object:
+        if isinstance(value, str):
+            return value.strip() or None
         return value
 
 

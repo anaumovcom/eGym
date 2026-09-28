@@ -32,7 +32,10 @@ describe('RestScreen', () => {
     navigateMock.mockReset()
     runCommandMock.mockClear()
     useAppStore.setState({ selectedUserId: 'alexey', emergencyStopActive: false })
-    useHardwareStore.setState({ snapshot: null, errorMessage: null, runCommand: runCommandMock })
+    useHardwareStore.setState({
+      snapshot: null, errorMessage: null, runCommand: runCommandMock,
+      loadCurrentCalibration: vi.fn().mockResolvedValue({ setupType: 'bar_range', lowerPointMm: 560, upperPointMm: 760, fixedPositionMm: null }),
+    })
     useRuntimeStore.setState({ session: null, sessionSignature: null })
     useRuntimeStore.getState().initializeSession({ source: 'catalog', slug: 'barbell-floor-press' })
     useRuntimeStore.getState().startExercise()
@@ -88,6 +91,13 @@ describe('RestScreen', () => {
     expect(useRuntimeStore.getState().session!.view).toBe('workout-summary')
     expect(useRuntimeStore.getState().session!.workoutSummary.outcome).toBe('partial')
     expect(navigateMock).toHaveBeenCalledWith(`/workout-summary${currentSearch}`)
+  })
+
+  it('reuses a fixed position for the next set', async () => {
+    useHardwareStore.setState({ loadCurrentCalibration: vi.fn().mockResolvedValue({ setupType: 'fixed_position', fixedPositionMm: 1480 }) })
+    renderScreen()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Пропустить' }))
+    await waitFor(() => expect(runCommandMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'start_fixed_position', positionMm: 1480, targetSet: 2 })))
   })
 
   it('renders a unified loading state instead of a blank screen without a session', () => {

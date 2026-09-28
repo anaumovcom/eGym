@@ -8,8 +8,9 @@ import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { StrengthTrainingMode } from '@/entities/strength/model/types'
 import { buildBackendBuilderRuntimeSession } from '@/features/runtime/lib/backend-builder-session'
 import { getRuntimeResumeView, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
-import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exercise'
+import { requiresMachineCalibration, supportsFixedBarSetup } from '@/features/runtime/lib/runtime-exercise'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
+import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
@@ -117,8 +118,12 @@ export function ExerciseSetupScreen() {
   const runCommand = useHardwareStore((state) => state.runCommand)
   const [capturedLowerPointMm, setCapturedLowerPointMm] = useState<number | null>(null)
   const [capturedUpperPointMm, setCapturedUpperPointMm] = useState<number | null>(null)
+  const [capturedFixedPositionMm, setCapturedFixedPositionMm] = useState<number | null>(null)
+  const [setupType, setSetupType] = useState<'bar_range' | 'fixed_position'>('bar_range')
+  const [loadedSetupKey, setLoadedSetupKey] = useState<string | null>(null)
   const [calibrationOpen, setCalibrationOpen] = useState(false)
   const [modeDialogOpen, setModeDialogOpen] = useState(false)
+  const [jogPending, setJogPending] = useState(false)
 
   const initOptions = useMemo(() => getRuntimeInitOptions(searchParams), [searchParams])
   const usesBackendBuilderSession = initOptions.source === 'builder' && Boolean(initOptions.programId)
@@ -184,7 +189,7 @@ export function ExerciseSetupScreen() {
       return
     }
 
-    if (requiresMachineCalibration(exercise)) {
+    if (supportsFixedBarSetup(exercise)) {
       return
     }
 
@@ -203,15 +208,17 @@ export function ExerciseSetupScreen() {
   }, [location.search, navigate, session, setView])
 
   useEffect(() => {
+    if (snapshot?.safety.state === 'emergency_stop') {
+      setEmergencyStopActive(true)
+    }
+  }, [setEmergencyStopActive, snapshot?.safety.state])
+
+  useEffect(() => {
     if (!exercise) {
       return
     }
 
-    if (snapshot?.safety.state === 'emergency_stop') {
-      setEmergencyStopActive(true)
-    }
-
-    if (!requiresMachineCalibration(exercise)) {
+    if (!supportsFixedBarSetup(exercise)) {
       updateCalibrationState('not-needed')
       return
     }
@@ -221,42 +228,44 @@ export function ExerciseSetupScreen() {
       return
     }
 
+    let cancelled = false
     void loadCurrentCalibration(selectedUserId, exercise.slug)
       .then((calibration) => {
-        updateCalibrationState(calibration ? 'saved' : 'missing')
+        if (!cancelled) {
+          setLoadedSetupKey(`${selectedUserId}:${exercise.slug}`)
+          updateCalibrationState(calibration ? 'saved' : 'missing')
+        }
       })
-      .catch(() => {})
-  }, [exercise, loadCurrentCalibration, selectedUserId, setEmergencyStopActive, snapshot?.safety.state, updateCalibrationState])
+      .catch(() => { if (!cancelled) setLoadedSetupKey(null) })
+    return () => { cancelled = true }
+  }, [exercise?.slug, loadCurrentCalibration, selectedUserId, updateCalibrationState])
 
   useEffect(() => {
-    if (!exercise || exercise.kind !== 'machine') {
+    if (!exercise || !supportsFixedBarSetup(exercise)) {
       setCapturedLowerPointMm(null)
       setCapturedUpperPointMm(null)
-      return
-    }
-
-    if (currentCalibration?.exerciseSlug === exercise.slug) {
-      setCapturedLowerPointMm(currentCalibration.lowerPointMm)
-      setCapturedUpperPointMm(currentCalibration.upperPointMm)
+      setCapturedFixedPositionMm(null)
       return
     }
 
     setCapturedLowerPointMm(null)
     setCapturedUpperPointMm(null)
-  }, [exercise?.kind, exercise?.slug])
+    setCapturedFixedPositionMm(null)
+    setSetupType(requiresMachineCalibration(exercise) ? 'bar_range' : 'fixed_position')
+    setLoadedSetupKey(null)
+  }, [exercise?.slug, selectedUserId])
 
   useEffect(() => {
-    if (!exercise || exercise.kind !== 'machine') {
+    if (!exercise || !selectedUserId || loadedSetupKey !== `${selectedUserId}:${exercise.slug}`) {
       return
     }
 
-    if (!currentCalibration || currentCalibration.exerciseSlug !== exercise.slug) {
-      return
-    }
-
-    setCapturedLowerPointMm(currentCalibration.lowerPointMm)
-    setCapturedUpperPointMm(currentCalibration.upperPointMm)
-  }, [currentCalibration, exercise?.kind, exercise?.slug])
+    const saved = currentCalibration?.userId === selectedUserId && currentCalibration.exerciseSlug === exercise.slug ? currentCalibration : null
+    setCapturedLowerPointMm(saved?.lowerPointMm ?? null)
+    setCapturedUpperPointMm(saved?.upperPointMm ?? null)
+    setCapturedFixedPositionMm(saved?.fixedPositionMm ?? null)
+    setSetupType(saved?.setupType ?? (requiresMachineCalibration(exercise) ? 'bar_range' : 'fixed_position'))
+  }, [currentCalibration, exercise?.slug, loadedSetupKey, selectedUserId])
 
   if (usesBackendBuilderSession && backendBuilderSessionError) {
     const message = backendBuilderSessionError instanceof Error ? backendBuilderSessionError.message : 'Попробуйте открыть тренировку ещё раз.'
@@ -278,43 +287,47 @@ export function ExerciseSetupScreen() {
   const currentExercise = exercise
   const settings = exercise.loadSettings
   const currentStrengthMode = currentExercise.strengthMode ?? { id: 'basic', title: 'Базовый режим', dayType: null }
-  const calibrationRequired = requiresMachineCalibration(currentExercise)
-  const savedCalibration = currentCalibration?.exerciseSlug === currentExercise.slug ? currentCalibration : null
+  const calibrationRequired = supportsFixedBarSetup(currentExercise)
+  const savedCalibration = loadedSetupKey === `${selectedUserId}:${currentExercise.slug}` && currentCalibration?.userId === selectedUserId && currentCalibration.exerciseSlug === currentExercise.slug ? currentCalibration : null
   const setupVideo = currentExercise.details.videos.find((video) => video.gender === 'male' && video.view === 'side')
     ?? currentExercise.details.videos[0]
     ?? (currentExercise.summary.previewVideoUrl
       ? { url: currentExercise.summary.previewVideoUrl, label: `${currentExercise.name} · превью` }
       : null)
-  const startBlocked = calibrationRequired && (!savedCalibration || !selectedUserId)
+  const startBlocked = calibrationRequired && (!savedCalibration || !selectedUserId || savedCalibration.setupType !== setupType ||
+    (setupType === 'bar_range' && (savedCalibration.lowerPointMm !== capturedLowerPointMm || savedCalibration.upperPointMm !== capturedUpperPointMm)) ||
+    (setupType === 'fixed_position' && savedCalibration.fixedPositionMm !== capturedFixedPositionMm))
   const livePositionMm = snapshot?.motion.barPositionMm ?? null
   const controlMode = snapshot?.control?.mode ?? snapshot?.motion.controlMode
   const weightlessActive = controlMode === 'weightless'
+  const barMoving = jogPending || controlMode === 'moving' || snapshot?.motion.moving === true
   const barStill = (snapshot?.control?.stillMs ?? 0) >= 500
   const liveLowerBoundMm = snapshot?.motion.lowerBoundMm ?? null
   const liveUpperBoundMm = snapshot?.motion.upperBoundMm ?? null
   const lowerPointMm = capturedLowerPointMm ?? null
   const upperPointMm = capturedUpperPointMm ?? null
+  const fixedPositionMm = capturedFixedPositionMm
   const hasCompleteCalibrationRange = lowerPointMm != null && upperPointMm != null && upperPointMm > lowerPointMm
-  const calibrationRangeLabel = calibrationRequired
-    ? hasCompleteCalibrationRange
-      ? formatRange(lowerPointMm, upperPointMm)
-      : savedCalibration
-        ? formatRange(savedCalibration.lowerPointMm, savedCalibration.upperPointMm)
-        : currentExercise.movementRangeLabel
-    : currentExercise.movementRangeLabel
+  const calibrationRangeLabel = savedCalibration?.setupType === 'fixed_position'
+    ? `Фиксация: ${formatMillimeters(savedCalibration.fixedPositionMm)}`
+    : formatRange(savedCalibration?.lowerPointMm, savedCalibration?.upperPointMm)
 
   function resetCalibrationDraft() {
     if (savedCalibration) {
       setCapturedLowerPointMm(savedCalibration.lowerPointMm)
       setCapturedUpperPointMm(savedCalibration.upperPointMm)
+      setCapturedFixedPositionMm(savedCalibration.fixedPositionMm)
+      setSetupType(savedCalibration.setupType)
       return
     }
 
     setCapturedLowerPointMm(null)
     setCapturedUpperPointMm(null)
+    setCapturedFixedPositionMm(null)
   }
 
-  function captureCalibrationPoint(point: 'lower' | 'upper') {
+  function captureCalibrationPoint(point: 'lower' | 'upper' | 'fixed') {
+    if (barMoving) return
     if (livePositionMm == null) {
       setHardwareError('Нет данных о положении грифа. Проверьте подключение тренажёра и повторите попытку.')
       return
@@ -328,7 +341,8 @@ export function ExerciseSetupScreen() {
         .then((response) => {
           const captured = response.capturedPositionMm ?? livePositionMm
           if (point === 'lower') setCapturedLowerPointMm(captured)
-          else setCapturedUpperPointMm(captured)
+          else if (point === 'upper') setCapturedUpperPointMm(captured)
+          else setCapturedFixedPositionMm(captured)
         })
         .catch((error: unknown) => setHardwareError(error instanceof Error ? error.message : 'Не удалось зафиксировать точку.'))
       return
@@ -339,7 +353,8 @@ export function ExerciseSetupScreen() {
       return
     }
 
-    setCapturedUpperPointMm(livePositionMm)
+    if (point === 'upper') setCapturedUpperPointMm(livePositionMm)
+    else setCapturedFixedPositionMm(livePositionMm)
   }
 
   async function toggleWeightless() {
@@ -355,80 +370,91 @@ export function ExerciseSetupScreen() {
     }
   }
 
-  async function previewRange() {
-    if (!hasCompleteCalibrationRange) return
-    setHardwareError(null)
-    try {
-      await runCommand({ action: 'range_preview', userId: selectedUserId, exerciseSlug: currentExercise.slug, lowerMm: lowerPointMm, upperMm: upperPointMm, mode: 'service' })
-    } catch (error) {
-      setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить показ диапазона.')
-    }
-  }
-
   async function handleCalibrationSave() {
     if (!selectedUserId) {
       setHardwareError('Сначала выберите пользователя перед сохранением калибровки.')
       return
     }
 
-    if (!hasCompleteCalibrationRange) {
+    if (setupType === 'bar_range' && !hasCompleteCalibrationRange) {
       setHardwareError('Сначала зафиксируйте нижнюю и верхнюю точку амплитуды.')
       return
     }
 
-    await saveCalibration({
-      userId: selectedUserId,
-      exerciseSlug: currentExercise.slug,
-      lowerPointMm,
-      upperPointMm,
-      zeroPositionMm: Math.round((lowerPointMm + upperPointMm) / 2),
-      movementRangeConfirmed: true,
-      calibrationRequired: true,
-    })
-    setHardwareError(null)
-    updateCalibrationState('saved')
+    if (setupType === 'fixed_position' && fixedPositionMm == null) {
+      setHardwareError('Сначала зафиксируйте высоту грифа.')
+      return
+    }
+
+    try {
+      await saveCalibration({
+        userId: selectedUserId,
+        exerciseSlug: currentExercise.slug,
+        setupType,
+        lowerPointMm: setupType === 'bar_range' ? lowerPointMm : null,
+        upperPointMm: setupType === 'bar_range' ? upperPointMm : null,
+        fixedPositionMm: setupType === 'fixed_position' ? fixedPositionMm : null,
+        zeroPositionMm: setupType === 'bar_range' ? Math.round((lowerPointMm! + upperPointMm!) / 2) : fixedPositionMm!,
+        movementRangeConfirmed: setupType === 'bar_range',
+        calibrationRequired: true,
+      })
+      setHardwareError(null)
+      updateCalibrationState('saved')
+    } catch (error) {
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось сохранить настройку грифа.')
+    }
   }
 
   async function handleCalibrationDelete() {
-    if (savedCalibration) {
-      await deleteCalibration(savedCalibration.id, selectedUserId)
+    try {
+      if (savedCalibration) await deleteCalibration(savedCalibration.id, selectedUserId)
+      setCapturedLowerPointMm(null)
+      setCapturedUpperPointMm(null)
+      setCapturedFixedPositionMm(null)
+      updateCalibrationState('missing')
+    } catch (error) {
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось удалить настройку грифа.')
     }
-    setCapturedLowerPointMm(null)
-    setCapturedUpperPointMm(null)
-    updateCalibrationState('missing')
   }
 
   async function handleStartExercise() {
+    if (startBlocked || barMoving) return
     if (calibrationRequired) {
       if (!selectedUserId) {
         setHardwareError('Для запуска тренажёрного упражнения нужно выбрать пользователя.')
         return
       }
 
-      const safetyGate = await checkSafetyGate({
-        userId: selectedUserId,
-        exerciseSlug: currentExercise.slug,
-        calibrationRequired: true,
-        rangeConfirmed: true,
-        weightKg: settings.weight,
-        mode: 'machine',
-      })
+      try {
+        const safetyGate = await checkSafetyGate({
+          userId: selectedUserId,
+          exerciseSlug: currentExercise.slug,
+          calibrationRequired: true,
+          rangeConfirmed: setupType === 'bar_range',
+          weightKg: settings.weight,
+          mode: 'machine',
+        })
 
-      if (!safetyGate.allowed) {
+        if (!safetyGate.allowed) {
+          return
+        }
+
+        await runCommand({
+          action: setupType === 'fixed_position' ? 'start_fixed_position' : 'start_motion',
+          userId: selectedUserId,
+          exerciseSlug: currentExercise.slug,
+          calibrationRequired: true,
+          rangeConfirmed: setupType === 'bar_range',
+          weightKg: settings.weight,
+          mode: 'machine',
+          targetSet: 1,
+          targetReps: currentExercise.plan[0]?.targetMaxReps ?? currentExercise.plan[0]?.targetReps ?? settings.reps,
+          ...(setupType === 'fixed_position' ? { positionMm: savedCalibration?.fixedPositionMm ?? undefined, repCountSource: 'load' } : {}),
+        })
+      } catch (error) {
+        setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить тренажёр.')
         return
       }
-
-      await runCommand({
-        action: 'start_motion',
-        userId: selectedUserId,
-        exerciseSlug: currentExercise.slug,
-        calibrationRequired: true,
-        rangeConfirmed: true,
-        weightKg: settings.weight,
-        mode: 'machine',
-        targetSet: 1,
-        targetReps: currentExercise.plan[0]?.targetMaxReps ?? currentExercise.plan[0]?.targetReps ?? settings.reps,
-      })
     }
 
     startExercise()
@@ -467,12 +493,12 @@ export function ExerciseSetupScreen() {
           <div className="rt-chips" role="group" aria-label="Готовность к старту">
             {calibrationRequired ? (
               savedCalibration ? (
-                <button type="button" className="rt-chip" data-tone="good" aria-pressed={calibrationOpen} onClick={() => setCalibrationOpen((current) => !current)}>
-                  <CheckCircle2 aria-hidden="true" />
-                  Калибровка: {calibrationRangeLabel}
+                <button type="button" className="rt-chip" data-tone={startBlocked ? 'warning' : 'good'} aria-pressed={calibrationOpen} onClick={() => setCalibrationOpen((current) => !current)}>
+                  {startBlocked ? <AlertTriangle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
+                  {startBlocked ? 'Есть несохранённые изменения' : savedCalibration.setupType === 'fixed_position' ? calibrationRangeLabel : `Калибровка: ${calibrationRangeLabel}`}
                 </button>
               ) : (
-                <span className="rt-chip" data-tone="warning"><AlertTriangle aria-hidden="true" />Нужна калибровка</span>
+                <span className="rt-chip" data-tone="warning"><AlertTriangle aria-hidden="true" />Нужна настройка грифа</span>
               )
             ) : (
               <span className="rt-chip" data-tone="good"><CheckCircle2 aria-hidden="true" />Калибровка не нужна</span>
@@ -496,79 +522,19 @@ export function ExerciseSetupScreen() {
               </div>
             </div>
 
-            {showCalibrationPanel ? (
-              <section className="rt-calibration" data-saved={Boolean(savedCalibration)} aria-label="Калибровка амплитуды">
-                <header>
-                  <div>
-                    <h3>{savedCalibration ? 'Амплитуда сохранена' : 'Нужна калибровка амплитуды'}</h3>
-                    <p>
-                      {hasCompleteCalibrationRange
-                        ? 'Нижняя и верхняя точки зафиксированы. Сохраните амплитуду, чтобы открыть старт.'
-                        : 'Опустите гриф в нижнюю безопасную точку и зафиксируйте её, затем поднимите в верхнюю точку и зафиксируйте. После этого сохраните амплитуду.'}
-                    </p>
-                  </div>
-                  <div className="rt-calibration-links">
-                    <Button variant="ghost" iconLeft={<RotateCcw aria-hidden="true" />} onClick={resetCalibrationDraft}>
-                      Сбросить точки
-                    </Button>
-                    {savedCalibration ? (
-                      <Button variant="ghost" onClick={() => void handleCalibrationDelete()}>
-                        Удалить калибровку
-                      </Button>
-                    ) : null}
-                    {savedCalibration ? (
-                      <Button variant="ghost" onClick={() => setCalibrationOpen(false)}>Свернуть</Button>
-                    ) : null}
-                  </div>
-                </header>
-                <dl className="rt-calibration-values">
-                  <div>
-                    <dt>Текущая позиция</dt>
-                    <dd>{formatMillimeters(livePositionMm)}</dd>
-                    <small>Гриф сейчас</small>
-                  </div>
-                  <div>
-                    <dt>Нижняя точка</dt>
-                    <dd>{formatMillimeters(lowerPointMm)}</dd>
-                    <small>Live-низ: {formatMillimeters(liveLowerBoundMm)}</small>
-                  </div>
-                  <div>
-                    <dt>Верхняя точка</dt>
-                    <dd>{formatMillimeters(upperPointMm)}</dd>
-                    <small>Live-верх: {formatMillimeters(liveUpperBoundMm)}</small>
-                  </div>
-                </dl>
-                <div className="rt-calibration-actions">
-                  <Button variant={weightlessActive ? 'primary' : 'secondary'} onClick={() => void toggleWeightless()}>
-                    {weightlessActive ? 'Невесомый гриф: вкл — удержать' : 'Невесомый гриф'}
-                  </Button>
-                  <Button variant="secondary" disabled={weightlessActive && !barStill} onClick={() => captureCalibrationPoint('lower')}>
-                    Зафиксировать нижнюю точку
-                  </Button>
-                  <Button variant="secondary" disabled={weightlessActive && !barStill} onClick={() => captureCalibrationPoint('upper')}>
-                    Зафиксировать верхнюю точку
-                  </Button>
-                  <Button variant="ghost" disabled={!hasCompleteCalibrationRange} onClick={() => void previewRange()}>
-                    Показать диапазон
-                  </Button>
-                  <Button disabled={!hasCompleteCalibrationRange} onClick={() => void handleCalibrationSave()}>
-                    Сохранить амплитуду
-                  </Button>
-                </div>
-                {weightlessActive ? (
-                  <p className="rt-calibration-hint">
-                    Гриф скомпенсирован — переместите его руками в нужную точку и отпустите. {barStill ? 'Гриф неподвижен — можно фиксировать точку.' : 'Дождитесь остановки грифа.'}
-                  </p>
-                ) : null}
-              </section>
-            ) : null}
           </div>
 
-          <section className="rt-panel rt-panel-scroll" aria-label="Параметры упражнения">
+          <div className="rt-setup-right">
+          <section className="rt-panel" aria-label="Параметры упражнения">
+            <div className="rt-setup-parameters-head">
             <div className="rt-exercise">
-              <h2>{exercise.name}</h2>
+              <h2 title={exercise.name}>{exercise.name}</h2>
               {exercise.secondaryName ? <p>{exercise.secondaryName}</p> : null}
               {exercise.muscles.length ? <div className="rt-muscles">{exercise.muscles.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div> : null}
+            </div>
+            <Button variant="secondary" iconLeft={<SlidersHorizontal aria-hidden="true" />} onClick={() => setModeDialogOpen(true)}>
+              Режим тренировки
+            </Button>
             </div>
 
             {hardwareError ? (
@@ -611,13 +577,68 @@ export function ExerciseSetupScreen() {
               />
             </div>
 
-            <div className="rt-secondary-row">
-              <p>{currentStrengthMode.title} · {settings.mode} · безопасный диапазон {settings.safeRange[0]}–{settings.safeRange[1]} кг</p>
-              <Button variant="secondary" iconLeft={<SlidersHorizontal aria-hidden="true" />} onClick={() => setModeDialogOpen(true)}>
-                Режим тренировки
-              </Button>
-            </div>
+            <p className="rt-setup-parameters-note">{currentStrengthMode.title} · {settings.mode} · безопасный диапазон {settings.safeRange[0]}–{settings.safeRange[1]} кг</p>
           </section>
+          {showCalibrationPanel ? (
+            <section className="rt-calibration" data-saved={Boolean(savedCalibration)} aria-label="Настройка грифа">
+              <header>
+                <div>
+                  <h3>{savedCalibration ? 'Настройка грифа сохранена' : 'Настройка грифа'}</h3>
+                  <p>
+                    {setupType === 'fixed_position'
+                      ? 'Выставьте высоту грифа и сохраните положение.'
+                      : hasCompleteCalibrationRange
+                        ? 'Точки зафиксированы — сохраните амплитуду.'
+                        : 'Выставьте гриф и зафиксируйте нижнюю и верхнюю точки.'}
+                  </p>
+                </div>
+                <div className="rt-calibration-links">
+                  <Button variant="ghost" iconLeft={<RotateCcw aria-hidden="true" />} onClick={resetCalibrationDraft}>Сбросить изменения</Button>
+                  {savedCalibration ? <Button variant="ghost" onClick={() => void handleCalibrationDelete()}>Удалить настройку</Button> : null}
+                  {savedCalibration ? <Button variant="ghost" onClick={() => setCalibrationOpen(false)}>Свернуть</Button> : null}
+                </div>
+              </header>
+              <div className="rt-calibration-actions" role="group" aria-label="Тип настройки грифа">
+                <Button variant={setupType === 'bar_range' ? 'primary' : 'secondary'} aria-pressed={setupType === 'bar_range'} onClick={() => setSetupType('bar_range')}>Амплитуда движения</Button>
+                <Button variant={setupType === 'fixed_position' ? 'primary' : 'secondary'} aria-pressed={setupType === 'fixed_position'} onClick={() => setSetupType('fixed_position')}>Фиксированное положение</Button>
+              </div>
+              <dl className="rt-calibration-values" data-mode={setupType}>
+                <div><dt>Текущая позиция</dt><dd>{formatMillimeters(livePositionMm)}</dd><small>Гриф сейчас</small></div>
+                {setupType === 'bar_range' ? (
+                  <>
+                    <div><dt>Нижняя точка</dt><dd>{formatMillimeters(lowerPointMm)}</dd><small>Live-низ: {formatMillimeters(liveLowerBoundMm)}</small></div>
+                    <div><dt>Верхняя точка</dt><dd>{formatMillimeters(upperPointMm)}</dd><small>Live-верх: {formatMillimeters(liveUpperBoundMm)}</small></div>
+                  </>
+                ) : (
+                  <div><dt>Фиксированная высота</dt><dd>{formatMillimeters(fixedPositionMm)}</dd><small>Гриф удерживается на этой высоте</small></div>
+                )}
+              </dl>
+              <div className="rt-calibration-actions rt-calibration-controls" data-mode={setupType}>
+                <Button variant={weightlessActive ? 'primary' : 'secondary'} disabled={barMoving} onClick={() => void toggleWeightless()}>
+                  {weightlessActive ? 'Невесомый гриф: вкл — удержать' : 'Невесомый гриф'}
+                </Button>
+                <HoldToJog userId={selectedUserId} exerciseSlug={currentExercise.slug}
+                  disabled={barMoving || livePositionMm == null} onHoldingChange={setJogPending} />
+                {setupType === 'bar_range' ? (
+                  <>
+                    <Button variant="secondary" aria-label="Зафиксировать нижнюю точку" disabled={barMoving || (weightlessActive && !barStill)} onClick={() => captureCalibrationPoint('lower')}>Запомнить низ</Button>
+                    <Button variant="secondary" aria-label="Зафиксировать верхнюю точку" disabled={barMoving || (weightlessActive && !barStill)} onClick={() => captureCalibrationPoint('upper')}>Запомнить верх</Button>
+                  </>
+                ) : (
+                  <Button variant="secondary" disabled={barMoving || (weightlessActive && !barStill)} onClick={() => captureCalibrationPoint('fixed')}>Зафиксировать высоту грифа</Button>
+                )}
+                <Button disabled={barMoving || (setupType === 'bar_range' ? !hasCompleteCalibrationRange : fixedPositionMm == null)} onClick={() => void handleCalibrationSave()}>
+                  {setupType === 'bar_range' ? 'Сохранить амплитуду' : 'Сохранить положение'}
+                </Button>
+              </div>
+              {weightlessActive ? (
+                <p className="rt-calibration-hint">
+                  Гриф скомпенсирован — переместите его руками в нужную точку и отпустите. {barStill ? 'Гриф неподвижен — можно фиксировать точку.' : 'Дождитесь остановки грифа.'}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
+          </div>
         </div>
 
         <div className="rt-actions" role="group" aria-label="Действия с упражнением">
@@ -630,8 +651,8 @@ export function ExerciseSetupScreen() {
           >
             Завершить тренировку
           </Button>
-          <div className="rt-actions-note">{startBlocked ? 'Сначала сохраните амплитуду — после этого старт откроется.' : readyNote}</div>
-          <Button className="rt-primary" disabled={startBlocked} iconLeft={<Play aria-hidden="true" />} onClick={() => void handleStartExercise()}>
+          <div className="rt-actions-note">{startBlocked ? 'Сначала сохраните настройку грифа — после этого старт откроется.' : readyNote}</div>
+          <Button className="rt-primary" disabled={startBlocked || barMoving} iconLeft={<Play aria-hidden="true" />} onClick={() => void handleStartExercise()}>
             {startBlocked ? 'Старт недоступен' : 'Запустить упражнение'}
           </Button>
         </div>

@@ -76,6 +76,12 @@ export type HardwareControlState = {
   postResults: { id: string; label: string; passed: boolean; detail: string; severity: string }[]
   homed: boolean
   positionKnown: boolean
+  homingPhase: string
+  physicalBottomMm: number | null
+  physicalTopMm: number | null
+  workingBottomMm: number | null
+  workingTopMm: number | null
+  fullTravelMm: number | null
   heartbeatOk: boolean
   commOk: boolean
   powerOk: boolean
@@ -123,6 +129,29 @@ export type HardwareSafetyStatus = {
   activeEventId: number | null
 }
 
+export type HardwarePanelStatus = {
+  enabled: boolean
+  connected: boolean
+  ready: boolean
+  handshakeComplete: boolean
+  fresh: boolean
+  rxAgeMs: number | null
+  port: string | null
+  firmwareVersion: string | null
+  protocolVersion: number | null
+  lastSeenAt: string | null
+  buttons: Record<string, boolean>
+  sensors: Record<string, boolean>
+  bottomPair: boolean
+  topPair: boolean
+  faultCode: string | null
+  diagnostics: Record<string, Record<string, unknown>>
+  position: Record<string, unknown>
+  machineState: string | null
+  inputHealthy: boolean
+  stopLatched: boolean
+}
+
 export type HardwareSnapshot = {
   eventType: string
   emittedAt: string
@@ -144,14 +173,17 @@ export type HardwareSnapshot = {
   diagnosticsStatus: string
   lastDiagnosticsAt: string | null
   alerts: string[]
+  panel: HardwarePanelStatus
 }
 
 export type HardwareCalibration = {
   id: number
   userId: string
   exerciseSlug: string
-  lowerPointMm: number
-  upperPointMm: number
+  setupType: 'bar_range' | 'fixed_position'
+  lowerPointMm: number | null
+  upperPointMm: number | null
+  fixedPositionMm: number | null
   zeroPositionMm: number
   movementRangeConfirmed: boolean
   calibrationRequired: boolean
@@ -203,6 +235,7 @@ export type HardwareCommandRequest = {
   targetReps?: number
   direction?: string
   distanceMm?: number
+  jogId?: string
   serviceMode?: boolean
   loadMode?: string
   startPoint?: string
@@ -232,8 +265,10 @@ export type HardwareCommandResponse = {
 export type HardwareCalibrationPayload = {
   userId: string
   exerciseSlug: string
-  lowerPointMm: number
-  upperPointMm: number
+  setupType: 'bar_range' | 'fixed_position'
+  lowerPointMm?: number | null
+  upperPointMm?: number | null
+  fixedPositionMm?: number | null
   zeroPositionMm: number
   movementRangeConfirmed?: boolean
   calibrationRequired?: boolean

@@ -1,7 +1,9 @@
-from datetime import datetime
-from typing import Any
+from __future__ import annotations
 
-from pydantic import Field
+from datetime import datetime
+from typing import Any, Literal
+
+from pydantic import Field, model_validator
 
 from app.schemas.base import SchemaModel
 from app.schemas.machine import MachineHealthSchema, SafetyStatusSchema
@@ -68,6 +70,29 @@ class CommandSummarySchema(SchemaModel):
     payload: dict[str, object]
 
 
+class PanelStatusSchema(SchemaModel):
+    enabled: bool = False
+    connected: bool = False
+    ready: bool = False
+    handshake_complete: bool = False
+    fresh: bool = False
+    rx_age_ms: float | None = None
+    port: str | None = None
+    firmware_version: str | None = None
+    protocol_version: int | None = None
+    last_seen_at: str | None = None
+    buttons: dict[str, bool] = Field(default_factory=dict)
+    sensors: dict[str, bool] = Field(default_factory=dict)
+    bottom_pair: bool = False
+    top_pair: bool = False
+    fault_code: str | None = None
+    diagnostics: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    position: dict[str, Any] = Field(default_factory=dict)
+    machine_state: str | None = None
+    input_healthy: bool = False
+    stop_latched: bool = False
+
+
 class HardwareSnapshotSchema(SchemaModel):
     event_type: str = "hardware.snapshot"
     emitted_at: str
@@ -89,14 +114,17 @@ class HardwareSnapshotSchema(SchemaModel):
     diagnostics_status: str
     last_diagnostics_at: str | None = None
     alerts: list[str]
+    panel: PanelStatusSchema = Field(default_factory=PanelStatusSchema)
 
 
 class CalibrationSummarySchema(SchemaModel):
     id: int
     user_id: str
     exercise_slug: str
-    lower_point_mm: float
-    upper_point_mm: float
+    setup_type: Literal["bar_range", "fixed_position"] = "bar_range"
+    lower_point_mm: float | None = None
+    upper_point_mm: float | None = None
+    fixed_position_mm: float | None = None
     zero_position_mm: float
     movement_range_confirmed: bool
     calibration_required: bool
@@ -109,13 +137,27 @@ class CalibrationSummarySchema(SchemaModel):
 class CalibrationSaveSchema(SchemaModel):
     user_id: str
     exercise_slug: str
-    lower_point_mm: float
-    upper_point_mm: float
+    setup_type: Literal["bar_range", "fixed_position"] = "bar_range"
+    lower_point_mm: float | None = None
+    upper_point_mm: float | None = None
+    fixed_position_mm: float | None = None
     zero_position_mm: float = 0.0
     movement_range_confirmed: bool = True
     calibration_required: bool = True
     expires_at: datetime | None = None
     note: str | None = None
+
+    @model_validator(mode="after")
+    def validate_setup(self) -> CalibrationSaveSchema:
+        if self.setup_type == "bar_range":
+            if (self.lower_point_mm is None or self.upper_point_mm is None
+                    or not 0 <= self.lower_point_mm < self.upper_point_mm <= 2100
+                    or self.fixed_position_mm is not None):
+                raise ValueError("A bar range needs valid lower and upper points only")
+        elif (self.fixed_position_mm is None or not 0 <= self.fixed_position_mm <= 2100
+              or self.lower_point_mm is not None or self.upper_point_mm is not None):
+            raise ValueError("A fixed position needs a valid position only")
+        return self
 
 
 class CalibrationListResponseSchema(SchemaModel):
@@ -158,6 +200,7 @@ class HardwareCommandRequestSchema(SchemaModel):
     target_reps: int = 10
     direction: str | None = None
     distance_mm: float | None = None
+    jog_id: str | None = None
     service_mode: bool | None = None
     # motion-control extensions
     load_mode: str | None = None

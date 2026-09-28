@@ -60,6 +60,7 @@ class ParameterGroup:
 
 PARAMETER_GROUPS: tuple[ParameterGroup, ...] = (
     ParameterGroup("limits", "Лимиты и скорость", "Физические и мягкие пределы хода, ограничения скорости."),
+    ParameterGroup("homing", "Поиск границ", "Двухпроходный поиск парных нижних и верхних датчиков."),
     ParameterGroup("profiles", "Профили движения", "Скорость, ускорение, плавность и момент для сценариев движения."),
     ParameterGroup("compensation", "Компенсации", "Вес грифа, трение, инерция ШВП, люфт."),
     ParameterGroup("start", "Стартовое положение и удержание", "Подвод в стартовую точку, натяг, детекция захвата, парковка."),
@@ -135,6 +136,23 @@ PARAMETER_SPECS: tuple[ParameterSpec, ...] = (
     _num("limits.maxSpeedMmPerSec", "limits", "Макс. скорость грифа", "Абсолютное ограничение скорости в любом режиме.", 800, "мм/с", min=50, max=1500, hard_max=1500, step=10, critical=True),
     _num("limits.maxDescentSpeedMmPerSec", "limits", "Макс. скорость опускания", "Гриф под нагрузкой никогда не опускается быстрее этого значения.", 600, "мм/с", min=20, max=1500, hard_max=1500, step=10, critical=True),
     _num("limits.maxUserSpeedMmPerSec", "limits", "Порог скорости пользователя", "Превышение вызывает подтормаживание и предупреждение.", 1000, "мм/с", min=50, max=1500, step=10),
+    # --- homing -----------------------------------------------------------
+    _num("homing.coarseSpeedMmPerSec", "homing", "Грубый поиск", "Скорость первого подхода к границе.", 40, "мм/с", min=1, max=200, step=1, critical=True),
+    _num("homing.creepSpeedMmPerSec", "homing", "Controlled creep", "Скорость после первого датчика пары.", 8, "мм/с", min=0.5, max=40, step=0.5, critical=True),
+    _num("homing.fineSpeedMmPerSec", "homing", "Точный подход", "Скорость повторного подхода после отъезда.", 4, "мм/с", min=0.5, max=30, step=0.5, critical=True),
+    _num("homing.backoffSpeedMmPerSec", "homing", "Скорость отъезда", "Скорость освобождения парных датчиков.", 12, "мм/с", min=0.5, max=60, step=0.5, critical=True),
+    _num("homing.backoffDistanceMm", "homing", "Дистанция отъезда", "Минимальный отъезд перед точным подходом.", 8, "мм", min=1, max=50, step=0.5, critical=True),
+    _num("homing.releaseDistanceMm", "homing", "Предел освобождения", "Максимальный отъезд для отпускания обоих датчиков.", 20, "мм", min=2, max=100, step=0.5, critical=True),
+    _num("homing.stopSettleMs", "homing", "Пауза перед отъездом", "Время торможения после подтверждения пары.", 100, "мс", min=0, max=2000, step=10, integer=True, critical=True),
+    _num("homing.pairTimeWindowMs", "homing", "Окно пары по времени", "Максимальная задержка второго датчика пары.", 250, "мс", min=10, max=2000, step=10, integer=True, critical=True),
+    _num("homing.pairDistanceWindowMm", "homing", "Окно пары по пути", "Максимальный путь после первого датчика пары.", 4, "мм", min=0.1, max=30, step=0.1, critical=True),
+    _num("homing.releaseTimeoutMs", "homing", "Таймаут отпускания", "Максимальное время освобождения обоих датчиков при отъезде.", 3000, "мс", min=100, max=15000, step=100, integer=True, critical=True),
+    _num("homing.phaseTimeoutSec", "homing", "Таймаут фазы", "Максимальное время отдельной фазы поиска.", 60, "с", min=1, max=180, step=1, critical=True),
+    _num("homing.totalTimeoutSec", "homing", "Общий таймаут", "Максимальное время полного поиска двух границ.", 150, "с", min=10, max=600, step=5, critical=True),
+    _num("homing.maximumSearchDistanceMm", "homing", "Предел пути фазы", "Максимальный путь в одной фазе поиска.", 2200, "мм", min=100, max=4000, step=10, critical=True),
+    _num("homing.bottomOffsetMm", "homing", "Нижний рабочий отступ", "Отступ рабочего минимума от физической нижней границы.", 5, "мм", min=0, max=200, step=0.5, critical=True),
+    _num("homing.topOffsetMm", "homing", "Верхний рабочий отступ", "Отступ рабочего максимума от физической верхней границы.", 5, "мм", min=0, max=200, step=0.5, critical=True),
+    _num("homing.targetToleranceMm", "homing", "Допуск безопасной позиции", "Допуск остановки у рабочего верхнего отступа.", 1.5, "мм", min=0.2, max=10, step=0.1, critical=True),
     # --- profiles ---------------------------------------------------------
     *_profile("training", "Тренировка", 800, 1500, 8000, 100),
     *_profile("calibration", "Калибровка", 20, 100, 500, 20),
@@ -349,6 +367,10 @@ class MotionParameters:
             raise ParameterValidationError("Порог частичного повтора должен быть меньше порога полного")
         if values["load.guestMaxKg"] > values["load.maxKg"]:
             raise ParameterValidationError("Лимит гостя не может превышать общий лимит нагрузки")
+        if values["homing.backoffDistanceMm"] > values["homing.releaseDistanceMm"]:
+            raise ParameterValidationError("Дистанция отъезда не может превышать предел освобождения датчиков")
+        if values["homing.totalTimeoutSec"] <= values["homing.phaseTimeoutSec"]:
+            raise ParameterValidationError("Общий таймаут homing должен быть больше таймаута отдельной фазы")
 
 
 def schema_payload() -> dict[str, Any]:

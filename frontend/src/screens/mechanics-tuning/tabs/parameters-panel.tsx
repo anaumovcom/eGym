@@ -1,4 +1,20 @@
-import { AlertTriangle, RotateCcw, Save, Undo2, Zap } from 'lucide-react'
+import {
+  AlertTriangle,
+  Check,
+  CircleGauge,
+  Clock3,
+  ListFilter,
+  RotateCcw,
+  Save,
+  Search,
+  Settings2,
+  ShieldCheck,
+  SlidersHorizontal,
+  ToggleLeft,
+  Undo2,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { useTuningStore } from '@/features/hardware/lib/use-tuning-store'
 import type { TuningParameterSpec } from '@/features/hardware/model/tuning-types'
@@ -33,20 +49,26 @@ export function ParametersPanel({ serviceMode }: { serviceMode: boolean }) {
 
   const pendingCount = Object.keys(pending).length
   const temporaryCount = Object.keys(tuning.temporary).length
+  const customizedCount = schema.parameters.filter((spec) => tuning.values[spec.key] !== spec.default).length
 
   return (
     <div className="space-y-4">
       <div className="glass-panel flex flex-wrap items-center gap-3 rounded-2xl p-4">
-        <input
-          value={filter}
-          onChange={(event) => setFilter(event.target.value)}
-          placeholder="Поиск параметра…"
-          aria-label="Поиск параметра"
-          className="min-w-[220px] flex-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white outline-none focus:border-[#d6b05f]/60"
-        />
-        <span className="text-xs text-white/40">
-          Изменено: <span className="font-semibold text-[#f2cf87]">{pendingCount}</span> · временных активно: <span className="font-semibold text-[#7fc8ff]">{temporaryCount}</span>
-        </span>
+        <label className="relative min-w-[220px] flex-1">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/30" aria-hidden="true" />
+          <input
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            placeholder="Поиск параметра…"
+            aria-label="Поиск параметра"
+            className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-9 pr-3 text-sm text-white outline-none focus:border-[#d6b05f]/60"
+          />
+        </label>
+        <div className="flex flex-wrap gap-2" aria-label="Сводка настроек">
+          <SummaryBadge icon={Settings2} label="Настроено" value={customizedCount} tone="neutral" />
+          <SummaryBadge icon={Clock3} label="Изменено" value={pendingCount} tone="pending" />
+          <SummaryBadge icon={Zap} label="Временно" value={temporaryCount} tone="temporary" />
+        </div>
         <Button variant="secondary" className="text-xs" iconLeft={<Zap size={14} />} disabled={!serviceMode || busy || pendingCount === 0} onClick={() => void apply('temporary', selectedUserId)}>
           Применить временно
         </Button>
@@ -71,20 +93,25 @@ export function ParametersPanel({ serviceMode }: { serviceMode: boolean }) {
 
       {!filter && (
         <div className="flex flex-wrap gap-1">
-          {schema.groups.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setGroup(item.id)}
-              title={item.description}
-              className={cn(
-                'rounded-xl px-3 py-1.5 text-xs font-medium transition',
-                group === item.id ? 'border border-[#b5852f]/50 bg-[#b5852f]/30 text-[#f4dfb4]' : 'text-white/40 hover:bg-white/6 hover:text-white',
-              )}
-            >
-              {item.label}
-            </button>
-          ))}
+          {schema.groups.map((item) => {
+            const GroupIcon = getGroupIcon(item.id)
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setGroup(item.id)}
+                title={item.description}
+                className={cn(
+                  'flex items-center gap-2 rounded-xl px-3 py-1.5 text-xs font-medium transition',
+                  group === item.id ? 'border border-[#b5852f]/50 bg-[#b5852f]/30 text-[#f4dfb4]' : 'text-white/40 hover:bg-white/6 hover:text-white',
+                )}
+              >
+                <GroupIcon size={14} aria-hidden="true" />
+                {item.label}
+              </button>
+            )
+          })}
         </div>
       )}
 
@@ -120,6 +147,7 @@ function ParameterCard({ spec, value, pendingValue, temporary, disabled, onChang
   const hasPending = pendingValue !== undefined
   const current = hasPending ? pendingValue : value
   const isDefault = value === spec.default
+  const ParameterIcon = spec.type === 'boolean' ? ToggleLeft : spec.type === 'enum' ? ListFilter : SlidersHorizontal
 
   return (
     <div
@@ -133,23 +161,25 @@ function ParameterCard({ spec, value, pendingValue, temporary, disabled, onChang
       <div className="flex items-start justify-between gap-2">
         <div>
           <div className="flex items-center gap-2 text-sm font-semibold text-white">
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-white/5 text-[#d6b05f]">
+              <ParameterIcon size={14} aria-hidden="true" />
+            </span>
             {spec.label}
             {spec.safetyCritical && <AlertTriangle size={12} className="text-[#ff9f6e]" aria-label="Параметр безопасности" />}
           </div>
-          <div className="font-mono text-[10px] text-white/30">{spec.key}</div>
+          <div className="ml-9 font-mono text-[10px] text-white/30">{spec.key}</div>
         </div>
-        <div className="text-right text-[10px] text-white/40">
-          <div>по умолч.: {String(spec.default)}{spec.unit ? ` ${spec.unit}` : ''}</div>
-          {spec.hardMin !== null && spec.hardMax !== null && <div>жёстко: {spec.hardMin}…{spec.hardMax}</div>}
-          {temporary && <div className="text-[#7fc8ff]">временно</div>}
+        <div className="flex max-w-[45%] flex-wrap justify-end gap-1">
+          {hasPending ? <StatusBadge label="Не применено" tone="pending" /> : temporary ? <StatusBadge label="Временно" tone="temporary" /> : isDefault ? <StatusBadge label="По умолчанию" tone="default" /> : <StatusBadge label="Настроено" tone="custom" />}
+          {spec.safetyCritical ? <StatusBadge label="Безопасность" tone="safety" /> : null}
         </div>
       </div>
       <p className="text-xs text-white/50">{spec.description}</p>
       <ParameterInput spec={spec} value={current} disabled={disabled} onChange={onChange} />
       <div className="flex items-center justify-between text-[10px] text-white/40">
         <span>
-          сейчас: <span className="font-mono text-white/70">{String(value)}</span>
-          {!isDefault && <span className="ml-1 text-[#f2cf87]">≠ default</span>}
+          сейчас: <span className="font-mono text-white/70">{String(value)}{spec.unit ? ` ${spec.unit}` : ''}</span>
+          <span className="ml-2 text-white/30">по умолч.: {String(spec.default)}{spec.unit ? ` ${spec.unit}` : ''}</span>
         </span>
         {hasPending && (
           <button type="button" onClick={onClear} className="text-[#f2cf87] hover:underline">
@@ -172,9 +202,11 @@ function ParameterInput({ spec, value, disabled, onChange }: { spec: TuningParam
         aria-label={spec.label}
         disabled={disabled}
         onClick={() => onChange(!checked)}
-        className={cn('flex h-8 min-h-0 w-16 items-center rounded-full border border-white/10 px-1 transition disabled:opacity-50', checked ? 'bg-[#b5852f]/60 justify-end' : 'bg-white/10 justify-start')}
+        className={cn('ml-auto flex h-9 min-h-0 w-28 items-center rounded-xl border border-white/10 px-1.5 transition disabled:opacity-50', checked ? 'justify-end bg-[#b5852f]/35' : 'justify-start bg-white/5')}
       >
-        <span className="h-6 w-6 rounded-full bg-white shadow" />
+        <span className={cn('flex h-6 min-w-6 items-center justify-center rounded-lg px-1.5 text-[10px] font-semibold shadow transition', checked ? 'bg-[#d6b05f] text-[#171006]' : 'bg-white/20 text-white/55')}>
+          {checked ? 'ВКЛ' : 'ВЫКЛ'}
+        </span>
       </button>
     )
   }
@@ -206,39 +238,103 @@ function ParameterInput({ spec, value, disabled, onChange }: { spec: TuningParam
     if (max !== undefined) result = Math.min(max, result)
     return spec.type === 'integer' ? Math.round(result) : Number(result.toFixed(4))
   }
+  const defaultPercent = min !== undefined && max !== undefined && max > min
+    ? toPercent(Number(spec.default), min, max)
+    : 0
+  const defaultMarkerOffsetRem = 0.375 * (1 - 2 * defaultPercent / 100)
+
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-3">
       {min !== undefined && max !== undefined && (
+        <div className="min-w-0 flex-1 rounded-xl border border-white/6 bg-black/15 px-3 py-2">
+          <div className="relative flex items-center">
+            <input
+              type="range"
+              aria-label={`${spec.label} (слайдер)`}
+              min={min}
+              max={max}
+              step={step}
+              value={Number.isFinite(numeric) ? numeric : min}
+              disabled={disabled}
+              onChange={(event) => onChange(clamp(Number(event.target.value)))}
+              className="relative z-10 w-full accent-[#d6b05f]"
+            />
+            <span
+              className="pointer-events-none absolute top-1/2 z-20 h-3 w-px -translate-y-1/2 bg-[#7fc8ff]"
+              style={{ left: `calc(${defaultPercent}% + ${defaultMarkerOffsetRem}rem)` }}
+              title={`По умолчанию: ${spec.default}`}
+            />
+          </div>
+          <div className="flex justify-between font-mono text-[9px] text-white/30">
+            <span>{min}{spec.unit ? ` ${spec.unit}` : ''}</span>
+            <span className="text-[#7fc8ff]/70">◆ default</span>
+            <span>{max}{spec.unit ? ` ${spec.unit}` : ''}</span>
+          </div>
+        </div>
+      )}
+      <div className="flex shrink-0 items-center gap-2">
+        <button type="button" disabled={disabled} aria-label={`${spec.label}: уменьшить`} onClick={() => onChange(clamp(numeric - step))} className="rounded-lg border border-white/10 px-2 py-1 text-xs text-white/70 hover:bg-white/10 disabled:opacity-40">
+          −
+        </button>
         <input
-          type="range"
-          aria-label={`${spec.label} (слайдер)`}
+          type="number"
+          aria-label={spec.label}
+          value={Number.isFinite(numeric) ? numeric : ''}
+          step={step}
           min={min}
           max={max}
-          step={step}
-          value={Number.isFinite(numeric) ? numeric : min}
           disabled={disabled}
           onChange={(event) => onChange(clamp(Number(event.target.value)))}
-          className="flex-1 accent-[#d6b05f]"
+          className="w-24 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-right font-mono text-sm text-white outline-none focus:border-[#d6b05f]/60"
         />
-      )}
-      <button type="button" disabled={disabled} aria-label={`${spec.label}: уменьшить`} onClick={() => onChange(clamp(numeric - step))} className="rounded-lg border border-white/10 px-2 py-1 text-xs text-white/70 hover:bg-white/10 disabled:opacity-40">
-        −
-      </button>
-      <input
-        type="number"
-        aria-label={spec.label}
-        value={Number.isFinite(numeric) ? numeric : ''}
-        step={step}
-        min={min}
-        max={max}
-        disabled={disabled}
-        onChange={(event) => onChange(clamp(Number(event.target.value)))}
-        className="w-24 rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-right font-mono text-sm text-white outline-none focus:border-[#d6b05f]/60"
-      />
-      <button type="button" disabled={disabled} aria-label={`${spec.label}: увеличить`} onClick={() => onChange(clamp(numeric + step))} className="rounded-lg border border-white/10 px-2 py-1 text-xs text-white/70 hover:bg-white/10 disabled:opacity-40">
-        +
-      </button>
-      <span className="w-12 text-xs text-white/40">{spec.unit}</span>
+        <button type="button" disabled={disabled} aria-label={`${spec.label}: увеличить`} onClick={() => onChange(clamp(numeric + step))} className="rounded-lg border border-white/10 px-2 py-1 text-xs text-white/70 hover:bg-white/10 disabled:opacity-40">
+          +
+        </button>
+        <span className="w-12 text-xs text-white/40">{spec.unit}</span>
+      </div>
     </div>
   )
+}
+
+function SummaryBadge({ icon: Icon, label, value, tone }: { icon: LucideIcon; label: string; value: number; tone: 'neutral' | 'pending' | 'temporary' }) {
+  return (
+    <span className={cn(
+      'inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px]',
+      tone === 'neutral' && 'border-white/8 bg-white/4 text-white/45',
+      tone === 'pending' && 'border-[#f2cf87]/20 bg-[#f2cf87]/8 text-[#f2cf87]',
+      tone === 'temporary' && 'border-[#7fc8ff]/20 bg-[#7fc8ff]/8 text-[#7fc8ff]',
+    )}>
+      <Icon size={12} aria-hidden="true" />
+      {label} <strong className="font-mono text-xs">{value}</strong>
+    </span>
+  )
+}
+
+function StatusBadge({ label, tone }: { label: string; tone: 'pending' | 'temporary' | 'default' | 'custom' | 'safety' }) {
+  const Icon = tone === 'pending' ? Clock3 : tone === 'temporary' ? Zap : tone === 'safety' ? ShieldCheck : Check
+
+  return (
+    <span className={cn(
+      'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[9px] font-medium',
+      tone === 'pending' && 'border-[#f2cf87]/25 bg-[#f2cf87]/8 text-[#f2cf87]',
+      tone === 'temporary' && 'border-[#7fc8ff]/25 bg-[#7fc8ff]/8 text-[#7fc8ff]',
+      tone === 'default' && 'border-white/8 bg-white/4 text-white/40',
+      tone === 'custom' && 'border-[#d6b05f]/25 bg-[#d6b05f]/8 text-[#f2cf87]',
+      tone === 'safety' && 'border-[#ff9f6e]/25 bg-[#ff9f6e]/8 text-[#ff9f6e]',
+    )}>
+      <Icon size={9} aria-hidden="true" />
+      {label}
+    </span>
+  )
+}
+
+function getGroupIcon(group: string): LucideIcon {
+  if (group.includes('safety') || group.includes('limit')) return ShieldCheck
+  if (group.includes('load') || group.includes('torque') || group.includes('compensation')) return CircleGauge
+  if (group.includes('detection') || group.includes('sync')) return AlertTriangle
+  return Settings2
+}
+
+function toPercent(value: number, min: number, max: number) {
+  return Math.min(100, Math.max(0, ((value - min) / (max - min)) * 100))
 }

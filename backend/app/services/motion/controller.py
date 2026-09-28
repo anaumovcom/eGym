@@ -50,6 +50,26 @@ class ControlMode(StrEnum):
     fault = "fault"
 
 
+class HomingPhase(StrEnum):
+    idle = "idle"
+    bottom_coarse = "bottom_coarse"
+    bottom_creep = "bottom_creep"
+    bottom_stop = "bottom_stop"
+    bottom_backoff = "bottom_backoff"
+    bottom_fine = "bottom_fine"
+    bottom_fine_creep = "bottom_fine_creep"
+    bottom_reference = "bottom_reference"
+    top_coarse = "top_coarse"
+    top_creep = "top_creep"
+    top_stop = "top_stop"
+    top_backoff = "top_backoff"
+    top_fine = "top_fine"
+    top_fine_creep = "top_fine_creep"
+    move_safe_top = "move_safe_top"
+    complete = "complete"
+    fault = "fault"
+
+
 @dataclass
 class TrainingConfig:
     lower_mm: float = 640.0
@@ -166,6 +186,12 @@ class ControllerState:
     tick_latency_ms: float = 0.0
     missed_ticks: int = 0
     idle_s: float = 0.0
+    homing_phase: str = HomingPhase.idle.value
+    physical_bottom_mm: float | None = None
+    physical_top_mm: float | None = None
+    working_bottom_mm: float | None = None
+    working_top_mm: float | None = None
+    full_travel_mm: float | None = None
     # counters
     travel_mm_total: float = 0.0
     cycles_total: int = 0
@@ -200,7 +226,14 @@ class MotionController:
         self._rep_started_at = 0.0
         self._estop_requested = False
         self._pending_self_test: list[SelfTestResult] | None = None
-        self._homing_stage = 0
+        self._homing_phase = HomingPhase.idle
+        self._homing_started_at = 0.0
+        self._homing_phase_started_at = 0.0
+        self._homing_phase_start_mm = 0.0
+        self._homing_first_edge_at: float | None = None
+        self._homing_first_edge_mm: float | None = None
+        self._homing_reference_pending = False
+        self._homing_initial_validation_pending = False
         self._last_alert_time = 0.0
         self._loaded_active = False
         self._move_start_mm = 0.0
@@ -213,8 +246,18 @@ class MotionController:
         self._enter(ControlMode.post, "Самотест", "Проверка связи, тормозов, концевиков и температуры.")
 
     def request_homing(self) -> None:
-        self._homing_stage = 0
+        self._homing_started_at = self.state.time
+        self._homing_reference_pending = False
+        self._homing_initial_validation_pending = True
+        self.state.homed = False
+        self.state.position_known = False
+        self.state.physical_bottom_mm = None
+        self.state.physical_top_mm = None
+        self.state.working_bottom_mm = None
+        self.state.working_top_mm = None
+        self.state.full_travel_mm = None
         self._enter(ControlMode.homing, "Homing", "Поиск нулевой позиции на низкой скорости.")
+        self._set_homing_phase(HomingPhase.bottom_coarse)
 
     def request_move(self, target_mm: float, *, profile: str, then: ControlMode, label: str, obstacle_check: bool = True) -> None:
         target = self._clamp_soft(target_mm)
@@ -276,6 +319,10 @@ class MotionController:
 
     def request_emergency_stop(self) -> None:
         self._estop_requested = True
+        if self.state.mode == ControlMode.homing:
+            self._homing_reference_pending = False
+            self._homing_phase = HomingPhase.fault
+            self.state.homing_phase = HomingPhase.fault.value
         self._enter(ControlMode.estop, "СТОП активирован", "Аварийная остановка активна. Любое движение заблокировано.")
 
     def clear_emergency_stop(self) -> None:
@@ -370,9 +417,14 @@ class MotionController:
         state.heartbeat_ok = telemetry.heartbeat_ok
         state.power_ok = telemetry.power_ok
         state.comm_ok = telemetry.left.connected and telemetry.right.connected
-        state.homed = telemetry.left.homed and telemetry.right.homed
+        adapter_homed = telemetry.left.homed and telemetry.right.homed
         encoder_incremental = self.params.get("screw.encoderType") == "incremental"
-        state.position_known = state.homed or (not encoder_incremental and state.power_ok)
+        if state.mode == ControlMode.homing and self._homing_phase != HomingPhase.complete:
+            state.homed = False
+            state.position_known = False
+        else:
+            state.homed = adapter_homed
+            state.position_known = state.homed or (not encoder_incremental and state.power_ok)
         current_warn = float(self.params.get("safety.currentWarnA"))
         current_max = float(self.params.get("safety.currentMaxA"))
         temp_warn = float(self.params.get("safety.tempWarnC"))
@@ -487,27 +539,204 @@ class MotionController:
         return self._brake_command()
 
     def _tick_homing(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
+        del dt
         state = self.state
-        speed = float(self.params.get("profile.calibration.speedMmPerSec"))
+        phase = self._homing_phase
+        position = state.position_mm
+        now = state.time
         limit = self._torque_percent_to_kg(float(self.params.get("profile.calibration.torqueLimitPercent")))
-        both_low = telemetry.left.limit_switch_low and telemetry.right.limit_switch_low
-        if self._homing_stage == 0:
-            if both_low:
-                self._homing_stage = 1
-                self._emit("home", "Концевики достигнуты, нулевая позиция установлена")
+
+        if now - self._homing_started_at >= float(self.params.get("homing.totalTimeoutSec")):
+            return self._homing_fault("homing_global_timeout")
+        if self._homing_phase_expired(position):
+            return self._homing_fault("homing_phase_timeout_or_distance")
+        if (telemetry.left.limit_switch_low and telemetry.left.limit_switch_high) or (
+            telemetry.right.limit_switch_low and telemetry.right.limit_switch_high
+        ):
+            return self._homing_fault("invalid_sensor_combination")
+
+        if self._homing_initial_validation_pending:
+            self._homing_initial_validation_pending = False
+            if telemetry.left.limit_switch_low != telemetry.right.limit_switch_low:
+                return self._homing_fault("bottom_sensor_mismatch")
+            if telemetry.left.limit_switch_high != telemetry.right.limit_switch_high:
+                return self._homing_fault("top_sensor_mismatch")
+
+        if phase in {
+            HomingPhase.bottom_coarse,
+            HomingPhase.bottom_creep,
+            HomingPhase.bottom_fine,
+            HomingPhase.bottom_fine_creep,
+        }:
+            accepted = self._homing_search_pair(telemetry, top=False)
+            if self.state.mode == ControlMode.fault:
                 return self._brake_command()
-            command = self._velocity_command(-speed, limit, feedforward=self._gravity_comp_per_side())
-            self._check_obstacle(telemetry, dt, limit)
-            return command
-        # stage 1: adapter.home() is invoked by runtime when it sees homing_stage == 1; then move to park
-        if state.homed:
-            self._homing_stage = 2
-            self.request_move(float(self.params.get("start.parkPositionMm")), profile="return", then=ControlMode.idle, label="Выход из нуля")
+            if accepted:
+                if phase in {HomingPhase.bottom_fine, HomingPhase.bottom_fine_creep}:
+                    state.physical_bottom_mm = position
+                    state.working_bottom_mm = position + float(self.params.get("homing.bottomOffsetMm"))
+                    self._homing_reference_pending = True
+                    self._set_homing_phase(HomingPhase.bottom_reference)
+                    self._emit("home", "Нижняя физическая граница подтверждена двумя датчиками")
+                else:
+                    self._set_homing_phase(HomingPhase.bottom_stop)
+                return self._brake_command()
+            speed_key = "homing.coarseSpeedMmPerSec" if self._homing_phase == HomingPhase.bottom_coarse else (
+                "homing.creepSpeedMmPerSec" if self._homing_phase == HomingPhase.bottom_creep else "homing.fineSpeedMmPerSec"
+            )
+            return self._velocity_command(-float(self.params.get(speed_key)), limit, feedforward=self._gravity_comp_per_side())
+
+        if phase == HomingPhase.bottom_stop:
+            if self._homing_stop_settled():
+                self._set_homing_phase(HomingPhase.bottom_backoff)
+            return self._brake_command()
+        if phase == HomingPhase.bottom_backoff:
+            if self._homing_backoff_ready(telemetry, top=False):
+                self._set_homing_phase(HomingPhase.bottom_fine)
+                return self._brake_command()
+            if self.state.mode == ControlMode.fault:
+                return self._brake_command()
+            return self._velocity_command(float(self.params.get("homing.backoffSpeedMmPerSec")), limit, feedforward=self._gravity_comp_per_side())
+        if phase == HomingPhase.bottom_reference:
+            return self._brake_command()
+
+        if phase in {
+            HomingPhase.top_coarse,
+            HomingPhase.top_creep,
+            HomingPhase.top_fine,
+            HomingPhase.top_fine_creep,
+        }:
+            accepted = self._homing_search_pair(telemetry, top=True)
+            if self.state.mode == ControlMode.fault:
+                return self._brake_command()
+            if accepted:
+                if phase in {HomingPhase.top_fine, HomingPhase.top_fine_creep}:
+                    state.physical_top_mm = position
+                    state.working_top_mm = position - float(self.params.get("homing.topOffsetMm"))
+                    if state.physical_bottom_mm is None or state.working_bottom_mm is None:
+                        return self._homing_fault("bottom_reference_missing")
+                    state.full_travel_mm = state.physical_top_mm - state.physical_bottom_mm
+                    if state.full_travel_mm <= 0 or state.working_top_mm <= state.working_bottom_mm:
+                        return self._homing_fault("invalid_calibrated_travel")
+                    self._set_homing_phase(HomingPhase.move_safe_top)
+                    self._emit("home", "Верхняя физическая граница подтверждена двумя датчиками")
+                else:
+                    self._set_homing_phase(HomingPhase.top_stop)
+                return self._brake_command()
+            speed_key = "homing.coarseSpeedMmPerSec" if self._homing_phase == HomingPhase.top_coarse else (
+                "homing.creepSpeedMmPerSec" if self._homing_phase == HomingPhase.top_creep else "homing.fineSpeedMmPerSec"
+            )
+            return self._velocity_command(float(self.params.get(speed_key)), limit, feedforward=self._gravity_comp_per_side())
+
+        if phase == HomingPhase.top_stop:
+            if self._homing_stop_settled():
+                self._set_homing_phase(HomingPhase.top_backoff)
+            return self._brake_command()
+        if phase == HomingPhase.top_backoff:
+            if self._homing_backoff_ready(telemetry, top=True):
+                self._set_homing_phase(HomingPhase.top_fine)
+                return self._brake_command()
+            if self.state.mode == ControlMode.fault:
+                return self._brake_command()
+            return self._velocity_command(-float(self.params.get("homing.backoffSpeedMmPerSec")), limit, feedforward=self._gravity_comp_per_side())
+        if phase == HomingPhase.move_safe_top:
+            target = state.working_top_mm
+            if target is None:
+                return self._homing_fault("top_reference_missing")
+            if abs(position - target) <= float(self.params.get("homing.targetToleranceMm")):
+                state.homed = True
+                state.position_known = True
+                self._set_homing_phase(HomingPhase.complete)
+                self._emit("home", "Homing завершён; физические и рабочие границы установлены")
+                self.request_idle()
+                return self._brake_command()
+            return self._position_command(target, limit)
         return self._brake_command()
 
     @property
     def homing_ready_to_zero(self) -> bool:
-        return self.state.mode == ControlMode.homing and self._homing_stage == 1
+        return self.state.mode == ControlMode.homing and self._homing_phase == HomingPhase.bottom_reference and self._homing_reference_pending
+
+    def mark_homing_reference_applied(self) -> None:
+        if not self.homing_ready_to_zero:
+            return
+        self._homing_reference_pending = False
+        # DriveAdapter.home() establishes the lower physical edge as coordinate 0.
+        self.state.physical_bottom_mm = 0.0
+        self.state.working_bottom_mm = float(self.params.get("homing.bottomOffsetMm"))
+        self._set_homing_phase(HomingPhase.top_coarse)
+
+    def _set_homing_phase(self, phase: HomingPhase) -> None:
+        self._homing_phase = phase
+        self.state.homing_phase = phase.value
+        self._homing_phase_started_at = self.state.time
+        self._homing_phase_start_mm = self.state.position_mm
+        self._homing_first_edge_at = None
+        self._homing_first_edge_mm = None
+        self._emit("homing_phase", phase.value, {"phase": phase.value, "positionMm": self.state.position_mm})
+
+    def _homing_phase_expired(self, position_mm: float) -> bool:
+        elapsed = self.state.time - self._homing_phase_started_at
+        distance = abs(position_mm - self._homing_phase_start_mm)
+        return elapsed >= float(self.params.get("homing.phaseTimeoutSec")) or distance > float(
+            self.params.get("homing.maximumSearchDistanceMm")
+        )
+
+    def _homing_fault(self, code: str) -> DriveCommand:
+        self._homing_reference_pending = False
+        self._homing_phase = HomingPhase.fault
+        self.state.homing_phase = HomingPhase.fault.value
+        self._fault(code)
+        return self._brake_command()
+
+    def _homing_search_pair(self, telemetry: AdapterTelemetry, *, top: bool) -> bool:
+        left = telemetry.left.limit_switch_high if top else telemetry.left.limit_switch_low
+        right = telemetry.right.limit_switch_high if top else telemetry.right.limit_switch_low
+        pair = left and right
+        single = left != right
+        now = self.state.time
+        position = self.state.position_mm
+        if single and self._homing_first_edge_at is None:
+            self._homing_first_edge_at = now
+            self._homing_first_edge_mm = position
+            coarse = HomingPhase.top_coarse if top else HomingPhase.bottom_coarse
+            creep = HomingPhase.top_creep if top else HomingPhase.bottom_creep
+            fine = HomingPhase.top_fine if top else HomingPhase.bottom_fine
+            fine_creep = HomingPhase.top_fine_creep if top else HomingPhase.bottom_fine_creep
+            if self._homing_phase == coarse:
+                self._homing_phase = creep
+                self.state.homing_phase = creep.value
+                self._emit("homing_phase", creep.value, {"phase": creep.value, "positionMm": position})
+            elif self._homing_phase == fine:
+                self._homing_phase = fine_creep
+                self.state.homing_phase = fine_creep.value
+                self._emit("homing_phase", fine_creep.value, {"phase": fine_creep.value, "positionMm": position})
+        if self._homing_first_edge_at is not None and (single or pair):
+            edge_position = self._homing_first_edge_mm if self._homing_first_edge_mm is not None else position
+            time_exceeded = (now - self._homing_first_edge_at) * 1000 >= float(self.params.get("homing.pairTimeWindowMs"))
+            distance_exceeded = abs(position - edge_position) > float(self.params.get("homing.pairDistanceWindowMm"))
+            if time_exceeded or distance_exceeded:
+                side = "right" if left else "left"
+                boundary = "top" if top else "bottom"
+                self._homing_fault(f"{side}_{boundary}_sensor_pair_timeout")
+                return False
+        return pair
+
+    def _homing_stop_settled(self) -> bool:
+        return (self.state.time - self._homing_phase_started_at) * 1000 >= float(self.params.get("homing.stopSettleMs"))
+
+    def _homing_backoff_ready(self, telemetry: AdapterTelemetry, *, top: bool) -> bool:
+        left = telemetry.left.limit_switch_high if top else telemetry.left.limit_switch_low
+        right = telemetry.right.limit_switch_high if top else telemetry.right.limit_switch_low
+        elapsed_ms = (self.state.time - self._homing_phase_started_at) * 1000
+        distance = abs(self.state.position_mm - self._homing_phase_start_mm)
+        if (left or right) and (
+            elapsed_ms >= float(self.params.get("homing.releaseTimeoutMs"))
+            or distance > float(self.params.get("homing.releaseDistanceMm"))
+        ):
+            self._homing_fault(f"{'top' if top else 'bottom'}_sensor_release_stuck")
+            return False
+        return not left and not right and distance >= float(self.params.get("homing.backoffDistanceMm"))
 
     def _tick_moving(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
         state = self.state
@@ -1046,7 +1275,12 @@ class MotionController:
         return max(current - step, min(current + step, target))
 
     def _clamp_soft(self, position_mm: float) -> float:
-        return max(float(self.params.get("limits.softMinMm")), min(float(self.params.get("limits.softMaxMm")), position_mm))
+        lower = self.state.working_bottom_mm
+        upper = self.state.working_top_mm
+        if lower is None or upper is None:
+            lower = float(self.params.get("limits.softMinMm"))
+            upper = float(self.params.get("limits.softMaxMm"))
+        return max(lower, min(upper, position_mm))
 
     # --------------------------------------------------------------- misc
     def prepare_sync(self, telemetry: AdapterTelemetry) -> None:
@@ -1086,6 +1320,10 @@ class MotionController:
         self._rep_started_at = state.time
 
     def _fault(self, message: str) -> None:
+        if self.state.mode == ControlMode.homing:
+            self._homing_reference_pending = False
+            self._homing_phase = HomingPhase.fault
+            self.state.homing_phase = HomingPhase.fault.value
         self.state.fault_code = message
         self._enter(ControlMode.fault, "Тренажёр заблокирован", message)
         self._emit("fault", message)

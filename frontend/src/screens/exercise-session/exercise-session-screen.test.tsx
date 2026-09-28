@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,6 +7,7 @@ import { apiPost } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
+import type { HardwareCalibration, HardwareSnapshot } from '@/features/hardware/model/types'
 
 const navigateMock = vi.fn()
 const runCommandMock = vi.fn().mockResolvedValue({})
@@ -121,5 +122,54 @@ describe('ExerciseSessionScreen', () => {
 
     await user.click(within(alert).getByRole('button', { name: 'Понятно' }))
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it.each([
+    { setupType: 'bar_range', pointLabel: 'Нижняя точка', startPosition: 700, direction: 'up', endPosition: 710, expected: { lowerPointMm: 710, upperPointMm: 1100, fixedPositionMm: null } },
+    { setupType: 'bar_range', pointLabel: 'Верхняя точка', startPosition: 1100, direction: 'down', endPosition: 1090, expected: { lowerPointMm: 700, upperPointMm: 1090, fixedPositionMm: null } },
+    { setupType: 'fixed_position', pointLabel: 'Фиксированная высота', startPosition: 700, direction: 'up', endPosition: 710, expected: { lowerPointMm: null, upperPointMm: null, fixedPositionMm: 710 } },
+  ] as const)('pauses and saves $pointLabel during the current set', async ({ setupType, pointLabel, startPosition, direction, endPosition, expected }) => {
+    const user = userEvent.setup()
+    const saved: HardwareCalibration = {
+      id: 9, userId: 'alexey', exerciseSlug: 'barbell-floor-press', setupType,
+      lowerPointMm: setupType === 'bar_range' ? 700 : null,
+      upperPointMm: setupType === 'bar_range' ? 1100 : null,
+      fixedPositionMm: setupType === 'fixed_position' ? 700 : null,
+      zeroPositionMm: 700, movementRangeConfirmed: setupType === 'bar_range',
+      calibrationRequired: true, isActive: true, capturedAt: new Date().toISOString(), expiresAt: null,
+    }
+    const initialSnapshot = {
+      control: { mode: setupType === 'fixed_position' ? 'fixed_hold' : 'training' },
+      motion: { barPositionMm: startPosition, leftPositionMm: startPosition, rightPositionMm: startPosition, repetitionCount: 0, moving: true, amplitudePercent: 0, syncDeltaMm: 0 },
+      safety: { state: 'enabled' },
+    } as HardwareSnapshot
+    const save = vi.fn().mockImplementation(async (payload: Record<string, unknown>) => {
+      const updated = { ...saved, ...payload }
+      useHardwareStore.setState({ currentCalibration: updated })
+      return updated
+    })
+    runCommandMock.mockImplementation(async ({ action }: { action: string }) => {
+      if (action === 'pause') useHardwareStore.setState({ snapshot: { ...initialSnapshot, control: { mode: 'paused' }, motion: { ...initialSnapshot.motion, moving: false } } as HardwareSnapshot })
+      if (action === 'jog_start') useHardwareStore.setState({ snapshot: { ...initialSnapshot, control: { mode: 'moving' }, motion: { ...initialSnapshot.motion, moving: true } } as HardwareSnapshot })
+      if (action === 'jog_stop') useHardwareStore.setState({ snapshot: { ...initialSnapshot, control: { mode: 'paused' }, motion: { ...initialSnapshot.motion, moving: false, barPositionMm: endPosition } } as HardwareSnapshot })
+      return {}
+    })
+    useHardwareStore.setState({ snapshot: initialSnapshot, currentCalibration: saved, saveCalibration: save })
+    renderScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Настроить положение грифа' }))
+    await waitFor(() => expect(runCommandMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'pause' })))
+    expect(screen.getByText(pointLabel)).toBeInTheDocument()
+    const button = screen.getByRole('button', { name: direction === 'up' ? '↑ Вверх · удерживать' : '↓ Вниз · удерживать' })
+    fireEvent.pointerDown(button, { pointerType: 'mouse', pointerId: 1, button: 0 })
+    await waitFor(() => expect(runCommandMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'jog_start', direction, mode: 'service' })))
+    expect(screen.getByRole('button', { name: 'Сохранить положение' })).toBeDisabled()
+    fireEvent.pointerUp(button, { pointerType: 'mouse', pointerId: 1 })
+    await waitFor(() => expect(runCommandMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'jog_stop' })))
+    await user.click(screen.getByRole('button', { name: 'Сохранить положение' }))
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ userId: 'alexey', exerciseSlug: 'barbell-floor-press', setupType, ...expected })))
+    await user.click(screen.getByRole('button', { name: 'Продолжить подход' }))
+    expect(runCommandMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'resume', calibrationRequired: true, exerciseSlug: 'barbell-floor-press' }))
+    expect(navigateMock).not.toHaveBeenCalled()
   })
 })

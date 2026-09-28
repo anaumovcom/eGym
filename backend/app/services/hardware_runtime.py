@@ -13,7 +13,7 @@ import os
 import time
 from collections import deque
 from collections.abc import Generator
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from datetime import UTC, datetime
 from threading import RLock
 from typing import Any
@@ -28,14 +28,48 @@ from app.services.motion.modbus_adapter import ModbusDriveAdapter
 from app.services.motion.parameters import MotionParameters
 from app.services.motion.procedures import MEASUREMENTS, PROCEDURE_LABELS, SCENARIOS, ProcedureContext
 from app.services.motion.recorder import SAMPLE_FIELDS, TelemetryRecorder
+from app.services.panel.bridge import PanelBridge, PanelBridgeConfig
+from app.services.panel.protocol import (
+    PanelButtonEvent,
+    PanelEvent,
+    PanelFaultEvent,
+    PanelMotionRequestEvent,
+    PanelStatusEvent,
+)
 
 DEFAULT_MOTION_TICK_SECONDS = 0.02
 BROADCAST_INTERVAL_SECONDS = 0.1
 DEBUG_BROADCAST_INTERVAL_SECONDS = 0.1
 KEYBOARD_FORCE_KG = 35.0
+JOG_WATCHDOG_SECONDS = 0.6
 
 INCIDENT_EVENT_KINDS = {"fault", "desync", "failure", "obstacle"}
 LOAD_MODES = {"normal_weight", "assist_up", "negative_phase", "light_mode", "isokinetic", "bodyweight", "no_machine", "fixed_position", "isometric"}
+
+PANEL_MACHINE_STATES: dict[ControlMode, str] = {
+    ControlMode.idle: "ready",
+    ControlMode.post: "booting",
+    ControlMode.homing: "homing",
+    ControlMode.moving: "positioning",
+    ControlMode.weightless: "maintenance",
+    ControlMode.start_hold: "ready",
+    ControlMode.training: "exercise_active",
+    ControlMode.fixed_hold: "exercise_active",
+    ControlMode.isometric: "exercise_active",
+    ControlMode.paused: "paused",
+    ControlMode.parked: "ready",
+    ControlMode.estop: "emergency_stop",
+    ControlMode.fault: "error",
+}
+PANEL_ACTIVE_EXERCISE_MODES = {ControlMode.training, ControlMode.fixed_hold, ControlMode.isometric}
+PANEL_PAUSABLE_MODES = {*PANEL_ACTIVE_EXERCISE_MODES, ControlMode.start_hold}
+PANEL_DISCONNECT_ESTOP_MODES = {
+    ControlMode.homing,
+    ControlMode.moving,
+    ControlMode.weightless,
+    ControlMode.start_hold,
+    *PANEL_ACTIVE_EXERCISE_MODES,
+}
 
 
 @dataclass
@@ -172,9 +206,14 @@ class HardwareRuntime:
         self._debug_batch: list[list[Any]] = []
         self._last_tick_wall = 0.0
         self._last_digest: tuple[Any, ...] = ()
+        self._panel_powered_on = True
+        self._panel_clear_stop_pending = False
+        self._jog: tuple[str, str, str, float] | None = None  # token, user, exercise, deadline
+        self._last_jog: tuple[str, str, str] | None = None
         self.state = self._build_default_state()
         self._refresh_runtime_options()
         self._bootstrap_controller()
+        self.panel = self._build_panel_bridge()
 
     # ------------------------------------------------------------- lifecycle
     def _build_adapter(self) -> DriveAdapter:
@@ -215,6 +254,30 @@ class HardwareRuntime:
             self.controller.state.post_status = "skipped"
             self.controller.request_idle()
 
+    def _panel_config(self) -> PanelBridgeConfig:
+        settings = get_settings()
+        return PanelBridgeConfig(
+            enabled=settings.hardware_panel_enabled,
+            port=settings.hardware_panel_port,
+            baud=settings.hardware_panel_baud,
+            heartbeat_interval_seconds=settings.hardware_panel_heartbeat_interval_seconds,
+            reconnect_delay_seconds=settings.hardware_panel_reconnect_delay_seconds,
+            status_interval_seconds=settings.hardware_panel_status_interval_seconds,
+            rx_watchdog_seconds=settings.hardware_panel_rx_watchdog_seconds,
+            night_mode=settings.hardware_panel_night_mode,
+            brightness=settings.hardware_panel_brightness,
+        )
+
+    def _build_panel_bridge(self) -> PanelBridge:
+        return PanelBridge(
+            self._panel_config(),
+            position_callback=self._panel_position,
+            machine_state_callback=self._panel_machine_state,
+            activity_callback=self._panel_activity,
+            event_callback=self._handle_panel_event,
+            disconnect_callback=self._handle_panel_disconnect,
+        )
+
     def reset(self) -> None:
         self._refresh_runtime_options()
         with self._lock:
@@ -230,6 +293,10 @@ class HardwareRuntime:
             self._procedure_generator = None
             self._events_seen = 0
             self._last_digest = ()
+            self._panel_powered_on = True
+            self._panel_clear_stop_pending = False
+            self._jog = None
+            self._last_jog = None
             self.state = self._build_default_state()
             self._subscribers = subscribers
             self._debug_subscribers = debug_subscribers
@@ -245,8 +312,10 @@ class HardwareRuntime:
         self._refresh_runtime_options()
         if self._task is None or self._task.done():
             self._task = asyncio.create_task(self._run())
+        await self.panel.start()
 
     async def stop(self) -> None:
+        await self.panel.stop()
         if self._task is not None:
             self._task.cancel()
             try:
@@ -344,6 +413,7 @@ class HardwareRuntime:
     # -------------------------------------------------------------- commands
     def trigger_emergency_stop(self) -> HardwareCommandRecord:
         with self._lock:
+            self._stop_jog_locked()
             self.adapter.emergency_stop()
             self.controller.request_emergency_stop()
             self._abort_procedure("Аварийная остановка")
@@ -354,20 +424,48 @@ class HardwareRuntime:
             self.state.alerts = ["Аварийная остановка активна"]
             self.recorder.capture_incident("Аварийная остановка", self.parameters.effective(), self.events_payload(80), now=self.controller.state.time)
             command = self._record_command("trigger_emergency_stop", {})
+        self._notify_panel("stop")
         self._schedule_broadcast()
         return command
 
     def clear_emergency_stop(self) -> HardwareCommandRecord:
+        panel = self.panel.state.to_payload()
+        if panel["enabled"]:
+            if not panel["connected"]:
+                raise PermissionError("Нельзя снять аварийную остановку: панель не подключена")
+            if not panel["handshakeComplete"] or not panel["ready"]:
+                raise PermissionError("Нельзя снять аварийную остановку: handshake панели не завершён")
+            if not panel["fresh"]:
+                raise PermissionError("Нельзя снять аварийную остановку: состояние панели устарело")
+            if not panel["inputHealthy"]:
+                raise PermissionError("Нельзя снять аварийную остановку: входы панели неисправны")
+            if panel["buttons"].get("stop"):
+                raise PermissionError("Нельзя снять аварийную остановку, пока физическая кнопка STOP нажата")
+            if panel["stopLatched"]:
+                if not self.panel.send_command("clear_stop"):
+                    raise PermissionError("Нельзя снять аварийную остановку: команда не доставлена панели")
+                with self._lock:
+                    self._panel_clear_stop_pending = True
+                    command = self._record_command("clear_emergency_stop", {"awaitingPanel": True})
+                    command.status = "pending"
+                self._schedule_broadcast()
+                return command
+        command = self._clear_emergency_stop_confirmed()
+        self._notify_panel("clear_stop")
+        self._schedule_broadcast()
+        return command
+
+    def _clear_emergency_stop_confirmed(self) -> HardwareCommandRecord:
         with self._lock:
             self.adapter.release_emergency_stop()
             self.controller.clear_emergency_stop()
+            self._panel_clear_stop_pending = False
             self.state.safety_state = SafetyState.enabled
             self.state.machine_state = MachineState.ready
             self.state.machine_label = "СТОП снят"
             self.state.safety_message = "Приводы в удержании. Проверьте синхронность перед продолжением."
             self.state.alerts = []
             command = self._record_command("clear_emergency_stop", {})
-        self._schedule_broadcast()
         return command
 
     def set_service_mode(self, enabled: bool) -> HardwareCommandRecord:
@@ -393,6 +491,7 @@ class HardwareRuntime:
             self.state.diagnostics_status = "failed" if failed else "passed"
             self.state.last_diagnostics_at = datetime.now(UTC)
             command = self._record_command("run_diagnostics", {"checks": len(results), "failed": len(failed)})
+        self._notify_panel("diagnostics")
         self._schedule_broadcast()
         return command
 
@@ -404,9 +503,13 @@ class HardwareRuntime:
         return command
 
     def home(self) -> HardwareCommandRecord:
+        self._require_panel_ready_for_motion()
         with self._lock:
             self.controller.request_homing()
             command = self._record_command("home", {})
+        # Deliberately do not send firmware ``home``: the backend controller owns
+        # drive homing, while firmware ``home`` emits electrical motion requests.
+        self._notify_panel("set_machine_state", state="homing")
         self._schedule_broadcast()
         return command
 
@@ -420,14 +523,83 @@ class HardwareRuntime:
         return command
 
     def manual_move(self, direction: str, distance_mm: float, profile: str) -> HardwareCommandRecord:
+        self._require_panel_ready_for_motion()
         with self._lock:
+            if direction not in {"up", "down"} or not 0 < distance_mm <= 50:
+                raise ValueError("Ручное перемещение допускает шаг от 1 до 50 мм и направление вверх или вниз")
+            if self.controller.state.mode not in {ControlMode.idle, ControlMode.paused, ControlMode.parked, ControlMode.weightless}:
+                raise PermissionError("Сначала остановите подход и дождитесь удержания грифа")
+            if abs(self.controller.state.user_force_kg) > float(self.parameters.get("detection.releaseForceKg")):
+                raise PermissionError("Освободите гриф перед перемещением")
             delta = distance_mm if direction == "up" else -distance_mm
             target = self.controller.state.position_mm + delta
-            self.controller.request_move(target, profile="service" if profile == "service" else "return", then=ControlMode.paused, label="Ручное перемещение")
+            if self.controller._clamp_soft(target) != target:
+                raise ValueError("Нельзя переместить гриф за безопасные пределы")
+            self.controller.request_move(target, profile="calibration" if profile == "service" else "return", then=ControlMode.paused, label="Ручное перемещение")
             self.state.motion.motion_profile = profile
             command = self._record_command("manual_move", {"direction": direction, "distanceMm": distance_mm, "profile": profile})
         self._schedule_broadcast()
         return command
+
+    @property
+    def jog_active(self) -> bool:
+        with self._lock:
+            return self._jog is not None
+
+    def start_jog(self, direction: str, token: str, user_id: str, exercise_slug: str) -> HardwareCommandRecord:
+        self._require_panel_ready_for_motion()
+        with self._lock:
+            if self._jog is not None:
+                raise PermissionError("Перемещение грифа уже выполняется")
+            if self.procedure.status == "running":
+                raise PermissionError("Дождитесь завершения процедуры тренажёра")
+            if direction not in {"up", "down"} or not token or not user_id or not exercise_slug:
+                raise ValueError("Укажите направление, пользователя, упражнение и идентификатор удержания")
+            if self.controller.state.mode not in {ControlMode.idle, ControlMode.paused, ControlMode.parked, ControlMode.weightless}:
+                raise PermissionError("Сначала остановите подход и дождитесь удержания грифа")
+            if abs(self.controller.state.user_force_kg) > float(self.parameters.get("detection.releaseForceKg")):
+                raise PermissionError("Освободите гриф перед перемещением")
+            limit = float(self.parameters.get("limits.softMaxMm" if direction == "up" else "limits.softMinMm"))
+            if abs(limit - self.controller.state.position_mm) < 1.5:
+                raise ValueError("Достигнут безопасный предел перемещения")
+            self._jog = (token, user_id, exercise_slug, time.monotonic() + JOG_WATCHDOG_SECONDS)
+            self.controller.request_move(limit, profile="calibration", then=ControlMode.paused, label="Перемещение при удержании")
+            if self.emulator is not None:
+                self.emulator.set_scenario("none")
+            command = self._record_command("jog_start", {"direction": direction})
+        self._schedule_broadcast()
+        return command
+
+    def refresh_jog(self, token: str, user_id: str, exercise_slug: str) -> HardwareCommandRecord:
+        with self._lock:
+            if self._jog is None or self._jog[:3] != (token, user_id, exercise_slug) or self.controller.state.mode != ControlMode.moving:
+                raise PermissionError("Перемещение не активно")
+            if time.monotonic() >= self._jog[3]:
+                self._stop_jog_locked()
+                raise PermissionError("Время удержания истекло")
+            self._jog = (token, user_id, exercise_slug, time.monotonic() + JOG_WATCHDOG_SECONDS)
+            command = self._record_command("jog_keepalive", {})
+        return command
+
+    def stop_jog(self, token: str, user_id: str, exercise_slug: str) -> HardwareCommandRecord:
+        with self._lock:
+            owner = (token, user_id, exercise_slug)
+            if self._jog is None and self._last_jog == owner:
+                command = self._record_command("jog_stop", {})
+                return command
+            if self._jog is None or self._jog[:3] != owner:
+                raise PermissionError("Перемещение не активно для этого пользователя и упражнения")
+            self._stop_jog_locked()
+            command = self._record_command("jog_stop", {})
+        self._schedule_broadcast()
+        return command
+
+    def _stop_jog_locked(self) -> None:
+        if self._jog is not None:
+            self._last_jog = self._jog[:3]
+        self._jog = None
+        if self.controller.state.mode == ControlMode.moving:
+            self.controller.request_hold("Перемещение остановлено", "Гриф удерживается на месте.")
 
     def start_motion(
         self,
@@ -450,6 +622,7 @@ class HardwareRuntime:
         wait_for_grip: bool = False,
         auto_user: bool | None = None,
     ) -> HardwareCommandRecord:
+        self._require_panel_ready_for_motion()
         with self._lock:
             config = TrainingConfig(
                 lower_mm=lower_bound_mm,
@@ -511,12 +684,15 @@ class HardwareRuntime:
                     "startPoint": config.start_point,
                 },
             )
+        self._notify_panel("set_load", kg=self.controller.config.load_kg)
+        self._notify_panel("start")
         self._schedule_broadcast()
         return command
 
     def move_to_start(self, *, lower_bound_mm: float, upper_bound_mm: float, start_point: str = "lower", custom_mm: float | None = None, **training_kwargs: Any) -> HardwareCommandRecord:
         """Bring the bar to the exercise start point and wait for grip."""
 
+        self._require_panel_ready_for_motion()
         with self._lock:
             config = TrainingConfig(
                 lower_mm=lower_bound_mm,
@@ -544,7 +720,8 @@ class HardwareRuntime:
         self._schedule_broadcast()
         return command
 
-    def start_fixed_position(self, *, position_mm: float, target_reps: int = 10, rep_count_source: str = "load", body_weight_kg: float = 0.0) -> HardwareCommandRecord:
+    def start_fixed_position(self, *, position_mm: float, target_reps: int = 10, rep_count_source: str = "load", body_weight_kg: float = 0.0, calibration_id: int | None = None) -> HardwareCommandRecord:
+        self._require_panel_ready_for_motion()
         with self._lock:
             config = TrainingConfig(
                 lower_mm=position_mm - 1,
@@ -556,6 +733,8 @@ class HardwareRuntime:
             )
             self.controller.config = config
             self.controller._reset_set_counters()
+            self.state.active_calibration_id = calibration_id
+            self.state.calibration_actual = calibration_id is not None
             self.state.motion.load_mode = "fixed_position"
             self.state.motion.fixed_position_mm = position_mm
             self.state.motion.target_reps = target_reps
@@ -567,6 +746,7 @@ class HardwareRuntime:
         return command
 
     def range_preview(self, lower_mm: float, upper_mm: float) -> HardwareCommandRecord:
+        self._require_panel_ready_for_motion()
         with self._lock:
             self.controller.config.lower_mm = lower_mm
             self.controller.config.upper_mm = upper_mm
@@ -587,6 +767,7 @@ class HardwareRuntime:
         return {"lowerMm": lower_mm, "upperMm": upper_mm, "confirmed": True}
 
     def enter_weightless(self) -> HardwareCommandRecord:
+        self._require_panel_ready_for_motion()
         with self._lock:
             self.controller.request_weightless()
             if self.emulator is not None:
@@ -619,34 +800,59 @@ class HardwareRuntime:
 
     def hold(self) -> HardwareCommandRecord:
         with self._lock:
+            self._stop_jog_locked()
             self.controller.request_hold()
             self._abort_procedure("Удержание по команде")
             if self.emulator is not None:
                 self.emulator.set_scenario("none")
             command = self._record_command("hold", {})
+        self._notify_panel("pause")
         self._schedule_broadcast()
         return command
 
     def pause(self) -> HardwareCommandRecord:
         with self._lock:
+            if self.controller.state.mode not in {ControlMode.training, ControlMode.fixed_hold, ControlMode.start_hold, ControlMode.paused}:
+                raise PermissionError("Подход нельзя остановить для калибровки в текущем состоянии")
             self.controller.request_pause()
             if self.emulator is not None:
                 self.emulator.set_scenario("none")
             command = self._record_command("pause", {})
+        self._notify_panel("pause")
         self._schedule_broadcast()
         return command
 
-    def resume(self) -> HardwareCommandRecord:
+    def resume(self, *, lower_mm: float | None = None, upper_mm: float | None = None, fixed_position_mm: float | None = None) -> HardwareCommandRecord:
+        self._require_panel_ready_for_motion()
         with self._lock:
+            if self.controller.state.mode != ControlMode.paused:
+                raise PermissionError("Продолжение доступно только после удержания грифа")
+            config = self.controller.config
+            if fixed_position_mm is not None:
+                if config.load_mode != "fixed_position" or abs(self.controller.state.position_mm - fixed_position_mm) > 5:
+                    raise PermissionError("Гриф должен находиться на сохранённой высоте фиксации")
+                config.lower_mm = fixed_position_mm - 1
+                config.upper_mm = fixed_position_mm + 1
+                config.fixed_position_mm = fixed_position_mm
+                self.state.motion.fixed_position_mm = fixed_position_mm
+            elif lower_mm is not None and upper_mm is not None:
+                if config.load_mode == "fixed_position":
+                    raise PermissionError("Нужна настройка фиксированной позиции")
+                config.lower_mm = lower_mm
+                config.upper_mm = upper_mm
+                self.state.motion.lower_bound_mm = lower_mm
+                self.state.motion.upper_bound_mm = upper_mm
             self.controller.request_resume()
             if self.emulator is not None and self.controller.config.load_mode not in {"fixed_position", "isometric"} and not self._keyboard_simulation_enabled:
                 config = self.controller.config
                 self.emulator.set_scenario("steady_set", strength_kg=max(40.0, config.load_kg * 1.8), lower_mm=config.lower_mm, upper_mm=config.upper_mm, period_s=3.0)
             command = self._record_command("resume", {})
+        self._notify_panel("start")
         self._schedule_broadcast()
         return command
 
     def park(self) -> HardwareCommandRecord:
+        self._require_panel_ready_for_motion()
         with self._lock:
             self.controller.request_park()
             if self.emulator is not None:
@@ -660,6 +866,7 @@ class HardwareRuntime:
             self.controller.set_load(load_kg)
             self.state.motion.load_target_kg = self.controller.config.load_kg
             command = self._record_command("set_load", {"loadKg": self.controller.config.load_kg})
+        self._notify_panel("set_load", kg=self.controller.config.load_kg)
         self._schedule_broadcast()
         return command
 
@@ -677,6 +884,7 @@ class HardwareRuntime:
                 self.emulator.set_scenario("none")
             self.state.machine_label = "Подход завершён"
             command = self._record_command("complete_set", {"repetitionCount": self.controller.state.repetition_count})
+        self._notify_panel("play_effect", effect="set_complete")
         self._schedule_broadcast()
         return command
 
@@ -687,10 +895,12 @@ class HardwareRuntime:
                 self.emulator.clear_faults()
             self.controller.reset_fault()
             command = self._record_command("reset_fault", {})
+        self._notify_panel("drive_fault", enabled=False)
         self._schedule_broadcast()
         return command
 
     def align_sides(self) -> HardwareCommandRecord:
+        self._require_panel_ready_for_motion()
         with self._lock:
             if not self.state.service_mode:
                 raise PermissionError("Выравнивание сторон доступно только в сервисном режиме")
@@ -701,6 +911,7 @@ class HardwareRuntime:
 
     # ---------------------------------------------------------- procedures
     def start_procedure(self, name: str, **kwargs: Any) -> ProcedureStatus:
+        self._require_panel_ready_for_motion()
         with self._lock:
             factory = MEASUREMENTS.get(name) or SCENARIOS.get(name)
             if factory is None:
@@ -868,6 +1079,7 @@ class HardwareRuntime:
                 "diagnosticsStatus": self.state.diagnostics_status,
                 "lastDiagnosticsAt": self.state.last_diagnostics_at.isoformat() if self.state.last_diagnostics_at else None,
                 "alerts": list(dict.fromkeys([*self.state.alerts, *control.alerts])),
+                "panel": self.panel.state.to_payload(),
             }
         return payload
 
@@ -907,6 +1119,12 @@ class HardwareRuntime:
             "postResults": control.post_results,
             "homed": control.homed,
             "positionKnown": control.position_known,
+            "homingPhase": control.homing_phase,
+            "physicalBottomMm": control.physical_bottom_mm,
+            "physicalTopMm": control.physical_top_mm,
+            "workingBottomMm": control.working_bottom_mm,
+            "workingTopMm": control.working_top_mm,
+            "fullTravelMm": control.full_travel_mm,
             "heartbeatOk": control.heartbeat_ok,
             "commOk": control.comm_ok,
             "powerOk": control.power_ok,
@@ -966,6 +1184,9 @@ class HardwareRuntime:
         """One control tick. Returns True when state changed (always true while running)."""
 
         with self._lock:
+            if self._jog is not None:
+                if time.monotonic() >= self._jog[3] or self.controller.state.mode != ControlMode.moving:
+                    self._stop_jog_locked()
             wall = time.perf_counter()
             if self._last_tick_wall:
                 latency = (wall - self._last_tick_wall) * 1000
@@ -976,12 +1197,15 @@ class HardwareRuntime:
 
             dt = self.tick_seconds
             self._apply_keyboard_virtual_hand()
-            telemetry = self.last_telemetry or self.adapter.read()
+            telemetry = self._merge_panel_sensors(self.last_telemetry or self.adapter.read())
             self.controller.prepare_sync(telemetry)
             command = self.controller.tick(telemetry, dt)
             if self.controller.homing_ready_to_zero:
                 self.adapter.home()
-            telemetry = self.adapter.step(command, dt)
+                telemetry = self._merge_panel_sensors(self.adapter.read())
+                self.controller.refresh_position(telemetry)
+                self.controller.mark_homing_reference_applied()
+            telemetry = self._merge_panel_sensors(self.adapter.step(command, dt))
             self.last_telemetry = telemetry
             self.last_command = command
             self.controller.refresh_position(telemetry)
@@ -1074,6 +1298,12 @@ class HardwareRuntime:
 
         if self.state.safety_state == SafetyState.emergency_stop:
             return
+        if not self._panel_powered_on:
+            self.state.machine_state = MachineState.blocked
+            self.state.machine_label = "Тренажёр выключен"
+            self.state.safety_message = "Приводы остановлены и тормоза включены."
+            self.state.alerts = []
+            return
         if control.mode == ControlMode.fault:
             self.state.machine_state = MachineState.blocked
             self.state.machine_label = "Тренажёр заблокирован"
@@ -1125,14 +1355,232 @@ class HardwareRuntime:
         for event in new_events:
             if event.kind in INCIDENT_EVENT_KINDS:
                 self.recorder.capture_incident(event.message, self.parameters.effective(), self.events_payload(80), now=self.controller.state.time)
+            if event.kind == "homing_phase":
+                phase = event.payload.get("phase")
+                if phase in {"bottom_reference", "top_backoff", "move_safe_top"}:
+                    self._notify_panel("play_effect", effect="home_detected")
+                elif phase == "complete":
+                    self._notify_panel("play_effect", effect="homing_complete")
+            elif event.kind in {"arrived", "target"}:
+                self._notify_panel("play_effect", effect="target_reached")
+            elif event.kind in {"obstacle", "failure"}:
+                self._notify_panel("play_effect", effect="limit_triggered")
 
     def _refresh_runtime_options(self) -> None:
         settings = get_settings()
         self._keyboard_simulation_enabled = bool(settings.hardware_keyboard_simulation_enabled and os.name == "nt")
+        self._panel_load_step_kg = settings.hardware_panel_load_step_kg
+        self._panel_service_move_mm = settings.hardware_panel_service_move_mm
         if self._keyboard_simulation_enabled:
             self._keyboard_monitor.start()
         else:
             self._keyboard_monitor.stop()
+        if hasattr(self, "panel") and not self.panel.running:
+            self.panel.configure(self._panel_config())
+
+    def _panel_position(self) -> float:
+        with self._lock:
+            return self.controller.state.position_mm
+
+    def _merge_panel_sensors(self, telemetry: AdapterTelemetry) -> AdapterTelemetry:
+        if not self.panel.config.enabled or not self.panel.state.is_ready():
+            return telemetry
+        with self.panel.state._lock:
+            sensors = dict(self.panel.state.sensors)
+        return replace(
+            telemetry,
+            left=replace(
+                telemetry.left,
+                limit_switch_low=sensors["left_bottom"],
+                limit_switch_high=sensors["left_top"],
+            ),
+            right=replace(
+                telemetry.right,
+                limit_switch_low=sensors["right_bottom"],
+                limit_switch_high=sensors["right_top"],
+            ),
+        )
+
+    def _panel_machine_state(self) -> str:
+        with self._lock:
+            if self.state.safety_state == SafetyState.emergency_stop:
+                return "emergency_stop"
+            if not self._panel_powered_on:
+                return "off"
+            if self.state.service_mode and self.controller.state.mode in {ControlMode.idle, ControlMode.paused, ControlMode.parked}:
+                return "maintenance"
+            return PANEL_MACHINE_STATES[self.controller.state.mode]
+
+    def _panel_activity(self) -> str:
+        with self._lock:
+            control = self.controller.state
+            if (not self._panel_powered_on or self.state.safety_state != SafetyState.enabled
+                    or control.mode not in {ControlMode.homing, ControlMode.moving, *PANEL_ACTIVE_EXERCISE_MODES}
+                    or not control.moving or abs(control.velocity_mm_s) < 1.0):
+                return "stop"
+            return "up" if control.velocity_mm_s > 0 else "down"
+
+    def _notify_panel(self, command: str, **payload: Any) -> None:
+        self.panel.send_command(command, **payload)
+
+    def _require_panel_ready_for_motion(self) -> None:
+        with self._lock:
+            powered_on = self._panel_powered_on
+            safety_enabled = self.state.safety_state == SafetyState.enabled
+        if not powered_on or not safety_enabled:
+            raise PermissionError("Движение запрещено: тренажёр выключен или safety отключена")
+        if not self.panel.config.enabled:
+            return
+        panel = self.panel.state.to_payload()
+        if not panel["ready"] or not panel["inputHealthy"] or panel["stopLatched"] or panel["faultCode"]:
+            raise PermissionError("Движение запрещено: физическая панель не готова")
+
+    def _handle_panel_disconnect(self, reason: str) -> None:
+        with self._lock:
+            mode = self.controller.state.mode
+            moving = self.controller.state.moving
+            procedure_running = self.procedure.status == "running"
+            self.controller._emit("panel_disconnect", f"Панель отключена: {reason}", {"mode": mode.value})
+        if moving or procedure_running or mode in PANEL_DISCONNECT_ESTOP_MODES:
+            self.trigger_emergency_stop()
+        else:
+            self._schedule_broadcast()
+
+    def _handle_panel_event(self, event: PanelEvent) -> None:
+        if isinstance(event, PanelStatusEvent):
+            if event.machine_state == "off":
+                with self._lock:
+                    unsafe_shutdown = self.controller.state.mode not in {ControlMode.idle, ControlMode.paused, ControlMode.parked}
+                if unsafe_shutdown:
+                    self.trigger_emergency_stop()
+                with self._lock:
+                    self._panel_powered_on = False
+                    self.adapter.set_brake(True)
+                    if not unsafe_shutdown and self.state.safety_state != SafetyState.emergency_stop:
+                        self.controller.request_idle()
+                        self.state.safety_state = SafetyState.disabled
+                        self.state.machine_state = MachineState.blocked
+                        self.state.machine_label = "Тренажёр выключен"
+                        self.state.safety_message = "Приводы остановлены и тормоза включены."
+            if event.stop_latched or event.buttons["stop"] or event.fault_code != "none" or not event.input_healthy:
+                if self.state.safety_state != SafetyState.emergency_stop:
+                    self.trigger_emergency_stop()
+            else:
+                self._schedule_broadcast()
+            return
+        if isinstance(event, PanelFaultEvent) and event.latched:
+            if self.state.safety_state != SafetyState.emergency_stop:
+                self.trigger_emergency_stop()
+            return
+        if isinstance(event, PanelFaultEvent) and not event.latched and event.code == "none":
+            with self._lock:
+                pending = self._panel_clear_stop_pending
+            if pending:
+                self._clear_emergency_stop_confirmed()
+                self._schedule_broadcast()
+            return
+        if isinstance(event, PanelMotionRequestEvent):
+            with self._lock:
+                self.controller._emit(
+                    "panel_motion_request",
+                    "Запрос движения панели записан без исполнения",
+                    {
+                        "direction": event.direction,
+                        "action": event.action,
+                        "speedMmPerSecond": event.speed_mm_per_second,
+                    },
+                )
+            self._schedule_broadcast()
+            return
+        if not isinstance(event, PanelButtonEvent):
+            self._schedule_broadcast()
+            return
+        if event.button_id == "stop" and event.action == "pressed":
+            if self.state.safety_state != SafetyState.emergency_stop:
+                self.trigger_emergency_stop()
+            return
+        if event.action not in {"pressed", "repeat", "released"}:
+            return
+        if self.panel.config.enabled and not self.panel.state.is_ready():
+            return
+
+        with self._lock:
+            mode = self.controller.state.mode
+            service_move_allowed = (
+                self.state.service_mode
+                and self.state.safety_state == SafetyState.enabled
+                and mode not in {ControlMode.estop, ControlMode.fault}
+            )
+
+        accepted = False
+        try:
+            if event.button_id == "power" and event.action == "pressed":
+                accepted = self._handle_panel_power()
+            elif event.button_id == "start_pause" and event.action == "pressed":
+                if mode in PANEL_PAUSABLE_MODES:
+                    self.pause()
+                    accepted = True
+                elif mode == ControlMode.paused and self.state.safety_state == SafetyState.enabled:
+                    self.resume()
+                    accepted = True
+            elif event.button_id in {"load_plus", "load_minus"} and event.action in {"pressed", "repeat"}:
+                if mode not in {ControlMode.estop, ControlMode.fault} and self._panel_powered_on:
+                    direction = 1 if event.button_id == "load_plus" else -1
+                    before = self.controller.config.load_kg
+                    self.set_load(before + direction * self._panel_load_step_kg)
+                    accepted = self.controller.config.load_kg != before
+            elif event.button_id in {"up", "down"}:
+                if event.action in {"pressed", "repeat"} and service_move_allowed:
+                    self.manual_move(event.button_id, self._panel_service_move_mm, "service")
+                    accepted = True
+                elif event.action == "released" and service_move_allowed and mode == ControlMode.moving:
+                    self.hold()
+            elif event.button_id == "ok" and event.action == "pressed" and mode in PANEL_ACTIVE_EXERCISE_MODES:
+                self.complete_set()
+                accepted = True
+            elif event.button_id == "fail" and event.action == "pressed" and mode not in {ControlMode.estop, ControlMode.fault}:
+                self.hold()
+                accepted = True
+            elif event.button_id == "camera" and event.action == "pressed" and mode not in {ControlMode.estop, ControlMode.fault} and self._panel_powered_on:
+                with self._lock:
+                    self.controller._emit("panel_camera", "Нажата кнопка камеры на панели")
+                self._schedule_broadcast()
+                accepted = True
+        except (PermissionError, ValueError) as error:
+            with self._lock:
+                self.controller._emit("panel_button_rejected", str(error), {"button": event.button_id})
+            self._schedule_broadcast()
+        if event.action in {"pressed", "repeat"}:
+            self._notify_panel("button_feedback", id=event.button_id, request_seq=event.sequence, accepted=accepted)
+
+    def _handle_panel_power(self) -> bool:
+        panel_state: str | None = None
+        with self._lock:
+            mode = self.controller.state.mode
+            safe_modes = {ControlMode.idle, ControlMode.paused, ControlMode.parked}
+            if mode not in safe_modes or self.state.safety_state == SafetyState.emergency_stop:
+                self.controller._emit("panel_power_rejected", "POWER отклонён: тренажёр не в безопасном состоянии")
+            else:
+                self.adapter.set_brake(True)
+                self.controller.request_idle()
+                if not self._panel_powered_on:
+                    self._panel_powered_on = True
+                    self.state.safety_state = SafetyState.enabled
+                    self.state.machine_state = MachineState.ready
+                    self.state.machine_label = "Тренажёр готов"
+                    self.state.safety_message = "Система безопасности готова к тренировке."
+                    panel_state = "ready"
+                else:
+                    self._panel_powered_on = False
+                    self.state.safety_state = SafetyState.disabled
+                    self.state.machine_state = MachineState.blocked
+                    self.state.machine_label = "Тренажёр выключен"
+                    self.state.safety_message = "Приводы остановлены и тормоза включены."
+                    panel_state = "off"
+        if panel_state is not None:
+            self._notify_panel("set_machine_state", state=panel_state)
+        self._schedule_broadcast()
+        return panel_state is not None
 
     def _get_keyboard_direction(self) -> str | None:
         if not self._keyboard_simulation_enabled:

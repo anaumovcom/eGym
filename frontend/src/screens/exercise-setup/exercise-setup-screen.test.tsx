@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
@@ -9,9 +9,10 @@ import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
+import type { HardwareCalibration } from '@/features/hardware/model/types'
 
 const navigateMock = vi.fn()
-const loadCurrentCalibrationMock = vi.fn<(...args: unknown[]) => Promise<null>>()
+const loadCurrentCalibrationMock = vi.fn<(...args: unknown[]) => Promise<HardwareCalibration | null>>()
 const buildBackendBuilderRuntimeSessionMock = vi.fn<(...args: unknown[]) => Promise<RuntimeWorkoutSession>>()
 let currentSearch = '?source=catalog&slug=barbell-floor-press&calibration=missing'
 
@@ -160,6 +161,142 @@ describe('ExerciseSetupScreen', () => {
 
     expect(screen.getAllByText('56 см').length).toBeGreaterThan(0)
     expect(screen.getAllByText('76 см').length).toBeGreaterThan(0)
+  })
+
+  it('shows the video separately and places the bar setup below the exercise parameters', () => {
+    const { container } = renderScreen()
+    const body = container.querySelector('.rt-setup-body')
+    const media = body?.querySelector('.rt-setup-media')
+    const right = body?.querySelector('.rt-setup-right')
+    const parameters = screen.getByRole('region', { name: 'Параметры упражнения' })
+    const calibration = screen.getByRole('region', { name: 'Настройка грифа' })
+
+    expect(media?.querySelector('.rt-media-frame')).toBeInTheDocument()
+    expect(media).not.toContainElement(calibration)
+    expect(right).toContainElement(parameters)
+    expect(right).toContainElement(calibration)
+    expect(parameters.compareDocumentPosition(calibration) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('moves the bar with buttons before capturing a range point', async () => {
+    const user = userEvent.setup()
+    const command = vi.fn().mockImplementation(async ({ action }: { action: string }) => {
+      if (action === 'jog_stop') useHardwareStore.setState({ snapshot: createSnapshot(570) })
+      return {}
+    })
+    useHardwareStore.setState({ runCommand: command })
+    renderScreen()
+
+    const up = screen.getByRole('button', { name: '↑ Вверх · удерживать' })
+    fireEvent.pointerDown(up, { pointerType: 'mouse', pointerId: 1, button: 0 })
+    await waitFor(() => expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'jog_start', direction: 'up', mode: 'service', userId: 'alexey', exerciseSlug: 'barbell-floor-press' })))
+    fireEvent.pointerUp(up, { pointerType: 'mouse', pointerId: 1 })
+    await waitFor(() => expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'jog_stop' })))
+    await user.click(screen.getByRole('button', { name: 'Зафиксировать нижнюю точку' }))
+    expect(screen.getAllByText('57 см').length).toBeGreaterThan(0)
+  })
+
+  it('moves the bar down before capturing a fixed position', async () => {
+    const user = userEvent.setup()
+    const command = vi.fn().mockImplementation(async ({ action }: { action: string }) => {
+      if (action === 'jog_stop') useHardwareStore.setState({ snapshot: createSnapshot(550) })
+      return {}
+    })
+    useHardwareStore.setState({ runCommand: command })
+    renderScreen()
+    await user.click(screen.getByRole('button', { name: 'Фиксированное положение' }))
+    const down = screen.getByRole('button', { name: '↓ Вниз · удерживать' })
+    fireEvent.pointerDown(down, { pointerType: 'mouse', pointerId: 1, button: 0 })
+    await waitFor(() => expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'jog_start', direction: 'down' })))
+    fireEvent.pointerUp(down, { pointerType: 'mouse', pointerId: 1 })
+    await waitFor(() => expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'jog_stop' })))
+    await user.click(screen.getByRole('button', { name: 'Зафиксировать высоту грифа' }))
+    expect(screen.getAllByText('55 см').length).toBeGreaterThan(0)
+    expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'jog_start', direction: 'down' }))
+  })
+
+  it('saves a fixed height for pull-ups and starts with the saved position', async () => {
+    currentSearch = '?source=catalog&slug=bodyweight-pull-up'
+    useRuntimeStore.setState({ session: null, sessionSignature: null })
+    useRuntimeStore.getState().initializeSession({ source: 'catalog', slug: 'bodyweight-pull-up' })
+    const user = userEvent.setup()
+    const saved: HardwareCalibration = {
+      id: 12, userId: 'alexey', exerciseSlug: 'bodyweight-pull-up', setupType: 'fixed_position',
+      lowerPointMm: null, upperPointMm: null, fixedPositionMm: 560, zeroPositionMm: 560,
+      movementRangeConfirmed: false, calibrationRequired: true, isActive: true,
+      capturedAt: new Date().toISOString(), expiresAt: null,
+    }
+    const save = vi.fn().mockImplementation(async () => {
+      useHardwareStore.setState({ currentCalibration: saved })
+      return saved
+    })
+    const gate = vi.fn().mockResolvedValue({ allowed: true })
+    const command = vi.fn().mockResolvedValue({})
+    useHardwareStore.setState({ saveCalibration: save, checkSafetyGate: gate, runCommand: command })
+
+    renderScreen()
+    await waitFor(() => expect(loadCurrentCalibrationMock).toHaveBeenCalledWith('alexey', 'bodyweight-pull-up'))
+    expect(screen.getByRole('button', { name: 'Старт недоступен' })).toBeDisabled()
+    expect(navigateMock).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Фиксированное положение' }))
+    expect(screen.queryByText('Нижняя точка')).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Зафиксировать высоту грифа' }))
+    await user.click(screen.getByRole('button', { name: 'Сохранить положение' }))
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ userId: 'alexey', exerciseSlug: 'bodyweight-pull-up', setupType: 'fixed_position', fixedPositionMm: 560, lowerPointMm: null, upperPointMm: null })))
+    await user.click(screen.getByRole('button', { name: 'Запустить упражнение' }))
+    await waitFor(() => expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'start_fixed_position', positionMm: 560, repCountSource: 'load' })))
+    expect(navigateMock).toHaveBeenCalledWith(`/exercise-session${currentSearch}`)
+  })
+
+  it('loads a saved range and blocks start until edits are saved', async () => {
+    const saved: HardwareCalibration = {
+      id: 3, userId: 'alexey', exerciseSlug: 'barbell-floor-press', setupType: 'bar_range',
+      lowerPointMm: 560, upperPointMm: 760, fixedPositionMm: null, zeroPositionMm: 660,
+      movementRangeConfirmed: true, calibrationRequired: true, isActive: true,
+      capturedAt: new Date().toISOString(), expiresAt: null,
+    }
+    loadCurrentCalibrationMock.mockImplementation(async () => {
+      useHardwareStore.setState({ currentCalibration: saved })
+      return saved
+    })
+    const user = userEvent.setup()
+    renderScreen()
+    expect(await screen.findByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
+    await user.click(screen.getByRole('button', { name: 'Калибровка: 56 см - 76 см' }))
+    await user.click(screen.getByRole('button', { name: 'Фиксированное положение' }))
+    expect(screen.getByRole('button', { name: 'Старт недоступен' })).toBeDisabled()
+    await user.click(screen.getByRole('button', { name: 'Сбросить изменения' }))
+    expect(screen.getByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
+  })
+
+  it('loads a previously saved fixed height without capturing points again', async () => {
+    const saved: HardwareCalibration = {
+      id: 7, userId: 'alexey', exerciseSlug: 'barbell-floor-press', setupType: 'fixed_position',
+      lowerPointMm: null, upperPointMm: null, fixedPositionMm: 1480, zeroPositionMm: 1480,
+      movementRangeConfirmed: false, calibrationRequired: true, isActive: true,
+      capturedAt: new Date().toISOString(), expiresAt: null,
+    }
+    loadCurrentCalibrationMock.mockImplementation(async () => {
+      useHardwareStore.setState({ currentCalibration: saved })
+      return saved
+    })
+    renderScreen()
+    expect(await screen.findByRole('button', { name: 'Фиксация: 148 см' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Фиксация: 148 см' }))
+    expect(screen.getByText('Фиксированная высота')).toBeInTheDocument()
+    expect(screen.queryByText('Нижняя точка')).not.toBeInTheDocument()
+    const save = vi.fn().mockImplementation(async () => {
+      const updated = { ...saved, fixedPositionMm: 560 }
+      useHardwareStore.setState({ currentCalibration: updated })
+      return updated
+    })
+    useHardwareStore.setState({ saveCalibration: save })
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Зафиксировать высоту грифа' }))
+    expect(screen.getByRole('button', { name: 'Старт недоступен' })).toBeDisabled()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Сохранить положение' }))
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ setupType: 'fixed_position', fixedPositionMm: 560 })))
+    expect(screen.getByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
   })
 
   it('replaces a stale backend builder session with the updated exercise plan', async () => {

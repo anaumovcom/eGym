@@ -114,8 +114,10 @@ class HardwareService:
             calibration = ExerciseCalibration(
                 user_id=payload.user_id,
                 exercise_slug=payload.exercise_slug,
+                setup_type=payload.setup_type,
                 lower_point_mm=payload.lower_point_mm,
                 upper_point_mm=payload.upper_point_mm,
+                fixed_position_mm=payload.fixed_position_mm,
                 zero_position_mm=payload.zero_position_mm,
                 movement_range_confirmed=payload.movement_range_confirmed,
                 calibration_required=payload.calibration_required,
@@ -126,8 +128,10 @@ class HardwareService:
             )
             session.add(calibration)
         else:
+            calibration.setup_type = payload.setup_type
             calibration.lower_point_mm = payload.lower_point_mm
             calibration.upper_point_mm = payload.upper_point_mm
+            calibration.fixed_position_mm = payload.fixed_position_mm
             calibration.zero_position_mm = payload.zero_position_mm
             calibration.movement_range_confirmed = payload.movement_range_confirmed
             calibration.calibration_required = payload.calibration_required
@@ -143,10 +147,11 @@ class HardwareService:
             target_type="calibration",
             target_id=str(calibration.id),
             severity=AuditSeverity.info,
-            details={"exerciseSlug": payload.exercise_slug, "lowerPointMm": payload.lower_point_mm, "upperPointMm": payload.upper_point_mm},
+            details={"exerciseSlug": payload.exercise_slug, "setupType": payload.setup_type, "lowerPointMm": payload.lower_point_mm, "upperPointMm": payload.upper_point_mm, "fixedPositionMm": payload.fixed_position_mm},
         )
         session.commit()
-        hardware_runtime.set_calibration_state(calibration.id, payload.calibration_required, True)
+        if hardware_runtime.state.active_calibration_id in (None, calibration.id):
+            hardware_runtime.set_calibration_state(calibration.id, payload.calibration_required, True)
         return CalibrationSummarySchema.model_validate(calibration)
 
     def delete_calibration(self, session: Session, calibration_id: int, actor_user_id: str | None, confirm: bool) -> None:
@@ -167,7 +172,8 @@ class HardwareService:
             details={"exerciseSlug": calibration.exercise_slug},
         )
         session.commit()
-        hardware_runtime.set_calibration_state(None, calibration.calibration_required, False)
+        if hardware_runtime.state.active_calibration_id == calibration.id:
+            hardware_runtime.set_calibration_state(None, calibration.calibration_required, False)
 
     def evaluate_safety_gate(self, session: Session, payload: SafetyGateRequestSchema) -> SafetyGateResponseSchema:
         runtime = self.get_snapshot(session, payload.user_id)
@@ -188,6 +194,15 @@ class HardwareService:
         sync_ok = control.get("syncStatus") != "critical"
         not_faulted = control.get("mode") != "fault"
         thermal_ok = all(drive.status != "error" for drive in runtime.drives)
+        panel_ok = (
+            not runtime.panel.enabled
+            or (
+                runtime.panel.ready
+                and runtime.panel.input_healthy
+                and not runtime.panel.stop_latched
+                and runtime.panel.fault_code is None
+            )
+        )
         checks = [
             self._check("user-selected", "Пользователь выбран", payload.user_id is not None and payload.user_id != "", "critical", "Пользователь выбран" if payload.user_id else "Сначала выберите пользователя."),
             self._check("safety-enabled", "Безопасность включена", runtime.safety.state == SafetyState.enabled, "critical", "Безопасность активна" if runtime.safety.state == SafetyState.enabled else "Система безопасности выключена."),
@@ -198,8 +213,9 @@ class HardwareService:
             self._check("position-known", "Позиция определена", position_known or payload.mode == "homing", "critical", "Нулевая позиция известна" if position_known else "Позиция не определена — выполните homing."),
             self._check("sync", "Стороны синхронны", sync_ok, "critical", "Рассинхрон в допуске" if sync_ok else f"Критический рассинхрон {runtime.motion.sync_delta_mm:.1f} мм — выровняйте стороны."),
             self._check("thermal", "Ток и температура в норме", thermal_ok, "critical", "Приводы в тепловой норме" if thermal_ok else "Превышение тока или температуры привода."),
+            self._check("physical-panel", "Физическая панель доступна", panel_ok, "critical", "Панель управления готова" if panel_ok else "Панель управления не готова, отключена или сообщает safety fault."),
             self._check("calibration", "Калибровка актуальна", not calibration_required or (calibration is not None and self._is_calibration_actual(calibration)), "critical", "Калибровка найдена" if not calibration_required or calibration is not None else "Для запуска нужна актуальная калибровка."),
-            self._check("range", "Диапазон подтверждён", (not calibration_required) or payload.range_confirmed or bool(calibration and calibration.movement_range_confirmed), "warning", "Диапазон движения подтверждён" if (not calibration_required) or payload.range_confirmed or bool(calibration and calibration.movement_range_confirmed) else "Подтвердите диапазон движения."),
+            self._check("range", "Диапазон подтверждён", (not calibration_required) or bool(calibration and calibration.setup_type == "fixed_position") or payload.range_confirmed or bool(calibration and calibration.movement_range_confirmed), "warning", "Настройка грифа подтверждена" if (not calibration_required) or bool(calibration and calibration.setup_type == "fixed_position") or payload.range_confirmed or bool(calibration and calibration.movement_range_confirmed) else "Подтвердите диапазон движения."),
             self._check("weight", "Нагрузка допустима", payload.weight_kg <= max_load_kg, "critical", "Нагрузка допустима" if payload.weight_kg <= max_load_kg else f"Превышен лимит нагрузки {max_load_kg:.0f} кг."),
             self._check("service-mode", "Сервисный режим не конфликтует", not runtime.service_mode or service_action, "critical", "Сервисный режим не активен" if not runtime.service_mode else ("Сервисная операция" if service_action else "Отключите сервисный режим перед тренировкой.")),
             self._check("limits", "Лимиты движения не нарушены", within_limits or payload.mode == "homing", "critical", "Позиция в пределах лимитов" if within_limits else f"Текущая позиция вне мягких лимитов {soft_min:.0f}–{soft_max:.0f} мм."),
@@ -215,7 +231,7 @@ class HardwareService:
     def execute_command(self, session: Session, payload: HardwareCommandRequestSchema) -> HardwareCommandResponseSchema:
         safety_gate: SafetyGateResponseSchema | None = None
         training_actions = {"start_motion", "move_to_start", "start_fixed_position", "resume"}
-        service_actions = {"manual_move", "home", "reset_zero_position", "range_preview", "enter_weightless", "align_sides"}
+        service_actions = {"manual_move", "jog_start", "home", "reset_zero_position", "range_preview", "enter_weightless", "align_sides", "park"}
         guarded_actions = training_actions | service_actions | {"complete_set"}
         if payload.action in guarded_actions:
             gate_mode = payload.mode
@@ -242,10 +258,13 @@ class HardwareService:
         calibration = self.get_current_calibration(session, payload.user_id or "", payload.exercise_slug or "") if payload.user_id and payload.exercise_slug else None
         calibration_required = self._requires_calibration(payload.exercise_slug or "", payload.calibration_required)
         captured_position: float | None = None
-        lower_bound = payload.lower_mm if payload.lower_mm is not None else (calibration.lower_point_mm if calibration else 640.0)
-        upper_bound = payload.upper_mm if payload.upper_mm is not None else (calibration.upper_point_mm if calibration else 1320.0)
+        lower_bound = payload.lower_mm if payload.lower_mm is not None else (calibration.lower_point_mm if calibration and calibration.lower_point_mm is not None else 640.0)
+        upper_bound = payload.upper_mm if payload.upper_mm is not None else (calibration.upper_point_mm if calibration and calibration.upper_point_mm is not None else 1320.0)
         load_kg = payload.weight_kg
         load_mode = payload.load_mode or ("normal_weight" if payload.mode in {"machine", "training"} else payload.mode)
+
+        if payload.action not in {"jog_start", "jog_keepalive", "jog_stop", "trigger_emergency_stop", "hold"} and hardware_runtime.jog_active:
+            raise PermissionError("Сначала отпустите кнопку перемещения грифа")
 
         if payload.action == "trigger_emergency_stop":
             command = hardware_runtime.trigger_emergency_stop()
@@ -278,9 +297,29 @@ class HardwareService:
             command = hardware_runtime.manual_move(payload.direction, payload.distance_mm, "service" if payload.service_mode else "manual")
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.info
+        elif payload.action == "jog_start":
+            command = hardware_runtime.start_jog(payload.direction or "", payload.jog_id or "", payload.user_id or "", payload.exercise_slug or "")
+            audit_action = AuditAction.hardware_command
+            severity = AuditSeverity.info
+        elif payload.action == "jog_keepalive":
+            command = hardware_runtime.refresh_jog(payload.jog_id or "", payload.user_id or "", payload.exercise_slug or "")
+            audit_action = AuditAction.hardware_command
+            severity = AuditSeverity.info
+            return HardwareCommandResponseSchema(
+                command_id=command.id,
+                status=command.status,
+                message="Перемещение продолжается",
+                snapshot=self.get_snapshot(session, payload.user_id),
+            )
+        elif payload.action == "jog_stop":
+            command = hardware_runtime.stop_jog(payload.jog_id or "", payload.user_id or "", payload.exercise_slug or "")
+            audit_action = AuditAction.hardware_command
+            severity = AuditSeverity.info
         elif payload.action == "start_motion":
             if calibration is None and calibration_required:
                 raise PermissionError("Calibration is required to start movement")
+            if calibration is not None and calibration.setup_type != "bar_range":
+                raise PermissionError("This exercise uses a fixed bar position")
             command = hardware_runtime.start_motion(
                 calibration_id=calibration.id if calibration else None,
                 lower_bound_mm=lower_bound,
@@ -305,6 +344,8 @@ class HardwareService:
         elif payload.action == "move_to_start":
             if calibration is None and calibration_required and payload.lower_mm is None:
                 raise PermissionError("Calibration is required to move to the start point")
+            if calibration is not None and calibration.setup_type != "bar_range":
+                raise PermissionError("This exercise uses a fixed bar position")
             command = hardware_runtime.move_to_start(
                 lower_bound_mm=lower_bound,
                 upper_bound_mm=upper_bound,
@@ -321,13 +362,17 @@ class HardwareService:
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.info
         elif payload.action == "start_fixed_position":
-            if payload.position_mm is None:
-                raise ValueError("Fixed position requires positionMm")
+            if (calibration is None or calibration.setup_type != "fixed_position"
+                    or calibration.fixed_position_mm is None or not self._is_calibration_actual(calibration)):
+                raise PermissionError("A saved fixed bar position is required")
+            if payload.position_mm is not None and payload.position_mm != calibration.fixed_position_mm:
+                raise ValueError("Position must match the saved exercise setting")
             command = hardware_runtime.start_fixed_position(
-                position_mm=payload.position_mm,
+                position_mm=calibration.fixed_position_mm,
                 target_reps=payload.target_reps,
                 rep_count_source=payload.rep_count_source or "load",
                 body_weight_kg=payload.body_weight_kg,
+                calibration_id=calibration.id,
             )
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.info
@@ -354,7 +399,13 @@ class HardwareService:
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.info
         elif payload.action == "resume":
-            command = hardware_runtime.resume()
+            if payload.calibration_required and (calibration is None or hardware_runtime.state.active_calibration_id != calibration.id):
+                raise PermissionError("Нужна настройка текущего упражнения для продолжения")
+            command = hardware_runtime.resume(
+                lower_mm=calibration.lower_point_mm if payload.calibration_required and calibration and calibration.setup_type == "bar_range" else None,
+                upper_mm=calibration.upper_point_mm if payload.calibration_required and calibration and calibration.setup_type == "bar_range" else None,
+                fixed_position_mm=calibration.fixed_position_mm if payload.calibration_required and calibration and calibration.setup_type == "fixed_position" else None,
+            )
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.info
         elif payload.action == "park":

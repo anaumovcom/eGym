@@ -216,7 +216,7 @@ class PhysicsEmulatorAdapter:
 
     def home(self) -> None:
         for state in self._sides.values():
-            state.encoder_offset_mm = 0.0
+            state.encoder_offset_mm = -state.position_mm
             state.homed = True
         self._log("home", "Нулевая позиция установлена")
 

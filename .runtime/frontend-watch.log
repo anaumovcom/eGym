@@ -1,459 +1,60 @@
 
-  [32m[1mVITE[22m v7.3.3[39m  [2mready in [0m[1m273[22m[2m[0m ms[22m
+  [32m[1mVITE[22m v7.3.3[39m  [2mready in [0m[1m315[22m[2m[0m ms[22m
 
   [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
 [2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
-[2m10:56:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m10:56:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m10:56:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m10:56:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m10:56:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m10:56:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m10:56:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx[22m
-[2m10:56:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m10:56:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m10:56:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m10:57:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m11:00:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m11:00:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m11:01:11[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m11:01:11[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m11:02:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m11:06:24[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/progress/progress-screen.tsx[22m
-[2m11:06:25[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/fatigue/fatigue-screen.tsx[22m
-[2m11:11:24[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/settings/system-settings-screen.tsx[22m
-[2m11:11:24[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/modbus-debug/modbus-debug-screen.tsx[22m
-[2m11:11:24[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m11:13:35[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/settings/system-settings-screen.tsx[22m
-[2m11:15:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m11:15:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m11:15:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx, /src/app/styles.css[22m
-[2m11:15:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/shared/ui/layout/forma-shell.tsx[22m Could not Fast Refresh (export removed)
-[2m11:15:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/placeholder/placeholder-screen.tsx, /src/screens/programs/program-library-screen.tsx, /src/screens/user-selection/user-selection-screen.tsx, /src/screens/modbus-debug/modbus-debug-screen.tsx, /src/screens/calendar/workout-calendar-screen.tsx, /src/screens/fatigue/fatigue-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/quick-start/quick-start-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/today/today-workout-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/progress/progress-screen.tsx, /src/screens/profile/user-profile-screen.tsx, /src/screens/settings/system-settings-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/builder/workout-builder-screen.tsx, /src/shared/ui/layout/service-access.tsx[22m
-[2m11:15:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/today/today-workout-screen.tsx[22m
-[2m11:15:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/programs/program-library-screen.tsx[22m
-[2m11:15:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/quick-start/quick-start-screen.tsx[22m
-[2m11:15:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/app/router.tsx[22m Could not Fast Refresh (new export)
-[2m11:15:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/app.tsx[22m
-[2m11:15:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m11:15:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m11:15:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m11:15:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/user-selection/user-selection-screen.tsx[22m
-[2m11:17:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/button.tsx[22m
-[2m11:17:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m11:37:09[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m12:24:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m12:24:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m12:24:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx, /src/app/styles.css[22m
-[2m12:24:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m12:24:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m12:24:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/settings/system-settings-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/progress/progress-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/modbus-debug/modbus-debug-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/fatigue/fatigue-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/button.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/user-selection/user-selection-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/service-access.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m12:24:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m12:31:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/user-selection/user-selection-screen.tsx[22m
-[2m12:31:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m12:31:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m12:31:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m12:31:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/profile/user-profile-screen.tsx[22m
-[2m12:31:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/progress/progress-screen.tsx[22m
-[2m12:31:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m12:31:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-details-screen.tsx[22m
-[2m12:31:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m12:31:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx[22m
-[2m12:31:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx[22m
-[2m12:31:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m12:31:43[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/placeholder/placeholder-screen.tsx[22m
-[2m12:33:47[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m12:33:47[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/button.tsx[22m
-[2m12:34:20[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m12:34:20[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/overlays/surface-components.tsx[22m
-[2m12:35:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m12:35:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m12:37:48[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m12:37:48[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/user-selection/user-selection-screen.tsx[22m
-[2m12:39:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m12:42:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m12:42:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m12:42:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m12:52:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/overlays/safety-dialog.tsx[22m
-[2m12:52:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m12:52:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/shared/ui/overlays/safety-dialog.tsx[22m Could not Fast Refresh ("useSafetyDockTarget" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-[2m12:52:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/shared/ui/layout/forma-shell.tsx, /src/shared/ui/overlays/surface-components.tsx, /src/shared/ui/stage2/screen-components.tsx, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m12:55:14[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/overlays/safety-dialog.tsx[22m
-[2m12:55:14[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m12:55:14[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/shared/ui/overlays/safety-dialog.tsx[22m Could not Fast Refresh ("useSafetyDockTarget" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-[2m12:55:14[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/shared/ui/layout/forma-shell.tsx, /src/shared/ui/overlays/surface-components.tsx, /src/shared/ui/stage2/screen-components.tsx, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/progress/progress-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/button.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/user-selection/user-selection-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-details-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/profile/user-profile-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/placeholder/placeholder-screen.tsx[22m
-[2m13:04:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx[22m
-[2m13:04:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m13:04:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/overlays/surface-components.tsx[22m
-[2m13:04:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m13:04:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/overlays/safety-dialog.tsx[22m
-[2m13:04:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/central-stage.tsx[22m
-[2m13:04:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m13:07:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m13:10:24[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m13:11:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m13:11:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/app/router.tsx[22m
-[2m13:11:25[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m13:24:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m13:26:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m13:29:34[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m14:15:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m14:15:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m14:15:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m14:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m14:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m14:16:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m14:18:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m14:18:52[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/dashboard/home-recovery.tsx, /src/app/styles.css[22m
-[2m14:18:52[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m15:03:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m15:03:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m15:03:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/dashboard/home-recovery.tsx, /src/app/styles.css[22m
-[2m15:03:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m15:06:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/dashboard/home-recovery.tsx, /src/app/styles.css[22m
-[2m15:06:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/dashboard/home-recovery.tsx, /src/app/styles.css[22m
-[2m15:06:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/dashboard/dashboard-screen.tsx, /src/app/styles.css[22m
-[2m15:06:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m15:06:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m15:07:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m15:10:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m15:11:26[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m15:13:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m15:13:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/dashboard/home-recovery.tsx, /src/app/styles.css[22m
-[2m15:13:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m15:13:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m15:23:25[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m15:24:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m15:24:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m15:25:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m15:25:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/shared/ui/stage2/screen-components.tsx[22m Could not Fast Refresh (export removed)
-[2m15:25:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/calendar/workout-calendar-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/progress/progress-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/builder/workout-builder-screen.tsx, /src/shared/ui/training/exercise-picker-modal.tsx, /src/screens/dashboard/home-recovery.tsx[22m
-[2m15:25:57[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m15:29:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m15:30:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m15:30:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m15:30:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/screens/calendar/workout-calendar-screen.tsx[22m Could not Fast Refresh (new export)
-[2m15:30:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx[22m
-[2m15:30:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m15:31:09[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m15:31:39[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m15:32:52[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m15:35:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m15:35:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/screens/calendar/workout-calendar-screen.tsx[22m Could not Fast Refresh ("formatDayTitle" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-[2m15:35:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx[22m
-[2m15:39:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m15:39:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m15:39:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m15:39:52[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m16:00:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m16:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m16:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m16:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/shared/ui/training/exercise-picker-modal.tsx[22m Could not Fast Refresh (new export)
-[2m16:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:02:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m16:02:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/shared/ui/training/exercise-picker-modal.tsx[22m Could not Fast Refresh ("isWeightlessEquipment" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-[2m16:02:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:05:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:06:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:07:08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:10:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:11:45[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:12:04[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:12:24[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:12:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:13:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:13:39[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:14:09[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:14:40[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:15:11[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:15:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:17:24[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:19:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m16:19:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m16:19:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:19:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/shared/ui/training/exercise-picker-modal.tsx[22m Could not Fast Refresh (new export)
-[2m16:19:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:21:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m16:24:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m16:25:26[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m16:27:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m16:27:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m16:27:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/screens/catalog/exercise-catalog-screen.tsx[22m Could not Fast Refresh (new export)
-[2m16:27:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx[22m
-[2m16:52:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m16:54:18[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m17:00:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m17:00:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m17:16:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m17:16:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m17:16:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m17:16:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m17:16:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/screens/catalog/exercise-catalog-screen.tsx[22m Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-[2m17:16:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx[22m
-[2m17:16:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m17:16:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m17:16:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m17:16:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m17:16:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/value-stepper.tsx[22m
-[2m18:48:14[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m18:54:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m18:54:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m19:02:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m19:02:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m19:02:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m19:02:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m19:02:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m19:02:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-details-screen.tsx[22m
-[2m19:02:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m19:02:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:02:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:02:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:02:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/shared/ui/training/exercise-picker-modal.tsx[22m Could not Fast Refresh (export removed)
-[2m19:02:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/builder/workout-builder-screen.tsx[22m
-[2m19:02:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/screens/catalog/exercise-catalog-screen.tsx[22m Could not Fast Refresh (export removed)
-[2m19:02:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/photo-progress/photo-progress-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-details-screen.tsx[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/screens/builder/workout-builder-creation.test.tsx[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/screens/catalog/stage1-discovery.test.tsx[22m
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/screens/catalog/exercise-catalog-screen.tsx[22m Could not Fast Refresh (new export)
-[2m19:02:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx[22m
-[2m19:14:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m19:14:54[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:17:11[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:27:29[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m19:27:29[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:27:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:31:19[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m19:31:19[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:32:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:32:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:35:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:44:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:44:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m19:49:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/profile/user-profile-screen.tsx[22m
-[2m19:49:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/profile/user-profile-screen.tsx[22m
-[2m19:49:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/app/router.tsx[22m
-[2m19:50:09[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/progress/progress-screen.tsx[22m
-[2m19:50:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/progress/progress-screen.tsx[22m
-[2m19:50:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/app/router.tsx[22m
-[2m19:51:18[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx, /src/app/styles.css[22m
-[2m19:51:36[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx, /src/app/styles.css[22m
-[2m19:51:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/profile/user-profile-screen.tsx[22m
-[2m19:51:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/progress/progress-screen.tsx[22m
-[2m19:52:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:54:08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:54:08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m19:54:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/profile/user-profile-screen.tsx[22m
-[2m19:55:08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m19:59:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/profile/user-profile-screen.tsx[22m
-[2m20:06:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/photo/photo-capture-dialog.tsx[22m
-[2m20:06:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [33mhmr invalidate [39m[2m/src/shared/ui/photo/photo-capture-dialog.tsx[22m Could not Fast Refresh ("captureFrame" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-[2m20:06:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/profile/user-profile-screen.tsx, /src/screens/progress/progress-screen.tsx[22m
-[2m20:24:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx, /src/app/styles.css[22m
-[2m20:24:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:24:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/progress/progress-screen.tsx[22m
-[2m20:24:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/photo/photo-capture-dialog.tsx[22m
-[2m20:24:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/profile/user-profile-screen.tsx[22m
-[2m20:49:08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:49:35[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:50:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/user-selection/user-selection-screen.tsx[22m
-[2m20:50:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/user-selection/user-selection-screen.tsx[22m
-[2m20:52:54[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m20:54:39[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m20:56:37[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m20:57:35[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m20:58:54[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m20:59:11[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m20:59:47[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m21:00:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m21:00:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m21:01:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m21:02:23[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/rest/rest-screen.tsx[22m
-[2m21:02:55[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/rest/rest-screen.tsx[22m
-[2m21:04:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx[22m
-[2m21:04:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx[22m
-[2m21:06:42[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx[22m
-[2m21:07:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx[22m
-[2m21:08:59[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx[22m
-[2m21:09:52[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/settings/system-settings-screen.tsx[22m
-[2m21:16:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/rest/rest-screen.tsx[22m
-[2m21:17:22[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m21:18:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m23:15:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m23:16:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m23:17:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m23:18:34[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m23:18:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m23:19:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m23:19:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m23:20:28[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m23:32:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m23:32:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m23:32:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx[22m
-[2m23:32:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/settings/system-settings-screen.tsx[22m
-[2m23:32:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx[22m
-[2m23:32:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m23:32:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/status/forma-state.tsx[22m
-[2m23:32:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/user-selection/user-selection-screen.tsx[22m
-[2m23:32:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/rest/rest-screen.tsx[22m
-[2m23:35:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m23:35:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/modbus-debug/modbus-debug-screen.tsx[22m
-[2m23:35:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/settings/system-settings-screen.tsx[22m
-[2m23:35:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m23:35:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx, /src/app/styles.css[22m
-[2m23:35:34[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/modbus-debug/modbus-debug-screen.tsx[22m
-[2m08:28:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx, /src/app/styles.css[22m
-[2m08:28:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/settings/system-settings-screen.tsx[22m
-[2m08:28:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/modbus-debug/modbus-debug-screen.tsx[22m
-[2m08:28:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m08:28:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m19:59:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m19:59:49[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx, /src/app/styles.css[22m
-[2m20:00:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/dashboard/home-recovery.tsx, /src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/photo/photo-capture-dialog.tsx[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/status/forma-state.tsx[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/value-stepper.tsx[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/service-access.tsx[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/central-stage.tsx[22m
-[2m20:01:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/overlays/safety-dialog.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx, /src/app/styles.css[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/fatigue/fatigue-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/modbus-debug/modbus-debug-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/placeholder/placeholder-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/profile/user-profile-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/progress/progress-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/rest/rest-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/settings/system-settings-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/button.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/overlays/surface-components.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-details-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/screens/photo-progress/photo-progress-screen.test.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/screens/photo-progress/photo-progress-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/screens/programs/program-library-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/screens/quick-start/quick-start-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/user-selection/user-selection-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:01:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mpage reload [39m[2msrc/screens/today/today-workout-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/router.tsx, /src/app/styles.css[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/fatigue/fatigue-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/modbus-debug/modbus-debug-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/placeholder/placeholder-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/button.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/stage2/screen-components.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/builder/workout-builder-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/calendar/workout-calendar-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-details-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/profile/user-profile-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/screens/dashboard/home-recovery.tsx, /src/app/styles.css[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/progress/progress-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/rest/rest-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/settings/system-settings-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/user-selection/user-selection-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/overlays/surface-components.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/central-stage.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/layout/service-access.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/overlays/safety-dialog.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/status/forma-state.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/training/value-stepper.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/catalog/exercise-catalog-screen.tsx[22m
-[2m20:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/shared/ui/photo/photo-capture-dialog.tsx[22m
-[2m20:05:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m18:13:53[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx[22m
+[2m18:14:37[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m18:15:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m18:15:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/rest/rest-screen.tsx[22m
+[2m18:15:37[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
+[2m18:18:30[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx[22m
+[2m18:18:38[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/hardware/lib/hardware-realtime-provider.tsx, /src/shared/ui/layout/service-access.tsx, /src/screens/modbus-debug/modbus-debug-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/mechanics-tuning/mechanics-tuning-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/settings/system-settings-screen.tsx, /src/shared/ui/layout/forma-shell.tsx[22m
+[2m18:19:00[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/hardware/lib/hardware-realtime-provider.tsx, /src/shared/ui/layout/service-access.tsx, /src/screens/modbus-debug/modbus-debug-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/mechanics-tuning/mechanics-tuning-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/settings/system-settings-screen.tsx, /src/shared/ui/layout/forma-shell.tsx[22m
+[2m18:19:00[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m18:19:52[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m18:21:15[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m18:24:31[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/hardware/lib/hardware-realtime-provider.tsx, /src/shared/ui/layout/service-access.tsx, /src/screens/modbus-debug/modbus-debug-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/mechanics-tuning/mechanics-tuning-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/settings/system-settings-screen.tsx, /src/shared/ui/layout/forma-shell.tsx[22m
+[2m18:24:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m18:24:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
+[2m18:24:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/rest/rest-screen.tsx[22m
+[2m18:24:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx[22m
+[2m18:29:06[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m18:29:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m18:30:00[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
+[2m18:30:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
+[2m18:35:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
+[2m18:35:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
+[2m20:58:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m20:58:01[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
+[2m21:15:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m21:15:56[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
+[2m21:18:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/hardware/ui/hold-to-jog.tsx[22m
+[2m21:57:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m21:57:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx[22m
+[2m21:57:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/hardware/ui/hold-to-jog.tsx[22m
+[2m21:59:41[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m22:00:16[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:00:44[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:03:26[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:05:18[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:22:20[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:25:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:25:21[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m22:26:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m22:26:50[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:28:08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m22:28:08[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:30:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m22:30:02[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:36:07[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:37:25[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:39:12[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m22:40:03[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m23:03:33[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m23:05:37[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m23:06:58[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m00:07:34[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m00:10:32[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m
+[2m00:18:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx[22m
+[2m00:18:10[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css[22m

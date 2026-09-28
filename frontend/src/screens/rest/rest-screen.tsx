@@ -5,6 +5,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { RuntimeRestState, RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
+import { supportsFixedBarSetup } from '@/features/runtime/lib/runtime-exercise'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -66,6 +67,8 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
   const snapshot = useHardwareStore((state) => state.snapshot)
   const hardwareError = useHardwareStore((state) => state.errorMessage)
   const runCommand = useHardwareStore((state) => state.runCommand)
+  const loadCurrentCalibration = useHardwareStore((state) => state.loadCurrentCalibration)
+  const setHardwareError = useHardwareStore((state) => state.setErrorMessage)
   const autoAdvanceTriggeredRef = useRef(false)
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
 
@@ -106,18 +109,33 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
   }, [rest.remainingSeconds, rest.timerPaused])
 
   async function handleBeginNextStep() {
-    if (nextExercisePlan?.kind === 'machine' && selectedUserId) {
-      await runCommand({
-        action: 'start_motion',
-        userId: selectedUserId,
-        exerciseSlug: nextExercisePlan.slug,
-        calibrationRequired: true,
-        rangeConfirmed: true,
-        weightKg: nextExercisePlan.loadSettings.weight,
-        mode: 'machine',
-        targetSet: hasNextSet ? activeSession.currentSetIndex + 2 : 1,
-        targetReps: nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.targetMaxReps ?? nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.targetReps ?? nextExercisePlan.loadSettings.reps,
-      })
+    if (nextExercisePlan && supportsFixedBarSetup(nextExercisePlan)) {
+      if (!selectedUserId) {
+        setHardwareError('Для запуска упражнения нужно выбрать пользователя.')
+        return
+      }
+      try {
+        const setup = await loadCurrentCalibration(selectedUserId, nextExercisePlan.slug)
+        if (!setup) {
+          setHardwareError('Настройка грифа не найдена. Откройте настройку упражнения.')
+          return
+        }
+        await runCommand({
+          action: setup.setupType === 'fixed_position' ? 'start_fixed_position' : 'start_motion',
+          userId: selectedUserId,
+          exerciseSlug: nextExercisePlan.slug,
+          calibrationRequired: true,
+          rangeConfirmed: setup.setupType === 'bar_range',
+          weightKg: nextExercisePlan.loadSettings.weight,
+          mode: 'machine',
+          targetSet: hasNextSet ? activeSession.currentSetIndex + 2 : 1,
+          targetReps: nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.targetMaxReps ?? nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.targetReps ?? nextExercisePlan.loadSettings.reps,
+          ...(setup.setupType === 'fixed_position' ? { positionMm: setup.fixedPositionMm ?? undefined, repCountSource: 'load' } : {}),
+        })
+      } catch (error) {
+        setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить тренажёр.')
+        return
+      }
     }
 
     beginNextStep()
