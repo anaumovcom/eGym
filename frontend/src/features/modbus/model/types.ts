@@ -55,10 +55,40 @@ export type ModbusPositions = {
   connected: boolean
   simulationMode: boolean
   zeroed: boolean
+  readiness: ModbusReadiness
   left: { slaveId: number; currentPulses: number | null; zeroPulses: number | null; positionMm: number | null }
   right: { slaveId: number; currentPulses: number | null; zeroPulses: number | null; positionMm: number | null }
   skewMm: number | null
   error: string | null
+}
+
+export type ModbusReadiness = {
+  communicationReady: boolean
+  encoderReady: boolean
+  torqueControlReady: boolean
+  motionSafetyReady: boolean
+  degradedManualMode: boolean
+  allowEncoderRead: boolean
+  allowZeroOffset: boolean
+  allowStatusRead: boolean
+  allowManualTorqueTest: boolean
+  allowAutomaticMotion: boolean
+  allowPositionAutoMove: boolean
+  allowProgramWorkout: boolean
+  allowHoming: boolean
+  noBrake: boolean
+  noLimitSwitches: boolean
+  noHardwareStop: boolean
+  noHardwareSync: boolean
+  warning: string
+}
+
+export type SoftwareStopResult = {
+  success: boolean
+  torqueZeroed: Record<string, boolean>
+  servoOffConfirmed: Record<string, boolean>
+  errors: string[]
+  warning: string
 }
 
 export type ModbusWriteResult = {

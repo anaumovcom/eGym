@@ -7,6 +7,8 @@ import type {
   ModbusConnectionStatus,
   ModbusReadResult,
   ModbusPositions,
+  ModbusReadiness,
+  SoftwareStopResult,
   ModbusWriteResult,
   ParameterProfile,
   ProfileCompareResult,
@@ -37,6 +39,8 @@ export async function fetchModbusStatus(): Promise<ModbusConnectionStatus> {
 }
 
 function mapPositions(raw: Record<string, unknown>): ModbusPositions {
+  const readiness = (raw.readiness ?? {}) as Record<string, unknown>
+  const ready = (key: string) => readiness[key] === true
   const side = (value: Record<string, unknown>) => ({
     slaveId: value.slave_id as number,
     currentPulses: (value.current_pulses as number | null) ?? null,
@@ -47,6 +51,17 @@ function mapPositions(raw: Record<string, unknown>): ModbusPositions {
     connected: raw.connected as boolean,
     simulationMode: (raw.simulation_mode as boolean) ?? false,
     zeroed: raw.zeroed as boolean,
+    readiness: {
+      communicationReady: ready('communication_ready'), encoderReady: ready('encoder_ready'),
+      torqueControlReady: ready('torque_control_ready'), motionSafetyReady: ready('motion_safety_ready'),
+      degradedManualMode: ready('degraded_manual_mode'), allowEncoderRead: ready('allow_encoder_read'),
+      allowZeroOffset: ready('allow_zero_offset'), allowStatusRead: ready('allow_status_read'),
+      allowManualTorqueTest: ready('allow_manual_torque_test'), allowAutomaticMotion: ready('allow_automatic_motion'),
+      allowPositionAutoMove: ready('allow_position_auto_move'), allowProgramWorkout: ready('allow_program_workout'),
+      allowHoming: ready('allow_homing'), noBrake: ready('no_brake'), noLimitSwitches: ready('no_limit_switches'),
+      noHardwareStop: ready('no_hardware_stop'), noHardwareSync: ready('no_hardware_sync'),
+      warning: (readiness.warning as string) ?? '',
+    } satisfies ModbusReadiness,
     left: side(raw.left as Record<string, unknown>),
     right: side(raw.right as Record<string, unknown>),
     skewMm: (raw.skew_mm as number | null) ?? null,
@@ -60,6 +75,17 @@ export async function fetchModbusPositions(): Promise<ModbusPositions> {
 
 export async function zeroModbusPositions(): Promise<ModbusPositions> {
   return mapPositions(await apiPost<Record<string, unknown>>('/api/modbus/positions/zero', {}))
+}
+
+export async function softwareStopModbus(): Promise<SoftwareStopResult> {
+  const raw = await apiPost<Record<string, unknown>>('/api/modbus/software-stop', {})
+  return {
+    success: raw.success === true,
+    torqueZeroed: raw.torque_zeroed as Record<string, boolean>,
+    servoOffConfirmed: raw.servo_off_confirmed as Record<string, boolean>,
+    errors: raw.errors as string[],
+    warning: raw.warning as string,
+  }
 }
 
 export async function connectModbus(params: ModbusConnectionParams): Promise<ModbusConnectionStatus> {

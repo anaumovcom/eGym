@@ -83,10 +83,37 @@ class ModbusPositionSideSchema(BaseModel):
     position_mm: float | None = None
 
 
+class ModbusReadinessSchema(BaseModel):
+    communication_ready: bool = False
+    encoder_ready: bool = False
+    torque_control_ready: bool = False
+    motion_safety_ready: bool = False
+    degraded_manual_mode: bool = True
+    allow_encoder_read: bool = False
+    allow_zero_offset: bool = False
+    allow_status_read: bool = False
+    allow_manual_torque_test: bool = False
+    allow_automatic_motion: bool = False
+    allow_position_auto_move: bool = False
+    allow_program_workout: bool = False
+    allow_homing: bool = False
+    no_brake: bool = True
+    no_limit_switches: bool = True
+    no_hardware_stop: bool = True
+    no_hardware_sync: bool = True
+    warning: str = (
+        "Автоматическое движение отключено: не настроены концевики, тормоз, аппаратный STOP "
+        "и синхронизация двух сторон. Доступны чтение позиции и программное обнуление. "
+        "Ручной тест момента требует проверенного управления Servo-ON/OFF и отдельного разрешения. "
+        "Программный STOP не заменяет аппаратный E-STOP. (E-CTRL-UNAVAILABLE)"
+    )
+
+
 class ModbusPositionsSchema(BaseModel):
     connected: bool
     simulation_mode: bool = False
     zeroed: bool
+    readiness: ModbusReadinessSchema = Field(default_factory=ModbusReadinessSchema)
     left_zero_pulses: int | None = None
     right_zero_pulses: int | None = None
     left_position_mm: float | None = None
@@ -161,6 +188,14 @@ class ModbusCommandResultSchema(BaseModel):
     command: str
     message: str = ""
     error: str | None = None
+
+
+class SoftwareStopResultSchema(BaseModel):
+    success: bool = False
+    torque_zeroed: dict[str, bool] = Field(default_factory=dict)
+    servo_off_confirmed: dict[str, bool] = Field(default_factory=dict)
+    errors: list[str] = Field(default_factory=list)
+    warning: str = "Нулевой момент может отпустить нагруженный гриф. Программный STOP не заменяет аппаратный E-STOP; при сомнении отключите приводы аппаратно."
 
 
 # ---------------------------------------------------------------------------

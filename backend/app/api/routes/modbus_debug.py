@@ -16,6 +16,7 @@ from app.schemas.modbus import (
     ProfileCompareResultSchema,
     ProfileSaveRequestSchema,
     SerialPortInfoSchema,
+    SoftwareStopResultSchema,
 )
 from app.services.modbus_service import modbus_service
 
@@ -73,6 +74,13 @@ def read_registers(req: ModbusReadRequestSchema) -> ModbusReadResultSchema:
 
 @router.post("/write", response_model=ModbusWriteResultSchema)
 def write_register(req: ModbusWriteRequestSchema) -> ModbusWriteResultSchema:
+    # The generic parameter editor must not bypass the manual torque gate on
+    # real hardware; servo-off is not yet verified by this application.
+    if 0x12C <= req.address <= 0x14B and req.value != 0 and not modbus_service.get_status().simulation_mode:
+        return ModbusWriteResultSchema(
+            success=False, address=req.address, value=req.value,
+            error="Ручной тест момента недоступен: Servo-OFF реального привода не подтверждён (E-CTRL-UNAVAILABLE)",
+        )
     return modbus_service.write_register(req)
 
 
@@ -87,6 +95,12 @@ def zero_positions() -> ModbusPositionsSchema:
     if result.left.current_pulses is None or result.right.current_pulses is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=result.error)
     return result
+
+
+@router.post("/software-stop", response_model=SoftwareStopResultSchema)
+def software_stop() -> SoftwareStopResultSchema:
+    """Best-effort bench stop; never an E-STOP or proof of stopped motion."""
+    return modbus_service.software_stop()
 
 
 # ---------------------------------------------------------------------------

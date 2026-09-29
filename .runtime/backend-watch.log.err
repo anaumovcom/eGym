@@ -1,16 +1,32 @@
-INFO:     Started server process [444017]
+INFO:     Started server process [512162]
 INFO:     Waiting for application startup.
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 59380) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     ('127.0.0.1', 55582) - "WebSocket /api/hardware/realtime?userId=elena" [accepted]
 INFO:     connection open
 INFO:     connection closed
-INFO:     ('127.0.0.1', 59396) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     ('127.0.0.1', 55618) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 55646) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection closed
+INFO:     connection open
+INFO:     ('127.0.0.1', 55650) - "WebSocket /api/hardware/realtime?userId=elena" [accepted]
 INFO:     connection open
 INFO:     connection closed
-INFO:     ('127.0.0.1', 59438) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     ('127.0.0.1', 59738) - "WebSocket /api/hardware/realtime?userId=elena" [accepted]
 INFO:     connection open
-INFO:     ('127.0.0.1', 49658) - "WebSocket /api/hardware/realtime?userId=elena" [accepted]
+INFO:     connection closed
+INFO:     ('127.0.0.1', 59740) - "WebSocket /api/hardware/realtime?userId=elena" [accepted]
 INFO:     connection open
-INFO:     ('127.0.0.1', 49692) - "WebSocket /api/hardware/telemetry-debug" [accepted]
+INFO:     connection closed
+INFO:     ('127.0.0.1', 59756) - "WebSocket /api/hardware/realtime?userId=elena" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 59784) - "WebSocket /api/hardware/telemetry-debug" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 35572) - "WebSocket /api/hardware/realtime?userId=elena" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 35616) - "WebSocket /api/hardware/realtime?userId=elena" [accepted]
 INFO:     connection open

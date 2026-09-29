@@ -422,6 +422,9 @@ class MotionController:
     def _update_safety(self, telemetry: AdapterTelemetry, dt: float) -> None:
         state = self.state
         alerts: list[str] = []
+        degraded_modbus = (
+            telemetry.left.error_code == telemetry.right.error_code == "E-CTRL-UNAVAILABLE"
+        )
         state.heartbeat_ok = telemetry.heartbeat_ok
         state.power_ok = telemetry.power_ok
         state.comm_ok = telemetry.left.connected and telemetry.right.connected
@@ -446,7 +449,7 @@ class MotionController:
         for side in SIDES:
             side_t = telemetry.side(side)
             name = "Левый" if side == "left" else "Правый"
-            if not side_t.connected:
+            if not side_t.connected and not degraded_modbus:
                 fault = fault or f"{name} привод: {side_t.error_message or 'нет связи'} ({side_t.error_code or 'E-COMM'})"
             if side_t.current_a >= current_max:
                 fault = fault or f"{name} привод: ток {side_t.current_a:.1f} А выше предела"
@@ -456,8 +459,10 @@ class MotionController:
                 fault = fault or f"{name} привод: перегрев {side_t.temperature_c:.0f} °C"
             elif side_t.temperature_c >= temp_warn:
                 alerts.append(f"{name} привод: температура {side_t.temperature_c:.0f} °C")
-        if not telemetry.power_ok:
+        if not telemetry.power_ok and not degraded_modbus:
             fault = fault or "Пропадание питания приводов — тормоза сработали"
+        if degraded_modbus:
+            alerts.append("Автоматическое движение недоступно (E-CTRL-UNAVAILABLE); состояние питания и тормозов не подтверждено")
         if not telemetry.heartbeat_ok:
             alerts.append("Heartbeat потерян — приводы в удержании")
         if not state.position_known and state.mode not in {ControlMode.post, ControlMode.homing, ControlMode.fault, ControlMode.estop}:

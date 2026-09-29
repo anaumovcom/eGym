@@ -1,6 +1,10 @@
+import pytest
+
+from app.core.config import get_settings
 from app.api.routes import modbus_debug
 from app.schemas.modbus import ModbusCommandRequestSchema, ModbusConnectionParamsSchema, ModbusReadRequestSchema, ModbusWriteRequestSchema
 from app.services.modbus_service import ModbusService
+from app.services.hardware_runtime import HardwareRuntime
 from app.services.motion.adapter import DriveCommand
 from app.services.motion.modbus_adapter import ModbusDriveAdapter
 
@@ -109,3 +113,83 @@ def test_modbus_connect_route_captures_both_zeros_and_zero_route_rebases(monkeyp
     result = modbus_debug.zero_positions()
     assert (result.left_zero_pulses, result.right_zero_pulses) == (1234, -4321)
     assert result.left_position_mm == result.right_position_mm == result.skew_mm == 0
+
+
+def test_readiness_allows_zero_without_motion_safety_and_survives_fault():
+    service = ModbusService()
+    service.connect(ModbusConnectionParamsSchema(port="SIM://"))
+    _write_pulses(service, 1, -1000)
+    _write_pulses(service, 2, 2000)
+    positions = service.capture_zero()
+    assert positions.readiness.communication_ready
+    assert positions.readiness.encoder_ready and positions.readiness.allow_zero_offset
+    assert positions.readiness.degraded_manual_mode
+    assert not positions.readiness.motion_safety_ready
+    assert not positions.readiness.torque_control_ready
+    assert not positions.readiness.allow_automatic_motion
+    assert not positions.readiness.allow_homing
+    assert positions.left.position_mm == positions.right.position_mm == positions.skew_mm == 0
+
+
+def test_software_stop_both_sides_simulated_with_active_segment():
+    service = ModbusService()
+    service.connect(ModbusConnectionParamsSchema(port="SIM://"))
+    for slave in (1, 2):
+        assert service.write_register(ModbusWriteRequestSchema(address=0x093, value=3, slave_id=slave)).success
+        assert service.write_register(ModbusWriteRequestSchema(address=0x12F, value=120, slave_id=slave)).success
+        assert service.execute_command(ModbusCommandRequestSchema(command="servo_on", confirmed=True, slave_id=slave)).success
+    result = service.software_stop()
+    assert result.success
+    assert result.torque_zeroed == {"left": True, "right": True}
+    assert result.servo_off_confirmed == {"left": True, "right": True}
+    for slave in (1, 2):
+        assert service.read_registers(ModbusReadRequestSchema(address=0x12F, slave_id=slave)).registers[0].value == 0
+        assert service.read_registers(ModbusReadRequestSchema(address=0x201, slave_id=slave)).registers[0].value & 1 == 0
+
+
+def test_software_stop_does_not_claim_real_servo_off():
+    service = ModbusService()
+    service._connected = True
+    service._params = ModbusConnectionParamsSchema(port="/dev/ttyUSB0")
+
+    class FakeInstrument:
+        address = 1
+
+        def read_register(self, address, **kwargs):
+            return 0
+
+        def write_register(self, address, value, **kwargs):
+            assert address == 0x12C and value == 0
+
+    service._instr = FakeInstrument()
+    result = service.software_stop()
+    assert result.torque_zeroed == {"left": True, "right": True}
+    assert result.servo_off_confirmed == {"left": False, "right": False}
+    assert not result.success
+    assert len(result.errors) == 2
+
+
+def test_partial_encoder_failure_does_not_rebase_offsets_or_claim_readiness(monkeypatch):
+    service = ModbusService()
+    service.connect(ModbusConnectionParamsSchema(port="SIM://"))
+    service.capture_zero()
+    monkeypatch.setattr(service, "_read_position", lambda slave: (0, None) if slave == 1 else (None, "timeout"))
+    result = service.capture_zero()
+    assert not result.readiness.encoder_ready
+    assert not result.readiness.allow_zero_offset
+    assert result.left_zero_pulses == result.right_zero_pulses == 0
+
+
+def test_real_modbus_runtime_is_degraded_but_never_auto_homes(monkeypatch):
+    monkeypatch.setenv("HARDWARE_ADAPTER", "modbus")
+    get_settings.cache_clear()
+    runtime = HardwareRuntime()
+    assert isinstance(runtime.adapter, ModbusDriveAdapter)
+    assert runtime.controller.state.mode.value == "idle"
+    runtime._tick_motion()
+    assert runtime.controller.state.mode.value != "fault"
+    assert runtime.state.machine_state.value == "warning"
+    with pytest.raises(PermissionError, match="E-CTRL-UNAVAILABLE"):
+        runtime.home()
+    with pytest.raises(PermissionError, match="E-CTRL-UNAVAILABLE"):
+        runtime.manual_move("up", 10, "service")

@@ -23,8 +23,10 @@ from app.schemas.modbus import (
     ModbusConnectionStatusSchema,
     ModbusPositionsSchema,
     ModbusPositionSideSchema,
+    ModbusReadinessSchema,
     ModbusReadRequestSchema,
     ModbusReadResultSchema,
+    SoftwareStopResultSchema,
     ModbusRegisterValueSchema,
     ModbusWriteRequestSchema,
     ModbusWriteResultSchema,
@@ -116,7 +118,7 @@ for _i in range(32):
     _DEFAULT_REGISTERS[0x12C + _i] = 0
 
 _MAX_LOG_ENTRIES = 500
-_MM_PER_PULSE = 0.0032
+MM_PER_PULSE = 0.0032  # SFE 32-32: 32 mm / 10000 encoder counts
 
 
 class ModbusService:
@@ -400,14 +402,33 @@ class ModbusService:
         if self._connected:
             left, left_error = self._read_position(left_id)
             right, right_error = self._read_position(right_id)
+        # This read proves two responses, not the readiness of brakes, STO or
+        # servo disable. Never infer torque/motion safety from register access.
+        encoder_ready = left is not None and right is not None
+        communication_ready = encoder_ready
+        if self._connected and not encoder_ready:
+            # An encoder read can fail while both slaves still answer a basic
+            # status request. Do not conflate link readiness with encoder data.
+            communication_ready = all(
+                self._do_read(ModbusReadRequestSchema(address=0, slave_id=slave_id)).success
+                for slave_id in (left_id, right_id)
+            )
+        readiness = ModbusReadinessSchema(
+            communication_ready=communication_ready,
+            encoder_ready=encoder_ready,
+            allow_encoder_read=self._connected,
+            allow_status_read=self._connected,
+            allow_zero_offset=encoder_ready,
+        )
         if capture_zero and left is not None and right is not None:
             self.left_zero_pulses, self.right_zero_pulses = left, right
             self._log_info("ZERO", f"Software encoder zero captured for slaves {left_id} and {right_id}")
         zeroed = self.left_zero_pulses is not None and self.right_zero_pulses is not None
-        left_mm = (left - self.left_zero_pulses) * _MM_PER_PULSE if left is not None and zeroed else None
-        right_mm = (right - self.right_zero_pulses) * _MM_PER_PULSE if right is not None and zeroed else None
+        left_mm = (left - self.left_zero_pulses) * MM_PER_PULSE if left is not None and zeroed else None
+        right_mm = (right - self.right_zero_pulses) * MM_PER_PULSE if right is not None and zeroed else None
         return ModbusPositionsSchema(
             connected=self._connected, simulation_mode=self._params is not None and self._params.port == "SIM://", zeroed=zeroed,
+            readiness=readiness,
             left_zero_pulses=self.left_zero_pulses, right_zero_pulses=self.right_zero_pulses,
             left_position_mm=left_mm, right_position_mm=right_mm,
             left=ModbusPositionSideSchema(slave_id=left_id, current_pulses=left, zero_pulses=self.left_zero_pulses, position_mm=left_mm),
@@ -429,6 +450,45 @@ class ModbusService:
         """Rebase both drives together, or leave the previous offsets untouched."""
         with self._lock:
             return self._positions_locked(capture_zero=True)
+
+    def software_stop(self) -> SoftwareStopResultSchema:
+        """Best-effort zero torque on both sides, then attempt servo-off on both.
+
+        A Modbus acknowledgement is not proof of stopped motion. Real servo-off
+        is intentionally unimplemented until its physical control map is verified.
+        """
+        result = SoftwareStopResultSchema()
+        with self._lock:
+            if not self._connected:
+                result.errors.append("Modbus не подключён; воспользуйтесь аппаратным E-STOP")
+                return result
+            for side, slave_id in (("left", self._left_slave_id), ("right", self._right_slave_id)):
+                result.torque_zeroed[side] = False
+                result.servo_off_confirmed[side] = False
+                segment = self._do_read(ModbusReadRequestSchema(address=0x093, slave_id=slave_id))
+                if not segment.success or not segment.registers or segment.registers[0].error:
+                    result.errors.append(f"{side}: не удалось узнать активный сегмент момента")
+                    continue
+                index = segment.registers[0].value
+                if not 0 <= index < 32:
+                    result.errors.append(f"{side}: недопустимый индекс сегмента момента {index}")
+                    continue
+                address = 0x12C + index
+                self._select_slave(slave_id)
+                written = self._write_register_locked(address, 0, slave_id)
+                readback = self._do_read(ModbusReadRequestSchema(address=address, slave_id=slave_id))
+                if written.success and readback.success and readback.registers and readback.registers[0].value == 0:
+                    result.torque_zeroed[side] = True
+                else:
+                    result.errors.append(f"{side}: нулевой момент не подтверждён чтением")
+            # Even if one torque write failed, still attempt servo-off on both.
+            for side, slave_id in (("left", self._left_slave_id), ("right", self._right_slave_id)):
+                off = self.execute_command(ModbusCommandRequestSchema(command="servo_off", slave_id=slave_id))
+                result.servo_off_confirmed[side] = off.success and not hasattr(self, "_instr")
+                if not result.servo_off_confirmed[side]:
+                    result.errors.append(f"{side}: Servo-OFF не подтверждён ({off.error or 'нет обратной связи'})")
+            result.success = all(result.torque_zeroed.values()) and all(result.servo_off_confirmed.values())
+            return result
 
     def _do_read(self, req: ModbusReadRequestSchema) -> ModbusReadResultSchema:
         with self._lock:
@@ -601,7 +661,8 @@ class ModbusService:
 
             responding = slave_id_val is not None
             has_alarm = bool(alarm_code_val)
-            motion_safe = responding and not has_alarm and extended_mode_val == 1
+            # Register diagnostics cannot prove STO, brakes, limits or sync.
+            motion_safe = False
 
             summary_parts: list[str] = []
             if not responding:

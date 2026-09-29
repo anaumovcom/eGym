@@ -1,5 +1,6 @@
 import { AlertTriangle } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { fetchModbusPositions } from '@/features/modbus/api/modbus-api'
 import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/cn'
@@ -11,6 +12,17 @@ export function ControlModePanel() {
   const [confirmMotorEnable, setConfirmMotorEnable] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [lastResult, setLastResult] = useState<string | null>(null)
+  const [manualTorqueReady, setManualTorqueReady] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    const refresh = () => { void fetchModbusPositions().then((positions) => {
+      if (active) setManualTorqueReady(positions.readiness.allowManualTorqueTest)
+    }).catch(() => { if (active) setManualTorqueReady(false) }) }
+    refresh()
+    const timer = window.setInterval(refresh, 1000)
+    return () => { active = false; window.clearInterval(timer) }
+  }, [])
 
   const isConnected = connectionStatus?.connected ?? false
 
@@ -60,7 +72,7 @@ export function ControlModePanel() {
             </button>
           ))}
         </div>
-        <p className="text-xs text-[#ffd166]">Команды «Оба» отправляются каждому приводу отдельно; при ошибке одного привода проверьте состояние обоих. Управление движением реальных приводов заблокировано до подтверждения карты регистров.</p>
+        <p className="text-xs text-[#ffd166]">Команды «Оба» отправляются каждому приводу отдельно. E-CTRL-UNAVAILABLE запрещает автоматическое движение. Ручной момент недоступен без проверенного Servo-OFF: программный STOP не заменяет аппаратный E-STOP.</p>
       </div>
       {/* Emergency stop — always visible */}
       <div className="rounded-2xl border border-[#ff8f84]/40 bg-[#3d1010]/60 p-4">
@@ -111,7 +123,7 @@ export function ControlModePanel() {
 
       {/* Mode selector */}
       <div className="glass-panel rounded-2xl p-5 space-y-4">
-        <h3 className="font-semibold text-[#f4dfb4]">Режим управления</h3>
+        <h3 className="font-semibold text-[#f4dfb4]">Режим управления · сервисная настройка, не разрешение движения</h3>
 
         <div className="flex gap-2">
           {(['position', 'speed', 'torque'] as ControlMode[]).map((m) => (
@@ -149,19 +161,19 @@ export function ControlModePanel() {
         <SpeedSegmentControls isConnected={isConnected} />
       )}
       {activeMode === 'torque' && (
-        <TorqueSegmentControls isConnected={isConnected} motorEnabled={motorEnabled} />
+        <TorqueSegmentControls isConnected={isConnected} motorEnabled={motorEnabled && manualTorqueReady} />
       )}
 
       {/* Command panel */}
       <div className="glass-panel rounded-2xl p-4 space-y-3">
         <h4 className="font-semibold text-[#f4dfb4] text-sm">Команды управления</h4>
         <div className="flex flex-wrap gap-2">
-          <CmdButton label="Servo ON" cmd="servo_on" accent busy={busy} disabled={!isConnected || !motorEnabled || hasAlarm} onCmd={handleCommand} />
+          <CmdButton label="Servo ON" cmd="servo_on" accent busy={busy} disabled={!isConnected || !motorEnabled || hasAlarm || !manualTorqueReady} onCmd={handleCommand} />
           <CmdButton label="Servo OFF" cmd="servo_off" busy={busy} disabled={!isConnected} onCmd={handleCommand} />
           <CmdButton label="Сброс аварии" cmd="alarm_reset" busy={busy} disabled={!isConnected} onCmd={handleCommand} />
-          <CmdButton label="JOG ▶" cmd="jog_start" busy={busy} disabled={!isConnected || !motorEnabled} onCmd={handleCommand} />
+          <CmdButton label="JOG ▶" cmd="jog_start" busy={busy} disabled={!isConnected || !motorEnabled || !manualTorqueReady} onCmd={handleCommand} />
           <CmdButton label="JOG ■" cmd="jog_stop" busy={busy} disabled={!isConnected} onCmd={handleCommand} />
-          <CmdButton label="Homing" cmd="homing" busy={busy} disabled={!isConnected || !motorEnabled} onCmd={handleCommand} />
+          <CmdButton label="Homing" cmd="homing" busy={busy} disabled onCmd={handleCommand} />
         </div>
         {lastResult && (
           <p className="text-xs text-white/50">{lastResult}</p>

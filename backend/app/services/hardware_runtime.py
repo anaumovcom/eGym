@@ -257,6 +257,11 @@ class HardwareRuntime:
     def _bootstrap_controller(self) -> None:
         """Power-on sequence: POST → (homing) → idle. Runs inside the control loop."""
 
+        if isinstance(self.adapter, ModbusDriveAdapter):
+            # Software zero is handled by ModbusService, not the homing state machine.
+            # Never auto-home an unguarded real machine on startup.
+            self.controller.request_idle()
+            return
         if bool(self.parameters.get("safety.postRequired")):
             self.controller.request_post(self.adapter.self_test())
         else:
@@ -1322,7 +1327,9 @@ class HardwareRuntime:
             drive.connected = side_t.connected
             drive.error_code = side_t.error_code
             drive.error_message = side_t.error_message
-            if not side_t.connected or side_t.error_code:
+            if side_t.error_code == "E-CTRL-UNAVAILABLE":
+                drive.status = DriveState.warning
+            elif not side_t.connected or side_t.error_code:
                 drive.status = DriveState.error
             elif side_t.temperature_c >= float(self.parameters.get("safety.tempWarnC")) or side_t.current_a >= float(self.parameters.get("safety.currentWarnA")):
                 drive.status = DriveState.warning
@@ -1345,6 +1352,10 @@ class HardwareRuntime:
                 else "Тренажёр заблокирован"
             )
             self.state.safety_message = control.fault_code or control.message
+        elif isinstance(self.adapter, ModbusDriveAdapter):
+            self.state.machine_state = MachineState.warning
+            self.state.machine_label = "Только диагностика и программный ноль"
+            self.state.safety_message = "Автоматическое движение отключено (E-CTRL-UNAVAILABLE): STOP, концевики, тормоз и синхронизация не проверены."
         elif control.sync_status in {"warning", "critical"} or self.state.service_mode or control.mode == ControlMode.post or not control.position_known:
             self.state.machine_state = MachineState.warning
             self.state.machine_label = "Сервисный режим" if self.state.service_mode and control.mode in {ControlMode.idle, ControlMode.parked, ControlMode.paused} else control.label
@@ -1461,6 +1472,11 @@ class HardwareRuntime:
         self.panel.send_command(command, **payload)
 
     def _require_panel_ready_for_motion(self) -> None:
+        if isinstance(self.adapter, ModbusDriveAdapter):
+            raise PermissionError(
+                "Автоматическое движение и homing запрещены: контур STOP, тормозов, "
+                "концевиков и синхронизации не проверен (E-CTRL-UNAVAILABLE)"
+            )
         with self._lock:
             powered_on = self._panel_powered_on
             safety_enabled = self.state.safety_state == SafetyState.enabled
