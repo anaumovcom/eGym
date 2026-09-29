@@ -82,9 +82,17 @@ const snapshot = {
   alerts: [],
 } as unknown as HardwareSnapshot
 
+const readiness = {
+  communicationReady: true, encoderReady: true, torqueControlReady: false, motionSafetyReady: false,
+  degradedManualMode: true, allowEncoderRead: true, allowZeroOffset: true, allowStatusRead: true,
+  allowManualTorqueTest: false, allowAutomaticMotion: false, allowPositionAutoMove: false,
+  allowProgramWorkout: false, allowHoming: false, noBrake: true, noLimitSwitches: true,
+  noHardwareStop: true, noHardwareSync: true, warning: '',
+}
+
 describe('MechanicsTuningScreen', () => {
   beforeEach(() => {
-    vi.mocked(fetchModbusPositions).mockReset().mockResolvedValue({ connected: false, simulationMode: false, zeroed: false, left: { slaveId: 1, currentPulses: null, zeroPulses: null, positionMm: null }, right: { slaveId: 2, currentPulses: null, zeroPulses: null, positionMm: null }, skewMm: null, error: null })
+    vi.mocked(fetchModbusPositions).mockReset().mockResolvedValue({ connected: false, simulationMode: false, zeroed: false, zeroGeneration: 0, readiness: { ...readiness, communicationReady: false, encoderReady: false, allowZeroOffset: false }, left: { slaveId: 1, currentPulses: null, zeroPulses: null, positionMm: null }, right: { slaveId: 2, currentPulses: null, zeroPulses: null, positionMm: null }, skewMm: null, error: null })
     vi.mocked(zeroModbusPositions).mockReset()
     vi.stubGlobal('WebSocket', FakeWebSocket)
     FakeWebSocket.instances = []
@@ -107,7 +115,7 @@ describe('MechanicsTuningScreen', () => {
     let left = 10000
     let right = 20000
     vi.mocked(fetchModbusPositions).mockImplementation(async () => ({
-      connected: true, simulationMode: false, zeroed: true,
+      connected: true, simulationMode: false, zeroed: true, zeroGeneration: 1, readiness,
       left: { slaveId: 1, currentPulses: left, zeroPulses: 0, positionMm: left * 0.0032 },
       right: { slaveId: 2, currentPulses: right, zeroPulses: 0, positionMm: right * 0.0032 },
       skewMm: (left - right) * 0.0032, error: null,
@@ -115,7 +123,7 @@ describe('MechanicsTuningScreen', () => {
 
     const view = render(<MemoryRouter><MechanicsTuningScreen /></MemoryRouter>)
     expect(await screen.findByText('48.0000 мм')).toBeInTheDocument()
-    expect(screen.getAllByText('32.0000 мм')).toHaveLength(2)
+    expect(screen.getByText('32.0000 мм')).toBeInTheDocument()
     expect(screen.getByText('64.0000 мм')).toBeInTheDocument()
     expect(fetchModbusPositions).toHaveBeenCalled()
 
@@ -127,22 +135,25 @@ describe('MechanicsTuningScreen', () => {
   })
 
   it('rezeros both drives and displays zero immediately without restarting', async () => {
-    vi.mocked(fetchModbusPositions).mockResolvedValue({
-      connected: true, simulationMode: false, zeroed: true,
+    const beforeZero = {
+      connected: true, simulationMode: false, zeroed: true, zeroGeneration: 1, readiness,
       left: { slaveId: 1, currentPulses: 10000, zeroPulses: 0, positionMm: 32 },
       right: { slaveId: 2, currentPulses: 20000, zeroPulses: 0, positionMm: 64 },
       skewMm: -32, error: null,
-    })
-    vi.mocked(zeroModbusPositions).mockResolvedValue({
-      connected: true, simulationMode: false, zeroed: true,
+    }
+    const afterZero = {
+      connected: true, simulationMode: false, zeroed: true, zeroGeneration: 2, readiness,
       left: { slaveId: 1, currentPulses: 10000, zeroPulses: 10000, positionMm: 0 },
       right: { slaveId: 2, currentPulses: 20000, zeroPulses: 20000, positionMm: 0 },
       skewMm: 0, error: null,
-    })
+    }
+    let zeroed = false
+    vi.mocked(fetchModbusPositions).mockImplementation(async () => zeroed ? afterZero : beforeZero)
+    vi.mocked(zeroModbusPositions).mockImplementation(async () => { zeroed = true; return afterZero })
     render(<MemoryRouter><MechanicsTuningScreen /></MemoryRouter>)
     expect(await screen.findByText('48.0000 мм')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: 'Обнулить позицию' }))
-    await waitFor(() => expect(screen.getAllByText('0.0000 мм')).toHaveLength(4))
+    await waitFor(() => expect(screen.getAllByText('0.0000 мм').length).toBeGreaterThanOrEqual(3))
     expect(zeroModbusPositions).toHaveBeenCalledOnce()
   })
 

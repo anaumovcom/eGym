@@ -11,6 +11,42 @@ export type ModbusConnectionParams = {
   slaveId: number
   rightSlaveId: number
   timeoutMs: number
+  leftDirection: -1 | 1
+  rightDirection: -1 | 1
+}
+
+export type PositionExercise = {
+  exerciseKey?: string
+  targetType: 'lower_boundary' | 'fixed_position'
+  lowerBoundaryMm: number | null
+  fixedPositionMm: number | null
+  torqueLimit: number
+  speedRpm: number
+  minMm: number
+  maxMm: number
+}
+
+export type PositionMotionStatus = {
+  state: 'idle' | 'exercise' | 'raising' | 'weightless' | 'holding' | 'fault'
+  targetType: PositionExercise['targetType'] | 'stop_raise' | 'weightless' | 'hold' | null
+  targetMm: number | null
+  torqueLimit: number | null
+  speedRpm: number | null
+  positions: ModbusPositions
+  servoOn: Record<string, boolean | null>
+  posLoad: Record<string, boolean | null>
+  drives: Record<string, Record<string, number | null>>
+  warning: string | null
+  error: string | null
+  simulationOnly: boolean
+}
+
+export type PositionCalibration = {
+  exerciseKey: string
+  zeroGeneration: number
+  lowerMm: number | null
+  upperMm: number | null
+  fixedMm: number | null
 }
 
 export type ModbusConnectionStatus = {
@@ -20,6 +56,8 @@ export type ModbusConnectionStatus = {
   parity: string | null
   slaveId: number | null
   rightSlaveId: number | null
+  leftDirection: -1 | 1
+  rightDirection: -1 | 1
   lastSuccessAt: string | null
   okCount: number
   errorCount: number
@@ -55,6 +93,7 @@ export type ModbusPositions = {
   connected: boolean
   simulationMode: boolean
   zeroed: boolean
+  zeroGeneration: number
   readiness: ModbusReadiness
   left: { slaveId: number; currentPulses: number | null; zeroPulses: number | null; positionMm: number | null }
   right: { slaveId: number; currentPulses: number | null; zeroPulses: number | null; positionMm: number | null }

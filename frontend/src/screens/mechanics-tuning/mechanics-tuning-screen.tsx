@@ -22,7 +22,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTuningStore } from '@/features/hardware/lib/use-tuning-store'
-import { fetchModbusPositions, softwareStopModbus, zeroModbusPositions } from '@/features/modbus/api/modbus-api'
+import { fetchModbusPositions, stopRaisePosition, zeroModbusPositions } from '@/features/modbus/api/modbus-api'
 import type { ModbusPositions, ModbusReadiness } from '@/features/modbus/model/types'
 import type { HardwareDriveTelemetry } from '@/features/hardware/model/types'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -49,7 +49,7 @@ const EMPTY_READINESS: ModbusReadiness = {
 }
 
 const EMPTY_FEEDBACK: DriveFeedback = {
-  connected: false, simulationMode: false, zeroed: false,
+  connected: false, simulationMode: false, zeroed: false, zeroGeneration: 0,
   readiness: EMPTY_READINESS,
   left: { slaveId: 1, currentPulses: null, zeroPulses: null, positionMm: null },
   right: { slaveId: 2, currentPulses: null, zeroPulses: null, positionMm: null },
@@ -126,8 +126,8 @@ export function MechanicsTuningScreen() {
     setStopping(true)
     setStopResult(null)
     try {
-      const result = await softwareStopModbus()
-      setStopResult(`${result.success ? 'Команды подтверждены' : 'Остановка НЕ подтверждена'}: ${result.errors.join('; ') || 'нулевой момент и Servo-OFF подтверждены только для симуляции'}. ${result.warning}`)
+      const result = await stopRaisePosition()
+      setStopResult(`Управляемый подъём до ${result.targetMm} мм, лимит ${result.torqueLimit}, скорость ${result.speedRpm} об/мин. Только симуляция; не аппаратный E-STOP.`)
     } catch (error) {
       setStopResult(`Остановка НЕ подтверждена: ${error instanceof Error ? error.message : String(error)}. Используйте аппаратный E-STOP.`)
     } finally {
@@ -232,10 +232,10 @@ export function MechanicsTuningScreen() {
           <span className="text-xs text-white/50">Программный ноль двух приводов · без записи в энкодеры · при каждом запуске снимается заново</span>
           {zeroError && <span role="alert" className="text-xs text-[#ff8f84]">{zeroError}</span>}
           {!feedback.zeroed && showModbus && <span role="status" className="text-xs text-[#ffd166]">{feedback.error ?? 'Нулевая позиция ещё не задана'}</span>}
-          <Button variant="danger" disabled={!feedback.connected || stopping} onClick={() => {
-            if (window.confirm('Обнуление момента может отпустить нагруженный гриф. Servo-OFF реальных приводов не подтверждён. Это НЕ аппаратный E-STOP. Отправить команды?')) void softwareStop()
+          <Button variant="danger" disabled={!feedback.simulationMode || stopping} onClick={() => {
+            if (window.confirm('STOP выполняет управляемый подъём грифа вверх до 2000 мм. Это не заменяет аппаратный E-STOP. Продолжить в симуляции?')) void softwareStop()
           }}>
-            {stopping ? 'Отправляю...' : 'Программный STOP (не E-STOP)'}
+            {stopping ? 'Отправляю...' : 'STOP · управляемый подъём (не E-STOP)'}
           </Button>
           {stopResult && <span role="alert" className="text-xs text-[#ff8f84]">{stopResult}</span>}
         </div>
@@ -243,16 +243,16 @@ export function MechanicsTuningScreen() {
         <ControlOverview control={control} estop={estop} drives={snapshot?.drives ?? []} feedback={feedback} emulatorMode={emulatorMode} showModbus={showModbus} />
 
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<Feather size={14} />} disabled={estop} onClick={() => command('enter_weightless', { mode: 'service' })}>Невесомый гриф</Button>
-          <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<Hand size={14} />} disabled={estop} onClick={() => command('hold')}>Удержать</Button>
-          <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<ParkingSquare size={14} />} disabled={estop} onClick={() => command('park')}>Парковка</Button>
-          <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<Home size={14} />} disabled={estop || (control?.adapter === 'modbus-rtu' && !feedback.readiness.allowHoming)} onClick={() => command('home', { mode: 'homing' })}>Homing</Button>
+          <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<Feather size={14} />} disabled={estop || feedback.connected} onClick={() => command('enter_weightless', { mode: 'service' })}>Невесомый гриф</Button>
+          <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<Hand size={14} />} disabled={estop || feedback.connected} onClick={() => command('hold')}>Удержать</Button>
+          <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<ParkingSquare size={14} />} disabled={estop || feedback.connected} onClick={() => command('park')}>Парковка</Button>
+          <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<Home size={14} />} disabled={estop || feedback.connected || (control?.adapter === 'modbus-rtu' && !feedback.readiness.allowHoming)} onClick={() => command('home', { mode: 'homing' })}>Homing</Button>
           <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<Anchor size={14} />} disabled={estop} onClick={() => command('run_self_test')}>Самотест</Button>
           <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<RotateCcw size={14} />} onClick={() => command(control?.mode === 'fault' ? 'reset_fault' : 'complete_set')}>{control?.mode === 'fault' ? 'Сбросить ошибку' : 'Завершить подход'}</Button>
           {estop ? (
             <Button variant="danger" className="px-3 py-1.5 text-xs" iconLeft={<OctagonX size={14} />} onClick={() => command('clear_emergency_stop')}>Снять СТОП</Button>
           ) : (
-            <Button variant="danger" className="px-3 py-1.5 text-xs" iconLeft={<OctagonX size={14} />} onClick={() => command('trigger_emergency_stop')}>СТОП</Button>
+            <Button variant="danger" className="px-3 py-1.5 text-xs" iconLeft={<OctagonX size={14} />} onClick={() => { if (feedback.connected) void softwareStop(); else command('trigger_emergency_stop') }}>СТОП</Button>
           )}
         </div>
 
@@ -313,7 +313,7 @@ function ControlOverview({ control, estop, drives, feedback, emulatorMode, showM
       <IndicatorCard
         icon={Gauge}
         label="Позиция грифа"
-        value={showModbus ? (barMm != null ? `${barMm.toFixed(1)} мм` : 'Нет данных') : (emulatorMode && control ? `${control.positionMm.toFixed(1)} мм` : 'Нет данных')}
+        value={showModbus ? (barMm != null ? `${barMm.toFixed(4)} мм` : 'Нет данных') : (emulatorMode && control ? `${control.positionMm.toFixed(1)} мм` : 'Нет данных')}
         detail={showModbus ? 'От программного нуля · среднее PA_1BD:PA_1BC · 0,0032 мм/имп' : (emulatorMode ? `${lower.toFixed(0)} — ${upper.toFixed(0)} мм · модель` : 'Нет связи с приводами')}
         progress={positionProgress}
       />
@@ -322,7 +322,7 @@ function ControlOverview({ control, estop, drives, feedback, emulatorMode, showM
         const positionMm = feedback[side].positionMm
         return (
           <IndicatorCard key={side} icon={Cpu} label={`${side === 'left' ? 'Левый' : 'Правый'} драйвер`}
-            value={showModbus ? (positionMm != null ? `${positionMm.toFixed(1)} мм` : 'Нет данных') : (emulatorMode && drive ? `${drive.positionMm.toFixed(1)} мм` : 'Нет данных')}
+            value={showModbus ? (positionMm != null ? `${positionMm.toFixed(4)} мм` : 'Нет данных') : (emulatorMode && drive ? `${drive.positionMm.toFixed(1)} мм` : 'Нет данных')}
             detail={showModbus ? `Ноль ${feedback[side].zeroPulses ?? '—'} имп · Slave ID ${feedback[side].slaveId} · PA_1BD:PA_1BC` : (emulatorMode ? (drive ? `Модель · ${drive.status} · ${drive.currentA.toFixed(1)} А` : 'Модель · нет данных') : 'Нет связи с приводом')}
             tone={showModbus ? (positionMm == null ? 'bad' : 'good') : (emulatorMode && drive?.connected ? 'good' : 'bad')} />
         )

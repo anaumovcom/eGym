@@ -36,7 +36,9 @@ const DEFAULT_PARAMS: ModbusConnectionParams = {
   stopBits: 1,
   slaveId: 1,
   rightSlaveId: 2,
-  timeoutMs: 500,
+  timeoutMs: 300,
+  leftDirection: 1,
+  rightDirection: 1,
 }
 
 function buildInitialParamState(): Map<number, ParameterState> {
@@ -190,7 +192,7 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
       driveAddresses: status.slaveId && status.rightSlaveId && status.slaveId !== status.rightSlaveId
         ? { left: status.slaveId, right: status.rightSlaveId } : state.driveAddresses,
       connectionParams: status.port && status.baudRate
-        ? { ...state.connectionParams, port: status.port, baudRate: status.baudRate, slaveId: status.slaveId ?? state.connectionParams.slaveId, rightSlaveId: status.rightSlaveId ?? state.connectionParams.rightSlaveId }
+        ? { ...state.connectionParams, port: status.port, baudRate: status.baudRate, slaveId: status.slaveId ?? state.connectionParams.slaveId, rightSlaveId: status.rightSlaveId ?? state.connectionParams.rightSlaveId, leftDirection: status.leftDirection, rightDirection: status.rightDirection }
         : state.connectionParams,
     }))
   },

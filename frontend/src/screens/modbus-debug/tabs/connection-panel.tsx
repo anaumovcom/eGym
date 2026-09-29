@@ -105,6 +105,18 @@ export function ConnectionPanel() {
             </label>
           ))}
 
+          {(['left', 'right'] as const).map((side) => (
+            <label key={`${side}-direction`} className="space-y-1">
+              <span className="text-xs text-white/50">Направление вверх · {side === 'left' ? 'левый' : 'правый'}</span>
+              <select className="input-field w-full" disabled={isConnected}
+                value={side === 'left' ? connectionParams.leftDirection : connectionParams.rightDirection}
+                onChange={(e) => setConnectionParams(side === 'left' ? { leftDirection: Number(e.target.value) as -1 | 1 } : { rightDirection: Number(e.target.value) as -1 | 1 })}>
+                <option value={1}>+ импульсы</option>
+                <option value={-1}>− импульсы</option>
+              </select>
+            </label>
+          ))}
+
           <label className="space-y-1">
             <span className="text-xs text-white/50">Таймаут (мс)</span>
             <input

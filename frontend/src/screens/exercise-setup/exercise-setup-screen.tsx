@@ -24,6 +24,7 @@ import { ExerciseVideoPlayer, LoadModeSelector } from '@/shared/ui/stage2/screen
 import { ValueStepper } from '@/shared/ui/training/value-stepper'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
+import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
@@ -110,6 +111,7 @@ export function ExerciseSetupScreen() {
   const startExercise = useRuntimeStore((state) => state.startExercise)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
   const snapshot = useHardwareStore((state) => state.snapshot)
+  const modbusConnected = useModbusStore((state) => state.connectionStatus?.connected ?? false)
   const currentCalibration = useHardwareStore((state) => state.currentCalibration)
   const hardwareError = useHardwareStore((state) => state.errorMessage)
   const setHardwareError = useHardwareStore((state) => state.setErrorMessage)
@@ -298,6 +300,17 @@ export function ExerciseSetupScreen() {
   }
 
   const currentExercise = exercise
+  if (modbusConnected && supportsFixedBarSetup(currentExercise)) {
+    return <FormaShell userName={getUserName(selectedUserId)} machine={snapshot?.machine ?? session.machine}
+      onStop={() => { void runCommand({ action: 'trigger_emergency_stop', userId: selectedUserId }) }}>
+      <div className="rt-screen space-y-4" role="status">
+        <h1>Position mode · {currentExercise.name}</h1>
+        <p>Настройка и фиксация точек по телеметрии обычного контроллера несовместима с программным нулём Modbus. Калибровка и сценарии Position mode доступны на отдельной странице только в симуляции. Запуск штатной тренировки из этого режима пока заблокирован.</p>
+        <Button onClick={() => navigate(`/modbus?tab=position-exercise&exercise=${encodeURIComponent(currentExercise.slug)}`)}>Открыть настройку Position mode</Button>
+        <Button variant="secondary" onClick={() => navigate(-1)}>Назад</Button>
+      </div>
+    </FormaShell>
+  }
   const settings = exercise.loadSettings
   const currentStrengthMode = currentExercise.strengthMode ?? { id: 'basic', title: 'Базовый режим', dayType: null }
   const calibrationRequired = supportsFixedBarSetup(currentExercise)
@@ -340,6 +353,10 @@ export function ExerciseSetupScreen() {
   }
 
   function captureCalibrationPoint(point: 'lower' | 'upper' | 'fixed') {
+    if (modbusConnected) {
+      setHardwareError('Калибровка Position mode проводится по двум Modbus-энкодерам на вкладке Position · упражнение, не по данным другого контроллера.')
+      return
+    }
     if (barMoving) return
     if (livePositionMm == null) {
       setHardwareError('Нет данных о положении грифа. Проверьте подключение тренажёра и повторите попытку.')
@@ -371,6 +388,10 @@ export function ExerciseSetupScreen() {
   }
 
   async function toggleWeightless() {
+    if (modbusConnected) {
+      navigate(`/modbus?tab=position-exercise&exercise=${encodeURIComponent(currentExercise.slug)}`)
+      return
+    }
     setHardwareError(null)
     try {
       if (weightlessActive) {
@@ -384,6 +405,10 @@ export function ExerciseSetupScreen() {
   }
 
   async function handleCalibrationSave() {
+    if (modbusConnected) {
+      setHardwareError('Сохранение калибровки другого контроллера в Position mode запрещено. Перейдите к настройке Modbus.')
+      return
+    }
     if (!selectedUserId) {
       setHardwareError('Сначала выберите пользователя перед сохранением калибровки.')
       return
@@ -431,6 +456,10 @@ export function ExerciseSetupScreen() {
   }
 
   async function handleStartExercise() {
+    if (modbusConnected && calibrationRequired) {
+      navigate(`/modbus?tab=position-exercise&exercise=${encodeURIComponent(currentExercise.slug)}`)
+      return
+    }
     if (startBlocked || barMoving) return
     if (calibrationRequired) {
       if (!selectedUserId) {
@@ -503,6 +532,11 @@ export function ExerciseSetupScreen() {
               <span>{exerciseKindLabels[exercise.kind]}</span>
             </p>
           </div>
+          {(modbusConnected || snapshot?.control?.adapter === 'modbus-rtu') && currentExercise && (
+            <Button variant="secondary" onClick={() => navigate(`/modbus?tab=position-exercise&exercise=${encodeURIComponent(currentExercise.slug)}`)}>
+              Настройки Position mode · {currentExercise.name}
+            </Button>
+          )}
           <div className="rt-chips" role="group" aria-label="Готовность к старту">
             {calibrationRequired ? (
               savedCalibration ? (

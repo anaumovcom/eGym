@@ -1,0 +1,6 @@
+error when starting dev server:
+Error: Port 5173 is already in use
+    at Server.onError$1 (file:///home/alex/DEV/eGym/frontend/node_modules/vite/dist/node/chunks/config.js:14949:28)
+    at Server.emit (node:events:524:28)
+    at emitErrorNT (node:net:1938:8)
+    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)

@@ -11,6 +11,7 @@ import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
 import { saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
 import { getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { useHardwareStore } from '@/stores/hardware-store'
+import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 import { apiGet, apiPost } from '@/shared/api/client'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
@@ -140,6 +141,7 @@ export function ExerciseSessionScreen() {
   const updateCatalogExerciseMedia = useRuntimeStore((state) => state.updateCatalogExerciseMedia)
   const startExercise = useRuntimeStore((state) => state.startExercise)
   const snapshot = useHardwareStore((state) => state.snapshot)
+  const modbusConnected = useModbusStore((state) => state.connectionStatus?.connected ?? false)
   const initOptions = getRuntimeInitOptions(searchParams)
   const { data: catalogExerciseDetails } = useQuery({
     queryKey: ['runtime-catalog-exercise-media', selectedUserId ?? 'alexey', initOptions.slug],
@@ -170,6 +172,12 @@ export function ExerciseSessionScreen() {
         <FormaState tone="loading" title="Готовим подход…" />
       </FormaShell>
     )
+  }
+
+  if (modbusConnected && session.exercises.some((exercise) => supportsFixedBarSetup(exercise))) {
+    return <FormaShell userName={getUserName(selectedUserId)} machine={snapshot?.machine ?? session.machine} hideNavigation onStop={() => setEmergencyStopActive(true)}>
+      <div className="rt-screen" role="alert">Тренировка по телеметрии обычного контроллера недоступна при подключённом Modbus Position mode. Для настройки точек и невесомого грифа используйте страницу Position mode (симуляция).</div>
+    </FormaShell>
   }
 
   return <ExerciseSessionView session={session} state={session.sessionState} />

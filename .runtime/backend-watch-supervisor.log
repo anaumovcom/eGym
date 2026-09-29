@@ -1,2 +1,1188 @@
 Backend supervisor is watching backend, exercises and exercise_name_translations.csv.
-Backend server started. PID: 512162
+Backend server started. PID: 840661
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 840796
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 840893
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 840997
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 841095
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 841196
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 841291
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 841386
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 841484
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 841583
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 841712
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 841809
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 841902
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 841997
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 842090
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 842203
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 842306
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 842399
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 842561
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 842674
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 842769
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 842864
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 843017
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 843171
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 843272
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 843372
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 843485
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 843578
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 843679
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 843808
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 843903
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 844029
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 844146
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 844241
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 844338
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 844431
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 844526
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 844620
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 844731
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 844826
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 844919
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 845052
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 845149
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 845260
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 845353
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 845448
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 845559
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 845659
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 845755
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 845866
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 845961
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 846070
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 846171
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 846268
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 846377
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 846472
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 846567
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 846718
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 846799
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 846918
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847022
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847118
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847197
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847290
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847385
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847484
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847582
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847679
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847774
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847899
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 847995
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 848138
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 848272
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 848376
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 848455
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 848550
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 848643
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 848738
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 848865
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 848966
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 849096
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 849189
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 849288
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 849387
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 849482
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 849583
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 849678
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 849875
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 849971
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 850066
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 850159
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 850259
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 850358
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 850455
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 850550
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 850646
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 850739
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 850834
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 850961
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 851054
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 851155
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 851250
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 851344
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 851456
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 851570
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 851663
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 851790
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 851885
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852002
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852096
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852193
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852304
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852397
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852492
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852587
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852687
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852783
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852894
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 852987
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 853082
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 853210
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 853327
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 853420
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 853516
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 853625
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 853722
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 853819
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 853914
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 854007
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 854118
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 854245
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 854322
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 854424
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 854517
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 854614
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 854725
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 854822
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 854951
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 855046
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 855157
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 855254
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 855353
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 855463
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 855557
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 855652
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 855820
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 855922
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 856028
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 856125
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 856288
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 856414
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 856511
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 856604
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 856732
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 856849
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 856942
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 857080
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 857176
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 857311
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 857419
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 857515
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 857617
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 857737
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 857835
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 857930
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 858061
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 858192
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 858289
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 858462
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 858574
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 858667
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 858782
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 858910
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 859047
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 859140
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 859235
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 859375
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 859502
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 859597
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 859693
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 859788
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 859881
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 859976
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 860103
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 860218
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 860314
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 860410
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 860564
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 860701
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 860831
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 860924
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 861026
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 861120
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 861215
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 861311
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 861422
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 861521
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 861618
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 861729
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 861822
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 861917
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 862050
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 862145
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 862272
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 862368
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 862497
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 862615
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 862736
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 862867
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 862962
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 863098
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 863202
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 863327
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 863423
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 863534
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 863630
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 863724
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 863819
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 863912
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 864008
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 864109
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 864237
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 864389
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 864484
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 864579
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 864672
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 864806
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 864949
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 865050
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 865216
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 865312
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 865439
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 865532
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 865675
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 865786
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 865882
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 865975
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 866061
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 866157
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 866263
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 866358
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 866486
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 866579
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 866779
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 866906
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867001
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867098
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867223
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867318
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867401
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867479
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867561
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867683
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867778
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867875
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 867984
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 868092
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 868229
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 868322
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 868437
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 868520
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 868616
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 868724
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 868819
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 868912
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 869039
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 869134
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 869229
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 869353
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 869448
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 869541
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 869665
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 869767
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 869875
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 869999
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 870126
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 870247
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 870347
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 870443
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 870594
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 870722
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 870817
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 870950
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 871044
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 871193
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 871289
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 871366
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 871445
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 871540
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 871633
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 871730
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 871828
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 871924
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872020
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872113
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872192
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872293
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872387
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872483
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872578
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872657
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872735
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872813
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872892
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 872969
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 873064
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 873164
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 873260
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 873418
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 873519
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 873614
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 873709
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 873820
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 873913
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 874008
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 874119
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 874221
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 874331
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 874461
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 874556
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 874690
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 874784
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 874864
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 874959
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 875054
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 875153
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 875286
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 875380
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 875508
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 875604
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 875731
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 875824
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 875957
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 876054
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 876202
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 876298
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 876391
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 876487
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 876590
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 876668
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 876764
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 876857
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 876952
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 877079
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 877181
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 877308
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 877404
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 877515
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 877616
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 877709
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 877806
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 877883
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 877978
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 878073
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 878172
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 878267
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 878364
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 878457
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 878552
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 878686
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 878794
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 878877
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 878973
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 879066
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 879161
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 879257
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 879340
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 879437
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 879530
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 879625
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 879752
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 879853
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 879980
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 880073
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 880170
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 880263
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 880336
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 881150
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 881230
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 881326
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 881419
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 881514
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 881629
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 881728
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 881823
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 881935
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 882030
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 882125
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 882236
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 882332
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 882387
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 882993
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 883084
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 883183
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 883311
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 883407
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 883519
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 883612
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 883707
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 883818
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 883929
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 884041
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 884172
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 884266
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 884428
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 884531
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 884626
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 884738
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 884831
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 884927
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 885060
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 885155
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 885254
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 885349
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 885479
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 885631
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 885758
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 885876
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 886019
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 886163
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 886275
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 886425
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 886600
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 886698
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 886794
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 886889
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 886985
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 887087
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 887219
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 887334
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 887445
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 887569
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 887685
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 887782
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 887895
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 887990
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 888105
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 888199
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 888295
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 888391
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 888486
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 888604
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 888714
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 888812
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 888925
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 889022
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 889115
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 889210
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 889306
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 889409
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 891294
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 891396
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 891522
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 891642
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 891758
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 891853
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 891949
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 892101
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 892237
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 892364
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 892498
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 892610
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 892745
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 892867
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 892964
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 893059
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 893171
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 893273
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 893371
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 893473
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 893580
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 893677
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 893778
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 893871
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 893966
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 894062
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 894181
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 894277
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 894372
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 894467
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 894562
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 894663
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 894774
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 894870
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 894966
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 895056
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 895383
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 895448
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 895526
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 895643
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 895804
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 895900
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 895996
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 896091
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 896250
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 896368
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 896468
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 896572
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 896672
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 896791
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 896885
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 897017
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 897173
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 897284
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 897388
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 897484
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 897586
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 897698
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 897791
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 897934
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 898034
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 903548
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 903629
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 903749
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 903959
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 904359
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 904512
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 904643
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 904729
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 904857
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 904971
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 905103
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 905214
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 905316
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 905452
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 905572
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 905745
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 905830
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 905923
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 906019
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 906091
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 928066
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 928146
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 928241
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 928341
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 928437
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 928532
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 928625
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 928720
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 928822
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 928917
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 929009
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 929413
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 929503
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 929601
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 943608
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 943693
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 943788
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 943885
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 943983
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 944078
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 944173
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 944276
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 944375
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 944473
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 944605
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 944701
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 944803
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 944897
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 944992
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 945087
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 945180
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 945283
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 945379
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 945472
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 945573
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 945668
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 945764
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 945859
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 945954
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 946051
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 946148
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 946245
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 946338
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 946433
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 946527
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 946627
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 946724
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 946817
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 946912
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947007
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947100
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947202
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947298
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947391
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947486
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947581
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947674
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947769
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947887
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 947984
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 948096
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 948191
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 948324

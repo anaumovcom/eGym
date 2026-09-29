@@ -1,6 +1,6 @@
 import { AlertTriangle } from 'lucide-react'
 import { useEffect, useState } from 'react'
-import { fetchModbusPositions } from '@/features/modbus/api/modbus-api'
+import { fetchModbusPositions, stopRaisePosition } from '@/features/modbus/api/modbus-api'
 import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/cn'
@@ -74,25 +74,30 @@ export function ControlModePanel() {
         </div>
         <p className="text-xs text-[#ffd166]">Команды «Оба» отправляются каждому приводу отдельно. E-CTRL-UNAVAILABLE запрещает автоматическое движение. Ручной момент недоступен без проверенного Servo-OFF: программный STOP не заменяет аппаратный E-STOP.</p>
       </div>
-      {/* Emergency stop — always visible */}
+      {/* Controlled STOP — never the hardware E-STOP */}
       <div className="rounded-2xl border border-[#ff8f84]/40 bg-[#3d1010]/60 p-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="flex-1">
             <div className="font-bold text-[#ff8f84] flex items-center gap-2">
               <AlertTriangle size={16} />
-              Аварийная остановка
+              STOP · управляемый подъём
             </div>
             <p className="text-xs text-white/40 mt-1">
-              Программная остановка не заменяет аппаратную защиту (кнопку E-Stop).
+              STOP выполняет управляемый подъём грифа вверх. Это не заменяет аппаратный E-STOP. Только симуляция.
             </p>
           </div>
           <Button
             variant="danger"
             className="min-w-[160px]"
-            onClick={() => handleCommand('emergency_stop')}
-            disabled={!isConnected || busy !== null}
+            onClick={() => {
+              setBusy('stop_raise')
+              void stopRaisePosition().then((result) => setLastResult(`Подъём к ${result.targetMm} мм, лимит ${result.torqueLimit}`))
+                .catch((error: unknown) => setLastResult(`STOP не выполнен: ${error instanceof Error ? error.message : String(error)}. Используйте аппаратный E-STOP.`))
+                .finally(() => setBusy(null))
+            }}
+            disabled={!isConnected || busy !== null || !connectionStatus?.simulationMode}
           >
-            EMERGENCY STOP
+            STOP · подъём к 2000 мм
           </Button>
         </div>
       </div>
@@ -169,7 +174,6 @@ export function ControlModePanel() {
         <h4 className="font-semibold text-[#f4dfb4] text-sm">Команды управления</h4>
         <div className="flex flex-wrap gap-2">
           <CmdButton label="Servo ON" cmd="servo_on" accent busy={busy} disabled={!isConnected || !motorEnabled || hasAlarm || !manualTorqueReady} onCmd={handleCommand} />
-          <CmdButton label="Servo OFF" cmd="servo_off" busy={busy} disabled={!isConnected} onCmd={handleCommand} />
           <CmdButton label="Сброс аварии" cmd="alarm_reset" busy={busy} disabled={!isConnected} onCmd={handleCommand} />
           <CmdButton label="JOG ▶" cmd="jog_start" busy={busy} disabled={!isConnected || !motorEnabled || !manualTorqueReady} onCmd={handleCommand} />
           <CmdButton label="JOG ■" cmd="jog_stop" busy={busy} disabled={!isConnected} onCmd={handleCommand} />

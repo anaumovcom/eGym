@@ -9,6 +9,8 @@ import { getDriveLabel, getSafetyLabel } from '@/shared/lib/machine-status'
 import { cn } from '@/shared/lib/cn'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { useSafetyDockTarget } from '@/shared/ui/overlays/safety-dialog'
+import { stopRaisePosition } from '@/features/modbus/api/modbus-api'
+import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 
 const navigationIcons = {
   '/dashboard': House,
@@ -125,9 +127,11 @@ export function TopNavigationMenu({ userName, systemBar }: { userName: string; s
   )
 }
 
-export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onStop: () => void }) {
+export function TopSystemBar({ machine, onStop, stopLabel }: { machine?: MachineHealth; onStop: () => void; stopLabel?: string }) {
   const problems = machine ? getMachineProblems(machine) : []
   const connectionStatus = useHardwareStore((state) => state.connectionStatus)
+  const modbusConnected = useModbusStore((state) => state.connectionStatus?.connected ?? false)
+  const modbusMotion = useHardwareStore((state) => state.snapshot?.control?.adapter === 'modbus-rtu') || modbusConnected
   const connectionLost = connectionStatus === 'error' || connectionStatus === 'disconnected'
   const target = useSafetyDockTarget()
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -156,14 +160,14 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
           </Popover.Portal>
         </Popover.Root>
       </div>
-      <EmergencyStopButton onClick={onStop} />
+      <EmergencyStopButton onClick={modbusMotion ? () => { void stopRaisePosition().catch((error: unknown) => window.alert(`STOP не выполнен: ${error instanceof Error ? error.message : String(error)}. Используйте аппаратный E-STOP.`)) } : onStop} label={stopLabel ?? (modbusMotion ? 'STOP · подъём (не E-STOP)' : undefined)} />
     </div>
   )
 
   return target ? createPortal(dock, target) : dock
 }
 
-export function EmergencyStopButton({ onClick }: { onClick: () => void }) {
+export function EmergencyStopButton({ onClick, label = 'Аварийная остановка' }: { onClick: () => void; label?: string }) {
   return (
     <button
       type="button"
@@ -171,14 +175,14 @@ export function EmergencyStopButton({ onClick }: { onClick: () => void }) {
       className="forma-stop inline-flex items-center justify-center gap-2 bg-linear-to-r from-[#891610] via-[#d52f22] to-[#a61612] font-extrabold text-white"
     >
       <OctagonAlert className="h-6 w-6" aria-hidden="true" />
-      <span>Аварийная остановка</span>
+      <span>{label}</span>
     </button>
   )
 }
 
-export function FormaShell({ children, userName, machine, onStop, hideNavigation = false }: PropsWithChildren<{ userName: string; machine: MachineHealth; onStop: () => void; hideNavigation?: boolean }>) {
+export function FormaShell({ children, userName, machine, onStop, stopLabel, hideNavigation = false }: PropsWithChildren<{ userName: string; machine: MachineHealth; onStop: () => void; stopLabel?: string; hideNavigation?: boolean }>) {
   const liveMachine = useHardwareStore((state) => state.snapshot?.machine)
-  const systemBar = <TopSystemBar machine={liveMachine ?? machine} onStop={onStop} />
+  const systemBar = <TopSystemBar machine={liveMachine ?? machine} onStop={onStop} stopLabel={stopLabel} />
 
   return (
     <div className="forma-shell">

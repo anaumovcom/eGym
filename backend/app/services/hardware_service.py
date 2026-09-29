@@ -34,6 +34,7 @@ from app.schemas.hardware import (
 from app.schemas.machine import MachineHealthSchema, SafetyStatusSchema
 from app.services.exercise_library import get_imported_exercise
 from app.services.hardware_runtime import hardware_runtime
+from app.services.modbus_service import modbus_service
 from app.services.motion.parameters import PARAMETER_SPECS, get_spec
 from app.repositories.audit_repository import AuditRepository
 from app.repositories.settings_repository import SettingsRepository
@@ -208,6 +209,8 @@ class HardwareService:
             )
         )
         checks = [
+            self._check("position-mode-isolated", "Контур Position mode не конфликтует", not modbus_service.get_status().connected or service_action,
+                        "critical", "Используется независимый контроллер Modbus Position mode: запуск штатной тренировки заблокирован." if modbus_service.get_status().connected and not service_action else "Конфликта контроллеров нет."),
             self._check("user-selected", "Пользователь выбран", payload.user_id is not None and payload.user_id != "", "critical", "Пользователь выбран" if payload.user_id else "Сначала выберите пользователя."),
             self._check("safety-enabled", "Безопасность включена", runtime.safety.state == SafetyState.enabled, "critical", "Безопасность активна" if runtime.safety.state == SafetyState.enabled else "Система безопасности выключена."),
             self._check("estop", "СТОП не активен", runtime.safety.state != SafetyState.emergency_stop, "critical", "Аварийная остановка не активна" if runtime.safety.state != SafetyState.emergency_stop else "Сначала снимите аварийную остановку."),
@@ -233,6 +236,11 @@ class HardwareService:
         )
 
     def execute_command(self, session: Session, payload: HardwareCommandRequestSchema) -> HardwareCommandResponseSchema:
+        if modbus_service.get_status().connected and payload.action in {
+            "start_motion", "move_to_start", "start_fixed_position", "resume", "enter_weightless",
+            "capture_point", "manual_move", "jog_start", "range_preview", "park", "home",
+        }:
+            raise PermissionError("Контроллер Position mode Modbus использует отдельные координаты. Штатный контур движения/калибровки заблокирован до интеграции; используйте симуляцию Position mode.")
         safety_gate: SafetyGateResponseSchema | None = None
         training_actions = {"start_motion", "move_to_start", "start_fixed_position", "resume"}
         service_actions = {"manual_move", "jog_start", "home", "reset_zero_position", "range_preview", "enter_weightless", "align_sides", "park"}

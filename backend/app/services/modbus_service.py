@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import time
 import threading
+import math
 from collections import deque
 from datetime import UTC, datetime
 from typing import Any
@@ -22,6 +23,11 @@ from app.schemas.modbus import (
     ModbusConnectionParamsSchema,
     ModbusConnectionStatusSchema,
     ModbusPositionsSchema,
+    PositionCalibrationCaptureSchema,
+    PositionCalibrationSchema,
+    PositionExerciseSchema,
+    PositionMotionStatusSchema,
+    WeightlessPositionSchema,
     ModbusPositionSideSchema,
     ModbusReadinessSchema,
     ModbusReadRequestSchema,
@@ -47,7 +53,7 @@ _DEFAULT_REGISTERS: dict[int, int] = {
     0x000: 1,
     # PA_001 – reserved
     0x001: 0,
-    # PA_002 – control mode: 0=Position, 1=Speed, 2=Torque, 3=CANopen
+    # PA_002 – control mode: 0=Position, 1=Speed, 2=Torque
     0x002: 0,
     # PA_003 – rotation direction
     0x003: 0,
@@ -85,6 +91,10 @@ _DEFAULT_REGISTERS: dict[int, int] = {
     # PA_1BC / PA_1BD – actual position feedback, low/high words
     0x1BC: 0,
     0x1BD: 0,
+    # Simulation-only feedback/status (real mapping must be verified before use).
+    0x1BE: 0, 0x1BF: 0, 0x1C0: 0, 0x1C1: 0,
+    0x1C3: 0, 0x1C4: 0, 0x1C5: 0, 0x1C8: 0,
+    0x1C9: 0, 0x1CE: 0, 0x1D0: 0, 0x1D1: 0,
     # Position command low word
     0x207: 0,
     # Position command high word
@@ -119,6 +129,13 @@ for _i in range(32):
 
 _MAX_LOG_ENTRIES = 500
 MM_PER_PULSE = 0.0032  # SFE 32-32: 32 mm / 10000 encoder counts
+PULSES_PER_MM = 312.5
+STOP_TARGET_MM = 2000
+STOP_TORQUE_LIMIT = 300
+STOP_SPEED_RPM = 30  # commissioning value; verify on unloaded simulator before hardware use
+MAX_SKEW_MM = 3
+MAX_POSITION_ERROR_MM = 10
+MODBUS_TIMEOUT_SECONDS = 0.3
 
 
 class ModbusService:
@@ -142,6 +159,19 @@ class ModbusService:
         self.right_zero_pulses: int | None = None
         self._profiles: list[ParameterProfileSchema] = []
         self._profile_id_counter = 0
+        self._motion_state = "idle"
+        self._motion_target_type: str | None = None
+        self._motion_target_mm: float | None = None
+        self._motion_torque_limit: int | None = None
+        self._motion_speed_rpm: int | None = None
+        self._motion_min_mm = 0.0
+        self._motion_max_mm = 2000.0
+        self._motion_error: str | None = None
+        self._weightless_threshold: int | None = None
+        self._zero_generation = 0
+        self._position_calibrations: dict[str, PositionCalibrationSchema] = {}
+        self._stall_since: float | None = None
+        self._previous_positions: tuple[float, float] | None = None
 
     # ------------------------------------------------------------------
     # Helpers
@@ -167,6 +197,8 @@ class ModbusService:
         ))
 
     def _is_signed_register(self, address: int) -> bool:
+        if 0x168 <= address <= 0x187:
+            return False  # 32-bit position is split into unsigned 16-bit words
         signed_addresses = {
             0x015,  # rate feed-forward
             0x03F,  # manufacturer parameter with negative default
@@ -262,6 +294,15 @@ class ModbusService:
 
     def connect(self, params: ModbusConnectionParamsSchema) -> ModbusConnectionStatusSchema:
         with self._lock:
+            if self is modbus_service:
+                from app.services.hardware_runtime import hardware_runtime
+                if hardware_runtime.controller.state.mode.value not in {"idle", "parked"}:
+                    return ModbusConnectionStatusSchema(
+                        connected=self._connected,
+                        error_message="Нельзя подключать Modbus Position mode во время работы другого контроллера",
+                    )
+            if self._motion_state in {"exercise", "raising", "weightless", "holding"}:
+                return ModbusConnectionStatusSchema(connected=self._connected, error_message="Сначала завершите движение; отсоединение при нагрузке опасно")
             if params.slave_id == params.right_slave_id:
                 return ModbusConnectionStatusSchema(connected=False, error_message="Адреса левого и правого приводов должны различаться")
             if self._connected:
@@ -279,6 +320,8 @@ class ModbusService:
             self._right_slave_id = params.right_slave_id
             self.left_zero_pulses = None
             self.right_zero_pulses = None
+            self._position_calibrations.clear()
+            self._reset_motion()
             self._connection_error = None
             is_sim = params.port == "SIM://"
 
@@ -288,6 +331,7 @@ class ModbusService:
                 self._error_count = 0
                 self._last_success_at = self._now()
                 self._log_info("CONNECT", f"Connected to {params.port} (simulation mode)")
+                self._positions_locked(capture_zero=True)
                 return self._build_status(simulation_mode=True)
 
             try:
@@ -305,6 +349,8 @@ class ModbusService:
                 self._error_count = 0
                 self._last_success_at = self._now()
                 self._log_info("CONNECT", f"Connected to {params.port} @ {params.baud_rate}")
+                # A failed read of either encoder leaves the origin unset.
+                self._positions_locked(capture_zero=True)
                 return self._build_status(simulation_mode=False)
             except Exception as exc:  # noqa: BLE001
                 self._connected = False
@@ -322,7 +368,10 @@ class ModbusService:
 
     def disconnect(self) -> ModbusConnectionStatusSchema:
         with self._lock:
+            if self._motion_state in {"exercise", "raising", "weightless", "holding"}:
+                raise ValueError("Нельзя отключать Modbus во время движения без аппаратной защиты")
             self._connected = False
+            self._reset_motion()
             self.left_zero_pulses = None
             self.right_zero_pulses = None
             if hasattr(self, "_instr"):
@@ -346,6 +395,8 @@ class ModbusService:
             parity=self._params.parity if self._params else None,
             slave_id=self._params.slave_id if self._params else None,
             right_slave_id=self._right_slave_id if self._params else None,
+            left_direction=self._params.left_direction if self._params else 1,
+            right_direction=self._params.right_direction if self._params else 1,
             last_success_at=self._last_success_at,
             ok_count=self._ok_count,
             error_count=self._error_count,
@@ -420,14 +471,21 @@ class ModbusService:
             allow_status_read=self._connected,
             allow_zero_offset=encoder_ready,
         )
+        if capture_zero and self._motion_state in {"exercise", "raising", "weightless", "holding"}:
+            raise ValueError("Нельзя менять программный ноль во время движения")
         if capture_zero and left is not None and right is not None:
             self.left_zero_pulses, self.right_zero_pulses = left, right
+            self._zero_generation += 1
+            self._position_calibrations.clear()
             self._log_info("ZERO", f"Software encoder zero captured for slaves {left_id} and {right_id}")
         zeroed = self.left_zero_pulses is not None and self.right_zero_pulses is not None
-        left_mm = (left - self.left_zero_pulses) * MM_PER_PULSE if left is not None and zeroed else None
-        right_mm = (right - self.right_zero_pulses) * MM_PER_PULSE if right is not None and zeroed else None
+        left_dir = self._params.left_direction if self._params else 1
+        right_dir = self._params.right_direction if self._params else 1
+        left_mm = (left - self.left_zero_pulses) * MM_PER_PULSE * left_dir if left is not None and zeroed else None
+        right_mm = (right - self.right_zero_pulses) * MM_PER_PULSE * right_dir if right is not None and zeroed else None
         return ModbusPositionsSchema(
             connected=self._connected, simulation_mode=self._params is not None and self._params.port == "SIM://", zeroed=zeroed,
+            zero_generation=self._zero_generation,
             readiness=readiness,
             left_zero_pulses=self.left_zero_pulses, right_zero_pulses=self.right_zero_pulses,
             left_position_mm=left_mm, right_position_mm=right_mm,
@@ -451,44 +509,310 @@ class ModbusService:
         with self._lock:
             return self._positions_locked(capture_zero=True)
 
-    def software_stop(self) -> SoftwareStopResultSchema:
-        """Best-effort zero torque on both sides, then attempt servo-off on both.
-
-        A Modbus acknowledgement is not proof of stopped motion. Real servo-off
-        is intentionally unimplemented until its physical control map is verified.
-        """
-        result = SoftwareStopResultSchema()
+    def get_position_calibration(self, exercise_key: str) -> PositionCalibrationSchema | None:
         with self._lock:
-            if not self._connected:
-                result.errors.append("Modbus не подключён; воспользуйтесь аппаратным E-STOP")
-                return result
-            for side, slave_id in (("left", self._left_slave_id), ("right", self._right_slave_id)):
-                result.torque_zeroed[side] = False
-                result.servo_off_confirmed[side] = False
-                segment = self._do_read(ModbusReadRequestSchema(address=0x093, slave_id=slave_id))
-                if not segment.success or not segment.registers or segment.registers[0].error:
-                    result.errors.append(f"{side}: не удалось узнать активный сегмент момента")
-                    continue
-                index = segment.registers[0].value
-                if not 0 <= index < 32:
-                    result.errors.append(f"{side}: недопустимый индекс сегмента момента {index}")
-                    continue
-                address = 0x12C + index
-                self._select_slave(slave_id)
-                written = self._write_register_locked(address, 0, slave_id)
-                readback = self._do_read(ModbusReadRequestSchema(address=address, slave_id=slave_id))
-                if written.success and readback.success and readback.registers and readback.registers[0].value == 0:
-                    result.torque_zeroed[side] = True
+            calibration = self._position_calibrations.get(exercise_key)
+            return calibration if calibration and calibration.zero_generation == self._zero_generation else None
+
+    def capture_position_point(self, req: PositionCalibrationCaptureSchema) -> PositionCalibrationSchema:
+        with self._lock:
+            self._assert_simulated_motion()
+            if self._motion_state not in {"idle", "weightless", "holding"}:
+                raise ValueError("Фиксация точки недоступна во время движения или после ошибки")
+            positions = self._positions_locked()
+            left, right = positions.left.position_mm, positions.right.position_mm
+            if left is None or right is None or not 0 <= left <= STOP_TARGET_MM or not 0 <= right <= STOP_TARGET_MM:
+                raise ValueError("Нет позиций обоих приводов внутри программных границ")
+            if abs(left - right) > MAX_SKEW_MM:
+                raise ValueError("Перекос превышает 3 мм")
+            value = round((left + right) / 2, 3)
+            previous = self.get_position_calibration(req.exercise_key)
+            data = previous.model_dump() if previous else {"exercise_key": req.exercise_key, "zero_generation": self._zero_generation}
+            data[f"{req.point}_mm"] = value
+            calibration = PositionCalibrationSchema(**data)
+            self._position_calibrations[req.exercise_key] = calibration
+            return calibration
+
+    def _reset_motion(self) -> None:
+        self._motion_state = "idle"
+        self._motion_target_type = None
+        self._motion_target_mm = None
+        self._motion_torque_limit = None
+        self._motion_speed_rpm = None
+        self._motion_error = None
+        self._weightless_threshold = None
+        self._stall_since = None
+        self._previous_positions = None
+
+    @property
+    def motion_active(self) -> bool:
+        with self._lock:
+            return self._motion_state in {"exercise", "raising", "weightless", "holding"}
+
+    def _motion_fault(self, reason: str) -> None:
+        self._motion_state = "fault"
+        self._motion_error = reason
+        self._log_info("POSITION_FAULT", reason)
+        # Simulator only: hold each drive's present position without releasing
+        # Servo-ON. A Modbus failure makes even this best-effort; real motion is
+        # blocked until a drive-side watchdog and physical safety path exist.
+        if not self._connected or self._params is None or self._params.port != "SIM://":
+            return
+        for sid in (self._left_slave_id, self._right_slave_id):
+            pulses, error = self._read_position(sid)
+            if error or pulses is None:
+                self._log_info("POSITION_HOLD_FAILED", f"ID {sid}: {error}")
+                continue
+            raw = pulses & 0xFFFFFFFF
+            self._select_slave(sid)
+            self._simulate_write(0x168, raw & 0xFFFF)
+            self._simulate_write(0x169, raw >> 16)
+            self._set_di_bit(5, False)
+            self._set_di_bit(5, True)
+            self._set_di_bit(5, False)
+            self._log_info("POSITION_HOLD", f"ID {sid}: simulated hold at {pulses} pulses")
+
+    def _read_motion_register(self, address: int, slave_id: int) -> int:
+        result = self._do_read(ModbusReadRequestSchema(address=address, slave_id=slave_id))
+        if not result.success or len(result.registers) != 1 or result.registers[0].error:
+            raise ValueError(f"Modbus ID {slave_id}, 0x{address:03X}: {result.error or 'нет данных'}")
+        if (result.elapsed_ms or 0) > MODBUS_TIMEOUT_SECONDS * 1000:
+            raise ValueError(f"Таймаут Modbus ID {slave_id}")
+        return result.registers[0].value
+
+    def _verified_motion_write(self, address: int, value: int, slave_id: int) -> None:
+        result = self.write_register(ModbusWriteRequestSchema(address=address, value=value, slave_id=slave_id))
+        if not result.success or (self._read_motion_register(address, slave_id) & 0xFFFF) != (value & 0xFFFF):
+            raise ValueError(f"Не подтверждена запись ID {slave_id}, 0x{address:03X}")
+
+    def _assert_simulated_motion(self) -> None:
+        if not self._connected or self._params is None:
+            raise ValueError("Modbus не подключён")
+        if self._params.port != "SIM://" or hasattr(self, "_instr"):
+            raise PermissionError("E-CTRL-UNAVAILABLE: POS_LOAD, DI и аппаратный контур защиты Lichuan A6 не проверены; реальное движение заблокировано")
+
+    def _start_position(self, target_mm: float, torque_limit: int, speed_rpm: int,
+                        target_type: str, min_mm: float, max_mm: float) -> PositionMotionStatusSchema:
+        self._assert_simulated_motion()
+        if self._motion_state == "fault":
+            raise ValueError("Сначала устраните ошибку и переподключите симулятор")
+        if not all(math.isfinite(v) for v in (target_mm, min_mm, max_mm)) or min_mm >= max_mm:
+            raise ValueError("Недопустимые программные границы")
+        if not min_mm <= target_mm <= max_mm:
+            raise ValueError("Цель вне программных min/max")
+        if not 1 <= torque_limit <= 3000 or not 1 <= speed_rpm <= 3000:
+            raise ValueError("Недопустимый лимит момента или скорость")
+        if (self._motion_state in {"exercise", "raising", "weightless", "holding"} and self._motion_target_mm == target_mm
+                and self._motion_target_type == target_type and self._motion_speed_rpm == speed_rpm
+                and self._motion_min_mm == min_mm and self._motion_max_mm == max_mm):
+            status = self.position_motion_status()
+            if status.state == "fault":
+                raise ValueError(status.error or "Ошибка мониторинга")
+            return self.update_position_limit(torque_limit) if self._motion_torque_limit != torque_limit else status
+        positions = self._positions_locked()
+        if not positions.zeroed or positions.left.position_mm is None or positions.right.position_mm is None:
+            raise ValueError("Нет программного нуля обоих приводов")
+        if positions.skew_mm is None or abs(positions.skew_mm) > MAX_SKEW_MM:
+            raise ValueError("Перекос между приводами превышает 3 мм")
+        if any(not min_mm <= p <= max_mm for p in (positions.left.position_mm, positions.right.position_mm)):
+            raise ValueError("Текущая позиция вне программных min/max")
+        ids = (self._left_slave_id, self._right_slave_id)
+        for sid in ids:
+            if self._read_motion_register(0x200, sid) or self._read_motion_register(0x1C9, sid):
+                raise ValueError(f"Ошибка драйвера ID {sid}")
+            if self._read_motion_register(0x002, sid) != 0 or self._read_motion_register(0x090, sid) != 1:
+                raise ValueError(f"ID {sid}: требуются Position mode (PA_002=0) и extended control (PA_090=1)")
+
+        # Prepare BOTH sides before POS_LOAD; never send torque command (PA_20A).
+        try:
+            for side, sid in (("left", ids[0]), ("right", ids[1])):
+                self._verified_motion_write(0x05E, torque_limit, sid)
+                self._verified_motion_write(0x05F, torque_limit, sid)
+                origin = getattr(positions, side).zero_pulses
+                direction = self._params.left_direction if side == "left" else self._params.right_direction
+                assert origin is not None
+                target_pulses = origin + direction * round(target_mm * PULSES_PER_MM)
+                if not -(2**31) <= target_pulses < 2**31:
+                    raise ValueError("Цель не помещается в 32-битный счётчик")
+                raw = target_pulses & 0xFFFFFFFF
+                self._verified_motion_write(0x168, raw & 0xFFFF, sid)
+                self._verified_motion_write(0x169, raw >> 16, sid)
+                self._verified_motion_write(0x190, speed_rpm, sid)
+                self._verified_motion_write(0x091, 0, sid)
+            for sid in ids:
+                cmd = self.execute_command(ModbusCommandRequestSchema(command="servo_on", confirmed=True, slave_id=sid))
+                if not cmd.success or not self._read_motion_register(0x201, sid) & 1:
+                    raise ValueError(f"Servo-ON ID {sid} не подтверждён")
+            for sid in ids:
+                # Edge, not a permanently high bit; subsequent goals must trigger again.
+                self._select_slave(sid)
+                self._set_di_bit(5, False)
+                cmd = self.execute_command(ModbusCommandRequestSchema(command="pos_load", confirmed=True, slave_id=sid))
+                if not cmd.success:
+                    raise ValueError(f"POS_LOAD ID {sid} не подтверждён")
+                self._set_di_bit(5, False)
+        except (ValueError, PermissionError) as exc:
+            self._motion_fault(str(exc))
+            raise
+        self._motion_state = {"stop_raise": "raising", "weightless": "weightless", "hold": "holding"}.get(target_type, "exercise")
+        self._motion_target_type = target_type
+        self._motion_target_mm = target_mm
+        self._motion_torque_limit = torque_limit
+        self._motion_speed_rpm = speed_rpm
+        self._motion_min_mm, self._motion_max_mm = min_mm, max_mm
+        self._stall_since = None
+        self._previous_positions = None
+        return self.position_motion_status()
+
+    def start_position_exercise(self, request: PositionExerciseSchema) -> PositionMotionStatusSchema:
+        with self._lock:
+            if self._motion_state == "weightless":
+                raise ValueError("Сначала удержите гриф и завершите калибровку")
+            target = request.lower_boundary_mm if request.target_type == "lower_boundary" else request.fixed_position_mm
+            if target is None:
+                raise ValueError("Целевая позиция упражнения не задана")
+            if request.exercise_key:
+                calibration = self.get_position_calibration(request.exercise_key)
+                if calibration is None:
+                    raise ValueError("Нет калибровки упражнения для текущего программного нуля")
+                if request.target_type == "lower_boundary":
+                    if calibration.lower_mm is None or calibration.upper_mm is None or calibration.upper_mm <= calibration.lower_mm:
+                        raise ValueError("Зафиксируйте нижнюю и верхнюю точки амплитуды")
+                    if target != calibration.lower_mm or calibration.upper_mm > request.max_mm:
+                        raise ValueError("Цель/границы не совпадают с калибровкой")
+                elif calibration.fixed_mm is None or target != calibration.fixed_mm:
+                    raise ValueError("Фиксированная цель не совпадает с калибровкой")
+            return self._start_position(target, request.torque_limit, request.speed_rpm,
+                                        request.target_type, request.min_mm, request.max_mm)
+
+    def update_position_limit(self, torque_limit: int) -> PositionMotionStatusSchema:
+        with self._lock:
+            self._assert_simulated_motion()
+            if not 1 <= torque_limit <= 3000 or self._motion_state not in {"exercise", "raising", "weightless", "holding"}:
+                raise ValueError("Нет активного упражнения или недопустимый лимит")
+            if self._motion_state == "weightless" and (self._weightless_threshold is None or torque_limit >= self._weightless_threshold):
+                raise ValueError("Невесомый режим: лимит должен оставаться ниже измеренного порога движения")
+            try:
+                for sid in (self._left_slave_id, self._right_slave_id):
+                    for address in (0x05E, 0x05F):
+                        self._verified_motion_write(address, torque_limit, sid)
+            except ValueError as exc:
+                self._motion_fault(str(exc))
+                raise
+            self._motion_torque_limit = torque_limit
+            return self.position_motion_status()
+
+    def stop_raise(self) -> PositionMotionStatusSchema:
+        with self._lock:
+            # No Servo-OFF and no zero torque. Fail closed when no verified path exists.
+            if self._motion_state in {"exercise", "weightless", "holding"} and not self._motion_min_mm <= STOP_TARGET_MM <= self._motion_max_mm:
+                raise ValueError("STOP 2000 мм вне действующих программных границ; используйте аппаратную защиту")
+            return self._start_position(STOP_TARGET_MM, STOP_TORQUE_LIMIT, STOP_SPEED_RPM,
+                                        "stop_raise", 0, STOP_TARGET_MM)
+
+    def enter_weightless(self, req: WeightlessPositionSchema) -> PositionMotionStatusSchema:
+        with self._lock:
+            if req.torque_limit >= req.no_motion_threshold:
+                raise ValueError("Лимит невесомого грифа должен быть ниже измеренного порога движения")
+            if self._motion_state in {"exercise", "raising", "fault"}:
+                raise ValueError("Сначала завершите движение; нельзя переключаться на невесомый режим под нагрузкой")
+            # Reaching 2m is NOT expected in weightless mode. The low limit
+            # must be established with the actual load; this is simulation only.
+            status = self._start_position(STOP_TARGET_MM, req.torque_limit, req.speed_rpm,
+                                          "weightless", 0, STOP_TARGET_MM)
+            if status.state == "weightless":
+                self._weightless_threshold = req.no_motion_threshold
+            return status
+
+    def hold_position(self) -> PositionMotionStatusSchema:
+        with self._lock:
+            self._assert_simulated_motion()
+            if self._motion_state not in {"weightless", "holding"}:
+                raise ValueError("Удержание доступно после невесомого режима")
+            status = self.position_motion_status()
+            if status.state == "fault":
+                raise ValueError(status.error or "Ошибка движения")
+            left, right = status.positions.left.position_mm, status.positions.right.position_mm
+            if left is None or right is None or abs(left - right) > MAX_SKEW_MM:
+                raise ValueError("Позиция для удержания не подтверждена")
+            return self._start_position(round((left + right) / 2, 3), STOP_TORQUE_LIMIT,
+                                        STOP_SPEED_RPM, "hold", 0, STOP_TARGET_MM)
+
+    def position_motion_status(self) -> PositionMotionStatusSchema:
+        with self._lock:
+            positions = self._positions_locked()
+            drives: dict[str, dict[str, int | float | None]] = {}
+            servo: dict[str, bool | None] = {}
+            load: dict[str, bool | None] = {}
+            warning = None
+            try:
+                if self._motion_state in {"exercise", "raising", "weightless", "holding"}:
+                    if not positions.readiness.encoder_ready:
+                        raise ValueError("Потеряна связь Modbus/энкодер")
+                    if positions.skew_mm is None or abs(positions.skew_mm) > MAX_SKEW_MM:
+                        raise ValueError("Перекос превышает 3 мм")
+                for side, sid in (("left", self._left_slave_id), ("right", self._right_slave_id)):
+                    if not self._connected:
+                        servo[side], load[side] = None, None
+                        continue
+                    # These feedback addresses are simulator placeholders until the
+                    # drive's physical monitoring map is independently confirmed.
+                    values = {name: self._read_motion_register(addr, sid) for name, addr in (
+                        ("speed_command", 0x1C0), ("speed_actual", 0x1C1),
+                        ("torque_command", 0x1C3), ("torque_actual", 0x1C4),
+                        ("torque_error", 0x1C5), ("system_status", 0x1C8),
+                        ("error_code", 0x1C9), ("alarm", 0x200),
+                    )}
+                    deviation = self._combine_position(
+                        self._read_motion_register(0x1BE, sid), self._read_motion_register(0x1BF, sid)
+                    )
+                    values["position_error_mm"] = deviation * MM_PER_PULSE
+                    drives[side] = values
+                    mask = self._read_motion_register(0x201, sid)
+                    servo[side] = bool(mask & 1)
+                    load[side] = bool(mask & (1 << 5))
+                    if self._motion_state in {"exercise", "raising", "weightless", "holding"}:
+                        if values["alarm"] or values["error_code"]:
+                            raise ValueError(f"Ошибка драйвера {side}: {values['alarm']}/{values['error_code']}")
+                        if not servo[side]:
+                            raise ValueError(f"Servo-ON {side} отключён")
+                        p = getattr(positions, side).position_mm
+                        if p is None or not self._motion_min_mm <= p <= self._motion_max_mm:
+                            raise ValueError(f"{side}: выход за программные границы")
+                        if self._motion_state != "weightless" and (abs(values["position_error_mm"]) > MAX_POSITION_ERROR_MM or abs((self._motion_target_mm or 0) - p) > MAX_POSITION_ERROR_MM):
+                            warning = "Позиционная ошибка более 10 мм (при движении допустимо; проверьте препятствие)"
+                if self._motion_state in {"exercise", "raising", "weightless", "holding"}:
+                    current = (positions.left.position_mm, positions.right.position_mm)
+                    assert current[0] is not None and current[1] is not None
+                    stalled = (self._motion_state != "weightless" and self._previous_positions is not None and
+                               all(abs(a - b) < 0.1 for a, b in zip(current, self._previous_positions)) and
+                               all(abs(drives[s]["torque_actual"] or 0) >= (self._motion_torque_limit or 0) * 0.9 for s in ("left", "right")) and
+                               any(abs((self._motion_target_mm or 0) - p) > 1 for p in current))
+                    if stalled:
+                        self._stall_since = self._stall_since or time.monotonic()
+                        if time.monotonic() - self._stall_since >= 2:
+                            raise ValueError("Препятствие: нет движения, момент около лимита")
+                    else:
+                        self._stall_since = None
+                    self._previous_positions = current
+            except ValueError as exc:
+                if self._motion_state in {"exercise", "raising", "weightless", "holding"}:
+                    self._motion_fault(str(exc))
                 else:
-                    result.errors.append(f"{side}: нулевой момент не подтверждён чтением")
-            # Even if one torque write failed, still attempt servo-off on both.
-            for side, slave_id in (("left", self._left_slave_id), ("right", self._right_slave_id)):
-                off = self.execute_command(ModbusCommandRequestSchema(command="servo_off", slave_id=slave_id))
-                result.servo_off_confirmed[side] = off.success and not hasattr(self, "_instr")
-                if not result.servo_off_confirmed[side]:
-                    result.errors.append(f"{side}: Servo-OFF не подтверждён ({off.error or 'нет обратной связи'})")
-            result.success = all(result.torque_zeroed.values()) and all(result.servo_off_confirmed.values())
-            return result
+                    warning = str(exc)
+            return PositionMotionStatusSchema(
+                state=self._motion_state, target_type=self._motion_target_type,
+                target_mm=self._motion_target_mm, torque_limit=self._motion_torque_limit,
+                speed_rpm=self._motion_speed_rpm, positions=positions,
+                servo_on=servo, pos_load=load, drives=drives, warning=warning,
+                error=self._motion_error, simulation_only=True,
+            )
+
+    def software_stop(self) -> SoftwareStopResultSchema:
+        """Deprecated: never release the bar by zeroing torque or disabling the servos."""
+        result = SoftwareStopResultSchema()
+        result.errors.append("Servo-OFF/нулевой момент не являются штатной остановкой; используйте stop_raise() в симуляции или аппаратный E-STOP")
+        return result
 
     def _do_read(self, req: ModbusReadRequestSchema) -> ModbusReadResultSchema:
         with self._lock:

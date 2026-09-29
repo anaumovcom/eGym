@@ -12,6 +12,8 @@ import { MonitoringPanel } from './tabs/monitoring-panel'
 import { ErrorsPanel } from './tabs/errors-panel'
 import { LogPanel } from './tabs/log-panel'
 import { SavePanel } from './tabs/save-panel'
+import { PositionExercisePanel } from './tabs/position-exercise-panel'
+import { stopRaisePosition } from '@/features/modbus/api/modbus-api'
 import { cn } from '@/shared/lib/cn'
 import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 
@@ -25,12 +27,14 @@ type ModbusTab =
   | 'errors'
   | 'log'
   | 'save'
+  | 'position-exercise'
 
 const TABS: { id: ModbusTab; label: string }[] = [
   { id: 'connection', label: 'Подключение' },
   { id: 'diagnostics', label: 'Диагностика' },
   { id: 'parameters', label: 'Параметры' },
   { id: 'control', label: 'Управление' },
+  { id: 'position-exercise', label: 'Position · упражнение' },
   { id: 'dido', label: 'DI/DO' },
   { id: 'monitoring', label: 'Мониторинг' },
   { id: 'errors', label: 'Ошибки' },
@@ -46,7 +50,6 @@ export function ModbusDebugScreen() {
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = asTab(searchParams.get('tab'))
   const snapshot = useHardwareStore((state) => state.snapshot)
-  const runCommand = useHardwareStore((state) => state.runCommand)
   const selectedUserId = useAppStore((state) => state.selectedUserId)
   const selectedSide = useModbusStore((state) => state.selectedSide)
   const selectSide = useModbusStore((state) => state.selectSide)
@@ -66,7 +69,8 @@ export function ModbusDebugScreen() {
     <FormaShell
       userName={userName}
       machine={snapshot?.machine ?? { machineState: 'ready', machineLabel: 'Debug', safety: 'enabled', leftDrive: 'connected', rightDrive: 'connected', calibration: '—' }}
-      onStop={() => { void runCommand({ action: 'trigger_emergency_stop', userId: selectedUserId }) }}
+      stopLabel="STOP · подъём"
+      onStop={() => { void stopRaisePosition().catch((error: unknown) => window.alert(error instanceof Error ? error.message : String(error))) }}
     >
       <div className="flex flex-col gap-4">
         {/* Header */}
@@ -127,6 +131,7 @@ export function ModbusDebugScreen() {
           {tab === 'diagnostics' && <DiagnosticsPanel />}
           {tab === 'parameters' && <ParametersPanel />}
           {tab === 'control' && <ControlModePanel />}
+          {tab === 'position-exercise' && <PositionExercisePanel />}
           {tab === 'dido' && <DiDoPanel />}
           {tab === 'monitoring' && <MonitoringPanel />}
           {tab === 'errors' && <ErrorsPanel />}

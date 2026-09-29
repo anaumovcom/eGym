@@ -7,8 +7,10 @@ import type {
   ModbusConnectionStatus,
   ModbusReadResult,
   ModbusPositions,
+  PositionExercise,
+  PositionCalibration,
+  PositionMotionStatus,
   ModbusReadiness,
-  SoftwareStopResult,
   ModbusWriteResult,
   ParameterProfile,
   ProfileCompareResult,
@@ -25,6 +27,8 @@ function toSnake(params: ModbusConnectionParams) {
     slave_id: params.slaveId,
     right_slave_id: params.rightSlaveId,
     timeout_ms: params.timeoutMs,
+    left_direction: params.leftDirection,
+    right_direction: params.rightDirection,
   }
 }
 
@@ -51,6 +55,7 @@ function mapPositions(raw: Record<string, unknown>): ModbusPositions {
     connected: raw.connected as boolean,
     simulationMode: (raw.simulation_mode as boolean) ?? false,
     zeroed: raw.zeroed as boolean,
+    zeroGeneration: (raw.zero_generation as number) ?? 0,
     readiness: {
       communicationReady: ready('communication_ready'), encoderReady: ready('encoder_ready'),
       torqueControlReady: ready('torque_control_ready'), motionSafetyReady: ready('motion_safety_ready'),
@@ -77,15 +82,71 @@ export async function zeroModbusPositions(): Promise<ModbusPositions> {
   return mapPositions(await apiPost<Record<string, unknown>>('/api/modbus/positions/zero', {}))
 }
 
-export async function softwareStopModbus(): Promise<SoftwareStopResult> {
-  const raw = await apiPost<Record<string, unknown>>('/api/modbus/software-stop', {})
+function mapPositionStatus(raw: Record<string, unknown>): PositionMotionStatus {
   return {
-    success: raw.success === true,
-    torqueZeroed: raw.torque_zeroed as Record<string, boolean>,
-    servoOffConfirmed: raw.servo_off_confirmed as Record<string, boolean>,
-    errors: raw.errors as string[],
-    warning: raw.warning as string,
+    state: raw.state as PositionMotionStatus['state'],
+    targetType: raw.target_type as PositionMotionStatus['targetType'],
+    targetMm: raw.target_mm as number | null,
+    torqueLimit: raw.torque_limit as number | null,
+    speedRpm: raw.speed_rpm as number | null,
+    positions: mapPositions(raw.positions as Record<string, unknown>),
+    servoOn: raw.servo_on as PositionMotionStatus['servoOn'],
+    posLoad: raw.pos_load as PositionMotionStatus['posLoad'],
+    drives: raw.drives as PositionMotionStatus['drives'],
+    warning: raw.warning as string | null,
+    error: raw.error as string | null,
+    simulationOnly: raw.simulation_only === true,
   }
+}
+
+export async function fetchPositionStatus(): Promise<PositionMotionStatus> {
+  return mapPositionStatus(await apiGet<Record<string, unknown>>('/api/modbus/position/status'))
+}
+
+export async function startPositionExercise(exercise: PositionExercise): Promise<PositionMotionStatus> {
+  return mapPositionStatus(await apiPost<Record<string, unknown>>('/api/modbus/position/exercise', {
+    exercise_key: exercise.exerciseKey ?? null,
+    target_type: exercise.targetType, lower_boundary_mm: exercise.lowerBoundaryMm,
+    fixed_position_mm: exercise.fixedPositionMm, torque_limit: exercise.torqueLimit,
+    speed_rpm: exercise.speedRpm, min_mm: exercise.minMm, max_mm: exercise.maxMm,
+  }))
+}
+
+function mapCalibration(raw: Record<string, unknown>): PositionCalibration {
+  return {
+    exerciseKey: raw.exercise_key as string,
+    zeroGeneration: raw.zero_generation as number,
+    lowerMm: raw.lower_mm as number | null,
+    upperMm: raw.upper_mm as number | null,
+    fixedMm: raw.fixed_mm as number | null,
+  }
+}
+
+export async function fetchPositionCalibration(exerciseKey: string): Promise<PositionCalibration | null> {
+  const raw = await apiGet<Record<string, unknown> | null>(`/api/modbus/position/calibration?exercise_key=${encodeURIComponent(exerciseKey)}`)
+  return raw ? mapCalibration(raw) : null
+}
+
+export async function capturePositionCalibration(exerciseKey: string, point: 'lower' | 'upper' | 'fixed'): Promise<PositionCalibration> {
+  return mapCalibration(await apiPost<Record<string, unknown>>('/api/modbus/position/calibration/capture', { exercise_key: exerciseKey, point }))
+}
+
+export async function enterPositionWeightless(torqueLimit: number, noMotionThreshold: number, speedRpm: number): Promise<PositionMotionStatus> {
+  return mapPositionStatus(await apiPost<Record<string, unknown>>('/api/modbus/position/weightless', {
+    torque_limit: torqueLimit, no_motion_threshold: noMotionThreshold, speed_rpm: speedRpm,
+  }))
+}
+
+export async function holdPosition(): Promise<PositionMotionStatus> {
+  return mapPositionStatus(await apiPost<Record<string, unknown>>('/api/modbus/position/hold', {}))
+}
+
+export async function changePositionLimit(value: number): Promise<PositionMotionStatus> {
+  return mapPositionStatus(await apiPost<Record<string, unknown>>(`/api/modbus/position/limit?torque_limit=${value}`, {}))
+}
+
+export async function stopRaisePosition(): Promise<PositionMotionStatus> {
+  return mapPositionStatus(await apiPost<Record<string, unknown>>('/api/modbus/position/stop-raise', {}))
 }
 
 export async function connectModbus(params: ModbusConnectionParams): Promise<ModbusConnectionStatus> {
@@ -199,6 +260,8 @@ function mapStatus(r: Record<string, unknown>): ModbusConnectionStatus {
     parity: (r.parity as string | null) ?? null,
     slaveId: (r.slave_id as number | null) ?? null,
     rightSlaveId: (r.right_slave_id as number | null) ?? null,
+    leftDirection: (r.left_direction as -1 | 1) ?? 1,
+    rightDirection: (r.right_direction as -1 | 1) ?? 1,
     lastSuccessAt: (r.last_success_at as string | null) ?? null,
     okCount: (r.ok_count as number) ?? 0,
     errorCount: (r.error_count as number) ?? 0,
