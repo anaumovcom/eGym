@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { ExerciseCalibrationStatus } from '@/entities/exercise/model/types'
+import type { ExerciseCalibrationStatus, ExerciseDetails } from '@/entities/exercise/model/types'
 import type {
   RuntimeCalibrationState,
   RuntimeExerciseSummaryState,
@@ -25,6 +25,7 @@ type RuntimeStore = {
   initializeSession: (options: RuntimeSessionInitOptions) => void
   initializeBackendSession: (session: RuntimeWorkoutSession, options: RuntimeSessionInitOptions) => void
   ensureSession: (options: RuntimeSessionInitOptions) => void
+  updateCatalogExerciseMedia: (details: ExerciseDetails) => void
   setView: (view: RuntimeWorkoutSession['view']) => void
   completePhotoShot: (view: RuntimePhotoView, imageUrl?: string, takenAt?: string) => void
   openPhotoProgress: (mode: RuntimePhotoMode) => void
@@ -172,6 +173,19 @@ export const useRuntimeStore = create<RuntimeStore>()(
       set({ session: normalizedSession, sessionSignature: signature })
     }
   },
+  updateCatalogExerciseMedia: (details) =>
+    set((state) => {
+      if (state.session?.source !== 'catalog' || state.session.exercises[0]?.slug !== details.slug) {
+        return state
+      }
+
+      const exercises = state.session.exercises.map((exercise) => ({
+        ...exercise,
+        summary: { ...exercise.summary, previewVideoUrl: details.previewVideoUrl },
+        details: { ...exercise.details, videos: details.videos, previewVideoUrl: details.previewVideoUrl },
+      }))
+      return { session: { ...state.session, exercises } }
+    }),
   setView: (view) =>
     set((state) => (state.session ? { session: { ...state.session, view } } : state)),
   completePhotoShot: (view, imageUrl, takenAt) =>

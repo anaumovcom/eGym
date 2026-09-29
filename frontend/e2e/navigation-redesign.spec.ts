@@ -12,7 +12,7 @@ async function expectLockedService(page: Page) {
   await expect(page.getByRole('button', { name: 'Аварийная остановка', exact: true })).toHaveCount(1)
 }
 
-test('six primary tabs navigate without starting a workout or changing saved data', async ({ page, navigationApi }) => {
+test('primary tabs navigate without starting a workout or changing saved data', async ({ page, navigationApi }) => {
   await openAppAsAlexey(page)
   const savedState = await savedBrowserState(page)
 
@@ -75,7 +75,7 @@ for (const [legacy, destination, heading] of [
   ['/today?scenario=planned', '/dashboard', null],
   ['/quick-start?selected=old-exercise', '/catalog', 'Каталог упражнений'],
   ['/programs?selected=old-template', '/builder', 'Мои тренировки'],
-  ['/fatigue?mode=7d&muscle=back', '/progress?mode=7d&muscle=back&tab=recovery', 'Усталость мышц'],
+  ['/progress?tab=recovery&mode=7d&muscle=back', '/fatigue?mode=7d&muscle=back', 'Карта мышечной усталости'],
 ] as const) {
   test(`legacy ${legacy} redirects without saved-data mutations`, async ({ page, navigationApi }) => {
     await openAppAsAlexey(page)
@@ -157,13 +157,24 @@ test('service access requires checkbox and confirm, then resets after reload and
 })
 
 for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 1080 }]) {
-  test(`recovery has one main and one navigation at ${viewport.width}x${viewport.height}`, async ({ page }) => {
+  test(`muscle fatigue map fits the first screen at ${viewport.width}x${viewport.height}`, async ({ page }) => {
     await page.setViewportSize(viewport)
     await openAppAsAlexey(page)
-    await page.getByRole('navigation', { name: 'Основная навигация' }).getByRole('link', { name: 'Прогресс', exact: true }).click()
-    await page.getByRole('button', { name: 'Восстановление', exact: true }).click()
-    await expect(page).toHaveURL(/\/progress\?tab=recovery$/)
+    await page.getByRole('navigation', { name: 'Основная навигация' }).getByRole('link', { name: 'Усталость мышц', exact: true }).click()
+    await expect(page).toHaveURL(/\/fatigue$/)
     await expect(page.getByText('Карта мышечной усталости', { exact: true })).toBeVisible()
+    await expect(page.locator('.fatigue-map svg')).toHaveCount(2)
+    const figures = await page.locator('.fatigue-map svg').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().bottom))
+    expect(Math.max(...figures)).toBeLessThanOrEqual(viewport.height)
+    const sizeBeforeHover = await page.locator('.fatigue-map svg').first().boundingBox()
+    await page.locator('g[aria-label^="Грудь:"] path').first().hover()
+    await expect(page.getByRole('tooltip')).toBeVisible()
+    const sizeAfterHover = await page.locator('.fatigue-map svg').first().boundingBox()
+    expect(sizeAfterHover?.width).toBeCloseTo(sizeBeforeHover!.width, 0)
+    expect(sizeAfterHover?.height).toBeCloseTo(sizeBeforeHover!.height, 0)
+    const detailsTop = await page.locator('.fatigue-details').evaluate((node) => node.getBoundingClientRect().top)
+    const mainBottom = await page.getByRole('main').evaluate((node) => node.getBoundingClientRect().bottom)
+    expect(detailsTop).toBeGreaterThanOrEqual(mainBottom - 2)
     await expect(page.getByRole('main')).toHaveCount(1)
     await expect(page.getByRole('navigation', { name: 'Основная навигация' })).toHaveCount(1)
     await expectPrimaryNavigation(page)

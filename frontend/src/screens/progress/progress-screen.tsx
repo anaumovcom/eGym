@@ -1,11 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, Camera, ChevronDown } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { ProgressData, Stage4Period } from '@/entities/stage4/model/types'
 import { stage4Periods } from '@/mocks/stage4-data'
-import { FatigueScreen } from '@/screens/fatigue/fatigue-screen'
 import { apiGet, resolveApiAssetUrl } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -14,10 +13,10 @@ import { PhotoCaptureDialog } from '@/shared/ui/photo/photo-capture-dialog'
 import { BarChartCard, LineChartCard, Panel } from '@/shared/ui/stage4/screen-components'
 import { useAppStore } from '@/stores/app-store'
 
-type ProgressTab = 'overview' | 'strength' | 'body' | 'photo' | 'recovery'
+type ProgressTab = 'overview' | 'strength' | 'body' | 'photo'
 type PhotoAsset = { id: number; view: 'front' | 'side' | 'back'; takenAt: string; thumbnailUrl: string }
 const tabs: Array<{ id: ProgressTab; label: string }> = [
-  { id: 'overview', label: 'Обзор' }, { id: 'strength', label: 'Сила' }, { id: 'body', label: 'Тело' }, { id: 'photo', label: 'Фото' }, { id: 'recovery', label: 'Восстановление' },
+  { id: 'overview', label: 'Обзор' }, { id: 'strength', label: 'Сила' }, { id: 'body', label: 'Тело' }, { id: 'photo', label: 'Фото' },
 ]
 const fallbackMachine: MachineHealth = { machineState: 'ready', machineLabel: 'Загрузка статуса', leftDrive: 'connected', rightDrive: 'connected', safety: 'enabled', calibration: 'Загрузка...' }
 
@@ -36,7 +35,7 @@ export function ProgressScreen() {
   const { data, isPending, error, refetch } = useQuery({
     queryKey: ['progress-screen', userId, period, exerciseSlug],
     queryFn: () => apiGet<ProgressData>(`/api/progress?userId=${encodeURIComponent(userId)}&period=${encodeURIComponent(period)}&exerciseSlug=${encodeURIComponent(exerciseSlug)}`),
-    enabled: tab !== 'recovery',
+    enabled: params.get('tab') !== 'recovery',
   })
   const { data: photos } = useQuery({
     queryKey: ['progress-photos', userId],
@@ -48,16 +47,22 @@ export function ProgressScreen() {
     setParams((current) => { const next = new URLSearchParams(current); for (const [key, value] of Object.entries(patch)) { if (value) next.set(key, value); else next.delete(key) } return next })
   }
 
+  if (params.get('tab') === 'recovery') {
+    const next = new URLSearchParams(params)
+    next.delete('tab')
+    return <Navigate to={`/fatigue${next.size ? `?${next}` : ''}`} replace />
+  }
+
   return (
     <FormaShell userName={userName} machine={data?.machine ?? fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
       <section className="progress-center" aria-labelledby="progress-title">
         <header className="progress-heading">
           <div><h1 id="progress-title" className="font-display font-bold text-white">Прогресс</h1><p>Результаты тренировок, изменения тела, фото и восстановление.</p></div>
-          {tab !== 'recovery' ? <label className="progress-period"><span>Период</span><select aria-label="Период прогресса" value={period} onChange={(event) => update({ period: event.target.value })}>{stage4Periods.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><ChevronDown aria-hidden="true" /></label> : null}
+          <label className="progress-period"><span>Период</span><select aria-label="Период прогресса" value={period} onChange={(event) => update({ period: event.target.value })}>{stage4Periods.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><ChevronDown aria-hidden="true" /></label>
         </header>
         <nav className="progress-tabs" aria-label="Разделы прогресса">{tabs.map((item) => <button key={item.id} type="button" aria-current={tab === item.id ? 'page' : undefined} onClick={() => update({ tab: item.id === 'overview' ? null : item.id })}>{item.label}</button>)}</nav>
 
-        {tab === 'recovery' ? <FatigueScreen embedded /> : error ? <div className="forma-state" role="alert"><p>Не удалось загрузить прогресс.</p><Button onClick={() => void refetch()}>Повторить</Button></div> : isPending || !data ? <div className="forma-state" role="status">Загрузка прогресса…</div> : <ProgressContent data={data} tab={tab} exerciseSlug={exerciseSlug} update={update} photos={photos?.photos ?? []} onPhoto={() => setPhotoOpen(true)} />}
+        {error ? <div className="forma-state" role="alert"><p>Не удалось загрузить прогресс.</p><Button onClick={() => void refetch()}>Повторить</Button></div> : isPending || !data ? <div className="forma-state" role="status">Загрузка прогресса…</div> : <ProgressContent data={data} tab={tab} exerciseSlug={exerciseSlug} update={update} photos={photos?.photos ?? []} onPhoto={() => setPhotoOpen(true)} />}
       </section>
       <PhotoCaptureDialog open={photoOpen} onOpenChange={setPhotoOpen} userId={userId} />
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
@@ -65,7 +70,7 @@ export function ProgressScreen() {
   )
 }
 
-function ProgressContent({ data, tab, exerciseSlug, update, photos, onPhoto }: { data: ProgressData; tab: Exclude<ProgressTab, 'recovery'>; exerciseSlug: string; update: (patch: Record<string, string | null>) => void; photos: PhotoAsset[]; onPhoto: () => void }) {
+function ProgressContent({ data, tab, exerciseSlug, update, photos, onPhoto }: { data: ProgressData; tab: ProgressTab; exerciseSlug: string; update: (patch: Record<string, string | null>) => void; photos: PhotoAsset[]; onPhoto: () => void }) {
   if (data.emptyState && tab === 'overview') {
     return <div className="progress-empty"><h2>{data.emptyState.title}</h2><p>{data.emptyState.description}</p><Button asChild iconLeft={<ArrowRight aria-hidden="true" />}><Link to="/dashboard">Завершить тренировку</Link></Button></div>
   }
@@ -106,4 +111,4 @@ function ProgressContent({ data, tab, exerciseSlug, update, photos, onPhoto }: {
 
 function ProgressActionEmpty({ title, text, action }: { title: string; text: string; action: ReactNode }) { return <div className="progress-empty"><h2>{title}</h2><p>{text}</p>{action}</div> }
 function asPeriod(value: string | null): Stage4Period { return value === '7d' || value === '30d' || value === '3m' || value === '6m' || value === '1y' || value === 'all' ? value : '30d' }
-function asTab(value: string | null): ProgressTab { if (value === 'strength' || value === 'body' || value === 'photo' || value === 'recovery') return value; if (value === 'exercise' || value === 'regularity' || value === 'muscles') return 'strength'; return 'overview' }
+function asTab(value: string | null): ProgressTab { if (value === 'strength' || value === 'body' || value === 'photo') return value; if (value === 'exercise' || value === 'regularity' || value === 'muscles') return 'strength'; return 'overview' }

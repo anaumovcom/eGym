@@ -3,6 +3,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Play, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import type { ExerciseDetails } from '@/entities/exercise/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { StrengthTrainingMode } from '@/entities/strength/model/types'
@@ -100,6 +101,7 @@ export function ExerciseSetupScreen() {
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const session = useRuntimeStore((state) => state.session)
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
+  const updateCatalogExerciseMedia = useRuntimeStore((state) => state.updateCatalogExerciseMedia)
   const initializeBackendSession = useRuntimeStore((state) => state.initializeBackendSession)
   const updateCalibrationState = useRuntimeStore((state) => state.updateCalibrationState)
   const updateLoadSettings = useRuntimeStore((state) => state.updateLoadSettings)
@@ -126,6 +128,11 @@ export function ExerciseSetupScreen() {
   const [jogPending, setJogPending] = useState(false)
 
   const initOptions = useMemo(() => getRuntimeInitOptions(searchParams), [searchParams])
+  const { data: catalogExerciseDetails } = useQuery({
+    queryKey: ['runtime-catalog-exercise-media', resolvedUserId, initOptions.slug],
+    queryFn: () => apiGet<ExerciseDetails>(`/api/exercises/${encodeURIComponent(initOptions.slug!)}?userId=${encodeURIComponent(resolvedUserId)}`),
+    enabled: initOptions.source === 'catalog' && Boolean(initOptions.slug),
+  })
   const usesBackendBuilderSession = initOptions.source === 'builder' && Boolean(initOptions.programId)
   const hasMatchingRuntimeBuilderSession = usesBackendBuilderSession
     ? session?.source === 'builder' && session.programId === initOptions.programId && session.dataSource === 'backend' && (!initOptions.runId || session.runId === initOptions.runId)
@@ -169,6 +176,12 @@ export function ExerciseSetupScreen() {
 
     ensureSession(initOptions)
   }, [ensureSession, initOptions, usesBackendBuilderSession])
+
+  useEffect(() => {
+    if (catalogExerciseDetails && catalogExerciseDetails.slug === initOptions.slug) {
+      updateCatalogExerciseMedia(catalogExerciseDetails)
+    }
+  }, [catalogExerciseDetails, initOptions.slug, updateCatalogExerciseMedia])
 
   useEffect(() => {
     if (!shouldInitializeBackendBuilderSession || !backendBuilderSession) {

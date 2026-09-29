@@ -1,7 +1,8 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
-import { Search, SlidersHorizontal, Star, X } from 'lucide-react'
+import { ArrowUp, Search, SlidersHorizontal, Star, X } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { WorkoutBuilderData } from '@/entities/builder/model/types'
 import { difficultyLabel, forceLabel, mechanicLabel } from '@/entities/exercise/lib/labels'
@@ -60,8 +61,10 @@ export function ExerciseCatalogScreen() {
   const filterTriggerRef = useRef<HTMLElement | null>(null)
   const [addSlug, setAddSlug] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const [showBackToTop, setShowBackToTop] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
   const restoredRef = useRef(false)
+  const favoritesScrollRef = useRef<{ scrollTop: number; visibleCount: number } | null>(null)
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams({ userId: resolvedUserId })
@@ -75,6 +78,13 @@ export function ExerciseCatalogScreen() {
   const { data, isPending, isError, refetch } = useQuery({
     queryKey: ['exercise-catalog', queryString],
     queryFn: () => apiGet<ExerciseCatalogResponse>(`/api/exercises?${queryString}`),
+    placeholderData: (previousData, previousQuery) => {
+      const previousParams = new URLSearchParams(String(previousQuery?.queryKey[1] ?? ''))
+      const nextParams = new URLSearchParams(queryString)
+      previousParams.delete('favorites')
+      nextParams.delete('favorites')
+      return previousParams.toString() === nextParams.toString() ? previousData : undefined
+    },
   })
 
   const { data: machine } = useQuery({
@@ -90,15 +100,25 @@ export function ExerciseCatalogScreen() {
 
   const items = useMemo(() => (favoritesOnly ? (data?.items ?? []).filter((item) => item.favorite) : data?.items ?? []), [data?.items, favoritesOnly])
   const listKey = `${queryString}|${favoritesOnly}`
+  const searchFilterKey = `${resolvedUserId}|${search}|${FILTER_KEYS.map((key) => selected[key].join(',')).join('|')}`
 
-  // Progressive rendering: reset the window when the query changes, unless we are restoring a saved position.
+  // Keep the rendered window when favorites or favorite status changes so scrolling doesn't jump.
   useEffect(() => {
     if (restoredRef.current) {
       restoredRef.current = false
       return
     }
+    favoritesScrollRef.current = null
     setVisibleCount(PAGE_SIZE)
-  }, [listKey])
+  }, [searchFilterKey])
+
+  useLayoutEffect(() => {
+    const saved = favoritesScrollRef.current
+    const main = document.querySelector<HTMLElement>('.forma-main')
+    if (!saved || !main) return
+    main.scrollTop = favoritesOnly ? Math.min(saved.scrollTop, Math.max(0, main.scrollHeight - main.clientHeight)) : saved.scrollTop
+    if (!favoritesOnly) favoritesScrollRef.current = null
+  }, [favoritesOnly])
 
   useLayoutEffect(() => {
     const raw = sessionStorage.getItem(SCROLL_STORAGE_KEY)
@@ -136,6 +156,15 @@ export function ExerciseCatalogScreen() {
     return () => observer.disconnect()
   }, [items.length, visibleCount])
 
+  useEffect(() => {
+    const main = document.querySelector<HTMLElement>('.forma-main')
+    if (!main) return
+    const onScroll = () => setShowBackToTop(main.scrollTop > 400)
+    onScroll()
+    main.addEventListener('scroll', onScroll, { passive: true })
+    return () => main.removeEventListener('scroll', onScroll)
+  }, [])
+
   function updateParams(mutate: (next: URLSearchParams) => void) {
     setSearchParams((current) => {
       const next = new URLSearchParams(current)
@@ -158,6 +187,15 @@ export function ExerciseCatalogScreen() {
       next.delete('favorites')
       next.delete('search')
     })
+  }
+
+  function toggleFavoritesOnly() {
+    if (!favoritesOnly) {
+      favoritesScrollRef.current = { scrollTop: document.querySelector<HTMLElement>('.forma-main')?.scrollTop ?? 0, visibleCount }
+    } else if (favoritesScrollRef.current) {
+      setVisibleCount((count) => Math.max(count, favoritesScrollRef.current?.visibleCount ?? count))
+    }
+    updateParams((next) => { if (favoritesOnly) next.delete('favorites'); else next.set('favorites', '1') })
   }
 
   function openFilters(section: FilterSection, trigger: HTMLElement) {
@@ -192,7 +230,7 @@ export function ExerciseCatalogScreen() {
           <div className="catalog-filter-bar">
             <Button variant="secondary" aria-haspopup="dialog" aria-pressed={selected.muscles.length > 0} onClick={(event) => openFilters('muscles', event.currentTarget)}>Мышцы{selected.muscles.length ? ` · ${selected.muscles.length}` : ''}</Button>
             <Button variant="secondary" aria-haspopup="dialog" aria-pressed={selected.equipment.length > 0} onClick={(event) => openFilters('equipment', event.currentTarget)}>Оборудование{selected.equipment.length ? ` · ${selected.equipment.length}` : ''}</Button>
-            <Button variant="secondary" aria-pressed={favoritesOnly} iconLeft={<Star aria-hidden="true" className={cn(favoritesOnly && 'fill-[#f3d18b] text-[#f3d18b]')} />} onClick={() => updateParams((next) => { if (favoritesOnly) next.delete('favorites'); else next.set('favorites', '1') })}>Избранное</Button>
+            <Button variant="secondary" aria-pressed={favoritesOnly} iconLeft={<Star aria-hidden="true" className={cn(favoritesOnly && 'fill-[#f3d18b] text-[#f3d18b]')} />} onClick={toggleFavoritesOnly}>Избранное</Button>
             <Button variant="secondary" aria-haspopup="dialog" iconLeft={<SlidersHorizontal aria-hidden="true" />} onClick={(event) => openFilters('all', event.currentTarget)}>Все фильтры</Button>
             <span className="catalog-count" role="status">{isPending ? 'Загрузка…' : `Найдено: ${items.length}`}</span>
           </div>
@@ -238,6 +276,13 @@ export function ExerciseCatalogScreen() {
           </div>
         ) : null}
       </section>
+
+      {showBackToTop && createPortal(
+        <button type="button" className="catalog-back-to-top" onClick={() => document.querySelector<HTMLElement>('.forma-main')?.scrollTo({ top: 0, behavior: 'smooth' })}>
+          <ArrowUp aria-hidden="true" /> Наверх
+        </button>,
+        document.body,
+      )}
 
       <Dialog.Root open={filterSection !== null} onOpenChange={(open) => { if (!open) setFilterSection(null) }}>
         <Dialog.Portal>

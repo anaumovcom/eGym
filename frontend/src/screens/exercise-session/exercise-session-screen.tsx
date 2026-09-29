@@ -1,7 +1,8 @@
-﻿import { CheckCircle2, Dumbbell, Minus, Plus, SkipForward, Timer } from 'lucide-react'
+﻿import { useQuery } from '@tanstack/react-query'
+import { CheckCircle2, Dumbbell, Minus, Plus, SkipForward, Timer } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { ReactNode } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
+import type { ExerciseDetails } from '@/entities/exercise/model/types'
 import type { HardwareCalibration, HardwareMotionTelemetry } from '@/features/hardware/model/types'
 import type { RuntimeExerciseOutcome, RuntimeExerciseSessionState, RuntimeExerciseSummaryState, RuntimeSetResult, RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { hasMovableMachineLoad, supportsFixedBarSetup } from '@/features/runtime/lib/runtime-exercise'
@@ -10,7 +11,7 @@ import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
 import { saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
 import { getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { useHardwareStore } from '@/stores/hardware-store'
-import { apiPost } from '@/shared/api/client'
+import { apiGet, apiPost } from '@/shared/api/client'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -38,60 +39,9 @@ type MotionRail = {
   upperPercent: number
   currentTone: MotionRailTone
 }
-const MOTION_RAIL_PADDING_MM = 200
 const FAST_PULSE_CLASS = 'animate-[pulse_700ms_ease-in-out_infinite]'
-const RAIL_BOTTOM_CLASSES = [
-  'bottom-[4%]',
-  'bottom-[8%]',
-  'bottom-[12%]',
-  'bottom-[16%]',
-  'bottom-[20%]',
-  'bottom-[24%]',
-  'bottom-[28%]',
-  'bottom-[32%]',
-  'bottom-[36%]',
-  'bottom-[40%]',
-  'bottom-[44%]',
-  'bottom-[48%]',
-  'bottom-[52%]',
-  'bottom-[56%]',
-  'bottom-[60%]',
-  'bottom-[64%]',
-  'bottom-[68%]',
-  'bottom-[72%]',
-  'bottom-[76%]',
-  'bottom-[80%]',
-  'bottom-[84%]',
-  'bottom-[88%]',
-  'bottom-[92%]',
-  'bottom-[96%]',
-] as const
-const RAIL_HEIGHT_CLASSES = [
-  'h-0',
-  'h-[4%]',
-  'h-[8%]',
-  'h-[12%]',
-  'h-[16%]',
-  'h-[20%]',
-  'h-[24%]',
-  'h-[28%]',
-  'h-[32%]',
-  'h-[36%]',
-  'h-[40%]',
-  'h-[44%]',
-  'h-[48%]',
-  'h-[52%]',
-  'h-[56%]',
-  'h-[60%]',
-  'h-[64%]',
-  'h-[68%]',
-  'h-[72%]',
-  'h-[76%]',
-  'h-[80%]',
-  'h-[84%]',
-  'h-[88%]',
-  'h-[92%]',
-] as const
+const RAIL_LOWER_PERCENT = 10
+const RAIL_UPPER_PERCENT = 90
 
 const currentRailStyles: Record<MotionRailTone, { fill: string; knob: string; ping: string; badge: string; value: string; line: string; leftArrow: string; rightArrow: string }> = {
   lower: {
@@ -147,47 +97,6 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
-function railPercentToStep(progressPercent: number) {
-  const value = clamp(progressPercent, 0, 100)
-  if (value >= 94) return 23
-  if (value >= 90) return 22
-  if (value >= 86) return 21
-  if (value >= 82) return 20
-  if (value >= 78) return 19
-  if (value >= 74) return 18
-  if (value >= 70) return 17
-  if (value >= 66) return 16
-  if (value >= 62) return 15
-  if (value >= 58) return 14
-  if (value >= 54) return 13
-  if (value >= 50) return 12
-  if (value >= 46) return 11
-  if (value >= 42) return 10
-  if (value >= 38) return 9
-  if (value >= 34) return 8
-  if (value >= 30) return 7
-  if (value >= 26) return 6
-  if (value >= 22) return 5
-  if (value >= 18) return 4
-  if (value >= 14) return 3
-  if (value >= 10) return 2
-  if (value >= 6) return 1
-  return 0
-}
-
-function railFillClass(currentPercent: number, lowerPercent: number) {
-  const lowerStep = railPercentToStep(lowerPercent)
-  const currentStep = railPercentToStep(currentPercent)
-  const startStep = Math.min(lowerStep, currentStep)
-  const endStep = Math.max(lowerStep, currentStep)
-
-  return `${RAIL_BOTTOM_CLASSES[startStep]} ${RAIL_HEIGHT_CLASSES[endStep - startStep]}`
-}
-
-function railMarkerPositionClass(progressPercent: number) {
-  return RAIL_BOTTOM_CLASSES[railPercentToStep(progressPercent)]
-}
-
 function playRepCountedSound() {
   if (typeof window === 'undefined' || typeof window.AudioContext === 'undefined') {
     return
@@ -228,9 +137,15 @@ export function ExerciseSessionScreen() {
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const session = useRuntimeStore((state) => state.session)
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
+  const updateCatalogExerciseMedia = useRuntimeStore((state) => state.updateCatalogExerciseMedia)
   const startExercise = useRuntimeStore((state) => state.startExercise)
   const snapshot = useHardwareStore((state) => state.snapshot)
   const initOptions = getRuntimeInitOptions(searchParams)
+  const { data: catalogExerciseDetails } = useQuery({
+    queryKey: ['runtime-catalog-exercise-media', selectedUserId ?? 'alexey', initOptions.slug],
+    queryFn: () => apiGet<ExerciseDetails>(`/api/exercises/${encodeURIComponent(initOptions.slug!)}?userId=${encodeURIComponent(selectedUserId ?? 'alexey')}`),
+    enabled: initOptions.source === 'catalog' && Boolean(initOptions.slug),
+  })
 
   useEffect(() => {
     if (!session) {
@@ -242,6 +157,12 @@ export function ExerciseSessionScreen() {
       startExercise()
     }
   }, [ensureSession, initOptions, session, startExercise])
+
+  useEffect(() => {
+    if (session?.source === 'catalog' && session.exercises[0]?.slug === initOptions.slug && catalogExerciseDetails?.slug === initOptions.slug) {
+      updateCatalogExerciseMedia(catalogExerciseDetails)
+    }
+  }, [catalogExerciseDetails, initOptions.slug, session?.source, session?.exercises[0]?.slug, updateCatalogExerciseMedia])
 
   if (!session || !session.sessionState) {
     return (
@@ -815,31 +736,24 @@ function RepCounter({ label, value, targetText, onChange }: { label: string; val
 }
 
 function MachinePositionRail({ rail, amplitudePercent, syncDeltaMm }: { rail: MotionRail; amplitudePercent?: number; syncDeltaMm: number | null }) {
-  const fillClassName = railFillClass(rail.currentPercent, rail.lowerPercent)
-  const markerClassName = railMarkerPositionClass(rail.currentPercent)
-  const lowerLimitClassName = railMarkerPositionClass(rail.lowerPercent)
-  const upperLimitClassName = railMarkerPositionClass(rail.upperPercent)
   const currentStyle = currentRailStyles[rail.currentTone]
 
   return (
     <section className="rt-rail" aria-label="Положение грифа">
       <div className="relative flex h-full min-h-0 flex-col items-center">
+        <div className="mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-white/55">Положение · мм</div>
         <div className="rt-rail-track w-full">
           <div className="absolute top-0 bottom-0 left-1/2 w-5 -translate-x-1/2 rounded-full border border-white/12 bg-white/7 shadow-[inset_0_0_18px_rgba(255,255,255,0.08)]">
-            <div className={cn('absolute right-0 left-0 rounded-full transition-colors duration-200', currentStyle.fill, fillClassName)} />
+            <div className={cn('absolute right-0 left-0 rounded-full transition-colors duration-200', currentStyle.fill)} style={{ bottom: `${Math.min(rail.lowerPercent, rail.currentPercent)}%`, height: `${Math.abs(rail.currentPercent - rail.lowerPercent)}%` }} />
           </div>
-          <RailLimitMarker positionClassName={upperLimitClassName} tone="upper">Верх · {rail.upperLabel}</RailLimitMarker>
-          <RailLimitMarker positionClassName={lowerLimitClassName} tone="lower">Низ · {rail.lowerLabel}</RailLimitMarker>
-          <div className={cn('absolute left-0 right-0 z-20 h-0', markerClassName)}>
-            <div className="absolute top-0 right-3 left-3 grid -translate-y-1/2 grid-cols-[18px_minmax(0,1fr)_18px] items-center gap-x-4">
-              <div className={cn('justify-self-center h-0 w-0 border-y-[7px] border-l-[12px] border-y-transparent transition-transform duration-200', currentStyle.leftArrow)} />
-              <div className={cn('h-[2px] rounded-full transition-all duration-200', currentStyle.line)} />
-              <div className={cn('justify-self-center h-0 w-0 border-y-[7px] border-r-[12px] border-y-transparent transition-transform duration-200', currentStyle.rightArrow)} />
+          <RailLimitMarker positionPercent={rail.upperPercent} tone="upper" value={rail.upperLabel} />
+          <RailLimitMarker positionPercent={rail.lowerPercent} tone="lower" value={rail.lowerLabel} />
+          <div data-rail-position="current" className="absolute inset-x-0 z-20 grid translate-y-1/2 grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-center" style={{ bottom: `${rail.currentPercent}%` }}>
+            <div className={cn('col-start-1 mr-2 min-w-0 rounded-xl border px-1 py-1 text-center', currentStyle.badge)} aria-label={`Гриф · ${rail.currentLabel}`}>
+              <span className="block text-[10px] font-semibold uppercase tracking-[0.08em]">Гриф</span>
+              <strong className={cn('block whitespace-nowrap font-display text-[12px] font-semibold tabular-nums', currentStyle.value)}>{rail.currentLabel.replace(/ мм$/, '')}</strong>
             </div>
-            <div className="absolute top-3 right-3 left-3 grid grid-cols-[18px_minmax(0,1fr)_18px] items-start gap-x-4">
-              <div className={cn('-translate-x-1/2 justify-self-start text-[11px] font-semibold uppercase tracking-[0.18em] transition-all duration-200', currentStyle.value)}>Гриф</div>
-              <div className={cn('translate-x-1/2 justify-self-end text-right text-[13px] font-semibold tracking-[0.08em] transition-all duration-200', currentStyle.value)}>{rail.currentLabel}</div>
-            </div>
+            <div className={cn('col-start-2 mx-auto h-5 w-5 rounded-full border-2 transition-all duration-200', currentStyle.knob)} aria-hidden="true" />
           </div>
         </div>
         <div className="mt-3 grid w-full grid-cols-2 gap-2 text-center text-xs text-white/52"><div className="rounded-2xl border border-white/8 bg-white/4 px-2 py-2">Ампл. {amplitudePercent ?? '—'}%</div><div className="rounded-2xl border border-white/8 bg-white/4 px-2 py-2">Синхр. {syncDeltaMm?.toFixed(1) ?? '—'} мм</div></div>
@@ -848,17 +762,17 @@ function MachinePositionRail({ rail, amplitudePercent, syncDeltaMm }: { rail: Mo
   )
 }
 
-function RailLimitMarker({ positionClassName, tone, children }: { positionClassName: string; tone: 'upper' | 'lower'; children: ReactNode }) {
-  const lineClassName = tone === 'upper' ? 'bg-[#92e09a]/55' : 'bg-[#ffb4a7]/55'
-  const badgeClassName = tone === 'upper'
-    ? 'border-[#92e09a]/24 bg-[#102015] text-[#bdf3c1]'
-    : 'border-[#ffb4a7]/22 bg-[#2b1514] text-[#ffc2bb]'
+function RailLimitMarker({ positionPercent, tone, value }: { positionPercent: number; tone: 'upper' | 'lower'; value: string }) {
+  const colorClassName = tone === 'upper' ? 'text-[#bdf3c1]' : 'text-[#ffc2bb]'
+  const tickClassName = tone === 'upper' ? 'bg-[#92e09a]' : 'bg-[#ffb4a7]'
 
   return (
-    <div className={cn('absolute left-0 right-0 z-10 flex translate-y-1/2 items-center gap-2', positionClassName)}>
-      <div className={cn('h-px flex-1', lineClassName)} />
-      <div className={cn('rounded-2xl border px-2 py-1 text-center text-[10px] font-semibold uppercase tracking-[0.14em]', badgeClassName)}>{children}</div>
-      <div className={cn('h-px flex-1', lineClassName)} />
+    <div data-rail-limit={tone} className="absolute inset-x-0 z-30 grid translate-y-1/2 grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-center" style={{ bottom: `${positionPercent}%` }}>
+      <div className={cn('col-start-2 h-[2px] w-10 justify-self-center rounded-full', tickClassName)} aria-hidden="true" />
+      <div className={cn('col-start-3 ml-2 min-w-0 text-center', colorClassName)} aria-label={`${tone === 'upper' ? 'Верх' : 'Низ'} · ${value}`}>
+        <span className="block text-[10px] font-semibold uppercase tracking-[0.08em]">{tone === 'upper' ? 'Верх' : 'Низ'}</span>
+        <strong className="block whitespace-nowrap font-display text-[12px] font-semibold tabular-nums">{value.replace(/ мм$/, '')}</strong>
+      </div>
     </div>
   )
 }
@@ -920,17 +834,15 @@ function resolveExerciseVideoSequence(videos: ExerciseVideoAsset[], preferredVid
 function buildMotionRail(liveMotion: HardwareMotionTelemetry | null | undefined, calibration: HardwareCalibration | null): MotionRail {
   const exerciseLowerValue = liveMotion?.lowerBoundMm ?? calibration?.lowerPointMm ?? 640
   const exerciseUpperValue = liveMotion?.upperBoundMm ?? calibration?.upperPointMm ?? 1320
-  const lowerValue = exerciseLowerValue - MOTION_RAIL_PADDING_MM
-  const upperValue = exerciseUpperValue + MOTION_RAIL_PADDING_MM
-  const currentValue = liveMotion?.barPositionMm ?? calibration?.zeroPositionMm ?? lowerValue + (upperValue - lowerValue) * 0.5
-  const range = Math.max(1, upperValue - lowerValue)
+  const currentValue = liveMotion?.barPositionMm ?? calibration?.zeroPositionMm ?? (exerciseLowerValue + exerciseUpperValue) / 2
+  const range = Math.max(1, exerciseUpperValue - exerciseLowerValue)
   return {
     lowerLabel: `${Math.round(exerciseLowerValue)} мм`,
     currentLabel: `${Math.round(currentValue)} мм`,
     upperLabel: `${Math.round(exerciseUpperValue)} мм`,
-    currentPercent: clamp(((currentValue - lowerValue) / range) * 100, 4, 96),
-    lowerPercent: clamp(((exerciseLowerValue - lowerValue) / range) * 100, 4, 96),
-    upperPercent: clamp(((exerciseUpperValue - lowerValue) / range) * 100, 4, 96),
+    currentPercent: clamp(RAIL_LOWER_PERCENT + ((currentValue - exerciseLowerValue) / range) * (RAIL_UPPER_PERCENT - RAIL_LOWER_PERCENT), 4, 96),
+    lowerPercent: RAIL_LOWER_PERCENT,
+    upperPercent: RAIL_UPPER_PERCENT,
     currentTone: currentValue >= exerciseUpperValue ? 'upper' : currentValue <= exerciseLowerValue ? 'lower' : 'neutral',
   }
 }

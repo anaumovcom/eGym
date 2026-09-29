@@ -4,6 +4,5 @@ export const navigationItems = [
   { label: 'Каталог', path: '/catalog' },
   { label: 'Календарь', path: '/calendar' },
   { label: 'Прогресс', path: '/progress' },
-  { label: 'Modbus', path: '/modbus' },
-  { label: 'Механика', path: '/settings/mechanics' },
+  { label: 'Усталость мышц', path: '/fatigue' },
 ] as const

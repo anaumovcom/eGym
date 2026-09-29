@@ -1,6 +1,7 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { updateTuning } from '@/features/hardware/api/tuning-api'
 import { useTuningStore } from '@/features/hardware/lib/use-tuning-store'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import { MechanicsTuningScreen } from '@/screens/mechanics-tuning/mechanics-tuning-screen'
@@ -9,14 +10,15 @@ import { useHardwareStore } from '@/stores/hardware-store'
 
 vi.mock('@/features/hardware/api/tuning-api', () => ({
   fetchTuningSchema: vi.fn().mockResolvedValue({
-    groups: [{ id: 'compensation', label: 'Компенсации', description: '' }],
+    groups: [{ id: 'compensation', label: 'Компенсации', description: '' }, { id: 'homing', label: 'Поиск границ', description: '' }],
     parameters: [
       { key: 'compensation.barMassKg', group: 'compensation', label: 'Масса грифа', description: 'Масса грифа', type: 'number', default: 20, unit: 'кг', min: 0, max: 80, hardMin: 0, hardMax: 80, step: 0.1, options: [], requiresRestart: false, safetyCritical: false },
       { key: 'compensation.gravityEnabled', group: 'compensation', label: 'Компенсация веса', description: '', type: 'boolean', default: true, unit: '', min: null, max: null, hardMin: null, hardMax: null, step: null, options: [], requiresRestart: false, safetyCritical: false },
+      { key: 'homing.limitSwitchesEnabled', group: 'homing', label: 'Концевые датчики установлены', description: 'Требуется перезапуск.', type: 'boolean', default: true, unit: '', min: null, max: null, hardMin: null, hardMax: null, step: null, options: [], requiresRestart: true, safetyCritical: true },
     ],
     procedures: { measurements: [{ id: 'bar_mass', label: 'Масса грифа и подвижных частей' }], scenarios: [{ id: 'weightless_drift', label: 'Дрейф' }] },
   }),
-  fetchTuning: vi.fn().mockResolvedValue({ values: { 'compensation.barMassKg': 20, 'compensation.gravityEnabled': true }, persisted: {}, temporary: {}, serviceMode: false, adapter: 'physics-emulator' }),
+  fetchTuning: vi.fn().mockResolvedValue({ values: { 'compensation.barMassKg': 20, 'compensation.gravityEnabled': true, 'homing.limitSwitchesEnabled': true }, persisted: {}, temporary: {}, serviceMode: false, adapter: 'physics-emulator' }),
   fetchEvents: vi.fn().mockResolvedValue([]),
   updateTuning: vi.fn(),
   revertTuning: vi.fn(),
@@ -100,5 +102,20 @@ describe('MechanicsTuningScreen', () => {
     expect(input).toBeEnabled()
     screen.getByRole('button', { name: 'СТОП' }).click()
     expect(useHardwareStore.getState().runCommand).toHaveBeenCalledWith({ action: 'trigger_emergency_stop', userId: 'alexey' })
+  })
+
+  it('saves the limit-switch setting only from service mode and requires a restart', async () => {
+    render(<MemoryRouter><MechanicsTuningScreen /></MemoryRouter>)
+    fireEvent.click(await screen.findByRole('button', { name: 'Поиск границ' }))
+    expect(screen.getByRole('switch', { name: 'Концевые датчики установлены' })).toBeDisabled()
+
+    useHardwareStore.setState({ snapshot: { ...snapshot, serviceMode: true } })
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Концевые датчики установлены' })).toBeEnabled())
+    fireEvent.click(screen.getByRole('switch', { name: 'Концевые датчики установлены' }))
+    expect(useTuningStore.getState().pending).toEqual({ 'homing.limitSwitchesEnabled': false })
+    expect(screen.getByText('После перезапуска')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Применить временно' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Сохранить' }))
+    await waitFor(() => expect(updateTuning).toHaveBeenCalledWith({ 'homing.limitSwitchesEnabled': false }, 'persist', 'alexey'))
   })
 })

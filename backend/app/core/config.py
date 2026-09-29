@@ -16,6 +16,7 @@ class Settings(BaseSettings):
     debug: bool = Field(default=True, alias="APP_DEBUG")
     hardware_keyboard_simulation_enabled: bool = Field(default=False, alias="HARDWARE_KEYBOARD_SIMULATION_ENABLED")
     hardware_adapter: str = Field(default="emulator", alias="HARDWARE_ADAPTER")
+    hardware_limit_switches_enabled: bool = Field(default=True, alias="HARDWARE_LIMIT_SWITCHES_ENABLED")
     hardware_panel_enabled: bool = Field(default=False, alias="HARDWARE_PANEL_ENABLED")
     hardware_panel_port: str | None = Field(default=None, alias="HARDWARE_PANEL_PORT")
     hardware_panel_baud: int = Field(default=115200, ge=1200, le=3_000_000, alias="HARDWARE_PANEL_BAUD")

@@ -11,6 +11,7 @@ export const primaryNavigation = [
   ['Каталог', '/catalog'],
   ['Календарь', '/calendar'],
   ['Прогресс', '/progress'],
+  ['Усталость мышц', '/fatigue'],
   ['Modbus', '/modbus'],
 ] as const
 

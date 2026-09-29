@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select
@@ -185,7 +186,10 @@ class HardwareService:
         service_action = payload.mode == "service"
         soft_min = float(parameters.get("limits.softMinMm"))
         soft_max = float(parameters.get("limits.softMaxMm"))
-        within_limits = soft_min - 1 <= runtime.motion.bar_position_mm <= soft_max + 1
+        # Without switches the parked bar starts at physical zero, below the
+        # normal working minimum. Permit the initial upward move into range.
+        lower_gate = 0.0 if not hardware_runtime.controller.limit_switches_enabled else soft_min
+        within_limits = lower_gate - 1 <= runtime.motion.bar_position_mm <= soft_max + 1
         max_load_kg = min(self._parse_kg(settings.max_load), float(parameters.get("load.maxKg")))
         if payload.mode == "guest":
             max_load_kg = min(max_load_kg, float(parameters.get("load.guestMaxKg")))
@@ -726,10 +730,11 @@ class HardwareService:
     PARAMETERS_KEY = "hardware.tuning.parameters"
     PRESETS_KEY = "hardware.tuning.presets"
 
-    def load_parameters_from_db(self, session: Session) -> None:
+    def load_parameters_from_db(self, session: Session) -> dict[str, Any]:
         setting = session.scalars(select(AppSetting).where(AppSetting.user_id.is_(None), AppSetting.key == self.PARAMETERS_KEY)).first()
         if setting is not None and isinstance(setting.value, dict):
-            hardware_runtime.load_parameters(setting.value)
+            return dict(setting.value)
+        return {}
 
     def get_tuning(self, session: Session) -> TuningValuesSchema:
         payload = hardware_runtime.parameters_payload()
@@ -745,6 +750,8 @@ class HardwareService:
         if not hardware_runtime.state.service_mode:
             raise PermissionError("Изменение параметров механики доступно только в сервисном режиме")
         temporary = payload.apply != "persist"
+        if temporary and "homing.limitSwitchesEnabled" in payload.values:
+            raise PermissionError("Режим концевых датчиков можно только сохранить; он применяется после перезапуска")
         control_mode = str(hardware_runtime.snapshot_payload()["control"].get("mode"))
         if control_mode in {"training", "fixed_hold", "isometric"}:
             critical = [key for key in payload.values if get_spec(key).safety_critical]

@@ -4,6 +4,7 @@ import { useLayoutEffect, useState } from 'react'
 import { MemoryRouter, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { buildFatigueData, buildProgressData, fatigueModes, getProfileSeed, stage4Periods } from '@/mocks/stage4-data'
 import { UserProfileScreen } from '@/screens/profile/user-profile-screen'
+import { FatigueScreen } from '@/screens/fatigue/fatigue-screen'
 import { ProgressScreen } from '@/screens/progress/progress-screen'
 import { SystemSettingsScreen } from '@/screens/settings/system-settings-screen'
 import { SettingsLayout } from '@/shared/ui/layout/service-access'
@@ -71,7 +72,7 @@ function ProgressStory({ initialEntry }: { initialEntry: string }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {location.pathname === '/progress' ? <ProgressScreen /> : null}
+      {location.pathname === '/progress' ? <ProgressScreen /> : location.pathname === '/fatigue' ? <FatigueScreen /> : null}
     </QueryClientProvider>
   )
 }
@@ -88,7 +89,7 @@ export const ProgressRecoveryHighLoad: Story = {
   render: () => {
     prepareState('alexey', { highFatigue: true })
 
-    return <ProgressStory initialEntry="/progress?tab=recovery&period=30d&mode=current&muscle=chest" />
+    return <ProgressStory initialEntry="/fatigue?mode=current&muscle=chest" />
   },
 }
 
@@ -96,7 +97,7 @@ export const ProgressRecoveryAfterWorkout: Story = {
   render: () => {
     prepareState('elena')
 
-    return <ProgressStory initialEntry="/progress?tab=recovery&period=3m&mode=after-workout&muscle=quads" />
+    return <ProgressStory initialEntry="/fatigue?mode=after-workout&muscle=quads" />
   },
 }
 

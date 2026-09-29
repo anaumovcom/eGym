@@ -211,7 +211,7 @@ export function WorkoutSummaryScreen() {
             <Button variant="secondary" iconLeft={<ListChecks aria-hidden="true" />} onClick={() => setDetailsOpen(true)}>
               Подробно
             </Button>
-            <Button variant="secondary" iconLeft={<Flame aria-hidden="true" />} onClick={() => navigate('/progress?tab=recovery')}>
+            <Button variant="secondary" iconLeft={<Flame aria-hidden="true" />} onClick={() => navigate('/fatigue')}>
               Усталость и восстановление
             </Button>
           </div>

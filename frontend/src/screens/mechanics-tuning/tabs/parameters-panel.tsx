@@ -50,6 +50,7 @@ export function ParametersPanel({ serviceMode }: { serviceMode: boolean }) {
   const pendingCount = Object.keys(pending).length
   const temporaryCount = Object.keys(tuning.temporary).length
   const customizedCount = schema.parameters.filter((spec) => tuning.values[spec.key] !== spec.default).length
+  const restartPending = schema.parameters.some((spec) => spec.requiresRestart && spec.key in pending)
 
   return (
     <div className="space-y-4">
@@ -69,7 +70,7 @@ export function ParametersPanel({ serviceMode }: { serviceMode: boolean }) {
           <SummaryBadge icon={Clock3} label="Изменено" value={pendingCount} tone="pending" />
           <SummaryBadge icon={Zap} label="Временно" value={temporaryCount} tone="temporary" />
         </div>
-        <Button variant="secondary" className="text-xs" iconLeft={<Zap size={14} />} disabled={!serviceMode || busy || pendingCount === 0} onClick={() => void apply('temporary', selectedUserId)}>
+        <Button variant="secondary" className="text-xs" iconLeft={<Zap size={14} />} disabled={!serviceMode || busy || pendingCount === 0 || restartPending} onClick={() => void apply('temporary', selectedUserId)}>
           Применить временно
         </Button>
         <Button className="text-xs" iconLeft={<Save size={14} />} disabled={!serviceMode || busy || pendingCount === 0} onClick={() => void apply('persist', selectedUserId)}>
@@ -172,6 +173,7 @@ function ParameterCard({ spec, value, pendingValue, temporary, disabled, onChang
         <div className="flex max-w-[45%] flex-wrap justify-end gap-1">
           {hasPending ? <StatusBadge label="Не применено" tone="pending" /> : temporary ? <StatusBadge label="Временно" tone="temporary" /> : isDefault ? <StatusBadge label="По умолчанию" tone="default" /> : <StatusBadge label="Настроено" tone="custom" />}
           {spec.safetyCritical ? <StatusBadge label="Безопасность" tone="safety" /> : null}
+          {spec.requiresRestart ? <StatusBadge label="После перезапуска" tone="pending" /> : null}
         </div>
       </div>
       <p className="text-xs text-white/50">{spec.description}</p>

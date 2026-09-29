@@ -75,8 +75,9 @@ class ModbusDriveAdapter:
         return None
 
     def home(self) -> None:
-        # TODO(hardware): run drive homing routine and zero position counters.
-        return None
+        # The drive-specific absolute encoder reset register/ack is not verified.
+        # Never report a successful reference without writing and checking both drives.
+        raise NotImplementedError("Команда обнуления абсолютных энкодеров Modbus-приводов не реализована")
 
     def self_test(self) -> list[SelfTestResult]:
         return [

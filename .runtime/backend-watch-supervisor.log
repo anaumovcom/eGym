@@ -696,3 +696,5 @@ Backend server запущен. PID: 2548
 Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\hardware.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\hardware_service.py, D:\eGym\backend\app\tests\test_stage12_motion_control.py, D:\eGym\backend\app\tests\test_stage8_hardware_api.py
 Принудительно перезапускаю backend server.
 Backend server запущен. PID: 26720
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29512

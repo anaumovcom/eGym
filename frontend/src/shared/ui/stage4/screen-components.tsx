@@ -1,5 +1,5 @@
 import { CircleAlert, RotateCcw, Settings2 } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
+import { memo, useCallback, useEffect, useId, useRef, useState, type CSSProperties } from 'react'
 import type { ChartPoint, FatigueMuscle, MetricCard, Stage4DevFlags } from '@/entities/stage4/model/types'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
@@ -19,6 +19,15 @@ const fatigueDotClasses: Record<string, string> = {
   high: 'bg-[#f08b2e]',
   critical: 'bg-[#eb5345]',
   no_data: 'bg-[#677084]',
+}
+
+const fatigueHoverLabels: Record<FatigueMuscle['status'], string> = {
+  ready: 'Готова к нагрузке',
+  light: 'Лёгкая усталость',
+  medium: 'Умеренная усталость',
+  high: 'Высокая усталость',
+  critical: 'Перегрузка',
+  no_data: 'Нет данных',
 }
 
 const inlineSvgCache = new Map<string, string>()
@@ -326,16 +335,29 @@ export function MuscleMapDetailed({
   onSelect: (id: string) => void
   figureGender?: FatigueFigureGender
 }) {
+  const [hovered, setHovered] = useState<{ view: BodyMapView; id: string } | null>(null)
+  const onFrontHover = useCallback((id: string | null) => setHovered((current) => id
+    ? current?.view === 'front' && current.id === id ? current : { view: 'front', id }
+    : current?.view === 'front' ? null : current), [])
+  const onBackHover = useCallback((id: string | null) => setHovered((current) => id
+    ? current?.view === 'back' && current.id === id ? current : { view: 'back', id }
+    : current?.view === 'back' ? null : current), [])
   const front = muscles.filter((muscle) => muscleIsVisibleOnView(muscle.id, 'front'))
   const back = muscles.filter((muscle) => muscleIsVisibleOnView(muscle.id, 'back'))
 
   return (
     <div className="grid gap-4 xl:grid-cols-2">
-      <MuscleFigure title="Вид спереди" view="front" figureGender={figureGender} muscles={front} selectedId={selectedId} onSelect={onSelect} />
-      <MuscleFigure title="Вид сзади" view="back" figureGender={figureGender} muscles={back} selectedId={selectedId} onSelect={onSelect} />
+      <MuscleFigure title="Вид спереди" view="front" figureGender={figureGender} muscles={front} selectedId={selectedId} onSelect={onSelect}
+        hoveredId={hovered?.view === 'front' ? hovered.id : null} onHover={onFrontHover} />
+      <MuscleFigure title="Вид сзади" view="back" figureGender={figureGender} muscles={back} selectedId={selectedId} onSelect={onSelect}
+        hoveredId={hovered?.view === 'back' ? hovered.id : null} onHover={onBackHover} />
     </div>
   )
 }
+
+const FatigueFigureSvg = memo(function FatigueFigureSvg({ containerId, markup }: { containerId: string; markup: string }) {
+  return <div id={containerId} className="min-h-[420px] [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-[620px] [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: markup }} />
+})
 
 function MuscleFigure({
   title,
@@ -344,6 +366,8 @@ function MuscleFigure({
   muscles,
   selectedId,
   onSelect,
+  hoveredId,
+  onHover,
 }: {
   title: string
   view: BodyMapView
@@ -351,9 +375,13 @@ function MuscleFigure({
   muscles: FatigueMuscle[]
   selectedId: string
   onSelect: (id: string) => void
+  hoveredId: string | null
+  onHover: (id: string | null) => void
 }) {
   const [markup, setMarkup] = useState<string | null>(null)
   const [loadError, setLoadError] = useState(false)
+  const figureRef = useRef<HTMLDivElement>(null)
+  const [hover, setHover] = useState<{ muscle: FatigueMuscle; left: number; top: number } | null>(null)
   const svgIdPrefix = `${useId().replace(/:/g, '')}-`
   const containerId = `${svgIdPrefix}${view}-figure`
 
@@ -461,7 +489,21 @@ function MuscleFigure({
       }
 
       const selected = selectedId === muscle.id
-      const activate = () => onSelect(muscle.id)
+      const activate = () => { setHover(null); onHover(null); onSelect(muscle.id) }
+      const showHover = (event: PointerEvent) => {
+        if (event.pointerType === 'touch') return
+        const bounds = figureRef.current?.getBoundingClientRect()
+        if (!bounds) return
+        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+        const width = Math.min(16 * rem, bounds.width - 16)
+        setHover({
+          muscle,
+          left: Math.max(8, Math.min(event.clientX - bounds.left + 16, bounds.width - width - 8)),
+          top: Math.max(8, Math.min(event.clientY - bounds.top + 16, bounds.height - 9 * rem)),
+        })
+        onHover(muscle.id)
+      }
+      const clearHover = () => { setHover(null); onHover(null) }
       const handleKeyDown = (event: KeyboardEvent) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
@@ -498,20 +540,26 @@ function MuscleFigure({
 
       element.addEventListener('click', activate)
       element.addEventListener('keydown', handleKeyDown)
+      element.addEventListener('pointerenter', showHover)
+      element.addEventListener('pointermove', showHover)
+      element.addEventListener('pointerleave', clearHover)
 
       clearups.push(() => {
         element.removeEventListener('click', activate)
         element.removeEventListener('keydown', handleKeyDown)
+        element.removeEventListener('pointerenter', showHover)
+        element.removeEventListener('pointermove', showHover)
+        element.removeEventListener('pointerleave', clearHover)
       })
     }
 
     return () => {
       clearups.forEach((clearup) => clearup())
     }
-  }, [containerId, markup, muscles, onSelect, selectedId, svgIdPrefix, view])
+  }, [containerId, markup, muscles, onHover, onSelect, selectedId, svgIdPrefix, view])
 
   return (
-    <div className="rounded-[30px] border border-white/8 bg-[#111419] p-5">
+    <div ref={figureRef} onPointerLeave={() => { setHover(null); onHover(null) }} className="relative rounded-[30px] border border-white/8 bg-[#111419] p-5">
       <div className="mb-4 text-sm uppercase tracking-[0.24em] text-white/35">{title}</div>
       <div className="overflow-hidden rounded-[26px] border border-dashed border-white/10 bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.12),transparent_34%),linear-gradient(180deg,#161a20,#0b0e12)] p-3">
         {loadError ? (
@@ -519,17 +567,23 @@ function MuscleFigure({
             Не удалось загрузить SVG-карту мышц.
           </div>
         ) : markup ? (
-          <div
-            id={containerId}
-            className="min-h-[420px] [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-[620px] [&_svg]:w-full"
-            dangerouslySetInnerHTML={{ __html: markup }}
-          />
+          <FatigueFigureSvg containerId={containerId} markup={markup} />
         ) : (
           <div className="flex min-h-[420px] items-center justify-center text-sm text-white/45">
             Загрузка SVG-карты…
           </div>
         )}
       </div>
+      {hover && hoveredId === hover.muscle.id ? (
+        <div role="tooltip" className="home-recovery-hint fatigue-hint" data-tone={hover.muscle.status}
+          style={{ top: hover.top, left: hover.left, '--recovery-tone': statusTone(hover.muscle.status) } as CSSProperties}>
+          <strong>{hover.muscle.name}</strong>
+          <p><span className="recovery-dot" aria-hidden="true" />{fatigueHoverLabels[hover.muscle.status]}</p>
+          {hover.muscle.status !== 'no_data'
+            ? <div className="home-recovery-score">{hover.muscle.score}<span> балл. усталости</span></div>
+            : <p>Нет сохранённых данных о нагрузке</p>}
+        </div>
+      ) : null}
     </div>
   )
 }

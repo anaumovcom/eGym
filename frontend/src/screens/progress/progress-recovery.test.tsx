@@ -1,10 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { FatigueData, ProgressData } from '@/entities/stage4/model/types'
 import { buildFatigueData, buildProgressData, defaultStage4DevFlags, getProfileSeed } from '@/mocks/stage4-data'
+import { FatigueScreen } from '@/screens/fatigue/fatigue-screen'
 import { ProgressScreen } from '@/screens/progress/progress-screen'
 import { apiGet } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
@@ -15,7 +16,7 @@ let progress: ProgressData
 let fatigue: FatigueData
 
 function Probe() { const location = useLocation(); return <output data-testid="location">{location.pathname}{location.search}</output> }
-function renderScreen(path = '/progress') { return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Probe /><Routes><Route path="/progress" element={<ProgressScreen />} /><Route path="/dashboard" element={<div>Главная</div>} /><Route path="/profile" element={<div>Профиль</div>} /></Routes></MemoryRouter></QueryClientProvider>) }
+function renderScreen(path = '/progress') { return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[path]}><Probe /><Routes><Route path="/progress" element={<ProgressScreen />} /><Route path="/fatigue" element={<FatigueScreen />} /><Route path="/dashboard" element={<div>Главная</div>} /><Route path="/profile" element={<div>Профиль</div>} /></Routes></MemoryRouter></QueryClientProvider>) }
 function location() { return screen.getByTestId('location').textContent }
 
 beforeEach(() => {
@@ -33,14 +34,16 @@ beforeEach(() => {
 })
 afterEach(() => { cleanup(); client.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
-const tabNames = ['Обзор', 'Сила', 'Тело', 'Фото', 'Восстановление']
+const tabNames = ['Обзор', 'Сила', 'Тело', 'Фото']
 
 describe('Progress stage 6', () => {
-  it('shows exactly five tabs, one period select and no more than four overview metrics', async () => {
+  it('shows four tabs, one period select and no more than four overview metrics', async () => {
     renderScreen('/progress?period=30d')
     expect(await screen.findByRole('heading', { name: 'Прогресс' })).toBeVisible()
     expect(await screen.findByText('Динамика объёма')).toBeVisible()
     for (const tab of tabNames) expect(screen.getByRole('button', { name: tab, exact: true })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Восстановление' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Усталость мышц' })).toHaveAttribute('href', '/fatigue')
     expect(screen.getByRole('combobox', { name: 'Период прогресса' })).toHaveValue('30d')
     expect(document.querySelectorAll('.progress-metrics article')).toHaveLength(4)
     for (const removed of ['Сводка', 'Упражнения', 'Сила и объём', 'Регулярность', 'Мышцы', 'Фото прогресса']) expect(screen.queryByRole('button', { name: removed, exact: true })).not.toBeInTheDocument()
@@ -63,23 +66,49 @@ describe('Progress stage 6', () => {
     expect(location()).toContain('period=7d')
   })
 
-  it('opens embedded recovery without requesting analytics and keeps one shell/STOP', async () => {
+  it('redirects old recovery links to the standalone page without requesting analytics', async () => {
     renderScreen('/progress?tab=recovery&mode=7d&muscle=chest')
-    expect(await screen.findByText('Карта мышечной усталости')).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Карта мышечной усталости' })).toBeVisible()
+    expect(location()).toBe('/fatigue?mode=7d&muscle=chest')
     expect(apiGet).toHaveBeenCalledWith('/api/fatigue?userId=alexey&mode=7d')
     expect(apiGet).not.toHaveBeenCalledWith(expect.stringMatching(/^\/api\/progress\?/))
     expect(screen.getAllByRole('main')).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: 'Аварийная остановка', exact: true })).toHaveLength(1)
-    expect(screen.queryByRole('combobox', { name: 'Период прогресса' })).not.toBeInTheDocument()
+    expect(document.querySelector('.fatigue-hero')).toContainElement(screen.getByRole('heading', { name: 'Карта мышечной усталости' }))
+    expect(document.querySelector('.fatigue-details')).toContainElement(screen.getByText('Рекомендация Forma'))
   })
 
-  it('leaves recovery through the new Overview tab', async () => {
+  it('opens progress from the separate muscle fatigue page', async () => {
     const user = userEvent.setup()
-    renderScreen('/progress?tab=recovery&mode=current')
-    await screen.findByText('Карта мышечной усталости')
-    await user.click(screen.getByRole('button', { name: 'Обзор', exact: true }))
+    renderScreen('/fatigue?mode=current')
+    await screen.findByRole('heading', { name: 'Карта мышечной усталости' })
+    await user.click(screen.getByRole('link', { name: 'Прогресс' }))
     expect(await screen.findByText('Динамика объёма')).toBeVisible()
-    expect(location()).not.toContain('tab=')
+    expect(location()).toBe('/progress')
+  })
+
+  it('shows muscle fatigue on hover and hides the hint when the pointer leaves', async () => {
+    renderScreen('/fatigue')
+    const chest = await screen.findByRole('button', { name: /Грудь: .* из 100/ })
+    fireEvent.pointerEnter(chest, { pointerType: 'mouse', clientX: 100, clientY: 100 })
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Грудь')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Высокая усталость')
+    expect(screen.getByRole('tooltip')).toHaveTextContent('балл. усталости')
+    expect(location()).toBe('/fatigue')
+    expect(chest).toBeInTheDocument()
+    fireEvent.pointerLeave(screen.getByText('Вид спереди').parentElement!)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+
+  })
+
+  it('shows missing fatigue data on hover', async () => {
+    fatigue = { ...fatigue, muscles: fatigue.muscles.map((muscle) => muscle.id === 'chest' ? { ...muscle, status: 'no_data' } : muscle) }
+    renderScreen('/fatigue')
+    const chest = await screen.findByRole('button', { name: /Грудь: .* из 100/ })
+    fireEvent.pointerEnter(chest, { pointerType: 'mouse', clientX: 100, clientY: 100 })
+    expect(screen.getByRole('tooltip')).toHaveTextContent('Нет сохранённых данных о нагрузке')
+    fireEvent.pointerLeave(screen.getByText('Вид спереди').parentElement!)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
   it('renders one actionable empty state instead of zero metric tiles', async () => {

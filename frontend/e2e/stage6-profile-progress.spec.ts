@@ -27,8 +27,8 @@ for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 10
 
     await page.goto('/progress')
     const progressTabs = page.getByRole('navigation', { name: 'Разделы прогресса' })
-    await expect(progressTabs.getByRole('button')).toHaveCount(5)
-    for (const label of ['Обзор', 'Сила', 'Тело', 'Фото', 'Восстановление']) await expect(progressTabs.getByRole('button', { name: label, exact: true })).toBeInViewport()
+    await expect(progressTabs.getByRole('button')).toHaveCount(4)
+    for (const label of ['Обзор', 'Сила', 'Тело', 'Фото']) await expect(progressTabs.getByRole('button', { name: label, exact: true })).toBeInViewport()
     await expect(page.getByRole('combobox', { name: 'Период прогресса' })).toHaveCount(1)
     await expect(page.locator('.progress-metrics article')).toHaveCount(4)
     await expect(page.getByRole('button', { name: /Сводка|Упражнения|Регулярность|Мышцы|Фото прогресса/ })).toHaveCount(0)
@@ -37,9 +37,10 @@ for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 10
     await page.screenshot({ path: progressShot })
     await testInfo.attach('progress', { path: progressShot, contentType: 'image/png' })
 
-    await progressTabs.getByRole('button', { name: 'Восстановление', exact: true }).click()
+    await page.getByRole('navigation', { name: 'Основная навигация' }).getByRole('link', { name: 'Усталость мышц', exact: true }).click()
     await expect(page.getByText('Карта мышечной усталости')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Аварийная остановка', exact: true })).toHaveCount(1)
+    await page.getByRole('navigation', { name: 'Основная навигация' }).getByRole('link', { name: 'Прогресс', exact: true }).click()
     await progressTabs.getByRole('button', { name: 'Фото', exact: true }).click()
     await expect(page.getByRole('button', { name: 'Фотофиксация', exact: true })).toBeVisible()
     await expect(page.getByText('История фотофиксаций')).toHaveCount(0)

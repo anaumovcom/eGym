@@ -1,5 +1,5 @@
 import * as Popover from '@radix-ui/react-popover'
-import { CalendarDays, ChevronDown, Cpu, Dumbbell, House, ListChecks, OctagonAlert, Settings, TrendingUp, UserRound, Wrench } from 'lucide-react'
+import { Activity, CalendarDays, CircleAlert, CircleCheck, CircleX, Cpu, Dumbbell, House, ListChecks, OctagonAlert, Settings, TrendingUp, UserRound, Wrench } from 'lucide-react'
 import { useState, type PropsWithChildren, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
@@ -16,8 +16,7 @@ const navigationIcons = {
   '/catalog': Dumbbell,
   '/calendar': CalendarDays,
   '/progress': TrendingUp,
-  '/modbus': Cpu,
-  '/settings/mechanics': Wrench,
+  '/fatigue': Activity,
 }
 
 type MachineProblem = {
@@ -99,7 +98,6 @@ export function TopNavigationMenu({ userName, systemBar }: { userName: string; s
           <Popover.Trigger asChild>
             <button type="button" aria-label={`Меню профиля: ${userName}`} className="flex min-h-14 items-center gap-3 rounded-2xl border border-white/15 px-3 text-white hover:bg-white/6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f4dfb4]">
               <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-full bg-[#d6b05f]/20 text-xl font-bold text-[#f4dfb4]">{userName.trim().charAt(0)}</span>
-              <ChevronDown className="h-5 w-5" aria-hidden="true" />
             </button>
           </Popover.Trigger>
           <Popover.Portal>
@@ -109,6 +107,8 @@ export function TopNavigationMenu({ userName, systemBar }: { userName: string; s
                 {[
                   { path: '/profile', label: 'Профиль', icon: UserRound },
                   { path: '/settings', label: 'Настройки', icon: Settings },
+                  { path: '/modbus', label: 'Modbus', icon: Cpu },
+                  { path: '/settings/mechanics', label: 'Механика', icon: Wrench },
                 ].map((item) => (
                   <NavLink key={item.path} to={item.path} onClick={() => setProfileMenuOpen(false)} className="flex min-h-14 items-center gap-3 rounded-xl px-4 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-[#f4dfb4]">
                     <item.icon className="h-5 w-5" aria-hidden="true" />
@@ -133,6 +133,7 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
   const [detailsOpen, setDetailsOpen] = useState(false)
   const urgentProblem = machine?.safety === 'emergency_stop' ? getSafetyLabel(machine.safety) : problems.find((problem) => problem.tone === 'danger')?.label
   const status = urgentProblem ?? (connectionLost ? 'Нет связи с тренажёром' : problems[0]?.label ?? machine?.machineLabel ?? 'Статус тренажёра неизвестен')
+  const StatusIcon = urgentProblem ? CircleX : connectionLost || problems.length || !machine ? CircleAlert : CircleCheck
 
   const dock = (
     <div role="group" className="forma-system-dock" style={{ pointerEvents: 'auto' }} aria-label="Состояние тренажёра и безопасность">
@@ -140,9 +141,8 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
         <Popover.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
           <Popover.Trigger asChild>
             <button type="button" className="forma-machine-status-button" aria-label={`Состояние тренажёра: ${status}`}>
-              <span aria-hidden="true" className={cn('h-3 w-3 shrink-0 rounded-full', urgentProblem ? 'bg-red-500' : connectionLost || problems.length || !machine ? 'bg-amber-500' : 'bg-emerald-500')} />
+              <StatusIcon aria-hidden="true" className={cn('forma-machine-status-icon', urgentProblem ? 'text-red-500' : connectionLost || problems.length || !machine ? 'text-amber-500' : 'text-emerald-500')} />
               <span role="status" className="forma-machine-status-text">{status}</span>
-              <ChevronDown aria-hidden="true" className="h-5 w-5 shrink-0" />
             </button>
           </Popover.Trigger>
           <Popover.Portal container={target ?? undefined}>

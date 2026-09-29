@@ -190,11 +190,11 @@ class HardwareRuntime:
         self._keyboard_simulation_enabled = False
         self._keyboard_monitor = KeyboardCombinationMonitor()
         self.tick_seconds = DEFAULT_MOTION_TICK_SECONDS
-        self.parameters = MotionParameters()
+        self.parameters = self._startup_parameters()
         self.parameters_dirty = False
         self.emulator: PhysicsEmulatorAdapter | None = None
         self.adapter: DriveAdapter = self._build_adapter()
-        self.controller = MotionController(self.parameters)
+        self.controller = MotionController(self.parameters, limit_switches_enabled=bool(self.parameters.get("homing.limitSwitchesEnabled")))
         self.recorder = TelemetryRecorder(tick_seconds=self.tick_seconds)
         self.last_telemetry: AdapterTelemetry | None = None
         self.last_command: DriveCommand | None = None
@@ -216,12 +216,21 @@ class HardwareRuntime:
         self.panel = self._build_panel_bridge()
 
     # ------------------------------------------------------------- lifecycle
+    @staticmethod
+    def _startup_parameters(persisted: dict[str, Any] | None = None) -> MotionParameters:
+        parameters = MotionParameters()
+        values = dict(persisted or {})
+        if "homing.limitSwitchesEnabled" not in values and not get_settings().hardware_limit_switches_enabled:
+            values["homing.limitSwitchesEnabled"] = False  # legacy environment fallback
+        parameters.load_persisted(values)
+        return parameters
+
     def _build_adapter(self) -> DriveAdapter:
         settings = get_settings()
         if getattr(settings, "hardware_adapter", "emulator") == "modbus":
             self.emulator = None
             return ModbusDriveAdapter()
-        self.emulator = PhysicsEmulatorAdapter()
+        self.emulator = PhysicsEmulatorAdapter(initial_position_mm=860.0 if self.parameters.get("homing.limitSwitchesEnabled") else 0.0)
         self.emulator.heartbeat_timeout_s = float(self.parameters.get("safety.heartbeatTimeoutMs")) / 1000
         return self.emulator
 
@@ -252,7 +261,10 @@ class HardwareRuntime:
             self.controller.request_post(self.adapter.self_test())
         else:
             self.controller.state.post_status = "skipped"
-            self.controller.request_idle()
+            if self.controller.limit_switches_enabled:
+                self.controller.request_idle()
+            else:
+                self.controller.request_homing()
 
     def _panel_config(self) -> PanelBridgeConfig:
         settings = get_settings()
@@ -278,14 +290,14 @@ class HardwareRuntime:
             disconnect_callback=self._handle_panel_disconnect,
         )
 
-    def reset(self) -> None:
+    def reset(self, *, persisted_parameters: dict[str, Any] | None = None) -> None:
         self._refresh_runtime_options()
         with self._lock:
             subscribers = self._subscribers
             debug_subscribers = self._debug_subscribers
-            self.parameters = MotionParameters()
+            self.parameters = self._startup_parameters(persisted_parameters)
             self.adapter = self._build_adapter()
-            self.controller = MotionController(self.parameters)
+            self.controller = MotionController(self.parameters, limit_switches_enabled=bool(self.parameters.get("homing.limitSwitchesEnabled")))
             self.recorder = TelemetryRecorder(tick_seconds=self.tick_seconds)
             self.last_telemetry = None
             self.last_command = None
@@ -387,6 +399,9 @@ class HardwareRuntime:
             self.emulator.heartbeat_timeout_s = float(self.parameters.get("safety.heartbeatTimeoutMs")) / 1000
             self.emulator.physics.working_min_mm = float(self.parameters.get("limits.workingMinMm"))
             self.emulator.physics.working_max_mm = float(self.parameters.get("limits.workingMaxMm"))
+        if not self.controller.limit_switches_enabled and self.controller.state.homed:
+            self.controller.state.working_bottom_mm = float(self.parameters.get("limits.softMinMm"))
+            self.controller.state.working_top_mm = float(self.parameters.get("limits.softMaxMm"))
 
     def parameters_payload(self) -> dict[str, Any]:
         with self._lock:
@@ -1201,10 +1216,28 @@ class HardwareRuntime:
             self.controller.prepare_sync(telemetry)
             command = self.controller.tick(telemetry, dt)
             if self.controller.homing_ready_to_zero:
-                self.adapter.home()
-                telemetry = self._merge_panel_sensors(self.adapter.read())
-                self.controller.refresh_position(telemetry)
-                self.controller.mark_homing_reference_applied()
+                try:
+                    if not self.controller.limit_switches_enabled and (
+                        not telemetry.power_ok or telemetry.physical_estop or not telemetry.heartbeat_ok
+                        or not all(telemetry.side(side).connected for side in SIDES)
+                    ):
+                        raise RuntimeError("Приводы или цепь безопасности недоступны")
+                    if not self.controller.limit_switches_enabled and any(
+                        abs(telemetry.side(side).velocity_mm_s) > 1 for side in SIDES
+                    ):
+                        raise RuntimeError("Гриф должен быть неподвижен перед обнулением")
+                    self.adapter.home()
+                    telemetry = self._merge_panel_sensors(self.adapter.read())
+                    if not self.controller.limit_switches_enabled and any(
+                        not telemetry.side(side).homed or abs(telemetry.side(side).position_mm) > 1.5
+                        for side in SIDES
+                    ):
+                        raise RuntimeError("Приводы не подтвердили нулевую позицию энкодеров")
+                except Exception as exc:
+                    command = self.controller._homing_fault(f"encoder_zero_failed: {exc}")
+                else:
+                    self.controller.refresh_position(telemetry)
+                    self.controller.mark_homing_reference_applied()
             telemetry = self._merge_panel_sensors(self.adapter.step(command, dt))
             self.last_telemetry = telemetry
             self.last_command = command

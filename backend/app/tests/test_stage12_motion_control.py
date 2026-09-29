@@ -5,7 +5,10 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import get_settings
+from app.models.settings import AppSetting
+from app.schemas.hardware import TuningUpdateSchema
 from app.services.hardware_runtime import HardwareRuntime, hardware_runtime
+from app.services.hardware_service import HardwareService
 from app.services.motion.adapter import AdapterTelemetry, SideTelemetry
 from app.services.motion.controller import ControlMode, HomingPhase, MotionController
 from app.services.motion.parameters import MotionParameters, ParameterValidationError
@@ -60,6 +63,97 @@ def test_power_on_self_test_leads_to_idle_with_brakes(runtime: HardwareRuntime) 
     assert control.mode == ControlMode.idle
     assert control.brake_engaged is True
     assert control.position_known is True
+
+
+def test_start_without_limit_switches_zeros_both_encoders_without_motion(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HARDWARE_LIMIT_SWITCHES_ENABLED", "false")
+    monkeypatch.setenv("HARDWARE_KEYBOARD_SIMULATION_ENABLED", "false")
+    get_settings.cache_clear()
+    try:
+        runtime = HardwareRuntime()
+        zero_calls = []
+        real_home = runtime.adapter.home
+
+        def zero_encoders() -> None:
+            zero_calls.append(True)
+            real_home()
+
+        monkeypatch.setattr(runtime.adapter, "home", zero_encoders)
+        _run(runtime, 0.5)
+        state = runtime.controller.state
+        assert zero_calls == [True]
+        assert state.post_status == "passed"
+        assert state.mode == ControlMode.idle
+        assert state.homing_phase == HomingPhase.complete
+        assert state.position_known and state.homed
+        assert state.physical_bottom_mm == 0
+        assert state.physical_top_mm is None  # no unobserved upper endstop
+        assert state.working_top_mm == runtime.parameters.get("limits.softMaxMm")
+        runtime.load_parameters({"limits.softMaxMm": 1750})
+        assert state.working_top_mm == 1750
+        assert runtime.last_telemetry.left.position_mm == pytest.approx(0, abs=0.01)
+        assert runtime.last_telemetry.right.position_mm == pytest.approx(0, abs=0.01)
+        assert all(side.brake_engaged for side in (runtime.last_telemetry.left, runtime.last_telemetry.right))
+        assert not any(command.mode != "brake" for command in (runtime.last_command.left, runtime.last_command.right))
+    finally:
+        get_settings.cache_clear()
+
+
+def test_start_without_limit_switches_blocks_if_encoder_zero_not_confirmed(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HARDWARE_LIMIT_SWITCHES_ENABLED", "false")
+    get_settings.cache_clear()
+    try:
+        runtime = HardwareRuntime()
+        monkeypatch.setattr(runtime.adapter, "home", lambda: None)
+        # Position feedback is nonzero despite the adapter reporting homed.
+        runtime.emulator.reset(position_mm=100)
+        _run(runtime, 0.5)
+        assert runtime.controller.state.mode == ControlMode.fault
+        assert runtime.controller.state.position_known is False or runtime.controller.state.homed is False
+        assert "encoder_zero_failed" in (runtime.controller.state.fault_code or "")
+        assert runtime.last_command.left.mode == "brake"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_start_without_limit_switches_never_zeros_moving_bar(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HARDWARE_LIMIT_SWITCHES_ENABLED", "false")
+    get_settings.cache_clear()
+    try:
+        runtime = HardwareRuntime()
+        runtime.emulator._sides["left"].velocity_mm_s = 5
+        calls = []
+        monkeypatch.setattr(runtime.adapter, "home", lambda: calls.append(True))
+        runtime._tick_motion()
+        assert calls == []
+        assert runtime.controller.state.mode == ControlMode.fault
+        assert "encoder_zero_failed" in (runtime.controller.state.fault_code or "")
+    finally:
+        get_settings.cache_clear()
+
+
+def test_service_setting_is_persisted_and_only_applied_on_next_start(db_session, monkeypatch: pytest.MonkeyPatch) -> None:  # noqa: ANN001
+    runtime = HardwareRuntime()
+    monkeypatch.setattr("app.services.hardware_service.hardware_runtime", runtime)
+    service = HardwareService()
+    key = "homing.limitSwitchesEnabled"
+
+    with pytest.raises(PermissionError, match="сервисном режиме"):
+        service.update_tuning(db_session, TuningUpdateSchema(values={key: False}, apply="persist"))
+    runtime.set_service_mode(True)
+    with pytest.raises(PermissionError, match="после перезапуска"):
+        service.update_tuning(db_session, TuningUpdateSchema(values={key: False}, apply="temporary"))
+    result = service.update_tuning(db_session, TuningUpdateSchema(values={key: False}, apply="persist"))
+    assert result.values[key] is False
+    assert runtime.controller.limit_switches_enabled is True
+    assert runtime.controller.homing_ready_to_zero is False
+
+    saved = db_session.query(AppSetting).filter_by(key=service.PARAMETERS_KEY, user_id=None).one().value
+    assert saved[key] is False
+    runtime.reset(persisted_parameters=saved)
+    assert runtime.controller.limit_switches_enabled is False
+    assert runtime.controller.state.homing_phase == HomingPhase.complete
+    assert runtime.controller.state.mode == ControlMode.idle
 
 
 def test_pair_based_two_pass_homing_calibrates_both_physical_limits() -> None:

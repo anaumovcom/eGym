@@ -109,8 +109,8 @@ def _num(
     )
 
 
-def _bool(key: str, group: str, label: str, description: str, default: bool, *, critical: bool = False) -> ParameterSpec:
-    return ParameterSpec(key=key, group=group, label=label, description=description, type="boolean", default=default, safety_critical=critical)
+def _bool(key: str, group: str, label: str, description: str, default: bool, *, critical: bool = False, restart: bool = False) -> ParameterSpec:
+    return ParameterSpec(key=key, group=group, label=label, description=description, type="boolean", default=default, safety_critical=critical, requires_restart=restart)
 
 
 def _enum(key: str, group: str, label: str, description: str, default: str, options: tuple[str, ...], *, critical: bool = False) -> ParameterSpec:
@@ -137,6 +137,7 @@ PARAMETER_SPECS: tuple[ParameterSpec, ...] = (
     _num("limits.maxDescentSpeedMmPerSec", "limits", "Макс. скорость опускания", "Гриф под нагрузкой никогда не опускается быстрее этого значения.", 600, "мм/с", min=20, max=1500, hard_max=1500, step=10, critical=True),
     _num("limits.maxUserSpeedMmPerSec", "limits", "Порог скорости пользователя", "Превышение вызывает подтормаживание и предупреждение.", 1000, "мм/с", min=50, max=1500, step=10),
     # --- homing -----------------------------------------------------------
+    _bool("homing.limitSwitchesEnabled", "homing", "Концевые датчики установлены", "ВЫКЛ — при следующем запуске гриф должен стоять в крайнем нижнем положении; энкодеры обнуляются без перемещения. Требуется перезапуск тренажёра.", True, critical=True, restart=True),
     _num("homing.coarseSpeedMmPerSec", "homing", "Грубый поиск", "Скорость первого подхода к границе.", 40, "мм/с", min=1, max=200, step=1, critical=True),
     _num("homing.creepSpeedMmPerSec", "homing", "Controlled creep", "Скорость после первого датчика пары.", 8, "мм/с", min=0.5, max=40, step=0.5, critical=True),
     _num("homing.fineSpeedMmPerSec", "homing", "Точный подход", "Скорость повторного подхода после отъезда.", 4, "мм/с", min=0.5, max=30, step=0.5, critical=True),

@@ -66,7 +66,7 @@ describe('WorkoutSummaryScreen', () => {
     expect(navigateMock).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: 'Усталость и восстановление' }))
-    expect(navigateMock).toHaveBeenCalledWith('/progress?tab=recovery')
+    expect(navigateMock).toHaveBeenCalledWith('/fatigue')
   })
 
   it('resumes remaining sets with backend IDs and results intact after a legacy photo URL', async () => {

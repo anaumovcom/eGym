@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { ExerciseSetupScreen } from '@/screens/exercise-setup/exercise-setup-screen'
+import { getExerciseDetails } from '@/mocks/stage2-data'
+import { apiGet } from '@/shared/api/client'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
@@ -68,6 +70,7 @@ function renderScreen() {
 describe('ExerciseSetupScreen', () => {
   beforeEach(() => {
     localStorage.clear()
+    vi.mocked(apiGet).mockReset().mockResolvedValue([])
     currentSearch = '?source=catalog&slug=barbell-floor-press&calibration=missing'
     navigateMock.mockReset()
     loadCurrentCalibrationMock.mockReset()
@@ -176,6 +179,31 @@ describe('ExerciseSetupScreen', () => {
     expect(right).toContainElement(parameters)
     expect(right).toContainElement(calibration)
     expect(parameters.compareDocumentPosition(calibration) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('shows API video for a catalog exercise missing from mock media and retains session settings', async () => {
+    const slug = 'smith-machine-close-grip-bench-press'
+    const videoUrl = `/media/exercises/${slug}/male-side.mp4`
+    const details = getExerciseDetails(slug)
+    expect(details.videos).toHaveLength(0)
+    vi.mocked(apiGet).mockImplementation(async (path) => path.startsWith(`/api/exercises/${slug}?`)
+      ? { ...details, previewVideoUrl: videoUrl, videos: [{ url: videoUrl, label: 'Мужчина · Сбоку', gender: 'male', view: 'side' }] }
+      : [])
+    currentSearch = `?source=catalog&slug=${slug}&calibration=missing`
+    useRuntimeStore.getState().initializeSession({ source: 'catalog', slug, calibrationState: 'missing' })
+    useRuntimeStore.getState().updateLoadSettings({ reps: 15 })
+    const before = useRuntimeStore.getState().session!
+
+    const { container } = renderScreen()
+
+    await waitFor(() => expect(container.querySelector('video source')?.getAttribute('src')).toBe(videoUrl))
+    const after = useRuntimeStore.getState().session!
+    expect(after.exercises[0].details.videos[0].url).toBe(videoUrl)
+    expect(after.exercises[0].summary.previewVideoUrl).toBe(videoUrl)
+    expect(after.exercises[0].loadSettings.reps).toBe(15)
+    expect(after.exercises[0].calibrationState).toBe('missing')
+    expect(after.currentSetIndex).toBe(before.currentSetIndex)
+    expect(after.startedAt).toBe(before.startedAt)
   })
 
   it('moves the bar with buttons before capturing a range point', async () => {

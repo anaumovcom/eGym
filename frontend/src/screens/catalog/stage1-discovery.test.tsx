@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -35,6 +35,48 @@ beforeEach(() => {
 afterEach(() => { cleanup(); client.clear() })
 
 describe('Stage 1 discovery transitions', () => {
+  it('offers a back-to-top button only after the catalog is scrolled', () => {
+    sessionStorage.removeItem('egym-catalog-position')
+    render(<QueryClientProvider client={client}><MemoryRouter><ExerciseCatalogScreen /></MemoryRouter></QueryClientProvider>)
+    const main = document.querySelector<HTMLElement>('.forma-main')!
+    main.scrollTo = vi.fn(({ top }: ScrollToOptions) => {
+      main.scrollTop = top ?? 0
+      fireEvent.scroll(main)
+    })
+
+    expect(screen.queryByRole('button', { name: 'Наверх' })).not.toBeInTheDocument()
+    main.scrollTop = 500
+    fireEvent.scroll(main)
+    fireEvent.click(screen.getByRole('button', { name: 'Наверх' }))
+
+    expect(main.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' })
+    expect(screen.queryByRole('button', { name: 'Наверх' })).not.toBeInTheDocument()
+  })
+
+  it('keeps the catalog and scroll position while updating favorites', async () => {
+    const user = userEvent.setup()
+    const catalog = getExerciseCatalog()
+    useAppStore.setState({ favoriteExerciseSlugs: [] })
+    vi.mocked(apiGet).mockImplementation(async <T,>(path: string): Promise<T> => {
+      if (path.startsWith('/api/exercises?')) {
+        if (!path.includes('favorites=&')) return new Promise<T>(() => {})
+        return { ...catalog, items: catalog.items.slice(0, 48), total: 48 } as T
+      }
+      if (path.startsWith('/api/machine/status')) return machineScenarios.ready as T
+      throw new Error(`Unexpected request ${path}`)
+    })
+
+    render(<QueryClientProvider client={client}><MemoryRouter><ExerciseCatalogScreen /></MemoryRouter></QueryClientProvider>)
+    const card = await screen.findByRole('article', { name: catalog.items[0].name })
+    const main = document.querySelector<HTMLElement>('.forma-main')!
+    main.scrollTop = 600
+
+    await user.click(within(card).getByRole('button', { name: `Добавить в избранное: ${catalog.items[0].name}` }))
+    await vi.waitFor(() => expect(vi.mocked(apiGet).mock.calls.some(([path]) => path.includes(`favorites=${catalog.items[0].slug}`))).toBe(true))
+    expect(main.scrollTop).toBe(600)
+    expect(screen.getByRole('article', { name: catalog.items[0].name })).toBeInTheDocument()
+  })
+
   it('starts a standalone exercise from its catalog card without quick-start or photos', async () => {
     const user = userEvent.setup()
     render(

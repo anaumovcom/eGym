@@ -8,6 +8,7 @@ import { ExerciseDetailsScreen } from '@/screens/catalog/exercise-details-screen
 import { ExerciseSessionScreen } from '@/screens/exercise-session/exercise-session-screen'
 import { ExerciseSetupScreen } from '@/screens/exercise-setup/exercise-setup-screen'
 import { ExerciseSummaryScreen } from '@/screens/exercise-summary/exercise-summary-screen'
+import { FatigueScreen } from '@/screens/fatigue/fatigue-screen'
 import { PlaceholderScreen } from '@/screens/placeholder/placeholder-screen'
 import { UserProfileScreen } from '@/screens/profile/user-profile-screen'
 import { ProgressScreen } from '@/screens/progress/progress-screen'
@@ -34,13 +35,6 @@ function ProtectedAppRoute({ children }: { children: ReactElement }) {
   return children
 }
 
-function RecoveryRedirect() {
-  const [params] = useSearchParams()
-  const next = new URLSearchParams(params)
-  next.set('tab', 'recovery')
-  return <Navigate to={`/progress?${next}`} replace />
-}
-
 function PhotoProgressRedirect() {
   const [params] = useSearchParams()
   return <Navigate to={params.get('source') === 'profile' ? '/profile?tab=photo' : '/progress?tab=photo'} replace />
@@ -61,7 +55,7 @@ export function AppRoutes() {
         <Route path="/exercise-setup" element={<ProtectedAppRoute><ExerciseSetupScreen /></ProtectedAppRoute>} />
         <Route path="/photo-progress" element={<ProtectedAppRoute><PhotoProgressRedirect /></ProtectedAppRoute>} />
         <Route path="/progress" element={<ProtectedAppRoute><ProgressScreen /></ProtectedAppRoute>} />
-        <Route path="/fatigue" element={<ProtectedAppRoute><RecoveryRedirect /></ProtectedAppRoute>} />
+        <Route path="/fatigue" element={<ProtectedAppRoute><FatigueScreen /></ProtectedAppRoute>} />
         <Route path="/profile" element={<ProtectedAppRoute><UserProfileScreen /></ProtectedAppRoute>} />
         <Route path="/settings" element={<ProtectedAppRoute><SettingsLayout /></ProtectedAppRoute>}>
           <Route index element={<SystemSettingsScreen />} />

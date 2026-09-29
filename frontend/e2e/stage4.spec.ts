@@ -22,14 +22,13 @@ test('progress route renders analytics and photo tab', async ({ page }) => {
 test('fatigue route renders muscle map and recommendation', async ({ page }) => {
   await openAppAsAlexey(page)
 
-  await page.getByRole('link', { name: 'Прогресс' }).click()
-  await page.getByRole('button', { name: 'Восстановление', exact: true }).click()
-  await expect(page).toHaveURL(/\/progress\?tab=recovery/)
+  await page.getByRole('link', { name: 'Усталость мышц' }).click()
+  await expect(page).toHaveURL(/\/fatigue$/)
   await expect(page.getByText('Карта мышечной усталости')).toBeVisible()
 
   // The paired SVG paths have a gap at their shared bounding-box centre.
   await page.getByRole('button', { name: /Спина:/ }).first().press('Enter')
-  await expect(page).toHaveURL(/\/progress\?tab=recovery&muscle=back$/)
+  await expect(page).toHaveURL(/\/fatigue\?muscle=back$/)
   await expect(page.getByRole('button', { name: /Спина:/ }).first()).toHaveAttribute('aria-pressed', 'true')
   await expect(page.getByText('Рекомендация Forma')).toBeVisible()
 })

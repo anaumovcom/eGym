@@ -199,8 +199,9 @@ class ControllerState:
 
 
 class MotionController:
-    def __init__(self, parameters: MotionParameters) -> None:
+    def __init__(self, parameters: MotionParameters, *, limit_switches_enabled: bool = True) -> None:
         self.params = parameters
+        self.limit_switches_enabled = limit_switches_enabled
         self.state = ControllerState()
         self.config = TrainingConfig()
         self.events: deque[ControllerEvent] = deque(maxlen=400)
@@ -234,6 +235,7 @@ class MotionController:
         self._homing_first_edge_mm: float | None = None
         self._homing_reference_pending = False
         self._homing_initial_validation_pending = False
+        self._reference_verified = False
         self._last_alert_time = 0.0
         self._loaded_active = False
         self._move_start_mm = 0.0
@@ -248,7 +250,8 @@ class MotionController:
     def request_homing(self) -> None:
         self._homing_started_at = self.state.time
         self._homing_reference_pending = False
-        self._homing_initial_validation_pending = True
+        self._reference_verified = False
+        self._homing_initial_validation_pending = self.limit_switches_enabled
         self.state.homed = False
         self.state.position_known = False
         self.state.physical_bottom_mm = None
@@ -256,8 +259,13 @@ class MotionController:
         self.state.working_bottom_mm = None
         self.state.working_top_mm = None
         self.state.full_travel_mm = None
-        self._enter(ControlMode.homing, "Homing", "Поиск нулевой позиции на низкой скорости.")
-        self._set_homing_phase(HomingPhase.bottom_coarse)
+        if self.limit_switches_enabled:
+            self._enter(ControlMode.homing, "Homing", "Поиск нулевой позиции на низкой скорости.")
+            self._set_homing_phase(HomingPhase.bottom_coarse)
+        else:
+            self._enter(ControlMode.homing, "Homing", "Гриф должен находиться в крайнем нижнем положении; обнуление энкодеров без перемещения.")
+            self._set_homing_phase(HomingPhase.bottom_reference)
+            self._homing_reference_pending = True
 
     def request_move(self, target_mm: float, *, profile: str, then: ControlMode, label: str, obstacle_check: bool = True) -> None:
         target = self._clamp_soft(target_mm)
@@ -419,9 +427,14 @@ class MotionController:
         state.comm_ok = telemetry.left.connected and telemetry.right.connected
         adapter_homed = telemetry.left.homed and telemetry.right.homed
         encoder_incremental = self.params.get("screw.encoderType") == "incremental"
+        if not self.limit_switches_enabled and (not state.power_ok or not state.comm_ok):
+            self._reference_verified = False
         if state.mode == ControlMode.homing and self._homing_phase != HomingPhase.complete:
             state.homed = False
             state.position_known = False
+        elif not self.limit_switches_enabled:
+            state.homed = adapter_homed and self._reference_verified
+            state.position_known = state.homed and state.power_ok
         else:
             state.homed = adapter_homed
             state.position_known = state.homed or (not encoder_incremental and state.power_ok)
@@ -532,7 +545,7 @@ class MotionController:
             self._emit("post", "Самотест пройден" if not failed_critical else f"Самотест не пройден: {failed_critical[0].label}")
             if failed_critical:
                 self._fault(f"POST: {failed_critical[0].label} — {failed_critical[0].detail}")
-            elif not state.homed and bool(self.params.get("safety.homingRequiredAfterPowerLoss")):
+            elif not self.limit_switches_enabled or (not state.homed and bool(self.params.get("safety.homingRequiredAfterPowerLoss"))):
                 self.request_homing()
             else:
                 self.request_idle()
@@ -545,6 +558,11 @@ class MotionController:
         position = state.position_mm
         now = state.time
         limit = self._torque_percent_to_kg(float(self.params.get("profile.calibration.torqueLimitPercent")))
+
+        if not self.limit_switches_enabled:
+            if abs(telemetry.left.velocity_mm_s) > 1 or abs(telemetry.right.velocity_mm_s) > 1:
+                return self._homing_fault("zero_reference_requires_stationary_bar")
+            return self._brake_command()
 
         if now - self._homing_started_at >= float(self.params.get("homing.totalTimeoutSec")):
             return self._homing_fault("homing_global_timeout")
@@ -663,8 +681,18 @@ class MotionController:
         self._homing_reference_pending = False
         # DriveAdapter.home() establishes the lower physical edge as coordinate 0.
         self.state.physical_bottom_mm = 0.0
-        self.state.working_bottom_mm = float(self.params.get("homing.bottomOffsetMm"))
-        self._set_homing_phase(HomingPhase.top_coarse)
+        if not self.limit_switches_enabled:
+            self._reference_verified = True
+            self.state.working_bottom_mm = float(self.params.get("limits.softMinMm"))
+            self.state.working_top_mm = float(self.params.get("limits.softMaxMm"))
+            self.state.homed = True
+            self.state.position_known = True
+            self._set_homing_phase(HomingPhase.complete)
+            self._emit("home", "Энкодеры обнулены в нижнем положении; действуют программные границы хода")
+            self.request_idle()
+        else:
+            self.state.working_bottom_mm = float(self.params.get("homing.bottomOffsetMm"))
+            self._set_homing_phase(HomingPhase.top_coarse)
 
     def _set_homing_phase(self, phase: HomingPhase) -> None:
         self._homing_phase = phase

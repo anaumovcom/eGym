@@ -1,9 +1,11 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ExerciseSessionScreen } from '@/screens/exercise-session/exercise-session-screen'
-import { apiPost } from '@/shared/api/client'
+import { getExerciseDetails } from '@/mocks/stage2-data'
+import { apiGet, apiPost } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
@@ -11,7 +13,7 @@ import type { HardwareCalibration, HardwareSnapshot } from '@/features/hardware/
 
 const navigateMock = vi.fn()
 const runCommandMock = vi.fn().mockResolvedValue({})
-const currentSearch = '?source=catalog&slug=barbell-floor-press'
+let currentSearch = '?source=catalog&slug=barbell-floor-press'
 
 vi.mock('react-router-dom', async () => ({
   ...await vi.importActual<typeof import('react-router-dom')>('react-router-dom'),
@@ -22,6 +24,7 @@ vi.mock('react-router-dom', async () => ({
 
 vi.mock('@/shared/api/client', async () => ({
   ...await vi.importActual<typeof import('@/shared/api/client')>('@/shared/api/client'),
+  apiGet: vi.fn(),
   apiPost: vi.fn(),
 }))
 
@@ -31,18 +34,23 @@ vi.mock('@/features/runtime/lib/runtime-persistence', async () => ({
 }))
 
 function renderScreen() {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
-    <MemoryRouter>
-      <ExerciseSessionScreen />
-    </MemoryRouter>,
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>
+        <ExerciseSessionScreen />
+      </MemoryRouter>
+    </QueryClientProvider>,
   )
 }
 
 describe('ExerciseSessionScreen', () => {
   beforeEach(() => {
     localStorage.clear()
+    currentSearch = '?source=catalog&slug=barbell-floor-press'
     navigateMock.mockReset()
     runCommandMock.mockClear()
+    vi.mocked(apiGet).mockReset().mockResolvedValue([])
     vi.mocked(apiPost).mockReset()
     vi.mocked(apiPost).mockImplementation(async (path: string) => {
       if (path === '/api/runtime/exercises') return { exerciseSessionId: 7, outcome: 'completed', exerciseId: 'x', title: 'Итог', subtitle: '', setResults: [], totals: { setsCompleted: '1', repsOrTime: '8', volume: '0', tempo: 'хорошо' }, planVsFact: [], recommendation: '', nextStepLabel: '' } as never
@@ -74,6 +82,65 @@ describe('ExerciseSessionScreen', () => {
     expect(screen.getByRole('group', { name: 'Вес' })).toBeInTheDocument()
     expect(screen.getByRole('progressbar', { name: 'Прогресс подхода' })).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('loads catalog video missing from mock media without restarting the running exercise', async () => {
+    const slug = 'smith-machine-close-grip-bench-press'
+    currentSearch = `?source=catalog&slug=${slug}`
+    const videoUrl = `/media/exercises/${slug}/male-side.mp4`
+    const details = getExerciseDetails(slug)
+    expect(details.videos).toHaveLength(0)
+    vi.mocked(apiGet).mockImplementation(async (path) => path.startsWith(`/api/exercises/${slug}?`)
+      ? { ...details, previewVideoUrl: videoUrl, videos: [{ url: videoUrl, label: 'Мужчина · Сбоку', gender: 'male', view: 'side' }] }
+      : [])
+    useRuntimeStore.getState().initializeSession({ source: 'catalog', slug })
+    useRuntimeStore.getState().updateLoadSettings({ reps: 15 })
+    useRuntimeStore.getState().startExercise()
+    const before = useRuntimeStore.getState().session!
+    expect(before.exercises[0].details.videos).toHaveLength(0)
+
+    const { container } = renderScreen()
+
+    await waitFor(() => expect(container.querySelector('video source')?.getAttribute('src')).toBe(videoUrl))
+    const after = useRuntimeStore.getState().session!
+    expect(after.view).toBe('exercise-session')
+    expect(after.startedAt).toBe(before.startedAt)
+    expect(after.sessionState).toEqual(before.sessionState)
+    expect(after.exercises[0].loadSettings.reps).toBe(15)
+    expect(after.exercises[0].details.videos[0].url).toBe(videoUrl)
+  })
+
+  it('maps the bar position between the lower and upper markers across 80% of the rail', () => {
+    const motion = {
+      barPositionMm: 300.5, lowerBoundMm: 295, upperBoundMm: 306,
+      leftPositionMm: 300.5, rightPositionMm: 300.5,
+      amplitudePercent: 50, repetitionCount: 0, syncDeltaMm: 0,
+    } as HardwareSnapshot['motion']
+    useHardwareStore.setState({ snapshot: { motion, safety: { state: 'enabled' } } as HardwareSnapshot })
+    renderScreen()
+
+    const rail = screen.getByRole('region', { name: 'Положение грифа' })
+    const barPosition = () => rail.querySelector('[data-rail-position="current"]')
+    expect(within(rail).getByLabelText('Низ · 295 мм').parentElement).toHaveStyle({ bottom: '10%' })
+    expect(within(rail).getByLabelText('Верх · 306 мм').parentElement).toHaveStyle({ bottom: '90%' })
+    expect(barPosition()).toHaveStyle({ bottom: '50%' })
+    expect(within(rail).getByLabelText('Гриф · 301 мм')).toBeInTheDocument()
+    expect(within(rail).getByLabelText('Гриф · 301 мм')).toHaveClass('col-start-1')
+    expect(within(rail).getByLabelText('Низ · 295 мм')).toHaveClass('col-start-3')
+    expect(within(rail).getByLabelText('Верх · 306 мм')).toHaveClass('col-start-3')
+    expect(rail.querySelector('[data-rail-limit="lower"] [aria-hidden="true"]')).toHaveClass('h-[2px]', 'w-10', 'justify-self-center')
+    expect(rail.querySelector('[data-rail-limit="upper"] [aria-hidden="true"]')).toHaveClass('h-[2px]', 'w-10', 'justify-self-center')
+    expect(within(rail).getByText('Положение · мм')).toBeInTheDocument()
+    expect(within(rail).getByLabelText('Гриф · 301 мм')).toHaveTextContent('Гриф301')
+    expect(within(rail).getByLabelText('Низ · 295 мм')).toHaveTextContent('Низ295')
+    expect(within(rail).getByLabelText('Верх · 306 мм')).toHaveTextContent('Верх306')
+
+    act(() => useHardwareStore.setState({ snapshot: { motion: { ...motion, barPositionMm: 306 }, safety: { state: 'enabled' } } as HardwareSnapshot }))
+    expect(barPosition()).toHaveStyle({ bottom: '90%' })
+    expect(within(rail).getByLabelText('Гриф · 306 мм')).toBeInTheDocument()
+    act(() => useHardwareStore.setState({ snapshot: { motion: { ...motion, barPositionMm: 295 }, safety: { state: 'enabled' } } as HardwareSnapshot }))
+    expect(barPosition()).toHaveStyle({ bottom: '10%' })
+    expect(within(rail).getByLabelText('Гриф · 295 мм')).toBeInTheDocument()
   })
 
   it('adjusts the repetition count and saves a partial set with the single finish button', async () => {

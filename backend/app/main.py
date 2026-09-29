@@ -31,20 +31,18 @@ def bootstrap_local_data() -> None:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    hardware_runtime.reset()
     bootstrap_local_data()
-    load_hardware_parameters()
+    hardware_runtime.reset(persisted_parameters=load_hardware_parameters())
     await hardware_runtime.start()
     yield
     await hardware_runtime.stop()
 
 
-def load_hardware_parameters() -> None:
-    try:
-        with SessionLocal() as session:
-            HardwareService().load_parameters_from_db(session)
-    except Exception:  # noqa: BLE001 - parameters fall back to registry defaults
-        return
+def load_hardware_parameters() -> dict[str, object]:
+    # If persisted hardware mode is unavailable, do not guess whether endstops
+    # are installed and accidentally start a sensor-based homing sequence.
+    with SessionLocal() as session:
+        return HardwareService().load_parameters_from_db(session)
 
 
 def create_app() -> FastAPI:

@@ -8,6 +8,7 @@ vi.mock('@/screens/dashboard/dashboard-screen', () => ({ DashboardScreen: () => 
 vi.mock('@/screens/builder/workout-builder-screen', () => ({ WorkoutBuilderScreen: () => <div>Builder destination</div> }))
 vi.mock('@/screens/catalog/exercise-catalog-screen', () => ({ ExerciseCatalogScreen: () => <div>Catalog destination</div> }))
 vi.mock('@/screens/progress/progress-screen', () => ({ ProgressScreen: () => <div>Progress destination</div> }))
+vi.mock('@/screens/fatigue/fatigue-screen', () => ({ FatigueScreen: () => <div>Fatigue destination</div> }))
 vi.mock('@/screens/profile/user-profile-screen', () => ({ UserProfileScreen: () => <div>Profile destination</div> }))
 vi.mock('@/screens/modbus-debug/modbus-debug-screen', () => ({ ModbusDebugScreen: () => <div>Modbus controls</div> }))
 vi.mock('@/screens/user-selection/user-selection-screen', () => ({ UserSelectionScreen: () => <div>Select a user</div> }))
@@ -30,13 +31,19 @@ describe('Stage 1 routes', () => {
     ['/programs?selected=old-template', '/builder', 'Builder destination'],
     ['/quick-start?selected=old-exercise', '/catalog', 'Catalog destination'],
     ['/today?scenario=planned', '/dashboard', 'Dashboard destination'],
-    ['/fatigue?mode=7d&muscle=chest', '/progress?mode=7d&muscle=chest&tab=recovery', 'Progress destination'],
     ['/photo-progress?source=profile&photo=manual', '/profile?tab=photo', 'Profile destination'],
     ['/photo-progress?source=progress&photo=manual', '/progress?tab=photo', 'Progress destination'],
   ])('redirects %s without modifying the selected user workout', (oldPath, destination, text) => {
     renderAt(oldPath)
     expect(screen.getByText(text)).toBeInTheDocument()
     expect(screen.getByTestId('location').textContent).toBe(destination)
+    expect(useAppStore.getState().selectedProgramId).toBe('my-workout')
+  })
+
+  it('opens the standalone fatigue page without changing the selected workout', () => {
+    renderAt('/fatigue?mode=7d&muscle=chest')
+    expect(screen.getByText('Fatigue destination')).toBeInTheDocument()
+    expect(screen.getByTestId('location').textContent).toBe('/fatigue?mode=7d&muscle=chest')
     expect(useAppStore.getState().selectedProgramId).toBe('my-workout')
   })
 

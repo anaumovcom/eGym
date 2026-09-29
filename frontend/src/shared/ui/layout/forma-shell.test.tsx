@@ -35,11 +35,11 @@ describe('TV system status', () => {
 })
 
 describe('Stage 1 navigation', () => {
-  it('shows six primary destinations including Modbus and marks nested catalog pages active', () => {
+  it('shows six primary destinations and marks nested catalog pages active', () => {
     render(<MemoryRouter initialEntries={['/catalog/barbell-floor-press']}><TopNavigationMenu userName="Алексей" /></MemoryRouter>)
     const nav = screen.getByRole('navigation', { name: 'Основная навигация' })
     expect(within(nav).getAllByRole('link').map((link) => [link.textContent, link.getAttribute('href')])).toEqual([
-      ['Главная', '/dashboard'], ['Мои тренировки', '/builder'], ['Каталог', '/catalog'], ['Календарь', '/calendar'], ['Прогресс', '/progress'], ['Modbus', '/modbus'],
+      ['Главная', '/dashboard'], ['Мои тренировки', '/builder'], ['Каталог', '/catalog'], ['Календарь', '/calendar'], ['Прогресс', '/progress'], ['Усталость мышц', '/fatigue'],
     ])
     expect(within(nav).getByRole('link', { name: 'Каталог' })).toHaveAttribute('aria-current', 'page')
     expect(screen.queryByRole('link', { name: 'Профиль' })).not.toBeInTheDocument()
@@ -54,6 +54,8 @@ describe('Stage 1 navigation', () => {
     await user.keyboard('{Enter}')
     expect(screen.getByRole('link', { name: 'Профиль', exact: true })).toHaveAttribute('href', '/profile')
     expect(screen.getByRole('link', { name: 'Настройки', exact: true })).toHaveAttribute('href', '/settings')
+    expect(screen.getByRole('link', { name: 'Modbus', exact: true })).toHaveAttribute('href', '/modbus')
+    expect(screen.getByRole('link', { name: 'Механика', exact: true })).toHaveAttribute('href', '/settings/mechanics')
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('navigation', { name: 'Меню пользователя' })).not.toBeInTheDocument()
     expect(avatar).toHaveFocus()

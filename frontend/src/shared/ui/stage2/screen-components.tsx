@@ -442,7 +442,6 @@ function resolveExerciseVideoSequence(exercise: ExerciseDetails, preferredVideoG
 }
 
 export function ExercisePreviewCard({ exercise, onOpen, onFavorite }: { exercise: ExerciseSummary; onOpen?: () => void; onFavorite?: () => void }) {
-  const compatibilityText = exercise.compatibilityTone === 'recommended' ? 'Рекомендуется' : exercise.compatibilityTone === 'blocked' ? 'Блокировка' : exercise.compatibilityTone === 'caution' ? 'Осторожно' : 'Можно выполнять'
   return (
     <article className="catalog-card" aria-label={exercise.name}>
       <ExerciseMedia
@@ -452,24 +451,22 @@ export function ExercisePreviewCard({ exercise, onOpen, onFavorite }: { exercise
         videoLabel={exercise.previewVideoUrl ? `${exercise.name} · превью` : undefined}
         lazyLoadVideo={Boolean(exercise.previewVideoUrl)}
       />
+      <button type="button" className="catalog-card-open" onClick={onOpen} aria-label={`Открыть ${exercise.name}`} />
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation()
+          onFavorite?.()
+        }}
+        aria-pressed={exercise.favorite}
+        aria-label={exercise.favorite ? `Убрать из избранного: ${exercise.name}` : `Добавить в избранное: ${exercise.name}`}
+        className="catalog-card-favorite"
+      >
+        <Star className={cn('h-5 w-5', exercise.favorite ? 'fill-[#f3d18b] text-[#f3d18b]' : '')} aria-hidden="true" />
+      </button>
       <div className="catalog-card-body">
-        <div className="catalog-card-heading">
-          <h3 className="font-display font-bold text-white">{exercise.name}</h3>
-          <button
-            type="button"
-            onClick={onFavorite}
-            aria-pressed={exercise.favorite}
-            aria-label={exercise.favorite ? `Убрать из избранного: ${exercise.name}` : `Добавить в избранное: ${exercise.name}`}
-            className="catalog-card-favorite"
-          >
-            <Star className={cn('h-5 w-5', exercise.favorite ? 'fill-[#f3d18b] text-[#f3d18b]' : '')} aria-hidden="true" />
-          </button>
-        </div>
+        <h3 className="font-display font-bold text-white">{exercise.name}</h3>
         <p className="catalog-card-muscles">{exercise.muscles.slice(0, 2).join(' · ') || exercise.equipment}</p>
-        <div className="catalog-card-footer">
-          <CompatibilityBadge tone={exercise.compatibilityTone} text={compatibilityText} />
-          <Button variant="secondary" onClick={onOpen} aria-label={`Открыть ${exercise.name}`}>Открыть</Button>
-        </div>
       </div>
     </article>
   )
