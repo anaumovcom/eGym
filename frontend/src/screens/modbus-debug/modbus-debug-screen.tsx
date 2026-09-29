@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { useAppStore } from '@/stores/app-store'
@@ -12,6 +13,7 @@ import { ErrorsPanel } from './tabs/errors-panel'
 import { LogPanel } from './tabs/log-panel'
 import { SavePanel } from './tabs/save-panel'
 import { cn } from '@/shared/lib/cn'
+import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 
 type ModbusTab =
   | 'connection'
@@ -46,9 +48,19 @@ export function ModbusDebugScreen() {
   const snapshot = useHardwareStore((state) => state.snapshot)
   const runCommand = useHardwareStore((state) => state.runCommand)
   const selectedUserId = useAppStore((state) => state.selectedUserId)
+  const selectedSide = useModbusStore((state) => state.selectedSide)
+  const selectSide = useModbusStore((state) => state.selectSide)
+  const driveAddresses = useModbusStore((state) => state.driveAddresses)
+  const loadStatus = useModbusStore((state) => state.loadStatus)
+  const loadPorts = useModbusStore((state) => state.loadPorts)
   const userName = selectedUserId === 'elena' ? 'Елена' : selectedUserId === 'guest' ? 'Гость' : 'Алексей'
 
   const setTab = (t: ModbusTab) => setSearchParams({ tab: t })
+
+  useEffect(() => {
+    void loadStatus()
+    void loadPorts()
+  }, [loadStatus, loadPorts])
 
   return (
     <FormaShell
@@ -71,6 +83,22 @@ export function ModbusDebugScreen() {
             </h1>
             <p className="text-xs text-white/30">RS485 · 8E1 · Отладочная страница</p>
           </div>
+        </div>
+
+        {snapshot?.control?.adapter === 'modbus-rtu' && snapshot.control.faultCode?.includes('E-CTRL-UNAVAILABLE') && (
+          <div role="status" className="rounded-xl border border-[#ffd166]/30 bg-[#3d2f10]/40 px-4 py-3 text-sm text-[#ffd166]">
+            Приводы доступны для отладки по Modbus. «Тренажёр заблокирован» означает, что безопасный контур автоматического движения пока не реализован; отсутствие аварий у драйверов не снимает эту блокировку.
+          </div>
+        )}
+
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Драйвер сервопривода">
+          {(['left', 'right'] as const).map((side) => (
+            <button key={side} type="button" onClick={() => selectSide(side)}
+              aria-pressed={selectedSide === side}
+              className={cn('rounded-xl border px-4 py-2 text-sm', selectedSide === side ? 'border-[#b5852f] bg-[#b5852f]/30 text-[#f4dfb4]' : 'border-white/10 text-white/50')}>
+              {side === 'left' ? 'Левый' : 'Правый'} драйвер · ID {driveAddresses[side]}
+            </button>
+          ))}
         </div>
 
         {/* Tab bar */}

@@ -2,11 +2,17 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { updateTuning } from '@/features/hardware/api/tuning-api'
+import { fetchModbusPositions, zeroModbusPositions } from '@/features/modbus/api/modbus-api'
 import { useTuningStore } from '@/features/hardware/lib/use-tuning-store'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import { MechanicsTuningScreen } from '@/screens/mechanics-tuning/mechanics-tuning-screen'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
+
+vi.mock('@/features/modbus/api/modbus-api', () => ({
+  fetchModbusPositions: vi.fn(),
+  zeroModbusPositions: vi.fn(),
+}))
 
 vi.mock('@/features/hardware/api/tuning-api', () => ({
   fetchTuningSchema: vi.fn().mockResolvedValue({
@@ -78,6 +84,8 @@ const snapshot = {
 
 describe('MechanicsTuningScreen', () => {
   beforeEach(() => {
+    vi.mocked(fetchModbusPositions).mockReset().mockResolvedValue({ connected: false, simulationMode: false, zeroed: false, left: { slaveId: 1, currentPulses: null, zeroPulses: null, positionMm: null }, right: { slaveId: 2, currentPulses: null, zeroPulses: null, positionMm: null }, skewMm: null, error: null })
+    vi.mocked(zeroModbusPositions).mockReset()
     vi.stubGlobal('WebSocket', FakeWebSocket)
     FakeWebSocket.instances = []
     useAppStore.setState({ selectedUserId: 'alexey', emergencyStopActive: false })
@@ -93,6 +101,49 @@ describe('MechanicsTuningScreen', () => {
     expect(screen.getByRole('switch', { name: 'Компенсация веса' })).toBeDisabled()
     expect(screen.getByText('860.2 мм')).toBeInTheDocument()
     expect(FakeWebSocket.instances.some((socket) => socket.url.includes('/api/hardware/telemetry-debug'))).toBe(true)
+  })
+
+  it('shows fresh real servo heights even while the hardware controller runs the emulator', async () => {
+    let left = 10000
+    let right = 20000
+    vi.mocked(fetchModbusPositions).mockImplementation(async () => ({
+      connected: true, simulationMode: false, zeroed: true,
+      left: { slaveId: 1, currentPulses: left, zeroPulses: 0, positionMm: left * 0.0032 },
+      right: { slaveId: 2, currentPulses: right, zeroPulses: 0, positionMm: right * 0.0032 },
+      skewMm: (left - right) * 0.0032, error: null,
+    }))
+
+    const view = render(<MemoryRouter><MechanicsTuningScreen /></MemoryRouter>)
+    expect(await screen.findByText('48.0000 мм')).toBeInTheDocument()
+    expect(screen.getAllByText('32.0000 мм')).toHaveLength(2)
+    expect(screen.getByText('64.0000 мм')).toBeInTheDocument()
+    expect(fetchModbusPositions).toHaveBeenCalled()
+
+    left = 20000
+    right = 30000
+    await waitFor(() => expect(screen.getByText('80.0000 мм')).toBeInTheDocument(), { timeout: 2500 })
+    expect(screen.getByText('96.0000 мм')).toBeInTheDocument()
+    view.unmount()
+  })
+
+  it('rezeros both drives and displays zero immediately without restarting', async () => {
+    vi.mocked(fetchModbusPositions).mockResolvedValue({
+      connected: true, simulationMode: false, zeroed: true,
+      left: { slaveId: 1, currentPulses: 10000, zeroPulses: 0, positionMm: 32 },
+      right: { slaveId: 2, currentPulses: 20000, zeroPulses: 0, positionMm: 64 },
+      skewMm: -32, error: null,
+    })
+    vi.mocked(zeroModbusPositions).mockResolvedValue({
+      connected: true, simulationMode: false, zeroed: true,
+      left: { slaveId: 1, currentPulses: 10000, zeroPulses: 10000, positionMm: 0 },
+      right: { slaveId: 2, currentPulses: 20000, zeroPulses: 20000, positionMm: 0 },
+      skewMm: 0, error: null,
+    })
+    render(<MemoryRouter><MechanicsTuningScreen /></MemoryRouter>)
+    expect(await screen.findByText('48.0000 мм')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Обнулить позицию' }))
+    await waitFor(() => expect(screen.getAllByText('0.0000 мм')).toHaveLength(4))
+    expect(zeroModbusPositions).toHaveBeenCalledOnce()
   })
 
   it('enables editing in service mode and sends the STOP command from the header', async () => {

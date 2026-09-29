@@ -40,10 +40,14 @@ class ModbusDriveAdapter:
     def __init__(self, left_address: int = 1, right_address: int = 2) -> None:
         self.addresses = {"left": left_address, "right": right_address}
         self._heartbeat_bit = 0
+        # Read/write access via the Modbus debug service is independent of this
+        # motion adapter. Until STO, brake, watchdog and coordinated motion are
+        # implemented, never report the motion controller as ready.
+        blocked_reason = "Контур движения Modbus не настроен (управление тормозом, STOP и синхронизацией не реализовано)"
         self._last = AdapterTelemetry(
             timestamp=time.monotonic(),
-            left=SideTelemetry("left", connected=False, homed=False, error_code="E-COMM-02", error_message="адаптер не подключён"),
-            right=SideTelemetry("right", connected=False, homed=False, error_code="E-COMM-02", error_message="адаптер не подключён"),
+            left=SideTelemetry("left", connected=False, homed=False, error_code="E-CTRL-UNAVAILABLE", error_message=blocked_reason),
+            right=SideTelemetry("right", connected=False, homed=False, error_code="E-CTRL-UNAVAILABLE", error_message=blocked_reason),
             power_ok=False,
             heartbeat_ok=False,
         )
@@ -81,7 +85,7 @@ class ModbusDriveAdapter:
 
     def self_test(self) -> list[SelfTestResult]:
         return [
-            SelfTestResult(f"comm-{side}", f"Связь: {side}", False, "Реальный драйвер не реализован", "critical")
+            SelfTestResult(f"control-{side}", f"Управление движением: {side}", False, "Безопасный контур движения Modbus ещё не реализован", "critical")
             for side in SIDES
         ]
 

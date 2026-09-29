@@ -7,9 +7,19 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.dependencies import get_session
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.seed import seed_dev_data
 from app.main import create_app
+
+
+@pytest.fixture(autouse=True)
+def use_test_emulator(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Legacy motion tests explicitly use the physics model; production defaults to Modbus."""
+    monkeypatch.setenv("HARDWARE_ADAPTER", "emulator")
+    get_settings.cache_clear()
+    yield
+    get_settings.cache_clear()
 
 
 @pytest.fixture()

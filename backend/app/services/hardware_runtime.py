@@ -227,9 +227,9 @@ class HardwareRuntime:
 
     def _build_adapter(self) -> DriveAdapter:
         settings = get_settings()
-        if getattr(settings, "hardware_adapter", "emulator") == "modbus":
+        if settings.hardware_adapter == "modbus":
             self.emulator = None
-            return ModbusDriveAdapter()
+            return ModbusDriveAdapter(settings.modbus_left_slave_id, settings.modbus_right_slave_id)
         self.emulator = PhysicsEmulatorAdapter(initial_position_mm=860.0 if self.parameters.get("homing.limitSwitchesEnabled") else 0.0)
         self.emulator.heartbeat_timeout_s = float(self.parameters.get("safety.heartbeatTimeoutMs")) / 1000
         return self.emulator
@@ -1339,7 +1339,11 @@ class HardwareRuntime:
             return
         if control.mode == ControlMode.fault:
             self.state.machine_state = MachineState.blocked
-            self.state.machine_label = "Тренажёр заблокирован"
+            self.state.machine_label = (
+                "Автоматическое движение заблокировано"
+                if control.fault_code and "E-CTRL-UNAVAILABLE" in control.fault_code
+                else "Тренажёр заблокирован"
+            )
             self.state.safety_message = control.fault_code or control.message
         elif control.sync_status in {"warning", "critical"} or self.state.service_mode or control.mode == ControlMode.post or not control.position_known:
             self.state.machine_state = MachineState.warning

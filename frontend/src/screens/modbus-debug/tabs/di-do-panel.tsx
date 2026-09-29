@@ -12,6 +12,7 @@ export function DiDoPanel() {
   const diWord = paramStates.get(0x201)?.driverValue ?? 0
   const doWord = paramStates.get(0x202)?.driverValue ?? 0
   const isConnected = connectionStatus?.connected ?? false
+  const simulatedInputs = connectionStatus?.simulationMode ?? false
 
   const handleRefresh = async () => {
     setBusy(true)
@@ -47,6 +48,7 @@ export function DiDoPanel() {
         <p className="text-xs text-white/40">
           Адрес 0x201 — управление DI через Modbus. Значение: <span className="font-mono text-white/60">0x{diWord.toString(16).toUpperCase().padStart(2, '0')} = 0b{diWord.toString(2).padStart(8, '0')}</span>
         </p>
+        {!simulatedInputs && <p className="text-xs text-[#ffd166]">DI 0x201 — неподтверждённый адрес для реальных приводов. Переключатели заблокированы до проверки карты регистров.</p>}
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           {Object.entries(DI_BIT_LABELS).map(([bitStr, info]) => {
             const bit = Number(bitStr)
@@ -74,7 +76,7 @@ export function DiDoPanel() {
                       active ? 'bg-[#ff8f84]/20 text-[#ff8f84] hover:bg-[#ff8f84]/30' : 'bg-[#79de83]/10 text-[#79de83] hover:bg-[#79de83]/20',
                     )}
                     onClick={() => toggleDiBit(bit)}
-                    disabled={!isConnected}
+                    disabled={!isConnected || !simulatedInputs}
                   >
                     {active ? 'OFF' : 'ON'}
                   </button>

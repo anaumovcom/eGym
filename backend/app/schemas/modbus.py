@@ -17,6 +17,7 @@ class ModbusConnectionParamsSchema(BaseModel):
     parity: Literal["N", "E", "O"] = Field(default="E", description="N=None, E=Even, O=Odd")
     stop_bits: int = Field(default=1)
     slave_id: int = Field(default=1, description="Modbus slave address (1–247)")
+    right_slave_id: int = Field(default=2, ge=1, le=247)
     timeout_ms: int = Field(default=500)
 
     model_config = {"populate_by_name": True}
@@ -28,6 +29,7 @@ class ModbusConnectionStatusSchema(BaseModel):
     baud_rate: int | None = None
     parity: str | None = None
     slave_id: int | None = None
+    right_slave_id: int | None = None
     last_success_at: datetime | None = None
     ok_count: int = 0
     error_count: int = 0
@@ -42,13 +44,13 @@ class ModbusConnectionStatusSchema(BaseModel):
 class ModbusReadRequestSchema(BaseModel):
     address: int = Field(description="Register address (decimal)")
     count: int = Field(default=1, ge=1, le=125)
-    slave_id: int | None = None
+    slave_id: int | None = Field(default=None, ge=1, le=247)
 
 
 class ModbusWriteRequestSchema(BaseModel):
     address: int = Field(description="Register address (decimal)")
     value: int = Field(description="16-bit register value")
-    slave_id: int | None = None
+    slave_id: int | None = Field(default=None, ge=1, le=247)
 
 
 class ModbusBatchReadRequestSchema(BaseModel):
@@ -72,6 +74,27 @@ class ModbusReadResultSchema(BaseModel):
     error: str | None = None
     raw_request: str | None = None
     raw_response: str | None = None
+
+
+class ModbusPositionSideSchema(BaseModel):
+    slave_id: int
+    current_pulses: int | None = None
+    zero_pulses: int | None = None
+    position_mm: float | None = None
+
+
+class ModbusPositionsSchema(BaseModel):
+    connected: bool
+    simulation_mode: bool = False
+    zeroed: bool
+    left_zero_pulses: int | None = None
+    right_zero_pulses: int | None = None
+    left_position_mm: float | None = None
+    right_position_mm: float | None = None
+    left: ModbusPositionSideSchema
+    right: ModbusPositionSideSchema
+    skew_mm: float | None = None
+    error: str | None = None
 
 
 class ModbusWriteResultSchema(BaseModel):
@@ -130,6 +153,7 @@ class ModbusCommandRequestSchema(BaseModel):
     ]
     params: dict[str, int] | None = None
     confirmed: bool = Field(default=False, description="User confirmed dangerous operation")
+    slave_id: int | None = Field(default=None, ge=1, le=247)
 
 
 class ModbusCommandResultSchema(BaseModel):

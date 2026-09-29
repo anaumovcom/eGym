@@ -6,6 +6,7 @@ import type {
   ModbusConnectionParams,
   ModbusConnectionStatus,
   ModbusReadResult,
+  ModbusPositions,
   ModbusWriteResult,
   ParameterProfile,
   ProfileCompareResult,
@@ -20,6 +21,7 @@ function toSnake(params: ModbusConnectionParams) {
     parity: params.parity,
     stop_bits: params.stopBits,
     slave_id: params.slaveId,
+    right_slave_id: params.rightSlaveId,
     timeout_ms: params.timeoutMs,
   }
 }
@@ -34,6 +36,32 @@ export async function fetchModbusStatus(): Promise<ModbusConnectionStatus> {
   return mapStatus(raw)
 }
 
+function mapPositions(raw: Record<string, unknown>): ModbusPositions {
+  const side = (value: Record<string, unknown>) => ({
+    slaveId: value.slave_id as number,
+    currentPulses: (value.current_pulses as number | null) ?? null,
+    zeroPulses: (value.zero_pulses as number | null) ?? null,
+    positionMm: (value.position_mm as number | null) ?? null,
+  })
+  return {
+    connected: raw.connected as boolean,
+    simulationMode: (raw.simulation_mode as boolean) ?? false,
+    zeroed: raw.zeroed as boolean,
+    left: side(raw.left as Record<string, unknown>),
+    right: side(raw.right as Record<string, unknown>),
+    skewMm: (raw.skew_mm as number | null) ?? null,
+    error: (raw.error as string | null) ?? null,
+  }
+}
+
+export async function fetchModbusPositions(): Promise<ModbusPositions> {
+  return mapPositions(await apiGet<Record<string, unknown>>('/api/modbus/positions'))
+}
+
+export async function zeroModbusPositions(): Promise<ModbusPositions> {
+  return mapPositions(await apiPost<Record<string, unknown>>('/api/modbus/positions/zero', {}))
+}
+
 export async function connectModbus(params: ModbusConnectionParams): Promise<ModbusConnectionStatus> {
   const raw = await apiPost<Record<string, unknown>>('/api/modbus/connect', toSnake(params))
   return mapStatus(raw)
@@ -44,9 +72,8 @@ export async function disconnectModbus(): Promise<ModbusConnectionStatus> {
   return mapStatus(raw)
 }
 
-export async function pingModbus(): Promise<ModbusReadResult> {
-  const raw = await apiPost<Record<string, unknown>>('/api/modbus/ping', {})
-  return mapReadResult(raw)
+export async function pingModbus(slaveId?: number): Promise<ModbusReadResult> {
+  return readModbusRegisters(0, 1, slaveId)
 }
 
 export async function readModbusRegisters(address: number, count = 1, slaveId?: number): Promise<ModbusReadResult> {
@@ -67,8 +94,8 @@ export async function writeModbusRegister(address: number, value: number, slaveI
   return mapWriteResult(raw)
 }
 
-export async function fetchModbusDiagnostics(): Promise<DriverDiagnostics> {
-  const raw = await apiGet<Record<string, unknown>>('/api/modbus/diagnostics')
+export async function fetchModbusDiagnostics(slaveId?: number): Promise<DriverDiagnostics> {
+  const raw = await apiGet<Record<string, unknown>>(`/api/modbus/diagnostics${slaveId != null ? `?slave_id=${slaveId}` : ''}`)
   return mapDiagnostics(raw)
 }
 
@@ -76,11 +103,13 @@ export async function runModbusCommand(
   command: string,
   confirmed: boolean,
   params?: Record<string, number>,
+  slaveId?: number,
 ): Promise<ModbusCommandResult> {
   return apiPost<ModbusCommandResult>('/api/modbus/commands', {
     command,
     confirmed,
     params: params ?? null,
+    ...(slaveId != null ? { slave_id: slaveId } : {}),
   })
 }
 
@@ -143,6 +172,7 @@ function mapStatus(r: Record<string, unknown>): ModbusConnectionStatus {
     baudRate: (r.baud_rate as number | null) ?? null,
     parity: (r.parity as string | null) ?? null,
     slaveId: (r.slave_id as number | null) ?? null,
+    rightSlaveId: (r.right_slave_id as number | null) ?? null,
     lastSuccessAt: (r.last_success_at as string | null) ?? null,
     okCount: (r.ok_count as number) ?? 0,
     errorCount: (r.error_count as number) ?? 0,

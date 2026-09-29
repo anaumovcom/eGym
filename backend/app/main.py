@@ -14,6 +14,8 @@ from app.db.session import SessionLocal, engine
 from app.services.exercise_library import EXERCISES_ROOT
 from app.services.hardware_runtime import hardware_runtime
 from app.services.hardware_service import HardwareService
+from app.schemas.modbus import ModbusConnectionParamsSchema
+from app.services.modbus_service import modbus_service
 
 
 def bootstrap_local_data() -> None:
@@ -32,10 +34,24 @@ def bootstrap_local_data() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     bootstrap_local_data()
+    settings = get_settings()
+    if settings.hardware_adapter == "modbus":
+        connection = modbus_service.connect(ModbusConnectionParamsSchema(
+            port=settings.modbus_port,
+            baud_rate=settings.modbus_baud_rate,
+            slave_id=settings.modbus_left_slave_id,
+            right_slave_id=settings.modbus_right_slave_id,
+        ))
+        if connection.connected:
+            modbus_service.capture_zero()
     hardware_runtime.reset(persisted_parameters=load_hardware_parameters())
     await hardware_runtime.start()
-    yield
-    await hardware_runtime.stop()
+    try:
+        yield
+    finally:
+        await hardware_runtime.stop()
+        if settings.hardware_adapter == "modbus":
+            modbus_service.disconnect()
 
 
 def load_hardware_parameters() -> dict[str, object]:

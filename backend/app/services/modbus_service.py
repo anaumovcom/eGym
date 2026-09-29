@@ -21,6 +21,8 @@ from app.schemas.modbus import (
     ModbusCommandResultSchema,
     ModbusConnectionParamsSchema,
     ModbusConnectionStatusSchema,
+    ModbusPositionsSchema,
+    ModbusPositionSideSchema,
     ModbusReadRequestSchema,
     ModbusReadResultSchema,
     ModbusRegisterValueSchema,
@@ -78,6 +80,9 @@ _DEFAULT_REGISTERS: dict[int, int] = {
     0x205: 0,
     # Position feedback high word
     0x206: 0,
+    # PA_1BC / PA_1BD – actual position feedback, low/high words
+    0x1BC: 0,
+    0x1BD: 0,
     # Position command low word
     0x207: 0,
     # Position command high word
@@ -111,21 +116,28 @@ for _i in range(32):
     _DEFAULT_REGISTERS[0x12C + _i] = 0
 
 _MAX_LOG_ENTRIES = 500
+_MM_PER_PULSE = 0.0032
 
 
 class ModbusService:
     """Stateful singleton Modbus service."""
 
     def __init__(self) -> None:
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._connected = False
         self._params: ModbusConnectionParamsSchema | None = None
         self._ok_count = 0
         self._error_count = 0
         self._last_success_at: datetime | None = None
+        self._connection_error: str | None = None
         self._log: deque[ExchangeLogEntrySchema] = deque(maxlen=_MAX_LOG_ENTRIES)
         self._log_id = 0
         self._registers: dict[int, int] = dict(_DEFAULT_REGISTERS)
+        self._registers_by_slave: dict[int, dict[int, int]] = {1: self._registers}
+        self._left_slave_id = 1
+        self._right_slave_id = 2
+        self.left_zero_pulses: int | None = None
+        self.right_zero_pulses: int | None = None
         self._profiles: list[ParameterProfileSchema] = []
         self._profile_id_counter = 0
 
@@ -182,6 +194,12 @@ class ModbusService:
             return value - 0x10000
         return value
 
+    def _select_slave(self, slave_id: int) -> None:
+        """Select a separate simulated bank and the RTU address while holding the lock."""
+        self._registers = self._registers_by_slave.setdefault(slave_id, {**_DEFAULT_REGISTERS, 0x000: slave_id})
+        if hasattr(self, "_instr"):
+            self._instr.address = slave_id
+
     def _simulate_read(self, address: int) -> tuple[int, str | None]:
         """Return (value, error_or_None) from the simulated register bank."""
         if address in self._registers:
@@ -234,7 +252,6 @@ class ModbusService:
                             description="USB Serial (install pyserial for details)",
                             hardware_id=None,
                         ))
-        ports.append(SerialPortInfoSchema(device="SIM://", description="Simulation (no hardware)", hardware_id=None))
         return ports
 
     # ------------------------------------------------------------------
@@ -243,12 +260,25 @@ class ModbusService:
 
     def connect(self, params: ModbusConnectionParamsSchema) -> ModbusConnectionStatusSchema:
         with self._lock:
+            if params.slave_id == params.right_slave_id:
+                return ModbusConnectionStatusSchema(connected=False, error_message="Адреса левого и правого приводов должны различаться")
             if self._connected:
                 self._log_info("CONNECT", f"Already connected to {self._params.port if self._params else '?'}, reconnecting")
                 self._connected = False
+            if hasattr(self, "_instr"):
+                try:
+                    self._instr.serial.close()
+                except Exception:  # noqa: BLE001
+                    pass
+                del self._instr
 
             self._params = params
-            is_sim = params.port == "SIM://" or not self._real_serial_available()
+            self._left_slave_id = params.slave_id
+            self._right_slave_id = params.right_slave_id
+            self.left_zero_pulses = None
+            self.right_zero_pulses = None
+            self._connection_error = None
+            is_sim = params.port == "SIM://"
 
             if is_sim:
                 self._connected = True
@@ -276,10 +306,14 @@ class ModbusService:
                 return self._build_status(simulation_mode=False)
             except Exception as exc:  # noqa: BLE001
                 self._connected = False
+                self._connection_error = str(exc)
                 self._error_count += 1
                 self._log_info("CONNECT_ERR", str(exc))
                 return ModbusConnectionStatusSchema(
                     connected=False,
+                    port=params.port,
+                    baud_rate=params.baud_rate,
+                    slave_id=params.slave_id,
                     error_message=str(exc),
                     error_count=self._error_count,
                 )
@@ -287,6 +321,8 @@ class ModbusService:
     def disconnect(self) -> ModbusConnectionStatusSchema:
         with self._lock:
             self._connected = False
+            self.left_zero_pulses = None
+            self.right_zero_pulses = None
             if hasattr(self, "_instr"):
                 try:
                     self._instr.serial.close()
@@ -307,9 +343,11 @@ class ModbusService:
             baud_rate=self._params.baud_rate if self._params else None,
             parity=self._params.parity if self._params else None,
             slave_id=self._params.slave_id if self._params else None,
+            right_slave_id=self._right_slave_id if self._params else None,
             last_success_at=self._last_success_at,
             ok_count=self._ok_count,
             error_count=self._error_count,
+            error_message=self._connection_error if not self._connected else None,
             simulation_mode=simulation_mode or (self._params is not None and self._params.port == "SIM://"),
         )
 
@@ -340,6 +378,58 @@ class ModbusService:
     def read_registers(self, req: ModbusReadRequestSchema) -> ModbusReadResultSchema:
         return self._do_read(req)
 
+    @staticmethod
+    def _combine_position(low: int, high: int) -> int:
+        combined = ((high & 0xFFFF) << 16) | (low & 0xFFFF)
+        return combined - 0x1_0000_0000 if combined >= 0x8000_0000 else combined
+
+    def _read_position(self, slave_id: int) -> tuple[int | None, str | None]:
+        result = self._do_read(ModbusReadRequestSchema(address=0x1BC, count=2, slave_id=slave_id))
+        if not result.success:
+            return None, result.error or "Ошибка чтения"
+        if len(result.registers) != 2 or any(reg.error for reg in result.registers):
+            return None, next((reg.error for reg in result.registers if reg.error), "Неполный ответ")
+        return self._combine_position(result.registers[0].value, result.registers[1].value), None
+
+    def _positions_locked(self, capture_zero: bool = False) -> ModbusPositionsSchema:
+        left_id, right_id = self._left_slave_id, self._right_slave_id
+        left: int | None = None
+        right: int | None = None
+        left_error: str | None = None
+        right_error: str | None = None
+        if self._connected:
+            left, left_error = self._read_position(left_id)
+            right, right_error = self._read_position(right_id)
+        if capture_zero and left is not None and right is not None:
+            self.left_zero_pulses, self.right_zero_pulses = left, right
+            self._log_info("ZERO", f"Software encoder zero captured for slaves {left_id} and {right_id}")
+        zeroed = self.left_zero_pulses is not None and self.right_zero_pulses is not None
+        left_mm = (left - self.left_zero_pulses) * _MM_PER_PULSE if left is not None and zeroed else None
+        right_mm = (right - self.right_zero_pulses) * _MM_PER_PULSE if right is not None and zeroed else None
+        return ModbusPositionsSchema(
+            connected=self._connected, simulation_mode=self._params is not None and self._params.port == "SIM://", zeroed=zeroed,
+            left_zero_pulses=self.left_zero_pulses, right_zero_pulses=self.right_zero_pulses,
+            left_position_mm=left_mm, right_position_mm=right_mm,
+            left=ModbusPositionSideSchema(slave_id=left_id, current_pulses=left, zero_pulses=self.left_zero_pulses, position_mm=left_mm),
+            right=ModbusPositionSideSchema(slave_id=right_id, current_pulses=right, zero_pulses=self.right_zero_pulses, position_mm=right_mm),
+            skew_mm=left_mm - right_mm if left_mm is not None and right_mm is not None else None,
+            error="; ".join(part for part in (
+                "Modbus не подключён" if not self._connected else None,
+                f"Левый: {left_error}" if left_error else None,
+                f"Правый: {right_error}" if right_error else None,
+                "Нулевая позиция не задана" if not zeroed else None,
+            ) if part) or None,
+        )
+
+    def get_positions(self) -> ModbusPositionsSchema:
+        with self._lock:
+            return self._positions_locked()
+
+    def capture_zero(self) -> ModbusPositionsSchema:
+        """Rebase both drives together, or leave the previous offsets untouched."""
+        with self._lock:
+            return self._positions_locked(capture_zero=True)
+
     def _do_read(self, req: ModbusReadRequestSchema) -> ModbusReadResultSchema:
         with self._lock:
             if not self._connected:
@@ -350,6 +440,7 @@ class ModbusService:
                 )
 
             slave_id = req.slave_id or (self._params.slave_id if self._params else 1)
+            self._select_slave(slave_id)
             raw_req = f"[{slave_id:02X}] READ 0x{req.address:03X} count={req.count}"
             t0 = time.monotonic()
             results: list[ModbusRegisterValueSchema] = []
@@ -433,6 +524,7 @@ class ModbusService:
                 return ModbusWriteResultSchema(success=False, address=req.address, value=req.value, error="Not connected")
 
             slave_id = req.slave_id or (self._params.slave_id if self._params else 1)
+            self._select_slave(slave_id)
             return self._write_register_locked(req.address, req.value, slave_id)
 
     def _write_register_locked(self, address: int, value: int, slave_id: int) -> ModbusWriteResultSchema:
@@ -490,10 +582,11 @@ class ModbusService:
     # Diagnostics
     # ------------------------------------------------------------------
 
-    def get_diagnostics(self) -> DriverDiagnosticsSchema:
+    def get_diagnostics(self, slave_id: int | None = None) -> DriverDiagnosticsSchema:
         with self._lock:
             if not self._connected:
                 return DriverDiagnosticsSchema(responding=False, status_summary="Not connected")
+            self._select_slave(slave_id or (self._params.slave_id if self._params else 1))
 
             # Read key registers
             def _r(addr: int) -> int | None:
@@ -557,7 +650,17 @@ class ModbusService:
             if not self._connected:
                 return ModbusCommandResultSchema(success=False, command=req.command, error="Not connected")
 
+            # DI status registers are simulated placeholders, not verified control
+            # registers on the real A6. Never claim a real motor command succeeded.
+            if hasattr(self, "_instr") and req.command not in {"save_parameters", "clear_alarm_history"}:
+                return ModbusCommandResultSchema(
+                    success=False, command=req.command,
+                    error="Команда для реального привода не реализована: управляющий регистр не подтверждён",
+                )
+
             slave_id = self._params.slave_id if self._params else 1
+            slave_id = req.slave_id or slave_id
+            self._select_slave(slave_id)
 
             if req.command == "save_parameters":
                 result = self._write_register_locked(0x1A7, 0x0801, slave_id)

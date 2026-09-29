@@ -1,5 +1,5 @@
 import { Activity, AlertTriangle, Cable, CheckCircle2, Link, Unlink, Wifi, XCircle } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/cn'
@@ -10,21 +10,16 @@ export function ConnectionPanel() {
     connectionStatus,
     ports,
     setConnectionParams,
-    loadPorts,
-    loadStatus,
     connect,
     disconnect,
     ping,
+    driveAddresses,
+    setDriveAddress,
   } = useModbusStore()
 
   const [pingResult, setPingResult] = useState<boolean | null>(null)
   const [pingLoading, setPingLoading] = useState(false)
   const [busy, setBusy] = useState(false)
-
-  useEffect(() => {
-    void loadPorts()
-    void loadStatus()
-  }, [loadPorts, loadStatus])
 
   const handleConnect = async () => {
     setBusy(true)
@@ -101,18 +96,14 @@ export function ConnectionPanel() {
             </select>
           </label>
 
-          <label className="space-y-1">
-            <span className="text-xs text-white/50">Slave ID (адрес)</span>
-            <input
-              type="number"
-              className="input-field w-full"
-              min={1}
-              max={247}
-              value={connectionParams.slaveId}
-              onChange={(e) => setConnectionParams({ slaveId: Number(e.target.value) })}
-              disabled={isConnected}
-            />
-          </label>
+          {(['left', 'right'] as const).map((side) => (
+            <label key={side} className="space-y-1">
+              <span className="text-xs text-white/50">Slave ID · {side === 'left' ? 'левый' : 'правый'}</span>
+              <input type="number" className="input-field w-full" min={1} max={247}
+                value={driveAddresses[side]}
+                onChange={(e) => setDriveAddress(side, Number(e.target.value))} disabled={isConnected} />
+            </label>
+          ))}
 
           <label className="space-y-1">
             <span className="text-xs text-white/50">Таймаут (мс)</span>

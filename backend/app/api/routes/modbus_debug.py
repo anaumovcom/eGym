@@ -7,6 +7,7 @@ from app.schemas.modbus import (
     ModbusCommandResultSchema,
     ModbusConnectionParamsSchema,
     ModbusConnectionStatusSchema,
+    ModbusPositionsSchema,
     ModbusReadRequestSchema,
     ModbusReadResultSchema,
     ModbusWriteRequestSchema,
@@ -42,7 +43,10 @@ def get_connection_status() -> ModbusConnectionStatusSchema:
 
 @router.post("/connect", response_model=ModbusConnectionStatusSchema)
 def connect(params: ModbusConnectionParamsSchema) -> ModbusConnectionStatusSchema:
-    return modbus_service.connect(params)
+    result = modbus_service.connect(params)
+    if result.connected:
+        modbus_service.capture_zero()
+    return result
 
 
 @router.post("/disconnect", response_model=ModbusConnectionStatusSchema)
@@ -72,13 +76,26 @@ def write_register(req: ModbusWriteRequestSchema) -> ModbusWriteResultSchema:
     return modbus_service.write_register(req)
 
 
+@router.get("/positions", response_model=ModbusPositionsSchema)
+def get_positions() -> ModbusPositionsSchema:
+    return modbus_service.get_positions()
+
+
+@router.post("/positions/zero", response_model=ModbusPositionsSchema)
+def zero_positions() -> ModbusPositionsSchema:
+    result = modbus_service.capture_zero()
+    if result.left.current_pulses is None or result.right.current_pulses is None:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=result.error)
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Diagnostics
 # ---------------------------------------------------------------------------
 
 @router.get("/diagnostics", response_model=DriverDiagnosticsSchema)
-def get_driver_diagnostics() -> DriverDiagnosticsSchema:
-    return modbus_service.get_diagnostics()
+def get_driver_diagnostics(slave_id: int | None = Query(default=None, ge=1, le=247)) -> DriverDiagnosticsSchema:
+    return modbus_service.get_diagnostics(slave_id)
 
 
 # ---------------------------------------------------------------------------

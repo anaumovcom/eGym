@@ -19,22 +19,33 @@ import {
   Wrench,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useTuningStore } from '@/features/hardware/lib/use-tuning-store'
+import { fetchModbusPositions, zeroModbusPositions } from '@/features/modbus/api/modbus-api'
+import type { ModbusPositions } from '@/features/modbus/model/types'
+import type { HardwareDriveTelemetry } from '@/features/hardware/model/types'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/cn'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
-import { EmulatorPanel } from './tabs/emulator-panel'
 import { LivePanel, useTelemetryDebugStream } from './tabs/live-panel'
 import { ParametersPanel } from './tabs/parameters-panel'
 import { PresetsPanel } from './tabs/presets-panel'
 import { ProceduresPanel } from './tabs/procedures-panel'
 import { RecordingsPanel } from './tabs/recordings-panel'
 
-type Tab = 'params' | 'live' | 'procedures' | 'presets' | 'recordings' | 'emulator'
+type Tab = 'params' | 'live' | 'procedures' | 'presets' | 'recordings'
+
+type DriveFeedback = ModbusPositions
+
+const EMPTY_FEEDBACK: DriveFeedback = {
+  connected: false, simulationMode: false, zeroed: false,
+  left: { slaveId: 1, currentPulses: null, zeroPulses: null, positionMm: null },
+  right: { slaveId: 2, currentPulses: null, zeroPulses: null, positionMm: null },
+  skewMm: null, error: null,
+}
 
 const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'params', label: 'Параметры', icon: SlidersHorizontal },
@@ -42,7 +53,6 @@ const TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: 'procedures', label: 'Сценарии и мастера', icon: FlaskConical },
   { id: 'presets', label: 'Пресеты', icon: Layers3 },
   { id: 'recordings', label: 'Записи и чёрный ящик', icon: DatabaseBackup },
-  { id: 'emulator', label: 'Эмулятор', icon: Cpu },
 ]
 
 function asTab(value: string | null): Tab {
@@ -80,6 +90,47 @@ export function MechanicsTuningScreen() {
   const setError = useTuningStore((state) => state.setError)
   const setProcedure = useTuningStore((state) => state.setProcedure)
   const procedure = useTuningStore((state) => state.procedure)
+  const emulatorMode = snapshot?.emulatorMode ?? false
+  const [feedback, setFeedback] = useState<DriveFeedback>(EMPTY_FEEDBACK)
+  const [zeroing, setZeroing] = useState(false)
+  const [zeroError, setZeroError] = useState<string | null>(null)
+  const pollEpoch = useRef(0)
+  const showModbus = feedback.connected && (!feedback.simulationMode || !emulatorMode)
+
+  const zeroPosition = async () => {
+    ++pollEpoch.current
+    setZeroing(true)
+    setZeroError(null)
+    try {
+      const result = await zeroModbusPositions()
+      setFeedback(result)
+    } catch (error) {
+      setZeroError(error instanceof Error ? error.message : 'Не удалось обнулить оба энкодера')
+    } finally {
+      setZeroing(false)
+    }
+  }
+
+  useEffect(() => {
+    let disposed = false
+    let reading = false
+    const refresh = async () => {
+      if (reading || zeroing) return
+      reading = true
+      const epoch = pollEpoch.current
+      try {
+        const result = await fetchModbusPositions()
+        if (!disposed && epoch === pollEpoch.current) setFeedback(result)
+      } catch {
+        if (!disposed && epoch === pollEpoch.current) setFeedback(EMPTY_FEEDBACK)
+      } finally {
+        reading = false
+      }
+    }
+    void refresh()
+    const timer = window.setInterval(() => { void refresh() }, 1000)
+    return () => { disposed = true; window.clearInterval(timer) }
+  }, [zeroing])
 
   const serviceMode = snapshot?.serviceMode ?? false
   const control = snapshot?.control ?? null
@@ -142,7 +193,23 @@ export function MechanicsTuningScreen() {
           </div>
         )}
 
-        <ControlOverview control={control} estop={estop} />
+        {control?.adapter === 'modbus-rtu' && control.faultCode?.includes('E-CTRL-UNAVAILABLE') && (
+          <div role="status" className="rounded-xl border border-[#ffd166]/30 bg-[#3d2f10]/40 px-4 py-3 text-sm text-[#ffd166]">
+            Modbus-связь и аварии драйверов проверяются отдельно. Блокировка относится к ещё не реализованному контуру безопасного движения (STOP, тормоза, синхронизация), а не обязательно к ошибке двигателя. Позиции ниже читаются напрямую из PA_1BC/PA_1BD.
+          </div>
+        )}
+
+        <div className="glass-panel flex flex-wrap items-center gap-3 rounded-2xl p-3">
+          <Button variant="secondary" iconLeft={<RotateCcw size={14} />} disabled={!showModbus || zeroing}
+            onClick={() => { void zeroPosition() }}>
+            {zeroing ? 'Обнуляю...' : 'Обнулить позицию'}
+          </Button>
+          <span className="text-xs text-white/50">Программный ноль двух приводов · без записи в энкодеры · при каждом запуске снимается заново</span>
+          {zeroError && <span role="alert" className="text-xs text-[#ff8f84]">{zeroError}</span>}
+          {!feedback.zeroed && showModbus && <span role="status" className="text-xs text-[#ffd166]">{feedback.error ?? 'Нулевая позиция ещё не задана'}</span>}
+        </div>
+
+        <ControlOverview control={control} estop={estop} drives={snapshot?.drives ?? []} feedback={feedback} emulatorMode={emulatorMode} showModbus={showModbus} />
 
         <div className="flex flex-wrap gap-2">
           <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={<Feather size={14} />} disabled={estop} onClick={() => command('enter_weightless', { mode: 'service' })}>Невесомый гриф</Button>
@@ -179,11 +246,10 @@ export function MechanicsTuningScreen() {
 
         <div>
           {tab === 'params' && <ParametersPanel serviceMode={serviceMode} />}
-          {tab === 'live' && <LivePanel control={control} />}
+          {tab === 'live' && <LivePanel control={control} emulatorMode={emulatorMode} positionMm={showModbus && feedback.left.positionMm != null && feedback.right.positionMm != null ? (feedback.left.positionMm + feedback.right.positionMm) / 2 : showModbus ? null : undefined} />}
           {tab === 'procedures' && <ProceduresPanel serviceMode={serviceMode} procedure={procedure} />}
           {tab === 'presets' && <PresetsPanel serviceMode={serviceMode} />}
           {tab === 'recordings' && <RecordingsPanel />}
-          {tab === 'emulator' && <EmulatorPanel />}
         </div>
       </div>
     </FormaShell>
@@ -192,13 +258,15 @@ export function MechanicsTuningScreen() {
 
 type ControlState = NonNullable<ReturnType<typeof useHardwareStore.getState>['snapshot']>['control']
 
-function ControlOverview({ control, estop }: { control: ControlState | null | undefined; estop: boolean }) {
+function ControlOverview({ control, estop, drives, feedback, emulatorMode, showModbus }: { control: ControlState | null | undefined; estop: boolean; drives: HardwareDriveTelemetry[]; feedback: DriveFeedback; emulatorMode: boolean; showModbus: boolean }) {
   const lower = control?.config.lowerMm ?? 0
   const upper = control?.config.upperMm ?? 1
-  const positionProgress = control ? toPercent(control.positionMm, lower, upper) : 0
+  const positionProgress = !showModbus && emulatorMode && control ? toPercent(control.positionMm, lower, upper) : undefined
+  const barMm = feedback.left.positionMm != null && feedback.right.positionMm != null ? (feedback.left.positionMm + feedback.right.positionMm) / 2 : null
+  const actualSyncMm = feedback.skewMm != null ? Math.abs(feedback.skewMm) : null
   const loadScale = control ? Math.max(control.loadTargetKg, control.loadEffectiveKg, 1) : 1
   const loadProgress = control ? toPercent(control.loadEffectiveKg, 0, loadScale) : 0
-  const syncProgress = control ? toPercent(control.syncDeltaMm, 0, 8) : 0
+  const syncProgress = showModbus ? (actualSyncMm != null ? toPercent(actualSyncMm, 0, 8) : undefined) : (control ? toPercent(control.syncDeltaMm, 0, 8) : undefined)
   const syncTone = control?.syncStatus === 'critical' ? 'bad' : control?.syncStatus === 'warning' ? 'warn' : 'good'
   const ready = Boolean(control?.heartbeatOk && control.commOk && control.powerOk && !estop && !control.faultCode)
 
@@ -213,11 +281,21 @@ function ControlOverview({ control, estop }: { control: ControlState | null | un
       />
       <IndicatorCard
         icon={Gauge}
-        label="Позиция"
-        value={control ? `${control.positionMm.toFixed(1)} мм` : '—'}
-        detail={control ? `${lower.toFixed(0)} — ${upper.toFixed(0)} мм` : 'Рабочий диапазон'}
+        label="Позиция грифа"
+        value={showModbus ? (barMm != null ? `${barMm.toFixed(4)} мм` : 'Нет данных') : (emulatorMode && control ? `${control.positionMm.toFixed(1)} мм` : 'Нет данных')}
+        detail={showModbus ? 'От программного нуля · среднее PA_1BD:PA_1BC · 0,0032 мм/имп' : (emulatorMode ? `${lower.toFixed(0)} — ${upper.toFixed(0)} мм · модель` : 'Нет связи с приводами')}
         progress={positionProgress}
       />
+      {(['left', 'right'] as const).map((side) => {
+        const drive = drives.find((item) => item.side === side)
+        const positionMm = feedback[side].positionMm
+        return (
+          <IndicatorCard key={side} icon={Cpu} label={`${side === 'left' ? 'Левый' : 'Правый'} драйвер`}
+            value={showModbus ? (positionMm != null ? `${positionMm.toFixed(4)} мм` : 'Нет данных') : (emulatorMode && drive ? `${drive.positionMm.toFixed(1)} мм` : 'Нет данных')}
+            detail={showModbus ? `Ноль ${feedback[side].zeroPulses ?? '—'} имп · Slave ID ${feedback[side].slaveId} · PA_1BD:PA_1BC` : (emulatorMode ? (drive ? `Модель · ${drive.status} · ${drive.currentA.toFixed(1)} А` : 'Модель · нет данных') : 'Нет связи с приводом')}
+            tone={showModbus ? (positionMm == null ? 'bad' : 'good') : (emulatorMode && drive?.connected ? 'good' : 'bad')} />
+        )
+      })}
       <IndicatorCard
         icon={BarChart3}
         label="Нагрузка"
@@ -228,10 +306,10 @@ function ControlOverview({ control, estop }: { control: ControlState | null | un
       <IndicatorCard
         icon={SlidersHorizontal}
         label="Рассинхрон"
-        value={control ? `${control.syncDeltaMm.toFixed(2)} мм` : '—'}
-        detail={control ? (control.syncStatus === 'critical' ? 'Критический' : control.syncStatus === 'warning' ? 'Предупреждение' : 'В пределах нормы') : 'Нет данных'}
+        value={showModbus ? (actualSyncMm != null ? `${actualSyncMm.toFixed(4)} мм` : 'Нет данных') : (control ? `${control.syncDeltaMm.toFixed(2)} мм` : '—')}
+        detail={showModbus ? 'Факт Modbus · разница двух приводов' : (control ? (control.syncStatus === 'critical' ? 'Критический' : control.syncStatus === 'warning' ? 'Предупреждение' : 'В пределах нормы') : 'Нет данных')}
         progress={syncProgress}
-        tone={syncTone}
+        tone={showModbus ? undefined : syncTone}
       />
       <IndicatorCard
         icon={RotateCcw}

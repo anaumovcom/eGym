@@ -29,12 +29,13 @@ import type {
 } from '@/features/modbus/model/types'
 
 const DEFAULT_PARAMS: ModbusConnectionParams = {
-  port: 'SIM://',
-  baudRate: 38400,
+  port: '/dev/ttyUSB0',
+  baudRate: 19200,
   dataBits: 8,
   parity: 'E',
   stopBits: 1,
   slaveId: 1,
+  rightSlaveId: 2,
   timeoutMs: 500,
 }
 
@@ -58,6 +59,12 @@ function buildInitialParamState(): Map<number, ParameterState> {
 }
 
 type ModbusStore = {
+  controlTarget: 'left' | 'right' | 'both'
+  setControlTarget: (target: 'left' | 'right' | 'both') => void
+  selectedSide: 'left' | 'right'
+  driveAddresses: { left: number; right: number }
+  selectSide: (side: 'left' | 'right') => void
+  setDriveAddress: (side: 'left' | 'right', address: number) => void
   // Connection
   connectionParams: ModbusConnectionParams
   connectionStatus: ModbusConnectionStatus | null
@@ -95,6 +102,7 @@ type ModbusStore = {
   readRegister: (address: number, count?: number) => Promise<void>
   readBatch: (addresses: number[]) => Promise<void>
   writeRegister: (address: number, value: number) => Promise<void>
+  writeControlRegister: (address: number, value: number, verify?: boolean) => Promise<void>
   writeAllDirty: () => Promise<void>
   loadDiagnostics: () => Promise<void>
   runCommand: (command: ModbusCommand, confirmed: boolean, params?: Record<string, number>) => Promise<{ success: boolean; error?: string }>
@@ -106,6 +114,18 @@ type ModbusStore = {
 }
 
 export const useModbusStore = create<ModbusStore>((set, get) => ({
+  controlTarget: 'both',
+  setControlTarget(controlTarget) { set({ controlTarget }) },
+  selectedSide: 'left',
+  driveAddresses: { left: 1, right: 2 },
+  selectSide(side) {
+    set({ selectedSide: side, paramStates: buildInitialParamState(), diagnostics: null, lastCompare: null })
+  },
+  setDriveAddress(side, address) {
+    if (!Number.isInteger(address) || address < 1 || address > 247) return
+    if (address === get().driveAddresses[side === 'left' ? 'right' : 'left']) return
+    set((s) => ({ driveAddresses: { ...s.driveAddresses, [side]: address }, paramStates: buildInitialParamState(), diagnostics: null }))
+  },
   connectionParams: DEFAULT_PARAMS,
   connectionStatus: null,
   ports: [],
@@ -165,11 +185,19 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
 
   async loadStatus() {
     const status = await fetchModbusStatus()
-    set({ connectionStatus: status })
+    set((state) => ({
+      connectionStatus: status,
+      driveAddresses: status.slaveId && status.rightSlaveId && status.slaveId !== status.rightSlaveId
+        ? { left: status.slaveId, right: status.rightSlaveId } : state.driveAddresses,
+      connectionParams: status.port && status.baudRate
+        ? { ...state.connectionParams, port: status.port, baudRate: status.baudRate, slaveId: status.slaveId ?? state.connectionParams.slaveId, rightSlaveId: status.rightSlaveId ?? state.connectionParams.rightSlaveId }
+        : state.connectionParams,
+    }))
   },
 
   async connect() {
-    const status = await connectModbus(get().connectionParams)
+    const { connectionParams, driveAddresses } = get()
+    const status = await connectModbus({ ...connectionParams, slaveId: driveAddresses.left, rightSlaveId: driveAddresses.right })
     set({ connectionStatus: status })
   },
 
@@ -179,7 +207,8 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
   },
 
   async ping() {
-    const result = await pingModbus()
+    const { selectedSide, driveAddresses } = get()
+    const result = await pingModbus(driveAddresses[selectedSide])
     void get().loadStatus()
     return result.success
   },
@@ -189,6 +218,7 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
   // ---------------------------------------------------------------------------
 
   async readRegister(address, count = 1) {
+    const { selectedSide, driveAddresses } = get()
     // Set loading for all target addresses
     set((s) => {
       const next = new Map(s.paramStates)
@@ -200,7 +230,8 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
       return { paramStates: next }
     })
 
-    const result = await readModbusRegisters(address, count)
+    const result = await readModbusRegisters(address, count, driveAddresses[selectedSide])
+    if (get().selectedSide !== selectedSide || get().driveAddresses[selectedSide] !== driveAddresses[selectedSide]) return
 
     set((s) => {
       const next = new Map(s.paramStates)
@@ -235,6 +266,7 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
   },
 
   async writeRegister(address, value) {
+    const { selectedSide, driveAddresses } = get()
     set((s) => {
       const next = new Map(s.paramStates)
       const cur = next.get(address)
@@ -242,7 +274,8 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
       return { paramStates: next }
     })
 
-    const result = await writeModbusRegister(address, value)
+    const result = await writeModbusRegister(address, value, driveAddresses[selectedSide])
+    if (get().selectedSide !== selectedSide || get().driveAddresses[selectedSide] !== driveAddresses[selectedSide]) return
 
     set((s) => {
       const next = new Map(s.paramStates)
@@ -262,6 +295,33 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
     })
   },
 
+  async writeControlRegister(address, value, verify = false) {
+    const { controlTarget, driveAddresses } = get()
+    const sides = controlTarget === 'both' ? (['left', 'right'] as const) : [controlTarget]
+    const errors: string[] = []
+    for (const side of sides) {
+      try {
+        const result = await writeModbusRegister(address, value, driveAddresses[side])
+        if (!result.success) {
+          errors.push(`${side} (ID ${driveAddresses[side]}): ${result.error ?? 'нет ответа'}`)
+          continue
+        }
+        if (verify) {
+          const readback = await readModbusRegisters(address, 1, driveAddresses[side])
+          const reg = readback.registers[0]
+          if (!readback.success || !reg || reg.error || (reg.value & 0xffff) !== (value & 0xffff)) {
+            errors.push(`${side} (ID ${driveAddresses[side]}): запись не подтверждена чтением (${reg?.error ?? readback.error ?? reg?.value ?? 'нет ответа'})`)
+          }
+        }
+      } catch (error) {
+        errors.push(`${side} (ID ${driveAddresses[side]}): ${error instanceof Error ? error.message : 'нет ответа'}`)
+      }
+    }
+    if (errors.length) throw new Error(errors.join('; '))
+    // Values in the parameter table refer only to the selected drive.
+    if (sides.includes(get().selectedSide)) void get().readRegister(address).catch(() => undefined)
+  },
+
   async writeAllDirty() {
     const dirty = [...get().paramStates.values()].filter((s) => s.dirty && s.uiValue !== null)
     for (const st of dirty) {
@@ -274,8 +334,9 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
   // ---------------------------------------------------------------------------
 
   async loadDiagnostics() {
-    const diag = await fetchModbusDiagnostics()
-    set({ diagnostics: diag })
+    const { selectedSide, driveAddresses } = get()
+    const diag = await fetchModbusDiagnostics(driveAddresses[selectedSide])
+    if (get().selectedSide === selectedSide) set({ diagnostics: diag })
   },
 
   // ---------------------------------------------------------------------------
@@ -283,8 +344,19 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
   // ---------------------------------------------------------------------------
 
   async runCommand(command, confirmed, params) {
-    const result = await runModbusCommand(command, confirmed, params)
-    if (result.success && command === 'save_parameters') {
+    const { controlTarget, driveAddresses } = get()
+    const sides = controlTarget === 'both' ? (['left', 'right'] as const) : [controlTarget]
+    const errors: string[] = []
+    for (const side of sides) {
+      try {
+        const result = await runModbusCommand(command, confirmed, params, driveAddresses[side])
+        if (!result.success) errors.push(`${side} (ID ${driveAddresses[side]}): ${result.error ?? 'нет ответа'}`)
+      } catch (error) {
+        errors.push(`${side} (ID ${driveAddresses[side]}): ${error instanceof Error ? error.message : 'нет ответа'}`)
+      }
+    }
+    const success = errors.length === 0
+    if (success && command === 'save_parameters') {
       set((s) => {
         const next = new Map(s.paramStates)
         for (const [address, state] of next.entries()) {
@@ -297,7 +369,7 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
       })
     }
     void get().loadStatus()
-    return { success: result.success, error: result.error ?? undefined }
+    return { success, error: errors.length ? errors.join('; ') : undefined }
   },
 
   // ---------------------------------------------------------------------------

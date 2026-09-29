@@ -1,0 +1,16 @@
+INFO:     Started server process [444017]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 59380) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 59396) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 59438) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 49658) - "WebSocket /api/hardware/realtime?userId=elena" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 49692) - "WebSocket /api/hardware/telemetry-debug" [accepted]
+INFO:     connection open

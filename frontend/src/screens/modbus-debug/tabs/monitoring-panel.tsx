@@ -1,15 +1,18 @@
 import { Activity, Pause, Play, RefreshCw } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
+import { fetchModbusPositions } from '@/features/modbus/api/modbus-api'
+import type { ModbusPositions } from '@/features/modbus/model/types'
 import { Button } from '@/shared/ui/button'
+import { positionFeedback, pulsesToMm } from '@/features/modbus/model/position-feedback'
 
-const MONITOR_ADDRESSES = [0x203, 0x204, 0x205, 0x206, 0x207, 0x208, 0x20B, 0x20C, 0x209, 0x20A]
+const MONITOR_ADDRESSES = [0x203, 0x204, 0x1BC, 0x1BD, 0x207, 0x208, 0x20B, 0x20C, 0x209, 0x20A]
 
 const MONITOR_LABELS: Record<number, string> = {
   0x203: 'Фактическая скорость',
   0x204: 'Фактический момент',
-  0x205: 'Позиция OB (low)',
-  0x206: 'Позиция OB (high)',
+  0x1BC: 'PA_1BC · Position feedback (low)',
+  0x1BD: 'PA_1BD · Position feedback (high)',
   0x207: 'Командная позиция (low)',
   0x208: 'Командная позиция (high)',
   0x20B: 'Ошибка позиции (low)',
@@ -22,6 +25,8 @@ type AutoInterval = 500 | 1000 | 2000 | 5000
 
 export function MonitoringPanel() {
   const { paramStates, connectionStatus, readBatch } = useModbusStore()
+  const selectedSide = useModbusStore((state) => state.selectedSide)
+  const [positions, setPositions] = useState<ModbusPositions | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [interval, setInterval_] = useState<AutoInterval>(1000)
   const [loading, setLoading] = useState(false)
@@ -33,6 +38,7 @@ export function MonitoringPanel() {
     setLoading(true)
     try {
       await readBatch(MONITOR_ADDRESSES)
+      setPositions(await fetchModbusPositions())
     } finally {
       setLoading(false)
     }
@@ -51,8 +57,18 @@ export function MonitoringPanel() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, interval, isConnected])
 
+  useEffect(() => {
+    if (!isConnected) { setPositions(null); return }
+    let active = true
+    void fetchModbusPositions().then((result) => { if (active) setPositions(result) }).catch(() => { if (active) setPositions(null) })
+    return () => { active = false }
+  }, [isConnected, selectedSide])
+
   // 32-bit helpers
-  const pos32 = combine32(paramStates.get(0x205)?.driverValue, paramStates.get(0x206)?.driverValue)
+  const pos32 = combine32(paramStates.get(0x1BC)?.readStatus === 'ok' ? paramStates.get(0x1BC)?.driverValue : null, paramStates.get(0x1BD)?.readStatus === 'ok' ? paramStates.get(0x1BD)?.driverValue : null)
+  const selectedPosition = positions?.[selectedSide]
+  const offset = selectedPosition?.zeroPulses
+  const relativePulses = pos32 != null && offset != null ? pos32 - offset : null
   const cmd32 = combine32(paramStates.get(0x207)?.driverValue, paramStates.get(0x208)?.driverValue)
   const err32 = combine32(paramStates.get(0x20B)?.driverValue, paramStates.get(0x20C)?.driverValue)
 
@@ -96,7 +112,7 @@ export function MonitoringPanel() {
 
       {/* 32-bit computed values */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <BigMetric label="Позиция (ОС)" value={pos32 != null ? String(pos32) : '—'} unit="имп" addr="0x206:0x205" />
+        <BigMetric label="Позиция от нуля" value={relativePulses != null ? pulsesToMm(relativePulses).toFixed(4) : '—'} unit={pos32 != null ? `мм · текущие ${pos32} имп · ноль ${offset ?? '—'} имп` : 'мм · 0,0032 мм/имп'} addr="PA_1BD:PA_1BC" />
         <BigMetric label="Командная позиция" value={cmd32 != null ? String(cmd32) : '—'} unit="имп" addr="0x208:0x207" />
         <BigMetric label="Ошибка позиции" value={err32 != null ? String(err32) : '—'} unit="имп" addr="0x20C:0x20B" danger={err32 != null && Math.abs(err32) > 1000} />
       </div>
@@ -144,7 +160,7 @@ export function MonitoringPanel() {
 
 function combine32(low?: number | null, high?: number | null): number | null {
   if (low == null || high == null) return null
-  return ((high << 16) | (low & 0xFFFF)) | 0
+  return positionFeedback(low, high)
 }
 
 function BigMetric({ label, value, unit, addr, danger }: {

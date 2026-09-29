@@ -9,6 +9,7 @@ export type ModbusConnectionParams = {
   parity: Parity
   stopBits: number
   slaveId: number
+  rightSlaveId: number
   timeoutMs: number
 }
 
@@ -18,6 +19,7 @@ export type ModbusConnectionStatus = {
   baudRate: number | null
   parity: string | null
   slaveId: number | null
+  rightSlaveId: number | null
   lastSuccessAt: string | null
   okCount: number
   errorCount: number
@@ -47,6 +49,16 @@ export type ModbusReadResult = {
   error: string | null
   rawRequest: string | null
   rawResponse: string | null
+}
+
+export type ModbusPositions = {
+  connected: boolean
+  simulationMode: boolean
+  zeroed: boolean
+  left: { slaveId: number; currentPulses: number | null; zeroPulses: number | null; positionMm: number | null }
+  right: { slaveId: number; currentPulses: number | null; zeroPulses: number | null; positionMm: number | null }
+  skewMm: number | null
+  error: string | null
 }
 
 export type ModbusWriteResult = {

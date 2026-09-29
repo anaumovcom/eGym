@@ -6,7 +6,7 @@ import { cn } from '@/shared/lib/cn'
 import type { ControlMode } from '@/features/modbus/model/types'
 
 export function ControlModePanel() {
-  const { connectionStatus, paramStates, writeRegister, motorEnabled, setMotorEnabled, runCommand } = useModbusStore()
+  const { connectionStatus, paramStates, writeControlRegister, motorEnabled, setMotorEnabled, runCommand, controlTarget, setControlTarget, driveAddresses } = useModbusStore()
   const [activeMode, setActiveMode] = useState<ControlMode>('position')
   const [confirmMotorEnable, setConfirmMotorEnable] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
@@ -22,10 +22,12 @@ export function ControlModePanel() {
     const modeCode = { position: 0, speed: 1, torque: 2 }[mode]
     setBusy('mode')
     try {
-      await writeRegister(0x002, modeCode)
-      await writeRegister(0x090, 1)
+      await writeControlRegister(0x002, modeCode)
+      await writeControlRegister(0x090, 1)
       setActiveMode(mode)
-      setLastResult(`Режим ${mode} установлен. Необходим перезапуск драйвера.`)
+      setLastResult(`Режим ${mode} записан для ${controlTarget === 'both' ? 'обоих приводов' : controlTarget}. Необходим перезапуск драйвера.`)
+    } catch (error) {
+      setLastResult(`Ошибка записи: ${error instanceof Error ? error.message : String(error)}. Проверьте оба привода перед движением.`)
     } finally {
       setBusy(null)
     }
@@ -47,6 +49,19 @@ export function ControlModePanel() {
 
   return (
     <div className="space-y-4">
+      <div className="glass-panel rounded-2xl p-4 space-y-2">
+        <p className="text-sm font-semibold text-[#f4dfb4]">Адресат команд управления</p>
+        <div className="flex flex-wrap gap-2">
+          {(['both', 'left', 'right'] as const).map((target) => (
+            <button key={target} type="button" aria-pressed={controlTarget === target}
+              className={cn('rounded-xl border px-4 py-2 text-sm', controlTarget === target ? 'border-[#b5852f] bg-[#b5852f]/30 text-[#f4dfb4]' : 'border-white/10 text-white/50')}
+              onClick={() => setControlTarget(target)}>
+              {target === 'both' ? `Оба · ID ${driveAddresses.left} и ${driveAddresses.right}` : `${target === 'left' ? 'Левый' : 'Правый'} · ID ${driveAddresses[target]}`}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-[#ffd166]">Команды «Оба» отправляются каждому приводу отдельно; при ошибке одного привода проверьте состояние обоих. Управление движением реальных приводов заблокировано до подтверждения карты регистров.</p>
+      </div>
       {/* Emergency stop — always visible */}
       <div className="rounded-2xl border border-[#ff8f84]/40 bg-[#3d1010]/60 p-4">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
@@ -216,7 +231,7 @@ function PositionSegmentControls({
   setBusy: (v: string | null) => void
   setLastResult: (v: string) => void
 }) {
-  const { paramStates, writeRegister, readRegister } = useModbusStore()
+  const { paramStates, writeControlRegister, readRegister } = useModbusStore()
   const [segIndex, setSegIndex] = useState(0)
   const [posLow, setPosLow] = useState('')
   const [posHigh, setPosHigh] = useState('')
@@ -233,11 +248,13 @@ function PositionSegmentControls({
   const handleWrite = async () => {
     setBusy('seg_write')
     try {
-      if (posLow !== '') await writeRegister(posLowAddr, parseInt(posLow))
-      if (posHigh !== '') await writeRegister(posHighAddr, parseInt(posHigh))
-      if (speed !== '') await writeRegister(speedAddr, parseInt(speed))
-      await writeRegister(0x091, segIndex)
+      if (posLow !== '') await writeControlRegister(posLowAddr, parseInt(posLow))
+      if (posHigh !== '') await writeControlRegister(posHighAddr, parseInt(posHigh))
+      if (speed !== '') await writeControlRegister(speedAddr, parseInt(speed))
+      await writeControlRegister(0x091, segIndex)
       setLastResult(`Сегмент ${segIndex} записан. Нажмите POS_LOAD для загрузки.`)
+    } catch (error) {
+      setLastResult(`Ошибка записи сегмента: ${error instanceof Error ? error.message : String(error)}. Не запускайте движение.`)
     } finally {
       setBusy(null)
     }
@@ -294,7 +311,7 @@ function PositionSegmentControls({
 }
 
 function SpeedSegmentControls({ isConnected }: { isConnected: boolean }) {
-  const { paramStates, writeRegister, readRegister } = useModbusStore()
+  const { paramStates, writeControlRegister, readRegister } = useModbusStore()
   const [segIndex, setSegIndex] = useState(0)
   const [speed, setSpeed] = useState('')
   const addr = 0x150 + segIndex
@@ -325,7 +342,7 @@ function SpeedSegmentControls({ isConnected }: { isConnected: boolean }) {
         <Button
           variant="secondary"
           className="text-xs"
-          onClick={async () => { if (speed) { await writeRegister(addr, parseInt(speed)); await writeRegister(0x092, segIndex) } }}
+          onClick={async () => { if (speed) { await writeControlRegister(addr, parseInt(speed)); await writeControlRegister(0x092, segIndex) } }}
           disabled={!isConnected || !speed}
         >
           Записать
@@ -336,10 +353,12 @@ function SpeedSegmentControls({ isConnected }: { isConnected: boolean }) {
 }
 
 function TorqueSegmentControls({ isConnected, motorEnabled }: { isConnected: boolean; motorEnabled: boolean }) {
-  const { paramStates, writeRegister, readRegister } = useModbusStore()
+  const { paramStates, writeControlRegister, readRegister } = useModbusStore()
   const [segIndex, setSegIndex] = useState(0)
   const [torque, setTorque] = useState('')
   const [confirm, setConfirm] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+  const [writing, setWriting] = useState(false)
   const addr = 0x12C + segIndex
 
   return (
@@ -371,11 +390,12 @@ function TorqueSegmentControls({ isConnected, motorEnabled }: { isConnected: boo
           variant="danger"
           className="text-xs"
           onClick={() => setConfirm(true)}
-          disabled={!isConnected || !motorEnabled || !torque}
+          disabled={!isConnected || !motorEnabled || !torque || writing}
         >
           Записать
         </Button>
       </div>
+      {result && <p role="status" className="text-xs text-[#ffd166]">{result}</p>}
       {confirm && (
         <ConfirmDialog
           title="Записать момент?"
@@ -383,8 +403,17 @@ function TorqueSegmentControls({ isConnected, motorEnabled }: { isConnected: boo
           onConfirm={async () => {
             setConfirm(false)
             if (torque) {
-              await writeRegister(addr, parseInt(torque))
-              await writeRegister(0x093, segIndex)
+              setWriting(true)
+              setResult(null)
+              try {
+                await writeControlRegister(addr, parseInt(torque, 10), true)
+                await writeControlRegister(0x093, segIndex, true)
+                setResult('Значение и выбор сегмента подтверждены чтением на выбранных приводах.')
+              } catch (error) {
+                setResult(`Ошибка: ${error instanceof Error ? error.message : String(error)}. Движение не запускайте: состояние приводов может различаться.`)
+              } finally {
+                setWriting(false)
+              }
             }
           }}
           onCancel={() => setConfirm(false)}

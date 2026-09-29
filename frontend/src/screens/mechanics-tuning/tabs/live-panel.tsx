@@ -42,7 +42,7 @@ export function useTelemetryDebugStream(enabled: boolean) {
   }, [enabled, ingestBatch, setError])
 }
 
-export function LivePanel({ control }: { control: HardwareControlState | null }) {
+export function LivePanel({ control, positionMm, emulatorMode = false }: { control: HardwareControlState | null; positionMm?: number | null; emulatorMode?: boolean }) {
   const fields = useTuningStore((state) => state.liveFields)
   const samples = useTuningStore((state) => state.liveSamples)
   const events = useTuningStore((state) => state.events)
@@ -65,6 +65,11 @@ export function LivePanel({ control }: { control: HardwareControlState | null })
 
   return (
     <div className="space-y-4">
+      {positionMm !== undefined && emulatorMode && (
+        <p className="rounded-xl border border-[#ffd166]/30 bg-[#3d2f10]/40 px-4 py-2 text-xs text-[#ffd166]">
+          Позиция грифа и приводов — факт Modbus; графики и остальные параметры контура — данные эмулятора.
+        </p>
+      )}
       <div className="glass-panel flex flex-wrap items-center gap-2 rounded-2xl p-3">
         <Button variant="secondary" className="px-3 py-1.5 text-xs" iconLeft={paused ? <Play size={14} /> : <Pause size={14} />} onClick={() => setPaused(!paused)}>
           {paused ? 'Продолжить' : 'Пауза'}
@@ -105,7 +110,7 @@ export function LivePanel({ control }: { control: HardwareControlState | null })
           {control ? (
             <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
               <Row label="Режим" value={`${control.mode} · ${control.label}`} />
-              <Row label="Позиция" value={`${control.positionMm.toFixed(1)} мм`} />
+              <Row label="Позиция" value={positionMm === null ? 'Нет данных Modbus' : `${(positionMm ?? control.positionMm).toFixed(4)} мм${positionMm !== undefined ? ' · факт Modbus' : ' · модель'}`} />
               <Row label="Скорость" value={`${control.velocityMmPerSec.toFixed(0)} мм/с`} />
               <Row label="Усилие пользователя" value={`${control.userForceKg.toFixed(1)} кг (Л ${control.userForceLeftKg.toFixed(1)} / П ${control.userForceRightKg.toFixed(1)})`} />
               <Row label="Нагрузка" value={`${control.loadEffectiveKg.toFixed(1)} / ${control.loadTargetKg.toFixed(1)} кг`} />
