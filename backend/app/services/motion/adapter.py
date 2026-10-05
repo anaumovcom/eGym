@@ -21,6 +21,7 @@ class SideCommand:
     target_position_mm: float | None = None  # position mode
     force_limit_kg: float = 200.0  # clamp for velocity/position modes
     feedforward_kg: float = 0.0  # added in velocity/position modes (gravity etc.)
+    weight_comp_kg: float = 0.0  # share of the commanded force that only carries the bar weight (per side)
 
 
 @dataclass

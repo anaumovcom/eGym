@@ -10,6 +10,11 @@ from app.schemas.modbus import (
     ModbusPositionsSchema,
     ModbusReadRequestSchema,
     ModbusReadResultSchema,
+    ModbusTorqueCommandRequestSchema,
+    ModbusTorqueInitRequestSchema,
+    ModbusTorqueInitResultSchema,
+    ModbusTorqueResultSchema,
+    ModbusTorqueTelemetrySchema,
     ModbusWriteRequestSchema,
     ModbusWriteResultSchema,
     ParameterProfileSchema,
@@ -43,10 +48,7 @@ def get_connection_status() -> ModbusConnectionStatusSchema:
 
 @router.post("/connect", response_model=ModbusConnectionStatusSchema)
 def connect(params: ModbusConnectionParamsSchema) -> ModbusConnectionStatusSchema:
-    result = modbus_service.connect(params)
-    if result.connected:
-        modbus_service.capture_zero()
-    return result
+    return modbus_service.connect(params)
 
 
 @router.post("/disconnect", response_model=ModbusConnectionStatusSchema)
@@ -87,6 +89,42 @@ def zero_positions() -> ModbusPositionsSchema:
     if result.left.current_pulses is None or result.right.current_pulses is None:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=result.error)
     return result
+
+
+@router.post("/positions/zero/set", response_model=ModbusPositionsSchema)
+def set_zero_positions(left_pulses: int, right_pulses: int) -> ModbusPositionsSchema:
+    return modbus_service.set_session_zero(left_pulses, right_pulses)
+
+
+# ---------------------------------------------------------------------------
+# Torque mode
+# ---------------------------------------------------------------------------
+
+@router.post("/torque/init", response_model=ModbusTorqueInitResultSchema)
+def initialize_torque_mode(req: ModbusTorqueInitRequestSchema | None = None) -> ModbusTorqueInitResultSchema:
+    req = req or ModbusTorqueInitRequestSchema()
+    modbus_service.end_manual_torque()
+    errors = modbus_service.initialize_torque_mode(torque_limit=req.torque_limit, speed_limit_rpm=req.speed_limit_rpm)
+    return ModbusTorqueInitResultSchema(success=not errors, errors=errors)
+
+
+@router.post("/torque/command", response_model=ModbusTorqueResultSchema)
+def set_torque_command(req: ModbusTorqueCommandRequestSchema) -> ModbusTorqueResultSchema:
+    modbus_service.begin_manual_torque()
+    error = modbus_service.set_torque_command(req.slave_id, req.torque_raw)
+    return ModbusTorqueResultSchema(success=error is None, error=error)
+
+
+@router.post("/torque/stop", response_model=ModbusTorqueInitResultSchema)
+def stop_torque() -> ModbusTorqueInitResultSchema:
+    modbus_service.end_manual_torque()
+    errors = modbus_service.stop_all_torque()
+    return ModbusTorqueInitResultSchema(success=not errors, errors=errors)
+
+
+@router.get("/torque/telemetry", response_model=ModbusTorqueTelemetrySchema)
+def read_torque_telemetry(slave_id: int = Query(default=1, ge=1, le=247)) -> ModbusTorqueTelemetrySchema:
+    return ModbusTorqueTelemetrySchema(slave_id=slave_id, **modbus_service.read_torque_telemetry(slave_id, extended=True))  # type: ignore[arg-type]
 
 
 # ---------------------------------------------------------------------------

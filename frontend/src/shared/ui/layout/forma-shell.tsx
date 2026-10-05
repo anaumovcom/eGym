@@ -1,5 +1,5 @@
 import * as Popover from '@radix-ui/react-popover'
-import { Activity, CalendarDays, CircleAlert, CircleCheck, CircleX, Cpu, Dumbbell, House, ListChecks, OctagonAlert, Settings, TrendingUp, UserRound, Wrench } from 'lucide-react'
+import { Activity, CalendarDays, CircleAlert, CircleCheck, CircleX, Cpu, Dumbbell, House, ListChecks, OctagonAlert, RotateCcw, Settings, TrendingUp, UserRound, Wrench } from 'lucide-react'
 import { useState, type PropsWithChildren, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
@@ -125,6 +125,47 @@ export function TopNavigationMenu({ userName, systemBar }: { userName: string; s
   )
 }
 
+export function MotorForceReadout() {
+  const control = useHardwareStore((state) => state.snapshot?.control)
+  const torque = control?.driveTorquePercent
+  const force = control?.driveForceKg
+  const known = typeof torque === 'number' && typeof force === 'number'
+
+  return (
+    <div className="forma-motor-force" aria-label="Усилие на двигателях" title="Суммарное усилие двигателей: момент (% номинала) и кг">
+      <span>Моторы</span>
+      <span>{known ? `${torque.toFixed(1)} %` : '— %'}</span>
+      <span>{known ? `${force.toFixed(1)} кг` : '— кг'}</span>
+    </div>
+  )
+}
+
+export function ResetBlockButton({ machine }: { machine?: MachineHealth }) {
+  const runCommand = useHardwareStore((state) => state.runCommand)
+  const setError = useHardwareStore((state) => state.setErrorMessage)
+  const [pending, setPending] = useState(false)
+  const blocked = machine?.machineState === 'blocked' || machine?.safety === 'emergency_stop' || machine?.leftDrive === 'error' || machine?.rightDrive === 'error'
+  if (!blocked) return null
+
+  return (
+    <button
+      type="button"
+      className="forma-reset-block inline-flex items-center gap-2 rounded-2xl border border-amber-400/50 px-3 text-sm font-semibold text-amber-200 hover:bg-amber-400/10 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f4dfb4]"
+      disabled={pending}
+      title="Снять СТОП и сбросить ошибку приводов, блокирующую тренажёр"
+      onClick={() => {
+        setPending(true)
+        void runCommand({ action: 'reset_fault' })
+          .catch((error: unknown) => setError(error instanceof Error ? error.message : 'Не удалось сбросить ошибку тренажёра.'))
+          .finally(() => setPending(false))
+      }}
+    >
+      <RotateCcw className="h-5 w-5" aria-hidden="true" />
+      <span>Сбросить ошибку</span>
+    </button>
+  )
+}
+
 export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onStop: () => void }) {
   const problems = machine ? getMachineProblems(machine) : []
   const connectionStatus = useHardwareStore((state) => state.connectionStatus)
@@ -137,6 +178,8 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
 
   const dock = (
     <div role="group" className="forma-system-dock" style={{ pointerEvents: 'auto' }} aria-label="Состояние тренажёра и безопасность">
+      <MotorForceReadout />
+      <ResetBlockButton machine={machine} />
       <div className="forma-machine-status">
         <Popover.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
           <Popover.Trigger asChild>

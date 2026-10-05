@@ -193,12 +193,6 @@ export function MechanicsTuningScreen() {
           </div>
         )}
 
-        {control?.adapter === 'modbus-rtu' && control.faultCode?.includes('E-CTRL-UNAVAILABLE') && (
-          <div role="status" className="rounded-xl border border-[#ffd166]/30 bg-[#3d2f10]/40 px-4 py-3 text-sm text-[#ffd166]">
-            Modbus-связь и аварии драйверов проверяются отдельно. Блокировка относится к ещё не реализованному контуру безопасного движения (STOP, тормоза, синхронизация), а не обязательно к ошибке двигателя. Позиции ниже читаются напрямую из PA_1BC/PA_1BD.
-          </div>
-        )}
-
         <div className="glass-panel flex flex-wrap items-center gap-3 rounded-2xl p-3">
           <Button variant="secondary" iconLeft={<RotateCcw size={14} />} disabled={!showModbus || zeroing}
             onClick={() => { void zeroPosition() }}>
@@ -283,7 +277,7 @@ function ControlOverview({ control, estop, drives, feedback, emulatorMode, showM
         icon={Gauge}
         label="Позиция грифа"
         value={showModbus ? (barMm != null ? `${barMm.toFixed(4)} мм` : 'Нет данных') : (emulatorMode && control ? `${control.positionMm.toFixed(1)} мм` : 'Нет данных')}
-        detail={showModbus ? 'От программного нуля · среднее PA_1BD:PA_1BC · 0,0032 мм/имп' : (emulatorMode ? `${lower.toFixed(0)} — ${upper.toFixed(0)} мм · модель` : 'Нет связи с приводами')}
+        detail={showModbus ? 'От программного нуля · среднее PA_1BD:PA_1BC · 0,0002440 мм/имп' : (emulatorMode ? `${lower.toFixed(0)} — ${upper.toFixed(0)} мм · модель` : 'Нет связи с приводами')}
         progress={positionProgress}
       />
       {(['left', 'right'] as const).map((side) => {

@@ -36,14 +36,12 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     bootstrap_local_data()
     settings = get_settings()
     if settings.hardware_adapter == "modbus":
-        connection = modbus_service.connect(ModbusConnectionParamsSchema(
+        modbus_service.connect(ModbusConnectionParamsSchema(
             port=settings.modbus_port,
             baud_rate=settings.modbus_baud_rate,
             slave_id=settings.modbus_left_slave_id,
             right_slave_id=settings.modbus_right_slave_id,
         ))
-        if connection.connected:
-            modbus_service.capture_zero()
     hardware_runtime.reset(persisted_parameters=load_hardware_parameters())
     await hardware_runtime.start()
     try:

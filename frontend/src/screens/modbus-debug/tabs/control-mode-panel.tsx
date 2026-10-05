@@ -4,10 +4,12 @@ import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/cn'
 import type { ControlMode } from '@/features/modbus/model/types'
+import { fetchModbusTorqueTelemetry, initModbusTorqueMode, setModbusTorque, stopModbusTorque } from '@/features/modbus/api/modbus-api'
+import type { ModbusTorqueTelemetry } from '@/features/modbus/model/types'
 
 export function ControlModePanel() {
   const { connectionStatus, paramStates, writeControlRegister, motorEnabled, setMotorEnabled, runCommand, controlTarget, setControlTarget, driveAddresses } = useModbusStore()
-  const [activeMode, setActiveMode] = useState<ControlMode>('position')
+  const [activeMode, setActiveMode] = useState<ControlMode>('torque')
   const [confirmMotorEnable, setConfirmMotorEnable] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [lastResult, setLastResult] = useState<string | null>(null)
@@ -143,13 +145,18 @@ export function ControlModePanel() {
 
       {/* Mode-specific segment controls */}
       {activeMode === 'position' && (
-        <PositionSegmentControls isConnected={isConnected} busy={busy} onCommand={handleCommand} setBusy={setBusy} setLastResult={setLastResult} />
+        <>
+          <PositionSegmentControls isConnected={isConnected} busy={busy} onCommand={handleCommand} setBusy={setBusy} setLastResult={setLastResult} />
+        </>
       )}
       {activeMode === 'speed' && (
         <SpeedSegmentControls isConnected={isConnected} />
       )}
       {activeMode === 'torque' && (
-        <TorqueSegmentControls isConnected={isConnected} motorEnabled={motorEnabled} />
+        <>
+          <TorqueModeControls isConnected={isConnected} motorEnabled={motorEnabled} />
+          <TorqueSegmentControls isConnected={isConnected} motorEnabled={motorEnabled} />
+        </>
       )}
 
       {/* Command panel */}
@@ -219,6 +226,89 @@ function CmdButton({ label, cmd, busy, disabled, onCmd, accent }: {
     >
       {busy === cmd ? '...' : label}
     </Button>
+  )
+}
+
+function TorqueModeControls({ isConnected, motorEnabled }: { isConnected: boolean; motorEnabled: boolean }) {
+  const { driveAddresses } = useModbusStore()
+  const [leftRaw, setLeftRaw] = useState('0')
+  const [rightRaw, setRightRaw] = useState('0')
+  const [telemetry, setTelemetry] = useState<ModbusTorqueTelemetry[]>([])
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+
+  const refresh = async () => {
+    try {
+      setTelemetry(await Promise.all([driveAddresses.left, driveAddresses.right].map((id) => fetchModbusTorqueTelemetry(id))))
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error))
+    }
+  }
+
+  const run = async (action: () => Promise<string>) => {
+    setBusy(true)
+    try {
+      setMessage(await action())
+      await refresh()
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const init = () => run(async () => {
+    const result = await initModbusTorqueMode()
+    return result.success ? 'Torque Mode готов: PA_002=2, PA_093=0, PA_12C=0.' : `Ошибка: ${result.errors.join('; ')}`
+  })
+
+  const stop = () => run(async () => {
+    const result = await stopModbusTorque()
+    return result.success ? 'PA_12C = 0 на обоих приводах.' : `Ошибка остановки: ${result.errors.join('; ')}`
+  })
+
+  const apply = () => run(async () => {
+    const left = Number(leftRaw)
+    const right = Number(rightRaw)
+    if (![left, right].every((value) => Number.isInteger(value) && Math.abs(value) <= 3000)) return 'Момент — целое число от -3000 до 3000 (0.1 %)'
+    const results = await Promise.all([setModbusTorque(driveAddresses.left, left), setModbusTorque(driveAddresses.right, right)])
+    const failed = results.find((item) => !item.success)
+    return failed ? `Ошибка: ${failed.error}` : `PA_12C: левый ${left}, правый ${right}`
+  })
+
+  return (
+    <div className="glass-panel rounded-2xl p-4 space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-sm font-semibold text-[#f4dfb4]">Torque Mode: PA_12C на оба привода</h4>
+        <button type="button" className="text-xs text-white/50" onClick={() => { void refresh() }}>Обновить</button>
+      </div>
+      <p className="text-xs text-white/40">
+        Режим PA_002=2 не переписывается, EEPROM не пишется. Остановка — PA_12C=0 (без Servo OFF). Лимит момента PA_05E и скорости PA_056 ставятся при инициализации.
+      </p>
+      <div className="flex flex-wrap items-end gap-3">
+        <label className="text-xs text-white/50">
+          Левый, 0.1 %
+          <input className="input-field mt-1 w-28" inputMode="numeric" value={leftRaw} onChange={(event) => setLeftRaw(event.target.value)} />
+        </label>
+        <label className="text-xs text-white/50">
+          Правый, 0.1 %
+          <input className="input-field mt-1 w-28" inputMode="numeric" value={rightRaw} onChange={(event) => setRightRaw(event.target.value)} />
+        </label>
+        <Button variant="secondary" disabled={!isConnected || busy} onClick={() => { void init() }}>Инициализировать</Button>
+        <Button variant="primary" disabled={!isConnected || !motorEnabled || busy} onClick={() => { void apply() }}>Подать момент</Button>
+        <Button variant="danger" disabled={!isConnected || busy} onClick={() => { void stop() }}>PA_12C = 0</Button>
+      </div>
+      {telemetry.length > 0 && (
+        <div className="grid gap-1 font-mono text-xs text-white/60">
+          {telemetry.map((item) => (
+            <p key={item.slaveId}>
+              ID {item.slaveId}: поз {item.positionMm?.toFixed(1) ?? '—'} мм · {item.feedbackSpeedRpm ?? '—'} об/мин · команда {item.commandTorqueRaw ?? '—'} · факт {item.feedbackTorqueRaw ?? '—'} · авария {item.alarm ?? '—'}{item.error ? ` · ${item.error}` : ''}
+            </p>
+          ))}
+        </div>
+      )}
+      {message && <p className="text-xs text-white/60">{message}</p>}
+    </div>
   )
 }
 

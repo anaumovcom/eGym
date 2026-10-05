@@ -14,11 +14,15 @@ export function HoldToJog({ userId, exerciseSlug, disabled = false, onMoved, onH
   const [busy, setBusy] = useState(false)
   const latest = useRef({ userId, exerciseSlug, runCommand, setError, onMoved, onHoldingChange })
   latest.current = { userId, exerciseSlug, runCommand, setError, onMoved, onHoldingChange }
+  const releaseRef = useRef<() => void>(() => undefined)
+  const windowRelease = useRef(() => releaseRef.current()).current
 
   function release() {
     const current = hold.current
     if (!current || current.released) return
     current.released = true
+    window.removeEventListener('pointerup', windowRelease)
+    window.removeEventListener('pointercancel', windowRelease)
     if (current.timer !== undefined) window.clearInterval(current.timer)
     if (!current.started) return // The start request can still be in flight; stop after it finishes.
     const { runCommand: send, setError: showError, onMoved: moved } = latest.current
@@ -35,6 +39,8 @@ export function HoldToJog({ userId, exerciseSlug, disabled = false, onMoved, onH
     if (disabled || !owner || hold.current) return
     const current: Hold = { id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random()}`, userId: owner, exerciseSlug: slug, started: false, released: false, sending: false }
     hold.current = current
+    window.addEventListener('pointerup', windowRelease)
+    window.addEventListener('pointercancel', windowRelease)
     setBusy(true)
     latest.current.onHoldingChange?.(true)
     showError(null)
@@ -55,11 +61,14 @@ export function HoldToJog({ userId, exerciseSlug, disabled = false, onMoved, onH
       })
       .catch((error: unknown) => {
         showError(error instanceof Error ? error.message : 'Не удалось переместить гриф.')
+        window.removeEventListener('pointerup', windowRelease)
+        window.removeEventListener('pointercancel', windowRelease)
         if (hold.current === current) { hold.current = null; setBusy(false); latest.current.onHoldingChange?.(false) }
       })
   }
 
   useEffect(() => {
+    releaseRef.current = release
     const onBlur = () => release()
     const onVisibility = () => { if (document.hidden) release() }
     window.addEventListener('blur', onBlur)
@@ -80,7 +89,7 @@ export function HoldToJog({ userId, exerciseSlug, disabled = false, onMoved, onH
             event.currentTarget.setPointerCapture?.(event.pointerId)
             press(direction)
           }}
-          onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release} onPointerLeave={release}
+          onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}
           onKeyDown={(event) => {
             if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); press(direction) }
           }}

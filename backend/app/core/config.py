@@ -17,7 +17,7 @@ class Settings(BaseSettings):
     hardware_keyboard_simulation_enabled: bool = Field(default=False, alias="HARDWARE_KEYBOARD_SIMULATION_ENABLED")
     hardware_adapter: str = Field(default="modbus", alias="HARDWARE_ADAPTER")
     modbus_port: str = Field(default="/dev/ttyUSB0", alias="MODBUS_PORT")
-    modbus_baud_rate: int = Field(default=19200, alias="MODBUS_BAUD_RATE")
+    modbus_baud_rate: int = Field(default=115200, alias="MODBUS_BAUD_RATE")
     modbus_left_slave_id: int = Field(default=1, ge=1, le=247, alias="MODBUS_LEFT_SLAVE_ID")
     modbus_right_slave_id: int = Field(default=2, ge=1, le=247, alias="MODBUS_RIGHT_SLAVE_ID")
     hardware_limit_switches_enabled: bool = Field(default=True, alias="HARDWARE_LIMIT_SWITCHES_ENABLED")

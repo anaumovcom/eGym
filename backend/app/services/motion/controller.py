@@ -145,6 +145,8 @@ class ControllerState:
     user_force_kg: float = 0.0
     user_force_left_kg: float = 0.0
     user_force_right_kg: float = 0.0
+    drive_force_kg: float = 0.0  # total force produced by both motors (kg-equivalent)
+    drive_torque_percent: float = 0.0  # total motor torque, % of rated (sum of both drives)
     load_target_kg: float = 0.0
     load_effective_kg: float = 0.0
     components: dict[str, float] = field(default_factory=dict)
@@ -165,6 +167,7 @@ class ControllerState:
     released: bool = False
     stall_s: float = 0.0
     spotter_active: bool = False
+    levitating: bool = False
     failure_detected: bool = False
     still_ms: float = 0.0
     # readiness
@@ -221,6 +224,7 @@ class MotionController:
         self._obstacle_s = 0.0
         self._hold_position_mm: float | None = None
         self._isokinetic_load = 0.0
+        self._levitation_factor = 1.0
         self._prev_torque: dict[Side, float] = {"left": 0.0, "right": 0.0}
         self._prev_mode: dict[Side, str] = {"left": "brake", "right": "brake"}
         self._load_peak_state = 0
@@ -240,9 +244,38 @@ class MotionController:
         self._loaded_active = False
         self._move_start_mm = 0.0
         self._drift_s = 0.0
+        self._jog_direction: str | None = None
         self._last_sync_correction: dict[Side, float] = {"left": 0.0, "right": 0.0}
 
     # ------------------------------------------------------------------ intents
+    def set_jog(self, direction: str | None) -> None:
+        """Hold-to-jog in weightless mode: a fixed torque offset relative to the weightless reference."""
+
+        if direction not in {None, "up", "down"}:
+            raise ValueError("direction must be 'up', 'down' or None")
+        self._jog_direction = direction
+
+    @property
+    def jog_direction(self) -> str | None:
+        return self._jog_direction
+
+    def _jog_offset_kg(self) -> float:
+        """Per-side force offset (kg-equivalent) of the held Up / Down button; 0 at the soft limits."""
+
+        direction = self._jog_direction
+        if direction is None:
+            return 0.0
+        margin = 1.5
+        position = self.state.position_mm
+        per_kg = max(float(self.params.get("torque.perKgRaw")), 1e-6)
+        if direction == "up":
+            if position >= float(self.params.get("limits.softMaxMm")) - margin:
+                return 0.0
+            return float(self.params.get("torque.jogUpRaw")) / per_kg
+        if position <= float(self.params.get("limits.softMinMm")) + margin:
+            return 0.0
+        return -float(self.params.get("torque.jogDownRaw")) / per_kg
+
     def request_post(self, results: list[SelfTestResult]) -> None:
         self._pending_self_test = results
         self._enter(ControlMode.post, "Самотест", "Проверка связи, тормозов, концевиков и температуры.")
@@ -324,6 +357,13 @@ class MotionController:
 
     def request_idle(self) -> None:
         self._enter(ControlMode.idle, "Тренажёр готов", "Приводы в удержании.")
+
+    def skip_homing(self) -> None:
+        """Without limit switches homing is not required: the bar position is taken as it is."""
+
+        self._homing_phase = HomingPhase.complete
+        self.state.homing_phase = HomingPhase.complete.value
+        self.request_idle()
 
     def request_emergency_stop(self) -> None:
         self._estop_requested = True
@@ -433,8 +473,9 @@ class MotionController:
             state.homed = False
             state.position_known = False
         elif not self.limit_switches_enabled:
-            state.homed = adapter_homed and self._reference_verified
-            state.position_known = state.homed and state.power_ok
+            # no limit switches: homing is not required, the position is valid whenever the drives are powered
+            state.homed = adapter_homed
+            state.position_known = state.power_ok
         else:
             state.homed = adapter_homed
             state.position_known = state.homed or (not encoder_incremental and state.power_ok)
@@ -463,7 +504,10 @@ class MotionController:
         if not state.position_known and state.mode not in {ControlMode.post, ControlMode.homing, ControlMode.fault, ControlMode.estop}:
             alerts.append("Позиция не определена — требуется homing")
         if fault and state.mode not in {ControlMode.estop, ControlMode.fault}:
-            self._fault(fault)
+            if bool(self.params.get("safety.faultLockoutEnabled")):
+                self._fault(fault)
+            else:
+                alerts.append(fault)
         elif state.mode == ControlMode.fault and not fault and state.comm_ok and state.power_ok:
             pass  # cleared explicitly via reset_fault
         state.alerts = alerts
@@ -485,7 +529,7 @@ class MotionController:
             state.sync_status = "critical"
         if state.sync_status == "warning":
             state.alerts.append(f"Рассинхрон сторон {state.sync_delta_mm:.1f} мм")
-        if state.sync_status == "critical" and state.mode in {ControlMode.training, ControlMode.moving, ControlMode.weightless, ControlMode.start_hold, ControlMode.homing}:
+        if state.sync_status == "critical" and self._jog_direction is None and state.mode in {ControlMode.training, ControlMode.moving, ControlMode.weightless, ControlMode.start_hold, ControlMode.homing}:
             action = str(self.params.get("sync.desyncAction"))
             self._emit("desync", f"Критический рассинхрон {state.sync_delta_mm:.1f} мм → {action}")
             if action == "estop":
@@ -503,6 +547,8 @@ class MotionController:
         friction = float(self.params.get("compensation.frictionUpKg")) if state.velocity_mm_s > 0 else float(self.params.get("compensation.frictionDownKg"))
         sign = 0.0 if abs(state.velocity_mm_s) < 1 else math.copysign(1.0, state.velocity_mm_s)
         drives = telemetry.total_force_kg
+        state.drive_force_kg = round(drives, 2)
+        state.drive_torque_percent = round(drives * float(self.params.get("torque.perKgRaw")) / 10.0, 1)
         raw = (mass + inertial) * state.acceleration_mm_s2 / G_MM_S2 + mass - drives + friction * sign
         if sign == 0.0:
             # at rest static friction hides up to ±friction of user force: apply a dead-zone
@@ -545,7 +591,9 @@ class MotionController:
             self._emit("post", "Самотест пройден" if not failed_critical else f"Самотест не пройден: {failed_critical[0].label}")
             if failed_critical:
                 self._fault(f"POST: {failed_critical[0].label} — {failed_critical[0].detail}")
-            elif not self.limit_switches_enabled or (not state.homed and bool(self.params.get("safety.homingRequiredAfterPowerLoss"))):
+            elif not self.limit_switches_enabled:
+                self.skip_homing()
+            elif not state.homed and bool(self.params.get("safety.homingRequiredAfterPowerLoss")):
                 self.request_homing()
             else:
                 self.request_idle()
@@ -816,7 +864,7 @@ class MotionController:
         drift_limit = float(self.params.get("regulator.weightlessMaxDriftMmPerSec"))
         release_force = float(self.params.get("detection.releaseForceKg"))
         settled = (state.time - state.mode_since) > 0.4
-        if settled and abs(state.velocity_mm_s) > drift_limit and abs(state.user_force_kg) < release_force:
+        if settled and abs(state.velocity_mm_s) > drift_limit and abs(state.user_force_kg) < release_force and self._jog_direction is None:
             self._drift_s += dt
         else:
             self._drift_s = 0.0
@@ -828,8 +876,9 @@ class MotionController:
         base = self._compensation_per_side(dt)
         viscous = -damping * state.velocity_mm_s / 2
         bumper = self._soft_bumper_per_side()
-        components = {"gravity": base["gravity"] * 2, "friction": base["friction"] * 2, "inertia": base["inertia"] * 2, "damping": viscous * 2, "bumper": bumper * 2, "load": 0.0, "sync": 0.0, "spotter": 0.0}
-        force = base["total"] + viscous + bumper
+        jog = self._jog_offset_kg()
+        components = {"gravity": base["gravity"] * 2, "friction": base["friction"] * 2, "inertia": base["inertia"] * 2, "damping": viscous * 2, "bumper": bumper * 2, "load": 0.0, "sync": 0.0, "spotter": 0.0, "jog": jog * 2}
+        force = base["total"] + viscous + bumper + jog
         state.components = {key: round(value, 2) for key, value in components.items()}
         limit = self._torque_percent_to_kg(float(self.params.get("profile.calibration.torqueLimitPercent"))) + self._gravity_comp_per_side()
         return self._torque_command(force, limit, sync=True)
@@ -891,6 +940,9 @@ class MotionController:
             self._isokinetic_load = max(0.0, min(self._clamp_load(float(self.params.get("load.maxKg"))), self._isokinetic_load))
             load = self._isokinetic_load
 
+        levitation = self._update_levitation(dt)
+        load *= levitation
+
         self._detect_stall_and_failure(dt)
         spotter = 0.0
         if state.spotter_active:
@@ -903,7 +955,7 @@ class MotionController:
         self._update_release(dt)
 
         base = self._compensation_per_side(dt)
-        descent_brake = self._descent_brake_per_side()
+        descent_brake = self._descent_brake_per_side() * levitation
         bumper = self._soft_bumper_per_side()
         force_per_side = base["total"] - load / 2 + descent_brake + bumper
         state.load_effective_kg = round(load, 2)
@@ -1050,6 +1102,32 @@ class MotionController:
         if self.config.guest:
             cap = min(cap, float(self.params.get("load.guestMaxKg")))
         return max(0.0, min(cap, load_kg))
+
+    def _update_levitation(self, dt: float) -> float:
+        """Load multiplier: below the exercise lower bound only the bar weight is compensated (0 = levitation).
+
+        Hysteresis: levitation starts below ``lower_mm`` and ends above ``lower_mm + levitationHysteresisMm``.
+        The factor is ramped so the torque does not step.
+        """
+
+        state = self.state
+        lower = self.config.lower_mm
+        hysteresis = float(self.params.get("load.levitationHysteresisMm"))
+        if state.position_mm < lower:
+            if not state.levitating:
+                state.levitating = True
+                self._emit("levitate", f"Гриф ниже нижней границы {lower:.0f} мм — только компенсация веса", {"positionMm": round(state.position_mm, 1)})
+        elif state.levitating and state.position_mm > lower + hysteresis:
+            state.levitating = False
+            self._emit("levitate_off", "Гриф выше нижней границы — нагрузка возвращена", {"positionMm": round(state.position_mm, 1)})
+        ramp = max(0.05, float(self.params.get("load.levitationRampSec")))
+        step = dt / ramp
+        target = 0.0 if state.levitating else 1.0
+        if self._levitation_factor < target:
+            self._levitation_factor = min(target, self._levitation_factor + step)
+        else:
+            self._levitation_factor = max(target, self._levitation_factor - step)
+        return self._levitation_factor
 
     def _descent_brake_per_side(self) -> float:
         state = self.state
@@ -1260,15 +1338,16 @@ class MotionController:
         feedforward = self._gravity_comp_per_side()
         target = self._clamp_soft(target_mm)
         return DriveCommand(
-            SideCommand(mode="position", target_position_mm=target, force_limit_kg=limit_kg, feedforward_kg=feedforward),
-            SideCommand(mode="position", target_position_mm=target, force_limit_kg=limit_kg, feedforward_kg=feedforward),
+            SideCommand(mode="position", target_position_mm=target, force_limit_kg=limit_kg, feedforward_kg=feedforward, weight_comp_kg=feedforward),
+            SideCommand(mode="position", target_position_mm=target, force_limit_kg=limit_kg, feedforward_kg=feedforward, weight_comp_kg=feedforward),
         )
 
     def _velocity_command(self, velocity_mm_s: float, limit_kg: float, *, feedforward: float) -> DriveCommand:
         velocity = max(-float(self.params.get("limits.maxSpeedMmPerSec")), min(float(self.params.get("limits.maxSpeedMmPerSec")), velocity_mm_s))
+        weight = self._gravity_comp_per_side()
         return DriveCommand(
-            SideCommand(mode="velocity", target_velocity_mm_s=velocity, force_limit_kg=limit_kg, feedforward_kg=feedforward),
-            SideCommand(mode="velocity", target_velocity_mm_s=velocity, force_limit_kg=limit_kg, feedforward_kg=feedforward),
+            SideCommand(mode="velocity", target_velocity_mm_s=velocity, force_limit_kg=limit_kg, feedforward_kg=feedforward, weight_comp_kg=weight),
+            SideCommand(mode="velocity", target_velocity_mm_s=velocity, force_limit_kg=limit_kg, feedforward_kg=feedforward, weight_comp_kg=weight),
         )
 
     def _torque_command(self, force_per_side: float, limit_kg: float, *, sync: bool) -> DriveCommand:
@@ -1276,9 +1355,10 @@ class MotionController:
         left = force_per_side + corrections["left"]
         right = force_per_side + corrections["right"]
         self.state.components["sync"] = round(corrections["right"] - corrections["left"], 2)
+        weight = self._gravity_comp_per_side()
         return DriveCommand(
-            SideCommand(mode="torque", force_kg=left, force_limit_kg=limit_kg),
-            SideCommand(mode="torque", force_kg=right, force_limit_kg=limit_kg),
+            SideCommand(mode="torque", force_kg=left, force_limit_kg=limit_kg, weight_comp_kg=weight),
+            SideCommand(mode="torque", force_kg=right, force_limit_kg=limit_kg, weight_comp_kg=weight),
         )
 
     def _apply_torque_rate_limit(self, command: DriveCommand, dt: float) -> None:
@@ -1332,6 +1412,8 @@ class MotionController:
         state.partial_reps = 0
         state.target_reached = False
         state.spotter_active = False
+        state.levitating = False
+        self._levitation_factor = 1.0
         state.failure_detected = False
         state.released = False
         state.stall_s = 0.0
@@ -1369,6 +1451,8 @@ class MotionController:
         state.mode_since = state.time
         state.label = label
         state.message = message
+        if mode != ControlMode.weightless:
+            self._jog_direction = None
         if mode in {ControlMode.moving}:
             self._move_start_mm = state.position_mm
         if mode not in {ControlMode.training}:

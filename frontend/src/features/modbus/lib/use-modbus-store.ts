@@ -30,13 +30,13 @@ import type {
 
 const DEFAULT_PARAMS: ModbusConnectionParams = {
   port: '/dev/ttyUSB0',
-  baudRate: 19200,
+  baudRate: 115200,
   dataBits: 8,
   parity: 'E',
   stopBits: 1,
   slaveId: 1,
   rightSlaveId: 2,
-  timeoutMs: 500,
+  timeoutMs: 300,
 }
 
 function buildInitialParamState(): Map<number, ParameterState> {

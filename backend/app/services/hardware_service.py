@@ -195,7 +195,7 @@ class HardwareService:
             max_load_kg = min(max_load_kg, float(parameters.get("load.guestMaxKg")))
         post_ok = control.get("postStatus") in {"passed", "skipped"} or not bool(parameters.get("safety.postRequired"))
         position_known = bool(control.get("positionKnown", True))
-        sync_ok = control.get("syncStatus") != "critical"
+        sync_ok = control.get("syncStatus") != "critical" or service_action
         not_faulted = control.get("mode") != "fault"
         thermal_ok = all(drive.status != "error" for drive in runtime.drives)
         panel_ok = (

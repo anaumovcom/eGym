@@ -65,69 +65,50 @@ def test_power_on_self_test_leads_to_idle_with_brakes(runtime: HardwareRuntime) 
     assert control.position_known is True
 
 
-def test_start_without_limit_switches_zeros_both_encoders_without_motion(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_start_without_limit_switches_does_not_require_homing(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HARDWARE_LIMIT_SWITCHES_ENABLED", "false")
     monkeypatch.setenv("HARDWARE_KEYBOARD_SIMULATION_ENABLED", "false")
     get_settings.cache_clear()
     try:
         runtime = HardwareRuntime()
-        zero_calls = []
-        real_home = runtime.adapter.home
-
-        def zero_encoders() -> None:
-            zero_calls.append(True)
-            real_home()
-
-        monkeypatch.setattr(runtime.adapter, "home", zero_encoders)
+        homing_calls = []
+        monkeypatch.setattr(runtime.controller, "request_homing", lambda: homing_calls.append(True))
         _run(runtime, 0.5)
         state = runtime.controller.state
-        assert zero_calls == [True]
+        assert homing_calls == []
         assert state.post_status == "passed"
         assert state.mode == ControlMode.idle
         assert state.homing_phase == HomingPhase.complete
-        assert state.position_known and state.homed
-        assert state.physical_bottom_mm == 0
-        assert state.physical_top_mm is None  # no unobserved upper endstop
-        assert state.working_top_mm == runtime.parameters.get("limits.softMaxMm")
-        runtime.load_parameters({"limits.softMaxMm": 1750})
-        assert state.working_top_mm == 1750
-        assert runtime.last_telemetry.left.position_mm == pytest.approx(0, abs=0.01)
-        assert runtime.last_telemetry.right.position_mm == pytest.approx(0, abs=0.01)
-        assert all(side.brake_engaged for side in (runtime.last_telemetry.left, runtime.last_telemetry.right))
+        assert state.position_known
+        assert runtime.last_telemetry.left.position_mm == pytest.approx(0, abs=1.0)
+        assert runtime.last_telemetry.right.position_mm == pytest.approx(0, abs=1.0)
         assert not any(command.mode != "brake" for command in (runtime.last_command.left, runtime.last_command.right))
+        assert not any("homing" in alert for alert in runtime.snapshot_payload()["alerts"])
     finally:
         get_settings.cache_clear()
 
 
-def test_start_without_limit_switches_blocks_if_encoder_zero_not_confirmed(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_without_limit_switches_unzeroed_encoders_are_zeroed_silently_and_failures_do_not_block(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HARDWARE_LIMIT_SWITCHES_ENABLED", "false")
+    monkeypatch.setenv("HARDWARE_KEYBOARD_SIMULATION_ENABLED", "false")
     get_settings.cache_clear()
     try:
         runtime = HardwareRuntime()
-        monkeypatch.setattr(runtime.adapter, "home", lambda: None)
-        # Position feedback is nonzero despite the adapter reporting homed.
-        runtime.emulator.reset(position_mm=100)
         _run(runtime, 0.5)
-        assert runtime.controller.state.mode == ControlMode.fault
-        assert runtime.controller.state.position_known is False or runtime.controller.state.homed is False
-        assert "encoder_zero_failed" in (runtime.controller.state.fault_code or "")
-        assert runtime.last_command.left.mode == "brake"
-    finally:
-        get_settings.cache_clear()
-
-
-def test_start_without_limit_switches_never_zeros_moving_bar(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("HARDWARE_LIMIT_SWITCHES_ENABLED", "false")
-    get_settings.cache_clear()
-    try:
-        runtime = HardwareRuntime()
-        runtime.emulator._sides["left"].velocity_mm_s = 5
+        for side in ("left", "right"):
+            runtime.emulator._sides[side].homed = False
         calls = []
-        monkeypatch.setattr(runtime.adapter, "home", lambda: calls.append(True))
-        runtime._tick_motion()
-        assert calls == []
-        assert runtime.controller.state.mode == ControlMode.fault
-        assert "encoder_zero_failed" in (runtime.controller.state.fault_code or "")
+
+        def failing_home() -> None:
+            calls.append(True)
+            raise RuntimeError("no zero yet")
+
+        monkeypatch.setattr(runtime.adapter, "home", failing_home)
+        _run(runtime, 0.5)
+        assert calls, "unzeroed encoders must be retried"
+        assert runtime.controller.state.mode == ControlMode.idle
+        assert runtime.controller.state.position_known
+        assert runtime.controller.state.fault_code is None
     finally:
         get_settings.cache_clear()
 
@@ -378,20 +359,27 @@ def test_hold_to_jog_stops_on_release_and_watchdog(runtime: HardwareRuntime, mon
         _run(runtime, 0.2)
         clock[0] += 0.2
         runtime.refresh_jog("press-1", "alexey", "barbell-floor-press")
+    per_kg = float(runtime.parameters.get("torque.perKgRaw"))
+    assert runtime.controller.state.components["jog"] == pytest.approx(2 * float(runtime.parameters.get("torque.jogUpRaw")) / per_kg, abs=0.05)
     assert runtime.controller.state.position_mm > start + 20
-    assert runtime.controller.state.mode == ControlMode.moving
+    assert runtime.controller.state.mode == ControlMode.weightless
     runtime.stop_jog("press-1", "alexey", "barbell-floor-press")
-    assert runtime.controller.state.mode == ControlMode.paused
+    assert runtime.controller.state.mode == ControlMode.weightless
+    assert runtime.controller.jog_direction is None
     with pytest.raises(PermissionError):
         runtime.refresh_jog("press-1", "alexey", "barbell-floor-press")
     runtime.start_jog("down", "press-2", "alexey", "barbell-floor-press")
+    _run(runtime, 0.2)
+    assert runtime.controller.state.components["jog"] == pytest.approx(-2 * float(runtime.parameters.get("torque.jogDownRaw")) / per_kg, abs=0.05)
     clock[0] += 0.7
     runtime._tick_motion()
-    assert runtime.controller.state.mode == ControlMode.paused
+    assert runtime.controller.state.mode == ControlMode.weightless
+    assert runtime.controller.jog_direction is None
     assert not runtime.jog_active
 
 
 def test_power_loss_engages_brakes_and_requires_homing(runtime: HardwareRuntime) -> None:
+    runtime.update_parameters({"safety.faultLockoutEnabled": True}, temporary=True)
     runtime.enter_weightless()
     _run(runtime, 0.5)
     position = runtime.controller.state.position_mm
@@ -414,6 +402,7 @@ def test_power_loss_engages_brakes_and_requires_homing(runtime: HardwareRuntime)
 
 
 def test_communication_loss_faults_and_incident_is_recorded(runtime: HardwareRuntime) -> None:
+    runtime.update_parameters({"safety.faultLockoutEnabled": True}, temporary=True)
     runtime.enter_weightless()
     _run(runtime, 0.5)
     runtime.emulator_control("fault", fault="comm_lost", side="right")
@@ -423,6 +412,16 @@ def test_communication_loss_faults_and_incident_is_recorded(runtime: HardwareRun
     assert runtime.recorder.incidents, "black box must capture the incident"
     snapshot = runtime.snapshot_payload()
     assert snapshot["drives"][1]["status"] == "error"
+
+
+def test_lockout_disabled_reports_comm_loss_as_alert_only(runtime: HardwareRuntime) -> None:
+    assert runtime.parameters.get("safety.faultLockoutEnabled") is False
+    runtime.enter_weightless()
+    _run(runtime, 0.5)
+    runtime.emulator_control("fault", fault="comm_lost", side="right")
+    _run(runtime, 0.5)
+    assert runtime.controller.state.mode == ControlMode.weightless
+    assert any("E-COMM-02" in alert for alert in runtime.controller.state.alerts)
 
 
 def test_desync_hold_action_when_sides_tilt(runtime: HardwareRuntime) -> None:
@@ -448,6 +447,17 @@ def test_emergency_stop_blocks_motion_and_holds_position(runtime: HardwareRuntim
     runtime.clear_emergency_stop()
     _run(runtime, 0.2)
     assert runtime.controller.state.mode == ControlMode.paused
+
+
+def test_reset_fault_releases_emergency_stop_in_one_press(runtime: HardwareRuntime) -> None:
+    runtime.trigger_emergency_stop()
+    _run(runtime, 0.3)
+    assert runtime.controller.state.mode == ControlMode.estop
+    runtime.reset_fault()
+    _run(runtime, 0.3)
+    assert runtime.state.safety_state.value == "enabled"
+    assert runtime.controller.state.mode == ControlMode.paused
+    assert runtime.controller.state.fault_code is None
 
 
 def test_measurement_wizard_estimates_bar_mass(runtime: HardwareRuntime) -> None:

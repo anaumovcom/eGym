@@ -7,6 +7,9 @@ import type {
   ModbusConnectionStatus,
   ModbusReadResult,
   ModbusPositions,
+  ModbusTorqueInitResult,
+  ModbusTorqueResult,
+  ModbusTorqueTelemetry,
   ModbusWriteResult,
   ParameterProfile,
   ProfileCompareResult,
@@ -161,6 +164,39 @@ export async function compareModbusProfile(profileId: string): Promise<ProfileCo
   }
 }
 
+export async function initModbusTorqueMode(): Promise<ModbusTorqueInitResult> {
+  const raw = await apiPost<Record<string, unknown>>('/api/modbus/torque/init', {})
+  return { success: raw.success as boolean, errors: (raw.errors as string[]) ?? [] }
+}
+
+export async function setModbusTorque(slaveId: number, torqueRaw: number): Promise<ModbusTorqueResult> {
+  const raw = await apiPost<Record<string, unknown>>('/api/modbus/torque/command', { slave_id: slaveId, torque_raw: torqueRaw })
+  return { success: raw.success as boolean, error: (raw.error as string | null) ?? null }
+}
+
+export async function stopModbusTorque(): Promise<ModbusTorqueInitResult> {
+  const raw = await apiPost<Record<string, unknown>>('/api/modbus/torque/stop', {})
+  return { success: raw.success as boolean, errors: (raw.errors as string[]) ?? [] }
+}
+
+export async function fetchModbusTorqueTelemetry(slaveId: number): Promise<ModbusTorqueTelemetry> {
+  const raw = await apiGet<Record<string, unknown>>(`/api/modbus/torque/telemetry?slave_id=${slaveId}`)
+  const num = (value: unknown) => (typeof value === 'number' ? value : null)
+  return {
+    slaveId: raw.slave_id as number,
+    positionMm: num(raw.position_mm),
+    commandSpeedRpm: num(raw.command_speed_rpm),
+    feedbackSpeedRpm: num(raw.feedback_speed_rpm),
+    commandTorqueRaw: num(raw.command_torque_raw),
+    feedbackTorqueRaw: num(raw.feedback_torque_raw),
+    alarm: num(raw.alarm),
+    torqueWrittenRaw: num(raw.torque_written_raw),
+    torqueLimitRaw: num(raw.torque_limit_raw),
+    speedLimitRpm: num(raw.speed_limit_rpm),
+    error: (raw.error as string | null) ?? null,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Mappers
 // ---------------------------------------------------------------------------
@@ -251,7 +287,7 @@ function mapProfile(r: Record<string, unknown>): ParameterProfile {
     name: r.name as string,
     driverModel: (r.driver_model as string) ?? 'Lichuan A6',
     slaveId: (r.slave_id as number) ?? 1,
-    baudRate: (r.baud_rate as number) ?? 38400,
+    baudRate: (r.baud_rate as number) ?? 115200,
     parameters: ((r.parameters as Record<string, unknown>[]) ?? []).map((p) => ({
       address: p.address as number,
       name: p.name as string,

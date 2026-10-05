@@ -66,6 +66,7 @@ PARAMETER_GROUPS: tuple[ParameterGroup, ...] = (
     ParameterGroup("start", "Стартовое положение и удержание", "Подвод в стартовую точку, натяг, детекция захвата, парковка."),
     ParameterGroup("sync", "Синхронизация сторон", "Пороги рассинхрона, регулятор выравнивания, реакция на перекос."),
     ParameterGroup("load", "Нагрузка", "Пересчёт кг в момент, режимы нагрузки, ramp, кривые."),
+    ParameterGroup("torque", "Torque Mode приводов", "Lichuan A6 в режиме момента: PA_12C, компенсация веса, ограничения момента и скорости."),
     ParameterGroup("detection", "Детекция повторов и отказа", "Гистерезис повторов, застревание, отказ, страховка."),
     ParameterGroup("safety", "Безопасность", "Пороги тока и температуры, таймауты, heartbeat, препятствие."),
     ParameterGroup("regulator", "Регулятор", "Коэффициенты контура, фильтры, демпфирование."),
@@ -187,7 +188,7 @@ PARAMETER_SPECS: tuple[ParameterSpec, ...] = (
     _enum("sync.mode", "sync", "Схема синхронизации", "Ведущий+ведомый или параллельное управление с коррекцией.", "master_slave", ("master_slave", "parallel")),
     _num("sync.normMm", "sync", "Норма", "До этого значения рассинхрон считается нормой.", 2, "мм", min=0.5, max=20, step=0.5),
     _num("sync.warningMm", "sync", "Предупреждение", "Выше — предупреждение и усиленная коррекция.", 5, "мм", min=1, max=30, step=0.5, critical=True),
-    _num("sync.criticalMm", "sync", "Критично", "Выше — срабатывает desyncAction, запуск заблокирован.", 8, "мм", min=2, max=40, hard_max=40, step=0.5, critical=True),
+    _num("sync.criticalMm", "sync", "Критично", "Выше — срабатывает desyncAction, запуск заблокирован.", 100, "мм", min=2, max=200, hard_max=200, step=0.5, critical=True),
     _num("sync.correctionGain", "sync", "Коэффициент коррекции", "Насколько сильно ведомая сторона подтягивается к ведущей.", 0.8, "", min=0, max=5, step=0.05),
     _num("sync.correctionMaxMmPerSec", "sync", "Предел скорости коррекции", "Максимальная скорость выравнивания сторон.", 20, "мм/с", min=1, max=200, step=1),
     _enum("sync.desyncAction", "sync", "Действие при критическом рассинхроне", "Замедлить, удержать позицию или аварийный стоп.", "hold", ("slow", "hold", "estop"), critical=True),
@@ -208,6 +209,21 @@ PARAMETER_SPECS: tuple[ParameterSpec, ...] = (
     _num("load.forceFilterHz", "load", "Фильтр усилия", "Частота среза фильтра оценки усилия.", 10, "Гц", min=1, max=100, step=1),
     _enum("load.curve", "load", "Кривая нагрузки", "Изменение нагрузки по диапазону движения.", "constant", ("constant", "band", "chain", "descending")),
     _num("load.curveDepthPercent", "load", "Глубина кривой", "Насколько нагрузка меняется от нижней к верхней точке.", 30, "%", min=0, max=100, step=5, integer=True),
+    _num("load.levitationHysteresisMm", "load", "Гистерезис левитации", "Ниже нижней границы упражнения нагрузка снимается (гриф «левитирует»); нормальная нагрузка возвращается выше границы плюс этот гистерезис.", 3, "мм", min=0, max=30, step=0.5),
+    _num("load.levitationRampSec", "load", "Время перехода левитация ↔ нагрузка", "За сколько секунд нагрузка плавно снимается ниже нижней границы и возвращается выше неё.", 0.3, "с", min=0.05, max=3, step=0.05),
+    # --- torque -----------------------------------------------------------
+    _num("torque.perKgRaw", "torque", "Момент на 1 кг", "Единиц PA_12C (0.1 % номинала) на 1 кг усилия одной стороны. Используется, пока не задана калибровка компенсации веса.", 20, "0.1 %/кг", min=1, max=200, step=0.5, critical=True),
+    _num("torque.weightCompensationRaw", "torque", "Компенсация веса: момент одной стороны", "Момент PA_12C, при котором гриф уравновешен и легко двигается рукой (подбирается опытом). 0 — вычислять из массы грифа и «Момент на 1 кг».", 0, "0.1 %", min=0, max=1500, step=1, integer=True, critical=True),
+    _num("torque.maxCommandRaw", "torque", "Максимальная команда момента", "Предел |PA_12C| на каждый привод. Одновременно задаёт предел момента PA_05E.", 400, "0.1 %", min=0, max=3000, hard_max=3000, step=10, integer=True, critical=True),
+    _num("torque.speedLimitRpm", "torque", "Лимит скорости PA_056", "Ограничение скорости привода в Torque Mode (PA_056). По умолчанию 300 об/мин; максимум 3000 фактически снимает ограничение.", 300, "об/мин", min=1, max=3000, hard_max=3000, step=10, integer=True, critical=True),
+    _num("torque.speedWarnRpm", "torque", "Скорость: снижение момента", "Выше этой скорости помогающая составляющая момента плавно уменьшается.", 300, "об/мин", min=1, max=3000, step=10, integer=True, critical=True),
+    _num("torque.speedAlarmRpm", "torque", "Скорость: аварийный сброс", "Выше этой скорости PA_12C=0 и движение блокируется до сброса ошибки.", 400, "об/мин", min=1, max=3000, step=10, integer=True, critical=True),
+    _num("torque.rampStepRaw", "torque", "Шаг изменения момента", "Максимальное изменение PA_12C за один цикл управления.", 25, "0.1 %/цикл", min=1, max=300, step=1, integer=True, critical=True),
+    _num("torque.syncGainRawPerMm", "torque", "Коррекция синхронизации", "Добавка момента на каждый мм рассинхрона сторон (вне режима прямого задания момента).", 4, "0.1 %/мм", min=0, max=50, step=0.5),
+    _num("torque.syncMaxRaw", "torque", "Предел коррекции синхронизации", "Максимальная добавка момента на сторону для выравнивания.", 30, "0.1 %", min=0, max=300, step=1, integer=True, critical=True),
+    _num("torque.jogUpRaw", "torque", "Настройка: усилие «Вверх»", "Добавка к моменту невесомого грифа на каждый привод, пока удерживается «Вверх» при настройке упражнения (+PA_12C). Итог ограничен «Максимальной командой момента».", 200, "0.1 %", min=0, max=1000, step=10, integer=True, critical=True),
+    _num("torque.jogDownRaw", "torque", "Настройка: усилие «Вниз»", "Вычитается из момента невесомого грифа на каждый привод, пока удерживается «Вниз» при настройке упражнения (−PA_12C).", 100, "0.1 %", min=0, max=1000, step=10, integer=True, critical=True),
+    _num("torque.holdGainFactor", "torque", "Жёсткость удержания", "Доля регуляторов Kp/Kd позиции, применяемая при удержании на месте в Torque Mode.", 0.25, "", min=0.05, max=1, step=0.05),
     # --- detection --------------------------------------------------------
     _num("detection.repHysteresisMm", "detection", "Гистерезис повтора", "Зона у границ, вход в которую засчитывает фазу повтора.", 15, "мм", min=1, max=100, step=1),
     _num("detection.fullRepPercent", "detection", "Полный повтор", "Минимальная амплитуда полного повтора.", 85, "%", min=50, max=100, step=1, integer=True),
@@ -234,6 +250,7 @@ PARAMETER_SPECS: tuple[ParameterSpec, ...] = (
     _num("safety.idleTimeoutMin", "safety", "Таймаут простоя", "После простоя — парковка и отключение приводов.", 10, "мин", min=1, max=120, step=1, integer=True),
     _bool("safety.postRequired", "safety", "POST обязателен", "Без успешного самотеста запуск блокируется.", True, critical=True),
     _bool("safety.homingRequiredAfterPowerLoss", "safety", "Homing после пропадания питания", "Позиция неизвестна до homing.", True, critical=True),
+    _bool("safety.faultLockoutEnabled", "safety", "Блокировка тренажёра при аварии", "ВЫКЛ — потеря связи, перегрузка по току, перегрев и пропадание питания приводов только выводят предупреждение и не блокируют тренажёр («Тренажёр заблокирован»). Безопасность контролирует оператор.", False, critical=True),
     _num("safety.torqueRateLimitPercentPerSec", "safety", "Ограничение скорости изменения момента", "Защита от рывков и автоколебаний.", 300, "%/с", min=10, max=2000, step=10, integer=True),
     # --- regulator --------------------------------------------------------
     _num("regulator.positionKp", "regulator", "Kp позиции", "Жёсткость удержания позиции (кг на мм отклонения).", 2.0, "кг/мм", min=0.05, max=20, step=0.05),
@@ -248,10 +265,11 @@ PARAMETER_SPECS: tuple[ParameterSpec, ...] = (
     _num("screw.pitchMmPerRev", "screw", "Шаг ШВП", "Миллиметров за оборот.", 32, "мм/об", min=1, max=100, step=0.5, restart=True),
     _num("screw.gearRatio", "screw", "Передаточное отношение", "Ремень/редуктор между двигателем и винтом.", 1.0, "", min=0.1, max=20, step=0.01, restart=True),
     _bool("screw.leftDirectionInverted", "screw", "Инверсия левой стороны", "Направление вращения левого ШВП.", False),
-    _bool("screw.rightDirectionInverted", "screw", "Инверсия правой стороны", "Направление вращения правого ШВП.", True),
+    _bool("screw.rightDirectionInverted", "screw", "Инверсия правой стороны", "Направление вращения правого ШВП.", False),
     _num("screw.travelLengthMm", "screw", "Длина хода", "Полная длина ШВП.", 2000, "мм", min=500, max=3000, step=10, restart=True),
     _enum("screw.encoderType", "screw", "Тип энкодера", "Инкрементальный требует homing после каждого включения.", "incremental", ("absolute", "incremental")),
     _num("screw.encoderDriftAlarmMm", "screw", "Порог дрейфа энкодера", "Расхождение позиции с ожидаемой, при котором останавливаемся.", 6, "мм", min=1, max=50, step=0.5, critical=True),
+    _num("screw.mmPerPulse", "screw", "Шкала энкодера", "Миллиметры хода на импульс от программного нуля. Подтверждено рулеткой: 1703 мм = 6980387 импульсов.", 1703.0 / 6_980_387.0, "мм/имп", min=0.0001, max=0.01, hard_min=0.00005, hard_max=0.02, step=0.0000001, critical=True),
     # --- fixed ------------------------------------------------------------
     _num("fixed.torquePercent", "fixed", "Момент удержания", "Момент в режиме фиксированной позиции.", 100, "%", min=20, max=100, hard_max=100, step=1, integer=True),
     _num("fixed.driftToleranceMm", "fixed", "Допуск дрейфа", "Отклонение позиции, выше которого регулятор подстраивается и предупреждает.", 2, "мм", min=0.5, max=20, step=0.5),
@@ -368,6 +386,10 @@ class MotionParameters:
             raise ParameterValidationError("Порог частичного повтора должен быть меньше порога полного")
         if values["load.guestMaxKg"] > values["load.maxKg"]:
             raise ParameterValidationError("Лимит гостя не может превышать общий лимит нагрузки")
+        if not values["torque.speedLimitRpm"] <= values["torque.speedWarnRpm"] <= values["torque.speedAlarmRpm"]:
+            raise ParameterValidationError("Скорости Torque Mode должны идти по возрастанию: лимит ≤ снижение момента ≤ аварийный сброс")
+        if values["torque.weightCompensationRaw"] > values["torque.maxCommandRaw"]:
+            raise ParameterValidationError("Компенсация веса не может превышать максимальную команду момента")
         if values["homing.backoffDistanceMm"] > values["homing.releaseDistanceMm"]:
             raise ParameterValidationError("Дистанция отъезда не может превышать предел освобождения датчиков")
         if values["homing.totalTimeoutSec"] <= values["homing.phaseTimeoutSec"]:

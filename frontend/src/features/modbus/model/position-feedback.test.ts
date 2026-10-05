@@ -13,4 +13,10 @@ describe('positionFeedback', () => {
     expect(pulsesToMm(positionFeedback(0xfffe, 0xffff))).toBe(-0.0064)
     expect(pulsesToMm(0.5)).toBe(0.0016)
   })
+
+  it('converts pulses using the tape-measured 1703 mm / 6980387 pulse scale', () => {
+    expect(pulsesToMm(6980387)).toBeCloseTo(1703, 6)
+    expect(pulsesToMm(10000)).toBeCloseTo(2.4397, 3)
+    expect(pulsesToMm(-2)).toBeCloseTo(-0.00048794, 6)
+  })
 })

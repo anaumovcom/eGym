@@ -112,7 +112,7 @@ export function MonitoringPanel() {
 
       {/* 32-bit computed values */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <BigMetric label="Позиция от нуля" value={relativePulses != null ? pulsesToMm(relativePulses).toFixed(4) : '—'} unit={pos32 != null ? `мм · текущие ${pos32} имп · ноль ${offset ?? '—'} имп` : 'мм · 0,0032 мм/имп'} addr="PA_1BD:PA_1BC" />
+        <BigMetric label="Позиция от нуля" value={relativePulses != null ? pulsesToMm(relativePulses).toFixed(4) : '—'} unit={pos32 != null ? `мм · текущие ${pos32} имп · ноль ${offset ?? '—'} имп` : 'мм · 0,0002440 мм/имп'} addr="PA_1BD:PA_1BC" />
         <BigMetric label="Командная позиция" value={cmd32 != null ? String(cmd32) : '—'} unit="имп" addr="0x208:0x207" />
         <BigMetric label="Ошибка позиции" value={err32 != null ? String(err32) : '—'} unit="имп" addr="0x20C:0x20B" danger={err32 != null && Math.abs(err32) > 1000} />
       </div>

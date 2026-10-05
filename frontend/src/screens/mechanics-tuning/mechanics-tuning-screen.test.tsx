@@ -108,15 +108,15 @@ describe('MechanicsTuningScreen', () => {
     let right = 20000
     vi.mocked(fetchModbusPositions).mockImplementation(async () => ({
       connected: true, simulationMode: false, zeroed: true,
-      left: { slaveId: 1, currentPulses: left, zeroPulses: 0, positionMm: left * 0.0032 },
-      right: { slaveId: 2, currentPulses: right, zeroPulses: 0, positionMm: right * 0.0032 },
-      skewMm: (left - right) * 0.0032, error: null,
+      left: { slaveId: 1, currentPulses: left, zeroPulses: 0, positionMm: left * 1703 / 6980387 },
+      right: { slaveId: 2, currentPulses: right, zeroPulses: 0, positionMm: right * 1703 / 6980387 },
+      skewMm: (left - right) * 1703 / 6980387, error: null,
     }))
 
     const view = render(<MemoryRouter><MechanicsTuningScreen /></MemoryRouter>)
-    expect(await screen.findByText('48.0000 мм')).toBeInTheDocument()
-    expect(screen.getAllByText('32.0000 мм')).toHaveLength(2)
-    expect(screen.getByText('64.0000 мм')).toBeInTheDocument()
+    expect(await screen.findByText('2.4397 мм')).toBeInTheDocument()
+    expect(screen.getAllByText('4.8794 мм')).toHaveLength(2)
+    expect(screen.getByText('9.7588 мм')).toBeInTheDocument()
     expect(fetchModbusPositions).toHaveBeenCalled()
 
     left = 20000

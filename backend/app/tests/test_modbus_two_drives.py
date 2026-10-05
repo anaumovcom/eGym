@@ -1,4 +1,5 @@
 from app.api.routes import modbus_debug
+import pytest
 from app.schemas.modbus import ModbusCommandRequestSchema, ModbusConnectionParamsSchema, ModbusReadRequestSchema, ModbusWriteRequestSchema
 from app.services.modbus_service import ModbusService
 from app.services.motion.adapter import DriveCommand
@@ -43,12 +44,11 @@ def test_unverified_real_motor_commands_are_rejected():
         assert "не реализована" in result.error
 
 
-def test_motion_adapter_explains_blocked_safety_controller_not_drive_alarm():
-    adapter = ModbusDriveAdapter()
+def test_motion_adapter_reports_offline_modbus_not_drive_alarm():
+    adapter = ModbusDriveAdapter(service=ModbusService())
     telemetry = adapter.step(DriveCommand(), 0.02)
     assert not telemetry.left.connected
-    assert telemetry.left.error_code == "E-CTRL-UNAVAILABLE"
-    assert "Контур движения Modbus не настроен" in telemetry.left.error_message
+    assert telemetry.left.error_code == "E-MODBUS-OFFLINE"
     assert not adapter.self_test()[0].passed
 
 
@@ -71,7 +71,11 @@ def test_software_zero_captures_both_signed_encoders_and_computes_relative_skew(
     _write_pulses(service, 1, 110_000)
     _write_pulses(service, 2, -15_000)
     moved = service.get_positions()
-    assert (moved.left.position_mm, moved.right.position_mm, moved.skew_mm) == (32, 16, 16)
+    assert (moved.left.position_mm, moved.right.position_mm) == (
+        pytest.approx(10000 * 1703 / 6_980_387),
+        pytest.approx(5000 * 1703 / 6_980_387),
+    )
+    assert moved.skew_mm == pytest.approx(5000 * 1703 / 6_980_387)
     assert (moved.left.zero_pulses, moved.right.zero_pulses) == (100_000, -20_000)
 
     zero_again = service.capture_zero()
@@ -92,6 +96,7 @@ def test_failed_second_read_keeps_both_old_offsets_and_reconnect_invalidates_the
     assert (failed.left.zero_pulses, failed.right.zero_pulses) == (100, 200)
     monkeypatch.undo()
     service.disconnect()
+    monkeypatch.setattr(service, "initialize_torque_mode", lambda **_kwargs: ["read failed"])
     service.connect(ModbusConnectionParamsSchema(port="SIM://"))
     unzeroed = service.get_positions()
     assert not unzeroed.zeroed

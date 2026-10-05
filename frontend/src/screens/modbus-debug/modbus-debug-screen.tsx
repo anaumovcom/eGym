@@ -85,12 +85,6 @@ export function ModbusDebugScreen() {
           </div>
         </div>
 
-        {snapshot?.control?.adapter === 'modbus-rtu' && snapshot.control.faultCode?.includes('E-CTRL-UNAVAILABLE') && (
-          <div role="status" className="rounded-xl border border-[#ffd166]/30 bg-[#3d2f10]/40 px-4 py-3 text-sm text-[#ffd166]">
-            Приводы доступны для отладки по Modbus. «Тренажёр заблокирован» означает, что безопасный контур автоматического движения пока не реализован; отсутствие аварий у драйверов не снимает эту блокировку.
-          </div>
-        )}
-
         <div className="flex flex-wrap gap-2" role="group" aria-label="Драйвер сервопривода">
           {(['left', 'right'] as const).map((side) => (
             <button key={side} type="button" onClick={() => selectSide(side)}

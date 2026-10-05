@@ -12,13 +12,13 @@ from pydantic import BaseModel, Field
 
 class ModbusConnectionParamsSchema(BaseModel):
     port: str = Field(description="Serial port, e.g. /dev/ttyUSB0")
-    baud_rate: int = Field(default=38400, description="Baud rate")
+    baud_rate: int = Field(default=115200, description="Baud rate")
     data_bits: int = Field(default=8)
     parity: Literal["N", "E", "O"] = Field(default="E", description="N=None, E=Even, O=Odd")
     stop_bits: int = Field(default=1)
     slave_id: int = Field(default=1, description="Modbus slave address (1–247)")
     right_slave_id: int = Field(default=2, ge=1, le=247)
-    timeout_ms: int = Field(default=500)
+    timeout_ms: int = Field(default=300, ge=50, le=5000)
 
     model_config = {"populate_by_name": True}
 
@@ -203,7 +203,7 @@ class ParameterProfileSchema(BaseModel):
     name: str
     driver_model: str = "Lichuan A6"
     slave_id: int = 1
-    baud_rate: int = 38400
+    baud_rate: int = 115200
     parameters: list[ParameterValueSchema] = Field(default_factory=list)
     comment: str = ""
     created_at: datetime | None = None
@@ -219,3 +219,45 @@ class ProfileCompareResultSchema(BaseModel):
     differences: list[dict]  # [{address, name, driver_value, profile_value}]
     matching: int
     differing: int
+
+
+# ---------------------------------------------------------------------------
+# Torque mode (PA_002 = 2, reference in PA_12C)
+# ---------------------------------------------------------------------------
+
+class ModbusTorqueInitRequestSchema(BaseModel):
+    torque_limit: int = Field(default=400, ge=0, le=3000, description="PA_05E, 0.1 % of rated torque")
+    speed_limit_rpm: int = Field(default=300, ge=0, le=3000, description="PA_056, rpm")
+
+
+class ModbusTorqueInitResultSchema(BaseModel):
+    success: bool
+    errors: list[str] = Field(default_factory=list)
+
+
+class ModbusTorqueCommandRequestSchema(BaseModel):
+    slave_id: int = Field(ge=1, le=247)
+    torque_raw: int = Field(ge=-3000, le=3000, description="PA_12C, 0.1 % of rated torque (signed)")
+
+
+class ModbusTorqueResultSchema(BaseModel):
+    success: bool
+    error: str | None = None
+
+
+class ModbusTorqueTelemetrySchema(BaseModel):
+    slave_id: int
+    feedback_position: int | None = None
+    position_mm: float | None = None
+    position_error: int | None = None
+    command_speed_rpm: int | None = None
+    feedback_speed_rpm: int | None = None
+    command_torque_raw: int | None = None
+    feedback_torque_raw: int | None = None
+    alarm: int | None = None
+    torque_written_raw: int | None = None
+    torque_limit_raw: int | None = None
+    speed_limit_rpm: int | None = None
+    status_pa1db: int | None = None
+    reason_pa1de: int | None = None
+    error: str | None = None

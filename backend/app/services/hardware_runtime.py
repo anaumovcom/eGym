@@ -209,6 +209,8 @@ class HardwareRuntime:
         self._panel_powered_on = True
         self._panel_clear_stop_pending = False
         self._jog: tuple[str, str, str, float] | None = None  # token, user, exercise, deadline
+        self._zero_retry_log_at = 0.0
+        self._zero_retry_at = 0.0
         self._last_jog: tuple[str, str, str] | None = None
         self.state = self._build_default_state()
         self._refresh_runtime_options()
@@ -229,7 +231,7 @@ class HardwareRuntime:
         settings = get_settings()
         if settings.hardware_adapter == "modbus":
             self.emulator = None
-            return ModbusDriveAdapter(settings.modbus_left_slave_id, settings.modbus_right_slave_id)
+            return ModbusDriveAdapter(settings.modbus_left_slave_id, settings.modbus_right_slave_id, parameters=self.parameters)
         self.emulator = PhysicsEmulatorAdapter(initial_position_mm=860.0 if self.parameters.get("homing.limitSwitchesEnabled") else 0.0)
         self.emulator.heartbeat_timeout_s = float(self.parameters.get("safety.heartbeatTimeoutMs")) / 1000
         return self.emulator
@@ -264,7 +266,7 @@ class HardwareRuntime:
             if self.controller.limit_switches_enabled:
                 self.controller.request_idle()
             else:
-                self.controller.request_homing()
+                self.controller.skip_homing()
 
     def _panel_config(self) -> PanelBridgeConfig:
         settings = get_settings()
@@ -572,13 +574,15 @@ class HardwareRuntime:
                 raise ValueError("Укажите направление, пользователя, упражнение и идентификатор удержания")
             if self.controller.state.mode not in {ControlMode.idle, ControlMode.paused, ControlMode.parked, ControlMode.weightless}:
                 raise PermissionError("Сначала остановите подход и дождитесь удержания грифа")
-            if abs(self.controller.state.user_force_kg) > float(self.parameters.get("detection.releaseForceKg")):
-                raise PermissionError("Освободите гриф перед перемещением")
+            # no release-force check: the jog is a soft torque offset on the weightless bar, and in idle (no torque)
+            # the user-force estimate just reflects the bar weight
             limit = float(self.parameters.get("limits.softMaxMm" if direction == "up" else "limits.softMinMm"))
             if abs(limit - self.controller.state.position_mm) < 1.5:
                 raise ValueError("Достигнут безопасный предел перемещения")
             self._jog = (token, user_id, exercise_slug, time.monotonic() + JOG_WATCHDOG_SECONDS)
-            self.controller.request_move(limit, profile="calibration", then=ControlMode.paused, label="Перемещение при удержании")
+            if self.controller.state.mode != ControlMode.weightless:
+                self.controller.request_weightless()
+            self.controller.set_jog(direction)
             if self.emulator is not None:
                 self.emulator.set_scenario("none")
             command = self._record_command("jog_start", {"direction": direction})
@@ -587,7 +591,7 @@ class HardwareRuntime:
 
     def refresh_jog(self, token: str, user_id: str, exercise_slug: str) -> HardwareCommandRecord:
         with self._lock:
-            if self._jog is None or self._jog[:3] != (token, user_id, exercise_slug) or self.controller.state.mode != ControlMode.moving:
+            if self._jog is None or self._jog[:3] != (token, user_id, exercise_slug) or self.controller.state.mode != ControlMode.weightless:
                 raise PermissionError("Перемещение не активно")
             if time.monotonic() >= self._jog[3]:
                 self._stop_jog_locked()
@@ -613,8 +617,7 @@ class HardwareRuntime:
         if self._jog is not None:
             self._last_jog = self._jog[:3]
         self._jog = None
-        if self.controller.state.mode == ControlMode.moving:
-            self.controller.request_hold("Перемещение остановлено", "Гриф удерживается на месте.")
+        self.controller.set_jog(None)
 
     def start_motion(
         self,
@@ -904,6 +907,12 @@ class HardwareRuntime:
         return command
 
     def reset_fault(self) -> HardwareCommandRecord:
+        """One-button reset of whatever blocks the machine: emergency stop, drive/overspeed latch, controller fault."""
+
+        if self.state.safety_state == SafetyState.emergency_stop:
+            released = self.clear_emergency_stop()
+            if released.status == "pending":
+                return released  # the physical panel has to confirm first; the rest is reset on the next press
         with self._lock:
             self.adapter.reset_errors()
             if self.emulator is not None:
@@ -1111,6 +1120,8 @@ class HardwareRuntime:
             "userForceKg": control.user_force_kg,
             "userForceLeftKg": control.user_force_left_kg,
             "userForceRightKg": control.user_force_right_kg,
+            "driveForceKg": control.drive_force_kg,
+            "driveTorquePercent": control.drive_torque_percent,
             "loadTargetKg": control.load_target_kg,
             "loadEffectiveKg": control.load_effective_kg,
             "components": control.components,
@@ -1184,7 +1195,8 @@ class HardwareRuntime:
                 else:
                     next_tick = time.monotonic()  # fell behind (e.g. blocked loop) — resync instead of bursting
                     await asyncio.sleep(0)
-                changed = self._tick_motion()
+                # the tick does blocking RS-485 I/O (~tens of ms): keep it off the event loop so the API stays responsive
+                changed = await asyncio.to_thread(self._tick_motion)
                 now = time.monotonic()
                 if changed and now - self._last_broadcast >= BROADCAST_INTERVAL_SECONDS:
                     self._last_broadcast = now
@@ -1195,12 +1207,31 @@ class HardwareRuntime:
         except asyncio.CancelledError:
             raise
 
+    def _auto_zero_without_limit_switches(self, telemetry: AdapterTelemetry) -> AdapterTelemetry:
+        """Without limit switches homing is not required: the encoders are zeroed silently where the bar stands."""
+
+        if self.controller.limit_switches_enabled or self.controller.state.mode in {ControlMode.homing, ControlMode.estop}:
+            return telemetry
+        if all(telemetry.side(side).homed for side in SIDES) or not all(telemetry.side(side).connected for side in SIDES):
+            return telemetry
+        now = time.monotonic()
+        if now < self._zero_retry_at:
+            return telemetry
+        self._zero_retry_at = now + 1.0
+        try:
+            self.adapter.home()
+        except Exception as exc:  # noqa: BLE001
+            self.controller._emit("homing_retry", f"Обнуление энкодеров отложено: {exc}")
+            return telemetry
+        self.controller._emit("home", "Энкодеры обнулены в текущем положении грифа")
+        return self._merge_panel_sensors(self.adapter.read())
+
     def _tick_motion(self) -> bool:
         """One control tick. Returns True when state changed (always true while running)."""
 
         with self._lock:
             if self._jog is not None:
-                if time.monotonic() >= self._jog[3] or self.controller.state.mode != ControlMode.moving:
+                if time.monotonic() >= self._jog[3] or self.controller.state.mode != ControlMode.weightless:
                     self._stop_jog_locked()
             wall = time.perf_counter()
             if self._last_tick_wall:
@@ -1213,6 +1244,7 @@ class HardwareRuntime:
             dt = self.tick_seconds
             self._apply_keyboard_virtual_hand()
             telemetry = self._merge_panel_sensors(self.last_telemetry or self.adapter.read())
+            telemetry = self._auto_zero_without_limit_switches(telemetry)
             self.controller.prepare_sync(telemetry)
             command = self.controller.tick(telemetry, dt)
             if self.controller.homing_ready_to_zero:
@@ -1234,7 +1266,15 @@ class HardwareRuntime:
                     ):
                         raise RuntimeError("Приводы не подтвердили нулевую позицию энкодеров")
                 except Exception as exc:
-                    command = self.controller._homing_fault(f"encoder_zero_failed: {exc}")
+                    if bool(self.parameters.get("safety.faultLockoutEnabled")):
+                        command = self.controller._homing_fault(f"encoder_zero_failed: {exc}")
+                    else:
+                        # no lockout: stay in homing and retry the encoder zeroing on the next tick
+                        now = time.monotonic()
+                        if now - self._zero_retry_log_at >= 5.0:
+                            self._zero_retry_log_at = now
+                            self.controller._emit("homing_retry", f"Обнуление энкодеров отложено: {exc}")
+                        command = self.controller._brake_command()
                 else:
                     self.controller.refresh_position(telemetry)
                     self.controller.mark_homing_reference_applied()
@@ -1345,6 +1385,11 @@ class HardwareRuntime:
                 else "Тренажёр заблокирован"
             )
             self.state.safety_message = control.fault_code or control.message
+        elif any(drive.status == DriveState.error for drive in self.state.drives.values()):
+            failed = next(drive for drive in self.state.drives.values() if drive.status == DriveState.error)
+            self.state.machine_state = MachineState.warning
+            self.state.machine_label = f"Ошибка привода: {failed.error_code or 'нет связи'}"
+            self.state.safety_message = failed.error_message or control.message
         elif control.sync_status in {"warning", "critical"} or self.state.service_mode or control.mode == ControlMode.post or not control.position_known:
             self.state.machine_state = MachineState.warning
             self.state.machine_label = "Сервисный режим" if self.state.service_mode and control.mode in {ControlMode.idle, ControlMode.parked, ControlMode.paused} else control.label

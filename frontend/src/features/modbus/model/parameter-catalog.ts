@@ -19,7 +19,7 @@ export const PARAMETER_CATALOG: ParameterDef[] = [
     name: 'PA_00D', address: 0x00D, addressHex: '0x00D',
     label: 'Скорость RS485',
     group: 'communication', mode: 'ALL',
-    min: 0, max: 6, defaultValue: 3, unit: '',
+    min: 0, max: 6, defaultValue: 6, unit: '',
     description: 'Скорость связи RS485. Формат: 8 data bits, 1 stop bit, even parity.',
     requiresReboot: true, dangerous: false, readOnly: false,
     enumMap: { 0: '2400 bps', 1: '4800 bps', 2: '9600 bps', 3: '19200 bps', 4: '38400 bps', 5: '57600 bps', 6: '115200 bps' },

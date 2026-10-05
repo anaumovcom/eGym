@@ -196,7 +196,7 @@ def test_hold_to_jog_api_requires_owner_and_stops_on_release(client) -> None:
     assert client.post("/api/hardware/commands", json={**command, "action": "jog_keepalive"}).status_code == 200
     stopped = client.post("/api/hardware/commands", json={**command, "action": "jog_stop"})
     assert stopped.status_code == 200
-    assert stopped.json()["snapshot"]["control"]["mode"] == "paused"
+    assert stopped.json()["snapshot"]["control"]["mode"] == "weightless"
 
 
 def test_start_motion_records_audit_log(client, db_session) -> None:

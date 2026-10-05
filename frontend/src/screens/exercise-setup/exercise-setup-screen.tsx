@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
 import { AlertTriangle, ArrowLeft, CheckCircle2, Play, RotateCcw, SlidersHorizontal } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { ExerciseDetails } from '@/entities/exercise/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
@@ -267,6 +267,25 @@ export function ExerciseSetupScreen() {
     setSetupType(requiresMachineCalibration(exercise) ? 'bar_range' : 'fixed_position')
     setLoadedSetupKey(null)
   }, [exercise?.slug, selectedUserId])
+
+  // Bar setup always starts in the weightless mode: held Up / Down add torque relative to it.
+  const autoWeightlessKey = useRef<string | null>(null)
+  const setupControlMode = snapshot?.control?.mode ?? snapshot?.motion.controlMode
+  useEffect(() => {
+    if (!exercise || !selectedUserId || !supportsFixedBarSetup(exercise) || snapshot == null) {
+      return
+    }
+    if (snapshot.safety.state === 'emergency_stop' || !['idle', 'paused', 'parked'].includes(setupControlMode ?? '')) {
+      return
+    }
+    const key = `${selectedUserId}:${exercise.slug}`
+    if (autoWeightlessKey.current === key) {
+      return
+    }
+    autoWeightlessKey.current = key
+    void runCommand({ action: 'enter_weightless', userId: selectedUserId, exerciseSlug: exercise.slug, mode: 'service' })
+      .catch((error: unknown) => setHardwareError(error instanceof Error ? error.message : 'Не удалось включить невесомый гриф.'))
+  }, [exercise, runCommand, selectedUserId, setHardwareError, setupControlMode, snapshot])
 
   useEffect(() => {
     if (!exercise || !selectedUserId || loadedSetupKey !== `${selectedUserId}:${exercise.slug}`) {
@@ -551,7 +570,7 @@ export function ExerciseSetupScreen() {
             </div>
 
             {hardwareError ? (
-              <div className="rt-alert" data-tone="danger" role="alert">
+              <div className="rt-alert rt-alert-floating" data-tone="danger" role="alert">
                 <AlertTriangle aria-hidden="true" />
                 <div>
                   <strong>Ошибка тренажёра</strong>
@@ -631,7 +650,7 @@ export function ExerciseSetupScreen() {
                   {weightlessActive ? 'Невесомый гриф: вкл — удержать' : 'Невесомый гриф'}
                 </Button>
                 <HoldToJog userId={selectedUserId} exerciseSlug={currentExercise.slug}
-                  disabled={barMoving || livePositionMm == null} onHoldingChange={setJogPending} />
+                  disabled={(barMoving && !weightlessActive) || livePositionMm == null} onHoldingChange={setJogPending} />
                 {setupType === 'bar_range' ? (
                   <>
                     <Button variant="secondary" aria-label="Зафиксировать нижнюю точку" disabled={barMoving || (weightlessActive && !barStill)} onClick={() => captureCalibrationPoint('lower')}>Запомнить низ</Button>
@@ -644,11 +663,11 @@ export function ExerciseSetupScreen() {
                   {setupType === 'bar_range' ? 'Сохранить амплитуду' : 'Сохранить положение'}
                 </Button>
               </div>
-              {weightlessActive ? (
-                <p className="rt-calibration-hint">
-                  Гриф скомпенсирован — переместите его руками в нужную точку и отпустите. {barStill ? 'Гриф неподвижен — можно фиксировать точку.' : 'Дождитесь остановки грифа.'}
-                </p>
-              ) : null}
+              <p className="rt-calibration-hint" data-active={weightlessActive}>
+                {weightlessActive
+                  ? <>Гриф скомпенсирован — переместите его руками в нужную точку и отпустите. {barStill ? 'Гриф неподвижен — можно фиксировать точку.' : 'Дождитесь остановки грифа.'}</>
+                  : '\u00a0'}
+              </p>
             </section>
           ) : null}
           </div>

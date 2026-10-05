@@ -53,6 +53,8 @@ export type HardwareControlState = {
   userForceKg: number
   userForceLeftKg: number
   userForceRightKg: number
+  driveForceKg?: number
+  driveTorquePercent?: number
   loadTargetKg: number
   loadEffectiveKg: number
   components: Record<string, number>

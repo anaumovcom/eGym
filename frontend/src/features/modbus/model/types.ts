@@ -199,3 +199,27 @@ export type ProfileCompareResult = {
   matching: number
   differing: number
 }
+
+export type ModbusTorqueResult = {
+  success: boolean
+  error: string | null
+}
+
+export type ModbusTorqueInitResult = {
+  success: boolean
+  errors: string[]
+}
+
+export type ModbusTorqueTelemetry = {
+  slaveId: number
+  positionMm: number | null
+  commandSpeedRpm: number | null
+  feedbackSpeedRpm: number | null
+  commandTorqueRaw: number | null
+  feedbackTorqueRaw: number | null
+  alarm: number | null
+  torqueWrittenRaw: number | null
+  torqueLimitRaw: number | null
+  speedLimitRpm: number | null
+  error: string | null
+}
