@@ -57,6 +57,7 @@ function expectNormalTabs() {
 }
 
 beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }))
   localStorage.clear()
   useAppStore.setState({ selectedUserId: 'alexey', emergencyStopActive: false })
   useStage4Store.setState(originalStage4State, true)
@@ -79,16 +80,22 @@ afterEach(() => {
   useStage4Store.setState(originalStage4State, true)
   useModbusStore.setState(originalModbusState, true)
   vi.restoreAllMocks()
+  vi.unstubAllGlobals()
 })
 
 describe('System settings service access', () => {
-  it.each(['overview', 'safety', 'common'])('keeps normal %s settings available without acknowledgement', (tab) => {
+  it.each(['overview', 'safety', 'common'])('keeps normal %s settings available without acknowledgement', async (tab) => {
     renderSettings(`/settings?tab=${tab}`)
     expectNormalTabs()
     expect(screen.queryByRole('checkbox', { name: 'Понимаю риски изменения технических настроек' })).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Сервисные настройки' })).not.toBeInTheDocument()
     expect(within(screen.getByRole('main')).queryByRole('link', { name: 'Modbus Debug', exact: true })).not.toBeInTheDocument()
     expect(runCommand).not.toHaveBeenCalled()
+    if (tab === 'common') {
+      expect(screen.getByRole('region', { name: 'AI-тренер' })).toBeInTheDocument()
+      await screen.findByText(/Сервер Coach недоступен/)
+    }
+    else expect(screen.queryByRole('region', { name: 'AI-тренер' })).not.toBeInTheDocument()
   })
 
   it('replaces technical overview actions with one link to the service gate', async () => {

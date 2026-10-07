@@ -1,0 +1,17 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"],
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@/stores/app-store": ["./e05-harness/stores.ts"],
+      "@/stores/hardware-store": ["./e05-harness/stores.ts"],
+      "@/stores/runtime-store": ["./e05-harness/stores.ts"],
+      "@/stores/stage4-store": ["./e05-harness/stores.ts"],
+      "@/features/coach/audio/local-audio-runtime": ["./e05-harness/runtime.ts"],
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.tsx", "../e2e/e05/**/*.ts", "../playwright.e05.config.ts", "../vite.e05.config.ts"],
+  "exclude": []
+}

@@ -34,6 +34,7 @@ from app.schemas.runtime import (
     SetResultSaveSchema,
     WorkoutSessionCreateSchema,
 )
+from app.services.coach.lifecycle import RuntimeObservationBuffer, runtime_observations
 from app.services.exercise_library import get_imported_exercise
 from app.services.fatigue_service import FatigueService, FatigueUpdate
 
@@ -42,11 +43,13 @@ from app.services.fatigue_service import FatigueService, FatigueUpdate
 class ExerciseSaveResult:
     exercise_session: ExerciseSession
     summary: RuntimeExerciseSummarySchema
+    coach_notices: tuple[dict[str, object], ...] = ()
 
 
 class RuntimeService:
-    def __init__(self) -> None:
+    def __init__(self, *, coach_observer: RuntimeObservationBuffer | None = None) -> None:
         self.fatigue_service = FatigueService()
+        self.coach_observer = coach_observer if coach_observer is not None else runtime_observations
 
     def save_set_result(self, session: Session, payload: SetResultSaveSchema) -> SavedSetResponseSchema:
         exercise_session = session.get(ExerciseSession, payload.exercise_session_id)
@@ -58,7 +61,15 @@ class RuntimeService:
             exercise_session=exercise_session,
             payload=payload,
         )
+        notice = {
+            "kind": "set_persisted", "user_id": exercise_session.user_id,
+            "workout_session_id": exercise_session.workout_session_id,
+            "exercise_session_id": exercise_session.id, "set_id": set_result.id,
+            "set_ordinal": set_result.set_number, "actual_value": set_result.actual_value,
+            "outcome": set_result.machine_metrics.get("completionStatus"),
+        }
         session.commit()
+        self.coach_observer.record(**notice)
         return SavedSetResponseSchema(
             set_id=set_result.id,
             exercise_session_id=exercise_session.id,
@@ -181,8 +192,9 @@ class RuntimeService:
             session.add(exercise_session)
         session.flush()
 
+        pending_notices: list[dict[str, object]] = []
         for set_payload in payload.sets:
-            self._create_set_result(
+            saved_set, _ = self._create_set_result(
                 session,
                 exercise_session=exercise_session,
                 payload=SetResultSaveSchema(
@@ -190,15 +202,30 @@ class RuntimeService:
                     **set_payload.model_dump(),
                 ),
             )
+            pending_notices.append({
+                "kind": "set_persisted", "user_id": exercise_session.user_id,
+                "workout_session_id": exercise_session.workout_session_id,
+                "exercise_session_id": exercise_session.id, "set_id": saved_set.id,
+                "set_ordinal": saved_set.set_number, "actual_value": saved_set.actual_value,
+                "outcome": saved_set.machine_metrics.get("completionStatus"),
+            })
             session.expire(exercise_session, ["set_results"])
 
         if not exercise_session.recommendation:
             exercise_session.recommendation = self._build_strength_recommendation(exercise_session, payload.training_mode, payload.training_day_type)
         self._sync_training_state(session, exercise_session)
         summary = self.build_exercise_summary(exercise_session)
+        if status != ExerciseSessionStatus.in_progress:
+            pending_notices.append({
+                "kind": "exercise_finalized", "user_id": exercise_session.user_id,
+                "workout_session_id": exercise_session.workout_session_id,
+                "exercise_session_id": exercise_session.id, "outcome": status.value,
+            })
         if commit:
             session.commit()
-        return ExerciseSaveResult(exercise_session=exercise_session, summary=summary)
+            for notice in pending_notices:
+                self.coach_observer.record(**notice)
+        return ExerciseSaveResult(exercise_session=exercise_session, summary=summary, coach_notices=tuple(pending_notices))
 
     def save_workout_session(self, session: Session, payload: WorkoutSessionCreateSchema) -> RuntimeWorkoutSummarySchema:
         if payload.workout_session_id is not None:
@@ -233,12 +260,14 @@ class RuntimeService:
             session.flush()
 
         exercise_session_ids = set(payload.exercise_session_ids)
+        nested_exercise_notices: list[dict[str, object]] = []
         for exercise in payload.exercises:
             if exercise.exercise_session_id is not None:
                 exercise_session_ids.add(exercise.exercise_session_id)
                 continue
 
-            self.save_exercise_session(session, exercise.model_copy(update={"workout_session_id": workout_session.id}), commit=False)
+            saved = self.save_exercise_session(session, exercise.model_copy(update={"workout_session_id": workout_session.id}), commit=False)
+            nested_exercise_notices.extend(saved.coach_notices)
 
         if exercise_session_ids:
             linked_sessions = session.scalars(select(ExerciseSession).where(ExerciseSession.id.in_(exercise_session_ids))).all()
@@ -255,7 +284,15 @@ class RuntimeService:
 
         session.flush()
         summary = self.build_workout_summary(session, workout_session.id)
+        notice = {
+            "kind": "workout_finalized", "user_id": workout_session.user_id,
+            "workout_session_id": workout_session.id, "outcome": workout_session.status.value,
+        }
         session.commit()
+        for nested_notice in nested_exercise_notices:
+            self.coach_observer.record(**nested_notice)
+        if payload.status != "in_progress":
+            self.coach_observer.record(**notice)
         return summary
 
     def adjust_exercise_load(self, session: Session, payload: LoadAdjustmentRequestSchema) -> LoadAdjustmentResponseSchema:

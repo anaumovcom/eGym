@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -14,6 +15,34 @@ class Settings(BaseSettings):
     app_name: str = "eGym Forma API"
     app_env: str = Field(default="local", alias="APP_ENV")
     debug: bool = Field(default=True, alias="APP_DEBUG")
+    coach_enabled: bool = Field(default=False, alias="COACH_ENABLED")
+    coach_operator_hash_file: str | None = Field(default=None, alias="COACH_OPERATOR_HASH_FILE")
+    coach_master_key_file: str | None = Field(default=None, alias="COACH_MASTER_KEY_FILE")
+    coach_operator_daily_usd: str = Field(default="10.00", alias="COACH_OPERATOR_DAILY_USD")
+    coach_operator_monthly_usd: str = Field(default="100.00", alias="COACH_OPERATOR_MONTHLY_USD")
+    # Paid text dispatch stays off until the operator verifies model access and pricing.
+    coach_paid_text_enabled: bool = Field(default=False, alias="COACH_PAID_TEXT_ENABLED")
+    coach_text_model: str = Field(default="gpt-6-luna", max_length=80, alias="COACH_TEXT_MODEL")
+    # Rates checked against the official pricing page on 2026-10-08; enabling still requires *_PRICING_VERIFIED.
+    coach_text_pricing_version: str = Field(default="openai-2026-10-08", max_length=80, alias="COACH_TEXT_PRICING_VERSION")
+    coach_text_input_rate: int = Field(default=100_000, ge=0, alias="COACH_TEXT_INPUT_RATE")
+    coach_text_cached_rate: int = Field(default=10_000, ge=0, alias="COACH_TEXT_CACHED_RATE")
+    coach_text_output_rate: int = Field(default=500_000, ge=0, alias="COACH_TEXT_OUTPUT_RATE")
+    coach_text_pricing_verified: bool = Field(default=False, alias="COACH_TEXT_PRICING_VERIFIED")
+    coach_text_max_output_tokens: int = Field(default=400, ge=64, le=2000, alias="COACH_TEXT_MAX_OUTPUT_TOKENS")
+    # Documented gpt-6-luna values: none|low|medium(default)|high|xhigh|max. Low keeps rest-phase latency short.
+    coach_text_reasoning_effort: Literal["none", "low", "medium"] = Field(default="low", alias="COACH_TEXT_REASONING_EFFORT")
+    # E08 voice: paid dispatch stays off until the operator enables it and confirms pricing for this deployment.
+    coach_paid_voice_enabled: bool = Field(default=False, alias="COACH_PAID_VOICE_ENABLED")
+    coach_voice_pricing_verified: bool = Field(default=False, alias="COACH_VOICE_PRICING_VERIFIED")
+    coach_voice_realtime_model: str = Field(default="gpt-realtime-2.1-mini", max_length=80, alias="COACH_VOICE_REALTIME_MODEL")
+    # gpt-4o-mini-tts is deprecated (shutdown 2027-01-06): kept only for A/B and pack generation before that date.
+    coach_voice_tts_model: str = Field(default="gpt-4o-mini-tts", max_length=80, alias="COACH_VOICE_TTS_MODEL")
+    coach_voice_pricing_version: str = Field(default="openai-2026-10-08", max_length=80, alias="COACH_VOICE_PRICING_VERSION")
+    # E09 packs: private directory (never under the public media mount); provider voices unset until E08.7.
+    coach_pack_root: str = Field(default=str(BACKEND_ROOT / "coach_packs"), alias="COACH_PACK_ROOT")
+    coach_pack_voice_female: str = Field(default="", max_length=80, alias="COACH_PACK_VOICE_FEMALE")
+    coach_pack_voice_male: str = Field(default="", max_length=80, alias="COACH_PACK_VOICE_MALE")
     hardware_keyboard_simulation_enabled: bool = Field(default=False, alias="HARDWARE_KEYBOARD_SIMULATION_ENABLED")
     hardware_adapter: str = Field(default="modbus", alias="HARDWARE_ADAPTER")
     modbus_port: str = Field(default="/dev/ttyUSB0", alias="MODBUS_PORT")

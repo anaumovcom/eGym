@@ -1,0 +1,6 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>E05 isolated acceptance</title></head>
+<body><div id="root"></div><script type="module">
+	if (import.meta.env.VITE_E05_HARNESS === 'true') await import('/e05-harness/main.tsx')
+	else document.getElementById('root').textContent = 'Use the isolated E05 Vite config; this entry is disabled in the regular app server.'
+</script></body></html>

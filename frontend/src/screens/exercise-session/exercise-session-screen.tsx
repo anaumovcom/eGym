@@ -9,6 +9,8 @@ import { hasMovableMachineLoad, supportsFixedBarSetup } from '@/features/runtime
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
 import { saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
+import { captureRuntimeLifecycle, coachLifecycle } from '@/features/coach/lib/runtime-observation'
+import { coachRepBeep } from '@/features/coach/live/local-cue-player'
 import { getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { apiGet, apiPost } from '@/shared/api/client'
@@ -296,7 +298,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       return
     }
 
-    if (liveMotion.repetitionCount > lastRepCountRef.current) {
+    if (liveMotion.repetitionCount > lastRepCountRef.current && coachRepBeep.shouldPlayLegacyBeep(liveMotion.repetitionCount)) {
       playRepCountedSound()
     }
 
@@ -421,6 +423,8 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     const completedForExercise = [...(activeSession.completedSets[exercise.id] ?? []), result]
     const isLastSet = activeSession.currentSetIndex >= exercise.plan.length - 1
     const exerciseStatus = getExerciseSaveStatus('completed', completedForExercise, exercise)
+    const coachCapture = captureRuntimeLifecycle(activeSession, selectedUserId, false, isMachineExercise ? 'hardware' : 'user_input')
+    const coachResult = { outcome: result.completionStatus, actualValue: result.actualValue, progressUnit: state.kind === 'timed' ? 'seconds' as const : 'reps' as const }
 
     try {
       if (isMachineExercise && selectedUserId) {
@@ -435,10 +439,13 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         })
       }
 
+      coachLifecycle.publish(coachCapture, 'set_stopped', coachResult)
       const workoutSessionId = await ensureBackendWorkoutSession()
       const exerciseSessionId = await ensureBackendExerciseSession(workoutSessionId)
-      await saveSetResultToBackend(exerciseSessionId, result, exercise)
+      const savedSet = await saveSetResultToBackend(exerciseSessionId, result, exercise)
+      if (savedSet) coachLifecycle.publish(coachCapture, 'set_persisted', { ...coachResult, backendSetId: savedSet.setId })
       const summary = isLastSet ? await saveExerciseResultToBackend(exercise, completedForExercise, selectedUserId ?? 'alexey', exerciseStatus, workoutSessionId, exerciseSessionId, 'preserve') : null
+      if (summary) coachLifecycle.publish(coachCapture, 'exercise_finalized', { outcome: summary.outcome, backendExerciseId: summary.exerciseSessionId })
       finishCurrentSet(result)
       const nextView = useRuntimeStore.getState().session?.view
 
@@ -480,6 +487,8 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     const isLastSet = activeSession.currentSetIndex >= exercise.plan.length - 1
     const exerciseStatus: RuntimeExerciseOutcome = completionStatus
     const resolvedExerciseStatus = completionStatus === 'skipped' ? exerciseStatus : getExerciseSaveStatus(completionStatus, completedForExercise, exercise)
+    const coachCapture = captureRuntimeLifecycle(activeSession, selectedUserId, false, isMachineExercise ? 'hardware' : 'user_input')
+    const coachResult = { outcome: currentResult?.completionStatus, actualValue: currentResult?.actualValue, progressUnit: state.kind === 'timed' ? 'seconds' as const : 'reps' as const }
 
     try {
       if (completionStatus !== 'skipped' && isMachineExercise && selectedUserId) {
@@ -494,10 +503,12 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         })
       }
 
+      if (currentResult) coachLifecycle.publish(coachCapture, 'set_stopped', coachResult)
       const workoutSessionId = await ensureBackendWorkoutSession()
       const exerciseSessionId = await ensureBackendExerciseSession(workoutSessionId)
       if (currentResult && shouldSaveSetResult(currentResult)) {
-        await saveSetResultToBackend(exerciseSessionId, currentResult, exercise)
+        const savedSet = await saveSetResultToBackend(exerciseSessionId, currentResult, exercise)
+        if (savedSet) coachLifecycle.publish(coachCapture, 'set_persisted', { ...coachResult, backendSetId: savedSet.setId })
       }
 
       if (!isLastSet && currentResult) {
@@ -514,6 +525,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         summary = await saveExerciseResultToBackend(exercise, completedForExercise, selectedUserId ?? 'alexey', resolvedExerciseStatus, workoutSessionId, exerciseSessionId, 'preserve')
       }
 
+      coachLifecycle.publish(coachCapture, 'exercise_finalized', { outcome: summary.outcome, backendExerciseId: summary.exerciseSessionId })
       finishExerciseWithResults(completedForExercise, resolvedExerciseStatus)
       markExerciseSaved(exercise.id, summary.exerciseSessionId, resolvedExerciseStatus)
       replaceExerciseSummary(summary)

@@ -6,6 +6,7 @@ import type { MachineHealth } from '@/entities/machine/model/types'
 import type { RuntimeWorkoutSummaryState } from '@/entities/runtime/model/types'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { adjustExerciseLoadOnBackend, resolveWorkoutSaveStatus, saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
+import { captureRuntimeLifecycle, coachLifecycle } from '@/features/coach/lib/runtime-observation'
 import type { LoadAdjustmentDirection, LoadAdjustmentResponse } from '@/features/runtime/lib/runtime-persistence'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -63,8 +64,12 @@ export function WorkoutSummaryScreen() {
 
     saveTriggeredRef.current = true
     setSaveError(null)
+    const coachCapture = captureRuntimeLifecycle(session, selectedUserId, true)
     void saveWorkoutToBackend(session, selectedUserId ?? 'alexey', resolveWorkoutSaveStatus(session))
-      .then((summary) => replaceWorkoutSummary(summary, true))
+      .then((summary) => {
+        coachLifecycle.publish(coachCapture, 'workout_finalized', { outcome: summary.outcome, backendWorkoutId: summary.workoutSessionId })
+        replaceWorkoutSummary(summary, true)
+      })
       .catch((error) => {
         saveTriggeredRef.current = false
         setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить итог тренировки. Попробуйте ещё раз.')

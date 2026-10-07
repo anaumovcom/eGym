@@ -11,6 +11,7 @@ import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { MetricCardGrid, Panel, SectionTitle, TabStrip } from '@/shared/ui/stage4/screen-components'
 import { useStage4Screen } from '@/features/stage4/lib/use-stage4-screen'
 import { useStage4Store } from '@/stores/stage4-store'
+import { CoachSettingsPanel } from '@/features/coach/ui/coach-settings-panel'
 
 const normalSettingsTabs = [
   { id: 'overview', label: 'Обзор' },
@@ -599,6 +600,7 @@ export function SystemSettingsScreen() {
               </div>
             </Panel>
           </div>
+          <div className="xl:col-span-3"><CoachSettingsPanel /></div>
         </div>
       ) : null}
 

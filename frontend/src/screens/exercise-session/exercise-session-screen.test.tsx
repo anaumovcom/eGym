@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ExerciseSessionScreen } from '@/screens/exercise-session/exercise-session-screen'
 import { getExerciseDetails } from '@/mocks/stage2-data'
 import { apiGet, apiPost } from '@/shared/api/client'
@@ -10,6 +10,7 @@ import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 import type { HardwareCalibration, HardwareSnapshot } from '@/features/hardware/model/types'
+import { coachLifecycle } from '@/features/coach/lib/runtime-observation'
 
 const navigateMock = vi.fn()
 const runCommandMock = vi.fn().mockResolvedValue({})
@@ -46,6 +47,8 @@ function renderScreen() {
 
 describe('ExerciseSessionScreen', () => {
   beforeEach(() => {
+    vi.stubEnv('VITE_COACH_ENABLED', 'false')
+    coachLifecycle.clear()
     localStorage.clear()
     currentSearch = '?source=catalog&slug=barbell-floor-press'
     navigateMock.mockReset()
@@ -62,6 +65,66 @@ describe('ExerciseSessionScreen', () => {
     useRuntimeStore.setState({ session: null, sessionSignature: null })
     useRuntimeStore.getState().initializeSession({ source: 'catalog', slug: 'barbell-floor-press' })
     useRuntimeStore.getState().startExercise()
+  })
+
+  afterEach(() => { vi.unstubAllEnvs(); coachLifecycle.clear() })
+
+  function enableCoachObservation(lastSet = false) {
+    vi.stubEnv('VITE_COACH_ENABLED', 'true')
+    const session = useRuntimeStore.getState().session!
+    useRuntimeStore.setState({ session: { ...session, dataSource: 'backend',
+      exercises: lastSet ? session.exercises.map(exercise => ({ ...exercise, plan: exercise.plan.slice(0, 1) })) : session.exercises,
+    } })
+  }
+
+  it('E02 observes stop, save ack and exercise summary without adding hardware commands', async () => {
+    enableCoachObservation(true)
+    const user = userEvent.setup()
+    renderScreen()
+    const input = screen.getByRole('textbox', { name: 'Повторы' })
+    await user.clear(input)
+    await user.type(input, '2')
+    await user.tab()
+    await user.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalled())
+    expect(coachLifecycle.snapshot().map(event => event.kind)).toEqual(['set_stopped', 'set_persisted', 'exercise_finalized'])
+    expect(coachLifecycle.snapshot()[1].facts.find(fact => fact.id === 'result.outcome')?.value).toBe('partial')
+    expect(runCommandMock.mock.calls.filter(([command]) => command.action === 'complete_set')).toHaveLength(1)
+  })
+
+  it('E02 keeps successful set ack when the later summary save fails', async () => {
+    enableCoachObservation(true)
+    vi.mocked(apiPost).mockImplementation(async (path, payload) => {
+      if (path === '/api/runtime/sets') return { setId: 10, exerciseSessionId: 7 } as never
+      if (path === '/api/runtime/exercises' && (payload as { status: string }).status === 'in_progress') return { exerciseSessionId: 7 } as never
+      throw new Error('Summary save failed')
+    })
+    const user = userEvent.setup()
+    renderScreen()
+    await user.click(screen.getByRole('button', { name: 'Увеличить: Повторы' }))
+    await user.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await screen.findByRole('alert')
+    expect(coachLifecycle.snapshot().map(event => event.kind)).toEqual(['set_stopped', 'set_persisted'])
+    expect(navigateMock).not.toHaveBeenCalled()
+  })
+
+  it('E02 does not observe a late save ack after user identity changes', async () => {
+    enableCoachObservation()
+    let resolveAck: (value: unknown) => void = () => { throw new Error('No save pending') }
+    vi.mocked(apiPost).mockImplementation(async path => {
+      if (path === '/api/runtime/exercises') return { exerciseSessionId: 7 } as never
+      if (path === '/api/runtime/sets') return await new Promise(resolve => { resolveAck = resolve }) as never
+      throw new Error('Unexpected POST')
+    })
+    const user = userEvent.setup()
+    renderScreen()
+    await user.click(screen.getByRole('button', { name: 'Увеличить: Повторы' }))
+    await user.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await waitFor(() => expect(vi.mocked(apiPost).mock.calls.some(([path]) => path === '/api/runtime/sets')).toBe(true))
+    act(() => useAppStore.setState({ selectedUserId: 'elena' }))
+    await act(async () => resolveAck({ setId: 10, exerciseSessionId: 7 }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalled())
+    expect(coachLifecycle.snapshot()).toEqual([])
   })
 
   it('shows the exercise fullscreen with one large finish action and no scrollable navigation', () => {

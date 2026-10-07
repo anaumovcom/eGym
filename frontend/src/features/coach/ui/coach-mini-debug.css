@@ -1,0 +1,51 @@
+.coach-mini-debug-trigger {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+  flex: 0 1 auto; min-width: 44px; min-height: 44px; padding: 8px;
+  border: 1px solid #a78bfa55; border-radius: 12px;
+  background: linear-gradient(135deg, #8b5cf622, #38bdf80c); color: #e9ddff;
+  font-size: 11px; line-height: 1.4; font-weight: 700; white-space: nowrap;
+}
+.forma-header-side > .coach-mini-debug-trigger { order: 0; padding-inline: 8px; gap: 7px; }
+.coach-mini-debug-trigger:hover:not(:disabled) { background-color: #8b5cf633; }
+.coach-mini-debug-trigger:disabled { opacity: .45; cursor: not-allowed; }
+.coach-mini-debug-trigger:focus-visible, .coach-mini-debug-popover button:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 3px; }
+.coach-mini-debug-detail { overflow: hidden; text-overflow: ellipsis; }
+.coach-mini-debug-popover {
+  z-index: 45; box-sizing: border-box; width: min(460px, calc(100vw - 24px));
+  min-height: 0; overflow: auto; overscroll-behavior: contain;
+  padding: 18px; border: 1px solid #a78bfa50; border-radius: 18px;
+  background: linear-gradient(145deg, #192033, #101722); color: #f1f5f9;
+  box-shadow: 0 16px 60px #0008; font-size: 13px; line-height: 1.5;
+}
+.coach-mini-debug-popover > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.coach-mini-debug-popover h3, .coach-local-preview h3 { margin: 0; font-size: 16px; font-weight: 700; }
+.coach-mini-debug-popover > header button { min-width: 44px; min-height: 44px; border-radius: 10px; font-size: 22px; }
+.coach-local-diagnostics { min-width: 0; font-size: 12px; line-height: 1.5; }
+.coach-local-reason { display: flex; flex-wrap: wrap; gap: 8px; color: #e9ddff; }
+.coach-local-reason code { font-size: 11px; color: #b8c1ce; }
+.coach-local-metrics { margin: 12px 0; }
+.coach-local-metrics > div { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; padding: 7px 0; border-bottom: 1px solid #ffffff0d; }
+.coach-local-metrics dt { color: #b8c1ce; }
+.coach-local-metrics dd { margin: 0; text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+.coach-local-note { color: #b8c1ce; margin: 12px 0; }
+.coach-local-diagnostics h4 { margin: 16px 0 8px; font-size: 12px; font-weight: 700; }
+.coach-local-diagnostics ul, .coach-local-timeline { margin: 0; padding-left: 18px; overflow-wrap: anywhere; font-size: 11px; }
+.coach-local-timeline { max-height: 180px; overflow-y: auto; font-variant-numeric: tabular-nums; }
+.coach-local-preview { padding: 16px; border: 1px solid #a78bfa40; border-radius: 16px; background: #8b5cf60a; }
+.coach-local-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 1599px) { .coach-mini-debug-detail { display: none; } }
+/* Only coach-bearing headers: let the secondary navigation wrap, not hide STOP/motors. */
+@media (max-width: 1024px) {
+  .forma-header:has(.coach-mini-debug-trigger) { grid-template-columns: auto minmax(0, 1fr); overflow: visible; }
+  .forma-header:has(.coach-mini-debug-trigger) .forma-header-side { grid-column: 1 / -1; flex-wrap: wrap; gap: 8px; }
+}
+@media (max-width: 600px) {
+  .forma-system-dock:has(.coach-mini-debug-trigger) { flex-wrap: wrap; gap: 6px; }
+  .forma-header:has(.coach-mini-debug-trigger) .forma-header-side { gap: 6px; }
+  .forma-header:has(.coach-mini-debug-trigger) .forma-header-side > button[aria-label^='Меню профиля:'] { order: 3; }
+  :is(.forma-system-dock, .forma-header-side):has(.coach-mini-debug-trigger) .forma-motor-force { flex-shrink: 0; min-width: 60px; font-size: 11px; }
+  :is(.forma-system-dock, .forma-header-side):has(.coach-mini-debug-trigger) .forma-stop { min-height: 44px; padding-inline: 10px; font-size: 12px; }
+  :is(.forma-system-dock, .forma-header-side):has(.coach-mini-debug-trigger) .forma-stop span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  :is(.forma-system-dock, .forma-header-side):has(.coach-mini-debug-trigger) .forma-stop::after { content: 'СТОП'; }
+  :is(.forma-system-dock, .forma-header-side):has(.coach-mini-debug-trigger) .forma-machine-status-button { width: 44px; min-height: 44px; padding: 0; justify-content: center; }
+}

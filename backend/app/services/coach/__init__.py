@@ -1,0 +1,1 @@
+"""Read-only Coach foundation. Production providers are intentionally absent."""

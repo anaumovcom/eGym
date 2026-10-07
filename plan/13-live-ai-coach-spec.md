@@ -299,6 +299,15 @@ Pain-report не снимается hardware false: нужен явный пол
 
 ## 4. Упражнения, положение грифа и метрики
 
+**Уточнение E01 по текущему коду:** [аудит источников](13-live-ai-coach-e01-audit.md).
+`amplitudePercent` сейчас нормализует текущую позицию, не измеряет амплитуду
+полного повторения; сохранённый `tempoLabel` может быть шаблонным «хорошо».
+`loadEffectiveKg` — расчётный applied-load канал controller, не универсально
+измеренный вес. Эти поля не считаются достоверными aggregate фактами автоматически.
+Controller содержит отдельные rep events с durationS для motion count, но Coach
+пока не имеет гарантированной доставки полной per-rep серии. Ниже — требования
+к валидным observations и metric policy, не утверждение об их текущей готовности.
+
 ### Три независимые оси
 
 В [runtime types](../frontend/src/entities/runtime/model/types.ts):

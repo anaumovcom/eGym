@@ -1,8 +1,12 @@
 import * as Popover from '@radix-ui/react-popover'
 import { Activity, CalendarDays, CircleAlert, CircleCheck, CircleX, Cpu, Dumbbell, House, ListChecks, OctagonAlert, RotateCcw, Settings, TrendingUp, UserRound, Wrench } from 'lucide-react'
-import { useState, type PropsWithChildren, type ReactNode } from 'react'
+import { useEffect, useState, type PropsWithChildren, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
+import { CoachMiniDebug } from '@/features/coach/ui/coach-mini-debug'
+import { localAudioRuntime } from '@/features/coach/audio/local-audio-runtime'
+import { startCoachLiveRuntime } from '@/features/coach/live/coach-live-runtime'
+import { useAppStore } from '@/stores/app-store'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import { navigationItems } from '@/shared/config/navigation'
 import { getDriveLabel, getSafetyLabel } from '@/shared/lib/machine-status'
@@ -167,6 +171,9 @@ export function ResetBlockButton({ machine }: { machine?: MachineHealth }) {
 }
 
 export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onStop: () => void }) {
+  const selectedUserId = useAppStore(state => state.selectedUserId)
+  useEffect(() => { void localAudioRuntime.refreshSavedPreferences() }, [selectedUserId])
+  useEffect(() => { startCoachLiveRuntime() }, [])
   const problems = machine ? getMachineProblems(machine) : []
   const connectionStatus = useHardwareStore((state) => state.connectionStatus)
   const connectionLost = connectionStatus === 'error' || connectionStatus === 'disconnected'
@@ -178,6 +185,7 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
 
   const dock = (
     <div role="group" className="forma-system-dock" style={{ pointerEvents: 'auto' }} aria-label="Состояние тренажёра и безопасность">
+      <CoachMiniDebug />
       <MotorForceReadout />
       <ResetBlockButton machine={machine} />
       <div className="forma-machine-status">

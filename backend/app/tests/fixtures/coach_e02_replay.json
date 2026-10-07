@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "mode": "test",
+  "description": "Synthetic E02 lifecycle only. Never write to real training history.",
+  "events": [
+    {
+      "schemaVersion": 1,
+      "id": "synthetic-stop",
+      "scope": {"schemaVersion": 1, "userId": "fixture-user", "runId": "fixture-run", "exerciseId": "fixture-exercise", "setOrdinal": 1, "scopeEpoch": 1},
+      "kind": "set_stopped", "phase": "finalizing-set", "source": "synthetic",
+      "exerciseKind": "machine", "controlMode": "paused", "progressUnit": "reps",
+      "ordinal": 0, "planRevision": 0, "contextVersion": 1,
+      "createdAtMs": 1000, "startDeadlineMs": 3000,
+      "facts": [{"schemaVersion": 1, "id": "result.actualValue", "value": 8, "unit": "reps", "source": "synthetic", "confidence": "confirmed", "observedAtMs": 1000, "validUntilMs": 3000, "scopeEpoch": 1}],
+      "factDependencies": ["result.actualValue"]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "synthetic-save",
+      "scope": {"schemaVersion": 1, "userId": "fixture-user", "runId": "fixture-run", "exerciseId": "fixture-exercise", "setOrdinal": 1, "scopeEpoch": 1},
+      "kind": "set_persisted", "phase": "rest", "source": "synthetic",
+      "exerciseKind": "machine", "controlMode": "paused", "progressUnit": "reps",
+      "ordinal": 0, "planRevision": 0, "contextVersion": 2,
+      "createdAtMs": 1000, "startDeadlineMs": 3000,
+      "facts": [], "factDependencies": []
+    }
+  ]
+}
