@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import get_settings
-from app.schemas.modbus import ModbusConnectionParamsSchema, ModbusReadRequestSchema, ModbusWriteRequestSchema
+from app.schemas.modbus import ModbusConnectionParamsSchema, ModbusReadRequestSchema
 from app.services.hardware_runtime import HardwareRuntime
 from app.services.modbus_service import ModbusService
 from app.services.motion.adapter import DriveCommand, SideCommand
@@ -193,8 +193,8 @@ def test_adapter_writes_pa12c_to_both_drives_in_sim() -> None:
     assert _signed(_reg(service, PA_12C, 1)) == 360
     assert _signed(_reg(service, PA_12C, 2)) == 360  # right drive is not inverted (verified on hardware)
     adapter.step(DriveCommand(), 0.02)
-    assert _signed(_reg(service, PA_12C, 1)) == 0
-    assert _signed(_reg(service, PA_12C, 2)) == 0
+    assert _signed(_reg(service, PA_12C, 1)) == 100
+    assert _signed(_reg(service, PA_12C, 2)) == 100
 
 
 def test_manual_torque_is_not_overwritten_by_adapter_loop() -> None:
@@ -202,29 +202,29 @@ def test_manual_torque_is_not_overwritten_by_adapter_loop() -> None:
     adapter = ModbusDriveAdapter(service=service, parameters=MotionParameters())
     adapter.home()
     service.begin_manual_torque()
-    assert service.set_torque_command(1, 120) is None
-    assert service.set_torque_command(2, -120) is None
+    assert service.set_torque_command(1, 100) is None
+    assert service.set_torque_command(2, -100) is None
     for _ in range(30):
         telemetry = adapter.step(DriveCommand(), 0.02)
     assert telemetry.left.error_code is None
-    assert _signed(_reg(service, PA_12C, 1)) == 120
-    assert _signed(_reg(service, PA_12C, 2)) == -120
+    assert _signed(_reg(service, PA_12C, 1)) == 100
+    assert _signed(_reg(service, PA_12C, 2)) == -100
     service.end_manual_torque()
     service.stop_all_torque()
     adapter.step(DriveCommand(), 0.02)
-    assert _signed(_reg(service, PA_12C, 1)) == 0
+    assert _signed(_reg(service, PA_12C, 1)) == 100
 
 
-def test_adapter_emergency_stop_latches_zero_torque() -> None:
+def test_adapter_emergency_stop_latches_support_torque() -> None:
     service = _connected_service()
     adapter = ModbusDriveAdapter(service=service, parameters=MotionParameters())
     adapter.home()
     for _ in range(40):
         adapter.step(_torque_command(20), 0.02)
     adapter.emergency_stop()
-    assert _signed(_reg(service, PA_12C, 1)) == 0
+    assert _signed(_reg(service, PA_12C, 1)) == 100
     adapter.step(_torque_command(20), 0.02)
-    assert _signed(_reg(service, PA_12C, 1)) == 0
+    assert _signed(_reg(service, PA_12C, 1)) == 100
     adapter.release_emergency_stop()
 
 
@@ -304,8 +304,8 @@ def test_torque_debug_routes_in_sim(monkeypatch: pytest.MonkeyPatch) -> None:
     service = _connected_service()
     monkeypatch.setattr(modbus_debug, "modbus_service", service)
     assert modbus_debug.initialize_torque_mode().success
-    assert modbus_debug.set_torque_command(ModbusTorqueCommandRequestSchema(slave_id=1, torque_raw=120)).success
+    assert modbus_debug.set_torque_command(ModbusTorqueCommandRequestSchema(slave_id=1, torque_raw=100)).success
     telemetry = modbus_debug.read_torque_telemetry(slave_id=1)
-    assert telemetry.command_torque_raw == 120 and telemetry.torque_written_raw == 120
+    assert telemetry.command_torque_raw == 100 and telemetry.torque_written_raw == 100
     assert modbus_debug.stop_torque().success
     assert _signed(_reg(service, PA_12C, 1)) == 0

@@ -498,7 +498,7 @@ class MotionController:
             elif side_t.temperature_c >= temp_warn:
                 alerts.append(f"{name} привод: температура {side_t.temperature_c:.0f} °C")
         if not telemetry.power_ok:
-            fault = fault or "Пропадание питания приводов — тормоза сработали"
+            fault = fault or "Питание или управление приводами недоступно — удержание грифа не подтверждено"
         if not telemetry.heartbeat_ok:
             alerts.append("Heartbeat потерян — приводы в удержании")
         if not state.position_known and state.mode not in {ControlMode.post, ControlMode.homing, ControlMode.fault, ControlMode.estop}:

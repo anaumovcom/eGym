@@ -7,8 +7,8 @@ and pyserial / minimalmodbus is installed it delegates to the real bus.
 """
 from __future__ import annotations
 
-import time
 import threading
+import time
 from collections import deque
 from datetime import UTC, datetime
 from typing import Any
@@ -21,8 +21,8 @@ from app.schemas.modbus import (
     ModbusCommandResultSchema,
     ModbusConnectionParamsSchema,
     ModbusConnectionStatusSchema,
-    ModbusPositionsSchema,
     ModbusPositionSideSchema,
+    ModbusPositionsSchema,
     ModbusReadRequestSchema,
     ModbusReadResultSchema,
     ModbusRegisterValueSchema,
@@ -321,7 +321,9 @@ class ModbusService:
     # Connection
     # ------------------------------------------------------------------
 
-    def connect(self, params: ModbusConnectionParamsSchema) -> ModbusConnectionStatusSchema:
+    def connect(
+        self, params: ModbusConnectionParamsSchema, *, initial_commands: dict[int, int] | None = None,
+    ) -> ModbusConnectionStatusSchema:
         with self._lock:
             if params.slave_id == params.right_slave_id:
                 return ModbusConnectionStatusSchema(connected=False, error_message="Адреса левого и правого приводов должны различаться")
@@ -353,7 +355,7 @@ class ModbusService:
                 self._error_count = 0
                 self._last_success_at = self._now()
                 self._log_info("CONNECT", f"Connected to {params.port} (simulation mode)")
-                errors = self.initialize_torque_mode()
+                errors = self.initialize_torque_mode(initial_commands=initial_commands)
                 if errors:
                     self._connection_error = "; ".join(errors)
                     self._log_info("SYNC_ERR", self._connection_error)
@@ -374,7 +376,7 @@ class ModbusService:
                 self._error_count = 0
                 self._last_success_at = self._now()
                 self._log_info("CONNECT", f"Connected to {params.port} @ {params.baud_rate}")
-                errors = self.initialize_torque_mode()
+                errors = self.initialize_torque_mode(initial_commands=initial_commands)
                 if errors:
                     self._connection_error = "; ".join(errors)
                     self._log_info("SYNC_ERR", self._connection_error)
@@ -401,9 +403,9 @@ class ModbusService:
         self._torque_limit.clear()
         self._speed_limit_rpm.clear()
 
-    def disconnect(self) -> ModbusConnectionStatusSchema:
+    def disconnect(self, *, preserve_torque: bool = False) -> ModbusConnectionStatusSchema:
         with self._lock:
-            if self._connected:
+            if self._connected and not preserve_torque:
                 # never leave a torque reference behind on the drives
                 self.stop_all_torque()
             self._connected = False
@@ -672,8 +674,10 @@ class ModbusService:
             value, error = self._read_single_locked(address, slave_id)
         return value, error
 
-    def _init_torque_drive_locked(self, slave_id: int, *, torque_limit: int, speed_limit_rpm: int) -> str | None:
-        """Verify the drive is in Torque Mode and make PA_12C the active reference at zero torque."""
+    def _init_torque_drive_locked(
+        self, slave_id: int, *, torque_limit: int, speed_limit_rpm: int, initial_command: int = 0,
+    ) -> str | None:
+        """Verify Torque Mode without dropping restart support to zero."""
         self._torque_ready[slave_id] = False
         alarm, error = self._read_init_register(_REG_ALARM, slave_id)
         if alarm is None:
@@ -692,13 +696,14 @@ class ModbusService:
             written = self._write_register_locked(_REG_TORQUE_SEGMENT, 0, slave_id)
             if not written.success:
                 return f"PA_093: {written.error}"
-        zeroed = self._write_register_locked(_REG_TORQUE_COMMAND, 0, slave_id)
-        if not zeroed.success:
-            return f"PA_12C: {zeroed.error}"
         for address, value, name in ((_REG_SPEED_LIMIT, speed_limit_rpm, "PA_056"), (_REG_TORQUE_LIMIT, torque_limit, "PA_05E")):
             written = self._write_register_locked(address, value, slave_id)
             if not written.success:
                 return f"{name}: {written.error}"
+        initial_command = max(-torque_limit, min(torque_limit, initial_command))
+        referenced = self._write_register_locked(_REG_TORQUE_COMMAND, initial_command, slave_id)
+        if not referenced.success:
+            return f"PA_12C: {referenced.error}"
         telemetry = self._read_torque_telemetry_locked(slave_id)
         if telemetry.get("error"):
             return str(telemetry["error"])
@@ -709,9 +714,9 @@ class ModbusService:
             self.right_zero_pulses = int(feedback)  # type: ignore[arg-type]
         self._torque_limit[slave_id] = torque_limit
         self._speed_limit_rpm[slave_id] = speed_limit_rpm
-        self._torque_command[slave_id] = 0
+        self._torque_command[slave_id] = initial_command
         self._torque_ready[slave_id] = True
-        self._log_info("TORQUE_INIT", f"slave {slave_id}: PA_002=2, PA_093=0, PA_12C=0, speed limit={speed_limit_rpm} rpm, torque limit={torque_limit}")
+        self._log_info("TORQUE_INIT", f"slave {slave_id}: PA_002=2, PA_093=0, PA_12C={initial_command}, speed limit={speed_limit_rpm} rpm, torque limit={torque_limit}")
         return None
 
     def initialize_torque_mode(
@@ -719,6 +724,7 @@ class ModbusService:
         *,
         torque_limit: int = DEFAULT_TORQUE_LIMIT,
         speed_limit_rpm: int = DEFAULT_SPEED_LIMIT_RPM,
+        initial_commands: dict[int, int] | None = None,
     ) -> list[str]:
         """Prepare both drives for PA_12C control. Returns per-drive error strings (empty = ready)."""
         if not 0 <= torque_limit <= 3000:
@@ -731,7 +737,10 @@ class ModbusService:
             return [
                 f"ID{slave_id}: {error}"
                 for slave_id in (self._left_slave_id, self._right_slave_id)
-                if (error := self._init_torque_drive_locked(slave_id, torque_limit=torque_limit, speed_limit_rpm=speed_limit_rpm))
+                if (error := self._init_torque_drive_locked(
+                    slave_id, torque_limit=torque_limit, speed_limit_rpm=speed_limit_rpm,
+                    initial_command=(initial_commands or {}).get(slave_id, 0),
+                ))
             ]
 
     def torque_ready(self, slave_id: int) -> bool:

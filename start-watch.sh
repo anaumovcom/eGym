@@ -185,7 +185,7 @@ stop_process_tree() {
 
   kill -TERM "$process_id" 2>/dev/null || true
 
-  for _ in {1..25}; do
+  for _ in {1..75}; do
     if ! test_process_running "$process_id"; then
       return 0
     fi
@@ -227,7 +227,7 @@ start_logged_backend_server() {
       --app-dir "$backend_root" \
       --host 127.0.0.1 \
       --port 8000 \
-      --timeout-graceful-shutdown 2
+      --timeout-graceful-shutdown 5
   ) >>"$backend_log_file" 2>>"$backend_error_log_file" &
 
   backend_server_pid="$!"

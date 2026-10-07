@@ -11,11 +11,12 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app.db.seed import seed_dev_data, seed_stage7_data, seed_stage8_data
 from app.db.session import SessionLocal, engine
+from app.schemas.modbus import ModbusConnectionParamsSchema
 from app.services.exercise_library import EXERCISES_ROOT
 from app.services.hardware_runtime import hardware_runtime
 from app.services.hardware_service import HardwareService
-from app.schemas.modbus import ModbusConnectionParamsSchema
 from app.services.modbus_service import modbus_service
+from app.services.motion.modbus_adapter import FALLBACK_TORQUE_RAW
 
 
 def bootstrap_local_data() -> None:
@@ -35,21 +36,29 @@ def bootstrap_local_data() -> None:
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     bootstrap_local_data()
     settings = get_settings()
+    persisted_parameters = load_hardware_parameters()
     if settings.hardware_adapter == "modbus":
         modbus_service.connect(ModbusConnectionParamsSchema(
             port=settings.modbus_port,
             baud_rate=settings.modbus_baud_rate,
             slave_id=settings.modbus_left_slave_id,
             right_slave_id=settings.modbus_right_slave_id,
-        ))
-    hardware_runtime.reset(persisted_parameters=load_hardware_parameters())
-    await hardware_runtime.start()
+        ), initial_commands={
+            settings.modbus_left_slave_id: -FALLBACK_TORQUE_RAW if persisted_parameters.get("screw.leftDirectionInverted", False) else FALLBACK_TORQUE_RAW,
+            settings.modbus_right_slave_id: -FALLBACK_TORQUE_RAW if persisted_parameters.get("screw.rightDirectionInverted", False) else FALLBACK_TORQUE_RAW,
+        })
     try:
+        hardware_runtime.reset(persisted_parameters=persisted_parameters)
+        await hardware_runtime.start()
         yield
     finally:
-        await hardware_runtime.stop()
-        if settings.hardware_adapter == "modbus":
-            modbus_service.disconnect()
+        try:
+            await hardware_runtime.stop()
+        finally:
+            if settings.hardware_adapter == "modbus":
+                # Closing the serial port must not overwrite backup support
+                # with zero, including a partially failed application startup.
+                modbus_service.disconnect(preserve_torque=True)
 
 
 def load_hardware_parameters() -> dict[str, object]:

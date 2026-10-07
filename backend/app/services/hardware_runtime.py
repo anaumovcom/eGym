@@ -9,6 +9,7 @@ publishes snapshots to realtime subscribers.
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import time
 from collections import deque
@@ -42,6 +43,7 @@ BROADCAST_INTERVAL_SECONDS = 0.1
 DEBUG_BROADCAST_INTERVAL_SECONDS = 0.1
 KEYBOARD_FORCE_KG = 35.0
 JOG_WATCHDOG_SECONDS = 0.6
+logger = logging.getLogger(__name__)
 
 INCIDENT_EVENT_KINDS = {"fault", "desync", "failure", "obstacle"}
 LOAD_MODES = {"normal_weight", "assist_up", "negative_phase", "light_mode", "isokinetic", "bodyweight", "no_machine", "fixed_position", "isometric"}
@@ -329,16 +331,30 @@ class HardwareRuntime:
         await self.panel.start()
 
     async def stop(self) -> None:
-        await self.panel.stop()
-        if self._task is not None:
-            self._task.cancel()
-            try:
-                await self._task
-            except asyncio.CancelledError:
-                pass
+        try:
+            if self._task is not None:
+                self._task.cancel()
+                try:
+                    await self._task
+                except asyncio.CancelledError:
+                    pass
+        finally:
             self._task = None
-        self._loop = None
-        self._keyboard_monitor.stop()
+            # Cancellation does not stop an already running to_thread tick.
+            # The lock serializes support with that last writer.
+            try:
+                await asyncio.to_thread(self._apply_shutdown_support)
+            finally:
+                await self.panel.stop()
+                self._loop = None
+                self._keyboard_monitor.stop()
+
+    def _apply_shutdown_support(self) -> None:
+        with self._lock:
+            if isinstance(self.adapter, ModbusDriveAdapter):
+                errors = self.adapter.enter_safe_descent()
+                if errors:
+                    logger.error("Backup torque delivery failed: %s", errors)
 
     async def subscribe(self) -> asyncio.Queue[dict[str, object]]:
         queue: asyncio.Queue[dict[str, object]] = asyncio.Queue()
@@ -1196,7 +1212,12 @@ class HardwareRuntime:
                     next_tick = time.monotonic()  # fell behind (e.g. blocked loop) — resync instead of bursting
                     await asyncio.sleep(0)
                 # the tick does blocking RS-485 I/O (~tens of ms): keep it off the event loop so the API stays responsive
-                changed = await asyncio.to_thread(self._tick_motion)
+                try:
+                    changed = await asyncio.to_thread(self._tick_motion)
+                except Exception as exc:  # keep support and fault reporting alive after a failed tick
+                    logger.exception("Motion control tick failed")
+                    await asyncio.to_thread(self._handle_motion_failure, exc)
+                    changed = True
                 now = time.monotonic()
                 if changed and now - self._last_broadcast >= BROADCAST_INTERVAL_SECONDS:
                     self._last_broadcast = now
@@ -1206,6 +1227,13 @@ class HardwareRuntime:
                     await self._broadcast_debug()
         except asyncio.CancelledError:
             raise
+        finally:
+            await asyncio.to_thread(self._apply_shutdown_support)
+
+    def _handle_motion_failure(self, error: Exception) -> None:
+        with self._lock:
+            self.controller._fault(f"Ошибка цикла управления: {error}")
+            self._apply_shutdown_support()
 
     def _auto_zero_without_limit_switches(self, telemetry: AdapterTelemetry) -> AdapterTelemetry:
         """Without limit switches homing is not required: the encoders are zeroed silently where the bar stands."""
@@ -1278,7 +1306,17 @@ class HardwareRuntime:
                 else:
                     self.controller.refresh_position(telemetry)
                     self.controller.mark_homing_reference_applied()
+            if isinstance(self.adapter, ModbusDriveAdapter):
+                if self.controller.state.mode == ControlMode.estop:
+                    self.adapter.emergency_stop()
+                elif self.controller.state.mode == ControlMode.fault and not self.adapter.safe_descent_active:
+                    self.adapter.enter_safe_descent()
             telemetry = self._merge_panel_sensors(self.adapter.step(command, dt))
+            if (
+                isinstance(self.adapter, ModbusDriveAdapter) and self.adapter.safe_descent_active
+                and self.controller.state.mode not in {ControlMode.fault, ControlMode.estop}
+            ):
+                self.controller._fault("Резервный момент 100: ошибка управления приводами; требуется сброс ошибки")
             self.last_telemetry = telemetry
             self.last_command = command
             self.controller.refresh_position(telemetry)

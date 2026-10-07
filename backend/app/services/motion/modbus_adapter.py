@@ -6,7 +6,8 @@ torque).  ``TorqueController`` turns the motion controller's per-side commands
 this adapter only does I/O, telemetry mapping and fail-safe behaviour:
 
 * PA_000 / PA_002 / PA_090 are never written, no EEPROM saves at runtime.
-* Stop means PA_12C = 0 (the servo stays enabled, no Servo OFF).
+* Idle/software fault/E-stop uses upward PA_12C = 100 support (no Servo OFF).
+  Overspeed keeps its explicit zero-torque interlock.
 * Monitoring: PA_1BC/1BD position, PA_1C1 speed, PA_1C3 command torque,
   PA_1C4 feedback torque, PA_1C9 alarm (PA_1DB/1DE in the debug telemetry).
 * Overspeed: the warning level reduces the exercise torque working along the
@@ -34,6 +35,7 @@ _WRITE_DEADBAND_RAW = 3  # do not rewrite PA_12C for changes below 0.3 %
 _WRITE_REFRESH_S = 0.25  # but refresh the reference at least this often
 _VELOCITY_FILTER = 0.5
 _COMM_RETRY_S = 0.5  # after a bus failure do not hammer the lock/bus every control tick
+FALLBACK_TORQUE_RAW = 100  # upward support per drive, NOT kg or a velocity guarantee
 
 
 class ModbusDriveAdapter:
@@ -61,6 +63,8 @@ class ModbusDriveAdapter:
         self._homed = False
         self._applied_limits: tuple[int, int] | None = None
         self._estop = False
+        self.safe_descent_active = False
+        self._support_reference = True
         self._heartbeat = True
         self._comm_retry_at = 0.0
         self._last = self._unavailable("Modbus не подключён")
@@ -130,11 +134,13 @@ class ModbusDriveAdapter:
         if not self.service.get_status().connected:
             self._written = {"left": None, "right": None}
             self.torque.stop()
+            self.safe_descent_active = True
             self._last = self._unavailable("Modbus не подключён")
             return self._last
         not_ready = [side for side in SIDES if not self.service.torque_ready(self.addresses[side])]
         if not_ready:
             self.torque.stop()
+            self.enter_safe_descent()
             message = "Torque Mode не инициализирован (PA_002=2, PA_093=0, PA_12C=0 не подтверждены)"
             self._last = self._unavailable(message, "E-TORQUE-NOT-READY")
             return self._last
@@ -143,6 +149,7 @@ class ModbusDriveAdapter:
         limit_error = self._apply_drive_limits()
         if limit_error:
             self.torque.stop()
+            self.enter_safe_descent()
             self._last = self._unavailable(limit_error, "E-MODBUS-WRITE")
             return self._last
 
@@ -157,22 +164,35 @@ class ModbusDriveAdapter:
         if len(inputs) < len(SIDES):
             self.torque.stop()
             self._comm_retry_at = time.monotonic() + _COMM_RETRY_S
-            if not self.service.manual_torque_active():
-                self._write_zero_both()
+            self.enter_safe_descent()
             self._last = AdapterTelemetry(now, telemetry["left"], telemetry["right"], power_ok=False, heartbeat_ok=False)
             return self._last
 
-        if self.service.manual_torque_active():
+        if self.service.manual_torque_active() and not self.safe_descent_active:
             # debug panel owns PA_12C: keep monitoring, write nothing, rewrite on resume
             self.torque.stop()
             self._written = {"left": None, "right": None}
             self._last = AdapterTelemetry(now, telemetry["left"], telemetry["right"], power_ok=True, heartbeat_ok=True)
             return self._last
 
-        if self._estop:
+        for side in SIDES:
+            if inputs[side].speed_rpm >= self.torque.settings.speed_alarm_rpm:
+                self.torque.alarm = f"overspeed_{side}_{inputs[side].speed_rpm:.0f}rpm"
+        if self._estop or self.safe_descent_active or all(command.side(side).mode in {"brake", "disabled"} for side in SIDES):
+            # There is no mechanical brake. E-stop and ordinary brake/idle
+            # commands must keep upward support instead of dropping the bar.
+            self.torque.stop()
+            self._support_reference = True
             output = TorqueOutput()
+            for side in SIDES:
+                output.sides[side].command_raw = self.fallback_commands()[self.addresses[side]]
+        elif self.torque.alarm is not None:
+            output = TorqueOutput(alarm=self.torque.alarm)
             self.torque.stop()
         else:
+            if self._support_reference:
+                self.torque.seed_support_reference(min(FALLBACK_TORQUE_RAW, self.torque.settings.max_command_raw))
+                self._support_reference = False
             output = self.torque.compute(command, inputs, dt)
         self.last_output = output
         if output.alarm is not None:
@@ -184,6 +204,8 @@ class ModbusDriveAdapter:
                 error = self._write_torque(side, output.command(side), now)
                 if error:
                     telemetry[side] = self._side_unavailable(side, "E-MODBUS-WRITE", error)
+            if any(not item.connected for item in telemetry.values()):
+                self.enter_safe_descent()
         self._heartbeat = not self._heartbeat
         healthy = all(item.connected for item in telemetry.values())
         self._last = AdapterTelemetry(now, telemetry["left"], telemetry["right"], power_ok=healthy, heartbeat_ok=healthy)
@@ -229,23 +251,58 @@ class ModbusDriveAdapter:
         return self._last
 
     # ------------------------------------------------------------- commands
-    def emergency_stop(self) -> None:
-        """PA_12C = 0 on both drives and block further references until released."""
+    def fallback_commands(self) -> dict[int, int]:
+        """Support against gravity; never reverse it into downward motor force."""
+        settings = TorqueSettings.from_parameters(self.parameters)
+        return {
+            self.addresses[side]: -FALLBACK_TORQUE_RAW if (
+                settings.left_inverted if side == "left" else settings.right_inverted
+            ) else FALLBACK_TORQUE_RAW
+            for side in SIDES
+        }
 
-        self._estop = True
+    def enter_safe_descent(self) -> dict[int, str]:
+        """Best-effort support, latched until reset. Never clear drive alarms/STOP.
+
+        Attempts both drives independently, including when one bus write fails.
+        Loss of power/comms or a disabled servo requires hardware protection.
+        """
+        self.safe_descent_active = True
+        self._support_reference = True
         self.service.end_manual_torque()
         self.torque.stop()
-        self._write_zero_both()
+        errors: dict[int, str] = {}
+        for side in SIDES:
+            address = self.addresses[side]
+            value = 0 if self.torque.alarm is not None else self.fallback_commands()[address]
+            try:
+                error = self.service.set_torque_command(address, value, log=False)
+            except Exception as exc:  # a broken drive must not prevent the other attempt
+                error = str(exc)
+            if error:
+                errors[address] = error
+                self._written[side] = None
+            else:
+                self._written[side] = value
+                self._written_at[side] = time.monotonic()
+        return errors
+
+    def emergency_stop(self) -> None:
+        """Latch E-stop and apply upward PA_12C = 100 support on both drives."""
+
+        if self._estop:
+            return
+        self._estop = True
+        self.enter_safe_descent()
 
     def release_emergency_stop(self) -> None:
         self._estop = False
         self.torque.stop()
 
     def set_brake(self, engaged: bool) -> None:
-        # No separate brake line in Torque Mode: "engaged" means no torque reference.
+        # No separate brake line: use backup support, not a fictitious brake.
         if engaged:
-            self.torque.stop()
-            self._write_zero_both()
+            self.enter_safe_descent()
 
     def home(self) -> None:
         """Establish the software zero of both encoders at the current bar position."""
@@ -286,9 +343,14 @@ class ModbusDriveAdapter:
 
         self.torque.reset()
         self._estop = False
+        self.safe_descent_active = False
+        self._support_reference = True
         self._written = {"left": None, "right": None}
         self._applied_limits = None
         if self.service.get_status().connected:
             settings = TorqueSettings.from_parameters(self.parameters)
-            self.service.initialize_torque_mode(torque_limit=settings.max_command_raw, speed_limit_rpm=settings.speed_limit_rpm)
+            self.service.initialize_torque_mode(
+                torque_limit=settings.max_command_raw, speed_limit_rpm=settings.speed_limit_rpm,
+                initial_commands=self.fallback_commands(),
+            )
             self._applied_limits = (settings.max_command_raw, settings.speed_limit_rpm)

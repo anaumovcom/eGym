@@ -123,6 +123,10 @@ class TorqueController:
 
         self._ramped = {"left": 0.0, "right": 0.0}
 
+    def seed_support_reference(self, logical_raw: float) -> None:
+        """Resume ramping from the support already sent, not from fictitious zero."""
+        self._ramped = {"left": logical_raw, "right": logical_raw}
+
     # ------------------------------------------------------------------
     def compute(self, command: DriveCommand, inputs: dict[Side, SideInput], dt: float) -> TorqueOutput:
         del dt
