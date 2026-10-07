@@ -126,8 +126,14 @@ AUDIO_INPUT_ALLOWANCE = 512
 REASONING_ALLOWANCE = 512
 
 
-def voice_bounds(text: str, *, audio_tokens_per_s: int, max_ms: int = MAX_STREAM_MS, instructions: str = "") -> UsageBounds:
+def speech_ms_bound(text: str) -> int:
+    """Upper bound for reading `text` aloud: measured ~75 ms/char on both paths (08.10.2026), 2x margin + 3 s."""
+    return min(MAX_STREAM_MS, 3000 + 160 * len(text))
+
+
+def voice_bounds(text: str, *, audio_tokens_per_s: int, max_ms: int | None = None, instructions: str = "") -> UsageBounds:
     # Covers either path: Realtime system text + delivery JSON, or the TTS template / explicit instructions.
+    max_ms = speech_ms_bound(text) if max_ms is None else max_ms
     size = len(text.encode()) + len(instructions.encode()) + len(REALTIME_INSTRUCTIONS.encode()) + len(TTS_TEMPLATE.encode()) + 256
     return UsageBounds(input_tokens=min(1_000_000, 2 * size + 256),
                        output_tokens=min(1_000_000, 2 * len(text.encode()) + REASONING_ALLOWANCE),
@@ -267,7 +273,7 @@ class VoiceAdapter(Protocol):
     last_transcript: str | None
 
     def stream(self, text: str, scope: CoachScope, generation_id: str, delivery: Delivery, *,
-               instructions: str | None = None) -> AsyncIterator[AudioChunk]: ...
+               instructions: str | None = None, max_output_tokens: int | None = None) -> AsyncIterator[AudioChunk]: ...
 
 
 def _check_text(text: str) -> None:
@@ -298,7 +304,7 @@ class TtsVoiceAdapter:
         return f"TtsVoiceAdapter(model={self.capability.model!r}, voice={self.voice!r}, key=<redacted>)"
 
     async def stream(self, text: str, scope: CoachScope, generation_id: str, delivery: Delivery, *,
-                     instructions: str | None = None) -> AsyncIterator[AudioChunk]:
+                     instructions: str | None = None, max_output_tokens: int | None = None) -> AsyncIterator[AudioChunk]:
         _check_text(text)
         self.last_usage, self.last_transcript = None, None
         # SSE (not raw PCM) because only the speech.audio.done event carries billable usage.
@@ -365,6 +371,13 @@ def parse_realtime_usage(raw: object) -> ReportedUsage | PartialUsage | None:
         return None
     details_in, details_out = raw.get("input_token_details") or {}, raw.get("output_token_details") or {}
     cached = details_in.get("cached_tokens_details") or {}
+    if details_in.get("text_tokens") == 0:
+        # Every request carries instructions + speechText, so zero input is a reporting gap (seen with
+        # reasoning.effort=minimal), not a free request: keep the attempt partial instead of under-billing it.
+        try:
+            return PartialUsage(output_tokens=raw.get("output_tokens"), audio_output_tokens=details_out.get("audio_tokens"))
+        except ValueError:
+            return None
     try:
         return ReportedUsage(input_tokens=details_in["text_tokens"], audio_input_tokens=details_in["audio_tokens"],
                              output_tokens=details_out["text_tokens"], audio_output_tokens=details_out["audio_tokens"],
@@ -379,20 +392,31 @@ def parse_realtime_usage(raw: object) -> ReportedUsage | PartialUsage | None:
 
 
 class RealtimeVoiceAdapter:
-    """Out-of-band single response: no microphone/VAD, no growing conversation history (conversation=none)."""
+    """Out-of-band responses: no microphone/VAD, no growing conversation history (conversation=none).
+
+    keep_alive reuses one socket for sequential responses (the WSS handshake is ~0.8 s of the ~1.4 s cold first
+    audio). The socket is dropped on any unclean exit, so a cancelled response can never leak into the next one,
+    and renewed before the documented 60-minute session limit.
+    """
 
     name: AdapterName = "realtime"
     test_only = False
+    MAX_SESSION_S = 55 * 60
     _AUDIO = {"response.output_audio.delta", "response.audio.delta"}
     _TRANSCRIPT = {"response.output_audio_transcript.delta", "response.audio_transcript.delta"}
 
     def __init__(self, connect: Callable[[str, dict[str, str]], Awaitable[RealtimeSocket]], key: str, *,
-                 model: str, voice: str, url: str = REALTIME_URL):
+                 model: str, voice: str, url: str = REALTIME_URL, reasoning_effort: str | None = None,
+                 keep_alive: bool = False, now_s: Callable[[], float] = time.monotonic):
         if not url.startswith("wss://api.openai.com/"):
             raise ValueError("Only the official WSS endpoint is allowed")
         self._connect, self._key, self.url = connect, key, url
         self.capability = VoiceCapability("realtime", model, (voice,), transcript=True, verified=_operator_verified())
-        self.voice = voice
+        self.voice, self.reasoning_effort, self.keep_alive, self._now_s = voice, reasoning_effort, keep_alive, now_s
+        self._socket: RealtimeSocket | None = None
+        self._opened_at = 0.0
+        self._lock = asyncio.Lock()
+        self.connects = 0
         self.last_usage: ReportedUsage | PartialUsage | None = None
         self.last_response_id = ""
         self.last_transcript: str | None = None
@@ -400,25 +424,77 @@ class RealtimeVoiceAdapter:
     def __repr__(self) -> str:
         return f"RealtimeVoiceAdapter(model={self.capability.model!r}, voice={self.voice!r}, key=<redacted>)"
 
-    def request(self, text: str, delivery: Delivery, instructions: str | None = None) -> dict:
+    def request(self, text: str, delivery: Delivery, instructions: str | None = None,
+                max_output_tokens: int | None = None) -> dict:
         speech = json.dumps({"speechText": text, "delivery": {"energy": delivery.energy, "pace": delivery.pace,
                                                              "emphasis": delivery.emphasis}}, ensure_ascii=False)
         system = REALTIME_INSTRUCTIONS + ("\n" + instructions if instructions else "")
-        return {"type": "response.create", "response": {
+        response = {
             "conversation": "none", "output_modalities": ["audio"], "instructions": system,
             "audio": {"output": {"format": {"type": "audio/pcm", "rate": SAMPLE_RATE}, "voice": self.voice}},
-            "input": [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": speech}]}]}}
+            "input": [{"type": "message", "role": "user", "content": [{"type": "input_text", "text": speech}]}]}
+        if self.reasoning_effort:
+            response["reasoning"] = {"effort": self.reasoning_effort}
+        if max_output_tokens:
+            response["max_output_tokens"] = max_output_tokens  # server-side stop: the reserve stays provable
+        return {"type": "response.create", "response": response}
+
+    async def _open(self) -> RealtimeSocket:
+        self.connects += 1
+        try:
+            self._socket = await self._connect(f"{self.url}?model={self.capability.model}",
+                                               {"Authorization": f"Bearer {self._key}"})
+        except Exception as error:  # handshake/HTTP status errors carry no key, but keep the reason generic
+            raise VoiceError("provider_connect") from error
+        self._opened_at = self._now_s()
+        return self._socket
+
+    async def _drop(self) -> None:
+        socket, self._socket = self._socket, None
+        if socket is not None:
+            with contextlib.suppress(Exception):
+                await socket.close()
+
+    async def aclose(self) -> None:
+        await self._drop()
+
+    async def _send(self, message: str) -> RealtimeSocket:
+        if self._socket is not None and self._now_s() - self._opened_at >= self.MAX_SESSION_S:
+            await self._drop()
+        if self._socket is not None:
+            try:
+                await self._socket.send(message)
+                return self._socket
+            except Exception:  # an idle socket closed by the server: nothing was sent, reconnect once
+                await self._drop()
+        socket = await self._open()
+        try:
+            await socket.send(message)
+        except Exception as error:
+            raise VoiceError("provider_disconnected") from error
+        return socket
 
     async def stream(self, text: str, scope: CoachScope, generation_id: str, delivery: Delivery, *,
-                     instructions: str | None = None) -> AsyncIterator[AudioChunk]:
+                     instructions: str | None = None, max_output_tokens: int | None = None) -> AsyncIterator[AudioChunk]:
         _check_text(text)
+        inner = self._stream(text, scope, generation_id, delivery, instructions, max_output_tokens)
+        async with self._lock, contextlib.aclosing(inner):
+            async for chunk in inner:
+                yield chunk
+
+    async def _stream(self, text: str, scope: CoachScope, generation_id: str, delivery: Delivery,
+                      instructions: str | None, max_output_tokens: int | None) -> AsyncIterator[AudioChunk]:
         self.last_usage, self.last_transcript = None, ""
         framer = PcmFramer(generation_id, generation_id, scope, "realtime")
-        socket = await self._connect(f"{self.url}?model={self.capability.model}", {"Authorization": f"Bearer {self._key}"})
+        clean = False
         try:
-            await socket.send(json.dumps(self.request(text, delivery, instructions), ensure_ascii=False))
+            socket = await self._send(json.dumps(self.request(text, delivery, instructions, max_output_tokens),
+                                                 ensure_ascii=False))
             while True:
-                raw = await socket.recv()
+                try:
+                    raw = await socket.recv()
+                except Exception as error:
+                    raise VoiceError("provider_disconnected") from error
                 try:
                     event = json.loads(raw)
                 except (TypeError, ValueError) as error:
@@ -442,9 +518,11 @@ class RealtimeVoiceAdapter:
                     break
                 elif kind == "error":
                     raise VoiceError("provider_error")
+            clean = True
             yield framer.finish()
         finally:
-            await socket.close()
+            if not (clean and self.keep_alive):
+                await self._drop()
 
 
 async def websocket_connect(url: str, headers: dict[str, str]) -> RealtimeSocket:
@@ -475,7 +553,7 @@ class FakeVoiceStream:
         self.last_transcript: str | None = None
 
     async def stream(self, text: str, scope: CoachScope, generation_id: str, delivery: Delivery, *,
-                     instructions: str | None = None) -> AsyncIterator[AudioChunk]:
+                     instructions: str | None = None, max_output_tokens: int | None = None) -> AsyncIterator[AudioChunk]:
         _check_text(text)
         self.calls.append(text)
         self.last_usage, self.last_transcript = None, None
@@ -526,7 +604,8 @@ class VoiceStreamer:
     async def stream(self, *, run_id: str, owner: str, generation: int, opportunity: str, text: str, scope: CoachScope,
                      generation_id: str, outcome: VoiceOutcome, delivery: Delivery | None = None) -> AsyncIterator[bytes]:
         delivery = delivery or Delivery()
-        bounds = voice_bounds(text, audio_tokens_per_s=self.audio_tokens_per_s)
+        max_ms = speech_ms_bound(text)
+        bounds = voice_bounds(text, audio_tokens_per_s=self.audio_tokens_per_s, max_ms=max_ms)
         try:
             with self.sessions() as db:
                 outcome.attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "voice", self.pricing, bounds)
@@ -542,7 +621,8 @@ class VoiceStreamer:
             outcome.status, outcome.reason = "refused", str(error.detail)
             return
         started = self.now_s()
-        iterator = self.adapter.stream(text, scope, generation_id, delivery).__aiter__()
+        iterator = self.adapter.stream(text, scope, generation_id, delivery,
+                                       max_output_tokens=bounds.output_tokens + bounds.audio_output_tokens).__aiter__()
         settled = False
         try:
             while True:
@@ -561,6 +641,8 @@ class VoiceStreamer:
                     outcome.first_audio_ms = round((self.now_s() - started) * 1000, 1)
                 outcome.frames += 1
                 outcome.bytes += chunk.metadata.byte_length
+                if pcm_duration_ms(outcome.bytes, chunk.metadata.sample_rate) > max_ms:
+                    raise VoiceError("audio_overrun")  # more speech than the text can need: preamble/runaway
                 yield encode_frame(chunk)
             usage = self.adapter.last_usage
             with self.sessions() as db:

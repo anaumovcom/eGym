@@ -267,14 +267,21 @@ async def run_text(args) -> int:
 
 # ---------- E08 voice ----------
 
-def make_adapter(kind: str, voice: str, key: str, client):
+def make_adapter(kind: str, voice: str, key: str, client, *, keep_alive: bool = True):
     from app.core.config import get_settings
     from app.services.coach.voice import RealtimeVoiceAdapter, TtsVoiceAdapter, websocket_connect
 
     cfg = get_settings()
     if kind == "realtime":
-        return RealtimeVoiceAdapter(websocket_connect, key, model=cfg.coach_voice_realtime_model, voice=voice)
+        return RealtimeVoiceAdapter(websocket_connect, key, model=cfg.coach_voice_realtime_model, voice=voice,
+                                    reasoning_effort=cfg.coach_voice_realtime_reasoning_effort, keep_alive=keep_alive)
     return TtsVoiceAdapter(client, key, model=cfg.coach_voice_tts_model, voice=voice)
+
+
+async def close_adapter(adapter) -> None:
+    close = getattr(adapter, "aclose", None)
+    if close:
+        await close()
 
 
 async def speak(streamer, run_id: str, generation: int, opportunity: str, text: str):
@@ -291,41 +298,54 @@ async def speak(streamer, run_id: str, generation: int, opportunity: str, text: 
     return outcome, bytes(pcm), round((time.monotonic() - started) * 1000)
 
 
-async def voice_matrix(key: str, kind_name: str, texts, voices, adapters, cap_usd: str) -> int:
+async def speak_all(streamer, adapter, adapter_kind, voice, texts, run_id, generation, path, rows, long_listen) -> int:
+    from app.services.coach.packs import pcm_to_wav, trim_edges
+    from app.services.coach.voice import SAMPLE_RATE
+
+    for index, text in enumerate(texts, 1):
+        generation = renew(run_id, generation)
+        outcome, pcm, total_ms = await speak(streamer, run_id, generation, f"{adapter_kind}:{voice}:{index}", text)
+        name = f"{adapter_kind}-{voice}-{index:02d}.wav"
+        if pcm:
+            (path / name).write_bytes(pcm_to_wav(pcm))
+            long_listen.setdefault(f"{adapter_kind}-{voice}", []).append(trim_edges(pcm))
+        check = outcome.transcript
+        row = {"adapter": adapter_kind, "voice": voice, "index": index, "text": text, "status": outcome.status,
+               "reason": outcome.reason, "firstAudioMs": outcome.first_audio_ms, "totalMs": total_ms,
+               "audioMs": round(len(pcm) / 2 / SAMPLE_RATE * 1000), "file": name if pcm else None,
+               "transcript": adapter.last_transcript if adapter_kind == "realtime" else None,
+               "transcriptStatus": check.status if check else None,
+               "similarity": check.similarity if check else None, "attemptId": outcome.attempt_id}
+        rows.append(row)
+        print(f"{adapter_kind:8} {voice:7} {index:2} {outcome.status:8} first {outcome.first_audio_ms} ms "
+              f"total {total_ms} ms audio {row['audioMs']} ms {row['transcriptStatus'] or ''} {outcome.reason}")
+        if outcome.status == "refused":
+            break
+    return generation
+
+
+async def voice_matrix(key: str, kind_name: str, texts, voices, adapters, cap_usd: str, *, cold: bool = False) -> int:
     import httpx
 
     from app.db.session import SessionLocal
-    from app.services.coach.packs import pcm_to_wav, trim_edges
+    from app.services.coach.packs import pcm_to_wav
     from app.services.coach.voice import SAMPLE_RATE, VoiceStreamer, voice_pricing
 
     path = out_dir(kind_name)
     run_id, generation = new_run("test", cap_usd)
-    rows, long_listen = [], {}
+    rows, long_listen, connects = [], {}, {}
     async with httpx.AsyncClient(timeout=30, follow_redirects=False, trust_env=False) as client:
         for adapter_kind in adapters:
             for voice in voices:
-                adapter = make_adapter(adapter_kind, voice, key, client)
+                adapter = make_adapter(adapter_kind, voice, key, client, keep_alive=not cold)
                 streamer = VoiceStreamer(SessionLocal, adapter, voice_pricing(adapter_kind), first_audio_timeout_s=8,
                                          total_timeout_s=30)
-                for index, text in enumerate(texts, 1):
-                    generation = renew(run_id, generation)
-                    outcome, pcm, total_ms = await speak(streamer, run_id, generation, f"{adapter_kind}:{voice}:{index}", text)
-                    name = f"{adapter_kind}-{voice}-{index:02d}.wav"
-                    if pcm:
-                        (path / name).write_bytes(pcm_to_wav(pcm))
-                        long_listen.setdefault(f"{adapter_kind}-{voice}", []).append(trim_edges(pcm))
-                    check = outcome.transcript
-                    row = {"adapter": adapter_kind, "voice": voice, "index": index, "text": text, "status": outcome.status,
-                           "reason": outcome.reason, "firstAudioMs": outcome.first_audio_ms, "totalMs": total_ms,
-                           "audioMs": round(len(pcm) / 2 / SAMPLE_RATE * 1000), "file": name if pcm else None,
-                           "transcript": adapter.last_transcript if adapter_kind == "realtime" else None,
-                           "transcriptStatus": check.status if check else None,
-                           "similarity": check.similarity if check else None, "attemptId": outcome.attempt_id}
-                    rows.append(row)
-                    print(f"{adapter_kind:8} {voice:7} {index:2} {outcome.status:8} first {outcome.first_audio_ms} ms "
-                          f"total {total_ms} ms audio {row['audioMs']} ms {row['transcriptStatus'] or ''} {outcome.reason}")
-                    if outcome.status == "refused":
-                        break
+                try:
+                    generation = await speak_all(streamer, adapter, adapter_kind, voice, texts, run_id, generation, path,
+                                                 rows, long_listen)
+                finally:
+                    await close_adapter(adapter)
+                connects[f"{adapter_kind}-{voice}"] = getattr(adapter, "connects", None)
     gap = bytes(int(0.6 * SAMPLE_RATE) * 2)
     for label, parts in long_listen.items():
         (path / f"listen-{label}.wav").write_bytes(pcm_to_wav(gap.join(parts)))
@@ -345,10 +365,12 @@ async def voice_matrix(key: str, kind_name: str, texts, voices, adapters, cap_us
                             "firstAudioMsMedian": statistics.median(first) if first else None,
                             "firstAudioMsMax": max(first) if first else None,
                             "coldFirstAudioMs": group[0]["firstAudioMs"],
+                            "connects": connects.get(f"{adapter_kind}-{voice}"),
                             "costMicros": sum(r["costMicros"] or 0 for r in group),
                             "costPerSecondMicros": round(sum(r["costMicros"] or 0 for r in group) / max(1, sum(r["audioMs"] for r in group)) * 1000),
                             "transcriptMatch": sum(r["transcriptStatus"] == "match" for r in group) if adapter_kind == "realtime" else None})
-    write_report(path, {"runId": run_id, "capUsd": cap_usd, "summary": summary, "results": rows, "ledger": snap})
+    write_report(path, {"runId": run_id, "capUsd": cap_usd, "warmSessions": not cold, "summary": summary,
+                        "results": rows, "ledger": snap})
     for item in summary:
         print(json.dumps(item, ensure_ascii=False))
     print(f"{kind_name}: requests {snap['requests']}, settled {snap['settledMicros']} µUSD, pending {snap['pendingMicros']} µUSD -> {path}")
@@ -357,12 +379,14 @@ async def voice_matrix(key: str, kind_name: str, texts, voices, adapters, cap_us
 
 async def run_voice(args) -> int:
     key = bootstrap()
-    return await voice_matrix(key, "voice", VOICE_TEXTS[:args.texts], args.voices.split(","), args.adapters.split(","), args.cap_usd)
+    return await voice_matrix(key, "voice", VOICE_TEXTS[:args.texts], args.voices.split(","), args.adapters.split(","),
+                              args.cap_usd, cold=args.cold)
 
 
 async def run_ab(args) -> int:
     key = bootstrap()
-    return await voice_matrix(key, "ab", AB_TEXTS[:args.texts], args.voices.split(","), args.adapters.split(","), args.cap_usd)
+    return await voice_matrix(key, "ab", AB_TEXTS[:args.texts], args.voices.split(","), args.adapters.split(","),
+                              args.cap_usd, cold=args.cold)
 
 
 # ---------- E09.7 packs ----------
@@ -397,7 +421,8 @@ async def run_pack(args) -> int:
             with SessionLocal() as db:
                 job_id = ledger.submit_job(db, run_id, f"pilot-{round_index}-{time.time_ns()}", plan["planFingerprint"], items)
                 ledger.job_state(db, job_id, "queued")
-            voice = ProviderPackVoice(make_adapter(args.adapter, args.voice, key, client))
+            adapter = make_adapter(args.adapter, args.voice, key, client)
+            voice = ProviderPackVoice(adapter)
             runner = PackJobRunner(SessionLocal, voice, voice_pricing(args.adapter), store, slot=args.slot, model=model)
             print(f"pack round {round_index + 1}: {len(items)} clips")
             try:
@@ -405,6 +430,8 @@ async def run_pack(args) -> int:
             except PackError as error:
                 failures.append({"round": round_index + 1, "reason": error.reason, "transcript": voice.last_transcript})
                 print(f"  paused: {error.reason} {voice.last_transcript or ''}")
+            finally:
+                await close_adapter(adapter)
             snap = snapshot(run_id)
             spent += snap["settledMicros"] + snap["pendingMicros"]
             rounds.append({"runId": run_id, "items": len(items), "requests": snap["requests"],
@@ -448,6 +475,7 @@ def main() -> int:
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--include-optional", action="store_true")
     parser.add_argument("--effort", choices=("none", "low", "medium"))
+    parser.add_argument("--cold", action="store_true", help="new Realtime socket per utterance (A/B against warm reuse)")
     args = parser.parse_args()
     if not args.confirm_paid:
         print("Refusing: paid pilot requires --confirm-paid")

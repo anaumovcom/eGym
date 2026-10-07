@@ -341,7 +341,8 @@ class PackVoice(Protocol):
     name: str
     test_only: bool
 
-    async def synthesize(self, text: str, voice: str, instructions: str) -> PackAudio: ...
+    async def synthesize(self, text: str, voice: str, instructions: str, *,
+                         max_output_tokens: int | None = None) -> PackAudio: ...
 
 
 def trim_edges(pcm: bytes, sample_rate: int = SAMPLE_RATE, keep_s: float = 0.08) -> bytes:
@@ -375,12 +376,14 @@ class ProviderPackVoice:
         self.adapter, self.name = adapter, adapter.name
         self.last_transcript: str | None = None
 
-    async def synthesize(self, text: str, voice: str, instructions: str) -> PackAudio:
+    async def synthesize(self, text: str, voice: str, instructions: str, *,
+                         max_output_tokens: int | None = None) -> PackAudio:
         if voice not in self.adapter.capability.voices:
             raise PackError("voice_mismatch")
         scope = CoachScope(user_id="pack", run_id="pack")
         parts = [chunk.data async for chunk in self.adapter.stream(text, scope, f"pack-{time.time_ns()}", Delivery(),
-                                                                   instructions=instructions)]
+                                                                   instructions=instructions,
+                                                                   max_output_tokens=max_output_tokens)]
         usage = self.adapter.last_usage
         if not isinstance(usage, ReportedUsage):
             raise PackError("usage_unavailable")
@@ -465,9 +468,12 @@ class PackJobRunner:
                         # Long jobs outlive one 15 s lease: renew per clip; a lost lease pauses instead of paying.
                         if ledger.lease(db, run_id, owner, generation)["generation"] != generation:
                             raise PackError("lease_lost")
-                        attempt_id = ledger.reserve(db, run_id, owner, generation, f"pack:{fp}", "voice", self.pricing, clip_bounds(spec))
+                        bounds = clip_bounds(spec)
+                        attempt_id = ledger.reserve(db, run_id, owner, generation, f"pack:{fp}", "voice", self.pricing, bounds)
                         ledger.dispatch(db, attempt_id, owner, test_only=self.adapter.test_only, adapter=f"pack-{self.adapter.name}")
-                    audio = await asyncio.wait_for(self.adapter.synthesize(spec.text, self.voice, clip_instructions(spec)), self.timeout_s)
+                    audio = await asyncio.wait_for(self.adapter.synthesize(
+                        spec.text, self.voice, clip_instructions(spec),
+                        max_output_tokens=bounds.output_tokens + bounds.audio_output_tokens), self.timeout_s)
                     usage = ReportedUsage.model_validate(audio.usage)
                     try:
                         if not audio.verified:
@@ -516,7 +522,8 @@ class FakePackVoice:
         self.seconds, self.amplitude, self.fail_on = seconds, amplitude, fail_on or set()
         self.calls: list[str] = []
 
-    async def synthesize(self, text: str, voice: str, instructions: str) -> PackAudio:
+    async def synthesize(self, text: str, voice: str, instructions: str, *,
+                         max_output_tokens: int | None = None) -> PackAudio:
         self.calls.append(text)
         if text in self.fail_on:
             raise PackError("provider_failed")

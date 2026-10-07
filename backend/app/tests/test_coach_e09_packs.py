@@ -219,8 +219,9 @@ class ScriptedSpeaker:
         self.last_usage = self.last_transcript = None
         self.last_response_id = ""
 
-    async def stream(self, text, scope, generation_id, delivery, *, instructions=None):
+    async def stream(self, text, scope, generation_id, delivery, *, instructions=None, max_output_tokens=None):
         self.calls.append((text, instructions))
+        self.max_output_tokens = max_output_tokens
         pcm = b"\0\0" * 12_000
         pcm += (await FakePackVoice(seconds=0.4).synthesize("x", "v", "i")).pcm + b"\0\0" * 12_000
         framer = PcmFramer(generation_id, generation_id, scope, "realtime")
@@ -235,7 +236,8 @@ class ScriptedSpeaker:
 @pytest.mark.asyncio
 async def test_provider_pack_voice_trims_edges_and_gates_on_transcript():
     good = ProviderPackVoice(ScriptedSpeaker("Пять секунд."))
-    audio = await good.synthesize("Пять секунд.", "synthetic-female", COUNT_INSTRUCTIONS)
+    audio = await good.synthesize("Пять секунд.", "synthetic-female", COUNT_INSTRUCTIONS, max_output_tokens=900)
+    assert good.adapter.max_output_tokens == 900
     assert audio.verified and audio.response_id == "resp-1" and good.adapter.calls == [("Пять секунд.", COUNT_INSTRUCTIONS)]
     assert len(audio.pcm) < 2 * 24_000 * 0.7  # 0.5 s lead/tail silence cut to short pads
     check = verify_wav(pcm_to_wav(audio.pcm))
@@ -255,8 +257,8 @@ async def test_provider_pack_voice_trims_edges_and_gates_on_transcript():
 @pytest.mark.asyncio
 async def test_transcript_mismatch_is_paid_but_not_stored(session_factory, pack_env):
     class Mismatch(FakePackVoice):
-        async def synthesize(self, text, voice, instructions):
-            audio = await super().synthesize(text, voice, instructions)
+        async def synthesize(self, text, voice, instructions, **kw):
+            audio = await super().synthesize(text, voice, instructions, **kw)
             return dataclasses.replace(audio, verified=False)
 
     with pytest.raises(PackError, match="transcript_mismatch"):

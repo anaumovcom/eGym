@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     coach_paid_voice_enabled: bool = Field(default=False, alias="COACH_PAID_VOICE_ENABLED")
     coach_voice_pricing_verified: bool = Field(default=False, alias="COACH_VOICE_PRICING_VERIFIED")
     coach_voice_realtime_model: str = Field(default="gpt-realtime-2.1-mini", max_length=80, alias="COACH_VOICE_REALTIME_MODEL")
+    # Realtime 2 prompting guide: minimal|low|medium|high|xhigh. Unset by default: the probe of 08.10.2026 showed that
+    # "minimal" makes response.done report input_tokens=0 (billing basis unknown) while saving only ~12 reasoning tokens.
+    coach_voice_realtime_reasoning_effort: Literal["minimal", "low", "medium"] | None = Field(
+        default=None, alias="COACH_VOICE_REALTIME_REASONING_EFFORT")
     # gpt-4o-mini-tts is deprecated (shutdown 2027-01-06): kept only for A/B and pack generation before that date.
     coach_voice_tts_model: str = Field(default="gpt-4o-mini-tts", max_length=80, alias="COACH_VOICE_TTS_MODEL")
     coach_voice_pricing_version: str = Field(default="openai-2026-10-08", max_length=80, alias="COACH_VOICE_PRICING_VERSION")
