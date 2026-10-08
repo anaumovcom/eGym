@@ -74,7 +74,7 @@ def test_voice_prompts_are_verbatim_from_document_and_hashed():
     with pytest.raises(ValueError):
         Delivery("shout")
     hashes = voice_hashes()
-    assert hashes["version"] == "coach-voice-0.3" and all(len(v) == 64 for k, v in hashes.items() if k != "version")
+    assert hashes["version"] == "coach-voice-0.5" and all(len(v) == 64 for k, v in hashes.items() if k != "version")
 
 
 def chunk(data: bytes, *, sequence=0, final=False, rate=24_000, **meta) -> AudioChunk:

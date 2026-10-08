@@ -9,7 +9,8 @@ Outputs (WAV + redacted JSON, no key, no provider bodies) go to backend/coach_pa
   .venv/bin/python backend/scripts/coach_pilot.py text  --confirm-paid --cap-usd 0.05
   .venv/bin/python backend/scripts/coach_pilot.py voice --confirm-paid --cap-usd 0.10
   .venv/bin/python backend/scripts/coach_pilot.py ab    --confirm-paid --cap-usd 0.60 --voices marin,cedar
-  .venv/bin/python backend/scripts/coach_pilot.py pack  --confirm-paid --cap-usd 0.30 --slot female --voice marin --adapter tts
+  .venv/bin/python backend/scripts/coach_pilot.py pack  --confirm-paid --cap-usd 0.40 --voice ash --include-optional
+  .venv/bin/python backend/scripts/coach_pilot.py live  --confirm-paid --cap-usd 0.15 --voice ash
 """
 
 import argparse
@@ -408,7 +409,7 @@ async def run_pack(args) -> int:
     spent, rounds, failures = 0, [], []
     async with httpx.AsyncClient(timeout=30, follow_redirects=False, trust_env=False) as client:
         for round_index in range(args.rounds):
-            plan = packs.plan(store, args.slot, model)
+            plan = packs.plan(store, args.voice, model)
             wanted = {spec.id for spec in CATALOG.values() if spec.required or args.include_optional}
             items = [clip for clip in plan["missing"] + plan["corrupt"] if clip in wanted]
             if not items:
@@ -423,7 +424,7 @@ async def run_pack(args) -> int:
                 ledger.job_state(db, job_id, "queued")
             adapter = make_adapter(args.adapter, args.voice, key, client)
             voice = ProviderPackVoice(adapter)
-            runner = PackJobRunner(SessionLocal, voice, voice_pricing(args.adapter), store, slot=args.slot, model=model)
+            runner = PackJobRunner(SessionLocal, voice, voice_pricing(args.adapter), store, slot=args.voice, model=model)
             print(f"pack round {round_index + 1}: {len(items)} clips")
             try:
                 await runner.run(job_id, OWNER, generation)
@@ -436,9 +437,9 @@ async def run_pack(args) -> int:
             spent += snap["settledMicros"] + snap["pendingMicros"]
             rounds.append({"runId": run_id, "items": len(items), "requests": snap["requests"],
                            "settledMicros": snap["settledMicros"], "pendingMicros": snap["pendingMicros"]})
-    final = packs.plan(store, args.slot, model)
-    manifest = store.manifest(args.slot)
-    path = out_dir(f"pack-{args.slot}")
+    final = packs.plan(store, args.voice, model)
+    manifest = store.manifest(args.voice)
+    path = out_dir(f"pack-{args.voice}")
     if manifest and manifest["model"] == model and manifest["voice"] == args.voice:
         gap = bytes(int(0.4 * SAMPLE_RATE) * 2)
         listen = [f"count-{n}" for n in range(1, 11)] + ["countdown-3", "countdown-2", "countdown-1", "set-start",
@@ -450,28 +451,139 @@ async def run_pack(args) -> int:
             parts.append(data[44:])
         from app.services.coach.packs import pcm_to_wav
 
-        (path / f"listen-{args.slot}.wav").write_bytes(pcm_to_wav(gap.join(parts)))
-    write_report(path, {"slot": args.slot, "voice": args.voice, "adapter": args.adapter, "model": model, "capUsd": args.cap_usd,
+        (path / f"listen-{args.voice}.wav").write_bytes(pcm_to_wav(gap.join(parts)))
+    write_report(path, {"slot": args.voice, "voice": args.voice, "adapter": args.adapter, "model": model, "capUsd": args.cap_usd,
                         "spentMicros": spent, "rounds": rounds, "failures": failures,
                         "required": final["required"], "optional": final["optional"],
                         "manifest": {k: manifest[k] for k in ("packVersion", "complete", "voice", "model")} if manifest else None,
                         "clips": manifest["clips"] if manifest else None})
-    print(f"pack {args.slot}: required {final['required']}, spent {spent} µUSD, manifest "
+    print(f"pack {args.voice}: required {final['required']}, spent {spent} µUSD, manifest "
           f"{manifest['packVersion'] if manifest else None} -> {path}")
     return 0
 
 
+# ---------- E10 live (end-to-end LiveCoach through the production pipeline) ----------
+
+def seed_workout() -> tuple[int, int, int]:
+    """One completed 10/10 set in the sandbox DB: server-side facts for T36/T55/T58."""
+    from datetime import UTC, datetime
+
+    from app.db.session import SessionLocal
+    from app.schemas.runtime import ExerciseSessionCreateSchema, SetResultSaveSchema, WorkoutSessionCreateSchema
+    from app.services.runtime_service import RuntimeService
+
+    service = RuntimeService()
+    with SessionLocal() as db:
+        started = datetime.now(UTC)
+        workout = service.save_workout_session(db, WorkoutSessionCreateSchema(
+            user_id=USER, source="catalog", title="Pilot", started_at=started, status="in_progress"))
+        exercise = service.save_exercise_session(db, ExerciseSessionCreateSchema(
+            user_id=USER, workout_session_id=workout.workout_session_id, exercise_slug="machine-pulldown",
+            exercise_name="Тяга верхнего блока", kind="machine", status="completed", started_at=started,
+            target_sets=1)).exercise_session.id
+        saved = service.save_set_result(db, SetResultSaveSchema(
+            exercise_session_id=exercise, set_number=1, planned_value=10, actual_value=10, reps=10, weight_kg=25,
+            tempo_label="unknown", machine_metrics={"completionStatus": "completed"}))
+        return workout.workout_session_id, exercise, saved.set_id
+
+
+async def run_live(args) -> int:
+    from app.db.session import SessionLocal
+    from app.schemas.coach_control import CoachPreferences
+    from app.services.coach import live
+    from app.services.coach.packs import pcm_to_wav
+    from app.services.coach.voice import SAMPLE_RATE, decode_frame
+
+    bootstrap()
+    workout_id, exercise_id, set_id = seed_workout()
+    run_id, generation = new_run("test", args.cap_usd)
+    prefs = CoachPreferences(enabled=True, consent_version=1, network_consent_version=1, mode="hybrid",
+                             voice_profile=args.voice, history_consent=True, density="talkative")
+    pipeline = await live.default_pipeline(SessionLocal, prefs)
+    if pipeline.author is None or pipeline.voice is None:
+        print(f"Refusing: pipeline unavailable ({pipeline.reason})")
+        return 2
+    offset = [0.0]  # Virtual time: real clock + skipped rest/playback, so pacing windows behave like a workout.
+    messages: list[dict] = []
+    frames: dict[str, bytearray] = {}
+
+    async def send_json(payload: dict) -> None:
+        messages.append(payload)
+
+    async def send_bytes(data: bytes) -> None:
+        frame = decode_frame(data)
+        frames.setdefault(frame.metadata.generation_id, bytearray()).extend(frame.data)
+
+    coach = live.LiveCoach(SessionLocal, run_id=run_id, owner=OWNER, generation=generation, user_id=USER, settings=prefs,
+                           author=pipeline.author, voice=pipeline.voice, send_json=send_json, send_bytes=send_bytes,
+                           now_ms=lambda: time.time() * 1000 + offset[0])
+    steps = [
+        ("workout_started", "setup", None, None, {}),
+        ("exercise_ready", "setup", None, None, {"exerciseName": "Тяга верхнего блока"}),
+        ("rep_milestone", "active-set", 1, None, {"phaseElapsedMs": 15_000}),
+        ("set_persisted", "finalizing-set", 1, {"backendSetId": set_id}, {"restMs": 90_000, "restElapsedMs": 2_000}),
+        ("rest_long_opportunity", "rest", 1, None, {"restMs": 90_000, "restElapsedMs": 30_000}),
+        ("exercise_finalized", "exercise-summary", None, {"backendExerciseId": exercise_id}, {}),
+        ("workout_finalized", "workout-summary", None, {"backendWorkoutId": workout_id}, {}),
+    ]
+    rows, path = [], out_dir(f"live-{args.voice}")
+    try:
+        for index, (kind, phase, set_ordinal, refs, context) in enumerate(steps, 1):
+            coach.generation = renew(run_id, coach.generation)  # The socket route renews the lease every 5 s.
+            now = time.time() * 1000 + offset[0]
+            exercise = None if kind in {"workout_started", "workout_finalized"} else "pilot-ex"
+            message = {"type": "event", "event": {
+                "id": f"pilot-{index}", "kind": kind, "phase": phase, "source": "runtime_ack",
+                "scope": {"userId": USER, "runId": run_id, "exerciseId": exercise, "setOrdinal": set_ordinal,
+                          "scopeEpoch": index}, "createdAtMs": now, "startDeadlineMs": now + 20_000},
+                       "context": context, **({"refs": refs} if refs else {})}
+            before, started = len(messages), time.monotonic()
+            await coach.handle(message)
+            while coach.task is not None and not coach.task.done():
+                await asyncio.sleep(0.02)
+            new = messages[before:]
+            start = next((m for m in new if m["type"] == "speech_start"), None)
+            end = next((m for m in new if m["type"] == "speech_end"), None)
+            decision = next((m for m in new if m["type"] in {"decision", "event_rejected"}), None)
+            pcm = bytes(frames.get(start["generationId"], b"")) if start else b""
+            audio_ms = round(len(pcm) / 2 / SAMPLE_RATE * 1000)
+            if start:
+                await coach.handle({"type": "playback_started", "generationId": start["generationId"], "durationMs": audio_ms})
+                await coach.handle({"type": "playback_completed", "generationId": start["generationId"]})
+            if pcm:
+                (path / f"{index:02d}-{kind}.wav").write_bytes(pcm_to_wav(pcm))
+            row = {"step": index, "event": kind, "trigger": (start or decision or {}).get("triggerId"),
+                   "text": start["text"] if start else None, "decision": decision and {k: decision.get(k) for k in ("action", "reason")},
+                   "voiceStatus": end and end["status"], "voiceReason": end and end.get("reason"),
+                   "firstAudioMs": end and end.get("firstAudioMs"), "audioMs": audio_ms,
+                   "totalMs": round((time.monotonic() - started) * 1000)}
+            rows.append(row)
+            print(f"{index} {kind:22} {row['trigger'] or '-':4} {row['voiceStatus'] or (row['decision'] or {}).get('reason') or '-':12} "
+                  f"first {row['firstAudioMs']} ms total {row['totalMs']} ms audio {audio_ms} ms  {row['text'] or ''}")
+            offset[0] += audio_ms + 35_000  # Skip ahead: next opportunity arrives after a realistic gap.
+    finally:
+        await coach.close()
+        await pipeline.close()
+    snap = snapshot(run_id)
+    write_report(path, {"runId": run_id, "capUsd": args.cap_usd, "voice": args.voice, "results": rows,
+                        "stats": coach.stats.as_dict(), "ledger": snap})
+    print(f"live: spoken {coach.stats.spoken}, requests {snap['requests']}, settled {snap['settledMicros']} µUSD, "
+          f"pending {snap['pendingMicros']} µUSD -> {path}")
+    return 0
+
+
 def main() -> int:
+    from app.schemas.coach import COACH_VOICES, DEFAULT_COACH_VOICE
+
     parser = argparse.ArgumentParser()
-    parser.add_argument("kind", choices=("text", "voice", "ab", "pack"))
+    parser.add_argument("kind", choices=("text", "voice", "ab", "pack", "live"))
     parser.add_argument("--confirm-paid", action="store_true")
     parser.add_argument("--cap-usd", required=True)
-    parser.add_argument("--voices", default="marin,cedar")
+    parser.add_argument("--voices", default="ash")
     parser.add_argument("--adapters", default="realtime,tts")
     parser.add_argument("--texts", type=int, default=30)
-    parser.add_argument("--slot", choices=("female", "male"))
-    parser.add_argument("--voice")
-    parser.add_argument("--adapter", choices=("realtime", "tts"), default="tts")
+    parser.add_argument("--voice", choices=COACH_VOICES, default=DEFAULT_COACH_VOICE)
+    parser.add_argument("--adapter", choices=("realtime", "tts"), default="realtime")
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--include-optional", action="store_true")
     parser.add_argument("--effort", choices=("none", "low", "medium"))
@@ -483,14 +595,9 @@ def main() -> int:
     if float(args.cap_usd) > 2:
         print("Refusing: pilot cap above $2.00")
         return 2
-    extra = {}
-    if args.kind == "pack":
-        if not args.slot or not args.voice:
-            print("Refusing: pack requires --slot and --voice")
-            return 2
-        extra[f"COACH_PACK_VOICE_{args.slot.upper()}"] = args.voice
+    extra = {"COACH_PACK_ADAPTER": args.adapter} if args.kind == "pack" else {}
     prepare_sandbox(extra)
-    return asyncio.run({"text": run_text, "voice": run_voice, "ab": run_ab, "pack": run_pack}[args.kind](args))
+    return asyncio.run({"text": run_text, "voice": run_voice, "ab": run_ab, "pack": run_pack, "live": run_live}[args.kind](args))
 
 
 if __name__ == "__main__":

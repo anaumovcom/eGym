@@ -17,5 +17,7 @@ export default defineConfig({
     globals: true,
     include: ['src/**/*.test.{ts,tsx}'],
     exclude: ['e2e/**', '.storybook/**'],
+    // The local .env may enable the coach for the dev server; tests opt in via vi.stubEnv.
+    env: { VITE_COACH_ENABLED: 'false' },
   },
 })

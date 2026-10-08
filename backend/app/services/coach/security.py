@@ -14,6 +14,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from fastapi import HTTPException, Request
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
+from starlette.requests import HTTPConnection
 
 from app.core.config import get_settings
 from app.models.coach import CoachCredential, CoachOperatorSession
@@ -50,15 +51,16 @@ def protected_file(path: str | None) -> bytes:
         raise HTTPException(503, "secure_storage_unavailable") from None
 
 
-def safe_request(request: Request, *, mutation: bool = True) -> None:
+def safe_request(request: HTTPConnection, *, mutation: bool = True) -> None:
     # No trust in Forwarded/X-Forwarded-Proto. TLS must terminate at trusted app boundary.
     if request.headers.get("forwarded") or request.headers.get("x-forwarded-proto"):
         raise HTTPException(403, "forwarded_transport_denied")
     local = request.url.hostname in {"localhost", "127.0.0.1", "::1"} and request.client is not None and request.client.host in {"127.0.0.1", "::1", "testclient"}
-    if request.url.scheme != "https" and not local:
+    scheme = {"ws": "http", "wss": "https"}.get(request.url.scheme, request.url.scheme)
+    if scheme != "https" and not local:
         raise HTTPException(403, "https_required")
     origin = request.headers.get("origin")
-    own_origin = f"{request.url.scheme}://{request.url.netloc}"
+    own_origin = f"{scheme}://{request.url.netloc}"
     if mutation and (not origin or origin not in [own_origin, *get_settings().cors_origins]):
         raise HTTPException(403, "origin_denied")
     if request.headers.get("sec-fetch-site") == "cross-site":

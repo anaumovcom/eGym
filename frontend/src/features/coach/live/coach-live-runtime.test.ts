@@ -7,7 +7,8 @@ import { createTestClipBuffer } from '../audio/test-clips'
 import { REQUIRED_LOCAL_CLIPS } from '../interpreter/local-cues'
 import type { CoachEvent } from '../model/contracts'
 import { DEFAULT_COACH_PREFERENCES, type CoachPreferences } from '../model/preferences'
-import { CoachLiveRuntime, type LiveInputs } from './coach-live-runtime'
+import { CoachLiveRuntime, type LiveInputs, type LiveRuntimeDependencies } from './coach-live-runtime'
+import type { NetworkTick } from './coach-network-client'
 import { RepBeepArbiter, type ClipSource } from './local-cue-player'
 
 const saved: CoachPreferences = { ...DEFAULT_COACH_PREFERENCES, enabled: true, consentVersion: 1, count: 'every' }
@@ -27,7 +28,7 @@ class Fixture {
   private emitted = 0
   readonly runtime: CoachLiveRuntime
 
-  constructor() {
+  constructor(network: LiveRuntimeDependencies['network'] = null) {
     this.clock.time = 1000
     this.inputs = { userId: 'u1', featureEnabled: true, hidden: false, emergency: false, session: session(), hardware: null, connected: true,
       general: { soundEnabled: true, voiceHintsEnabled: true, volume: 0.7 }, saved }
@@ -40,7 +41,7 @@ class Fixture {
         const manager = new LocalCoachAudioManager({ context, scope, clock: this.clock }); this.managers.push(manager); return manager
       },
       clips: () => clips, beep: this.beep, now: () => this.clock.now(),
-      setInterval: () => 1, clearInterval: () => undefined, allowEmulator: false,
+      setInterval: () => 1, clearInterval: () => undefined, allowEmulator: false, network,
     })
   }
 
@@ -128,6 +129,22 @@ describe('CoachLiveRuntime', () => {
     f.change({ emergency: true })
     expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'safety-stop', reason: 'admitted' })
     expect(f.managers[0].snapshot().utterances.every(item => item.id === f.managers[0].snapshot().utterances.at(-1)!.id)).toBe(true)
+  })
+
+  it('passes interpreter state to the network port and shares the mixer', () => {
+    const ticks: NetworkTick[] = []
+    const observed: unknown[] = []
+    const network = { tick: (input: NetworkTick) => { ticks.push(input) }, observe: (audio: unknown) => { observed.push(audio) },
+      dispose: () => undefined, subscribe: () => () => undefined, getSnapshot: () => null as never }
+    const f = new Fixture(network); fixtures.push(f); f.runtime.start()
+    f.view('exercise-setup'); f.view('exercise-session'); f.hw('start_hold', 0); f.hw('training', 0); f.hw('training', 2)
+    const last = ticks.at(-1)!
+    expect(last).toMatchObject({ featureEnabled: true, phase: 'active-set', reps: 2, latched: false, gate: null, userId: 'u1' })
+    expect(last.scope).toMatchObject({ runId: 'run-1', exerciseId: 'e1', setOrdinal: 1 })
+    expect(last.mixer()).toBe(f.managers[0])
+    expect(observed.length).toBeGreaterThan(0)
+    f.change({ featureEnabled: false })
+    expect(ticks.at(-1)).toMatchObject({ featureEnabled: false })
   })
 
   it('does nothing when the feature flag is off', () => {

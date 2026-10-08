@@ -58,6 +58,14 @@ class LeaseRequest(CoachModel):
     expected_generation: int = Field(ge=0)
 
 
+class LiveConfigure(CoachModel):
+    """First live-socket message. The run token never travels in the URL/query string."""
+
+    type: Literal["configure"]
+    run_token: str = Field(min_length=1, max_length=128)
+    owner_id: str = Field(min_length=1, max_length=120)
+
+
 class RunBind(CoachModel):
     workout_session_id: int = Field(ge=1)
 

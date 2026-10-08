@@ -3,7 +3,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 
@@ -56,16 +56,28 @@ CoachSource = Literal["hardware", "runtime_ack", "user_input", "synthetic", "rec
 CoachOutcome = Literal["completed", "partial", "skipped", "aborted"]
 
 
+# Built-in voices of the Realtime model (live speech and packs share one timbre). Ash is the default.
+COACH_VOICES = ("ash", "alloy", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse")
+DEFAULT_COACH_VOICE = "ash"
+CoachVoice = Literal["ash", "alloy", "ballad", "cedar", "coral", "echo", "marin", "sage", "shimmer", "verse"]
+
+
 class CoachSettings(CoachModel):
     enabled: bool = False
     consent_version: int | None = Field(default=None, ge=1)
     mode: Literal["local", "hybrid", "text-only"] = "local"
     density: Literal["quiet", "companion", "talkative"] = "companion"
     count: Literal["every", "last-three", "milestones", "off"] = "off"
-    voice_profile: str | None = Field(default=None, max_length=80)
+    # Provider voice ID. Legacy E09 slots ("female"/"male") and unset values migrate to the default voice.
+    voice_profile: CoachVoice = DEFAULT_COACH_VOICE
     history_consent: bool = False
     revision: int = Field(default=0, ge=0)
     budget_usd: str = Field(default="2.00", pattern=r"^\d{1,3}(\.\d{1,4})?$")
+
+    @field_validator("voice_profile", mode="before")
+    @classmethod
+    def migrate_voice(cls, value: object) -> object:
+        return DEFAULT_COACH_VOICE if value in (None, "", "female", "male") else value
 
 
 class CoachScope(CoachModel):

@@ -185,6 +185,38 @@ def test_reserve_dispatch_settle_dedup_reconciliation(session_factory):
             ledger.reserve(db, run_id, "tab-a", generation, "event-1", "text", PRICE, BOUNDS)
 
 
+def test_daily_usage_counts_only_sent_requests_since_midnight(client, session_factory):
+    import time
+
+    with session_factory() as db:
+        run_id, generation, _ = make_run(db)
+        settled = ledger.reserve(db, run_id, "tab-a", generation, "event-1", "text", PRICE, BOUNDS)
+        ledger.dispatch(db, settled, "tab-a", test_only=True)
+        ledger.settle(db, settled, "response-1", usage(), terminal=True)
+        pending = ledger.reserve(db, run_id, "tab-a", generation, "event-2", "voice", PRICE, BOUNDS)
+        ledger.dispatch(db, pending, "tab-a", test_only=True)
+        ledger.mark_unsettled(db, pending)
+        never_sent = ledger.reserve(db, run_id, "tab-a", generation, "event-3", "text", PRICE, BOUNDS)
+        ledger.cancel_reserved(db, never_sent)
+        old = ledger.reserve(db, run_id, "tab-a", generation, "event-4", "text", PRICE, BOUNDS)
+        ledger.dispatch(db, old, "tab-a", test_only=True)
+        ledger.settle(db, old, "response-4", usage(), terminal=True)
+        db.get(CoachAttempt, old).sent_at = time.time() - 86_400
+        db.commit()
+        value = ledger.daily_usage(db, time.time() - 3600)
+    one = ledger.cost(PRICE, usage())
+    reserve = ledger.cost(PRICE, ReportedUsage(**BOUNDS.model_dump(exclude={"schema_version"})))
+    assert value["requests"] == 2
+    assert value["settledMicros"] == one and value["pendingMicros"] == reserve and value["totalMicros"] == one + reserve
+    client.base_url = "http://localhost"
+    response = client.get("/api/coach/usage/today", params={"since": time.time() - 3600})
+    assert response.status_code == 200 and response.headers["cache-control"] == "no-store"
+    assert response.json()["requests"] == 2
+    assert client.get("/api/coach/usage/today").json()["requests"] >= 2
+    for since in (time.time() - 3 * 86_400, time.time() + 3600, "nan"):
+        assert client.get("/api/coach/usage/today", params={"since": since}).status_code == 422
+
+
 def test_cancel_sent_unknown_usage_remains_reserved_after_restart(session_factory):
     with session_factory() as db:
         run_id, generation, _ = make_run(db)

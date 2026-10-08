@@ -14,12 +14,15 @@ export type LifecyclePayload = {
   outcome?: CoachOutcome; actualValue?: number; progressUnit?: 'reps' | 'seconds'
   backendSetId?: number; backendExerciseId?: number; backendWorkoutId?: number
 }
+export type LifecycleRefs = Readonly<{ backendSetId?: number; backendExerciseId?: number; backendWorkoutId?: number }>
 
 /** No async callbacks, provider, playback, storage writes or hardware commands. */
 export class CoachLifecycleObserver {
   private records: CoachEvent[] = []
   private consumed = new Set<string>()
   private aliases = new Map<string, string>()
+  // Backend row IDs stay out of the event (no facts/provider); the live client sends them as refs.
+  private refMap = new Map<string, LifecycleRefs>()
   private failures = 0
   private sequence = 0
   private userId: string | null = null
@@ -93,12 +96,21 @@ export class CoachLifecycleObserver {
       }
       this.consumed.add(key)
       this.records.push(event)
-      this.records = this.records.slice(-200)
+      const refs: Record<string, number> = {}
+      for (const name of ['backendSetId', 'backendExerciseId', 'backendWorkoutId'] as const) {
+        if (Number.isInteger(payload[name]) && payload[name]! > 0) refs[name] = payload[name]!
+      }
+      if (Object.keys(refs).length) this.refMap.set(event.id, Object.freeze(refs))
+      if (this.records.length > 200) {
+        for (const old of this.records.slice(0, -200)) this.refMap.delete(old.id)
+        this.records = this.records.slice(-200)
+      }
       return true
     } catch { this.failures++; return false }
   }
 
   snapshot(): readonly CoachEvent[] { return [...this.records] }
+  refs(eventId: string): LifecycleRefs | null { return this.refMap.get(eventId) ?? null }
   failureCount(): number { return this.failures }
-  clear(): void { this.records = []; this.consumed.clear(); this.aliases.clear() }
+  clear(): void { this.records = []; this.consumed.clear(); this.aliases.clear(); this.refMap.clear() }
 }

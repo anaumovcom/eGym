@@ -35,15 +35,22 @@ export type CoachEvent = Readonly<{
   planRevision: number; contextVersion: number; createdAtMs: number; startDeadlineMs: number
   facts: readonly CoachFact[]; factDependencies: readonly string[]
 }>
+/** Provider voice IDs (mirrors backend COACH_VOICES). One voice is used for live speech and the prepared pack. */
+export const COACH_VOICES = ['ash', 'alloy', 'ballad', 'cedar', 'coral', 'echo', 'marin', 'sage', 'shimmer', 'verse'] as const
+export type CoachVoice = typeof COACH_VOICES[number]
+export const DEFAULT_COACH_VOICE: CoachVoice = 'ash'
+export function isCoachVoice(value: unknown): value is CoachVoice { return COACH_VOICES.includes(value as CoachVoice) }
+/** Legacy E09 slots (female/male) and unset values migrate to the default voice, like the backend. */
+export function coachVoice(value: unknown): CoachVoice { return isCoachVoice(value) ? value : DEFAULT_COACH_VOICE }
 export type CoachSettings = Readonly<{
   schemaVersion: 1; enabled: boolean; consentVersion: number | null
   mode: 'local' | 'hybrid' | 'text-only'; density: 'quiet' | 'companion' | 'talkative'
-  count: 'every' | 'last-three' | 'milestones' | 'off'; voiceProfile: string | null
+  count: 'every' | 'last-three' | 'milestones' | 'off'; voiceProfile: CoachVoice
   historyConsent: boolean; revision: number; budgetUsd: string
 }>
 export const DEFAULT_COACH_SETTINGS: CoachSettings = Object.freeze({
   schemaVersion: 1, enabled: false, consentVersion: null, mode: 'local', density: 'companion',
-  count: 'off', voiceProfile: null, historyConsent: false, revision: 0, budgetUsd: '2.00',
+  count: 'off', voiceProfile: DEFAULT_COACH_VOICE, historyConsent: false, revision: 0, budgetUsd: '2.00',
 })
 export type CoachRun = Readonly<{
   schemaVersion: 1; scope: CoachScope; workoutSessionId: number | null

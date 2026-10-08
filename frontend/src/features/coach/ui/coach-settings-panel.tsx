@@ -7,7 +7,8 @@ import { DEFAULT_COACH_PREFERENCES, effectiveCoachState, preferencesValid, type 
 import { CoachOperatorPanel } from './coach-operator-panel'
 import { localAudioRuntime } from '../audio/local-audio-runtime'
 import { CoachLocalPreview } from './coach-mini-debug'
-import { CoachVoicePackSection, isPackSlot } from './coach-voice-pack'
+import { CoachVoicePackSection, COACH_VOICE_LABELS } from './coach-voice-pack'
+import { COACH_VOICES, coachVoice } from '../model/contracts'
 import './coach-settings.css'
 
 function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
@@ -88,7 +89,7 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
   return <section aria-label="AI-тренер" className="coach-settings-panel overflow-hidden rounded-2xl border border-violet-400/25 bg-gradient-to-br from-violet-500/10 via-transparent to-sky-500/5">
     <header className="flex flex-wrap items-center justify-between gap-4 border-b border-white/10 p-5">
       <div className="flex items-center gap-3"><Sparkles className="h-6 w-6 text-violet-400" /><div><h2 className="text-xl font-semibold">AI-тренер</h2><p className="text-sm text-muted-foreground">Личные настройки · {userId} · {dirty ? 'Есть несохранённые изменения' : 'Отдельное сохранение'}</p></div></div>
-      <span className="rounded-full border border-violet-400/25 px-3 py-1 text-xs">E05 · Локальные тестовые тоны · Без платной генерации</span>
+      <span className="rounded-full border border-violet-400/25 px-3 py-1 text-xs">Голос: {COACH_VOICE_LABELS[coachVoice(draft.voiceProfile)].split(' —')[0]} · Платные запросы только при включении оператором</span>
     </header>
     <div className="space-y-5 p-5">
       <p className="text-sm text-muted-foreground">По умолчанию выключен. Общие голосовые подсказки не включают тренера. Микрофон не используется. Локальный режим не отправляет данные провайдеру.</p>
@@ -108,10 +109,10 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
         <Field label="Юмор"><select className="rt-input" value={draft.humor} onChange={event => change('humor', event.target.value as CoachPreferences['humor'])}><option value="off">Без юмора</option><option value="light">Лёгкий</option><option value="often">Частый</option></select></Field>
         <Field label="Бюджет на тренировку, USD (не более 2)"><input className="rt-input" type="number" min="0.01" max="2" step="0.01" value={draft.budgetUsd} onChange={event => change('budgetUsd', event.target.value)} /></Field>
         <Field label="Громкость тренера"><select className="rt-input" value={draft.voiceVolume === null ? 'inherit' : String(draft.voiceVolume)} onChange={event => change('voiceVolume', event.target.value === 'inherit' ? null : Number(event.target.value))}><option value="inherit">Наследовать общую</option>{[...new Set([0, 0.25, 0.5, 0.75, 1, ...(draft.voiceVolume === null ? [] : [draft.voiceVolume])])].sort((a, b) => a - b).map(volume => <option key={volume} value={volume}>{Math.round(volume * 100)}%</option>)}</select></Field>
-        <Field label="Голос подготовленных фраз"><select className="rt-input" value={isPackSlot(draft.voiceProfile) ? draft.voiceProfile : ''} onChange={event => change('voiceProfile', event.target.value || null)}><option value="">Не выбран</option><option value="female">Женский</option><option value="male">Мужской</option></select></Field>
+        <Field label="Голос тренера"><select className="rt-input" value={coachVoice(draft.voiceProfile)} onChange={event => change('voiceProfile', coachVoice(event.target.value))}>{COACH_VOICES.map(voice => <option key={voice} value={voice}>{COACH_VOICE_LABELS[voice]}</option>)}</select></Field>
       </div>
       <div className="grid gap-3 md:grid-cols-2"><Toggle label="Общение во время подходов" checked={draft.duringSets} onChange={checked => change('duringSets', checked)} /><Toggle label="Общение во время отдыха" checked={draft.duringRest} onChange={checked => change('duringRest', checked)} /></div>
-      <p className="flex items-center gap-2 text-sm"><ShieldCheck className="h-4 w-4" />Провокационный юмор выключен. Голос фраз меняется только целиком: другой голос не подставляется вместо недостающих фраз.</p>
+      <p className="flex items-center gap-2 text-sm"><ShieldCheck className="h-4 w-4" />Провокационный юмор выключен. Один голос для живых реплик и подготовленных фраз: другой голос не подставляется вместо недостающих фраз.</p>
       <CoachVoicePackSection slot={draft.voiceProfile} />
       {!preferencesValid(draft) && <p role="alert" className="text-sm">Для включения нужно согласие на тренера; для сетевых режимов — сетевое согласие. Бюджет должен быть больше 0 и не более 2 USD.</p>}
       <p className="text-sm" data-testid="coach-effective">Сохранённый режим: {effective.textEnabled ? 'текст разрешён' : effective.audioEnabled ? 'звук разрешён' : 'выключен или заблокирован'} · Production paid readiness: false</p>

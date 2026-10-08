@@ -12,6 +12,7 @@ import json
 import math
 import os
 import re
+import statistics
 import sys
 import tempfile
 import time
@@ -27,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.coach import CoachAttempt, CoachJob
-from app.schemas.coach import CoachScope
+from app.schemas.coach import COACH_VOICES, CoachScope
 from app.schemas.coach_control import Pricing, ReportedUsage, UsageBounds
 from app.services.coach import ledger
 from app.services.coach.facts import number_words
@@ -44,11 +45,11 @@ from app.services.coach.voice import (
 )
 
 CATALOG_VERSION = "coach-pack-catalog-0.1"
-STYLE_VERSION = "coach-pack-style-0.1"
+STYLE_VERSION = "coach-pack-style-0.3"  # 0.3: low phrase onset (coach-voice-0.5) + onset-pitch take selection.
 LOCALE = "ru-RU"
 SCHEMA_VERSION = 1
-SLOTS = ("female", "male")
-Slot = Literal["female", "male"]
+# One pack per provider voice: the pack slot IS the voice ID (same timbre as live speech).
+SLOTS = COACH_VOICES
 Group = Literal["count", "countdown", "lifecycle", "time", "outcome", "rest", "safety"]
 REQUIRED_COUNT = 30
 MAX_COUNT = 100
@@ -57,6 +58,10 @@ PEAK_LIMIT = 0.99  # Above this the clip is treated as clipped.
 LOUDNESS_DBFS = (-35.0, -10.0)  # RMS window over the non-silent part.
 SILENCE_DBFS = -50.0
 MAX_EDGE_SILENCE_S = 0.5
+# A take whose first voiced syllables sit this much above the clip's median pitch sounds like a "leap" at the start
+# (measured 08.10.2026: ~20 % of Realtime takes, 170–235 Hz onset over a 110–140 Hz body). Prompts alone don't fix it.
+MAX_ONSET_RATIO = 1.15
+MAX_TAKES = 3
 PACK_VERSION_RE = re.compile(r"^[a-f0-9]{16}$")
 FINGERPRINT_RE = re.compile(r"^[a-f0-9]{64}$")
 
@@ -114,15 +119,19 @@ def _catalog() -> dict[str, ClipSpec]:
 
 
 CATALOG: dict[str, ClipSpec] = _catalog()
-# Set to CATALOG_VERSION only after the user listened to the safety clips of the chosen voice.
-APPROVED_SAFETY_CATALOG: str | None = None
+# Set to CATALOG_VERSION only after the user listened to the safety clips of the chosen voice (approved 08.10.2026, ash).
+APPROVED_SAFETY_CATALOG: str | None = CATALOG_VERSION
 
 
 def provider_voice(slot: str) -> str:
     if slot not in SLOTS:
         raise HTTPException(404, "pack_not_found")
+    return slot
+
+
+def pack_model() -> str:
     cfg = get_settings()
-    return (cfg.coach_pack_voice_female if slot == "female" else cfg.coach_pack_voice_male).strip()
+    return cfg.coach_voice_realtime_model if cfg.coach_pack_adapter == "realtime" else cfg.coach_voice_tts_model
 
 
 def clip_instructions(spec: ClipSpec) -> str:
@@ -203,6 +212,44 @@ def verify_wav(data: bytes, max_seconds: float = MAX_CLIP_SECONDS) -> WavCheck:
     if not LOUDNESS_DBFS[0] <= _dbfs(rms) <= LOUDNESS_DBFS[1]:
         raise PackError("wav_loudness")
     return WavCheck(sha256(data).hexdigest(), len(data), round(duration * 1000, 3), rate, round(_dbfs(peak), 2), round(_dbfs(rms), 2))
+
+
+def onset_ratio(pcm: bytes, sample_rate: int = SAMPLE_RATE) -> float | None:
+    """Median F0 of the first 6 voiced 40 ms frames / median F0 of the clip (autocorrelation at 8 kHz, 70–320 Hz).
+
+    None when there is too little voiced audio to judge (very short clips are accepted as-is).
+    """
+    samples = array.array("h")
+    samples.frombytes(pcm[:len(pcm) - len(pcm) % 2])
+    if sys.byteorder == "big":
+        samples.byteswap()
+    step = max(1, sample_rate // 8000)
+    x = [sum(samples[i:i + step]) / step for i in range(0, len(samples) - step, step)]
+    rate = sample_rate / step
+    frame, hop, lo, hi = int(rate * 0.04), int(rate * 0.025), int(rate / 320), int(rate / 70)
+    peak = max((abs(v) for v in x), default=0) or 1
+    track = []
+    for start in range(0, len(x) - frame - hi, hop):
+        seg = x[start:start + frame + hi]
+        head = seg[:frame]
+        energy = sum(v * v for v in head)
+        if (energy / frame) ** 0.5 < peak * 0.08:
+            continue
+        scores = []
+        for lag in range(lo, hi):
+            other = seg[lag:lag + frame]
+            den = (energy * sum(b * b for b in other)) ** 0.5 or 1
+            scores.append(sum(a * b for a, b in zip(head, other, strict=True)) / den)
+        best = max(scores)
+        if best > 0.6:
+            # The shortest lag close to the maximum is the period; longer ones are its multiples (octave errors).
+            index = next(i for i, r in enumerate(scores) if r >= 0.9 * best)
+            while index + 1 < len(scores) and scores[index + 1] > scores[index]:
+                index += 1  # climb to the local peak, not the threshold crossing
+            track.append(rate / (lo + index))
+    if len(track) < 8:
+        return None
+    return statistics.median(track[:6]) / statistics.median(track)
 
 
 def _atomic_write(path: Path, data: bytes) -> None:
@@ -313,7 +360,7 @@ def plan(store: PackStore, slot: str, model: str) -> dict:
     required_total = sum(spec.required for spec in CATALOG.values())
     current = store.manifest(slot)
     plan_fp = sha256(json.dumps([[row["clipId"], row["fingerprint"]] for row in rows]).encode()).hexdigest()
-    return {"schemaVersion": SCHEMA_VERSION, "slot": slot, "voiceSelected": bool(voice), "model": model,
+    return {"schemaVersion": SCHEMA_VERSION, "slot": slot, "voice": voice, "voiceSelected": bool(voice), "model": model,
             "catalogVersion": CATALOG_VERSION, "planFingerprint": plan_fp,
             "required": {"total": required_total, "generated": ready_required},
             "optional": {"total": len(CATALOG) - required_total, "generated": ready_optional},
@@ -462,31 +509,49 @@ class PackJobRunner:
                 except PackError:
                     existing = None  # Corrupt artifact: an explicit item in a paid job may replace it.
                 if existing is None:
-                    with self.sessions() as db:
-                        if db.get(CoachJob, job_id, populate_existing=True).state != "queued":
-                            return None
-                        # Long jobs outlive one 15 s lease: renew per clip; a lost lease pauses instead of paying.
-                        if ledger.lease(db, run_id, owner, generation)["generation"] != generation:
-                            raise PackError("lease_lost")
-                        bounds = clip_bounds(spec)
-                        attempt_id = ledger.reserve(db, run_id, owner, generation, f"pack:{fp}", "voice", self.pricing, bounds)
-                        ledger.dispatch(db, attempt_id, owner, test_only=self.adapter.test_only, adapter=f"pack-{self.adapter.name}")
-                    audio = await asyncio.wait_for(self.adapter.synthesize(
-                        spec.text, self.voice, clip_instructions(spec),
-                        max_output_tokens=bounds.output_tokens + bounds.audio_output_tokens), self.timeout_s)
-                    usage = ReportedUsage.model_validate(audio.usage)
-                    try:
-                        if not audio.verified:
-                            raise PackError("transcript_mismatch")
-                        self.store.save_artifact(spec, fp, pcm_to_wav(audio.pcm, audio.sample_rate))
-                    finally:
-                        # Paid even when verification rejects the audio; the cost is always recorded.
+                    best: tuple[float, bytes, int] | None = None
+                    for take in range(MAX_TAKES):
                         with self.sessions() as db:
-                            ledger.settle(db, attempt_id, audio.response_id, usage, terminal=True)
-                        settled_id, attempt_id = attempt_id, None
-                    with self.sessions() as db:
-                        if db.get(CoachAttempt, settled_id).status != "settled" or ledger.get_run(db, run_id).generation != generation:
-                            return None
+                            if db.get(CoachJob, job_id, populate_existing=True).state != "queued":
+                                return None
+                            # Long jobs outlive one 15 s lease: renew per take; a lost lease pauses instead of paying.
+                            if ledger.lease(db, run_id, owner, generation)["generation"] != generation:
+                                raise PackError("lease_lost")
+                            bounds = clip_bounds(spec)
+                            opportunity = f"pack:{fp}" + (f":take{take}" if take else "")
+                            try:
+                                attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "voice", self.pricing, bounds)
+                            except HTTPException as error:
+                                if error.detail != "duplicate_attempt":
+                                    raise
+                                continue  # resumed job: this take was already paid (and lost); try the next one
+                            ledger.dispatch(db, attempt_id, owner, test_only=self.adapter.test_only, adapter=f"pack-{self.adapter.name}")
+                        audio = await asyncio.wait_for(self.adapter.synthesize(
+                            spec.text, self.voice, clip_instructions(spec),
+                            max_output_tokens=bounds.output_tokens + bounds.audio_output_tokens), self.timeout_s)
+                        usage = ReportedUsage.model_validate(audio.usage)
+                        try:
+                            if not audio.verified:
+                                raise PackError("transcript_mismatch")
+                            wav = pcm_to_wav(audio.pcm, audio.sample_rate)
+                            verify_wav(wav, spec.max_seconds)
+                        finally:
+                            # Paid even when verification rejects the audio; the cost is always recorded.
+                            with self.sessions() as db:
+                                ledger.settle(db, attempt_id, audio.response_id, usage, terminal=True)
+                            settled_id, attempt_id = attempt_id, None
+                        with self.sessions() as db:
+                            if db.get(CoachAttempt, settled_id).status != "settled" or ledger.get_run(db, run_id).generation != generation:
+                                return None
+                        ratio = await asyncio.to_thread(onset_ratio, audio.pcm, audio.sample_rate)
+                        score = ratio if ratio is not None else 1.0
+                        if best is None or score < best[0]:
+                            best = (score, wav, take)
+                        if score <= MAX_ONSET_RATIO:
+                            break  # a high first syllable is retried; otherwise the lowest-onset take wins
+                    if best is None:
+                        raise PackError("takes_exhausted")
+                    self.store.save_artifact(spec, fp, best[1])
                 if not self._complete(job_id, item):
                     return None
             with self.sessions() as db:

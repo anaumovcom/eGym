@@ -9,7 +9,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.models.coach import CoachAttempt, CoachCredential
 from app.schemas.coach_control import Pricing, ReportedUsage
 from app.services.coach import ledger
@@ -65,7 +65,7 @@ def test_prompts_are_verbatim_copies_of_approved_document():
             for m in re.finditer(r"^\| ([^|]+) \| ([^|]+) \|$", table, re.M) if not m.group(1).startswith(("Фаза", "---"))}
     assert rows == P2
     hashes = static_hashes()
-    assert hashes["version"] == "coach-prompts-0.4" and len(hashes["p0"]) == 64 and len(hashes) == 4 + len(P2)
+    assert hashes["version"] == "coach-prompts-0.5" and len(hashes["p0"]) == 64 and len(hashes) == 4 + len(P2)
 
 
 def test_prompt_composition_keeps_notes_as_data_and_schemas_per_mode():
@@ -255,6 +255,14 @@ def test_text_bounds_are_provable_and_pricing_defaults_unverified():
     assert not get_settings().coach_paid_text_enabled
     assert get_settings().coach_text_reasoning_effort == "low"
     assert request_body("gpt-6-luna", build_prompt(REQ), 400, "low")["reasoning"] == {"effort": "low"}
+
+
+def test_paid_flags_default_on_in_production():
+    # conftest pins them to false for tests; the shipped defaults are on (decision D-E12.1, 08.10.2026).
+    fields = Settings.model_fields
+    flags = ("coach_paid_text_enabled", "coach_text_pricing_verified", "coach_paid_voice_enabled", "coach_voice_pricing_verified")
+    assert all(fields[name].default is True for name in flags)
+    assert fields["coach_enabled"].default is False
 
 
 def make_run(session_factory, cap="2.00"):

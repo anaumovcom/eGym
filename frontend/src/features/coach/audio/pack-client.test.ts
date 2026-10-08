@@ -35,15 +35,15 @@ async function fixture(overrides: Partial<PackDependencies> = {}) {
     { id: 'count-31', bytes: wav(2400), required: false, approved: true },
     { id: 'pain-stop', bytes: wav(4000), required: true, approved: false },
   ]
-  const manifest = { schemaVersion: 1, slot: 'female', packVersion: '0123456789abcdef', complete: true, extra: 'ignored', clips: {} as Record<string, unknown> }
+  const manifest = { schemaVersion: 1, slot: 'ash', packVersion: '0123456789abcdef', complete: true, extra: 'ignored', clips: {} as Record<string, unknown> }
   for (const clip of clips) {
     manifest.clips[clip.id] = { fingerprint: 'a'.repeat(64), sha256: await sha(clip.bytes), bytes: clip.bytes.byteLength,
       durationMs: (clip.bytes.byteLength - 44) / 2 / RATE * 1000, sampleRate: RATE, required: clip.required, approved: clip.approved }
   }
   const context = new FakeContext()
   const cache = new MemoryCache()
-  const routes = new Map<string, () => Response>([[manifestUrl('female'), () => Response.json(manifest)]])
-  for (const clip of clips) routes.set(clipUrl('female', manifest.packVersion, clip.id), () => new Response(clip.bytes.slice()))
+  const routes = new Map<string, () => Response>([[manifestUrl('ash'), () => Response.json(manifest)]])
+  for (const clip of clips) routes.set(clipUrl('ash', manifest.packVersion, clip.id), () => new Response(clip.bytes.slice()))
   const fetch = vi.fn(async (url: string, init: RequestInit) => {
     expect(init.credentials).toBe('include')
     const route = routes.get(url)
@@ -59,99 +59,99 @@ describe('E09 prepared pack client', () => {
   it('downloads, verifies, caches and pins approved clips of the selected voice only', async () => {
     const f = await fixture()
     const listener = vi.fn(); f.client.subscribe(listener)
-    const snapshot = await f.client.prepare('female')
-    expect(snapshot).toMatchObject({ slot: 'female', state: 'ready', packVersion: '0123456789abcdef', prepared: 3, required: 2, optional: 1, unapproved: 1 })
+    const snapshot = await f.client.prepare('ash')
+    expect(snapshot).toMatchObject({ slot: 'ash', state: 'ready', packVersion: '0123456789abcdef', prepared: 3, required: 2, optional: 1, unapproved: 1 })
     expect(snapshot.encodedBytes).toBe(f.clips.slice(0, 3).reduce((sum, clip) => sum + clip.bytes.byteLength, 0))
     expect(listener).toHaveBeenCalled()
-    expect(f.fetch.mock.calls.map(call => call[0])).not.toContain(clipUrl('female', '0123456789abcdef', 'pain-stop'))
+    expect(f.fetch.mock.calls.map(call => call[0])).not.toContain(clipUrl('ash', '0123456789abcdef', 'pain-stop'))
     expect(f.fetch.mock.calls[0][1]).toMatchObject({ cache: 'no-store' })
-    const clips = f.client.clipsFor('female')
+    const clips = f.client.clipsFor('ash')
     const buffer = clips.get('count-1')!
     expect(isVerifiedLocalBuffer(buffer)).toBe(true)
     expect(clips.get('count-1')).not.toBe(buffer) // Copies: callers never own canonical samples.
     expect(clips.get('pain-stop')).toBeNull()
     expect(clips.get('unknown')).toBeNull()
-    expect(f.client.clipsFor('male').get('count-1')).toBeNull()
+    expect(f.client.clipsFor('cedar').get('count-1')).toBeNull()
     expect(f.client.clipsFor(null).get('count-1')).toBeNull()
     expect(f.cache.store.size).toBe(4) // manifest + 3 clips
   })
 
   it('repeat preparation reuses verified cache without downloading clips', async () => {
     const f = await fixture()
-    await f.client.prepare('female')
+    await f.client.prepare('ash')
     f.fetch.mockClear()
-    expect((await f.client.prepare('female')).state).toBe('ready')
-    expect(f.fetch.mock.calls.map(call => call[0])).toEqual([manifestUrl('female')])
+    expect((await f.client.prepare('ash')).state).toBe('ready')
+    expect(f.fetch.mock.calls.map(call => call[0])).toEqual([manifestUrl('ash')])
   })
 
   it('rejects checksum mismatch, never caches it and reports partial', async () => {
     const f = await fixture()
     const bad = f.clips[1].bytes.slice(); bad[60] ^= 1
-    f.routes.set(clipUrl('female', '0123456789abcdef', 'set-start'), () => new Response(bad))
-    const snapshot = await f.client.prepare('female')
+    f.routes.set(clipUrl('ash', '0123456789abcdef', 'set-start'), () => new Response(bad))
+    const snapshot = await f.client.prepare('ash')
     expect(snapshot).toMatchObject({ state: 'partial', reason: 'checksum', prepared: 2 })
-    expect(f.cache.store.has(clipUrl('female', '0123456789abcdef', 'set-start'))).toBe(false)
-    expect(f.client.clipsFor('female').get('set-start')).toBeNull()
+    expect(f.cache.store.has(clipUrl('ash', '0123456789abcdef', 'set-start'))).toBe(false)
+    expect(f.client.clipsFor('ash').get('set-start')).toBeNull()
   })
 
   it('replaces a corrupted cached clip and rejects wrong decoded duration', async () => {
     const f = await fixture()
-    await f.client.prepare('female')
-    const url = clipUrl('female', '0123456789abcdef', 'count-1')
+    await f.client.prepare('ash')
+    const url = clipUrl('ash', '0123456789abcdef', 'count-1')
     f.cache.store.set(url, new Uint8Array(10))
     f.context.decodeAudioData.mockImplementationOnce(async () => f.context.createBuffer(1, 10, RATE))
-    const snapshot = await f.client.prepare('female')
+    const snapshot = await f.client.prepare('ash')
     expect(snapshot).toMatchObject({ state: 'partial', reason: 'decode' })
     expect(f.cache.store.get(url)?.byteLength).toBe(f.clips[0].bytes.byteLength)
   })
 
   it('works offline from the cached manifest and clips; nothing cached means offline', async () => {
     const f = await fixture()
-    await f.client.prepare('female')
+    await f.client.prepare('ash')
     f.fetch.mockImplementation(async () => { throw new TypeError('offline') })
-    expect(await f.client.prepare('female')).toMatchObject({ state: 'offline', prepared: 3 })
-    expect(f.client.clipsFor('female').get('count-1')).not.toBeNull()
+    expect(await f.client.prepare('ash')).toMatchObject({ state: 'offline', prepared: 3 })
+    expect(f.client.clipsFor('ash').get('count-1')).not.toBeNull()
     await f.client.deleteLocal()
     expect(f.deleteCache).toHaveBeenCalled()
-    expect(f.client.clipsFor('female').get('count-1')).toBeNull()
-    expect(await f.client.prepare('female')).toMatchObject({ state: 'offline', reason: 'unavailable', prepared: 0 })
+    expect(f.client.clipsFor('ash').get('count-1')).toBeNull()
+    expect(await f.client.prepare('ash')).toMatchObject({ state: 'offline', reason: 'unavailable', prepared: 0 })
   })
 
   it('reports not prepared, invalid manifest, quota and missing audio context without generating', async () => {
     const f = await fixture()
-    expect(await f.client.prepare('male')).toMatchObject({ state: 'not_prepared', reason: 'no_pack' })
-    f.routes.set(manifestUrl('female'), () => Response.json({ ...f.manifest, clips: { '../x': Object.values(f.manifest.clips)[0] } }))
-    expect(await f.client.prepare('female')).toMatchObject({ state: 'failed', reason: 'invalid_manifest' })
-    f.routes.set(manifestUrl('female'), () => Response.json(f.manifest))
+    expect(await f.client.prepare('cedar')).toMatchObject({ state: 'not_prepared', reason: 'no_pack' })
+    f.routes.set(manifestUrl('ash'), () => Response.json({ ...f.manifest, clips: { '../x': Object.values(f.manifest.clips)[0] } }))
+    expect(await f.client.prepare('ash')).toMatchObject({ state: 'failed', reason: 'invalid_manifest' })
+    f.routes.set(manifestUrl('ash'), () => Response.json(f.manifest))
     f.cache.quota = true
-    expect(await f.client.prepare('female')).toMatchObject({ state: 'failed', reason: 'quota' })
+    expect(await f.client.prepare('ash')).toMatchObject({ state: 'failed', reason: 'quota' })
     const silent = await fixture({ context: () => null })
-    expect(await silent.client.prepare('female')).toMatchObject({ state: 'failed', reason: 'no_audio' })
+    expect(await silent.client.prepare('ash')).toMatchObject({ state: 'failed', reason: 'no_audio' })
     expect(f.fetch.mock.calls.every(call => call[1].method === undefined)).toBe(true) // GET only.
   })
 
   it('selecting another voice clears decoded clips and cancels an in-flight prepare', async () => {
     const f = await fixture()
-    await f.client.prepare('female')
-    f.client.select('male')
-    expect(f.client.snapshot()).toMatchObject({ slot: 'male', state: 'not_prepared' })
-    expect(f.client.clipsFor('female').get('count-1')).toBeNull()
-    const pending = f.client.prepare('female')
+    await f.client.prepare('ash')
+    f.client.select('cedar')
+    expect(f.client.snapshot()).toMatchObject({ slot: 'cedar', state: 'not_prepared' })
+    expect(f.client.clipsFor('ash').get('count-1')).toBeNull()
+    const pending = f.client.prepare('ash')
     f.client.select(null)
     await pending
     expect(f.client.snapshot()).toMatchObject({ slot: null, state: 'not_prepared' })
-    expect(f.client.clipsFor('female').get('count-1')).toBeNull()
+    expect(f.client.clipsFor('ash').get('count-1')).toBeNull()
   })
 
   it('caps decoded memory, keeping required clips over optional ones', async () => {
     const f = await fixture({ decodedLimit: (2400 + 4000) * 4 })
-    expect(await f.client.prepare('female')).toMatchObject({ state: 'ready', prepared: 2, decodedBytes: 6400 * 4 })
-    expect(f.client.clipsFor('female').get('count-31')).toBeNull()
+    expect(await f.client.prepare('ash')).toMatchObject({ state: 'ready', prepared: 2, decodedBytes: 6400 * 4 })
+    expect(f.client.clipsFor('ash').get('count-31')).toBeNull()
   })
 
   it('validates manifests strictly', () => {
-    expect(() => parsePackManifest({ schemaVersion: 1, slot: 'male', packVersion: '0123456789abcdef', complete: true, clips: {} }, 'female')).toThrow('invalid_manifest')
-    expect(() => parsePackManifest({ schemaVersion: 1, slot: 'female', packVersion: 'zz', complete: true, clips: {} }, 'female')).toThrow('invalid_manifest')
-    expect(() => parsePackManifest({ schemaVersion: 1, slot: 'female', packVersion: '0123456789abcdef', complete: false, clips: {} }, 'female')).toThrow('invalid_manifest')
+    expect(() => parsePackManifest({ schemaVersion: 1, slot: 'cedar', packVersion: '0123456789abcdef', complete: true, clips: {} }, 'ash')).toThrow('invalid_manifest')
+    expect(() => parsePackManifest({ schemaVersion: 1, slot: 'ash', packVersion: 'zz', complete: true, clips: {} }, 'ash')).toThrow('invalid_manifest')
+    expect(() => parsePackManifest({ schemaVersion: 1, slot: 'ash', packVersion: '0123456789abcdef', complete: false, clips: {} }, 'ash')).toThrow('invalid_manifest')
   })
 })

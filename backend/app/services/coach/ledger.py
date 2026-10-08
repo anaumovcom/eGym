@@ -131,6 +131,15 @@ def snapshot(db: Session, run_id: str) -> dict:
                           "reserveMicros": a.reserve_micros, "pricingVersion": a.pricing["version"]} for a in attempts]}
 
 
+def daily_usage(db: Session, since: float) -> dict:
+    """Paid requests actually sent to the provider since `since` (all runs), with settled and pending cost."""
+    attempts = list(db.scalars(select(CoachAttempt).where(CoachAttempt.sent_at >= since)))
+    settled = sum(a.cost_micros or 0 for a in attempts if a.status == "settled")
+    pending = sum(committed(a) for a in attempts if a.status != "settled")
+    return {"since": since, "requests": len(attempts), "settledMicros": settled, "pendingMicros": pending,
+            "totalMicros": settled + pending}
+
+
 def cost(pricing: Pricing, usage: ReportedUsage) -> int:
     total = ((usage.input_tokens - usage.cached_input_tokens) * pricing.input_rate
              + usage.cached_input_tokens * pricing.cached_rate + usage.output_tokens * pricing.output_rate

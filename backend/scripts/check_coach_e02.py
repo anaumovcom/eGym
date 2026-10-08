@@ -41,6 +41,7 @@ def main() -> int:
             "app/tests/test_coach_contracts_replay.py", "app/tests/test_coach_lifecycle.py",
             "app/tests/test_coach_control_plane.py", "app/tests/test_coach_e07_corpus.py",
             "app/tests/test_coach_e07_author.py", "app/tests/test_coach_e08_voice.py", "app/tests/test_coach_e09_packs.py",
+            "app/tests/test_coach_e10_live.py",
             "app/tests/test_stage9_training_api.py", "app/tests/test_stage9_qa.py", "app/tests/test_users_api.py",
             "-q", "--disable-warnings", "-p", "no:cacheprovider",
         ])

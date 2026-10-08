@@ -1,11 +1,13 @@
+import { COACH_VOICES, type CoachVoice } from '../model/contracts'
 import { verifyLocalBuffer, localBufferBytes } from './local-buffers'
 import { MAX_DECODED_CACHE_BYTES } from './fixture-pack-storage'
 import { getSharedAudioContext } from './shared-audio-context'
 
 /** E09 prepared voice pack: verified download → CacheStorage → decode → pinned in-memory clips.
  * Never generates audio, never substitutes another voice, never fetches during a cue. */
-export type PackSlot = 'female' | 'male'
-export const PACK_SLOTS: readonly PackSlot[] = Object.freeze(['female', 'male'])
+/** One pack per provider voice: the slot IS the voice ID (same timbre as live speech). */
+export type PackSlot = CoachVoice
+export const PACK_SLOTS: readonly PackSlot[] = COACH_VOICES
 export type PackState = 'not_prepared' | 'downloading' | 'decoding' | 'ready' | 'partial' | 'failed' | 'offline'
 export type PackReason = 'no_pack' | 'unavailable' | 'invalid_manifest' | 'checksum' | 'decode' | 'quota' | 'no_audio' | 'cancelled' | null
 export type PackSnapshot = Readonly<{

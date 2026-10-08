@@ -34,7 +34,7 @@ def set_payload(exercise_id):
 
 
 def test_capabilities_are_off_and_never_paid(client: TestClient, monkeypatch):
-    monkeypatch.delenv("COACH_ENABLED", raising=False)
+    monkeypatch.setenv("COACH_ENABLED", "false")
     get_settings.cache_clear()
     response = client.get("/api/coach/capabilities")
     assert response.status_code == 200

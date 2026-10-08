@@ -9,13 +9,13 @@ import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import type { LocalAudioRuntimeSnapshot } from '../audio/local-audio-runtime'
 import type { LocalAudioSnapshot } from '../audio/local-coach-audio-manager'
-import { CoachLocalPreview, CoachMiniDebug } from './coach-mini-debug'
+import { CoachLocalPreview, CoachMiniDebug, CoachNetworkDiagnostics } from './coach-mini-debug'
 
 const mocks = vi.hoisted(() => ({
   target: null as HTMLElement | null,
   listeners: new Set<() => void>(),
   runtime: {
-    subscribe: vi.fn(), getSnapshot: vi.fn(), refreshSavedPreferences: vi.fn(),
+    subscribe: vi.fn(), getSnapshot: vi.fn(), refreshSavedPreferences: vi.fn(), getSavedPreferences: vi.fn(),
     setSavedCoachPreferences: vi.fn(), prepareTestClips: vi.fn(), playPreview: vi.fn(), stopPreview: vi.fn(),
   },
 }))
@@ -48,6 +48,7 @@ function publish(snapshot: LocalAudioRuntimeSnapshot) {
 beforeEach(() => {
   vi.clearAllMocks(); mocks.target = null; mocks.listeners.clear()
   mocks.runtime.getSnapshot.mockReturnValue(base)
+  mocks.runtime.getSavedPreferences.mockReturnValue(null)
   mocks.runtime.subscribe.mockImplementation((listener: () => void) => {
     mocks.listeners.add(listener); return () => { mocks.listeners.delete(listener) }
   })
@@ -107,7 +108,7 @@ describe('CoachMiniDebug', () => {
     render(<CoachMiniDebug />)
     fireEvent.click(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }))
     publish({ ...base, audio, reason: 'ready', previewAllowed: true, prepared: { entries: 2, bytes: 48000, loading: false } })
-    expect(screen.getByText('local · 3 стартов')).toBeInTheDocument()
+    expect(screen.getByText('Локальные старты').nextSibling).toHaveTextContent('3')
     expect(screen.getByText('CACHE')).toBeInTheDocument()
     expect(screen.getByText('2 / 2 / 1')).toBeInTheDocument()
     expect(screen.getByText('63% / нет')).toBeInTheDocument()
@@ -176,7 +177,32 @@ describe('CoachMiniDebug', () => {
     mocks.runtime.getSnapshot.mockReturnValue({ ...base, reason: state === 'audio_locked' ? 'audio_locked' : 'ready',
       audio: state === 'suspended' ? { ...audio, contextState: 'suspended' } : null, previewAllowed: true })
     render(<CoachMiniDebug />)
-    expect(screen.getByText(`audio_locked · ${state === 'suspended' ? 3 : 0} стартов`)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }).title).toContain('Звук заблокирован браузером')
+  })
+  it.each([
+    [null, 'Выкл', 'off'], [{ enabled: true, mode: 'local' }, 'Local', 'local'],
+    [{ enabled: true, mode: 'hybrid' }, 'Live', 'idle'], [{ enabled: true, mode: 'text-only' }, 'Text', 'idle'],
+  ] as const)('shows the saved coach mode %o in the header', (saved, label, tone) => {
+    mocks.runtime.getSavedPreferences.mockReturnValue(saved)
+    render(<CoachMiniDebug />)
+    const mode = screen.getByText(`AI · ${label}`)
+    expect(mode).toHaveAttribute('data-tone', tone)
+    expect(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }).title).toMatch(/^Режим: /)
+  })
+  it('shows today\'s paid requests and spend from the server ledger since local midnight when the coach is enabled', async () => {
+    vi.stubEnv('VITE_COACH_ENABLED', 'true')
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ since: 0, requests: 7, settledMicros: 12_000, pendingMicros: 400, totalMicros: 12_400 }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    try {
+      render(<CoachMiniDebug />)
+      expect(await screen.findByText('7 запр.')).toBeInTheDocument()
+      expect(screen.getByText('$0.012')).toBeInTheDocument()
+      const trigger = screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' })
+      expect(trigger.title).toContain('Сегодня: 7 платн. запр. на $0.012 (из них в расчёте <$0.001)')
+      const [url] = fetchMock.mock.calls[0] as unknown as [string]
+      const midnight = new Date(); midnight.setHours(0, 0, 0, 0)
+      expect(url).toBe(`/api/coach/usage/today?since=${(midnight.getTime() / 1000).toFixed(3)}`)
+    } finally { vi.unstubAllEnvs() }
   })
 })
 
@@ -208,5 +234,21 @@ describe('CoachLocalPreview', () => {
     expect(screen.getByRole('button', { name: 'Тестовый тон' })).toBeDisabled()
     expect(screen.getAllByText(/не выбранный голос/)).toHaveLength(2)
     expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('network diagnostics show ledger usage and decisions and copy a redacted report', async () => {
+    const writeText = vi.fn(async () => undefined)
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
+    render(<CoachNetworkDiagnostics snapshot={{ state: 'ready', reason: null, mode: 'hybrid', voiceId: 'ash', text: true, voice: true,
+      degraded: false, eventsSent: 3, streams: 1, spoken: 1, failed: 0, firstAudioMs: 640, lastText: 'Отличный подход',
+      reasons: { pipeline_busy: 1 }, usage: { requests: 2, settledMicros: 12_340, pendingMicros: 0, capMicros: 2_000_000, limitKind: 'strict-reservations' },
+      decisions: [{ atMs: 1, triggerId: 'T21', action: 'silence', reason: 'pipeline_busy', text: null }] }} />)
+    expect(screen.getByText('$0.0123 / $0.0000 / $2.0000 · 2 запр.')).toBeVisible()
+    expect(screen.getByText(/T21 · silence · Тренер уже говорит/)).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Скопировать отчёт' }))
+    expect(writeText).toHaveBeenCalledOnce()
+    const report = (writeText.mock.calls[0] as unknown as [string])[0]
+    expect(report).not.toContain('Отличный подход')
+    expect(await screen.findByRole('status')).toHaveTextContent('Отчёт скопирован')
   })
 })

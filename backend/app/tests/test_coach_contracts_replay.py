@@ -8,6 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.coach import (
+    COACH_VOICES,
     CoachAudio,
     CoachDecision,
     CoachEvent,
@@ -54,9 +55,16 @@ def test_typescript_vocabulary_matches_backend():
         assert tuple(re.findall(r"'([^']+)'", block)) == expected
     assert CoachSettings().model_dump(by_alias=True) == {
         "schemaVersion": 1, "enabled": False, "consentVersion": None, "mode": "local",
-        "density": "companion", "count": "off", "voiceProfile": None, "historyConsent": False,
+        "density": "companion", "count": "off", "voiceProfile": "ash", "historyConsent": False,
         "revision": 0, "budgetUsd": "2.00",
     }
+    voices = source.split("export const COACH_VOICES = [", 1)[1].split("] as const", 1)[0]
+    assert tuple(re.findall(r"'([^']+)'", voices)) == COACH_VOICES
+    for legacy in (None, "", "female", "male"):
+        assert CoachSettings(voice_profile=legacy).voice_profile == "ash"
+    assert CoachSettings(voice_profile="cedar").voice_profile == "cedar"
+    with pytest.raises(ValidationError):
+        CoachSettings(voice_profile="robot")
 
 
 @pytest.mark.parametrize("patch", [{"schemaVersion": 2}, {"extra": True}, {"startDeadlineMs": 999}, {"exerciseKind": "isometric"}, {"factDependencies": ["missing"]}])

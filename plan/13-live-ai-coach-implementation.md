@@ -2,9 +2,10 @@
 
 Создан: 07.10.2026. Версия плана: 1.0. Спецификация: v0.3.
 
-**Текущее состояние: E06 готов; E07, E08 и E09 offline готовы; paid pilot, выбор голоса, генерация пакетов и прослушивание заблокированы.**
-**Закрыто этапов реализации: 6 из 12.** Это не процент трудозатрат.
-Следующий этап: **E10 — полный живой тренер** (не начат: ждёт прослушивания и решений пользователя E08.7/E08.G, E09.1, E09.7/E09.G).
+**Текущее состояние (08.10.2026): E07–E09 готовы (голос ash и пакет прослушаны и приняты, safety-клипы выпущены); голос сделан твёрже (`coach-voice-0.5`, низкое начало фраз; пакеты с отбором дублей по onset, D-E08.9), платные флаги включены по умолчанию; E10 на приёмке; E11–E12 в работе.**
+**Закрыто этапов реализации: 9 из 12.** Это не процент трудозатрат.
+Следующий шаг: контрольное прослушивание пакета в новом стиле, E12.4/E12.5, затем E10.6 replay и E11.1/E11.6/E11.7.
+E10–E12: [отчёт](13-live-ai-coach-e10-e12-live.md). Самостоятельные решения: [decisions](13-live-ai-coach-decisions.md).
 Доказательства E01: [отчёт аудита](13-live-ai-coach-e01-audit.md).
 Контракты/API и доказательства E02: [отчёт реализации](13-live-ai-coach-e02-contracts.md).
 Контракты/API, setup и доказательства E03–E04: [control-plane отчёт](13-live-ai-coach-e03-e04-control-plane.md).
@@ -53,18 +54,18 @@
 | E04 | Серверный run, учёт расходов и ownership | E02, E03 | Готов | [Отчёт](13-live-ai-coach-e03-e04-control-plane.md); SQLite durable ledger, synthetic adapters |
 | E05 | Локальный звук, микшер и первый debug | E02, E03 | Готов | [Отчёт](13-live-ai-coach-e05-local-audio.md); TEST tones, не русские voices |
 | E06 | Интерпретатор и локальные события тренировки | E04, E05 | Готов | [Отчёт](13-live-ai-coach-e06-interpreter.md); TEST buffers, русские клипы — E09 |
-| E07 | Режиссёр, промпты и генерация текста | E04, E06 | Offline готов / pilot заблокирован | E07.7 |
-| E08 | Сетевая озвучка и платный выбор голосов | E03–E05, E07 | E08.1–E08.6 готовы / выбор голоса ждёт пользователя | [Отчёт](13-live-ai-coach-e08-voice.md); E08.7 |
-| E09 | Подготовка голосовых пакетов по кнопке | E04, E05, E08 | Offline готов / каталог и генерация ждут выбора голосов | [Отчёт](13-live-ai-coach-e09-voice-packs.md); E09.1, E09.7 |
-| E10 | Полный живой тренер, история и все сценарии | E06–E09 | Не начат | — |
-| E11 | Полные настройки, диагностика и отказоустойчивость | E09, E10 | Не начат | — |
-| E12 | Приёмка, настройка качества и выпуск | E01–E11 | Не начат | — |
+| E07 | Режиссёр, промпты и генерация текста | E04, E06 | Готов | [Отчёт](13-live-ai-coach-e07-director-author.md); paid pilot 10/10 |
+| E08 | Сетевая озвучка и платный выбор голосов | E03–E05, E07 | Готов | [Отчёт](13-live-ai-coach-e08-voice.md); голос ash по умолчанию (D-E08.7), стиль `coach-voice-0.5` (D-E08.8, D-E08.9) |
+| E09 | Подготовка голосовых пакетов по кнопке | E04, E05, E08 | Готов | [Отчёт](13-live-ai-coach-e09-voice-packs.md); пакет ash 56/56 (стиль 0.2), safety выпущены |
+| E10 | Полный живой тренер, история и все сценарии | E06–E09 | На приёмке | [Отчёт](13-live-ai-coach-e10-e12-live.md); E10.2 режимы, E10.6 replay, E10.G |
+| E11 | Полные настройки, диагностика и отказоустойчивость | E09, E10 | В работе | Сетевая диагностика/recovery готовы; E11.1, E11.6, E11.7 |
+| E12 | Приёмка, настройка качества и выпуск | E01–E11 | В работе | E12.1–E12.3, E12.6, E12.7 готовы; прослушивание E12.4/E12.5 |
 
 ### Контрольные вехи
 
 - [x] **M1:** безопасные настройки + бюджетные primitives, до любых paid calls — E03–E04 (offline проверено; paid adapters ещё отсутствуют).
-- [ ] **M2:** локальный тренер со счётом, микшером и mini-debug без сети — E05–E06.
-- [ ] **M3:** проверенные тексты и выбранная русская озвучка — E07–E08.
+- [x] **M2:** локальный тренер со счётом, микшером и mini-debug без сети — E05–E06.
+- [x] **M3:** проверенные тексты и выбранная русская озвучка — E07–E08.
 - [ ] **M4:** пакеты готовятся по кнопке, вся тренировка контекстная — E09–E10.
 - [ ] **M5:** полный UX, recovery, проверки и пользовательское прослушивание — E11–E12.
 
@@ -296,22 +297,23 @@ Pilot 3 прогона × 12 случаев, $0.0063 всего; итоговы�
   измерить стадии latency, usage и match, без настоящей workout/hardware commands.
 - [x] **E08.6** После shortlist провести 30-текстовый русский A/B с двумя голосами
   и adapters; cold/warm conditions, числа, юмор, partial, overlap и длинное прослушивание.
-- [ ] **E08.7** Пользователь прослушал примеры; записать выбранный text/voice path,
+- [x] **E08.7** Пользователь прослушал примеры; записать выбранный text/voice path,
   male/female voice IDs, причины выбора, цену/latency и ограничения.
-- [ ] **E08.G** Приёмка M3: выбранный голос естественен, числа понятны, actual costs
+- [x] **E08.G** Приёмка M3: выбранный голос естественен, числа понятны, actual costs
   измерены; factual speech направляется в подходящий verified path.
 
 **Важно:** не строить окончательный pack выбранным наугад голосом до этой приёмки.
 
-**Статус: E08.1–E08.6 готовы, 08.10.2026; E08.7/E08.G ждут прослушивания.** [Реализация, pilot и выводы](13-live-ai-coach-e08-voice.md).
+**Статус: Готов, 08.10.2026.** E08.G: пользователь прослушал ash (пакет и live) — «всё хорошо»; по его просьбе подача сделана
+ниже/твёрже/увереннее (`coach-voice-0.4`, D-E08.8), A/B ash/echo/verse `voice-20261008-071450`. [Реализация, pilot и выводы](13-live-ai-coach-e08-voice.md).
 A/B 120 запросов + повторы на тёплой сессии: Realtime warm first audio 0,5–0,7 s (холодный 1,4 s), дословно 79/79 на тёплой
-сессии; TTS закрывается 06.01.2027. E08.7/E08.G не отмечены: выбор голосов и адаптера делает пользователь после прослушивания.
+сессии; TTS закрывается 06.01.2027.
 
 ## 12. E09 — голосовые пакеты и подготовка по кнопке
 
 **Цель:** частые фразы готовятся явно, работают быстро и не оплачиваются повторно без причины.
 
-- [ ] **E09.1** Утвердить редакторский каталог required/optional clips и safety texts,
+- [x] **E09.1** Утвердить редакторский каталог required/optional clips и safety texts,
   mechanical eligibility; проверить совместимость audited старых записей.
 - [x] **E09.2** Реализовать dry-run plan: coverage, fingerprints, sizes, missing/corrupt,
   отдельно generated/downloaded/decoded readiness и estimate/cap.
@@ -323,35 +325,42 @@ A/B 120 запросов + повторы на тёплой сессии: Realti
   loudness verification, pinned packVersion и сохранение старого compatible pack.
 - [x] **E09.6** Реализовать whitelist serving, encoded browser cache, decoded RAM LRU,
   quota/eviction, preload required clips, deletion и честный offline статус.
-- [ ] **E09.7** Подготовить оба выбранных voice packs в пределах отдельных caps;
+- [x] **E09.7** Подготовить оба выбранных voice packs в пределах отдельных caps;
   проверить required clips decode и прослушать count/start/safety/overlap.
-- [ ] **E09.G** Приёмка: repeated prepare готового pack не вызывает inference,
+- [x] **E09.G** Приёмка: repeated prepare готового pack не вызывает inference,
   partial не считается ready, voice switch не подменяет голос, quota не запускает paid regenerate.
 
 **Платный gate:** pack cap отдельно от $2/workout; пользователь видит число новых клипов.
 
-**Статус: Offline готов, платный путь проверен в E08; каталог, выбор голосов и генерация ждут пользователя, 08.10.2026.** [Реализация и проверки](13-live-ai-coach-e09-voice-packs.md).
-E09.1 не отмечен: черновик каталога в коде, safety-тексты не утверждены (`approved: false`) — нужно прослушивание пользователем.
-E09.7/E09.G не отмечены: нет выбранных голосов (E08.7); `coach_pilot.py pack` готов.
+**Статус: Готов, 08.10.2026.** [Реализация и проверки](13-live-ai-coach-e09-voice-packs.md).
+E09.1: каталог принят (D-E09.1); пользователь прослушал `listen-ash.wav` включая safety-stop/pain-stop → `APPROVED_SAFETY_CATALOG = CATALOG_VERSION`.
+E09.7: `pack-ash-20261008-022623` (56/56, $0.065) прослушан; после смены стиля перегенерирован `pack-ash-20261008-071739` —
+56/56, $0.065, manifest `0826034bbeeb36ae`, две автоматические повторные попытки (`transcript_mismatch`, `lease_lost`). Один голос
+вместо двух — по решению D-E08.7. E09.G: свойства покрыты тестами, пакет прослушан.
 
 ## 13. E10 — полный живой тренер на тренировке
 
 **Цель:** все этапы звучат как один внимательный напарник, а не отдельные демо.
 
-- [ ] **E10.1** Подключить end-to-end admission→text→validation→voice→mixer→acks;
+- [x] **E10.1** Подключить end-to-end admission→text→validation→voice→mixer→acks;
   повторные проверки scope/dependencies/deadline перед actual start.
 - [ ] **E10.2** Подключить setup/active/pause/resume/rest/exercise/workout сценарии,
   полные/частичные/aborted/skipped, bodyweight/timed/stretch/group/hold modes.
-- [ ] **E10.3** Подключить авторитетную историю, comparable/limited/unavailable,
+- [x] **E10.3** Подключить авторитетную историю, comparable/limited/unavailable,
   highlights/records только от app detectors, без чтения всей истории в prompt.
-- [ ] **E10.4** Подключить антиштампы, распределение intents и сюжетные callbacks
+- [x] **E10.4** Подключить антиштампы, распределение intents и сюжетные callbacks
   по actual playback; save feedback/end summary coalescing без дублей похвалы.
-- [ ] **E10.5** Подключить pack local fast path + live contextual, budget degradation,
+- [x] **E10.5** Подключить pack local fast path + live contextual, budget degradation,
   no paid auto-fallback и отсутствие старых реплик после recovery.
 - [ ] **E10.6** Проверить 12 продуктовых сценариев и 10–15 целых replay workouts;
   долю речи, интервал, переключение settings и цена по actual usage при opt-in pilot.
 - [ ] **E10.G** Приёмка M4: целая тренировка проходит с контекстом и всеми
   сценариями; Coach не меняет hardware, не выдумывает историю и не надоедает повторами.
+
+**Статус: На приёмке, 08.10.2026.** [Отчёт](13-live-ai-coach-e10-e12-live.md). Backend `LiveCoach` + WebSocket,
+фронтовый `CoachNetworkClient` с общим микшером; paid end-to-end `live-ash-20261008-022259`: 7/7 речь (T01/T04/T21/T40/T46/T55/T58),
+$0.022, first audio 0,58–0,78 s (холодный 1,85 s). E10.2 не отмечен: сетевые реплики есть для setup/active (тренажёр)/rest/итогов;
+pause/resume, bodyweight/timed/stretch/group/hold озвучиваются только локальными cue E06. E10.6/E10.G — replay и прослушивание.
 
 ## 14. E11 — полный UX, debug и recovery
 
@@ -374,29 +383,38 @@ E09.7/E09.G не отмечены: нет выбранных голосов (E08
 - [ ] **E11.G** Приёмка: пользователь понимает, почему тренер молчит, сколько
   потрачено и как подготовить звук; debug/настройки не обходят privacy/safety/budget.
 
+**Статус: В работе, 08.10.2026.** Сделано частично: раздел «Сеть · E10» в mini-debug (состояние, причины молчания,
+settled/pending/cap, first audio, redacted export, «Забыть разговор»), recovery `stale_run`/`owner_mismatch`/`local_mode`/
+`run_not_found` с тестами. Пункты не отмечены: нет счётчика в шапке и stage/model breakdown (E11.2, D-E12.3), timeline/pack versions (E11.3),
+TTL debug (E11.4), key rotation/provider outage вживую (E11.5), E11.1, E11.6, E11.7.
+
 ## 15. E12 — приёмка и выпуск
 
 **Цель:** подтвердить, что тренера хочется слушать целую тренировку, и зафиксировать release defaults.
 
-- [ ] **E12.1** Полные scoped unit/integration/replay tests, build/lint/typecheck;
+- [x] **E12.1** Полные scoped unit/integration/replay tests, build/lint/typecheck;
   unrelated baseline failures отмечены отдельно, новых Coach ошибок нет.
-- [ ] **E12.2** Security/privacy review: key vault/redaction/auth, private cache,
+- [x] **E12.2** Security/privacy review: key vault/redaction/auth, private cache,
   secret endpoints, no browser persisted key и no cross-user данные.
-- [ ] **E12.3** Budget/usage review: sent/cancel/retry/reconnect, cap reservation,
+- [x] **E12.3** Budget/usage review: sent/cancel/retry/reconnect, cap reservation,
   test/pack/workout segregation, отсутствие phantom free/zero usage.
 - [ ] **E12.4** Offline audio render/peak checks, реальные динамики, русский count,
   overlap ≥10–15 минут и целая workout ≥45–60 минут либо фактическая типовая длина.
 - [ ] **E12.5** Пользователь оценил уместность/естественность/понятность/утомляемость;
   подобрать density, count default, voices, ducking и rest windows, обновить спецификации.
-- [ ] **E12.6** Контрольный capped end-to-end paid run с actual usage и latency;
+- [x] **E12.6** Контрольный capped end-to-end paid run с actual usage и latency;
   без live motor experiments ради теста. При последующей настоящей workout Coach
   остаётся read-only наблюдателем существующего штатного процесса.
-- [ ] **E12.7** Описать setup/key/prepare/troubleshooting/backup/rotation/rollback,
+- [x] **E12.7** Описать setup/key/prepare/troubleshooting/backup/rotation/rollback,
   release flags и действия при отсутствии provider/pack.
 - [ ] **E12.8** Закрыть критичные defects, подтвердить принятие пользователем;
   deferred улучшения перечислить отдельно, не скрывать как «готово».
 - [ ] **E12.G** Приёмка M5: согласованные требования реализованы и подтверждены;
   нет critical safety/privacy/fact/budget дефектов, есть безопасное выключение/rollback.
+
+**Статус: В работе, 08.10.2026.** [Проверки, paid прогоны, setup и rollback](13-live-ai-coach-e10-e12-live.md).
+E12.2: токен run не в URL, ключ только в vault, бандл без секретов, redacted export; E12.3: cap/reserve/settle в ledger `test`,
+pending 0 после прогонов, run в `sessionStorage` не обнуляет cap. E12.4/E12.5/E12.8/E12.G — пользователь.
 
 ## 16. Блокировки и нерешённые решения
 
@@ -408,10 +426,10 @@ E01 закрыт; ниже — зависимости следующих эта�
 | D02 | Operator auth и пригодное server secret storage | E03 | Реализованы и offline проверены; deployment setup оператором ещё не выполнен |
 | D03 | Ввод ключа пользователем в безопасную форму | Paid E07–E09 | UI готов; сначала operator/vault provisioning, значение не хранить здесь |
 | D04 | Доступ аккаунта к моделям/voices и актуальные цены | E08 | Подтверждено 08.10.2026: gpt-6-luna, gpt-realtime-2.1-mini, gpt-4o-mini-tts (закрытие 06.01.2027), marin/cedar; цены `openai-2026-10-08` |
-| D05 | Выбранные male/female voices и adapter | E08 | Выбираются по A/B |
-| D06 | Caps текстового/voice/pack заданий | Перед каждым новым paid job | Выбираются явно, внутри job попытки разрешены |
+| D05 | Выбранные male/female voices и adapter | E08 | Закрыто 08.10.2026: выбор из 10 голосов, по умолчанию ash, adapter Realtime (D-E08.7) |
+| D06 | Caps текстового/voice/pack заданий | Перед каждым новым paid job | Выбираются явно, внутри job попытки разрешены; платные флаги по умолчанию включены (D-E12.1) |
 | D07 | Типовая длительность/отдых и count default | E12, можно уточнить раньше | Пока proposals |
-| D08 | Прослушивание и пользовательская приёмка | E08/E09/E12 | Не выполнены |
+| D08 | Прослушивание и пользовательская приёмка | E08/E09/E12 | E08/E09 приняты 08.10.2026; E12.4/E12.5 — целая тренировка |
 | D09 | Пригодные voice pack artifacts | E05/E09 | Нет на диске/в refs; E05 fixtures, E08 голоса, E09 capped prepare |
 | D10 | Исходные frontend test/typecheck ошибки | Интеграция и E12 | [Baseline E01](13-live-ai-coach-e01-audit.md); общий build пока FAIL, не блокирует contracts/fakes E02 |
 
@@ -433,6 +451,14 @@ E01 закрыт; ниже — зависимости следующих эта�
 | 07.10.2026 | E09.2–E09.6 | Каталог-черновик, dry-run plan, resumable pack job, verified WAV/atomic manifests, whitelist serving, browser pack client + UI | [Отчёт E09](13-live-ai-coach-e09-voice-packs.md): backend safe runner 364 PASS (E09 12); frontend 296 PASS; TS 23 baseline; Ruff/Vite PASS; ESLint не установлен; 0 paid/hardware calls. E09.1, E09.7/E09.G заблокированы | E10 после разблокировки E07–E09 |
 | 08.10.2026 | E07.7, E07.G | Paid text pilot gpt-6-luna: 3 прогона (`text-20261008-011521` — effort low, 10/10 речь); prompts 0.4, tempo regex, locked echo | [Отчёт E07](13-live-ai-coach-e07-director-author.md): ≈$0.006 суммарно, 1,6–3,3 s | E08.5 |
 | 08.10.2026 | E08.1, E08.5, E08.6 | Pilot `voice-20261008-011613` ($0.039), A/B `ab-20261008-011726` (120 req, $0.187), warm-повторы `ab-20261008-012832/-012903/-013605` (≈$0.13); warm Realtime session, `max_output_tokens`, текст-пропорциональный резерв, zero-input usage → partial | [Отчёт E08](13-live-ai-coach-e08-voice.md): safe runner 382 PASS; Ruff PASS; usage complete кроме effort=minimal (недоучёт ≈80 µUSD/фраза, исправлено); 0 hardware calls | E08.7 прослушивание |
+| 08.10.2026 | E08.7, D05 | Выбор голоса в настройках (10 Realtime voices), по умолчанию ash; legacy female/male → ash | Тесты settings/schema в safe runner и vitest; [decisions](13-live-ai-coach-decisions.md) | E08.G прослушивание |
+| 08.10.2026 | E10.1, E10.3–E10.5 | `LiveCoach` + WebSocket, `CoachNetworkClient`, lifecycle refs, общий микшер, recovery | [Отчёт E10–E12](13-live-ai-coach-e10-e12-live.md): safe runner 397 PASS (E10 16); frontend 310 PASS (network client 12); TS 23 baseline; Ruff/Vite PASS | E10.6 replay |
+| 08.10.2026 | E12.6, E09.7 (генерация) | `live-ash-20261008-022225` (lease не продлевался pilot'ом, исправлено; $0.009), `live-ash-20261008-022259` 7/7 ($0.022), `pack-ash-20261008-022623` 56/56 ($0.065) | Ledger `test`/`pack`, pending 0; 0 hardware calls | Прослушивание |
+| 08.10.2026 | E08.G, E09.1, E09.7, E09.G | Пользователь прослушал пакет и live ash — принято; safety-клипы выпущены | [decisions](13-live-ai-coach-decisions.md) D-E09.1 | — |
+| 08.10.2026 | D-E08.8, D-E12.1 | Голос `coach-voice-0.4` (низкий, твёрдый, без мета-вступлений), `coach-pack-style-0.2`; платные флаги по умолчанию `true`, в тестах закреплены `false` (conftest). A/B `voice-20261008-071450` ash/echo/verse ($0.042; 1 мета-вступление у ash → правило в промпте), повтор ash `voice-20261008-071555` 6/6 ($0.012), пакет `pack-ash-20261008-071739` 56/56 ($0.065) | Safe runner 398 PASS; Ruff PASS; pending 0; 0 hardware calls | Контрольное прослушивание нового стиля |
+| 08.10.2026 | D-E08.9, полная отладка | Высокое начало фраз: промпт `coach-voice-0.5`, `voice-20261008-073717/-073731` ($0.023), 2 эксперимента вариантов (≈$0.28), пакет `pack-ash-20261008-075311` с отбором дублей 56/56 ($0.066, onset high 10→1). Отладка: live-сокет отклоняет `coach_disabled` при `COACH_ENABLED=false` (платные флаги теперь `true`), клиент не переподключается; teardown сокета дожидается renew-задачи и закрывает pipeline даже при ошибке `coach.close()` | Safe runner 401 PASS; E10 17 PASS; полный backend 532 PASS на чистой БД (3 hardware-теста падают только на dev-БД с сохранёнными параметрами регулятора — не coach); frontend 311 PASS, TS 23 baseline, Vite PASS; Ruff PASS; 0 hardware calls | Прослушать `listen-ash.wav` нового пакета |
+| 08.10.2026 | D-E12.2 rollout | Флаги включены локально: `backend/.env` (`COACH_ENABLED=true`, пути vault `~/.local/share/egym/coach-security/`), `frontend/.env` (`VITE_COACH_ENABLED=true`); оба файла в `.gitignore`. Тесты изолированы: conftest закрепляет `COACH_ENABLED=false` и пустые пути vault, vitest `env.VITE_COACH_ENABLED=false`. Vault ещё не создан | Backend 532 PASS, safe runner 401 PASS; frontend 489 PASS / 5 FAIL — те же 5, что без флага (не coach); живой сервер: capabilities `enabled:true`, Vite отдаёт `VITE_COACH_ENABLED=true` | Оператор: `setup_coach_security.py`, затем ключ через форму оператора |
+| 08.10.2026 | Шапка: расход за день | `GET /api/coach/usage/today?since=<локальная полночь>` (`ledger.daily_usage`: платные запросы с `sent_at ≥ since` по всем run, settled + pending); AI-кнопка в шапке показывает «N · $X» за текущий день (опрос раз в минуту и при изменении usage live-run), подробности в title и в поповере. Без флага `VITE_COACH_ENABLED` запросов нет | Backend safe runner 402 PASS, Ruff PASS; frontend 490 PASS / 5 baseline FAIL, TS 23 baseline, Vite PASS; живой сервер отвечает | — |
 
 При завершении реализации каждого пункта добавляем запись. Для paid:
 job/run ID, stage/model, cap, reported usage completeness, estimated cost,

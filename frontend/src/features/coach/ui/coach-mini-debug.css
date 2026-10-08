@@ -1,15 +1,21 @@
+/* Same compact three-line column as the motor force readout next to it. */
 .coach-mini-debug-trigger {
-  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
-  flex: 0 1 auto; min-width: 44px; min-height: 44px; padding: 8px;
-  border: 1px solid #a78bfa55; border-radius: 12px;
-  background: linear-gradient(135deg, #8b5cf622, #38bdf80c); color: #e9ddff;
-  font-size: 11px; line-height: 1.4; font-weight: 700; white-space: nowrap;
+  display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
+  flex: 0 0 auto; min-width: 4.5rem; min-height: 44px; padding: 0 6px;
+  border: 0; border-radius: 8px; background: transparent; color: #ffffffa6;
+  font-size: 0.6875rem; line-height: 1.15; font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right;
 }
-.forma-header-side > .coach-mini-debug-trigger { order: 0; padding-inline: 8px; gap: 7px; }
-.coach-mini-debug-trigger:hover:not(:disabled) { background-color: #8b5cf633; }
+.forma-header-side > .coach-mini-debug-trigger { order: 0; }
+.coach-mini-debug-trigger:hover:not(:disabled) { background-color: #ffffff0d; }
 .coach-mini-debug-trigger:disabled { opacity: .45; cursor: not-allowed; }
 .coach-mini-debug-trigger:focus-visible, .coach-mini-debug-popover button:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 3px; }
-.coach-mini-debug-detail { overflow: hidden; text-overflow: ellipsis; }
+.coach-mini-debug-mode { display: inline-flex; align-items: center; gap: 4px; font-size: 0.625rem; text-transform: uppercase; letter-spacing: 0.04em; color: #ffffff73; }
+.coach-mini-debug-mode::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #64748b; }
+.coach-mini-debug-mode[data-tone='local']::before { background: #38bdf8; }
+.coach-mini-debug-mode[data-tone='pending']::before { background: #fbbf24; }
+.coach-mini-debug-mode[data-tone='live']::before { background: #4ade80; box-shadow: 0 0 6px #4ade80aa; }
+.coach-mini-debug-mode[data-tone='error']::before { background: #f87171; }
+
 .coach-mini-debug-popover {
   z-index: 45; box-sizing: border-box; width: min(460px, calc(100vw - 24px));
   min-height: 0; overflow: auto; overscroll-behavior: contain;
@@ -33,7 +39,6 @@
 .coach-local-timeline { max-height: 180px; overflow-y: auto; font-variant-numeric: tabular-nums; }
 .coach-local-preview { padding: 16px; border: 1px solid #a78bfa40; border-radius: 16px; background: #8b5cf60a; }
 .coach-local-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-@media (max-width: 1599px) { .coach-mini-debug-detail { display: none; } }
 /* Only coach-bearing headers: let the secondary navigation wrap, not hide STOP/motors. */
 @media (max-width: 1024px) {
   .forma-header:has(.coach-mini-debug-trigger) { grid-template-columns: auto minmax(0, 1fr); overflow: visible; }

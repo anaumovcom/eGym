@@ -2,7 +2,10 @@ import * as Popover from '@radix-ui/react-popover'
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useSafetyDockTarget } from '@/shared/ui/overlays/safety-dialog'
 import { localAudioRuntime, type LocalAudioRuntimeSnapshot } from '../audio/local-audio-runtime'
-import { coachLiveRuntime, type LiveRuntimeSnapshot } from '../live/coach-live-runtime'
+import { coachLiveRuntime, coachNetworkClient, type LiveRuntimeSnapshot } from '../live/coach-live-runtime'
+import { redactedNetworkReport, type NetworkSnapshot } from '../live/coach-network-client'
+import { coachSettingsApi, type DailyUsage } from '../lib/settings-api'
+import type { CoachPreferences } from '../model/preferences'
 import './coach-mini-debug.css'
 
 const reasons: Readonly<Record<string, string>> = {
@@ -14,8 +17,81 @@ const reasons: Readonly<Record<string, string>> = {
   cancelled: 'Тест остановлен', scope_changed: 'Контекст изменён', missing_clip: 'Фраза не подготовлена',
   admitted: 'Фраза принята', idle: 'Ожидание', stale_source: 'Данные тренажёра устарели', mock_source: 'Не реальный источник',
   owner_mismatch: 'Тренажёр у другого пользователя', expired: 'Опоздало', no_source: 'Нет источника',
+  pipeline_busy: 'Тренер уже говорит', provider_unavailable: 'Провайдер недоступен', stale_run: 'Настройки изменились, переподключение',
+  local_mode: 'Сервер в локальном режиме', coach_disabled: 'Тренер выключен на сервере (COACH_ENABLED)', run_not_found: 'Ledger не найден', budget: 'Лимит бюджета', degraded: 'Только локальные клипы',
+  no_useful_content: 'Нечего сказать', validation_failed: 'Текст отклонён проверкой', closed: 'Соединение закрыто', network: 'Сеть недоступна',
 }
 const reasonLabel = (reason: string) => reasons[reason] ?? reason
+
+const networkStates: Readonly<Record<NetworkSnapshot['state'], string>> = {
+  off: 'Выключена', creating: 'Создание ledger', connecting: 'Подключение', ready: 'Подключена', retrying: 'Переподключение', refused: 'Отклонена сервером',
+}
+const modeLabels: Readonly<Record<CoachPreferences['mode'], string>> = { local: 'Local', hybrid: 'Live', 'text-only': 'Text' }
+const modeTitles: Readonly<Record<CoachPreferences['mode'], string>> = { local: 'локальные клипы', hybrid: 'гибрид, живой голос', 'text-only': 'только текст' }
+type ModeTone = 'off' | 'local' | 'idle' | 'pending' | 'live' | 'error'
+const networkTones: Readonly<Record<NetworkSnapshot['state'], ModeTone>> = {
+  off: 'idle', creating: 'pending', connecting: 'pending', retrying: 'pending', ready: 'live', refused: 'error',
+}
+/** Saved coach mode plus, for network modes, the live connection state as a tone. */
+function coachMode(saved: CoachPreferences | null, network: NetworkSnapshot | null | undefined) {
+  if (!saved?.enabled) return { label: 'Выкл', tone: 'off' as ModeTone, title: 'Режим: выключен' }
+  const title = `Режим: ${modeLabels[saved.mode]} (${modeTitles[saved.mode]})`
+  if (saved.mode === 'local') return { label: modeLabels.local, tone: 'local' as ModeTone, title }
+  const state = network?.state ?? 'off'
+  return { label: modeLabels[saved.mode], tone: networkTones[state], title: `${title} · сеть: ${networkStates[state]}` }
+}
+const usd = (micros: number) => `$${(micros / 1_000_000).toFixed(4)}`
+const dayUsd = (micros: number) => micros === 0 ? '$0' : micros < 1_000 ? '<$0.001' : `$${(micros / 1_000_000).toFixed(micros < 10_000_000 ? 3 : 2)}`
+const DAILY_USAGE_EVERY_MS = 60_000
+
+/** Today's paid requests (since local midnight) from the server ledger; refreshed on live usage changes and every minute. */
+function useDailyUsage(refreshKey: string): DailyUsage | null {
+  const [usage, setUsage] = useState<DailyUsage | null>(null)
+  useEffect(() => {
+    if (import.meta.env.VITE_COACH_ENABLED !== 'true') return
+    const controller = new AbortController()
+    const load = () => {
+      const midnight = new Date()
+      midnight.setHours(0, 0, 0, 0)
+      coachSettingsApi.dailyUsage(midnight.getTime(), controller.signal).then(setUsage, () => undefined)
+    }
+    load()
+    const timer = setInterval(load, DAILY_USAGE_EVERY_MS)
+    return () => { controller.abort(); clearInterval(timer) }
+  }, [refreshKey])
+  return usage
+}
+
+/** E10/E11 live network path: connection, decisions, usage from the ledger. Never shows tokens. */
+export function CoachNetworkDiagnostics({ snapshot }: { snapshot: NetworkSnapshot }) {
+  const [notice, setNotice] = useState<string | null>(null)
+  const copy = () => {
+    const report = redactedNetworkReport(snapshot)
+    void navigator.clipboard?.writeText(report).then(() => setNotice('Отчёт скопирован (без текстов и ID)'), () => setNotice('Буфер обмена недоступен'))
+  }
+  const forget = () => {
+    void coachNetworkClient.forgetMemory().then(cleared => setNotice(cleared === null ? 'Не удалось очистить память' : `Память разговора очищена (${cleared})`))
+  }
+  const usage = snapshot.usage
+  return <section className="coach-local-diagnostics" aria-label="Сетевой тренер">
+    <h4>Сеть · E10</h4>
+    <dl className="coach-local-metrics">
+      <div><dt>Состояние</dt><dd>{networkStates[snapshot.state]}{snapshot.reason ? ` · ${reasonLabel(snapshot.reason)}` : ''}</dd></div>
+      <div><dt>Режим / голос</dt><dd>{snapshot.mode ?? '—'} / {snapshot.voiceId ?? '—'}{snapshot.degraded ? ' · деградация' : ''}</dd></div>
+      <div><dt>События / потоки / сказано / сбои</dt><dd>{`${snapshot.eventsSent} / ${snapshot.streams} / ${snapshot.spoken} / ${snapshot.failed}`}</dd></div>
+      <div><dt>Первый звук провайдера</dt><dd>{snapshot.firstAudioMs === null ? '—' : `${snapshot.firstAudioMs} мс`}</dd></div>
+      <div><dt>Расход (settled / pending / cap)</dt><dd>{usage ? `${usd(usage.settledMicros)} / ${usd(usage.pendingMicros)} / ${usd(usage.capMicros)} · ${usage.requests} запр.` : '—'}</dd></div>
+      {snapshot.lastText && <div><dt>Последний текст</dt><dd>{snapshot.lastText}</dd></div>}
+    </dl>
+    {!!snapshot.decisions.length && <ol className="coach-local-timeline">{snapshot.decisions.slice(-10).map((item, index) =>
+      <li key={index}>{item.triggerId ?? '—'} · {item.action}{item.reason ? ` · ${reasonLabel(item.reason)}` : ''}</li>)}</ol>}
+    <div className="coach-local-actions">
+      <button type="button" className="rt-button" onClick={copy}>Скопировать отчёт</button>
+      <button type="button" className="rt-button" disabled={snapshot.state === 'off'} onClick={forget}>Забыть разговор</button>
+    </div>
+    {notice && <p className="coach-local-note" role="status">{notice}</p>}
+  </section>
+}
 
 /** E06 interpreter: phase, latest cue and recent skips. Local only, no provider. */
 export function CoachLiveDiagnostics({ snapshot }: { snapshot: LiveRuntimeSnapshot }) {
@@ -51,7 +127,7 @@ export function CoachLocalDiagnostics({ snapshot }: { snapshot: LocalAudioRuntim
       <div><dt>Enqueued / finished / cancelled / rejected</dt><dd>{audio ? `${audio.counters.enqueued} / ${audio.counters.finished} / ${audio.counters.cancelled} / ${audio.counters.rejected}` : '—'}</dd></div>
       <div><dt>Причина менеджера</dt><dd>{audio?.reason ?? '—'}</dd></div>
     </dl>
-    <p className="coach-local-note">Платная генерация отсутствует. Usage неизвестен: запросы провайдера, токены и стоимость не измеряются; ledger не подключён.</p>
+    <p className="coach-local-note">Платная генерация отсутствует в локальном тесте. Usage неизвестен для локальных клипов; расход live-тренера показан в разделе «Сеть».</p>
     <p className="coach-local-note">Старты наблюдаются по времени AudioContext, не подтверждают звук на устройстве. Только тестовые тоны, не выбранный голос.</p>
     {audio && audio.utterances.length > 0 && <section aria-label="Коэффициенты микшера">
       <h4>Коэффициенты микшера</h4>
@@ -83,6 +159,9 @@ export function CoachLocalPreview() {
 export function CoachMiniDebug() {
   const snapshot = useSyncExternalStore(localAudioRuntime.subscribe, localAudioRuntime.getSnapshot, localAudioRuntime.getSnapshot)
   const live = useSyncExternalStore(coachLiveRuntime.subscribe, coachLiveRuntime.getSnapshot, coachLiveRuntime.getSnapshot)
+  const runUsage = live.network?.usage
+  const daily = useDailyUsage(runUsage ? `${runUsage.requests}:${runUsage.settledMicros}:${runUsage.pendingMicros}` : '')
+  const dailyText = daily ? `Сегодня: ${daily.requests} платн. запр. на ${dayUsd(daily.totalMicros)}${daily.pendingMicros ? ` (из них в расчёте ${dayUsd(daily.pendingMicros)})` : ''}` : null
   const target = useSafetyDockTarget()
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -123,11 +202,17 @@ export function CoachMiniDebug() {
   }, [open, target])
   useEffect(() => { if (target !== null) setOpen(false) }, [target])
   const locked = snapshot.reason === 'audio_locked' || (snapshot.previewAllowed && snapshot.audio?.contextState === 'suspended')
-  const status = locked ? 'audio_locked' : snapshot.previewAllowed ? 'local' : snapshot.reason === 'disabled' ? 'off' : snapshot.reason
+  const mode = coachMode(localAudioRuntime.getSavedPreferences(), live.network)
+  const coachEnabled = import.meta.env.VITE_COACH_ENABLED === 'true'
+  const title = [mode.title, reasonLabel(locked ? 'audio_locked' : snapshot.reason), dailyText].filter(Boolean).join(' · ')
   return <Popover.Root open={open && target === null} onOpenChange={value => setOpen(target === null && value)}>
     <Popover.Trigger asChild>
-      <button ref={triggerRef} type="button" className="coach-mini-debug-trigger" disabled={target !== null} aria-label="AI-тренер: локальная диагностика" title={`${reasonLabel(snapshot.reason)} · локальные старты: ${snapshot.audio?.counters.started ?? 0}`}>
-        <span>AI</span><span className="coach-mini-debug-detail">{status} · {snapshot.audio?.counters.started ?? 0} стартов</span>
+      <button ref={triggerRef} type="button" className="coach-mini-debug-trigger" disabled={target !== null} aria-label="AI-тренер: локальная диагностика" title={title}>
+        <span className="coach-mini-debug-mode" data-tone={mode.tone}>AI · {mode.label}</span>
+        {coachEnabled && <>
+          <span>{daily ? `${daily.requests} запр.` : '—'}</span>
+          <span>{daily ? dayUsd(daily.totalMicros) : '—'}</span>
+        </>}
       </button>
     </Popover.Trigger>
     {/* Register after Trigger: its initial implicit anchor must not overwrite
@@ -138,8 +223,10 @@ export function CoachMiniDebug() {
           are constrained instead; Radix still owns placement, portal and focus. */}
         <Popover.Content className="coach-mini-debug-popover" style={{ maxHeight: Math.min(640, availableHeight) }} aria-label="Локальная диагностика AI-тренера" side="bottom" align="end" sideOffset={8} avoidCollisions={false} updatePositionStrategy="always" onCloseAutoFocus={event => { if (target !== null) event.preventDefault() }}>
         <header><h3>AI · Локальная диагностика</h3><Popover.Close aria-label="Закрыть диагностику AI">×</Popover.Close></header>
+        {dailyText && <p className="coach-local-note">{dailyText}</p>}
         <CoachLocalDiagnostics snapshot={snapshot} />
         <CoachLiveDiagnostics snapshot={live} />
+        {live.network && <CoachNetworkDiagnostics snapshot={live.network} />}
       </Popover.Content>
     </Popover.Portal>
   </Popover.Root>

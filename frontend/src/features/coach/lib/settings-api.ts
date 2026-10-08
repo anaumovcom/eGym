@@ -1,11 +1,13 @@
+import { coachVoice } from '../model/contracts'
 import { preferencesValid, type CoachPreferences } from '../model/preferences'
 
-export type CoachApiErrorCode = 'revision_conflict' | 'unauthorized' | 'unavailable' | 'invalid_response' | 'request_failed' | 'aborted'
+export type CoachApiErrorCode = 'revision_conflict' | 'unauthorized' | 'rate_limited' | 'unavailable' | 'invalid_response' | 'request_failed' | 'aborted'
 export class CoachApiError extends Error {
   readonly code: CoachApiErrorCode
   constructor(code: CoachApiErrorCode) { super(code); this.code = code; this.name = 'CoachApiError' }
 }
 export type OperatorSession = Readonly<{ authorized: boolean; setupAvailable: boolean }>
+export type DailyUsage = Readonly<{ requests: number; settledMicros: number; pendingMicros: number; totalMicros: number }>
 export type CredentialStatus = Readonly<{
   configured: boolean; credentialVersion: number; source: 'server-vault'; storageAvailable: boolean
   lastCheckStatus: 'not_checked' | 'auth_ok_models_not_verified' | 'auth_failed' | 'provider_unavailable' |
@@ -22,12 +24,12 @@ function preferences(value: unknown): CoachPreferences {
       typeof p.duringRest !== 'boolean' || !['local', 'hybrid', 'text-only'].includes(String(p.mode)) ||
       !['quiet', 'companion', 'talkative'].includes(String(p.density)) || !['every', 'last-three', 'milestones', 'off'].includes(String(p.count)) ||
       !['companion', 'calm'].includes(String(p.style)) || !['off', 'light', 'often'].includes(String(p.humor)) ||
-      !(p.voiceProfile === null || (typeof p.voiceProfile === 'string' && p.voiceProfile.length <= 80)) ||
+      !(p.voiceProfile === null || typeof p.voiceProfile === 'string') ||
       !(p.voiceVolume === null || typeof p.voiceVolume === 'number') || !preferencesValid(p as CoachPreferences)) throw new CoachApiError('invalid_response')
   // Pick only the public contract: never retain unknown server/provider fields.
   return { schemaVersion: 1, enabled: p.enabled, consentVersion: p.consentVersion as null | 1,
     mode: p.mode as CoachPreferences['mode'], density: p.density as CoachPreferences['density'], count: p.count as CoachPreferences['count'],
-    voiceProfile: p.voiceProfile as string | null, historyConsent: p.historyConsent, revision: p.revision as number, budgetUsd: p.budgetUsd as string,
+    voiceProfile: coachVoice(p.voiceProfile), historyConsent: p.historyConsent, revision: p.revision as number, budgetUsd: p.budgetUsd as string,
     networkConsentVersion: p.networkConsentVersion as null | 1, voiceVolume: p.voiceVolume as number | null,
     style: p.style as CoachPreferences['style'], humor: p.humor as CoachPreferences['humor'], edgyOptIn: false, duringSets: p.duringSets, duringRest: p.duringRest }
 }
@@ -59,7 +61,7 @@ async function request(path: string, method: string, signal: AbortSignal, body?:
     if (!response.ok) {
       // Do not read error bodies: they can contain provider secrets or request echoes.
       throw new CoachApiError(response.status === 409 ? 'revision_conflict' : response.status === 401 || response.status === 403 ? 'unauthorized' :
-        response.status === 404 || response.status === 503 ? 'unavailable' : 'request_failed')
+        response.status === 429 ? 'rate_limited' : response.status === 404 || response.status === 503 ? 'unavailable' : 'request_failed')
     }
     if (response.status === 204) return null
     const value: unknown = await response.json()
@@ -98,11 +100,19 @@ export const coachSettingsApi = {
   putCredential: async (key: string, expectedVersion: number, signal: AbortSignal) => status(await request('credentials', 'PUT', signal, { schemaVersion: 1, key, expectedVersion })),
   deleteCredential: async (expectedVersion: number, signal: AbortSignal) => status(await request('credentials', 'DELETE', signal, { schemaVersion: 1, expectedVersion })),
   checkCredential: async (signal: AbortSignal) => status(await request('credentials/check', 'POST', signal)),
+  /** Paid requests actually sent since `sinceMs` (local midnight) across all runs. */
+  dailyUsage: async (sinceMs: number, signal: AbortSignal): Promise<DailyUsage> => {
+    const u = object(await request(`usage/today?since=${encodeURIComponent((sinceMs / 1000).toFixed(3))}`, 'GET', signal))
+    const fields = [u.requests, u.settledMicros, u.pendingMicros, u.totalMicros]
+    if (!fields.every(value => Number.isSafeInteger(value) && Number(value) >= 0)) throw new CoachApiError('invalid_response')
+    return { requests: u.requests as number, settledMicros: u.settledMicros as number, pendingMicros: u.pendingMicros as number, totalMicros: u.totalMicros as number }
+  },
 }
 export function coachErrorMessage(error: unknown): string {
   const code = error instanceof CoachApiError ? error.code : 'request_failed'
   return code === 'revision_conflict' ? 'Настройки изменились на сервере. Загрузите актуальную версию; черновик сохранён на экране.' :
     code === 'unauthorized' ? 'Сессия оператора истекла или доступ запрещён. Войдите снова.' :
+    code === 'rate_limited' ? 'Слишком много попыток входа. Подождите минуту и попробуйте снова.' :
     code === 'unavailable' ? 'Сервер Coach недоступен. Настройте операторский доступ и server vault на сервере.' :
     'Не удалось выполнить запрос Coach. Секретные данные не отображаются.'
 }

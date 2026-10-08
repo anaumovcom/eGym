@@ -29,23 +29,23 @@ describe('CoachVoicePackSection', () => {
 
   it('prepares only on click and shows progress, size and pending safety approval', async () => {
     const f = fakeClient()
-    render(<CoachVoicePackSection slot="female" client={f.client} />)
+    render(<CoachVoicePackSection slot="ash" client={f.client} />)
     expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Не подготовлено')
     fireEvent.click(screen.getByRole('button', { name: 'Подготовить частые фразы' }))
     await waitFor(() => expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Готово · Подготовлено 54/54 · 3.0 MB'))
     expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('фраз безопасности ждут прослушивания: 2')
-    expect(f.prepare).toHaveBeenCalledWith('female')
+    expect(f.prepare).toHaveBeenCalledWith('ash')
     fireEvent.click(screen.getByRole('button', { name: 'Удалить локальные файлы' }))
     await waitFor(() => expect(f.remove).toHaveBeenCalledOnce())
     expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Не подготовлено')
   })
 
   it('does not show another voice pack as prepared', () => {
-    const f = fakeClient({ slot: 'female', state: 'ready', prepared: 54, required: 54 })
-    render(<CoachVoicePackSection slot="male" client={f.client} />)
+    const f = fakeClient({ slot: 'ash', state: 'ready', prepared: 54, required: 54 })
+    render(<CoachVoicePackSection slot="cedar" client={f.client} />)
     expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Не подготовлено')
     expect(screen.getByTestId('coach-pack-status')).not.toHaveTextContent('54')
-    act(() => f.set({ slot: 'male', state: 'failed', reason: 'no_audio', prepared: 0, required: 0 }))
+    act(() => f.set({ slot: 'cedar', state: 'failed', reason: 'no_audio', prepared: 0, required: 0 }))
     expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Ошибка подготовки · звук браузера недоступен')
   })
 })

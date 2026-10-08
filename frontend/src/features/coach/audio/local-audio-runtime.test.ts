@@ -247,7 +247,7 @@ describe('explicit test-tone preparation and gesture previews', () => {
         case 'hidden': f.change({ hidden: true }); f.change({ hidden: false }); break
         case 'user': f.change({ userId: 'user-b' }); f.change({ userId: 'user-a' }); f.runtime.setSavedCoachPreferences('user-a', prefs); break
         case 'mute': f.change({ general: { ...f.inputs().general, soundEnabled: false } }); f.change({ general: f.inputs().general }); break
-        case 'voice': f.runtime.setSavedCoachPreferences('user-a', { ...prefs, revision: 2, voiceProfile: 'new-voice' }); break
+        case 'voice': f.runtime.setSavedCoachPreferences('user-a', { ...prefs, revision: 2, voiceProfile: 'cedar' }); break
         case 'mode': f.runtime.setSavedCoachPreferences('user-a', { ...prefs, revision: 2, mode: 'text-only', networkConsentVersion: 1 }); break
         case 'run': f.change({ session: session('workout-summary') }); break
         case 'exercise': f.change({ session: { ...session('workout-summary'), currentExerciseId: 'exercise-b' } }); break
@@ -390,7 +390,7 @@ describe('runtime and hardware admission/cancellation', () => {
     f.runtime.stopPreview()
     f.change({ general: { ...f.inputs().general, soundEnabled: false } })
     f.change({ general: { ...f.inputs().general, soundEnabled: true } })
-    f.runtime.setSavedCoachPreferences('user-a', { ...prefs, revision: 2, voiceProfile: 'new-voice' })
+    f.runtime.setSavedCoachPreferences('user-a', { ...prefs, revision: 2, voiceProfile: 'cedar' })
     await f.runtime.playPreview('single')
     expect(f.createManager).toHaveBeenCalledTimes(1)
     expect(manager.snapshot().counters.enqueued).toBe(2)

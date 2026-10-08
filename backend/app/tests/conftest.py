@@ -6,7 +6,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.api.dependencies import get_session
+from app.api.dependencies import get_session, get_session_factory
 from app.core.config import get_settings
 from app.db.base import Base
 from app.db.seed import seed_dev_data
@@ -17,6 +17,14 @@ from app.main import create_app
 def use_test_emulator(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Legacy motion tests explicitly use the physics model; production defaults to Modbus."""
     monkeypatch.setenv("HARDWARE_ADAPTER", "emulator")
+    # Production enables paid coach dispatch by default; tests opt in explicitly so they never assume it.
+    for flag in ("COACH_PAID_TEXT_ENABLED", "COACH_TEXT_PRICING_VERIFIED", "COACH_PAID_VOICE_ENABLED",
+                 "COACH_VOICE_PRICING_VERIFIED"):
+        monkeypatch.setenv(flag, "false")
+    # Local backend/.env may enable the coach and point at the real vault; tests opt in explicitly.
+    monkeypatch.setenv("COACH_ENABLED", "false")
+    monkeypatch.setenv("COACH_OPERATOR_HASH_FILE", "")
+    monkeypatch.setenv("COACH_MASTER_KEY_FILE", "")
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
@@ -46,6 +54,7 @@ def client(session_factory: sessionmaker[Session]) -> Iterator[TestClient]:
             yield session
 
     app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_session_factory] = lambda: session_factory
 
     with TestClient(app) as test_client:
         yield test_client

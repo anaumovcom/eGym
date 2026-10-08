@@ -1,11 +1,18 @@
-"""Coach control plane. No inference dispatch or provider secrets in responses."""
+"""Coach control plane and live socket. Provider secrets never appear in responses."""
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response
+import asyncio
+import contextlib
+import json
+import time
+from collections.abc import Callable
+
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse
+from pydantic import ValidationError
 from sqlalchemy import delete, update
 from sqlalchemy.orm import Session
 
-from app.api.dependencies import get_session
+from app.api.dependencies import get_session, get_session_factory
 from app.core.config import get_settings
 from app.models.coach import CoachAttempt, CoachCredential, CoachJob, CoachLedgerRun, CoachOperatorSession
 from app.schemas.coach import CoachCapabilities
@@ -17,13 +24,14 @@ from app.schemas.coach_control import (
     JobAction,
     JobCreate,
     LeaseRequest,
+    LiveConfigure,
     OperatorLogin,
     PackJobCreate,
     PreferencesSave,
     RunBind,
     RunCreate,
 )
-from app.services.coach import ledger, packs, security
+from app.services.coach import ledger, live, packs, security
 from app.services.coach.preferences import load_preferences, save_preferences
 
 router = APIRouter()
@@ -152,6 +160,19 @@ async def check_credential(request: Request, db: Session = Depends(get_session))
     return security.credential_status(db)
 
 
+@router.get("/coach/usage/today")
+def daily_usage(request: Request, response: Response, since: float | None = None, db: Session = Depends(get_session)):
+    """Header counter: paid requests and their cost since the client's local midnight (default: UTC midnight)."""
+    security.safe_request(request, mutation=False)
+    now = time.time()
+    if since is None:
+        since = now - now % 86_400
+    elif not now - 2 * 86_400 <= since <= now + 60:
+        raise HTTPException(422, "invalid_since")
+    response.headers["Cache-Control"] = "no-store"
+    return ledger.daily_usage(db, since)
+
+
 @router.post("/coach/runs")
 def create_run(payload: RunCreate, request: Request, db: Session = Depends(get_session)):
     security.safe_request(request)
@@ -259,7 +280,7 @@ def pack_store() -> packs.PackStore:
 def pack_plan(slot: str, request: Request, response: Response):
     security.safe_request(request, mutation=False)
     response.headers["Cache-Control"] = "no-store"
-    return packs.plan(pack_store(), slot, get_settings().coach_voice_tts_model)
+    return packs.plan(pack_store(), slot, packs.pack_model())
 
 
 @router.get("/coach/packs/{slot}/manifest")
@@ -293,7 +314,7 @@ def pack_clip(slot: str, pack_version: str, clip_id: str):
 def pack_job_submit(slot: str, payload: PackJobCreate, request: Request, db: Session = Depends(get_session)):
     security.authorize(db, request)
     run_access(request, db, payload.run_id)
-    current = packs.plan(pack_store(), slot, get_settings().coach_voice_tts_model)
+    current = packs.plan(pack_store(), slot, packs.pack_model())
     if not current["voiceSelected"]:
         raise HTTPException(409, "voice_not_selected")
     if payload.plan_fingerprint != current["planFingerprint"]:
@@ -304,3 +325,134 @@ def pack_job_submit(slot: str, payload: PackJobCreate, request: Request, db: Ses
     job_id = ledger.submit_job(db, payload.run_id, payload.idempotency_key, payload.plan_fingerprint, list(payload.clip_ids))
     # Generation requires verified pricing and a paid voice adapter (E08.1/E08.5); both stay fail-closed.
     return {"jobId": job_id, "clips": len(payload.clip_ids), "dispatchAvailable": False}
+
+
+@router.delete("/coach/users/{user_id}/memory")
+def delete_memory(user_id: str, request: Request, db: Session = Depends(get_session)):
+    """Coach memory is session-only (no long-term store yet): clearing resets every live socket of this user."""
+    security.safe_request(request)
+    load_preferences(db, user_id)  # 404 for unknown users
+    db.rollback()
+    return {"cleared": live.forget_user(user_id), "persistentMemory": False}
+
+
+# ---------- E10 live socket ----------
+
+LIVE_MESSAGE_LIMIT = 32_768
+LIVE_RATE_PER_S = 40
+LEASE_RENEW_S = 5.0
+
+
+def get_live_factory() -> live.PipelineFactory:
+    return live.default_pipeline
+
+
+@router.websocket("/coach/runs/{run_id}/live")
+async def coach_live(websocket: WebSocket, run_id: str, sessions: Callable[[], Session] = Depends(get_session_factory),
+                     factory: live.PipelineFactory = Depends(get_live_factory)):
+    try:
+        security.safe_request(websocket)
+    except HTTPException:
+        await websocket.close(code=1008)
+        return
+    await websocket.accept()
+    lock = asyncio.Lock()
+
+    async def send_json(payload: dict) -> None:
+        async with lock:
+            await websocket.send_text(json.dumps(payload, ensure_ascii=False))
+
+    async def send_bytes(data: bytes) -> None:
+        async with lock:
+            await websocket.send_bytes(data)
+
+    async def refuse(reason: str) -> None:
+        with contextlib.suppress(Exception):
+            await send_json({"type": "error", "reason": reason})
+            await websocket.close(code=1008)
+
+    try:
+        first = await asyncio.wait_for(websocket.receive_text(), 5)
+        if len(first) > 1024:
+            raise ValueError("too_large")
+        config = LiveConfigure.model_validate_json(first)
+    except (TimeoutError, ValidationError, ValueError, KeyError, WebSocketDisconnect):
+        await refuse("configure_required")
+        return
+    if not get_settings().coach_enabled:
+        # Master switch: paid flags default on, so a disabled coach must never open a paid pipeline.
+        await refuse("coach_disabled")
+        return
+    try:
+        with sessions() as db:
+            run = ledger.get_run(db, run_id, config.run_token)
+            # workout: real training; test: capped sound-test wizard/CI with synthetic adapters.
+            if run.ledger not in {"workout", "test"} or run.state != "active":
+                raise HTTPException(409, "run_not_live")
+            user_id, current = run.user_id, run.generation
+            db.rollback()
+            generation = ledger.lease(db, run_id, config.owner_id, current)["generation"]
+            prefs = load_preferences(db, user_id)
+    except HTTPException as error:
+        await refuse(str(error.detail))
+        return
+    if (not prefs.enabled or prefs.mode == "local" or prefs.consent_version is None
+            or prefs.network_consent_version != 1):
+        await refuse("local_mode")
+        return
+    pipeline = await factory(sessions, prefs)
+    coach = live.LiveCoach(sessions, run_id=run_id, owner=config.owner_id, generation=generation, user_id=user_id,
+                           settings=prefs, author=pipeline.author, voice=pipeline.voice,
+                           send_json=send_json, send_bytes=send_bytes)
+    live.register(coach)
+
+    async def renew() -> None:
+        while True:
+            await asyncio.sleep(LEASE_RENEW_S)
+            try:
+                with sessions() as db:
+                    ledger.lease(db, run_id, config.owner_id, generation)
+            except HTTPException as error:
+                # Settings change, takeover or closed run: this socket's generation is over; the client reconnects.
+                await refuse(str(error.detail))
+                return
+
+    renewal = asyncio.create_task(renew())
+    try:
+        await send_json({"type": "configured", "generation": generation, "mode": prefs.mode,
+                         "voiceId": prefs.voice_profile, "text": pipeline.author is not None,
+                         "voice": pipeline.voice is not None, "degraded": pipeline.reason})
+        window, count = time.monotonic(), 0
+        while True:
+            message = await websocket.receive()
+            if message["type"] == "websocket.disconnect":
+                break
+            now = time.monotonic()
+            if now - window >= 1:
+                window, count = now, 0
+            count += 1
+            if count > LIVE_RATE_PER_S:
+                await refuse("rate_limited")
+                break
+            text = message.get("text")
+            try:
+                if text is None or len(text) > LIVE_MESSAGE_LIMIT:
+                    raise ValueError("invalid_message")
+                data = json.loads(text)
+                if not isinstance(data, dict):
+                    raise ValueError("invalid_message")
+            except ValueError:
+                await send_json({"type": "error", "reason": "invalid_message"})
+                continue
+            await coach.handle(data)
+    except (WebSocketDisconnect, RuntimeError):
+        pass
+    finally:
+        renewal.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await renewal  # never let a renewal step race the teardown below
+        live.unregister(coach)
+        try:
+            await coach.close()
+        finally:
+            await pipeline.close()
