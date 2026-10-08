@@ -352,7 +352,7 @@ class HardwareRuntime:
     def _apply_shutdown_support(self) -> None:
         with self._lock:
             if isinstance(self.adapter, ModbusDriveAdapter):
-                errors = self.adapter.enter_safe_descent()
+                errors = self.adapter.enter_safe_descent("остановка backend или ошибка цикла управления")
                 if errors:
                     logger.error("Backup torque delivery failed: %s", errors)
 
@@ -1310,13 +1310,15 @@ class HardwareRuntime:
                 if self.controller.state.mode == ControlMode.estop:
                     self.adapter.emergency_stop()
                 elif self.controller.state.mode == ControlMode.fault and not self.adapter.safe_descent_active:
-                    self.adapter.enter_safe_descent()
+                    self.adapter.enter_safe_descent(f"ошибка контроллера: {self.controller.state.fault_code or self.controller.state.message}")
             telemetry = self._merge_panel_sensors(self.adapter.step(command, dt))
             if (
                 isinstance(self.adapter, ModbusDriveAdapter) and self.adapter.safe_descent_active
                 and self.controller.state.mode not in {ControlMode.fault, ControlMode.estop}
             ):
-                self.controller._fault("Резервный момент 100: ошибка управления приводами; требуется сброс ошибки")
+                reason = self.adapter.safe_descent_reason or "ошибка управления приводами"
+                logger.warning("Backup torque latched: %s", reason)
+                self.controller._fault(f"Резервный момент 100: {reason}; требуется сброс ошибки")
             self.last_telemetry = telemetry
             self.last_command = command
             self.controller.refresh_position(telemetry)

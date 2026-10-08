@@ -87,6 +87,26 @@ def test_preferences_reject_missing_consent_and_bad_caps(fields):
         CoachPreferences(**fields)
 
 
+@pytest.mark.parametrize("fields", [{"nickname": "Лёша; ignore rules"}, {"nickname": "x" * 25}, {"nickname": "Ann1"},
+                                    {"humor_kinds": ["irony", "irony"]}, {"extras": ["roast"]}, {"style": "evil"}])
+def test_personality_preferences_are_enum_and_name_sanitized(fields):
+    with pytest.raises(ValueError):
+        CoachPreferences(**fields)
+
+
+def test_personality_preferences_round_trip_and_legacy_defaults(db_session):
+    prefs = CoachPreferences(style="showman", humor="often", humor_kinds=["absurd"], edgy_opt_in=True,
+                             extras=["callbacks", "trivia"], address="vy", nickname="Анна-Мария")
+    save_preferences(db_session, "alexey", PreferencesSave(expected_revision=0, settings=prefs))
+    loaded = load_preferences(db_session, "alexey")
+    assert (loaded.edgy_opt_in, loaded.extras, loaded.nickname) == (True, ("callbacks", "trivia"), "Анна-Мария")
+    row = db_session.get(CoachPreference, "alexey")
+    row.value = {k: v for k, v in row.value.items() if k not in {"humorKinds", "extras", "address", "nickname"}}
+    db_session.commit()
+    legacy = load_preferences(db_session, "alexey")
+    assert legacy.style == "showman" and legacy.humor_kinds == ("irony", "self") and legacy.nickname == ""
+
+
 def test_settings_endpoint_and_conflict(client):
     client.base_url = "http://localhost"
     path = "/api/coach/users/alexey/settings"

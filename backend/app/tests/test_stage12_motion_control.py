@@ -285,6 +285,45 @@ def test_released_bar_under_load_goes_to_hold(runtime: HardwareRuntime) -> None:
     assert abs(runtime.controller.state.position_mm - position) < 3, "held bar must not sag"
 
 
+def test_hold_catches_a_moving_bar_where_it_stops_without_swinging_back(runtime: HardwareRuntime) -> None:
+    runtime.start_motion(calibration_id=None, lower_bound_mm=700, upper_bound_mm=1000, target_set=1, target_reps=5, motion_profile="training", load_kg=30, auto_user=True)
+    _run(runtime, 20.0, until=lambda: runtime.controller.state.velocity_mm_s < -150)
+    assert runtime.controller.state.velocity_mm_s < -150
+    runtime.emulator.set_scenario("none")
+    runtime.emulator.set_user_force(0.0)
+    requested_at = runtime.controller.state.position_mm
+    runtime.controller.request_hold("Спасение")
+    _run(runtime, 1.0)
+    caught_at = runtime.controller._hold_position_mm
+    assert caught_at is not None and caught_at < requested_at - 1, "the hold target must follow the bar until it stops"
+    highest = runtime.controller.state.position_mm
+    for _ in range(int(1.0 / runtime.tick_seconds)):
+        runtime._tick_motion()
+        highest = max(highest, runtime.controller.state.position_mm)
+    assert highest < caught_at + 3, "the caught bar must not be pulled back up to the request point"
+    assert runtime.controller.state.mode == ControlMode.paused
+
+
+def test_regripping_released_bar_resumes_the_set_but_manual_pause_does_not(runtime: HardwareRuntime) -> None:
+    runtime.start_motion(calibration_id=None, lower_bound_mm=700, upper_bound_mm=1000, target_set=1, target_reps=5, motion_profile="training", load_kg=0, auto_user=False)
+    runtime.emulator.set_user_force(0.0)
+    _run(runtime, 3.0, until=lambda: runtime.controller.state.mode == ControlMode.paused)
+    assert runtime.controller.state.mode == ControlMode.paused
+    assert runtime.controller.state.released
+    _run(runtime, 1.0)
+    assert runtime.controller.state.mode == ControlMode.paused, "a released bar stays held without a grip"
+
+    runtime.emulator.set_user_force(12.0)
+    _run(runtime, 1.0, until=lambda: runtime.controller.state.mode == ControlMode.training)
+    assert runtime.controller.state.mode == ControlMode.training
+    assert not runtime.controller.state.released
+    assert "grip" in [event.kind for event in runtime.controller.events]
+
+    runtime.pause()
+    _run(runtime, 1.5)
+    assert runtime.controller.state.mode == ControlMode.paused, "manual pause must wait for an explicit resume"
+
+
 def test_spotter_engages_when_user_fails(runtime: HardwareRuntime) -> None:
     runtime.update_parameters({"detection.spotterDelaySec": 0.6}, temporary=True)
     runtime.start_motion(calibration_id=None, lower_bound_mm=700, upper_bound_mm=1000, target_set=1, target_reps=10, motion_profile="training", load_kg=40, auto_user=False)

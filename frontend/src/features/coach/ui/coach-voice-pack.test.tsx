@@ -24,7 +24,7 @@ describe('CoachVoicePackSection', () => {
     expect(screen.getByText(/Выберите голос/)).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Подготовить частые фразы' })).toBeDisabled()
     expect(f.prepare).not.toHaveBeenCalled()
-    expect(screen.getByText(/создаёт оператор отдельной платной задачей/)).toBeInTheDocument()
+    expect(screen.getByText(/Скачивает готовые фразы/)).toBeInTheDocument()
   })
 
   it('prepares only on click and shows progress, size and pending safety approval', async () => {

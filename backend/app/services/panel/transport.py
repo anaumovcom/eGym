@@ -49,6 +49,7 @@ class PySerialTransport:
                     baudrate=self._baud,
                     timeout=self._read_timeout_seconds,
                     write_timeout=1.0,
+                    exclusive=True,
                 )
             except Exception as error:  # pyserial exception classes are unavailable without the optional dependency
                 raise PanelTransportError(f"cannot open panel serial port {self._port}: {error}") from error

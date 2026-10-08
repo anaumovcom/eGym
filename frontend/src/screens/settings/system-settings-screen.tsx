@@ -17,12 +17,13 @@ const normalSettingsTabs = [
   { id: 'overview', label: 'Обзор' },
   { id: 'safety', label: 'Безопасность' },
   { id: 'common', label: 'Общие' },
+  { id: 'coach', label: 'AI-тренер' },
   { id: 'service', label: 'Сервис' },
 ]
-const serviceSettingsTabs = settingsTabs.filter(({ id }) => !['overview', 'safety', 'common'].includes(id))
+const serviceSettingsTabs = settingsTabs.filter(({ id }) => !['overview', 'safety', 'common', 'coach'].includes(id))
 
 function asSettingsTab(value: string | null): SettingsTab {
-  if (value === 'overview' || value === 'safety' || value === 'mechanics' || value === 'diagnostics' || value === 'calibrations' || value === 'service' || value === 'journal' || value === 'common') {
+  if (value === 'overview' || value === 'safety' || value === 'mechanics' || value === 'diagnostics' || value === 'calibrations' || value === 'service' || value === 'journal' || value === 'common' || value === 'coach') {
     return value
   }
 
@@ -284,7 +285,7 @@ export function SystemSettingsScreen() {
         setEmergencyStopActive(true)
       }}
     >
-      <SectionTitle title="Настройки" description={isServiceTab ? 'Сервисный раздел: приводы, диагностика, калибровки, Modbus и журнал. Только для обслуживания тренажёра.' : 'Пользовательские настройки: обзор, безопасность и общие параметры. Сервисный раздел открывается отдельно и защищён от случайного входа.'} />
+      <SectionTitle title="Настройки" description={isServiceTab ? 'Сервисный раздел: приводы, диагностика, калибровки, Modbus и журнал. Только для обслуживания тренажёра.' : 'Пользовательские настройки: обзор, безопасность, общие параметры и AI-тренер. Сервисный раздел открывается отдельно и защищён от случайного входа.'} />
 
       {hardwareError ? (
         <div className="rt-alert" data-tone="danger" role="alert">
@@ -600,9 +601,10 @@ export function SystemSettingsScreen() {
               </div>
             </Panel>
           </div>
-          <div className="xl:col-span-3"><CoachSettingsPanel /></div>
         </div>
       ) : null}
+
+      {tab === 'coach' ? <CoachSettingsPanel /> : null}
 
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
     </FormaShell>

@@ -243,6 +243,32 @@ describe('ExerciseSetupScreen', () => {
     expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'jog_start', direction: 'down' }))
   })
 
+  it('enters weightless once when opened on an idle machine', async () => {
+    const command = vi.fn().mockResolvedValue({})
+    useHardwareStore.setState({ runCommand: command, snapshot: { ...createSnapshot(560), motion: { barPositionMm: 560, controlMode: 'idle' } } as HardwareSnapshot })
+
+    renderScreen()
+
+    await waitFor(() => expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'enter_weightless', exerciseSlug: 'barbell-floor-press' })))
+    act(() => {
+      useHardwareStore.setState({ snapshot: { ...createSnapshot(560), motion: { barPositionMm: 560, controlMode: 'paused' } } as HardwareSnapshot })
+    })
+    expect(command.mock.calls.filter(([payload]) => payload.action === 'enter_weightless')).toHaveLength(1)
+  })
+
+  it('does not switch a set started elsewhere to weightless when it pauses later', async () => {
+    const command = vi.fn().mockResolvedValue({})
+    useHardwareStore.setState({ runCommand: command, snapshot: { ...createSnapshot(560), motion: { barPositionMm: 560, controlMode: 'training' } } as HardwareSnapshot })
+
+    renderScreen()
+    await waitFor(() => expect(loadCurrentCalibrationMock).toHaveBeenCalledWith('alexey', 'barbell-floor-press'))
+    act(() => {
+      useHardwareStore.setState({ snapshot: { ...createSnapshot(560), motion: { barPositionMm: 560, controlMode: 'paused' } } as HardwareSnapshot })
+    })
+
+    expect(command).not.toHaveBeenCalledWith(expect.objectContaining({ action: 'enter_weightless' }))
+  })
+
   it('saves a fixed height for pull-ups and starts with the saved position', async () => {
     currentSearch = '?source=catalog&slug=bodyweight-pull-up'
     useRuntimeStore.setState({ session: null, sessionSignature: null })

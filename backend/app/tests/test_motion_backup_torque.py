@@ -298,3 +298,37 @@ def test_estop_applies_and_keeps_backup_support():
     adapter.enter_safe_descent()
     adapter.step(DriveCommand(), 0.02)
     assert references(service) == [100, 100]
+
+
+def test_brake_request_applies_support_without_latching():
+    service = connected()
+    adapter = ModbusDriveAdapter(service=service)
+    adapter.set_brake(True)
+    assert references(service) == [100, 100]
+    assert not adapter.safe_descent_active
+
+
+def test_estop_release_clears_estop_only_latch():
+    adapter = ModbusDriveAdapter(service=connected())
+    adapter.emergency_stop()
+    assert adapter.safe_descent_active
+    adapter.release_emergency_stop()
+    assert not adapter.safe_descent_active
+
+
+def test_runtime_backup_fault_names_the_drive_failure(runtime, monkeypatch):
+    service = runtime.adapter.service
+    original = service.read_torque_telemetry
+
+    def read(slave, **kwargs):
+        data = original(slave, **kwargs)
+        if slave == 1:
+            data["error"] = "no response"
+        return data
+
+    runtime.controller._enter(ControlMode.idle, "idle", "")
+    monkeypatch.setattr(service, "read_torque_telemetry", read)
+    runtime._tick_motion()
+    fault = runtime.controller.state.fault_code or ""
+    assert "Резервный момент 100" in fault
+    assert "левый привод" in fault and "no response" in fault and "E-MODBUS-COMM" in fault

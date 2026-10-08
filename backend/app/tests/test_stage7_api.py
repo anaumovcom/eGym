@@ -8,6 +8,7 @@ from sqlalchemy import select
 
 from app.api.routes.analytics import media_service
 from app.models.analytics import ExerciseSession, MuscleFatigueEvent, MuscleFatigueSnapshot
+from app.models.training import ExerciseHistoryRecord
 from app.services.fatigue_service import FatigueService
 
 
@@ -302,6 +303,86 @@ def test_save_workout_links_existing_exercise_session(client: TestClient, db_ses
     assert linked_session.workout_session_id == workout_id
     saved_sessions = list(db_session.scalars(select(ExerciseSession).where(ExerciseSession.exercise_slug == "band-bench-press")))
     assert len(saved_sessions) == 1
+
+
+def test_early_finished_catalog_workout_keeps_sets_in_history_and_progress(client: TestClient, db_session) -> None:
+    started_at = datetime.now(UTC) - timedelta(minutes=10)
+    workout_session_id = client.post(
+        "/api/runtime/workouts",
+        json={
+            "userId": "alexey",
+            "source": "catalog",
+            "title": "Жим с резинкой",
+            "subtitle": "Одиночное упражнение",
+            "status": "in_progress",
+            "startedAt": started_at.isoformat(),
+            "durationSeconds": 0,
+            "exercises": [],
+        },
+    ).json()["workoutSessionId"]
+    exercise_session_id = client.post(
+        "/api/runtime/exercises",
+        json={
+            "userId": "alexey",
+            "workoutSessionId": workout_session_id,
+            "exerciseSlug": "band-bench-press",
+            "exerciseName": "Жим с резинкой",
+            "kind": "machine",
+            "orderIndex": 1,
+            "status": "in_progress",
+            "startedAt": started_at.isoformat(),
+            "targetSets": 3,
+            "muscles": [{"muscleId": "chest", "name": "Грудь", "role": "primary"}],
+            "sets": [],
+        },
+    ).json()["exerciseSessionId"]
+    for set_number in (1, 2):
+        response = client.post(
+            "/api/runtime/sets",
+            json={
+                "exerciseSessionId": exercise_session_id,
+                "setNumber": set_number,
+                "plannedValue": 10,
+                "actualValue": 10,
+                "setType": "work",
+                "reps": 10,
+                "weightKg": 30,
+                "tempoLabel": "хорошо",
+                "subjectiveEffort": 7,
+                "discomfortLevel": 0,
+            },
+        )
+        assert response.status_code == 200
+
+    finish_response = client.post(
+        "/api/runtime/workouts",
+        json={
+            "workoutSessionId": workout_session_id,
+            "userId": "alexey",
+            "source": "catalog",
+            "title": "Жим с резинкой",
+            "subtitle": "Одиночное упражнение",
+            "status": "partial",
+            "startedAt": started_at.isoformat(),
+            "finishedAt": datetime.now(UTC).isoformat(),
+            "durationSeconds": 600,
+            "exerciseSessionIds": [exercise_session_id],
+            "exercises": [],
+        },
+    )
+    assert finish_response.status_code == 200
+
+    db_session.expire_all()
+    exercise_session = db_session.get(ExerciseSession, exercise_session_id)
+    assert exercise_session.status.value == "partial"
+    assert exercise_session.finished_at is not None
+    history = db_session.scalars(select(ExerciseHistoryRecord).where(ExerciseHistoryRecord.exercise_slug == "band-bench-press")).all()
+    assert len(history) == 1
+    assert history[0].sets == 2
+    assert history[0].reps == 20
+
+    details = client.get("/api/exercises/band-bench-press?userId=alexey").json()
+    assert len(details["history"]) == 1
 
 
 def test_legacy_back_fatigue_is_split_into_detail_muscles(client: TestClient, db_session) -> None:

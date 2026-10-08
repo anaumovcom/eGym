@@ -36,6 +36,16 @@ _WRITE_REFRESH_S = 0.25  # but refresh the reference at least this often
 _VELOCITY_FILTER = 0.5
 _COMM_RETRY_S = 0.5  # after a bus failure do not hammer the lock/bus every control tick
 FALLBACK_TORQUE_RAW = 100  # upward support per drive, NOT kg or a velocity guarantee
+_ESTOP_REASON = "Аварийная остановка"
+
+
+def _describe_failures(telemetry: dict[Side, SideTelemetry]) -> str:
+    parts = [
+        f"{'левый' if side == 'left' else 'правый'} привод — {item.error_message or 'нет связи'} ({item.error_code or 'E-COMM'})"
+        for side, item in telemetry.items()
+        if not item.connected
+    ]
+    return "; ".join(parts) or "ошибка обмена с приводами"
 
 
 class ModbusDriveAdapter:
@@ -64,6 +74,7 @@ class ModbusDriveAdapter:
         self._applied_limits: tuple[int, int] | None = None
         self._estop = False
         self.safe_descent_active = False
+        self.safe_descent_reason: str | None = None
         self._support_reference = True
         self._heartbeat = True
         self._comm_retry_at = 0.0
@@ -134,14 +145,15 @@ class ModbusDriveAdapter:
         if not self.service.get_status().connected:
             self._written = {"left": None, "right": None}
             self.torque.stop()
-            self.safe_descent_active = True
+            self._latch("Modbus не подключён (E-MODBUS-OFFLINE)")
             self._last = self._unavailable("Modbus не подключён")
             return self._last
         not_ready = [side for side in SIDES if not self.service.torque_ready(self.addresses[side])]
         if not_ready:
             self.torque.stop()
-            self.enter_safe_descent()
             message = "Torque Mode не инициализирован (PA_002=2, PA_093=0, PA_12C=0 не подтверждены)"
+            names = ", ".join("левый" if side == "left" else "правый" for side in not_ready)
+            self.enter_safe_descent(f"{message}: {names} (E-TORQUE-NOT-READY)")
             self._last = self._unavailable(message, "E-TORQUE-NOT-READY")
             return self._last
         if now < self._comm_retry_at:
@@ -149,7 +161,7 @@ class ModbusDriveAdapter:
         limit_error = self._apply_drive_limits()
         if limit_error:
             self.torque.stop()
-            self.enter_safe_descent()
+            self.enter_safe_descent(f"не записаны лимиты PA_05E/PA_056: {limit_error} (E-MODBUS-WRITE)")
             self._last = self._unavailable(limit_error, "E-MODBUS-WRITE")
             return self._last
 
@@ -164,7 +176,7 @@ class ModbusDriveAdapter:
         if len(inputs) < len(SIDES):
             self.torque.stop()
             self._comm_retry_at = time.monotonic() + _COMM_RETRY_S
-            self.enter_safe_descent()
+            self.enter_safe_descent(f"чтение телеметрии: {_describe_failures(telemetry)}")
             self._last = AdapterTelemetry(now, telemetry["left"], telemetry["right"], power_ok=False, heartbeat_ok=False)
             return self._last
 
@@ -205,7 +217,7 @@ class ModbusDriveAdapter:
                 if error:
                     telemetry[side] = self._side_unavailable(side, "E-MODBUS-WRITE", error)
             if any(not item.connected for item in telemetry.values()):
-                self.enter_safe_descent()
+                self.enter_safe_descent(f"запись PA_12C: {_describe_failures(telemetry)}")
         self._heartbeat = not self._heartbeat
         healthy = all(item.connected for item in telemetry.values())
         self._last = AdapterTelemetry(now, telemetry["left"], telemetry["right"], power_ok=healthy, heartbeat_ok=healthy)
@@ -261,13 +273,21 @@ class ModbusDriveAdapter:
             for side in SIDES
         }
 
-    def enter_safe_descent(self) -> dict[int, str]:
+    def _latch(self, reason: str) -> None:
+        if not self.safe_descent_active:
+            self.safe_descent_reason = reason
+        self.safe_descent_active = True
+
+    def enter_safe_descent(self, reason: str = "запрошена резервная поддержка") -> dict[int, str]:
         """Best-effort support, latched until reset. Never clear drive alarms/STOP.
 
         Attempts both drives independently, including when one bus write fails.
         Loss of power/comms or a disabled servo requires hardware protection.
         """
-        self.safe_descent_active = True
+        self._latch(reason)
+        return self._apply_support()
+
+    def _apply_support(self) -> dict[int, str]:
         self._support_reference = True
         self.service.end_manual_torque()
         self.torque.stop()
@@ -293,16 +313,23 @@ class ModbusDriveAdapter:
         if self._estop:
             return
         self._estop = True
-        self.enter_safe_descent()
+        self.enter_safe_descent(_ESTOP_REASON)
 
     def release_emergency_stop(self) -> None:
         self._estop = False
         self.torque.stop()
+        if self.safe_descent_active and self.safe_descent_reason == _ESTOP_REASON:
+            # the latch came only from the E-stop itself: clearing STOP must not
+            # turn into a separate "backup torque" fault
+            self.safe_descent_active = False
+            self.safe_descent_reason = None
+            self._support_reference = True
 
     def set_brake(self, engaged: bool) -> None:
         # No separate brake line: use backup support, not a fictitious brake.
+        # Not latched: a POWER/idle brake request is not a drive failure.
         if engaged:
-            self.enter_safe_descent()
+            self._apply_support()
 
     def home(self) -> None:
         """Establish the software zero of both encoders at the current bar position."""
@@ -344,6 +371,7 @@ class ModbusDriveAdapter:
         self.torque.reset()
         self._estop = False
         self.safe_descent_active = False
+        self.safe_descent_reason = None
         self._support_reference = True
         self._written = {"left": None, "right": None}
         self._applied_limits = None

@@ -283,6 +283,9 @@ class RuntimeService:
                     event.workout_session_id = workout_session.id
 
         session.flush()
+        if workout_session.status != WorkoutSessionStatus.in_progress:
+            nested_exercise_notices.extend(self._finalize_open_exercises(session, workout_session))
+            session.flush()
         summary = self.build_workout_summary(session, workout_session.id)
         notice = {
             "kind": "workout_finalized", "user_id": workout_session.user_id,
@@ -672,6 +675,32 @@ class RuntimeService:
             return f"Ты выполнил {result_line}. Пока оставь текущий вес. На следующей тренировке попробуй добавить 1–2 повтора."
 
         return f"Ты выполнил {result_line}. Вес подобран нормально: сохрани его и добирай повторы в заданном диапазоне."
+
+    def _finalize_open_exercises(self, session: Session, workout_session: WorkoutSession) -> list[dict[str, object]]:
+        """Close exercises left in progress by an early finish so their saved sets reach history and progress."""
+        notices: list[dict[str, object]] = []
+        open_exercises = session.scalars(
+            select(ExerciseSession).where(
+                ExerciseSession.workout_session_id == workout_session.id,
+                ExerciseSession.status == ExerciseSessionStatus.in_progress,
+            )
+        ).all()
+        for exercise_session in open_exercises:
+            has_sets = bool(exercise_session.set_results)
+            exercise_session.status = ExerciseSessionStatus.partial if has_sets else ExerciseSessionStatus.skipped
+            exercise_session.finished_at = exercise_session.finished_at or workout_session.finished_at or datetime.now(UTC)
+            if has_sets:
+                if not exercise_session.recommendation:
+                    exercise_session.recommendation = self._build_strength_recommendation(
+                        exercise_session, exercise_session.training_mode, exercise_session.training_day_type
+                    )
+                self._sync_training_state(session, exercise_session)
+            notices.append({
+                "kind": "exercise_finalized", "user_id": exercise_session.user_id,
+                "workout_session_id": workout_session.id,
+                "exercise_session_id": exercise_session.id, "outcome": exercise_session.status.value,
+            })
+        return notices
 
     def _sync_training_state(self, session: Session, exercise_session: ExerciseSession) -> None:
         results = list(exercise_session.set_results)

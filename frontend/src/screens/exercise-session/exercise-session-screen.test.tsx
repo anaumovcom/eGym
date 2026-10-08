@@ -206,6 +206,46 @@ describe('ExerciseSessionScreen', () => {
     expect(within(rail).getByLabelText('Гриф · 295 мм')).toBeInTheDocument()
   })
 
+  it('shows weight and live bar telemetry for a zero-weight machine exercise', () => {
+    const slug = 'smith-machine-close-grip-bench-press'
+    currentSearch = `?source=catalog&slug=${slug}`
+    useRuntimeStore.getState().initializeSession({ source: 'catalog', slug })
+    useRuntimeStore.getState().updateLoadSettings({ weight: 0 })
+    useRuntimeStore.getState().startExercise()
+    expect(useRuntimeStore.getState().session!.exercises[0].loadSettings.weight).toBe(0)
+    const motion = {
+      barPositionMm: 450, lowerBoundMm: 356, upperBoundMm: 542,
+      leftPositionMm: 450, rightPositionMm: 450,
+      amplitudePercent: 40, repetitionCount: 0, syncDeltaMm: 0,
+    } as HardwareSnapshot['motion']
+    useHardwareStore.setState({ snapshot: { motion, safety: { state: 'enabled' } } as HardwareSnapshot })
+
+    renderScreen()
+
+    expect(screen.getByRole('group', { name: 'Вес' })).toBeInTheDocument()
+    expect(within(screen.getByRole('region', { name: 'Положение грифа' })).getByLabelText('Гриф · 450 мм')).toBeInTheDocument()
+    expect(screen.getByText('450 мм')).toBeInTheDocument()
+  })
+
+  it('shows a machine hold during the set and resumes it', async () => {
+    const user = userEvent.setup()
+    const motion = {
+      barPositionMm: 450, lowerBoundMm: 356, upperBoundMm: 542,
+      leftPositionMm: 450, rightPositionMm: 450,
+      amplitudePercent: 40, repetitionCount: 1, syncDeltaMm: 0,
+    } as HardwareSnapshot['motion']
+    useHardwareStore.setState({ snapshot: { motion, control: { mode: 'training', label: 'Движение выполняется', message: '' }, safety: { state: 'enabled' } } as HardwareSnapshot })
+    renderScreen()
+    expect(screen.queryByRole('status', { name: 'Гриф удерживается' })).not.toBeInTheDocument()
+
+    act(() => useHardwareStore.setState({ snapshot: { motion, control: { mode: 'paused', label: 'Спасение', message: 'Гриф удержан.' }, safety: { state: 'enabled' } } as HardwareSnapshot }))
+    const hold = screen.getByRole('status', { name: 'Гриф удерживается' })
+    expect(hold).toHaveTextContent('Спасение · повторы не засчитываются')
+    await user.click(within(hold).getByRole('button', { name: 'Продолжить подход' }))
+
+    expect(runCommandMock).toHaveBeenCalledWith({ action: 'resume', userId: 'alexey', exerciseSlug: 'barbell-floor-press' })
+  })
+
   it('adjusts the repetition count and saves a partial set with the single finish button', async () => {
     const user = userEvent.setup()
     renderScreen()
@@ -235,6 +275,22 @@ describe('ExerciseSessionScreen', () => {
     const completed = useRuntimeStore.getState().session!.completedSets[session.currentExerciseId]
     expect(completed).toHaveLength(1)
     expect(completed[0]).toMatchObject({ actualValue: fact, completionStatus: 'partial' })
+  })
+
+  it('keeps finished sets when the rest of the exercise is skipped', async () => {
+    const user = userEvent.setup()
+    renderScreen()
+    await user.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/rest${currentSearch}`))
+    act(() => useRuntimeStore.getState().beginNextStep())
+
+    await user.click(screen.getByRole('button', { name: 'Пропустить упражнение' }))
+
+    await waitFor(() => expect(navigateMock).toHaveBeenLastCalledWith(`/exercise-summary${currentSearch}`))
+    const finalSave = vi.mocked(apiPost).mock.calls.filter(([path]) => path === '/api/runtime/exercises').at(-1)
+    expect(finalSave?.[1]).toMatchObject({ status: 'partial', exerciseSessionId: 7 })
+    const session = useRuntimeStore.getState().session!
+    expect(session.completedSets[session.exercises[0].id]).toHaveLength(1)
   })
 
   it('shows save errors as an overlay over the centre and lets the user dismiss it', async () => {

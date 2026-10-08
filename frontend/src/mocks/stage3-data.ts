@@ -236,25 +236,27 @@ export function createRuntimeSession(options: {
 }): RuntimeWorkoutSession {
   const exercises = buildWorkoutExercises(options.source, options.slug, options.calibrationState)
   const firstExercise = exercises[0]
+  const singleExercise = options.source === 'quick-start' || options.source === 'catalog'
 
   return {
     id: `${options.source}-${Date.now()}`,
     source: options.source,
     programId: options.programId,
     runId: options.runId,
-    dataSource: 'mock',
+    // A single real exercise is a one-exercise workout persisted like any other, so the coach may voice it.
+    dataSource: singleExercise ? 'backend' : 'mock',
     startedAt: new Date().toISOString(),
     view: 'exercise-setup',
     machine: machineScenarios.ready,
-    workoutTitle: options.source === 'quick-start' || options.source === 'catalog' ? firstExercise.name : 'Спина + бицепс',
-    workoutSubtitle: options.source === 'quick-start' || options.source === 'catalog' ? 'Одиночное упражнение' : 'Полная тренировка на моках',
+    workoutTitle: singleExercise ? firstExercise.name : 'Спина + бицепс',
+    workoutSubtitle: singleExercise ? 'Одиночное упражнение' : 'Полная тренировка на моках',
     currentExerciseId: firstExercise.id,
     currentSetIndex: 0,
     photoProgress: buildPhotoProgressState('manual', false),
     exercises,
     completedSets: {},
     completedExerciseIds: [],
-    workoutSummary: buildWorkoutSummary(effectsForWorkout(exercises, {}), options.source === 'quick-start' || options.source === 'catalog' ? 'completed' : 'partial'),
+    workoutSummary: buildWorkoutSummary(effectsForWorkout(exercises, {}), singleExercise ? 'completed' : 'partial'),
   }
 }
 

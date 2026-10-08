@@ -1,6 +1,12 @@
-from app.api.routes import modbus_debug
 import pytest
-from app.schemas.modbus import ModbusCommandRequestSchema, ModbusConnectionParamsSchema, ModbusReadRequestSchema, ModbusWriteRequestSchema
+
+from app.api.routes import modbus_debug
+from app.schemas.modbus import (
+    ModbusCommandRequestSchema,
+    ModbusConnectionParamsSchema,
+    ModbusReadRequestSchema,
+    ModbusWriteRequestSchema,
+)
 from app.services.modbus_service import ModbusService
 from app.services.motion.adapter import DriveCommand
 from app.services.motion.modbus_adapter import ModbusDriveAdapter
@@ -114,3 +120,64 @@ def test_modbus_connect_route_captures_both_zeros_and_zero_route_rebases(monkeyp
     result = modbus_debug.zero_positions()
     assert (result.left_zero_pulses, result.right_zero_pulses) == (1234, -4321)
     assert result.left_position_mm == result.right_position_mm == result.skew_mm == 0
+
+
+def test_stale_reply_from_other_slave_is_drained_and_write_retried():
+    service = ModbusService()
+    service._connected = True
+    service._params = ModbusConnectionParamsSchema(port="/dev/ttyUSB0")
+
+    class FakeSerial:
+        flushed = 0
+
+        def reset_input_buffer(self):
+            self.flushed += 1
+
+    class FakeInstrument:
+        address = 1
+        serial = FakeSerial()
+        calls: list[tuple[int, int, int]] = []
+
+        def write_register(self, address, value, signed=False):
+            self.calls.append((self.address, address, value))
+            if len(self.calls) == 1:
+                raise OSError("Wrong return slave address: 1 instead of 2")
+
+    service._instr = FakeInstrument()
+    service._torque_ready = {2: True}
+    assert service.set_torque_command(2, 100, log=False) is None
+    assert FakeInstrument.calls == [(2, 0x12C, 100), (2, 0x12C, 100)]
+    assert FakeInstrument.serial.flushed == 1
+
+
+def test_real_port_locked_by_another_backend_is_not_used(monkeypatch):
+    import minimalmodbus
+
+    closed = []
+
+    class LockedSerial:
+        def close(self):
+            closed.append(True)
+
+        @property
+        def exclusive(self):
+            return None
+
+        @exclusive.setter
+        def exclusive(self, value):
+            raise OSError("Could not exclusively lock port /dev/ttyFAKE")
+
+    class FakeInstrument:
+        def __init__(self, port, slave_id):
+            self.serial = LockedSerial()
+
+        def read_register(self, *args, **kwargs):
+            raise AssertionError("must not touch the bus")
+
+    service = ModbusService()
+    monkeypatch.setattr(service, "_real_serial_available", lambda: True)
+    monkeypatch.setattr(minimalmodbus, "Instrument", FakeInstrument)
+    status = service.connect(ModbusConnectionParamsSchema(port="/dev/ttyFAKE"))
+    assert not status.connected
+    assert "exclusively lock" in status.error_message
+    assert closed == [True]

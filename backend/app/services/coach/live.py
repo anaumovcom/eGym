@@ -297,13 +297,18 @@ class LiveCoach:
 
     def _request(self, op: Opportunity, max_words: int) -> AuthorRequest:
         p = op.package
+        s = self.settings
+        dark = s.edgy_opt_in and s.humor != "off"
         return AuthorRequest(
             op.candidate.trigger_id, op.candidate.phase, op.task, op.intents, op.candidate.topic_key, max(1, max_words),
             p.facts if p else (), p.comparison.status if p else "unavailable", p.history if p else "unavailable",
             p.outcome if p and p.outcome != "none" else None, p.locked_clause if p else None,
             p.locked_fact_ids if p else (), recent_topics=tuple(self.memory.recent_topics()),
             recent_openings=tuple(self.memory.recent_openings()),
-            summary=op.candidate.trigger_id in SUMMARY_TRIGGERS)
+            summary=op.candidate.trigger_id in SUMMARY_TRIGGERS,
+            name_allowed=bool(s.nickname), user_name=s.nickname or None, persona="sharp" if dark else "default",
+            style=s.style, humor=s.humor, humor_kinds=tuple(s.humor_kinds), dark_humor=dark,
+            extras=tuple(s.extras), address=s.address)
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:
         try:

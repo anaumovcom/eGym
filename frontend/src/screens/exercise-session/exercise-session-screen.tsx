@@ -222,7 +222,8 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const isFailureSet = (state.setType ?? setPlan.setType) === 'failure'
   const activeCalibration = currentCalibration?.userId === selectedUserId && currentCalibration.exerciseSlug === exercise.slug ? currentCalibration : null
   const isFixedExercise = activeCalibration?.setupType === 'fixed_position'
-  const isMachineExercise = hasMovableMachineLoad(exercise) || isFixedExercise
+  // Setup starts the hardware for every supportsFixedBarSetup exercise, including 0 kg, so live telemetry must follow the same rule.
+  const isMachineExercise = supportsFixedBarSetup(exercise) || hasMovableMachineLoad(exercise) || isFixedExercise
   const preferredVideoGender = getPreferredVideoGender(selectedUserId)
   const sessionVideoSequence = resolveExerciseVideoSequence(exercise.details.videos, preferredVideoGender)
   const sessionVideo = sessionVideoSequence[sessionVideoIndex]
@@ -381,6 +382,23 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     }
   }
 
+  // The controller holds the bar on its own (rescue, released bar, obstacle, desync): reps are not counted
+  // until the set is resumed, so the reason and the way out must be visible here.
+  const machineHold = liveMotion && !editingPoint && pendingAction === null && snapshot?.control?.mode === 'paused' ? snapshot.control : null
+
+  async function resumeAfterHold() {
+    if (!machineHold || calibrationBusy || !selectedUserId) return
+    setCalibrationBusy(true)
+    setHardwareError(null)
+    try {
+      await runCommand({ action: 'resume', userId: selectedUserId, exerciseSlug: exercise.slug })
+    } catch (error) {
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось продолжить подход.')
+    } finally {
+      setCalibrationBusy(false)
+    }
+  }
+
   async function ensureBackendWorkoutSession() {
     const latestSession = useRuntimeStore.getState().session ?? activeSession
     if (latestSession.backendWorkoutSessionId) {
@@ -481,12 +499,17 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
           actualWeight,
           completionStatus,
         })
+    const previousSets = activeSession.completedSets[exercise.id] ?? []
     const completedForExercise: RuntimeSetResult[] = completionStatus === 'skipped'
-      ? []
-      : [...(activeSession.completedSets[exercise.id] ?? []), currentResult!]
+      ? previousSets
+      : [...previousSets, currentResult!]
+    // Skipping after finished sets ends the exercise early instead of erasing the work already done.
+    const skippedWithoutSets = completionStatus === 'skipped' && previousSets.length === 0
     const isLastSet = activeSession.currentSetIndex >= exercise.plan.length - 1
     const exerciseStatus: RuntimeExerciseOutcome = completionStatus
-    const resolvedExerciseStatus = completionStatus === 'skipped' ? exerciseStatus : getExerciseSaveStatus(completionStatus, completedForExercise, exercise)
+    const resolvedExerciseStatus: RuntimeExerciseOutcome = completionStatus === 'skipped'
+      ? (skippedWithoutSets ? 'skipped' : 'partial')
+      : getExerciseSaveStatus(completionStatus, completedForExercise, exercise)
     const coachCapture = captureRuntimeLifecycle(activeSession, selectedUserId, false, isMachineExercise ? 'hardware' : 'user_input')
     const coachResult = { outcome: currentResult?.completionStatus, actualValue: currentResult?.actualValue, progressUnit: state.kind === 'timed' ? 'seconds' as const : 'reps' as const }
 
@@ -519,7 +542,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       }
 
       let summary: RuntimeExerciseSummaryState
-      if (completionStatus === 'skipped') {
+      if (skippedWithoutSets) {
         summary = await saveExerciseResultToBackend(exercise, completedForExercise, selectedUserId ?? 'alexey', exerciseStatus, workoutSessionId, exerciseSessionId, 'replace')
       } else {
         summary = await saveExerciseResultToBackend(exercise, completedForExercise, selectedUserId ?? 'alexey', resolvedExerciseStatus, workoutSessionId, exerciseSessionId, 'preserve')
@@ -640,6 +663,15 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
                 ))}
               </div>
             </div>
+            {machineHold ? (
+              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300/40 bg-amber-300/10 p-3" role="status" aria-label="Гриф удерживается">
+                <div className="min-w-0 flex-1">
+                  <strong className="block text-sm">{machineHold.label || 'Удержание'} · повторы не засчитываются</strong>
+                  {machineHold.message ? <span className="text-xs text-white/70">{machineHold.message}</span> : null}
+                </div>
+                <Button disabled={calibrationBusy} onClick={() => void resumeAfterHold()}>Продолжить подход</Button>
+              </div>
+            ) : null}
             {canAdjustCalibration || editingPoint ? (
               <div className="mt-4 rounded-2xl border border-white/12 bg-white/5 p-3" aria-label="Калибровка во время упражнения">
                 {!editingPoint ? (

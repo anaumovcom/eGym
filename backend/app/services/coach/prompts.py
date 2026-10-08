@@ -9,7 +9,7 @@ from typing import Literal
 
 from app.services.coach.facts import AllowedFact, ComparisonStatus, HistoryStatus
 
-PROMPT_VERSION = "coach-prompts-0.5"
+PROMPT_VERSION = "coach-prompts-0.6"
 
 P0 = """Ты — русскоязычный персональный тренер-напарник в фитнес-приложении.
 Ты произносишь одну короткую реплику по выбранному приложением поводу.
@@ -52,6 +52,34 @@ P1 = """Твой характер: тёплый, энергичный, сооб�
 P1_SHARP = """Разрешён более дерзкий разговорный тон в пределах утверждённой политики.
 Резкость не направляй на достоинство, способности, тело или боль пользователя.
 Не превращай каждую реплику в провокацию. При partial мягче, при риске юмора нет."""
+
+# P1 user modules (§6.3.1): fixed texts chosen by enum settings; no free user text reaches instructions.
+STYLE_MODULES: dict[str, str] = {
+    "calm": "Манера для этого пользователя: спокойный наставник. Ровный тон, меньше восклицаний, больше уверенной тишины.",
+    "strict": "Манера для этого пользователя: строгий тренер-сержант. Короткие чёткие фразы и требовательность к собранности, но без унижения, крика и давления сверх плана.",
+    "showman": "Манера для этого пользователя: спортивный комментатор. Подавай подход как яркий момент трансляции, но без выдуманных цифр, рекордов и сравнений.",
+    "stoic": "Манера для этого пользователя: философ-стоик. Сдержанно, короткими афоризмами о дисциплине и спокойствии, без пафоса и цитат.",
+}
+HUMOR_MODULES: dict[str, str] = {
+    "off": "Юмор выключен пользователем: не шути.",
+    "light": "Юмор редко: короткая шутка уместна примерно в одной реплике из нескольких.",
+    "often": "Юмор часто: если повод безопасен и intent допускает humor, добавляй короткую шутку в большинство реплик.",
+}
+HUMOR_KINDS: dict[str, str] = {
+    "irony": "сухая ирония", "absurd": "абсурдные сравнения", "wordplay": "игра слов", "self": "самоирония тренера",
+}
+P1_DARK = """Пользователь включил чёрный юмор (18+). Допустим мрачный висельный юмор о тяготах тренировки:
+тяжесть снаряда, «последнее слово» перед подходом, бунт мышц, вечный день ног.
+Запрещено: реальная боль и травмы, болезни, суицид и самоповреждение, настоящая смерть людей,
+внешность и вес тела, защищённые группы. При partial, паузе и любом риске — без чёрного юмора."""
+EXTRA_MODULES: dict[str, str] = {
+    "callbacks": "Фишка: иногда возвращайся к мотиву из recentTopics как к фирменной шутке, но реплика понятна сама по себе.",
+    "pop-culture": "Фишка: иногда используй сравнения из кино, спорта и мультфильмов, без длинных цитат и насмешек над реальными людьми.",
+    "trivia": "Фишка: на отдыхе иногда добавляй общеизвестный любопытный факт о мышцах или тренировках, без чисел и медицинских обещаний.",
+    "breathing": "Фишка: на отдыхе иногда напоминай про спокойное дыхание и расслабленные плечи как общий ориентир.",
+}
+ADDRESS_VY = "Обращайся на «вы» вместо «ты»."
+NAME_MODULE = "Пользователь разрешил обращение по имени из userName: используй его изредка, не в каждой реплике."
 
 P2: dict[str, str] = {
     "setup/opening": "Короткий настрой перед тренировкой или упражнением, одна живая мысль. Без чисел и плана вне facts, без обещаний результата. 8–20 слов.",
@@ -105,10 +133,20 @@ class AuthorRequest:
     forbidden_claims: tuple[str, ...] = DEFAULT_FORBIDDEN
     notes: tuple[str, ...] = field(default=())
     summary: bool = False
+    style: str = "companion"
+    humor: str | None = None
+    humor_kinds: tuple[str, ...] = ()
+    dark_humor: bool = False
+    extras: tuple[str, ...] = ()
+    address: Literal["ty", "vy"] = "ty"
 
     def __post_init__(self):
         if self.task not in P2:
             raise ValueError("Unknown P2 task")
+        if (self.style != "companion" and self.style not in STYLE_MODULES) or (
+                self.humor is not None and self.humor not in HUMOR_MODULES) or (
+                not set(self.humor_kinds) <= set(HUMOR_KINDS)) or not set(self.extras) <= set(EXTRA_MODULES):
+            raise ValueError("Unknown personality module")
         if not 1 <= self.max_words <= 60 or not self.intents or not self.topic_key:
             raise ValueError("Invalid author request")
         ids = [f.id for f in self.facts]
@@ -160,12 +198,30 @@ def output_schema(req: AuthorRequest) -> dict:
     return {"type": "object", "additionalProperties": False, "required": list(properties), "properties": properties}
 
 
+def personality_modules(req: AuthorRequest) -> list[str]:
+    modules = [STYLE_MODULES[req.style]] if req.style in STYLE_MODULES else []
+    if req.address == "vy":
+        modules.append(ADDRESS_VY)
+    if req.name_allowed and req.user_name:
+        modules.append(NAME_MODULE)
+    if req.humor is not None:
+        modules.append(HUMOR_MODULES[req.humor])
+    joking = req.humor != "off"
+    if joking and req.humor_kinds:
+        modules.append("Предпочитаемые виды юмора: " + ", ".join(HUMOR_KINDS[k] for k in req.humor_kinds) + ".")
+    if joking and req.dark_humor:
+        modules.append(P1_DARK)
+    modules.extend(EXTRA_MODULES[e] for e in req.extras)
+    return modules
+
+
 def build_prompt(req: AuthorRequest) -> BuiltPrompt:
-    modules = [P0, P1, *([P1_SHARP] if req.persona == "sharp" else []), P2[req.task]]
+    modules = [P0, P1, *([P1_SHARP] if req.persona == "sharp" else []), *personality_modules(req), P2[req.task]]
     instructions = "\n\n".join(modules)
     p3 = {
         "phase": req.phase, "triggerId": req.trigger_id, "intent": list(req.intents), "topicKey": req.topic_key,
         "maxWords": req.max_words, "nameAllowed": req.name_allowed, "comparisonStatus": req.comparison_status,
+        **({"userName": _clean_note(req.user_name)[:24]} if req.name_allowed and req.user_name else {}),
         "allowedFacts": [{"id": f.id, "claim": f.claim, "status": f.status} for f in req.facts],
         "lockedFactClause": req.locked_clause, "lockedFactIds": list(req.locked_fact_ids), "mode": req.mode,
         "forbiddenClaims": list(req.forbidden_claims),
@@ -179,5 +235,8 @@ def build_prompt(req: AuthorRequest) -> BuiltPrompt:
 
 
 def static_hashes() -> dict[str, str]:
+    personality = [*STYLE_MODULES.values(), *HUMOR_MODULES.values(), *HUMOR_KINDS.values(), P1_DARK,
+                   *EXTRA_MODULES.values(), ADDRESS_VY, NAME_MODULE]
     return {"version": PROMPT_VERSION, "p0": sha256(P0), "p1": sha256(P1), "p1Sharp": sha256(P1_SHARP),
+            "p1User": sha256("\n".join(personality)),
             **{f"p2:{key}": sha256(value) for key, value in P2.items()}}

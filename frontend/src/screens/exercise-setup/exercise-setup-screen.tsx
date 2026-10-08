@@ -275,14 +275,16 @@ export function ExerciseSetupScreen() {
     if (!exercise || !selectedUserId || !supportsFixedBarSetup(exercise) || snapshot == null) {
       return
     }
-    if (snapshot.safety.state === 'emergency_stop' || !['idle', 'paused', 'parked'].includes(setupControlMode ?? '')) {
-      return
-    }
     const key = `${selectedUserId}:${exercise.slug}`
-    if (autoWeightlessKey.current === key) {
+    if (autoWeightlessKey.current === key || setupControlMode == null || ['post', 'homing', 'moving'].includes(setupControlMode)) {
       return
     }
+    // The intent is decided once per opened exercise: if the machine is already busy (a set started from another
+    // screen or tab, weightless, fault), a later pause must not be turned into weightless and stop the rep count.
     autoWeightlessKey.current = key
+    if (snapshot.safety.state === 'emergency_stop' || !['idle', 'paused', 'parked'].includes(setupControlMode)) {
+      return
+    }
     void runCommand({ action: 'enter_weightless', userId: selectedUserId, exerciseSlug: exercise.slug, mode: 'service' })
       .catch((error: unknown) => setHardwareError(error instanceof Error ? error.message : 'Не удалось включить невесомый гриф.'))
   }, [exercise, runCommand, selectedUserId, setHardwareError, setupControlMode, snapshot])
@@ -659,7 +661,7 @@ export function ExerciseSetupScreen() {
                 ) : (
                   <Button variant="secondary" disabled={barMoving || (weightlessActive && !barStill)} onClick={() => captureCalibrationPoint('fixed')}>Зафиксировать высоту грифа</Button>
                 )}
-                <Button disabled={barMoving || (setupType === 'bar_range' ? !hasCompleteCalibrationRange : fixedPositionMm == null)} onClick={() => void handleCalibrationSave()}>
+                <Button disabled={setupType === 'bar_range' ? !hasCompleteCalibrationRange : fixedPositionMm == null} onClick={() => void handleCalibrationSave()}>
                   {setupType === 'bar_range' ? 'Сохранить амплитуду' : 'Сохранить положение'}
                 </Button>
               </div>

@@ -8,6 +8,7 @@ import { localAudioRuntime } from '@/features/coach/audio/local-audio-runtime'
 import { startCoachLiveRuntime } from '@/features/coach/live/coach-live-runtime'
 import { useAppStore } from '@/stores/app-store'
 import type { MachineHealth } from '@/entities/machine/model/types'
+import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import { navigationItems } from '@/shared/config/navigation'
 import { getDriveLabel, getSafetyLabel } from '@/shared/lib/machine-status'
 import { cn } from '@/shared/lib/cn'
@@ -60,6 +61,35 @@ function getMachineProblems(machine: MachineHealth): MachineProblem[] {
   }
 
   return problems
+}
+
+function getMachineDetails(snapshot: HardwareSnapshot | null, machine?: MachineHealth): string[] {
+  if (!snapshot) return []
+  const details: string[] = []
+  const control = snapshot.control
+  if (control?.faultCode) details.push(`Причина блокировки: ${control.faultCode}`)
+  if (machine && machine.machineState !== 'ready' && snapshot.safety.message && snapshot.safety.message !== control?.faultCode) {
+    details.push(snapshot.safety.message)
+  }
+  for (const drive of snapshot.drives) {
+    if (drive.status !== 'error' && drive.connected) continue
+    const side = drive.side === 'left' ? 'Левый привод' : 'Правый привод'
+    details.push(`${side}: ${drive.errorMessage || (drive.connected ? 'ошибка' : 'нет связи')}${drive.errorCode ? ` (${drive.errorCode})` : ''}`)
+  }
+  if (control && control.mode === 'fault') {
+    if (!control.commOk) details.push('Нет связи с приводами')
+    if (!control.powerOk) details.push('Питание приводов не подтверждено')
+    const failedPost = control.postResults.filter((item) => !item.passed && item.severity === 'critical')
+    for (const item of failedPost) details.push(`Самотест: ${item.label} — ${item.detail}`)
+  }
+  const panel = snapshot.panel
+  if (panel?.enabled) {
+    if (panel.faultCode) details.push(`Панель управления: ошибка ${panel.faultCode}`)
+    if (panel.stopLatched) details.push('Панель управления: кнопка СТОП зафиксирована')
+    if (!panel.inputHealthy) details.push('Панель управления: неисправность входов')
+  }
+  details.push(...snapshot.alerts)
+  return [...new Set(details.filter(Boolean))]
 }
 
 export function TopNavigationMenu({ userName, systemBar }: { userName: string; systemBar?: ReactNode }) {
@@ -177,6 +207,8 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
   const problems = machine ? getMachineProblems(machine) : []
   const connectionStatus = useHardwareStore((state) => state.connectionStatus)
   const connectionLost = connectionStatus === 'error' || connectionStatus === 'disconnected'
+  const snapshot = useHardwareStore((state) => state.snapshot)
+  const details = problems.length ? getMachineDetails(snapshot, machine) : []
   const target = useSafetyDockTarget()
   const [detailsOpen, setDetailsOpen] = useState(false)
   const urgentProblem = machine?.safety === 'emergency_stop' ? getSafetyLabel(machine.safety) : problems.find((problem) => problem.tone === 'danger')?.label
@@ -203,6 +235,14 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
               <ul className="mt-3 space-y-3 text-sm">
                 {(problems.length ? problems.map((problem) => problem.label) : [status, ...(machine ? [getSafetyLabel(machine.safety), getDriveLabel('left', machine.leftDrive), getDriveLabel('right', machine.rightDrive)] : [])]).map((label) => <li key={label}>{label}</li>)}
               </ul>
+              {details.length ? (
+                <>
+                  <div className="mt-4 font-semibold">Подробности</div>
+                  <ul className="mt-2 space-y-2 text-sm text-white/80">
+                    {details.map((detail) => <li key={detail}>{detail}</li>)}
+                  </ul>
+                </>
+              ) : null}
             </Popover.Content>
           </Popover.Portal>
         </Popover.Root>

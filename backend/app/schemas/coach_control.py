@@ -12,14 +12,22 @@ class CoachPreferences(CoachSettings):
     consent_version: Literal[1] | None = None
     network_consent_version: Literal[1] | None = None
     voice_volume: float | None = Field(default=None, ge=0, le=1)
-    style: Literal["companion", "calm"] = "companion"
+    style: Literal["companion", "calm", "strict", "showman", "stoic"] = "companion"
     humor: Literal["off", "light", "often"] = "light"
-    edgy_opt_in: Literal[False] = False
+    humor_kinds: tuple[Literal["irony", "absurd", "wordplay", "self"], ...] = ("irony", "self")
+    # Explicit 18+ dark-humor opt-in; the prompt module still forbids pain/injury/body/protected groups.
+    edgy_opt_in: bool = False
+    extras: tuple[Literal["callbacks", "pop-culture", "trivia", "breathing"], ...] = ()
+    address: Literal["ty", "vy"] = "ty"
+    # Letters separated by single spaces/hyphens only: it is sent to the model as data, never as instructions.
+    nickname: str = Field(default="", max_length=24, pattern=r"^(?:[^\W\d_]+(?:[ -][^\W\d_]+)*)?$")
     during_sets: bool = True
     during_rest: bool = True
 
     @model_validator(mode="after")
     def validate_consent(self):
+        if len(set(self.humor_kinds)) != len(self.humor_kinds) or len(set(self.extras)) != len(self.extras):
+            raise ValueError("Duplicate personality options")
         if self.enabled and self.consent_version != 1:
             raise ValueError("Current consent required")
         if self.mode != "local" and self.network_consent_version != 1:

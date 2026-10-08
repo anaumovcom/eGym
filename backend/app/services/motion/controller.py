@@ -70,6 +70,34 @@ class HomingPhase(StrEnum):
     fault = "fault"
 
 
+_HOMING_FAULT_DESCRIPTIONS = {
+    "zero_reference_requires_stationary_bar": "гриф двигался во время обнуления — удерживайте его неподвижно",
+    "homing_global_timeout": "калибровка не завершилась за отведённое время",
+    "homing_phase_timeout_or_distance": "датчик границы не найден за отведённое время или расстояние",
+    "invalid_sensor_combination": "на одной стороне одновременно сработали нижний и верхний датчики",
+    "bottom_sensor_mismatch": "нижние датчики левой и правой стороны показывают разное состояние",
+    "top_sensor_mismatch": "верхние датчики левой и правой стороны показывают разное состояние",
+    "bottom_reference_missing": "нижняя граница не определена",
+    "top_reference_missing": "верхняя граница не определена",
+    "invalid_calibrated_travel": "измеренный ход грифа некорректен",
+    "bottom_sensor_release_stuck": "нижний датчик не отпустил при отъезде от границы",
+    "top_sensor_release_stuck": "верхний датчик не отпустил при отъезде от границы",
+}
+
+
+def _describe_homing_fault(code: str) -> str:
+    if code in _HOMING_FAULT_DESCRIPTIONS:
+        return _HOMING_FAULT_DESCRIPTIONS[code]
+    if code.endswith("_sensor_pair_timeout"):
+        side, boundary = (code.split("_") + ["", ""])[:2]
+        side_label = "левый" if side == "left" else "правый"
+        boundary_label = "верхний" if boundary == "top" else "нижний"
+        return f"{side_label} {boundary_label} датчик не сработал вслед за парным"
+    if code.startswith("encoder_zero_failed"):
+        return "не удалось обнулить энкодеры приводов"
+    return "ошибка калибровки"
+
+
 @dataclass
 class TrainingConfig:
     lower_mm: float = 640.0
@@ -221,6 +249,8 @@ class MotionController:
         self._phase_started = 0.0
         self._last_direction_sign = 0
         self._release_s = 0.0
+        self._release_hold = False
+        self._hold_catch_s: float | None = None
         self._obstacle_s = 0.0
         self._hold_position_mm: float | None = None
         self._isokinetic_load = 0.0
@@ -336,6 +366,7 @@ class MotionController:
     def request_pause(self) -> None:
         self._hold_position_mm = self.state.position_mm
         self._enter(ControlMode.paused, "Пауза", "Гриф удерживается на месте.")
+        self._hold_catch_s = 0.0
 
     def request_resume(self) -> None:
         if self.config.load_mode == "fixed_position":
@@ -350,6 +381,7 @@ class MotionController:
     def request_hold(self, label: str = "Удержание", message: str = "Гриф удерживается на месте.") -> None:
         self._hold_position_mm = self.state.position_mm
         self._enter(ControlMode.paused, label, message)
+        self._hold_catch_s = 0.0
 
     def request_park(self) -> None:
         park = float(self.params.get("start.parkPositionMm"))
@@ -762,7 +794,7 @@ class MotionController:
         self._homing_reference_pending = False
         self._homing_phase = HomingPhase.fault
         self.state.homing_phase = HomingPhase.fault.value
-        self._fault(code)
+        self._fault(f"Калибровка нуля (homing): {_describe_homing_fault(code)} [{code}]")
         return self._brake_command()
 
     def _homing_search_pair(self, telemetry: AdapterTelemetry, *, top: bool) -> bool:
@@ -1021,8 +1053,26 @@ class MotionController:
 
     def _tick_paused(self, telemetry: AdapterTelemetry, dt: float) -> DriveCommand:
         state = self.state
+        if self._hold_catch_s is not None:
+            # Catch a moving bar where it stops: a hold target left behind at the request point makes the
+            # position regulator overshoot and swing the bar up and down.
+            self._hold_catch_s += dt
+            self._hold_position_mm = state.position_mm
+            if abs(state.velocity_mm_s) < float(self.params.get("detection.stallSpeedMmPerSec")) * 3 or self._hold_catch_s >= 0.5:
+                self._hold_catch_s = None
         hold_at = self._hold_position_mm if self._hold_position_mm is not None else state.position_mm
         self._update_release(dt)
+        # Only a hold caused by letting go of the bar resumes on a new grip; manual pause, failure rescue
+        # and fault reset still require an explicit command.
+        if self._release_hold and self._hold_catch_s is None and (
+            abs(state.user_force_kg) > float(self.params.get("start.gripDetectForceKg"))
+            or abs(state.position_mm - hold_at) > float(self.params.get("start.gripDetectDeltaMm"))
+        ):
+            self._emit("grip", f"Захват грифа обнаружен (усилие {state.user_force_kg:.1f} кг) — подход продолжается")
+            self._release_s = 0.0
+            state.released = False
+            self.request_resume()
+            return self._tick_training(telemetry, dt)
         if state.released and (state.time - state.mode_since) > float(self.params.get("start.holdTimeoutSec")):
             self._emit("timeout", "Гриф без пользователя — парковка")
             self.request_park()
@@ -1212,6 +1262,7 @@ class MotionController:
             self._hold_position_mm = state.position_mm
             self._emit("failure", f"Потеря контроля: опускание {abs(state.velocity_mm_s):.0f} мм/с → удержание")
             self._enter(ControlMode.paused, "Спасение", "Гриф удержан. Нажмите «Продолжить», когда будете готовы.")
+            self._hold_catch_s = 0.0
 
     def _update_release(self, dt: float) -> None:
         state = self.state
@@ -1225,7 +1276,8 @@ class MotionController:
             state.released = True
             if state.mode == ControlMode.training and (state.time - state.mode_since) > 1.0:
                 self._emit("release", "Гриф отпущен — удержание")
-                self.request_hold("Гриф отпущен", "Нет усилия на грифе. Гриф удерживается.")
+                self.request_hold("Гриф отпущен", "Нет усилия на грифе. Гриф удерживается — возьмитесь за гриф, чтобы продолжить.")
+                self._release_hold = True
 
     def _update_reps(self) -> None:
         state = self.state
@@ -1451,6 +1503,8 @@ class MotionController:
         state.mode_since = state.time
         state.label = label
         state.message = message
+        self._release_hold = False
+        self._hold_catch_s = None
         if mode != ControlMode.weightless:
             self._jog_direction = None
         if mode in {ControlMode.moving}:

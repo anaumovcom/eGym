@@ -26,7 +26,21 @@ from app.services.coach.luna import (
     text_pricing,
 )
 from app.services.coach.memory import CoachMemory, Utterance
-from app.services.coach.prompts import P0, P1, P1_SHARP, P2, AuthorRequest, build_prompt, static_hashes
+from app.services.coach.prompts import (
+    ADDRESS_VY,
+    EXTRA_MODULES,
+    HUMOR_MODULES,
+    NAME_MODULE,
+    P0,
+    P1,
+    P1_DARK,
+    P1_SHARP,
+    P2,
+    STYLE_MODULES,
+    AuthorRequest,
+    build_prompt,
+    static_hashes,
+)
 
 DOC = Path(__file__).resolve().parents[3] / "plan" / "13-live-ai-coach-behavior-prompts.md"
 PRICE = Pricing(version="synthetic-1", model="fake-text", input_rate=100_000, cached_rate=10_000,
@@ -64,8 +78,28 @@ def test_prompts_are_verbatim_copies_of_approved_document():
     rows = {m.group(1).strip().lower().replace(" ", "-"): m.group(2).strip()
             for m in re.finditer(r"^\| ([^|]+) \| ([^|]+) \|$", table, re.M) if not m.group(1).startswith(("Фаза", "---"))}
     assert rows == P2
+    assert quotes("### 6.3.1.")[0] == P1_DARK
     hashes = static_hashes()
-    assert hashes["version"] == "coach-prompts-0.5" and len(hashes["p0"]) == 64 and len(hashes) == 4 + len(P2)
+    assert hashes["version"] == "coach-prompts-0.6" and len(hashes["p0"]) == 64 and len(hashes) == 5 + len(P2)
+
+
+def test_personality_modules_are_fixed_enum_texts_and_dark_humor_needs_humor():
+    base = dict(trigger_id="T36", phase="rest", task="rest/full-feedback", intents=("humor",), topic_key="set-result",
+                max_words=20)
+    plain = build_prompt(AuthorRequest(**base))
+    assert plain.instructions == "\n\n".join([P0, P1, P2["rest/full-feedback"]]) and "userName" not in plain.data
+    rich = build_prompt(AuthorRequest(**base, style="strict", humor="often", humor_kinds=("absurd", "wordplay"),
+                                      dark_humor=True, persona="sharp", extras=("trivia",), address="vy",
+                                      name_allowed=True, user_name="Лёша"))
+    for module in (STYLE_MODULES["strict"], HUMOR_MODULES["often"], P1_DARK, P1_SHARP, EXTRA_MODULES["trivia"],
+                   ADDRESS_VY, NAME_MODULE, "абсурдные сравнения, игра слов"):
+        assert module in rich.instructions
+    assert "Лёша" not in rich.instructions and json.loads(rich.data)["userName"] == "Лёша"
+    muted = build_prompt(AuthorRequest(**base, humor="off", humor_kinds=("irony",), dark_humor=True))
+    assert HUMOR_MODULES["off"] in muted.instructions and P1_DARK not in muted.instructions
+    assert "Предпочитаемые виды юмора" not in muted.instructions
+    with pytest.raises(ValueError):
+        AuthorRequest(**base, style="ignore rules")
 
 
 def test_prompt_composition_keeps_notes_as_data_and_schemas_per_mode():

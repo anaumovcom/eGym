@@ -23,7 +23,6 @@ function preferences(value: unknown): CoachPreferences {
   if (typeof p.enabled !== 'boolean' || typeof p.historyConsent !== 'boolean' || typeof p.duringSets !== 'boolean' ||
       typeof p.duringRest !== 'boolean' || !['local', 'hybrid', 'text-only'].includes(String(p.mode)) ||
       !['quiet', 'companion', 'talkative'].includes(String(p.density)) || !['every', 'last-three', 'milestones', 'off'].includes(String(p.count)) ||
-      !['companion', 'calm'].includes(String(p.style)) || !['off', 'light', 'often'].includes(String(p.humor)) ||
       !(p.voiceProfile === null || typeof p.voiceProfile === 'string') ||
       !(p.voiceVolume === null || typeof p.voiceVolume === 'number') || !preferencesValid(p as CoachPreferences)) throw new CoachApiError('invalid_response')
   // Pick only the public contract: never retain unknown server/provider fields.
@@ -31,7 +30,10 @@ function preferences(value: unknown): CoachPreferences {
     mode: p.mode as CoachPreferences['mode'], density: p.density as CoachPreferences['density'], count: p.count as CoachPreferences['count'],
     voiceProfile: coachVoice(p.voiceProfile), historyConsent: p.historyConsent, revision: p.revision as number, budgetUsd: p.budgetUsd as string,
     networkConsentVersion: p.networkConsentVersion as null | 1, voiceVolume: p.voiceVolume as number | null,
-    style: p.style as CoachPreferences['style'], humor: p.humor as CoachPreferences['humor'], edgyOptIn: false, duringSets: p.duringSets, duringRest: p.duringRest }
+    style: p.style as CoachPreferences['style'], humor: p.humor as CoachPreferences['humor'],
+    humorKinds: [...p.humorKinds as CoachPreferences['humorKinds']], edgyOptIn: p.edgyOptIn as boolean,
+    extras: [...p.extras as CoachPreferences['extras']], address: p.address as CoachPreferences['address'],
+    nickname: p.nickname as string, duringSets: p.duringSets, duringRest: p.duringRest }
 }
 function session(value: unknown): OperatorSession {
   const s = object(value)

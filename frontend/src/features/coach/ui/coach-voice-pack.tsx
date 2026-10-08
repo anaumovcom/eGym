@@ -31,16 +31,16 @@ export function CoachVoicePackSection({ slot, client = coachPackClient }: { slot
     setBusy(true)
     try { await action() } finally { setBusy(false) }
   }
-  return <section aria-label="Подготовленные фразы" className="grid gap-3 rounded-xl border border-white/10 p-4 text-sm">
-    <h3 className="font-semibold">Подготовленные фразы</h3>
+  return <section aria-label="Подготовленные фразы" className="grid gap-2 py-2.5 text-sm">
+    <h4>Подготовленные фразы</h4>
     {selected === null
       ? <p>Выберите голос тренера, чтобы загрузить его подготовленные фразы на это устройство.</p>
       : <p role="status" data-testid="coach-pack-status">{own ? STATE_LABELS[snapshot.state] : STATE_LABELS.not_prepared}
         {own && total > 0 && ` · Подготовлено ${snapshot.prepared}/${total} · ${megabytes} MB`}
         {own && snapshot.reason && REASON_LABELS[snapshot.reason] && ` · ${REASON_LABELS[snapshot.reason]}`}
         {own && snapshot.unapproved > 0 && ` · фраз безопасности ждут прослушивания: ${snapshot.unapproved}`}</p>}
-    <p className="text-muted-foreground">Загружаются только уже готовые фразы. Недостающие фразы создаёт оператор отдельной платной задачей; здесь ничего не генерируется. Во время тренировки фразы берутся только из памяти устройства.</p>
-    <div className="flex flex-wrap gap-3">
+    <p className="text-xs text-muted-foreground">Скачивает готовые фразы голоса на устройство — без задержек и интернета.</p>
+    <div className="flex flex-wrap gap-2">
       <button className="rt-button" type="button" disabled={selected === null || busy} onClick={() => { if (selected) void run(() => client.prepare(selected)) }}>Подготовить частые фразы</button>
       <button className="rt-button" type="button" disabled={busy} onClick={() => { void run(() => client.deleteLocal()) }}>Удалить локальные файлы</button>
     </div>

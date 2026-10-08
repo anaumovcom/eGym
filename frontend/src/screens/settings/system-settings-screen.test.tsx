@@ -53,7 +53,7 @@ async function confirmAccess(user: ReturnType<typeof userEvent.setup>) {
 
 function expectNormalTabs() {
   const nav = screen.getByRole('navigation', { name: 'Настройки' })
-  expect(within(nav).getAllByRole('button').map((button) => button.textContent)).toEqual(['Обзор', 'Безопасность', 'Общие', 'Сервис'])
+  expect(within(nav).getAllByRole('button').map((button) => button.textContent)).toEqual(['Обзор', 'Безопасность', 'Общие', 'AI-тренер', 'Сервис'])
 }
 
 beforeEach(() => {
@@ -84,14 +84,14 @@ afterEach(() => {
 })
 
 describe('System settings service access', () => {
-  it.each(['overview', 'safety', 'common'])('keeps normal %s settings available without acknowledgement', async (tab) => {
+  it.each(['overview', 'safety', 'common', 'coach'])('keeps normal %s settings available without acknowledgement', async (tab) => {
     renderSettings(`/settings?tab=${tab}`)
     expectNormalTabs()
     expect(screen.queryByRole('checkbox', { name: 'Понимаю риски изменения технических настроек' })).not.toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Сервисные настройки' })).not.toBeInTheDocument()
     expect(within(screen.getByRole('main')).queryByRole('link', { name: 'Modbus Debug', exact: true })).not.toBeInTheDocument()
     expect(runCommand).not.toHaveBeenCalled()
-    if (tab === 'common') {
+    if (tab === 'coach') {
       expect(screen.getByRole('region', { name: 'AI-тренер' })).toBeInTheDocument()
       await screen.findByText(/Сервер Coach недоступен/)
     }

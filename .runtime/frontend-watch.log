@@ -1,18 +1,9 @@
 
-  VITE v7.3.3  ready in 440 ms
+  VITE v7.3.3  ready in 370 ms
 
   ➜  Local:   http://127.0.0.1:5173/
-10:38:41 AM [vite] .env changed, restarting server...
-10:38:41 AM [vite] server restarted.
-10:41:35 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-operator-panel.tsx
-10:41:35 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-operator-panel.tsx
-10:44:25 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.tsx
-10:44:37 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.css
-10:45:42 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.tsx
-10:47:37 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-operator-panel.tsx
-10:48:37 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.tsx
-10:48:38 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.css
-10:51:10 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.tsx
-10:51:10 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-operator-panel.tsx
-10:51:10 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.css
-10:51:10 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-operator-panel.tsx
+3:36:06 PM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
+3:37:11 PM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
+3:39:18 PM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
+3:49:00 PM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
+4:00:14 PM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css

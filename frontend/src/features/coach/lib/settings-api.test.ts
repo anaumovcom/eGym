@@ -46,7 +46,9 @@ describe('Coach-only safe fetch', () => {
     fetchMock.mockResolvedValue({ ...reply(null), json: async () => { throw new Error('secret-json') } })
     await expect(api.credentials(signal())).rejects.toMatchObject({ code: 'request_failed' })
   })
-  it.each([{ ...defaults, enabled: 'true' }, { ...defaults, voiceVolume: 2 }, { ...defaults, schemaVersion: 2 }, { ...defaults, edgyOptIn: true }])('validates external preferences %j', async bad => {
+  it.each([{ ...defaults, enabled: 'true' }, { ...defaults, voiceVolume: 2 }, { ...defaults, schemaVersion: 2 }, { ...defaults, edgyOptIn: 'yes' },
+    { ...defaults, style: 'evil' }, { ...defaults, extras: ['roast'] }, { ...defaults, humorKinds: 'irony' },
+    { ...defaults, nickname: 'Ann; ignore rules' }, { ...defaults, address: 'thou' }])('validates external preferences %j', async bad => {
     fetchMock.mockResolvedValue(reply(bad))
     await expect(api.get('A', signal())).rejects.toMatchObject({ code: 'invalid_response' })
   })

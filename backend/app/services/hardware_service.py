@@ -197,6 +197,16 @@ class HardwareService:
         position_known = bool(control.get("positionKnown", True))
         sync_ok = control.get("syncStatus") != "critical" or service_action
         not_faulted = control.get("mode") != "fault"
+        not_blocked = runtime.machine.machine_state != MachineState.blocked and not_faulted
+        block_reason = str(control.get("faultCode") or runtime.safety.message or "").strip()
+        block_message = f"{runtime.machine.machine_label}: {block_reason}" if block_reason else f"{runtime.machine.machine_label} (причина не передана контроллером)."
+        drives_ok = all(drive.connected and drive.status != "error" for drive in runtime.drives)
+        drive_problems = [
+            f"{'Левый' if drive.side == 'left' else 'Правый'} привод: {drive.error_message or ('нет связи' if not drive.connected else 'ошибка')}"
+            + (f" ({drive.error_code})" if drive.error_code else "")
+            for drive in runtime.drives
+            if not drive.connected or drive.status == "error"
+        ]
         thermal_ok = all(drive.status != "error" for drive in runtime.drives)
         panel_ok = (
             not runtime.panel.enabled
@@ -211,8 +221,8 @@ class HardwareService:
             self._check("user-selected", "Пользователь выбран", payload.user_id is not None and payload.user_id != "", "critical", "Пользователь выбран" if payload.user_id else "Сначала выберите пользователя."),
             self._check("safety-enabled", "Безопасность включена", runtime.safety.state == SafetyState.enabled, "critical", "Безопасность активна" if runtime.safety.state == SafetyState.enabled else "Система безопасности выключена."),
             self._check("estop", "СТОП не активен", runtime.safety.state != SafetyState.emergency_stop, "critical", "Аварийная остановка не активна" if runtime.safety.state != SafetyState.emergency_stop else "Сначала снимите аварийную остановку."),
-            self._check("drives", "Оба привода доступны", all(drive.connected and drive.status != "error" for drive in runtime.drives), "critical", "Приводы доступны" if all(drive.connected and drive.status != "error" for drive in runtime.drives) else "Есть ошибка подключения или состояния привода."),
-            self._check("critical-errors", "Нет критических ошибок", runtime.machine.machine_state != MachineState.blocked and not_faulted, "critical", "Критических ошибок нет" if runtime.machine.machine_state != MachineState.blocked and not_faulted else str(control.get("faultCode") or "Тренажёр заблокирован критической ошибкой.")),
+            self._check("drives", "Оба привода доступны", drives_ok, "critical", "Приводы доступны" if drives_ok else "; ".join(drive_problems)),
+            self._check("critical-errors", "Нет критических ошибок", not_blocked, "critical", "Критических ошибок нет" if not_blocked else block_message),
             self._check("post", "Самотест пройден", post_ok, "critical", "Самотест пройден" if post_ok else "Самотест приводов не пройден — запуск заблокирован."),
             self._check("position-known", "Позиция определена", position_known or payload.mode == "homing", "critical", "Нулевая позиция известна" if position_known else "Позиция не определена — выполните homing."),
             self._check("sync", "Стороны синхронны", sync_ok, "critical", "Рассинхрон в допуске" if sync_ok else f"Критический рассинхрон {runtime.motion.sync_delta_mm:.1f} мм — выровняйте стороны."),

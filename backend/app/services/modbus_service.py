@@ -10,8 +10,9 @@ from __future__ import annotations
 import threading
 import time
 from collections import deque
+from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypeVar
 
 from app.schemas.modbus import (
     DriverDiagnosticsSchema,
@@ -156,6 +157,10 @@ DEFAULT_TORQUE_LIMIT = 400
 # PA_056 speed limit in Torque Mode, rpm. Start low.
 DEFAULT_SPEED_LIMIT_RPM = 300
 _INTER_SLAVE_GAP_S = 0.010  # quiet time on the RS-485 bus when the next frame goes to another drive
+# After a failed transaction a late reply may still be on the wire and would be
+# read as the answer to the next request ("Wrong return slave address").
+_STALE_DRAIN_S = 0.030
+T = TypeVar("T")
 _REG_CONTROL_MODE = 0x002
 _REG_SPEED_LIMIT = 0x056
 _REG_TORQUE_LIMIT = 0x05E
@@ -254,6 +259,35 @@ class ModbusService:
                 if rest > 0:
                     time.sleep(rest)
             self._instr.address = slave_id
+            if getattr(self, "_bus_dirty", False):
+                self._drain_stale()
+
+    def _drain_stale(self) -> None:
+        rest = _STALE_DRAIN_S - (time.monotonic() - getattr(self, "_bus_last_end", 0.0))
+        if rest > 0:
+            time.sleep(rest)
+        try:
+            self._instr.serial.reset_input_buffer()  # type: ignore[attr-defined]
+        except Exception:  # noqa: BLE001
+            pass
+        self._bus_dirty = False
+
+    def _bus_transaction(self, slave_id: int, call: Callable[[], T]) -> T:
+        """Run one real-bus request; on failure drop late/stale bytes and retry once (reads and register writes are idempotent)."""
+        for attempt in (1, 2):
+            try:
+                result = call()
+            except Exception:
+                self._bus_dirty = True
+                self._bus_done(slave_id)
+                if attempt == 2:
+                    raise
+                self._drain_stale()
+                self._instr.address = slave_id  # type: ignore[attr-defined]
+                continue
+            self._bus_done(slave_id)
+            return result
+        raise AssertionError("unreachable")
 
     def _bus_done(self, slave_id: int) -> None:
         self._bus_last_slave = slave_id
@@ -364,6 +398,13 @@ class ModbusService:
             try:
                 import minimalmodbus  # type: ignore[import-untyped]
                 instr = minimalmodbus.Instrument(params.port, params.slave_id)
+                try:
+                    # A second backend (e.g. a duplicate watcher) must not share the RS-485 bus: interleaved frames corrupt replies.
+                    instr.serial.exclusive = True
+                except Exception:
+                    instr.serial.close()
+                    minimalmodbus._serialports.pop(params.port, None)
+                    raise
                 instr.serial.baudrate = params.baud_rate
                 instr.serial.parity = params.parity
                 instr.serial.stopbits = params.stop_bits
@@ -490,21 +531,15 @@ class ModbusService:
             raw_resp = "[SIM] " + " ".join(f"{(r.value & 0xFFFF):04X}" for r in results)
         else:
             try:
-                raw_values: list[int] = []
-                # A drive may miss the first frame after the bus was used by the other drive: retry once.
-                attempts = 2 if getattr(self, "_bus_last_slave", slave_id) != slave_id else 1
-                for attempt in range(1, attempts + 1):
-                    try:
-                        if req.count > 1:
-                            raw_values = [int(v) & 0xFFFF for v in self._instr.read_registers(req.address, req.count)]  # type: ignore[attr-defined]
-                        else:
-                            val = self._instr.read_register(req.address, signed=self._is_signed_register(req.address))  # type: ignore[attr-defined]
-                            raw_values = [val & 0xFFFF]
-                        break
-                    except Exception:  # noqa: BLE001
-                        self._bus_done(slave_id)
-                        if attempt == attempts:
-                            raise
+                if req.count > 1:
+                    raw_values = [int(v) & 0xFFFF for v in self._bus_transaction(
+                        slave_id, lambda: self._instr.read_registers(req.address, req.count),  # type: ignore[attr-defined]
+                    )]
+                else:
+                    val = self._bus_transaction(
+                        slave_id, lambda: self._instr.read_register(req.address, signed=self._is_signed_register(req.address)),  # type: ignore[attr-defined]
+                    )
+                    raw_values = [val & 0xFFFF]
                 for i, val in enumerate(raw_values):
                     addr = req.address + i
                     value = val if req.count > 1 else self._normalize_register_value(addr, val)
@@ -555,7 +590,7 @@ class ModbusService:
             raw_resp = "[SIM] OK" if error is None else f"[SIM] ERR: {error}"
         else:
             try:
-                self._instr.write_register(address, value, signed=signed)  # type: ignore[attr-defined]
+                self._bus_transaction(slave_id, lambda: self._instr.write_register(address, value, signed=signed))  # type: ignore[attr-defined]
                 self._registers[address] = value if signed else value & 0xFFFF
                 raw_resp = "ACK"
             except Exception as exc:  # noqa: BLE001
@@ -899,7 +934,10 @@ class ModbusService:
 
     def _real_read(self, addr: int) -> tuple[int | None, str | None]:
         try:
-            val = self._instr.read_register(addr, signed=self._is_signed_register(addr))  # type: ignore[attr-defined]
+            val = self._bus_transaction(
+                self._instr.address,  # type: ignore[attr-defined]
+                lambda: self._instr.read_register(addr, signed=self._is_signed_register(addr)),  # type: ignore[attr-defined]
+            )
             return val, None
         except Exception as exc:  # noqa: BLE001
             return None, str(exc)

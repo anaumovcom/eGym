@@ -4,7 +4,7 @@ import type { MuscleCard, MuscleStatus } from '@/entities/muscle/model/types'
 export type Stage4Period = '7d' | '30d' | '3m' | '6m' | '1y' | 'all'
 export type ProgressTab = 'summary' | 'exercise' | 'strength' | 'regularity' | 'muscles' | 'body' | 'photo'
 export type ProfileTab = 'summary' | 'general' | 'goals' | 'body' | 'photo' | 'blacklist'
-export type SettingsTab = 'overview' | 'safety' | 'mechanics' | 'diagnostics' | 'calibrations' | 'service' | 'journal' | 'common'
+export type SettingsTab = 'overview' | 'safety' | 'mechanics' | 'diagnostics' | 'calibrations' | 'service' | 'journal' | 'common' | 'coach'
 export type FatigueMode = 'current' | 'after-workout' | '7d' | '30d'
 
 export type MetricCard = {

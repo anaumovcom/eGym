@@ -23,6 +23,18 @@ describe('stage3 runtime session builder', () => {
     expect(session.exercises.map((exercise) => exercise.kind)).toEqual(expect.arrayContaining(['machine', 'bodyweight', 'timed', 'group']))
   })
 
+  it.each(['catalog', 'quick-start'] as const)('treats a single %s exercise as a backend-persisted one-exercise workout', (source) => {
+    const session = createRuntimeSession({ source, slug: 'barbell-floor-press' })
+
+    expect(session.dataSource).toBe('backend')
+    expect(session.exercises).toHaveLength(1)
+    expect(session.workoutSubtitle).toBe('Одиночное упражнение')
+  })
+
+  it.each(['today', 'calendar', 'programs'] as const)('keeps the %s demo workout on mock data', (source) => {
+    expect(createRuntimeSession({ source }).dataSource).toBe('mock')
+  })
+
   it.each(['today', 'calendar', 'programs', 'builder', 'catalog', 'quick-start'] as const)('ignores new and legacy photo URL options for %s without changing the source', (source) => {
     for (const photo of ['', '&photo=before', '&photo=after', '&photo=manual']) {
       const options = getRuntimeInitOptions(new URLSearchParams(`source=${source}&calibration=missing${photo}`))
