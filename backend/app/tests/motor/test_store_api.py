@@ -31,5 +31,5 @@ def test_motor_api_profile_and_catalog(client) -> None:
     catalog = client.get("/api/motor/calibrations").json()
     codes = {item["code"]: item for item in catalog}
     assert codes["S3"]["implemented"] and codes["S3"]["status"] == "missing"
-    assert codes["D4"]["status"] == "planned"
+    assert codes["D4"]["implemented"] and codes["D4"]["status"] == "missing"
     assert client.post("/api/motor/profile/1/activate").status_code == 409

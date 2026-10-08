@@ -14,7 +14,7 @@ from collections.abc import Callable
 from app.motor.drive.protocol import DriveSample
 from app.motor.profile import SideProfile
 from app.motor.twin.plant import Plant, PlantParams
-from app.motor.units import SIDES, Side, clamp, force_to_raw, mm_s_to_rpm, rpm_to_mm_s
+from app.motor.units import SIDES, Side, clamp, force_to_raw, mm_s_to_rpm, passport_mm_per_pulse, rpm_to_mm_s
 
 UserModel = Callable[[float, "TwinBench"], dict[Side, float]]
 
@@ -27,6 +27,7 @@ class TwinDrive:
         self.last_raw: int | None = None
         self.fail_writes = False
         self.writes: list[int] = []
+        self.servo_on = True
 
     def read(self) -> DriveSample:
         return self.bench.read(self.side, self.profile)
@@ -49,6 +50,18 @@ class TwinDrive:
 
     def zero(self) -> str | None:
         return self.write_raw(0)
+
+    def set_servo(self, on: bool) -> str | None:
+        if self.fail_writes:
+            return "twin: запись не прошла"
+        self.servo_on = on
+        return None
+
+    def servo_state(self) -> bool | None:
+        return self.servo_on
+
+    def config_report(self) -> list[dict[str, object]]:
+        return [{"register": "twin", "label": "Двойник: регистры пусконаладки не проверяются", "value": None, "ok": True, "detail": None}]
 
 
 class TwinBench:
@@ -94,7 +107,10 @@ class TwinBench:
             queue = self._pending[side]
             while queue and queue[0][0] <= self._tick:
                 self._applied_raw[side] = queue.popleft()[1]
-        targets = {side: 0.0 if self.alarm[side] else self._true_force(side, self._applied_raw[side]) for side in SIDES}
+        targets = {
+            side: 0.0 if self.alarm[side] or not self.drives[side].servo_on else self._true_force(side, self._applied_raw[side])
+            for side in SIDES
+        }
         user = self.user(self.t, self) if self.user else {}
         self.plant.step(targets, user, dt)
         self.t += dt
@@ -127,6 +143,7 @@ class TwinBench:
             command_raw=self.drives[side].last_raw,
             alarm=alarm,
             error=f"twin alarm {alarm}" if alarm else None,
+            counts=self.params.encoder_zero_counts + round(reg_position / passport_mm_per_pulse()),
         )
 
     def true_state(self, side: Side) -> tuple[float, float]:

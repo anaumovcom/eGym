@@ -14,6 +14,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any, TypeVar
 
+from app.motor.drive.registers import COMMISSIONING_EXPECTED, PA_VIRTUAL_DI
 from app.schemas.modbus import (
     DriverDiagnosticsSchema,
     ExchangeLogEntrySchema,
@@ -96,8 +97,16 @@ _DEFAULT_REGISTERS: dict[int, int] = {
     0x20B: 0,
     # Position error high word
     0x20C: 0,
-    # PA_08F – automatic Servo ON after power-on
-    0x08F: 1,
+    # PA_08F – automatic Servo ON after power-on (0 = by command, commissioned)
+    0x08F: 0,
+    # PA_00B – 0 = absolute encoder (commissioned)
+    0x00B: 0,
+    # PA_080 – DI0 function 0 = SRV-ON
+    0x080: 0,
+    # PA_1A0 – bit0: DI0 is driven by PA_1A4 (commissioned)
+    0x1A0: 1,
+    # PA_1A4 – virtual DI state, bit0 = SRV-ON
+    0x1A4: 0,
     # PA_094 – bit0 = 0 absolute position command
     0x094: 0,
     # PA_096 – 0 continuous position loading, no POS_LOAD pulse
@@ -189,6 +198,8 @@ class ModbusService:
         self.left_zero_pulses: int | None = None
         self.right_zero_pulses: int | None = None
         self._torque_ready: dict[int, bool] = {}
+        self._init_error: dict[int, str] = {}
+        self._servo_on: dict[int, bool] = {}
         self._torque_command: dict[int, int] = {}
         self._manual_torque = False
         self._torque_limit: dict[int, int] = {}
@@ -440,6 +451,8 @@ class ModbusService:
         self._bus_last_slave = None
         self._manual_torque = False
         self._torque_ready.clear()
+        self._init_error.clear()
+        self._servo_on.clear()
         self._torque_command.clear()
         self._torque_limit.clear()
         self._speed_limit_rpm.clear()
@@ -603,6 +616,8 @@ class ModbusService:
         else:
             self._ok_count += 1
             self._last_success_at = self._now()
+            if address == PA_VIRTUAL_DI:  # also tracks writes from the debug panel
+                self._servo_on[slave_id] = bool(value & 1)
         if log or error:
             self._append_log(ExchangeLogEntrySchema(
                 id=self._next_log_id(), ts=self._now(), direction="TX", slave_id=slave_id,
@@ -697,6 +712,8 @@ class ModbusService:
         if not self._connected:
             return "Modbus не подключён"
         if not self._torque_ready.get(slave_id):
+            if self._init_error.get(slave_id):
+                return f"Привод не готов: {self._init_error[slave_id]}"
             return "Привод не инициализирован в Torque Mode: сначала initialize_torque_mode()"
         return None
 
@@ -719,11 +736,18 @@ class ModbusService:
             return error or "Нет связи с приводом"
         if alarm:
             return f"Авария привода PA_1C9={alarm}"
-        mode, error = self._read_init_register(_REG_CONTROL_MODE, slave_id)
-        if mode is None:
-            return error or "Нет ответа PA_002"
-        if mode != 2:
-            return f"PA_002={mode}, ожидается Torque Mode (2); параметр рантаймом не меняется"
+        mismatches: list[str] = []
+        for address, (label, mask, expected) in COMMISSIONING_EXPECTED.items():
+            value, error = self._read_init_register(address, slave_id)
+            if value is None:
+                return error or f"Нет ответа PA_{address:03X}"
+            if value & mask != expected:
+                mismatches.append(f"{label}, сейчас {value}")
+        if mismatches:
+            return (
+                "пусконаладка драйвера не выполнена: " + "; ".join(mismatches)
+                + ". Выставить вручную, сохранить в EEPROM и перезапустить питание (софт эти параметры не пишет)"
+            )
         segment, error = self._read_init_register(_REG_TORQUE_SEGMENT, slave_id)
         if segment is None:
             return error or "Нет ответа PA_093"
@@ -739,6 +763,10 @@ class ModbusService:
         referenced = self._write_register_locked(_REG_TORQUE_COMMAND, initial_command, slave_id)
         if not referenced.success:
             return f"PA_12C: {referenced.error}"
+        di_state, error = self._read_init_register(PA_VIRTUAL_DI, slave_id)
+        if di_state is None:
+            return error or "Нет ответа PA_1A4"
+        self._servo_on[slave_id] = bool(di_state & 1)
         telemetry = self._read_torque_telemetry_locked(slave_id)
         if telemetry.get("error"):
             return str(telemetry["error"])
@@ -753,6 +781,31 @@ class ModbusService:
         self._torque_ready[slave_id] = True
         self._log_info("TORQUE_INIT", f"slave {slave_id}: PA_002=2, PA_093=0, PA_12C={initial_command}, speed limit={speed_limit_rpm} rpm, torque limit={torque_limit}")
         return None
+
+    def commissioning_report(self, slave_id: int) -> list[dict[str, Any]]:
+        """B0 (read-only): alarm, commissioning registers and the runtime limits written at init."""
+
+        def item(register: int, label: str, value: int | None, ok: bool, detail: str | None) -> dict[str, Any]:
+            return {"register": f"PA_{register:03X}", "label": label, "value": value, "ok": ok, "detail": detail}
+
+        with self._lock:
+            if not self._connected:
+                return [{"register": "bus", "label": "Связь Modbus", "value": None, "ok": False, "detail": "Modbus не подключён"}]
+            items: list[dict[str, Any]] = []
+            alarm, error = self._read_init_register(_REG_ALARM, slave_id)
+            items.append(item(_REG_ALARM, "PA_1C9 авария (нужно 0)", alarm, alarm == 0, error))
+            for address, (label, mask, expected) in COMMISSIONING_EXPECTED.items():
+                value, error = self._read_init_register(address, slave_id)
+                items.append(item(address, label, value, value is not None and value & mask == expected, error))
+            limits = (
+                (_REG_TORQUE_SEGMENT, "PA_093 сегмент момента (нужно 0)", 0),
+                (_REG_TORQUE_LIMIT, "PA_05E предел момента (записан при подключении)", self._torque_limit.get(slave_id)),
+                (_REG_SPEED_LIMIT, "PA_056 предел скорости (записан при подключении)", self._speed_limit_rpm.get(slave_id)),
+            )
+            for address, label, expected in limits:
+                value, error = self._read_init_register(address, slave_id)
+                items.append(item(address, label, value, value is not None and expected is not None and value == expected, error or (None if expected is not None else "привод не инициализирован")))
+            return items
 
     def initialize_torque_mode(
         self,
@@ -769,18 +822,51 @@ class ModbusService:
         with self._lock:
             if not self._connected:
                 return ["Modbus не подключён"]
-            return [
-                f"ID{slave_id}: {error}"
-                for slave_id in (self._left_slave_id, self._right_slave_id)
-                if (error := self._init_torque_drive_locked(
+            errors: list[str] = []
+            for slave_id in (self._left_slave_id, self._right_slave_id):
+                error = self._init_torque_drive_locked(
                     slave_id, torque_limit=torque_limit, speed_limit_rpm=speed_limit_rpm,
                     initial_command=(initial_commands or {}).get(slave_id, 0),
-                ))
-            ]
+                )
+                if error:
+                    self._init_error[slave_id] = error
+                    errors.append(f"ID{slave_id}: {error}")
+                else:
+                    self._init_error.pop(slave_id, None)
+            return errors
 
     def torque_ready(self, slave_id: int) -> bool:
         with self._lock:
             return self._connected and bool(self._torque_ready.get(slave_id))
+
+    def servo_state(self, slave_id: int) -> bool | None:
+        """Last known SRV-ON (PA_1A4 bit0); None when unknown."""
+        with self._lock:
+            return self._servo_on.get(slave_id) if self._connected else None
+
+    def set_servo(self, slave_id: int, on: bool) -> str | None:
+        """SRV-ON through virtual DI0: PA_1A4 bit0 (routed by PA_1A0 bit0). Read-modify-write, verified by readback."""
+        with self._lock:
+            if not self._connected:
+                return "Modbus не подключён"
+            if on and (error := self._torque_drive_ready(slave_id)):
+                return error
+            current, error = self._read_init_register(PA_VIRTUAL_DI, slave_id)
+            if current is None:
+                return error or "Нет ответа PA_1A4"
+            value = current | 1 if on else current & 0xFFFE
+            if value != current:
+                written = self._write_register_locked(PA_VIRTUAL_DI, value, slave_id)
+                if not written.success:
+                    return f"PA_1A4: {written.error}"
+            readback, error = self._read_init_register(PA_VIRTUAL_DI, slave_id)
+            if readback is None:
+                return error or "Нет ответа PA_1A4"
+            self._servo_on[slave_id] = bool(readback & 1)
+            if bool(readback & 1) != on:
+                return f"PA_1A4 = {readback}: SRV-ON не {'включился' if on else 'выключился'}"
+            self._log_info("SERVO", f"slave {slave_id}: SRV-ON = {int(on)}")
+            return None
 
     def set_torque_command(self, slave_id: int, torque_raw: int, *, log: bool = True) -> str | None:
         """Write PA_12C (signed, 0.1 % of rated torque), clamped to the active torque limit. Runtime only."""

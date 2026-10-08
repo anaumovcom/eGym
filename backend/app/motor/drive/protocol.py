@@ -19,6 +19,7 @@ class DriveSample:
     command_raw: int | None = None  # last written PA_12C
     alarm: int = 0
     error: str | None = None
+    counts: int | None = None  # raw absolute encoder (PA_1BC/1BD), motor direction
 
     def age(self, now: float) -> float:
         return now - self.t
@@ -36,3 +37,7 @@ class TorqueDrive(Protocol):
     def support(self) -> str | None: ...
 
     def zero(self) -> str | None: ...
+
+    def set_servo(self, on: bool) -> str | None: ...
+
+    def servo_state(self) -> bool | None: ...

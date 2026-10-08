@@ -111,6 +111,40 @@ def test_failed_second_read_keeps_both_old_offsets_and_reconnect_invalidates_the
     assert unzeroed.right.position_mm is None
 
 
+def test_commissioned_sim_drives_initialize_with_servo_off():
+    service = ModbusService()
+    status = service.connect(ModbusConnectionParamsSchema(port="SIM://"))
+    assert status.connected and not status.error_message
+    assert service.torque_ready(1) and service.torque_ready(2)
+    assert (service.servo_state(1), service.servo_state(2)) == (False, False)
+
+
+def test_commissioning_mismatch_refuses_init_and_names_registers():
+    service = ModbusService()
+    service.connect(ModbusConnectionParamsSchema(port="SIM://"))
+    service._registers_by_slave[2][0x00B] = 1
+    service._registers_by_slave[2][0x1A0] = 0
+    errors = service.initialize_torque_mode()
+    assert len(errors) == 1 and errors[0].startswith("ID2:")
+    assert "PA_00B" in errors[0] and "PA_1A0" in errors[0]
+    assert service.torque_ready(1) and not service.torque_ready(2)
+    assert "PA_00B" in (service.set_torque_command(2, 100) or "")
+    assert "PA_00B" in (service.set_servo(2, True) or "")
+    assert service._registers_by_slave[2][0x1A4] == 0
+
+
+def test_set_servo_toggles_only_bit0_with_readback():
+    service = ModbusService()
+    service.connect(ModbusConnectionParamsSchema(port="SIM://"))
+    service._registers_by_slave[1][0x1A4] = 0b100
+    assert service.set_servo(1, True) is None
+    assert service._registers_by_slave[1][0x1A4] == 0b101
+    assert service.servo_state(1) is True
+    assert service.set_servo(1, False) is None
+    assert service._registers_by_slave[1][0x1A4] == 0b100
+    assert service.servo_state(1) is False
+
+
 def test_modbus_connect_route_captures_both_zeros_and_zero_route_rebases(monkeypatch):
     service = ModbusService()
     monkeypatch.setattr(modbus_debug, "modbus_service", service)

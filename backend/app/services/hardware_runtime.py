@@ -7,6 +7,8 @@ The v1 motion stack is removed. Until the v2 ``motor-rt`` process takes over
   refreshed every ``SUPPORT_REFRESH_S``; the first write is support, never 0;
 * latches E-stop (support), drive/bus faults (support) and overspeed (0);
 * leaves PA_12C to the debug panel while its manual torque is active;
+* runs calibration sessions (service mode, dead-man, envelope) step by step
+  inside the tick: the session writes PA_12C instead of support until it ends;
 * publishes position/telemetry snapshots and serves the physical panel.
 
 Every motion request is rejected with ``MOTION_DISABLED_MESSAGE``.
@@ -26,6 +28,10 @@ from typing import Any
 
 from app.core.config import get_settings
 from app.models.enums import DriveState, MachineState, SafetyState
+from app.motor.calibration.graph import BY_CODE, RUNNABLE
+from app.motor.calibration.graph import status as calibration_status
+from app.motor.calibration.runner import Frame
+from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
 from app.motor.drive.lichuan import LichuanTorqueDrive
 from app.motor.drive.protocol import DriveSample, TorqueDrive
 from app.motor.profile import MachineProfile, SafetyEnvelope
@@ -45,8 +51,10 @@ logger = logging.getLogger(__name__)
 
 TICK_SECONDS = 0.05
 SUPPORT_REFRESH_S = 0.2
+ZERO_SYNC_MAX_MM = 50.0
 BROADCAST_INTERVAL_SECONDS = 0.1
 MOTION_DISABLED_MESSAGE = "Управление двигателями переводится на v2: движение и нагрузка временно отключены, приводы держат поддержку"
+SERVO_OFF_MESSAGE = "Приводы выключены (Servo OFF): гриф не поддерживается. Включить — в сервисном режиме"
 
 
 @dataclass
@@ -151,12 +159,16 @@ class HardwareRuntime:
                 }
             else:
                 self.bench = TwinBench(PlantParams(), {side: self.profile.side(side) for side in SIDES}, initial_raw=100)
+                for drive in self.bench.drives.values():
+                    drive.servo_on = False  # as the commissioned drives: PA_08F = 0
                 self.drives = dict(self.bench.drives)
             self.latch: str | None = None  # None | estop | fault | overspeed
             self.fault_reason: str | None = None
+            self.calibration: CalibrationSession | None = None
             self.samples: dict[Side, DriveSample] = {}
             self._last_write = 0.0
             self._force_write = True
+            self._zero_seen: tuple[int, int] | None = None
             self._powered_on = True
             self._panel_clear_stop_pending = False
             self.write_errors: dict[Side, str] = {}
@@ -257,6 +269,8 @@ class HardwareRuntime:
             if self.modbus and not modbus_service.get_status().connected:
                 self.samples = {side: DriveSample(side, time.monotonic(), ok=False, error="Modbus не подключён") for side in SIDES}
             else:
+                if self.modbus and not (self.calibration is not None and self.calibration.running):
+                    self._sync_zero()
                 self.samples = {side: self.drives[side].read() for side in SIDES}
             overspeed_mm_s = rpm_to_mm_s(self.envelope.overspeed_rpm_alarm)
             for side, sample in self.samples.items():
@@ -267,7 +281,16 @@ class HardwareRuntime:
                 self._set_fault("; ".join(f"{'левый' if s.side == 'left' else 'правый'}: {s.error}" for s in failed))
             now = time.monotonic()
             manual = self.modbus and modbus_service.manual_torque_active() and self.latch not in {"estop", "overspeed"}
-            if not manual and (self._force_write or now - self._last_write >= SUPPORT_REFRESH_S):
+            session = self.calibration
+            if session is not None and session.running and manual:
+                session.cancel("включён ручной момент debug-панели", support=False)
+                self._emit("calibration_aborted", f"Калибровка {session.code} прервана: {session.reason}")
+            if session is not None and session.running:
+                if session.step(Frame(self._frame_t(), dict(self.samples))):
+                    self._calibration_finished()
+                else:
+                    self._last_write = now
+            elif not manual and (self._force_write or now - self._last_write >= SUPPORT_REFRESH_S):
                 if self.modbus and not modbus_service.get_status().connected:
                     self._force_write = True
                 else:
@@ -277,6 +300,31 @@ class HardwareRuntime:
                     if errors and self.latch is None:
                         self._set_fault("Запись PA_12C: " + "; ".join(f"{side}: {error}" for side, error in errors.items()))
             self._sync_state(manual)
+
+    def _sync_zero(self) -> None:
+        """B7: replace the zero captured at drive init with the measured absolute zero of the profile.
+
+        Applied once per captured zero; a jump beyond ``ZERO_SYNC_MAX_MM`` means the absolute
+        position was lost (e.g. encoder battery), so the init zero is kept and a warning is logged.
+        """
+
+        current = (getattr(modbus_service, "left_zero_pulses", None), getattr(modbus_service, "right_zero_pulses", None))
+        if current[0] is None or current[1] is None or current == self._zero_seen:
+            return
+        self._zero_seen = (int(current[0]), int(current[1]))
+        stored = [self.profile.side(side).zero_counts for side in SIDES]
+        if any(item.provenance != "measured" or item.value is None for item in stored):
+            return
+        target = (int(stored[0].value), int(stored[1].value))
+        if target == self._zero_seen:
+            return
+        shift_mm = max(abs(t - c) * float(self.profile.side(side).mm_per_pulse.value) for side, t, c in zip(SIDES, target, self._zero_seen, strict=True))
+        if shift_mm > ZERO_SYNC_MAX_MM:
+            self._emit("zero", f"Абсолютный ноль профиля отличается на {shift_mm:.0f} мм — оставлен ноль инициализации; повторите B7")
+            return
+        modbus_service.set_session_zero(*target)
+        self._zero_seen = target
+        self._emit("zero", f"Применён абсолютный ноль B7 (сдвиг {shift_mm:.2f} мм)")
 
     def _write_safe_output(self) -> dict[Side, str]:
         """Support on both drives (zero on overspeed); each side attempted independently (R3)."""
@@ -303,6 +351,10 @@ class HardwareRuntime:
         self.fault_reason = reason
         self._force_write = True
         self._emit(kind, reason)
+        if self.calibration is not None and self.calibration.running:
+            # the caller writes the safe output (support, or 0 on overspeed)
+            self.calibration.cancel(reason, support=False)
+            self._emit("calibration_aborted", f"Калибровка {self.calibration.code} прервана: {reason}")
 
     def _set_fault(self, reason: str) -> None:
         self._set_latch("fault", reason)
@@ -340,11 +392,23 @@ class HardwareRuntime:
             state.safety_message = self.fault_reason or "Ошибка привода"
         else:
             state.machine_state, state.machine_label = MachineState.warning, "Управление двигателями отключено"
-            state.safety_message = "Ручной момент из debug-панели" if manual else MOTION_DISABLED_MESSAGE
+            calibration = self.calibration
+            if calibration is not None and calibration.running:
+                stage = calibration.current_stage
+                state.machine_label = f"Калибровка {calibration.code}"
+                state.safety_message = f"Калибровка {stage.code}: {stage.note or stage.title}"
+            elif manual:
+                state.safety_message = "Ручной момент из debug-панели"
+            elif not all(self.servo_states().values()):
+                state.safety_message = SERVO_OFF_MESSAGE
+            else:
+                state.safety_message = MOTION_DISABLED_MESSAGE
         state.alerts = ["Сервисный режим активен"] if state.service_mode else []
 
     @property
     def mode(self) -> str:
+        if self.latch is None and self.calibration is not None and self.calibration.running:
+            return "calibration"
         return self.latch or "support"
 
     @property
@@ -444,8 +508,43 @@ class HardwareRuntime:
 
     def set_service_mode(self, enabled: bool) -> HardwareCommandRecord:
         with self._lock:
+            if not enabled:
+                self._abort_calibration_locked("сервисный режим выключен")
             self.state.service_mode = enabled
             command = self._record_command("toggle_service_mode", {"enabled": enabled})
+        self._schedule_broadcast()
+        return command
+
+    def servo_states(self) -> dict[Side, bool | None]:
+        return {side: self.drives[side].servo_state() for side in SIDES}
+
+    def set_servo(self, on: bool) -> HardwareCommandRecord:
+        """SRV-ON/OFF on both drives, service mode only. Servo OFF drops a raised bar (no DB)."""
+
+        with self._lock:
+            if not self.state.service_mode:
+                raise PermissionError("Включение и выключение приводов — только в сервисном режиме")
+            self._abort_calibration_locked("приводы включены/выключены оператором")
+            if on:
+                if self.latch is not None:
+                    raise PermissionError("Сначала снимите СТОП и сбросьте ошибку")
+                # support is in PA_12C before SRV-ON, so the first torque is never 0 (R1)
+                errors = self._write_safe_output()
+                self._last_write = time.monotonic()
+                if errors:
+                    raise PermissionError("Поддержка не записана: " + "; ".join(f"{side}: {error}" for side, error in errors.items()))
+            errors = {side: error for side in SIDES if (error := self.drives[side].set_servo(on))}
+            if on and errors:
+                for side in SIDES:  # never one side alone: the bar couples them
+                    self.drives[side].set_servo(False)
+            label = "Приводы включены" if on else "Приводы выключены"
+            details = "; ".join(f"{side}: {error}" for side, error in errors.items())
+            self._emit("servo_on" if on else "servo_off", f"{label}: {details}" if errors else label)
+            if errors:
+                self._sync_state(False)
+                raise PermissionError(f"{'Включение' if on else 'Выключение'} приводов не выполнено: {details}")
+            command = self._record_command("servo_on" if on else "servo_off", {})
+            self._sync_state(False)
         self._schedule_broadcast()
         return command
 
@@ -463,6 +562,126 @@ class HardwareRuntime:
         with self._lock:
             self._emit("motion_rejected", f"{action}: {MOTION_DISABLED_MESSAGE}")
         raise PermissionError(MOTION_DISABLED_MESSAGE)
+
+    # ----------------------------------------------------------- calibration
+    def _frame_t(self) -> float:
+        return self.bench.t if self.bench is not None else time.monotonic()
+
+    def calibration_preconditions(self, code: str) -> list[dict[str, Any]]:
+        with self._lock:
+            samples = self.samples
+            servo = self.servo_states()
+            positions = {side: sample.position_mm for side, sample in samples.items() if sample.ok}
+            telemetry_ok = len(samples) == len(SIDES) and all(sample.ok for sample in samples.values())
+            on_stops = telemetry_ok and all(abs(x) <= ON_STOPS_MM for x in positions.values())
+            manual = self.modbus and modbus_service.manual_torque_active()
+            stages = RUNNABLE.get(code, ())
+            missing = sorted({
+                required for stage in stages[:1] for required in BY_CODE[stage].requires
+                if BY_CODE[required].implemented and BY_CODE[required].produces
+                and calibration_status(self.profile, BY_CODE[required]) != "actual"
+            })
+            busy = self.calibration is not None and self.calibration.running
+            estop = self.state.safety_state == SafetyState.emergency_stop
+            return [
+                {"id": "service", "label": "Сервисный режим включён", "ok": self.state.service_mode, "detail": None if self.state.service_mode else "Настройки → Сервис"},
+                {"id": "safety", "label": "Нет СТОП и ошибок привода", "ok": self.latch is None and not estop, "detail": self.fault_reason if self.latch or estop else None},
+                {"id": "servo", "label": "Приводы включены (Servo ON)", "ok": all(servo.values()), "detail": None if all(servo.values()) else "Включите приводы в настройках сервиса"},
+                {"id": "telemetry", "label": "Телеметрия обеих сторон в норме", "ok": telemetry_ok, "detail": None if telemetry_ok else "; ".join(f"{s.side}: {s.error}" for s in samples.values() if not s.ok) or "нет данных"},
+                {"id": "stops", "label": f"Гриф на нижних упорах (≤ {ON_STOPS_MM:.0f} мм)", "ok": on_stops, "detail": ", ".join(f"{'Л' if side == 'left' else 'П'} {x:.1f} мм" for side, x in positions.items()) or None},
+                {"id": "manual", "label": "Ручной момент debug-панели не активен", "ok": not manual, "detail": None if not manual else "Остановите ручной момент на странице Modbus"},
+                {"id": "requires", "label": "Выполнены предыдущие калибровки", "ok": not missing, "detail": ("Сначала: " + ", ".join(missing)) if missing else None},
+                {"id": "idle", "label": "Другая калибровка не выполняется", "ok": not busy, "detail": None},
+            ]
+
+    def start_calibration(self, code: str, options: dict[str, Any] | None = None) -> CalibrationSession:
+        """Service mode, no latch, servo on, bar on the stops; the operator holds the dead-man (keepalive)."""
+
+        with self._lock:
+            if code not in RUNNABLE:
+                raise ValueError(f"Калибровка {code} не запускается из интерфейса")
+            failed = [item for item in self.calibration_preconditions(code) if not item["ok"]]
+            if failed:
+                item = failed[0]
+                raise PermissionError(f"Не выполнено условие «{item['label']}»" + (f": {item['detail']}" if item["detail"] else ""))
+            session = CalibrationSession(code, self.drives, self.profile, options=options, safety=self.envelope)
+            self.calibration = session
+            self._emit("calibration_start", f"Калибровка {code} запущена", {"id": session.id})
+            self._record_command("calibration_start", {"code": code, "id": session.id})
+            session.begin()
+            if not session.running:
+                self._calibration_finished()
+            self._sync_state(False)
+        self._schedule_broadcast()
+        return session
+
+    def calibration_keepalive(self) -> bool:
+        with self._lock:
+            if self.calibration is None or not self.calibration.running:
+                return False
+            self.calibration.keepalive()
+            return True
+
+    def _abort_calibration_locked(self, reason: str) -> bool:
+        session = self.calibration
+        if session is None or not session.running:
+            return False
+        session.cancel(reason, support=False)
+        self._calibration_finished()
+        return True
+
+    def abort_calibration(self, reason: str = "прервано оператором") -> bool:
+        with self._lock:
+            aborted = self._abort_calibration_locked(reason)
+            self._sync_state(False)
+        self._schedule_broadcast()
+        return aborted
+
+    def _calibration_finished(self) -> None:
+        """Support right after the session releases the drives (with the active profile restored)."""
+
+        errors = self._write_safe_output()
+        self._last_write = time.monotonic()
+        self._force_write = bool(errors)
+        session = self.calibration
+        if session is not None:
+            labels = {"done": "завершена", "aborted": "прервана", "failed": "не удалась"}
+            message = f"Калибровка {session.code} {labels.get(session.status, session.status)}" + (f": {session.reason}" if session.reason else "")
+            self._emit(f"calibration_{session.status}", message, {"id": session.id})
+        self._schedule_broadcast()
+
+    def discard_calibration(self) -> None:
+        with self._lock:
+            if self.calibration is not None and self.calibration.running:
+                raise PermissionError("Калибровка ещё выполняется — сначала прервите её")
+            self.calibration = None
+
+    def calibration_payload(self, code: str) -> dict[str, Any]:
+        with self._lock:
+            return {
+                "session": self.calibration.to_payload() if self.calibration is not None else None,
+                "preconditions": self.calibration_preconditions(code),
+                "profileVersion": self.profile.version,
+            }
+
+    def apply_profile(self, profile: MachineProfile, envelope: SafetyEnvelope | None = None) -> None:
+        """Make a saved profile active without a restart; support is rewritten with the new sign/raw."""
+
+        with self._lock:
+            if self.calibration is not None and self.calibration.running:
+                raise PermissionError("Идёт калибровка — профиль нельзя менять")
+            self.profile = profile
+            self._zero_seen = None  # re-check the absolute zero against the new profile
+            if envelope is not None:
+                self.envelope = envelope
+            for side in SIDES:
+                drive = self.drives[side]
+                drive.profile = profile.side(side)  # type: ignore[attr-defined]
+                if envelope is not None and hasattr(drive, "max_raw"):
+                    drive.max_raw = envelope.max_raw  # type: ignore[attr-defined]
+            self._force_write = True
+            self._emit("profile", f"Применён профиль v{profile.version}")
+        self._schedule_broadcast()
 
     # -------------------------------------------------------------- snapshot
     def events_payload(self, limit: int = 100) -> list[dict[str, Any]]:
@@ -525,6 +744,7 @@ class HardwareRuntime:
             "commOk": all(sample.ok for sample in self.samples.values()),
             "faultCode": self.fault_reason if self.latch in {"fault", "overspeed"} else None,
             "supportRaw": {side: drive.last_raw for side, drive in self.drives.items()},  # type: ignore[attr-defined]
+            "servo": self.servo_states(),
             "writeErrors": dict(self.write_errors),
             "adapter": "modbus-torque" if self.modbus else "twin",
             "softMinMm": self.envelope.soft_min_mm,

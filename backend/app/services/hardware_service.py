@@ -265,6 +265,10 @@ class HardwareService:
             command = hardware_runtime.reset_fault()
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.warning
+        elif payload.action in {"servo_on", "servo_off"}:
+            command = hardware_runtime.set_servo(payload.action == "servo_on")
+            audit_action = AuditAction.hardware_command
+            severity = AuditSeverity.warning
         else:
             raise ValueError("Unsupported hardware action")
 
@@ -545,6 +549,8 @@ class HardwareService:
             "set_load": "Нагрузка обновлена",
             "manual_rep": "Повтор засчитан",
             "reset_fault": "Ошибка сброшена",
+            "servo_on": "Приводы включены",
+            "servo_off": "Приводы выключены",
             "align_sides": "Выравнивание сторон запущено",
             "complete_set": "Подход завершён",
         }.get(action, "Команда выполнена")

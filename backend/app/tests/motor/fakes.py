@@ -15,6 +15,9 @@ class FakeModbusService:
     writes: list[tuple[int, int]] = field(default_factory=list)
     speed_rpm: dict[int, int] = field(default_factory=dict)
     alarm: dict[int, int] = field(default_factory=dict)
+    servo: dict[int, bool] = field(default_factory=lambda: {1: False, 2: False})
+    servo_fail_slaves: set[int] = field(default_factory=set)
+    servo_calls: list[tuple[int, bool, int]] = field(default_factory=list)
 
     def get_status(self) -> SimpleNamespace:
         return SimpleNamespace(connected=self.connected)
@@ -46,3 +49,14 @@ class FakeModbusService:
 
     def initialize_torque_mode(self, **_kwargs: object) -> list[str]:
         return []
+
+    def servo_state(self, slave_id: int) -> bool | None:
+        return self.servo.get(slave_id) if self.connected else None
+
+    def set_servo(self, slave_id: int, on: bool) -> str | None:
+        # (slave, on, PA_12C writes so far) – lets tests check support preceded SRV-ON
+        self.servo_calls.append((slave_id, on, len(self.writes)))
+        if on and slave_id in self.servo_fail_slaves:
+            return "PA_1A4: timeout"
+        self.servo[slave_id] = on
+        return None

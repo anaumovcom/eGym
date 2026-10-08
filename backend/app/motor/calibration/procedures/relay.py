@@ -13,20 +13,36 @@ from collections.abc import Generator
 from typing import Any
 
 from app.motor.calibration.fit import limit_cycle
+from app.motor.calibration.procedures.statics import lift_off
 from app.motor.calibration.runner import Command, Frame, ProcedureError
 from app.motor.units import SIDES, Side
 
 
-def relay_test(window: dict[Side, tuple[float, float]], *, relay_n: float = 6.0, seconds: float = 12.0, max_amplitude_mm: float = 15.0) -> Generator[Command, Frame, dict[str, Any]]:
-    frame = yield Command({side: (window[side][0] + window[side][1]) / 2 for side in SIDES}, note="старт")
+def relay_test(
+    window: dict[Side, tuple[float, float]],
+    *,
+    relay_n: float = 6.0,
+    seconds: float = 12.0,
+    max_amplitude_mm: float = 15.0,
+    lift_mm: float | None = None,
+) -> Generator[Command, Frame, dict[str, Any]]:
+    """``lift_mm``: start from the bottom stops and lift there first; otherwise the bar is already held."""
+
+    if lift_mm is None:
+        frame = yield Command({side: (window[side][0] + window[side][1]) / 2 for side in SIDES}, note="старт", progress=0.0)
+    else:
+        forces = {side: 0.0 for side in SIDES}
+        frame = yield Command(dict(forces), note="старт", progress=0.0)
+        frame = yield from lift_off(forces, frame, clearance_mm=lift_mm, progress=0.0)
     x0 = frame.x_mean
     ts: list[float] = []
     xs: list[float] = []
+    start = frame.t
     end = frame.t + seconds
     while frame.t < end:
         below = frame.x_mean < x0
         forces = {side: (window[side][1] + relay_n) if below else (window[side][0] - relay_n) for side in SIDES}
-        frame = yield Command(forces)
+        frame = yield Command(forces, note=f"релейный цикл ±{relay_n:.0f} Н", progress=(frame.t - start) / seconds)
         ts.append(frame.t)
         xs.append(frame.x_mean)
         if abs(frame.x_mean - x0) > max_amplitude_mm:

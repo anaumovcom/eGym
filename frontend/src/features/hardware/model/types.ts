@@ -49,6 +49,7 @@ export type HardwareControlState = {
   message: string
   motorControl?: 'disabled' | 'enabled'
   motorControlMessage?: string
+  servo?: Record<'left' | 'right', boolean | null>
   positionMm: number
   velocityMmPerSec: number
   accelerationMmPerSec2: number
@@ -77,7 +78,7 @@ export type HardwareControlState = {
   failureDetected: boolean
   stillMs: number
   postStatus: string
-  postResults: { id: string; label: string; passed: boolean; detail: string; severity: string }[]
+  postResults?: { id: string; label: string; passed: boolean; detail: string; severity: string }[]
   homed: boolean
   positionKnown: boolean
   homingPhase: string
@@ -88,7 +89,7 @@ export type HardwareControlState = {
   fullTravelMm: number | null
   heartbeatOk: boolean
   commOk: boolean
-  powerOk: boolean
+  powerOk?: boolean
   brakeEngaged: boolean
   fixedHoldTestPassed: boolean
   fixedDriftMm: number

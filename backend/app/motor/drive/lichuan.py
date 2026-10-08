@@ -6,7 +6,7 @@ import time
 from typing import Any
 
 from app.motor.drive.protocol import DriveSample
-from app.motor.drive.registers import PA_TORQUE_COMMAND, alarm_text, assert_writable
+from app.motor.drive.registers import PA_TORQUE_COMMAND, PA_VIRTUAL_DI, alarm_text, assert_writable
 from app.motor.profile import SideProfile
 from app.motor.units import Side, clamp, force_to_raw, raw_to_force, rpm_to_mm_s
 
@@ -27,6 +27,7 @@ class LichuanTorqueDrive:
             return DriveSample(self.side, now, ok=False, error=str(data["error"]))
         alarm = int(data.get("alarm") or 0)
         position = data.get("position_mm")
+        counts = data.get("feedback_position")
         sign = self.profile.sign
         sample = DriveSample(
             self.side,
@@ -38,6 +39,7 @@ class LichuanTorqueDrive:
             command_raw=self.last_raw,
             alarm=alarm,
             error=alarm_text(alarm) if alarm else (None if position is not None else "Ноль энкодера не известен"),
+            counts=int(counts) if counts is not None else None,
         )
         return sample
 
@@ -61,3 +63,20 @@ class LichuanTorqueDrive:
 
     def zero(self) -> str | None:
         return self.write_raw(0)
+
+    def set_servo(self, on: bool) -> str | None:
+        """SRV-ON via virtual DI0 (PA_1A4 bit0)."""
+
+        assert_writable(PA_VIRTUAL_DI)
+        try:
+            return self.service.set_servo(self.slave_id, on)
+        except Exception as exc:  # noqa: BLE001
+            return str(exc)
+
+    def servo_state(self) -> bool | None:
+        return self.service.servo_state(self.slave_id)
+
+    def config_report(self) -> list[dict[str, Any]]:
+        """B0: commissioning registers against the reference (read-only)."""
+
+        return self.service.commissioning_report(self.slave_id)

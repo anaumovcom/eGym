@@ -80,6 +80,10 @@ function formatSpeed(value?: number | null) {
   return `${value.toFixed(0)} мм/с`
 }
 
+function servoLabel(value?: boolean | null) {
+  return value == null ? 'неизвестно' : value ? 'включён' : 'выключен'
+}
+
 export function SystemSettingsScreen() {
   const [searchParams, setSearchParams] = useSearchParams()
   const { selectedUserId, userName, emergencyStopActive, setEmergencyStopActive, dev, settingsDraft } = useStage4Screen()
@@ -263,6 +267,19 @@ export function SystemSettingsScreen() {
     await refreshSettings()
   }
 
+  async function handleServo(on: boolean) {
+    const warning = on
+      ? 'Включить оба привода (SRV-ON)? Приводы сразу дадут момент поддержки вверх.'
+      : 'Выключить оба привода? Поднятый гриф упадёт: тормоза нет. Убедитесь, что гриф лежит на упорах.'
+    if (!window.confirm(warning)) return
+    try {
+      await runCommand({ action: on ? 'servo_on' : 'servo_off', userId: selectedUserId, serviceMode: true })
+    } catch {
+      // the store keeps the error message for display
+    }
+    await refreshSettings()
+  }
+
   async function handleServiceAction(title: string) {
     if (title === 'Homing') {
       await runCommand({ action: 'home', userId: selectedUserId, serviceMode: data.service.unlocked })
@@ -386,7 +403,10 @@ export function SystemSettingsScreen() {
             <nav aria-label="Сервисные настройки">
               <TabStrip tabs={serviceSettingsTabs} active={tab} onChange={updateTab} />
             </nav>
-            <Button asChild variant="secondary"><Link to="/modbus">Modbus Debug</Link></Button>
+            <div className="flex flex-wrap gap-3">
+              <Button asChild variant="secondary"><Link to="/motor-calibration">Калибровки привода</Link></Button>
+              <Button asChild variant="secondary"><Link to="/modbus">Modbus Debug</Link></Button>
+            </div>
 
       {tab === 'mechanics' ? (
         <div className="space-y-6">
@@ -504,7 +524,18 @@ export function SystemSettingsScreen() {
             <Panel title="Сервисный режим" description="Режим предназначен только для технического обслуживания и настройки тренажёра.">
               <div className="mb-6 flex flex-wrap gap-3">
                 <Button onClick={() => void handleServiceModeToggle()}>{data.service.unlocked ? 'Выключить сервисный режим' : 'Включить сервисный режим'}</Button>
+                {data.service.unlocked ? (
+                  <>
+                    <Button variant="secondary" onClick={() => void handleServo(true)}>Включить приводы</Button>
+                    <Button variant="secondary" onClick={() => void handleServo(false)}>Выключить приводы</Button>
+                  </>
+                ) : null}
               </div>
+              {data.service.unlocked ? (
+                <div className="mb-6 text-sm text-white/75">
+                  Servo: левый — {servoLabel(snapshot?.control?.servo?.left)}, правый — {servoLabel(snapshot?.control?.servo?.right)}
+                </div>
+              ) : null}
               <div className="grid gap-6 xl:grid-cols-2">
                 <Panel title="Текущие позиции"><InfoMetricList items={data.service.positions} /></Panel>
                 <Panel title="Состояние приводов"><InfoMetricList items={data.service.driveHealth} /></Panel>

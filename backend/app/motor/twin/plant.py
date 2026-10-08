@@ -47,6 +47,7 @@ class PlantParams:
     read_delay_ticks: int = 0
     drop_probability: float = 0.0
     position_noise_mm: float = 0.0
+    encoder_zero_counts: int = 0  # absolute encoder reading on the bottom stops
 
     def side(self, side: Side) -> SidePhysics:
         return self.left if side == "left" else self.right

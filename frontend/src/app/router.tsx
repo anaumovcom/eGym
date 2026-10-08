@@ -17,6 +17,7 @@ import { SystemSettingsScreen } from '@/screens/settings/system-settings-screen'
 import { UserSelectionScreen } from '@/screens/user-selection/user-selection-screen'
 import { WorkoutSummaryScreen } from '@/screens/workout-summary/workout-summary-screen'
 import { ModbusDebugScreen } from '@/screens/modbus-debug/modbus-debug-screen'
+import { MotorCalibrationScreen } from '@/screens/motor-calibration/motor-calibration-screen'
 import { useAppStore } from '@/stores/app-store'
 import { SettingsLayout } from '@/shared/ui/layout/service-access'
 
@@ -61,6 +62,7 @@ export function AppRoutes() {
           <Route path="service/modbus" element={<Navigate to="/modbus" replace />} />
         </Route>
         <Route path="/modbus" element={<ProtectedAppRoute><ModbusDebugScreen /></ProtectedAppRoute>} />
+        <Route path="/motor-calibration" element={<ProtectedAppRoute><MotorCalibrationScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-session" element={<ProtectedAppRoute><ExerciseSessionScreen /></ProtectedAppRoute>} />
         <Route path="/rest" element={<ProtectedAppRoute><RestScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-summary" element={<ProtectedAppRoute><ExerciseSummaryScreen /></ProtectedAppRoute>} />

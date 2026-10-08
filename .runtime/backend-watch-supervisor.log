@@ -1,242 +1,84 @@
 Backend supervisor is watching backend, exercises and exercise_name_translations.csv.
-Backend server started. PID: 1826445
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1826663
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1826877
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1827045
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1827183
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1827337
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1827481
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1827633
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1827773
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1827909
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1828045
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1828182
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1828303
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1828430
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1828559
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1828654
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1828774
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1828894
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1829014
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1829154
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1829288
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1829429
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1829566
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1829702
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1829838
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1829980
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1830118
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1830213
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1830333
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1830491
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1830610
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1830758
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1830857
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1830959
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1831192
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1831287
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1831499
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1831594
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1831705
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1831827
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1831966
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1832087
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1832186
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1832302
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1832425
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1832553
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1832657
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1832789
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1832893
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1833025
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1833178
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1833276
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1833401
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1833510
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1833640
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1833743
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1833864
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1833967
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1834078
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1834192
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1834297
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1834432
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1834541
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1834636
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1834756
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1834867
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1834993
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1835169
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1835317
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1835426
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1835648
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1835761
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1835989
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1836141
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1836256
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1836369
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1836475
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1836683
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1836807
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1836941
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1837048
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1837152
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1837338
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1837447
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1837552
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1837664
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1837815
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1837920
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1838025
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1838337
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1838432
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1838536
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1838798
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1838927
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1839037
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1839148
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1839342
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1839449
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1839660
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1839770
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1839897
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1840091
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1840191
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1840304
+Backend server started. PID: 94433
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1840531
+Backend server started. PID: 133550
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1841208
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1841342
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1841465
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1841566
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1841669
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1841790
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1841891
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1842010
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1842113
-Backend server exited with code 143. Restarting.
-Backend server started. PID: 1844225
+Backend server started. PID: 133733
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1883551
+Backend server started. PID: 134062
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1929315
+Backend server started. PID: 134364
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1931908
+Backend server started. PID: 134817
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1954792
+Backend server started. PID: 135342
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1955552
-Backend server exited with code 143. Restarting.
-Backend server started. PID: 2097409
+Backend server started. PID: 139616
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 139848
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 140439
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 140905
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 140927
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 141494
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 142520
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 143121
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 143792
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 148925
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 149551
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 149813
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 151771
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 152293
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 153205
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 153306
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 154782
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 155381
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 157433
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 157452
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 157485
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 157518
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 157551
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 157584
+Backend server exited with code 1. Restarting.
+Backend server started. PID: 157630
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 157648
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 157839
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 158698
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 159512
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 161869
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 164365
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 165793
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 166563
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 183104
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 183127

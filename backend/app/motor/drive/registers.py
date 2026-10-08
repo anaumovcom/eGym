@@ -10,11 +10,15 @@ PA_VIRTUAL_DI = 0x1A4  # PA_1A4, virtual DI state (SRV-ON bit0 when PA_1A0 bit0 
 MONITOR_BLOCK = 0x1BC  # PA_1BC..PA_1C9, 14 words
 MONITOR_SLOW = 0x1D9  # PA_1D9..PA_1DE: DC bus V, module temp, torque load, regen load, overload, reason
 
-# Commissioning parameters: read and compared, never written by software
-COMMISSIONING_EXPECTED: dict[int, tuple[str, int]] = {
-    0x002: ("PA_002 режим управления (2 = Torque)", 2),
-    0x00B: ("PA_00B тип энкодера (0 = абсолютный)", 0),
-    0x08F: ("PA_08F автовключение (0 = по команде)", 0),
+# Commissioning parameters, address → (label, mask, expected): set by hand on the
+# drive panel, saved to EEPROM; software only reads and compares them.
+COMMISSIONING_EXPECTED: dict[int, tuple[str, int, int]] = {
+    0x002: ("PA_002 режим управления (нужно 2 = Torque)", 0xFFFF, 2),
+    0x00B: ("PA_00B энкодер (нужно 0 = абсолютный)", 0xFFFF, 0),
+    0x08F: ("PA_08F автовключение (нужно 0 = по команде)", 0xFFFF, 0),
+    0x090: ("PA_090 управление по связи (нужно 1)", 0xFFFF, 1),
+    0x080: ("PA_080 функция DI0 (нужно 0 = SRV-ON)", 0xFFFF, 0),
+    0x1A0: ("PA_1A0 bit0 (нужно 1 = SRV-ON из PA_1A4)", 0x0001, 1),
 }
 
 FORBIDDEN_WRITES = frozenset({0x000, 0x002, 0x00B, 0x08F, 0x090, 0x1A0, 0x1A7})

@@ -99,3 +99,58 @@ def limit_cycle(ts: Sequence[float], xs: Sequence[float], center_mm: float) -> L
     window = [x for t, x in zip(ts, xs, strict=True) if t >= start]
     last = periods[-6:]
     return LimitCycle((max(window) - min(window)) / 2, sum(last) / len(last), periods, sample)
+
+
+def percentile(values: Sequence[float], q: float) -> float:
+    """Linear interpolation between closest ranks, ``q`` in 0..1."""
+
+    if not values:
+        raise ValueError("нет данных")
+    ordered = sorted(values)
+    position = q * (len(ordered) - 1)
+    low = math.floor(position)
+    high = min(low + 1, len(ordered) - 1)
+    return ordered[low] + (ordered[high] - ordered[low]) * (position - low)
+
+
+@dataclass(frozen=True)
+class LeastSquares:
+    coef: list[float]
+    ci95: list[float]  # ±1.96·standard error
+    rmse: float
+    n: int
+
+
+def least_squares(rows: Sequence[Sequence[float]], ys: Sequence[float]) -> LeastSquares:
+    """Ordinary least squares ``y ≈ rows · coef`` via the normal equations (a few regressors only)."""
+
+    n, k = len(rows), len(rows[0]) if rows else 0
+    if n <= k:
+        raise ValueError("мало данных для регрессии")
+    ata = [[sum(row[i] * row[j] for row in rows) for j in range(k)] for i in range(k)]
+    aty = [sum(row[i] * y for row, y in zip(rows, ys, strict=True)) for i in range(k)]
+    inverse = _invert(ata)
+    coef = [sum(inverse[i][j] * aty[j] for j in range(k)) for i in range(k)]
+    residuals = [y - sum(c * r for c, r in zip(coef, row, strict=True)) for row, y in zip(rows, ys, strict=True)]
+    sse = sum(r * r for r in residuals)
+    sigma2 = sse / (n - k)
+    ci95 = [1.96 * math.sqrt(max(sigma2 * inverse[i][i], 0.0)) for i in range(k)]
+    return LeastSquares(coef, ci95, math.sqrt(sse / n), n)
+
+
+def _invert(matrix: list[list[float]]) -> list[list[float]]:
+    size = len(matrix)
+    augmented = [list(row) + [1.0 if i == j else 0.0 for j in range(size)] for i, row in enumerate(matrix)]
+    scale = max((abs(value) for row in matrix for value in row), default=0.0) or 1.0
+    for col in range(size):
+        pivot = max(range(col, size), key=lambda r: abs(augmented[r][col]))
+        if abs(augmented[pivot][col]) < 1e-12 * scale:
+            raise ValueError("вырожденные данные: регрессоры линейно зависимы")
+        augmented[col], augmented[pivot] = augmented[pivot], augmented[col]
+        factor = augmented[col][col]
+        augmented[col] = [value / factor for value in augmented[col]]
+        for r in range(size):
+            if r != col and augmented[r][col]:
+                ratio = augmented[r][col]
+                augmented[r] = [a - ratio * b for a, b in zip(augmented[r], augmented[col], strict=True)]
+    return [row[size:] for row in augmented]

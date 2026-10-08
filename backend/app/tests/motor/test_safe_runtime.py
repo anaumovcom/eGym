@@ -121,3 +121,53 @@ def test_motion_is_rejected(modbus_runtime) -> None:
     runtime, _service = modbus_runtime
     with pytest.raises(PermissionError, match="v2"):
         runtime.reject_motion("start_motion")
+
+
+def test_servo_requires_service_mode(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    with pytest.raises(PermissionError, match="сервисном"):
+        runtime.set_servo(True)
+    with pytest.raises(PermissionError, match="сервисном"):
+        runtime.set_servo(False)
+    assert service.servo_calls == []
+    assert runtime.snapshot_payload()["control"]["servo"] == {"left": False, "right": False}
+
+
+def test_servo_on_writes_support_first_and_switches_both(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    runtime.set_service_mode(True)
+    service.writes.clear()
+    runtime.set_servo(True)
+    assert service.writes[:2] == [(1, 100), (2, 100)]
+    assert all(on and before >= 2 for _slave, on, before in service.servo_calls)
+    assert runtime.snapshot_payload()["control"]["servo"] == {"left": True, "right": True}
+    runtime.set_servo(False)
+    assert service.servo == {1: False, 2: False}
+
+
+def test_servo_on_failure_rolls_back_both_sides(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    runtime.set_service_mode(True)
+    service.servo_fail_slaves = {2}
+    with pytest.raises(PermissionError, match="right"):
+        runtime.set_servo(True)
+    assert service.servo == {1: False, 2: False}
+
+
+def test_servo_on_rejected_while_latched(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    runtime.set_service_mode(True)
+    runtime.trigger_emergency_stop()
+    with pytest.raises(PermissionError, match="СТОП"):
+        runtime.set_servo(True)
+    assert service.servo_calls == []
+
+
+def test_twin_starts_servo_off_and_toggles(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HARDWARE_PANEL_ENABLED", "false")
+    get_settings.cache_clear()
+    runtime = HardwareRuntime()
+    assert runtime.servo_states() == {"left": False, "right": False}
+    runtime.set_service_mode(True)
+    runtime.set_servo(True)
+    assert runtime.servo_states() == {"left": True, "right": True}

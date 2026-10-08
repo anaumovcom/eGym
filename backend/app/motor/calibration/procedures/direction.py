@@ -18,9 +18,9 @@ from app.motor.units import SIDES, Side
 
 def direction_test(believed_sign: dict[Side, int], *, rate_raw_s: float = 40.0, max_raw: int = 600, lift_mm: float = 0.5) -> Generator[Command, Frame, dict[str, Any]]:
     raw = {side: 0 for side in SIDES}
-    frame = yield Command(raw=dict(raw), note="старт")
+    frame = yield Command(raw=dict(raw), note="старт", progress=0.0)
     result: dict[Side, dict[str, Any]] = {}
-    for sign in (1, -1):
+    for pass_index, sign in enumerate((1, -1)):
         pending = [side for side in SIDES if side not in result]
         if not pending:
             break
@@ -32,7 +32,7 @@ def direction_test(believed_sign: dict[Side, int], *, rate_raw_s: float = 40.0, 
             t_prev = frame.t
             for side in pending:
                 raw[side] = int(sign * level)
-            frame = yield Command(raw=dict(raw))
+            frame = yield Command(raw=dict(raw), note=f"знак {'+' if sign > 0 else '−'}: плавный момент до отрыва", progress=0.5 * pass_index + 0.4 * level / max_raw)
             for side in list(pending):
                 moved = frame.x(side) - start[side]
                 if abs(moved) > lift_mm:
@@ -43,7 +43,7 @@ def direction_test(believed_sign: dict[Side, int], *, rate_raw_s: float = 40.0, 
         raw = {side: 0 for side in SIDES}
         end = frame.t + 1.0
         while frame.t < end:  # back onto the stops
-            frame = yield Command(raw=dict(raw))
+            frame = yield Command(raw=dict(raw), note="опускание на упоры", progress=0.5 * pass_index + 0.45)
     missing = [side for side in SIDES if side not in result]
     if missing:
         raise ProcedureError(f"Сторона не поднимается ни в одном направлении: {', '.join(missing)}")

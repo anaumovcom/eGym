@@ -78,8 +78,8 @@ function getMachineDetails(snapshot: HardwareSnapshot | null, machine?: MachineH
   }
   if (control && control.mode === 'fault') {
     if (!control.commOk) details.push('Нет связи с приводами')
-    if (!control.powerOk) details.push('Питание приводов не подтверждено')
-    const failedPost = control.postResults.filter((item) => !item.passed && item.severity === 'critical')
+    if (control.powerOk === false) details.push('Питание приводов не подтверждено')
+    const failedPost = (control.postResults ?? []).filter((item) => !item.passed && item.severity === 'critical')
     for (const item of failedPost) details.push(`Самотест: ${item.label} — ${item.detail}`)
   }
   const panel = snapshot.panel
