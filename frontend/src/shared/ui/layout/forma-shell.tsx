@@ -1,5 +1,5 @@
 import * as Popover from '@radix-ui/react-popover'
-import { Activity, CalendarDays, CircleAlert, CircleCheck, CircleX, Cpu, Dumbbell, House, ListChecks, OctagonAlert, RotateCcw, Settings, TrendingUp, UserRound, Wrench } from 'lucide-react'
+import { Activity, CalendarDays, CircleAlert, CircleCheck, CircleX, Cpu, Dumbbell, House, ListChecks, OctagonAlert, RotateCcw, Settings, TrendingUp, UserRound } from 'lucide-react'
 import { useEffect, useState, type PropsWithChildren, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
@@ -142,7 +142,6 @@ export function TopNavigationMenu({ userName, systemBar }: { userName: string; s
                   { path: '/profile', label: 'Профиль', icon: UserRound },
                   { path: '/settings', label: 'Настройки', icon: Settings },
                   { path: '/modbus', label: 'Modbus', icon: Cpu },
-                  { path: '/settings/mechanics', label: 'Механика', icon: Wrench },
                 ].map((item) => (
                   <NavLink key={item.path} to={item.path} onClick={() => setProfileMenuOpen(false)} className="flex min-h-14 items-center gap-3 rounded-xl px-4 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-[#f4dfb4]">
                     <item.icon className="h-5 w-5" aria-hidden="true" />

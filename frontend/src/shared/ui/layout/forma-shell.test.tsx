@@ -55,7 +55,7 @@ describe('Stage 1 navigation', () => {
     expect(screen.getByRole('link', { name: 'Профиль', exact: true })).toHaveAttribute('href', '/profile')
     expect(screen.getByRole('link', { name: 'Настройки', exact: true })).toHaveAttribute('href', '/settings')
     expect(screen.getByRole('link', { name: 'Modbus', exact: true })).toHaveAttribute('href', '/modbus')
-    expect(screen.getByRole('link', { name: 'Механика', exact: true })).toHaveAttribute('href', '/settings/mechanics')
+    expect(screen.queryByRole('link', { name: 'Механика', exact: true })).not.toBeInTheDocument()
     await user.keyboard('{Escape}')
     expect(screen.queryByRole('navigation', { name: 'Меню пользователя' })).not.toBeInTheDocument()
     expect(avatar).toHaveFocus()

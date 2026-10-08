@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-from typing import Any
+from datetime import UTC, datetime
 
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.audit import AuditLog
-from app.models.enums import AuditAction, AuditSeverity, DriveState, MachineState, SafetyState
+from app.models.enums import AuditAction, AuditSeverity, MachineState, SafetyState
 from app.models.hardware import ExerciseCalibration, HardwareDiagnosticRecord
 from app.models.settings import AppSetting
+from app.repositories.audit_repository import AuditRepository
+from app.repositories.settings_repository import SettingsRepository
 from app.schemas.hardware import (
     CalibrationListResponseSchema,
     CalibrationSaveSchema,
@@ -20,23 +21,18 @@ from app.schemas.hardware import (
     HardwareDiagnosticRecordSchema,
     HardwareSafetySettingsSchema,
     HardwareSnapshotSchema,
-    ProcedureStartSchema,
     SafetyGateCheckSchema,
     SafetyGateRequestSchema,
     SafetyGateResponseSchema,
-    TuningPresetDiffSchema,
-    TuningPresetSaveSchema,
-    TuningPresetSchema,
-    TuningUpdateResultSchema,
-    TuningUpdateSchema,
-    TuningValuesSchema,
 )
-from app.schemas.machine import MachineHealthSchema, SafetyStatusSchema
 from app.services.exercise_library import get_imported_exercise
-from app.services.hardware_runtime import hardware_runtime
-from app.services.motion.parameters import PARAMETER_SPECS, get_spec
-from app.repositories.audit_repository import AuditRepository
-from app.repositories.settings_repository import SettingsRepository
+from app.services.hardware_runtime import MOTION_DISABLED_MESSAGE, hardware_runtime
+
+MOTION_ACTIONS = {
+    "home", "reset_zero_position", "manual_move", "jog_start", "start_motion", "move_to_start",
+    "start_fixed_position", "range_preview", "enter_weightless", "capture_point", "hold", "pause",
+    "resume", "park", "set_load", "manual_rep", "align_sides", "complete_set",
+}
 
 
 CALIBRATION_EXEMPT_EQUIPMENT = {
@@ -180,20 +176,18 @@ class HardwareService:
         runtime = self.get_snapshot(session, payload.user_id)
         settings = self._get_safety_settings(session, payload.user_id)
         control = runtime.control or {}
-        parameters = hardware_runtime.parameters
+        envelope = hardware_runtime.envelope
         calibration_required = self._requires_calibration(payload.exercise_slug, payload.calibration_required)
         calibration = self.get_current_calibration(session, payload.user_id or "", payload.exercise_slug) if payload.user_id else None
         service_action = payload.mode == "service"
-        soft_min = float(parameters.get("limits.softMinMm"))
-        soft_max = float(parameters.get("limits.softMaxMm"))
-        # Without switches the parked bar starts at physical zero, below the
-        # normal working minimum. Permit the initial upward move into range.
-        lower_gate = 0.0 if not hardware_runtime.controller.limit_switches_enabled else soft_min
-        within_limits = lower_gate - 1 <= runtime.motion.bar_position_mm <= soft_max + 1
-        max_load_kg = min(self._parse_kg(settings.max_load), float(parameters.get("load.maxKg")))
+        soft_min = envelope.soft_min_mm
+        soft_max = envelope.soft_max_mm
+        # the bar rests on the bottom stops below the soft minimum
+        within_limits = -1 <= runtime.motion.bar_position_mm <= soft_max + 1
+        max_load_kg = self._parse_kg(settings.max_load)
         if payload.mode == "guest":
-            max_load_kg = min(max_load_kg, float(parameters.get("load.guestMaxKg")))
-        post_ok = control.get("postStatus") in {"passed", "skipped"} or not bool(parameters.get("safety.postRequired"))
+            max_load_kg = min(max_load_kg, self._parse_kg(settings.guest_weight_limit))
+        motor_enabled = control.get("motorControl") != "disabled"
         position_known = bool(control.get("positionKnown", True))
         sync_ok = control.get("syncStatus") != "critical" or service_action
         not_faulted = control.get("mode") != "fault"
@@ -223,7 +217,7 @@ class HardwareService:
             self._check("estop", "СТОП не активен", runtime.safety.state != SafetyState.emergency_stop, "critical", "Аварийная остановка не активна" if runtime.safety.state != SafetyState.emergency_stop else "Сначала снимите аварийную остановку."),
             self._check("drives", "Оба привода доступны", drives_ok, "critical", "Приводы доступны" if drives_ok else "; ".join(drive_problems)),
             self._check("critical-errors", "Нет критических ошибок", not_blocked, "critical", "Критических ошибок нет" if not_blocked else block_message),
-            self._check("post", "Самотест пройден", post_ok, "critical", "Самотест пройден" if post_ok else "Самотест приводов не пройден — запуск заблокирован."),
+            self._check("motor-control", "Управление двигателями", motor_enabled, "critical", "Управление двигателями включено" if motor_enabled else MOTION_DISABLED_MESSAGE),
             self._check("position-known", "Позиция определена", position_known or payload.mode == "homing", "critical", "Нулевая позиция известна" if position_known else "Позиция не определена — выполните homing."),
             self._check("sync", "Стороны синхронны", sync_ok, "critical", "Рассинхрон в допуске" if sync_ok else f"Критический рассинхрон {runtime.motion.sync_delta_mm:.1f} мм — выровняйте стороны."),
             self._check("thermal", "Ток и температура в норме", thermal_ok, "critical", "Приводы в тепловой норме" if thermal_ok else "Превышение тока или температуры привода."),
@@ -243,42 +237,8 @@ class HardwareService:
         )
 
     def execute_command(self, session: Session, payload: HardwareCommandRequestSchema) -> HardwareCommandResponseSchema:
-        safety_gate: SafetyGateResponseSchema | None = None
-        training_actions = {"start_motion", "move_to_start", "start_fixed_position", "resume"}
-        service_actions = {"manual_move", "jog_start", "home", "reset_zero_position", "range_preview", "enter_weightless", "align_sides", "park"}
-        guarded_actions = training_actions | service_actions | {"complete_set"}
-        if payload.action in guarded_actions:
-            gate_mode = payload.mode
-            if payload.action in service_actions and gate_mode == "machine":
-                gate_mode = "service"
-            if payload.action == "home":
-                gate_mode = "homing"
-            if payload.guest and gate_mode == "machine":
-                gate_mode = "guest"
-            safety_gate = self.evaluate_safety_gate(
-                session,
-                SafetyGateRequestSchema(
-                    user_id=payload.user_id,
-                    exercise_slug=payload.exercise_slug or "manual-control",
-                    calibration_required=payload.calibration_required and payload.action in training_actions,
-                    range_confirmed=payload.range_confirmed,
-                    weight_kg=payload.weight_kg,
-                    mode=gate_mode,
-                ),
-            )
-            if not safety_gate.allowed:
-                raise PermissionError(safety_gate.blocking_reasons[0])
-
-        calibration = self.get_current_calibration(session, payload.user_id or "", payload.exercise_slug or "") if payload.user_id and payload.exercise_slug else None
-        calibration_required = self._requires_calibration(payload.exercise_slug or "", payload.calibration_required)
-        captured_position: float | None = None
-        lower_bound = payload.lower_mm if payload.lower_mm is not None else (calibration.lower_point_mm if calibration and calibration.lower_point_mm is not None else 640.0)
-        upper_bound = payload.upper_mm if payload.upper_mm is not None else (calibration.upper_point_mm if calibration and calibration.upper_point_mm is not None else 1320.0)
-        load_kg = payload.weight_kg
-        load_mode = payload.load_mode or ("normal_weight" if payload.mode in {"machine", "training"} else payload.mode)
-
-        if payload.action not in {"jog_start", "jog_keepalive", "jog_stop", "trigger_emergency_stop", "hold"} and hardware_runtime.jog_active:
-            raise PermissionError("Сначала отпустите кнопку перемещения грифа")
+        if payload.action in MOTION_ACTIONS:
+            hardware_runtime.reject_motion(payload.action)
 
         if payload.action == "trigger_emergency_stop":
             command = hardware_runtime.trigger_emergency_stop()
@@ -297,159 +257,14 @@ class HardwareService:
             audit_action = AuditAction.diagnostics_run
             severity = AuditSeverity.info
             self._store_diagnostics(session)
-        elif payload.action == "home":
-            command = hardware_runtime.home()
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "reset_zero_position":
-            command = hardware_runtime.reset_zero_position()
-            audit_action = AuditAction.zero_position_reset
-            severity = AuditSeverity.warning
-        elif payload.action == "manual_move":
-            if payload.direction is None or payload.distance_mm is None:
-                raise ValueError("Manual move requires direction and distance")
-            command = hardware_runtime.manual_move(payload.direction, payload.distance_mm, "service" if payload.service_mode else "manual")
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "jog_start":
-            command = hardware_runtime.start_jog(payload.direction or "", payload.jog_id or "", payload.user_id or "", payload.exercise_slug or "")
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "jog_keepalive":
-            command = hardware_runtime.refresh_jog(payload.jog_id or "", payload.user_id or "", payload.exercise_slug or "")
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-            return HardwareCommandResponseSchema(
-                command_id=command.id,
-                status=command.status,
-                message="Перемещение продолжается",
-                snapshot=self.get_snapshot(session, payload.user_id),
-            )
-        elif payload.action == "jog_stop":
-            command = hardware_runtime.stop_jog(payload.jog_id or "", payload.user_id or "", payload.exercise_slug or "")
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "start_motion":
-            if calibration is None and calibration_required:
-                raise PermissionError("Calibration is required to start movement")
-            if calibration is not None and calibration.setup_type != "bar_range":
-                raise PermissionError("This exercise uses a fixed bar position")
-            command = hardware_runtime.start_motion(
-                calibration_id=calibration.id if calibration else None,
-                lower_bound_mm=lower_bound,
-                upper_bound_mm=upper_bound,
-                target_set=payload.target_set,
-                target_reps=payload.target_reps,
-                motion_profile="training" if payload.mode == "machine" else payload.mode,
-                load_kg=load_kg,
-                load_mode=load_mode,
-                start_point=payload.start_point or "lower",
-                warmup=payload.warmup,
-                guest=payload.guest,
-                asymmetric_allowed=payload.asymmetric_allowed,
-                rep_count_source=payload.rep_count_source or "motion",
-                fixed_position_mm=payload.position_mm,
-                isometric_duration_s=payload.isometric_duration_s or 20.0,
-                wait_for_grip=payload.wait_for_grip,
-                auto_user=payload.auto_user,
-            )
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "move_to_start":
-            if calibration is None and calibration_required and payload.lower_mm is None:
-                raise PermissionError("Calibration is required to move to the start point")
-            if calibration is not None and calibration.setup_type != "bar_range":
-                raise PermissionError("This exercise uses a fixed bar position")
-            command = hardware_runtime.move_to_start(
-                lower_bound_mm=lower_bound,
-                upper_bound_mm=upper_bound,
-                start_point=payload.start_point or "lower",
-                custom_mm=payload.position_mm,
-                load_kg=load_kg,
-                load_mode=load_mode,
-                target_reps=payload.target_reps,
-                target_set=payload.target_set,
-                guest=payload.guest,
-                warmup=payload.warmup,
-                calibration_id=calibration.id if calibration else None,
-            )
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "start_fixed_position":
-            if (calibration is None or calibration.setup_type != "fixed_position"
-                    or calibration.fixed_position_mm is None or not self._is_calibration_actual(calibration)):
-                raise PermissionError("A saved fixed bar position is required")
-            if payload.position_mm is not None and payload.position_mm != calibration.fixed_position_mm:
-                raise ValueError("Position must match the saved exercise setting")
-            command = hardware_runtime.start_fixed_position(
-                position_mm=calibration.fixed_position_mm,
-                target_reps=payload.target_reps,
-                rep_count_source=payload.rep_count_source or "load",
-                body_weight_kg=payload.body_weight_kg,
-                calibration_id=calibration.id,
-            )
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "range_preview":
-            command = hardware_runtime.range_preview(lower_bound, upper_bound)
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "enter_weightless":
-            command = hardware_runtime.enter_weightless()
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "capture_point":
-            if payload.which not in {"lower", "upper", "fixed"}:
-                raise ValueError("capture_point requires which = lower | upper | fixed")
-            command, captured_position = hardware_runtime.capture_point(payload.which)
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "hold":
-            command = hardware_runtime.hold()
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "pause":
-            command = hardware_runtime.pause()
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "resume":
-            if payload.calibration_required and (calibration is None or hardware_runtime.state.active_calibration_id != calibration.id):
-                raise PermissionError("Нужна настройка текущего упражнения для продолжения")
-            command = hardware_runtime.resume(
-                lower_mm=calibration.lower_point_mm if payload.calibration_required and calibration and calibration.setup_type == "bar_range" else None,
-                upper_mm=calibration.upper_point_mm if payload.calibration_required and calibration and calibration.setup_type == "bar_range" else None,
-                fixed_position_mm=calibration.fixed_position_mm if payload.calibration_required and calibration and calibration.setup_type == "fixed_position" else None,
-            )
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "park":
-            command = hardware_runtime.park()
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "set_load":
-            command = hardware_runtime.set_load(payload.weight_kg)
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
-        elif payload.action == "manual_rep":
-            command = hardware_runtime.manual_rep()
+        elif payload.action in {"jog_keepalive", "jog_stop", "run_self_test"}:
+            command = hardware_runtime.run_diagnostics() if payload.action == "run_self_test" else hardware_runtime._record_command(payload.action, {})
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.info
         elif payload.action == "reset_fault":
             command = hardware_runtime.reset_fault()
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.warning
-        elif payload.action == "align_sides":
-            command = hardware_runtime.align_sides()
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.warning
-        elif payload.action == "run_self_test":
-            command = hardware_runtime.run_self_test()
-            audit_action = AuditAction.diagnostics_run
-            severity = AuditSeverity.info
-        elif payload.action == "complete_set":
-            command = hardware_runtime.complete_set()
-            audit_action = AuditAction.hardware_command
-            severity = AuditSeverity.info
         else:
             raise ValueError("Unsupported hardware action")
 
@@ -469,8 +284,6 @@ class HardwareService:
             status=command.status,
             message=self._message_for_action(payload.action),
             snapshot=snapshot,
-            safety_gate=safety_gate,
-            captured_position_mm=captured_position,
         )
 
     def update_safety_settings(self, session: Session, user_id: str | None, payload: HardwareSafetySettingsSchema) -> HardwareSafetySettingsSchema:
@@ -703,10 +516,10 @@ class HardwareService:
 
     def _drive_metric_cards(self, drive: object) -> list[dict[str, str]]:
         return [
-            {"label": "Статус", "value": str(getattr(drive, "status"))},
-            {"label": "Позиция", "value": f"{getattr(drive, 'position_mm'):.1f} мм"},
-            {"label": "Ток", "value": f"{getattr(drive, 'current_a'):.1f} А"},
-            {"label": "Температура", "value": f"{getattr(drive, 'temperature_c'):.1f} °C"},
+            {"label": "Статус", "value": str(drive.status)},
+            {"label": "Позиция", "value": f"{drive.position_mm:.1f} мм"},
+            {"label": "Ток", "value": f"{drive.current_a:.1f} А"},
+            {"label": "Температура", "value": f"{drive.temperature_c:.1f} °C"},
         ]
 
     def _message_for_action(self, action: str) -> str:
@@ -735,171 +548,3 @@ class HardwareService:
             "align_sides": "Выравнивание сторон запущено",
             "complete_set": "Подход завершён",
         }.get(action, "Команда выполнена")
-
-    # ------------------------------------------------------------- tuning
-    PARAMETERS_KEY = "hardware.tuning.parameters"
-    PRESETS_KEY = "hardware.tuning.presets"
-
-    def load_parameters_from_db(self, session: Session) -> dict[str, Any]:
-        setting = session.scalars(select(AppSetting).where(AppSetting.user_id.is_(None), AppSetting.key == self.PARAMETERS_KEY)).first()
-        if setting is not None and isinstance(setting.value, dict):
-            return dict(setting.value)
-        return {}
-
-    def get_tuning(self, session: Session) -> TuningValuesSchema:
-        payload = hardware_runtime.parameters_payload()
-        return TuningValuesSchema(
-            values=payload["values"],
-            persisted=payload["persisted"],
-            temporary=payload["temporary"],
-            service_mode=hardware_runtime.state.service_mode,
-            adapter=hardware_runtime.adapter.name,
-        )
-
-    def update_tuning(self, session: Session, payload: TuningUpdateSchema) -> TuningUpdateResultSchema:
-        if not hardware_runtime.state.service_mode:
-            raise PermissionError("Изменение параметров механики доступно только в сервисном режиме")
-        temporary = payload.apply != "persist"
-        if temporary and "homing.limitSwitchesEnabled" in payload.values:
-            raise PermissionError("Режим концевых датчиков можно только сохранить; он применяется после перезапуска")
-        control_mode = str(hardware_runtime.snapshot_payload()["control"].get("mode"))
-        if control_mode in {"training", "fixed_hold", "isometric"}:
-            critical = [key for key in payload.values if get_spec(key).safety_critical]
-            if critical:
-                raise PermissionError(f"Во время подхода нельзя менять параметры безопасности: {', '.join(critical)}")
-        changes = hardware_runtime.update_parameters(payload.values, temporary=temporary)
-        if not temporary:
-            self._persist_parameters(session, payload.actor_user_id)
-        if changes:
-            self.audit_repository.record(
-                session,
-                actor_user_id=payload.actor_user_id,
-                action=AuditAction.settings_changed,
-                target_type="hardware_tuning",
-                target_id="temporary" if temporary else "persist",
-                severity=AuditSeverity.warning if any(get_spec(key).safety_critical for key in changes) else AuditSeverity.info,
-                details={key: {"from": old, "to": new} for key, (old, new) in changes.items()},
-            )
-            session.commit()
-        payload_values = hardware_runtime.parameters_payload()
-        return TuningUpdateResultSchema(
-            changed={key: {"from": old, "to": new} for key, (old, new) in changes.items()},
-            values=payload_values["values"],
-            temporary=payload_values["temporary"],
-        )
-
-    def revert_temporary_tuning(self, session: Session) -> TuningValuesSchema:
-        hardware_runtime.revert_temporary_parameters()
-        return self.get_tuning(session)
-
-    def reset_tuning(self, session: Session, actor_user_id: str | None) -> TuningValuesSchema:
-        if not hardware_runtime.state.service_mode:
-            raise PermissionError("Сброс параметров доступен только в сервисном режиме")
-        hardware_runtime.reset_parameters()
-        self._persist_parameters(session, actor_user_id)
-        self.audit_repository.record(session, actor_user_id=actor_user_id, action=AuditAction.settings_changed, target_type="hardware_tuning", target_id="reset", severity=AuditSeverity.warning, details={"reset": True})
-        session.commit()
-        return self.get_tuning(session)
-
-    def _persist_parameters(self, session: Session, actor_user_id: str | None) -> None:
-        del actor_user_id
-        setting = session.scalars(select(AppSetting).where(AppSetting.user_id.is_(None), AppSetting.key == self.PARAMETERS_KEY)).first()
-        values = dict(hardware_runtime.parameters.persisted)
-        if setting is None:
-            session.add(AppSetting(user_id=None, key=self.PARAMETERS_KEY, value=values))
-        else:
-            setting.value = values
-        session.flush()
-        hardware_runtime.parameters_dirty = False
-
-    def list_presets(self, session: Session) -> list[TuningPresetSchema]:
-        presets = [
-            TuningPresetSchema(id="factory", title="Заводские", description="Значения по умолчанию из реестра параметров.", created_at="", values={spec.key: spec.default for spec in PARAMETER_SPECS}, builtin=True),
-            TuningPresetSchema(
-                id="soft",
-                title="Мягкие",
-                description="Низкие скорости и моменты для первых запусков на железе.",
-                created_at="",
-                values={
-                    "limits.maxSpeedMmPerSec": 300,
-                    "limits.maxDescentSpeedMmPerSec": 250,
-                    "profile.training.torqueLimitPercent": 60,
-                    "profile.return.speedMmPerSec": 30,
-                    "load.maxKg": 60,
-                    "safety.torqueRateLimitPercentPerSec": 120,
-                    "detection.spotterAssistPercent": 70,
-                },
-                builtin=True,
-            ),
-            TuningPresetSchema(
-                id="bench",
-                title="Тестовый стенд",
-                description="Эмулятор без реальных ограничений безопасности по POST/homing.",
-                created_at="",
-                values={"safety.postRequired": False, "safety.homingRequiredAfterPowerLoss": False, "screw.encoderType": "absolute"},
-                builtin=True,
-            ),
-        ]
-        for item in self._stored_presets(session):
-            presets.append(TuningPresetSchema.model_validate(item))
-        return presets
-
-    def save_preset(self, session: Session, payload: TuningPresetSaveSchema) -> TuningPresetSchema:
-        stored = self._stored_presets(session)
-        preset_id = f"preset-{int(datetime.now(UTC).timestamp() * 1000)}"
-        values = payload.values if payload.values is not None else hardware_runtime.parameters.effective()
-        preset = {"id": preset_id, "title": payload.title, "description": payload.description, "createdAt": datetime.now(UTC).isoformat(), "values": values, "builtin": False}
-        stored.append(preset)
-        self._write_presets(session, stored[-20:])
-        self.audit_repository.record(session, actor_user_id=payload.actor_user_id, action=AuditAction.settings_changed, target_type="hardware_tuning_preset", target_id=preset_id, severity=AuditSeverity.info, details={"title": payload.title})
-        session.commit()
-        return TuningPresetSchema.model_validate(preset)
-
-    def delete_preset(self, session: Session, preset_id: str) -> None:
-        stored = self._stored_presets(session)
-        remaining = [item for item in stored if item.get("id") != preset_id]
-        if len(remaining) == len(stored):
-            raise LookupError("Пресет не найден")
-        self._write_presets(session, remaining)
-        session.commit()
-
-    def apply_preset(self, session: Session, preset_id: str, *, apply: str, actor_user_id: str | None) -> TuningUpdateResultSchema:
-        preset = next((item for item in self.list_presets(session) if item.id == preset_id), None)
-        if preset is None:
-            raise LookupError("Пресет не найден")
-        return self.update_tuning(session, TuningUpdateSchema(values=preset.values, apply=apply, actor_user_id=actor_user_id))
-
-    def diff_preset(self, session: Session, preset_id: str) -> TuningPresetDiffSchema:
-        preset = next((item for item in self.list_presets(session) if item.id == preset_id), None)
-        if preset is None:
-            raise LookupError("Пресет не найден")
-        current = hardware_runtime.parameters.effective()
-        differences = [
-            {"key": key, "current": current.get(key), "preset": value, "label": get_spec(key).label}
-            for key, value in preset.values.items()
-            if key in current and current.get(key) != value
-        ]
-        return TuningPresetDiffSchema(preset_id=preset_id, differences=differences)
-
-    def _stored_presets(self, session: Session) -> list[dict[str, object]]:
-        setting = session.scalars(select(AppSetting).where(AppSetting.user_id.is_(None), AppSetting.key == self.PRESETS_KEY)).first()
-        if setting is None or not isinstance(setting.value, dict):
-            return []
-        items = setting.value.get("items", [])
-        return list(items) if isinstance(items, list) else []
-
-    def _write_presets(self, session: Session, items: list[dict[str, object]]) -> None:
-        setting = session.scalars(select(AppSetting).where(AppSetting.user_id.is_(None), AppSetting.key == self.PRESETS_KEY)).first()
-        if setting is None:
-            session.add(AppSetting(user_id=None, key=self.PRESETS_KEY, value={"items": items}))
-        else:
-            setting.value = {"items": items}
-        session.flush()
-
-    def start_procedure(self, session: Session, name: str, payload: ProcedureStartSchema) -> dict[str, object]:
-        if not hardware_runtime.state.service_mode:
-            raise PermissionError("Процедуры отладки доступны только в сервисном режиме")
-        status = hardware_runtime.start_procedure(name, **payload.args)
-        self.audit_repository.record(session, actor_user_id=payload.actor_user_id, action=AuditAction.diagnostics_run, target_type="hardware_procedure", target_id=name, severity=AuditSeverity.info, details={"args": payload.args})
-        session.commit()
-        return status.to_payload()

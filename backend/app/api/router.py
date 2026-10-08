@@ -8,6 +8,7 @@ from app.api.routes.hardware import router as hardware_router
 from app.api.routes.health import router as health_router
 from app.api.routes.machine import router as machine_router
 from app.api.routes.modbus_debug import router as modbus_router
+from app.api.routes.motor import router as motor_router
 from app.api.routes.notifications import router as notifications_router
 from app.api.routes.runtime import router as runtime_router
 from app.api.routes.training import router as training_router
@@ -27,3 +28,4 @@ api_router.include_router(runtime_router, tags=["runtime"])
 api_router.include_router(analytics_router, tags=["analytics"])
 api_router.include_router(training_router, tags=["training"])
 api_router.include_router(modbus_router, tags=["modbus"])
+api_router.include_router(motor_router, tags=["motor"])

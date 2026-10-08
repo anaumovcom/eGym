@@ -11,13 +11,12 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app.db.seed import seed_dev_data, seed_stage7_data, seed_stage8_data
 from app.db.session import SessionLocal, engine
+from app.motor.store import ProfileBundle, load_active
 from app.schemas.modbus import ModbusConnectionParamsSchema
 from app.services.coach.request_guard import CoachRequestGuard
 from app.services.exercise_library import EXERCISES_ROOT
 from app.services.hardware_runtime import hardware_runtime
-from app.services.hardware_service import HardwareService
 from app.services.modbus_service import modbus_service
-from app.services.motion.modbus_adapter import FALLBACK_TORQUE_RAW
 
 
 def bootstrap_local_data() -> None:
@@ -37,19 +36,20 @@ def bootstrap_local_data() -> None:
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     bootstrap_local_data()
     settings = get_settings()
-    persisted_parameters = load_hardware_parameters()
+    bundle = load_motor_profile()
     if settings.hardware_adapter == "modbus":
+        # the first PA_12C written at startup is upward support, never 0 (R1)
         modbus_service.connect(ModbusConnectionParamsSchema(
             port=settings.modbus_port,
             baud_rate=settings.modbus_baud_rate,
             slave_id=settings.modbus_left_slave_id,
             right_slave_id=settings.modbus_right_slave_id,
         ), initial_commands={
-            settings.modbus_left_slave_id: -FALLBACK_TORQUE_RAW if persisted_parameters.get("screw.leftDirectionInverted", False) else FALLBACK_TORQUE_RAW,
-            settings.modbus_right_slave_id: -FALLBACK_TORQUE_RAW if persisted_parameters.get("screw.rightDirectionInverted", False) else FALLBACK_TORQUE_RAW,
+            settings.modbus_left_slave_id: int(bundle.machine.left.support_raw.value) * bundle.machine.left.sign,
+            settings.modbus_right_slave_id: int(bundle.machine.right.support_raw.value) * bundle.machine.right.sign,
         })
     try:
-        hardware_runtime.reset(persisted_parameters=persisted_parameters)
+        hardware_runtime.reset(profile=bundle.machine, envelope=bundle.envelope)
         await hardware_runtime.start()
         yield
     finally:
@@ -62,11 +62,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
                 modbus_service.disconnect(preserve_torque=True)
 
 
-def load_hardware_parameters() -> dict[str, object]:
-    # If persisted hardware mode is unavailable, do not guess whether endstops
-    # are installed and accidentally start a sensor-based homing sequence.
+def load_motor_profile() -> ProfileBundle:
     with SessionLocal() as session:
-        return HardwareService().load_parameters_from_db(session)
+        return load_active(session)
 
 
 def create_app() -> FastAPI:

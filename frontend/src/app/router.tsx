@@ -17,9 +17,8 @@ import { SystemSettingsScreen } from '@/screens/settings/system-settings-screen'
 import { UserSelectionScreen } from '@/screens/user-selection/user-selection-screen'
 import { WorkoutSummaryScreen } from '@/screens/workout-summary/workout-summary-screen'
 import { ModbusDebugScreen } from '@/screens/modbus-debug/modbus-debug-screen'
-import { MechanicsTuningScreen } from '@/screens/mechanics-tuning/mechanics-tuning-screen'
 import { useAppStore } from '@/stores/app-store'
-import { ServiceAccessGate, SettingsLayout } from '@/shared/ui/layout/service-access'
+import { SettingsLayout } from '@/shared/ui/layout/service-access'
 
 const placeholderTitles = {
   '/settings/legacy': 'Настройки',
@@ -60,7 +59,6 @@ export function AppRoutes() {
         <Route path="/settings" element={<ProtectedAppRoute><SettingsLayout /></ProtectedAppRoute>}>
           <Route index element={<SystemSettingsScreen />} />
           <Route path="service/modbus" element={<Navigate to="/modbus" replace />} />
-          <Route path="mechanics" element={<ServiceAccessGate><MechanicsTuningScreen /></ServiceAccessGate>} />
         </Route>
         <Route path="/modbus" element={<ProtectedAppRoute><ModbusDebugScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-session" element={<ProtectedAppRoute><ExerciseSessionScreen /></ProtectedAppRoute>} />

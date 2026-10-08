@@ -1,0 +1,25 @@
+{
+  "archivedAt": "2026-10-08T15:15:31.483997+00:00",
+  "hardware.tuning.parameters": {
+    "homing.limitSwitchesEnabled": false,
+    "screw.mmPerPulse": 0.00024396928135932865,
+    "sync.normMm": 20.0,
+    "sync.criticalMm": 150.0,
+    "sync.warningMm": 30.0,
+    "compensation.movingPartsMassKg": 20.0,
+    "compensation.barMassKg": 8.88,
+    "start.parkPositionMm": 0.0,
+    "sync.correctionGain": 0.25,
+    "torque.maxCommandRaw": 800,
+    "torque.speedLimitRpm": 1500,
+    "torque.speedWarnRpm": 1500,
+    "torque.speedAlarmRpm": 1650,
+    "compensation.equivalentMassKg": 0.0,
+    "sync.correctionMaxMmPerSec": 10.0,
+    "load.lowerGainPercent": 0.0,
+    "torque.jogDownRaw": 250,
+    "torque.jogUpRaw": 270,
+    "torque.moveUpForceKg": 5.0,
+    "torque.moveDownForceKg": 7.0
+  }
+}

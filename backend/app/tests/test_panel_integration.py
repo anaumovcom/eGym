@@ -10,7 +10,6 @@ from app.core.config import Settings, get_settings
 from app.models.enums import SafetyState
 from app.schemas.hardware import HardwareSnapshotSchema
 from app.services.hardware_runtime import HardwareRuntime
-from app.services.motion.controller import ControlMode
 from app.services.panel.bridge import PanelBridge, PanelBridgeConfig
 from app.services.panel.protocol import PanelCommandEncoder, PanelProtocolError, parse_event
 from app.services.panel.transport import PanelTransportError, PySerialTransport
@@ -249,8 +248,8 @@ def _runtime(monkeypatch: pytest.MonkeyPatch) -> HardwareRuntime:
     monkeypatch.delenv("HARDWARE_PANEL_PORT", raising=False)
     get_settings.cache_clear()
     runtime = HardwareRuntime()
-    for _ in range(25):
-        runtime._tick_motion()
+    for _ in range(5):
+        runtime.tick()
     return runtime
 
 
@@ -271,16 +270,16 @@ def test_panel_stop_fault_and_release_keep_emergency_stop_latched(monkeypatch: p
     runtime._handle_panel_event(
         parse_event('{"v":1,"seq":1,"type":"button","id":"stop","event":"pressed","value":0.0,"active":true}')
     )
-    assert runtime.controller.state.mode == ControlMode.estop
+    assert runtime.mode == "estop"
 
     runtime._handle_panel_event(
         parse_event('{"v":1,"seq":2,"type":"button","id":"stop","event":"released","value":0.0,"active":false}')
     )
-    assert runtime.controller.state.mode == ControlMode.estop
+    assert runtime.mode == "estop"
 
     runtime.clear_emergency_stop()
     runtime._handle_panel_event(parse_event('{"v":1,"seq":3,"type":"fault","code":"top_sensor_mismatch","latched":true}'))
-    assert runtime.controller.state.mode == ControlMode.estop
+    assert runtime.mode == "estop"
 
     runtime.panel.state.enabled = True
     runtime.panel.state.mark_seen()
@@ -315,154 +314,30 @@ def test_panel_latched_stop_can_be_cleared_after_fresh_released_status(monkeypat
     command = runtime.clear_emergency_stop()
 
     assert command.status == "pending"
-    assert runtime.controller.state.mode == ControlMode.estop
+    assert runtime.mode == "estop"
     runtime._handle_panel_event(parse_event('{"v":1,"seq":1,"type":"fault","code":"none","latched":false}'))
 
-    assert runtime.controller.state.mode == ControlMode.paused
+    assert runtime.mode == "support"
 
 
-def test_required_panel_blocks_direct_motion_intents_when_not_ready(monkeypatch: pytest.MonkeyPatch) -> None:
-    runtime = _runtime(monkeypatch)
-    runtime.panel.configure(PanelBridgeConfig(enabled=True, port="COM_TEST"))
-
-    with pytest.raises(PermissionError, match="панель не готова"):
-        runtime.park()
-    with pytest.raises(PermissionError, match="панель не готова"):
-        runtime.enter_weightless()
-    with pytest.raises(PermissionError, match="панель не готова"):
-        runtime.start_procedure("bar_mass")
-
-
-def test_motion_gate_blocks_power_off_and_disconnect_aborts_paused_procedure(monkeypatch: pytest.MonkeyPatch) -> None:
-    runtime = _runtime(monkeypatch)
-    runtime._panel_powered_on = False
-    runtime.state.safety_state = SafetyState.disabled
-    with pytest.raises(PermissionError, match="выключен"):
-        runtime.start_procedure("weightless_drift")
-
-    runtime._panel_powered_on = True
-    runtime.state.safety_state = SafetyState.enabled
-    runtime.start_procedure("weightless_drift")
-    runtime.controller.request_pause()
-    runtime._handle_panel_disconnect("usb removed")
-
-    assert runtime.controller.state.mode == ControlMode.estop
-    assert runtime.procedure.status == "failed"
-
-
-def test_fresh_ready_panel_sensors_are_merged_without_mutating_adapter_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
-    runtime = _runtime(monkeypatch)
-    runtime.panel.configure(PanelBridgeConfig(enabled=True, port="COM_TEST"))
-    original = runtime.adapter.read()
-    runtime.panel.state.mark_seen()
-    runtime.panel.state.mark_identity_seen()
-    runtime.panel.state.input_healthy = True
-    runtime.panel.state.sensors.update(
-        {"left_bottom": True, "right_bottom": False, "left_top": False, "right_top": True}
-    )
-    runtime.panel.state.mark_status_seen()
-
-    merged = runtime._merge_panel_sensors(original)
-
-    assert merged is not original
-    assert merged.left is not original.left
-    assert merged.left.limit_switch_low is True
-    assert merged.right.limit_switch_high is True
-    assert original.left.limit_switch_low is False
-
-
-def test_panel_buttons_use_runtime_guards_and_controller_clamps(monkeypatch: pytest.MonkeyPatch) -> None:
-    runtime = _runtime(monkeypatch)
-    runtime.start_motion(
-        calibration_id=None,
-        lower_bound_mm=700,
-        upper_bound_mm=1000,
-        target_set=1,
-        target_reps=8,
-        motion_profile="training",
-        load_kg=149,
-    )
-    runtime._handle_panel_event(
-        parse_event('{"v":1,"seq":1,"type":"button","id":"load_plus","event":"pressed","value":0.0,"active":true}')
-    )
-    assert runtime.controller.config.load_kg == 150
-
-    runtime._handle_panel_event(
-        parse_event('{"v":1,"seq":2,"type":"button","id":"start_pause","event":"pressed","value":0.0,"active":true}')
-    )
-    assert runtime.controller.state.mode == ControlMode.paused
-    runtime._handle_panel_event(
-        parse_event('{"v":1,"seq":3,"type":"button","id":"start_pause","event":"pressed","value":0.0,"active":true}')
-    )
-    assert runtime.controller.state.mode == ControlMode.training
-
-    runtime._handle_panel_event(
-        parse_event('{"v":1,"seq":4,"type":"button","id":"ok","event":"pressed","value":0.0,"active":true}')
-    )
-    assert runtime.controller.state.mode == ControlMode.paused
-    assert runtime.controller.state.cycles_total == 1
-
-    runtime.set_service_mode(True)
-    start = runtime.controller.state.position_mm
-    runtime._handle_panel_event(
-        parse_event('{"v":1,"seq":5,"type":"button","id":"up","event":"pressed","value":0.0,"active":true}')
-    )
-    assert runtime.controller.state.mode == ControlMode.moving
-    assert runtime.controller.state.move_target_mm == pytest.approx(start + 5.0)
-    runtime._handle_panel_event(
-        parse_event('{"v":1,"seq":6,"type":"button","id":"up","event":"released","value":0.0,"active":false}')
-    )
-    assert runtime.controller.state.mode == ControlMode.paused
-
-
-def test_panel_feedback_reflects_guards_and_events_drive_effects(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_panel_motion_buttons_are_rejected_while_motor_v2_is_disabled(monkeypatch: pytest.MonkeyPatch) -> None:
     runtime = _runtime(monkeypatch)
     sent: list[tuple[str, dict[str, object]]] = []
     monkeypatch.setattr(runtime.panel, "send_command", lambda command, **payload: sent.append((command, payload)) or True)
 
-    runtime._handle_panel_event(parse_event('{"v":1,"seq":41,"type":"button","id":"up","event":"pressed","value":0,"active":true}'))
-    assert ("button_feedback", {"id": "up", "request_seq": 41, "accepted": False}) in sent
-    runtime._handle_panel_event(parse_event('{"v":1,"seq":42,"type":"button","id":"camera","event":"pressed","value":0,"active":true}'))
-    assert ("button_feedback", {"id": "camera", "request_seq": 42, "accepted": True}) in sent
+    for seq, button in enumerate(("up", "load_plus", "start_pause", "ok"), start=41):
+        runtime._handle_panel_event(parse_event(f'{{"v":1,"seq":{seq},"type":"button","id":"{button}","event":"pressed","value":0,"active":true}}'))
+        assert ("button_feedback", {"id": button, "request_seq": seq, "accepted": False}) in sent
+    assert runtime.mode == "support"
 
-    runtime.controller._emit("homing_phase", "complete", {"phase": "complete"})
-    runtime.controller._emit("arrived", "position reached")
-    runtime.controller._emit("target", "reps complete")
-    runtime._handle_new_events()
-    assert ("play_effect", {"effect": "homing_complete"}) in sent
-    assert sent.count(("play_effect", {"effect": "target_reached"})) == 2
-
-    runtime.controller.state.mode = ControlMode.moving
-    runtime.controller.state.moving = True
-    runtime.controller.state.velocity_mm_s = -10.0
-    assert runtime._panel_activity() == "down"
-    runtime.controller.state.velocity_mm_s = 0.0
-    assert runtime._panel_activity() == "stop"
-
-    runtime.controller.state.mode = ControlMode.training
-    runtime.complete_set()
-    assert ("play_effect", {"effect": "set_complete"}) in sent
-    assert runtime._panel_machine_state() == "paused"
+    runtime._handle_panel_event(parse_event('{"v":1,"seq":50,"type":"button","id":"power","event":"pressed","value":0,"active":true}'))
+    assert ("set_machine_state", {"state": "off"}) in sent
+    assert runtime._panel_machine_state() == "off"
+    assert runtime.state.safety_state == SafetyState.disabled
 
 
-def test_panel_disconnect_during_exercise_latches_stop_and_home_is_observer_only(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_panel_disconnect_is_logged_without_dropping_support(monkeypatch: pytest.MonkeyPatch) -> None:
     runtime = _runtime(monkeypatch)
-    sent: list[tuple[str, dict[str, object]]] = []
-    monkeypatch.setattr(runtime.panel, "send_command", lambda command, **payload: sent.append((command, payload)) or True)
-
-    runtime.home()
-    assert ("set_machine_state", {"state": "homing"}) in sent
-    assert all(command != "home" for command, _payload in sent)
-
-    runtime.start_motion(
-        calibration_id=None,
-        lower_bound_mm=700,
-        upper_bound_mm=1000,
-        target_set=1,
-        target_reps=8,
-        motion_profile="training",
-        load_kg=30,
-    )
     runtime._handle_panel_disconnect("usb removed")
-    assert runtime.controller.state.mode == ControlMode.estop
-    assert sent[-1][0] == "stop"
+    assert runtime.mode == "support"
+    assert runtime.events_payload(1)[0]["kind"] == "panel_disconnect"

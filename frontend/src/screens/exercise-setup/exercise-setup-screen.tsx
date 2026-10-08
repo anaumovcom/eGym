@@ -582,6 +582,16 @@ export function ExerciseSetupScreen() {
               </div>
             ) : null}
 
+            {snapshot?.control?.motorControl === 'disabled' ? (
+              <div className="rt-alert" data-tone="warning" role="status">
+                <AlertTriangle aria-hidden="true" />
+                <div>
+                  <strong>Управление двигателями отключено</strong>
+                  <p>{String(snapshot.control.motorControlMessage ?? 'Управление переводится на v2.')}</p>
+                </div>
+              </div>
+            ) : null}
+
             <div className="rt-steppers">
               <ValueStepper
                 label="Вес"

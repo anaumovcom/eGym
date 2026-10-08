@@ -47,6 +47,8 @@ export type HardwareControlState = {
   mode: string
   label: string
   message: string
+  motorControl?: 'disabled' | 'enabled'
+  motorControlMessage?: string
   positionMm: number
   velocityMmPerSec: number
   accelerationMmPerSec2: number

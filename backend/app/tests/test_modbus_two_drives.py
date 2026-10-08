@@ -1,6 +1,8 @@
 import pytest
 
 from app.api.routes import modbus_debug
+from app.motor.drive.lichuan import LichuanTorqueDrive
+from app.motor.profile import SideProfile
 from app.schemas.modbus import (
     ModbusCommandRequestSchema,
     ModbusConnectionParamsSchema,
@@ -8,8 +10,6 @@ from app.schemas.modbus import (
     ModbusWriteRequestSchema,
 )
 from app.services.modbus_service import ModbusService
-from app.services.motion.adapter import DriveCommand
-from app.services.motion.modbus_adapter import ModbusDriveAdapter
 
 
 def test_simulated_drives_have_independent_feedback_and_diagnostics():
@@ -50,12 +50,13 @@ def test_unverified_real_motor_commands_are_rejected():
         assert "не реализована" in result.error
 
 
-def test_motion_adapter_reports_offline_modbus_not_drive_alarm():
-    adapter = ModbusDriveAdapter(service=ModbusService())
-    telemetry = adapter.step(DriveCommand(), 0.02)
-    assert not telemetry.left.connected
-    assert telemetry.left.error_code == "E-MODBUS-OFFLINE"
-    assert not adapter.self_test()[0].passed
+def test_torque_drive_reports_offline_modbus_not_drive_alarm():
+    drive = LichuanTorqueDrive("left", 1, SideProfile(), 1000, ModbusService())
+    sample = drive.read()
+    assert not sample.ok
+    assert sample.alarm == 0
+    assert "не подключён" in (sample.error or "")
+    assert drive.support() is not None
 
 
 def _write_pulses(service: ModbusService, slave_id: int, pulses: int) -> None:
