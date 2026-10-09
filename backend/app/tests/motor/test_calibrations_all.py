@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import replace
 from typing import Any
 
@@ -15,7 +16,7 @@ from app.motor.profile import MachineProfile, Measured
 from app.motor.store import ProfileBundle
 from app.motor.twin.bench import TwinBench
 from app.motor.twin.plant import PlantParams
-from app.motor.units import SIDES, passport_n_per_raw
+from app.motor.units import SIDES, kgf_to_n, passport_n_per_raw
 from app.services.hardware_runtime import hardware_runtime
 
 
@@ -420,14 +421,30 @@ FEATURES: dict[str, Any] = {
 
 
 class _Operator:
-    """A simulated person: types the tape reading, hangs/removes the weight, pushes the bar like a hand."""
+    """A simulated person: types the tape reading, hangs/removes the weight, pushes the bar like a hand,
+    holds the bar and does reps for G3 and rates the feel."""
 
     def __init__(self, bench: TwinBench, base: PlantParams, kg: float = 20.0) -> None:
         self.bench, self.base, self.kg = bench, base, kg
         self.force, self.until, self.text, self.x0 = 0.0, 0.0, "", 0.0
+        self.mode, self.load, self.turns, self.direction = "push", 0.0, 0, 1
         bench.user = self._hand
 
     def _hand(self, t: float, bench: TwinBench) -> dict[str, float]:
+        x, v = bench.true_state("left")
+        if self.mode == "hold":
+            return {side: self.load - 0.3 * v for side in SIDES}
+        if self.mode == "reps":
+            if (x > 330 and self.direction > 0) or (x < 200 and self.direction < 0):
+                self.direction, self.turns = -self.direction, self.turns + 1
+            if self.turns >= 4:
+                self.mode = "lower"
+            return {side: self.load + self.direction * 25.0 + 0.3 * (self.direction * 80 - v) for side in SIDES}
+        if self.mode == "lower":
+            if x < 12:
+                self.mode = "push"
+                return {}
+            return {side: self.load - 15.0 + 0.3 * (-30 - v) for side in SIDES}
         if t >= self.until:
             return {}
         sign = 1.0 if self.force > 0 else -1.0
@@ -440,9 +457,13 @@ class _Operator:
     def __call__(self, session: CalibrationSession) -> None:
         prompt = session.prompt
         if prompt is None:
+            if self.mode in ("reps", "lower"):
+                self.mode = "push"  # the prompt is over: hands off
             return
         x = self.bench.plant.state["left"].x_mm
-        if prompt.kind == "input":
+        if prompt.kind == "input" and prompt.label == "Оценка":
+            session.reply(4)
+        elif prompt.kind == "input":
             session.reply(round(x, 1))
         elif "Повесьте" in prompt.text:
             extra = replace(self.base.left, extra_mass_kg=self.kg / 2)
@@ -451,6 +472,13 @@ class _Operator:
         elif "Снимите" in prompt.text:
             self._set(self.base)
             session.reply(None)
+        elif prompt.text.startswith("Нагрузка"):  # G3: take the bar
+            kg = float(prompt.text.split()[1].replace(",", "."))
+            self.mode, self.load = "hold", kgf_to_n(kg / 2)
+            session.reply(None)
+        elif prompt.kind == "action" and "повторений" in prompt.text:
+            if self.mode == "hold":
+                self.mode, self.turns, self.direction = "reps", 0, 1
         elif prompt.kind == "action" and self.until < self.bench.t:
             sign = -1.0 if ("вниз" in prompt.text or "опустите" in prompt.text.lower()) else 1.0
             if prompt.text != self.text:
@@ -560,3 +588,166 @@ def test_operator_reply_validation(client) -> None:
         session.reply(prompt["max"] + 1)
     session.cancel("тест")
     assert session.prompt is None
+
+
+# ---------------------------------------------------------------- free-weight feel (V, F, S10, X4, L3, D5, G2, G3)
+def test_motion_estimate_v1_v2_v3(feel_base: tuple[PlantParams, MachineProfile]) -> None:
+    from app.motor.calibration.procedures.estimation import SMOOTHINGS
+
+    params, profile = feel_base
+    tau = 0.1  # PA_1C1 filter of the twin, applied once per 50-ms frame: the lag of a ramp is dt·e^(−dt/τ)/(1 − e^(−dt/τ))
+    profile, _ = _chain(replace(params, speed_lag_s=tau), profile, ("V1", "V2", "V3"))
+    share = 1 - math.exp(-0.05 / tau)
+    assert profile.speed_lag_s.value == pytest.approx(0.05 * (1 - share) / share, abs=0.025)
+    assert profile.speed_scale.value == pytest.approx(1.0, abs=0.03)
+    assert profile.accel_smoothing.value in SMOOTHINGS
+    delay = float(profile.loop_delay_s.value) + float(profile.torque_lag_s.value or 0.0)
+    assert 0.0 <= profile.predict_horizon_s.value <= 1.5 * delay + 1e-6
+
+
+def test_friction_track_and_speed_tables_s10_f3(feel_base: tuple[PlantParams, MachineProfile]) -> None:
+    params, profile = feel_base
+    profile, _ = _chain(params, profile, ("S10", "F3"))
+    for side in SIDES:
+        bump = max(profile.side(side).friction_map.value, key=lambda point: point[1])
+        assert bump[0] == pytest.approx(600.0, abs=30.0) and bump[1] == pytest.approx(25.0, abs=10.0)
+        up, down = profile.side(side).friction_table_up.value, profile.side(side).friction_table_down.value
+        assert len(up) >= 2 and len(down) >= 2
+        slope = (up[-1][1] - up[0][1]) / (up[-1][0] - up[0][0])
+        assert slope == pytest.approx(0.3, abs=0.12)  # the twin's viscous friction
+
+
+@pytest.fixture(scope="module")
+def feel_base(commissioned: tuple[PlantParams, MachineProfile]) -> tuple[PlantParams, MachineProfile]:
+    """What the feel calibrations stand on in the commissioning order: speed tables, ramps, landing, weightless gains."""
+
+    params, profile = commissioned
+    profile, _ = _chain(params, profile, ("P1", "P2", "A1", "A2", "A3", "W1"))
+    return params, profile
+
+
+@pytest.fixture(scope="module")
+def feel_ready(feel_base: tuple[PlantParams, MachineProfile]) -> tuple[PlantParams, MachineProfile, dict[str, CalibrationSession]]:
+    params, profile = feel_base
+    profile, sessions = _chain(params, profile, ("D5", "F3", "F1", "F2", "F4"), referenceKg=20.0)
+    return params, profile, sessions
+
+
+def test_inertia_by_load_f1_f2_d5(feel_ready: tuple[PlantParams, MachineProfile, dict[str, CalibrationSession]]) -> None:
+    _params_, profile, sessions = feel_ready
+    for side in SIDES:  # D5: the swing measures the twin's 60 kg (friction cancels)
+        assert profile.side(side).moving_mass_kg.value == pytest.approx(60.0, rel=0.2)
+    ratio = profile.inertia_ratio_max.value
+    assert 0.1 <= ratio <= 0.72
+    table = profile.inertia_table.value
+    assert len(table) == 4
+    machine = float(profile.left.moving_mass_kg.value)
+    for (load_n, share) in table:
+        assert 0.0 <= share * max(machine - load_n / 9.80665, 0.0) <= ratio * machine + 1e-6  # within the F1 limit
+    for item in sessions["F2"].stages[0].result["items"]:  # the compensation lowers the felt mass
+        felt = [trial["mass_kg"] for trial in item["trials"] if trial["mass_kg"] is not None]
+        assert len(felt) >= 2 and min(felt) < felt[0]
+
+
+def test_feel_check_g2_and_core_uses_the_table(feel_ready: tuple[PlantParams, MachineProfile, dict[str, CalibrationSession]]) -> None:
+    from app.motor.core import MotorCore
+    from app.motor.force.load_models import LoadSetpoint
+
+    params, profile, _sessions = feel_ready
+    core = MotorCore(profile)
+    core.set_load(LoadSetpoint(load_n=kgf_to_n(5.0)))
+    assert core.inertia_share("left") == pytest.approx(dict(profile.inertia_table.value)[round(kgf_to_n(5.0), 1)], abs=1e-6)
+    _done(_run(_bench(params, profile), "G2", profile, operator=None))
+
+
+def test_turn_phase_breakaway_track_f4_f5_f6_f7(feel_ready: tuple[PlantParams, MachineProfile, dict[str, CalibrationSession]]) -> None:
+    from app.motor.calibration.procedures.feel import F4_BLENDS, F5_HYSTERESES, F6_SOFTS
+    from app.motor.profile import Tunables, calibrated_tunables
+
+    params, profile, _sessions = feel_ready
+    assert profile.feel_blend_mm_s.value in F4_BLENDS
+    profile, sessions = _chain(params, profile, ("S6", "S8", "F5", "F6", "F7"))
+    assert profile.feel_phase_hysteresis_mm_s.value in F5_HYSTERESES and 0.08 <= profile.feel_phase_blend_s.value <= 0.4
+    assert profile.breakaway_soft_s.value in F6_SOFTS
+    runs = sessions["F6"].stages[0].result["runs"]
+    assert runs[-1]["peak_mm_s"] < runs[0]["peak_mm_s"]  # softening damps the jump after breakaway
+    assert profile.track_comp_gain.value == 1.0  # the twin's ripple and tight spot are real: full compensation is best
+    tuned = calibrated_tunables(profile, Tunables())
+    assert tuned.friction_blend_mm_s == profile.feel_blend_mm_s.value and tuned.phase_blend_s == profile.feel_phase_blend_s.value
+
+
+def test_deadband_dither_cushions_release_sync_f8_f9_f10_f11_x4(feel_ready: tuple[PlantParams, MachineProfile, dict[str, CalibrationSession]]) -> None:
+    params, profile, _sessions = feel_ready
+    params = replace(params, deadband_raw=8)
+    profile, _ = _chain(params, profile, ("D1",))
+    profile, sessions = _chain(params, profile, ("F8", "F9", "F10", "F11", "X4"))
+    errors = sessions["F8"].stages[0].result["errors"]
+    assert errors[str(profile.deadband_comp_gain.value)] == min(errors.values())  # D1 already shifts the threshold on the twin
+    assert profile.dither_n.value > 0  # the twin's stiction and dwell narrow with dither
+    assert profile.cushion_bottom_mm.value in (150.0, 100.0, 60.0) and profile.cushion_top_mm.value in (150.0, 100.0, 60.0)
+    assert 10.0 <= profile.feel_release_force_n.value <= 60.0 and 0.2 <= profile.feel_release_timeout_s.value <= 1.0
+    assert profile.sync_k_train_n_per_mm.value == 0.0  # symmetric twin: no skew to correct
+
+
+def test_load_friction_and_hand_check_l3_g3(feel_ready: tuple[PlantParams, MachineProfile, dict[str, CalibrationSession]]) -> None:
+    params, profile, _sessions = feel_ready
+    profile, _ = _chain(params, profile, ("L1", "L2", "L3"), referenceKg=20.0)
+    assert profile.friction_load_gain.value >= 0.5  # the twin's friction really grows with the load
+    _profile, sessions = _chain(params, profile, ("F11", "G3"))
+    items = sessions["G3"].stages[0].result["items"]
+    assert [item["rating"] for item in items] == [4, 4] and all(item["frames"] > 20 for item in items)
+
+
+def test_core_feel_terms() -> None:
+    """Friction model extensions, cushion braking and release detection in the trainer core."""
+
+    from app.motor.core import MotorCore
+    from app.motor.estimation.friction import FrictionModel
+    from app.motor.force.load_models import LoadSetpoint
+    from app.motor.supervisor.modes import Mode
+    from app.motor.twin.loop import run_core
+
+    model = FrictionModel(40.0, 40.0, 0.3, table_up=((40.0, 52.0), (120.0, 76.0)), track=((590.0, 20.0), (610.0, 14.0)), track_gain=1.0, load_up=0.1, load_gain=1.0, ripple_n=3.0)
+    assert model.force(80.0) == pytest.approx(64.0)  # the F3 table
+    assert model.force(200.0) == pytest.approx(100.0)  # beyond: the slope of the last points
+    assert model.force(80.0, x_mm=600.0) == pytest.approx(64.0 + 17.0)  # the S10 map
+    assert model.force(80.0, axial_excess_n=100.0) == pytest.approx(64.0 + 10.0)  # L1 growth with the screw load
+    assert model.ripple(8.0) == pytest.approx(3.0)  # a quarter of the 32-mm lead
+    assert FrictionModel(40.0, 40.0, 0.3).force(80.0) == pytest.approx(40.0 + 24.0)  # unchanged without calibrations
+
+    cushioned = replace(MachineProfile(), cushion_bottom_mm=Measured(150.0, None, "measured"), landing_speed_mm_s=Measured(15.0, None, "measured"))
+
+    def drop(profile: MachineProfile) -> float:
+        """A 16-kg bar let go at 400 mm in training: the fastest speed below 25 mm."""
+
+        bench = TwinBench(replace(PlantParams(), travel_mm=2000.0), x0_mm=400.0, initial_raw=100)
+        core = MotorCore(profile)
+        run_core(core, bench, 0.2)
+        core.command("ready")
+        core.command("hold")
+        run_core(core, bench, 0.5)
+        core.command("train")
+        core.set_load(LoadSetpoint(load_n=kgf_to_n(8.0)))
+        core.release_enabled = False
+        touch = [0.0]
+
+        def low(_t: float, _out: object) -> None:
+            x, v = bench.true_state("left")
+            if x < 25.0:
+                touch.append(-v)
+
+        run_core(core, bench, 6.0, on_tick=low)
+        return max(touch)
+
+    assert drop(MachineProfile()) > 60.0
+    assert drop(cushioned) < 45.0  # the user dropped the bar: the cushion lands it softly
+
+    bench = TwinBench(PlantParams(), x0_mm=400.0, initial_raw=100)
+    core = MotorCore(replace(MachineProfile(), feel_release_force_n=Measured(30.0, None, "measured"), feel_release_timeout_s=Measured(0.3, None, "measured")))
+    run_core(core, bench, 0.2)
+    core.command("ready")
+    core.command("hold")
+    core.command("train")
+    core.set_load(LoadSetpoint(load_n=kgf_to_n(8.0)))
+    run_core(core, bench, 2.0)  # nobody holds the 16-kg bar
+    assert core.supervisor.mode == Mode.HOLD

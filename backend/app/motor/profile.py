@@ -65,6 +65,11 @@ class SideProfile:
     screw_ripple_n: Measured = field(default_factory=lambda: _d(None))
     screw_ripple_phase_rad: Measured = field(default_factory=lambda: _d(None))
     deadband_raw: Measured = field(default_factory=lambda: _d(None))  # D1
+    # kinetic friction at exercise speeds (F3): [(v_mm_s, F_n)], total friction force in the direction of motion
+    friction_table_up: Measured = field(default_factory=lambda: _d(None))
+    friction_table_down: Measured = field(default_factory=lambda: _d(None))
+    # friction along the travel (S10): [(x_mm, ΔF_n)] beyond the usual friction, both directions
+    friction_map: Measured = field(default_factory=lambda: _d(None))
 
     def weight_n(self, x_mm: float) -> float:
         points: list[tuple[float, float]] = [tuple(p) for p in self.gravity_map.value]  # type: ignore[misc]
@@ -120,6 +125,28 @@ class MachineProfile:
     sync_k_n_per_mm: Measured = field(default_factory=lambda: _d(None))  # X3
     weightless_gain_up: Measured = field(default_factory=lambda: _d(None))  # W1
     weightless_gain_down: Measured = field(default_factory=lambda: _d(None))
+    # motion estimate (V1–V3)
+    speed_lag_s: Measured = field(default_factory=lambda: _d(None))  # PA_1C1 behind the encoder
+    speed_scale: Measured = field(default_factory=lambda: _d(None))  # PA_1C1 / true speed
+    accel_smoothing: Measured = field(default_factory=lambda: _d(None))  # observer acceleration filter
+    accel_noise_mm_s2: Measured = field(default_factory=lambda: _d(None))
+    predict_horizon_s: Measured = field(default_factory=lambda: _d(None))  # friction/inertia use v(t + h)
+    # free-weight feel (F1–F11, X4, L3)
+    inertia_ratio_max: Measured = field(default_factory=lambda: _d(None))  # F1: compensated mass / machine mass, stable
+    inertia_table: Measured = field(default_factory=lambda: _d(None))  # F2: [(load_n per side, gain)]
+    feel_blend_mm_s: Measured = field(default_factory=lambda: _d(None))  # F4
+    feel_phase_hysteresis_mm_s: Measured = field(default_factory=lambda: _d(None))  # F5
+    feel_phase_blend_s: Measured = field(default_factory=lambda: _d(None))
+    breakaway_soft_s: Measured = field(default_factory=lambda: _d(None))  # F6
+    track_comp_gain: Measured = field(default_factory=lambda: _d(None))  # F7: screw ripple + friction map
+    deadband_comp_gain: Measured = field(default_factory=lambda: _d(None))  # F8
+    dither_n: Measured = field(default_factory=lambda: _d(None))  # F9
+    cushion_bottom_mm: Measured = field(default_factory=lambda: _d(None))  # F10
+    cushion_top_mm: Measured = field(default_factory=lambda: _d(None))
+    feel_release_force_n: Measured = field(default_factory=lambda: _d(None))  # F11
+    feel_release_timeout_s: Measured = field(default_factory=lambda: _d(None))
+    sync_k_train_n_per_mm: Measured = field(default_factory=lambda: _d(None))  # X4
+    friction_load_gain: Measured = field(default_factory=lambda: _d(None))  # L3
 
     def side(self, side: Side) -> SideProfile:
         return self.left if side == "left" else self.right
@@ -213,14 +240,28 @@ class SafetyEnvelope:
 
 
 def calibrated_tunables(profile: MachineProfile, tunables: Tunables) -> Tunables:
-    """Tunables with the values identified by calibrations (W1 weightless gains, X3 sync) taking precedence."""
+    """Tunables with the values identified by calibrations taking precedence (W1, X3/X4, F4, F5, F11)."""
 
     overrides: dict[str, float] = {}
-    for key, path in (("friction_gain_up", "weightless_gain_up"), ("friction_gain_down", "weightless_gain_down"), ("sync_k_n_per_mm", "sync_k_n_per_mm")):
+    for key, path in CALIBRATED_TUNABLES:
         item: Measured = getattr(profile, path)
         if item.value is not None and item.provenance in ("measured", "manual"):
             overrides[key] = float(item.value)
     return replace(tunables, **overrides) if overrides else tunables
+
+
+# (tunable, profile field); a later pair wins (X4 in training over X3 in moves)
+CALIBRATED_TUNABLES: tuple[tuple[str, str], ...] = (
+    ("friction_gain_up", "weightless_gain_up"),
+    ("friction_gain_down", "weightless_gain_down"),
+    ("sync_k_n_per_mm", "sync_k_n_per_mm"),
+    ("sync_k_n_per_mm", "sync_k_train_n_per_mm"),
+    ("friction_blend_mm_s", "feel_blend_mm_s"),
+    ("phase_hysteresis_mm_s", "feel_phase_hysteresis_mm_s"),
+    ("phase_blend_s", "feel_phase_blend_s"),
+    ("release_force_n", "feel_release_force_n"),
+    ("release_timeout_s", "feel_release_timeout_s"),
+)
 
 
 def default_profile() -> MachineProfile:

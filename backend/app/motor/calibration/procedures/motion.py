@@ -242,7 +242,8 @@ def _governed(
     kp = {side: min(0.5, 0.4 * friction[side] / max(speed_mm_s, 5.0)) for side in SIDES}
     p_cap = {side: 0.5 * friction[side] for side in SIDES}
     # the post-breakaway overshoot (stiction drop) is the P term's job; stop the move only on a real runaway
-    runaway_mm_s = min(max(2.5 * speed_mm_s, speed_mm_s + 30.0), RUNAWAY_MM_S)
+    # (fast moves of F3 need room above their own speed; their envelope is wider)
+    runaway_mm_s = min(max(2.5 * speed_mm_s, speed_mm_s + 30.0), max(RUNAWAY_MM_S, speed_mm_s + 40.0))
     cap0 = {side: max(0.6 * friction[side], 10.0) for side in SIDES}
     cap = dict(cap0)
     cap_max = {side: cap0[side] + friction[side] for side in SIDES}

@@ -10,8 +10,10 @@ def gravity(profile: SideProfile, x_mm: float) -> float:
     return profile.weight_n(x_mm)
 
 
-def friction(model: FrictionModel, v_mm_s: float, tunables: Tunables) -> float:
-    return model.compensation(v_mm_s, tunables.friction_gain_up, tunables.friction_gain_down, tunables.friction_blend_mm_s)
+def friction(model: FrictionModel, v_mm_s: float, tunables: Tunables, *, x_mm: float | None = None, axial_excess_n: float | None = None) -> float:
+    return model.compensation(
+        v_mm_s, tunables.friction_gain_up, tunables.friction_gain_down, tunables.friction_blend_mm_s, x_mm=x_mm, axial_excess_n=axial_excess_n,
+    )
 
 
 def inertia(machine_mass_kg: float, virtual_mass_kg: float, a_ref_mm_s2: float, gain: float) -> float:

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import math
 import random
 from collections import deque
 from collections.abc import Callable
@@ -85,6 +86,7 @@ class TwinBench:
         self._pending: dict[Side, deque[tuple[int, int]]] = {side: deque() for side in SIDES}
         self._tick = 0
         self._history: deque[dict[Side, tuple[float, float, float]]] = deque(maxlen=8)
+        self._speed_register: dict[Side, float] = {side: 0.0 for side in SIDES}
         default = SideProfile()
         self.drives: dict[Side, TwinDrive] = {side: TwinDrive(self, side, (profiles or {}).get(side, default)) for side in SIDES}
 
@@ -114,7 +116,11 @@ class TwinBench:
         user = self.user(self.t, self) if self.user else {}
         self.plant.step(targets, user, dt)
         self.t += dt
-        self._history.append({side: (s.x_mm, s.v_mm_s, s.motor_force_n) for side, s in self.plant.state.items()})
+        lag = self.params.speed_lag_s
+        share = 1.0 if lag <= 0 else 1 - math.exp(-dt / lag)
+        for side, s in self.plant.state.items():
+            self._speed_register[side] += (s.v_mm_s - self._speed_register[side]) * share
+        self._history.append({side: (s.x_mm, self._speed_register[side], s.motor_force_n) for side, s in self.plant.state.items()})
 
     # ------------------------------------------------------------- bus model
     def read(self, side: Side, profile: SideProfile) -> DriveSample:

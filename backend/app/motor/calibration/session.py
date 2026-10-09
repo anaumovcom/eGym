@@ -35,6 +35,9 @@ from app.motor.calibration.procedures.daily import daily_check, fit_daily
 from app.motor.calibration.procedures.direction import direction_test
 from app.motor.calibration.procedures.drive_response import SPECS as DRIVE_SPECS
 from app.motor.calibration.procedures.dynamics import fit_friction_up, fit_moving_mass, friction_up, moving_mass
+from app.motor.calibration.procedures.estimation import SPECS as ESTIMATION_SPECS
+from app.motor.calibration.procedures.feel import SPECS as FEEL_SPECS
+from app.motor.calibration.procedures.feel_operator import SPECS as FEEL_OPERATOR_SPECS
 from app.motor.calibration.procedures.friction_map import SPECS as FRICTION_SPECS
 from app.motor.calibration.procedures.heightmap import fit_height_map, height_map, map_heights
 from app.motor.calibration.procedures.holding import SPECS as HOLDING_SPECS
@@ -78,15 +81,24 @@ ON_STOPS_MM = 15.0
 RELAY_STEPS_N = (6.0, 12.0)
 LOG_POINTS = 600
 REFERENCE_KG = (2.0, 60.0)
-MAX_S = {"S7": 1500.0, "L1": 1500.0, "L2": 1500.0, "H2": 900.0, "W2": 900.0, "B6": 900.0, "S8": 900.0}
+MAX_S = {
+    "S7": 1500.0, "L1": 1500.0, "L2": 1500.0, "H2": 900.0, "W2": 900.0, "B6": 900.0, "S8": 900.0,
+    "S10": 900.0, "F3": 900.0, "F10": 1200.0, "L3": 1500.0, "D5": 1500.0, "G3": 1500.0, "G2": 900.0, "F7": 900.0,
+}
 TRAVEL_ENVELOPE_MM = 2000.0  # B8 rises to the real upper stop: beyond the software limit, below the screw length
 _RESCALED = (
     "gravity_map", "coulomb_up_n", "coulomb_down_n", "viscous_n_per_mm_s", "stribeck_extra_n", "moving_mass_kg",
     "liftoff_extra_n", "travel_extra_up_n", "travel_extra_down_n", "travel_table_up", "travel_table_down",
-    "dwell_extra_n", "screw_ripple_n",
+    "dwell_extra_n", "screw_ripple_n", "friction_table_up", "friction_table_down", "friction_map",
 )
-_RESCALED_MACHINE = ("hold_ultimate_k_n_per_mm", "side_coupling_n_per_mm", "hold_k_n_per_mm", "hold_c_n_per_mm_s", "sync_k_n_per_mm", "tight_spots")
-EXTENDED: dict[str, tuple[Build, Fit]] = {**DRIVE_SPECS, **FRICTION_SPECS, **POSITIONING_SPECS, **HOLDING_SPECS, **LOADED_SPECS}
+_RESCALED_MACHINE = (
+    "hold_ultimate_k_n_per_mm", "side_coupling_n_per_mm", "hold_k_n_per_mm", "hold_c_n_per_mm_s", "sync_k_n_per_mm", "tight_spots",
+    "sync_k_train_n_per_mm", "dither_n", "feel_release_force_n",
+)
+EXTENDED: dict[str, tuple[Build, Fit]] = {
+    **DRIVE_SPECS, **FRICTION_SPECS, **POSITIONING_SPECS, **HOLDING_SPECS, **LOADED_SPECS,
+    **ESTIMATION_SPECS, **FEEL_SPECS, **FEEL_OPERATOR_SPECS,
+}
 EXTRA_PATHS = {
     "S3": ("left.stribeck_extra_n", "right.stribeck_extra_n"),
     "S7": ("left.coulomb_up_n", "left.coulomb_down_n", "right.coulomb_up_n", "right.coulomb_down_n", "left.stribeck_extra_n", "right.stribeck_extra_n"),
