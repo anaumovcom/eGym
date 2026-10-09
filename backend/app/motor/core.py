@@ -16,7 +16,7 @@ from app.motor.estimation.user_force import UserForceEstimate, estimate_user_for
 from app.motor.force import compensation
 from app.motor.force.load_models import LoadSetpoint, PhaseTracker, load_force
 from app.motor.force.shaping import governor, rate_limit, side_sync, virtual_spring
-from app.motor.profile import MachineProfile, SafetyEnvelope, Tunables
+from app.motor.profile import MachineProfile, SafetyEnvelope, Tunables, calibrated_tunables
 from app.motor.supervisor.modes import Mode, Supervisor
 from app.motor.supervisor.safety import CommMonitor, SafetyInput, apply_envelope
 from app.motor.units import SIDES, Side, rpm_to_mm_s
@@ -40,7 +40,7 @@ class CoreOutput:
 class MotorCore:
     def __init__(self, profile: MachineProfile, tunables: Tunables | None = None, envelope: SafetyEnvelope | None = None) -> None:
         self.profile = profile
-        self.tunables = tunables or Tunables()
+        self.tunables = calibrated_tunables(profile, tunables or Tunables())
         self.envelope = envelope or SafetyEnvelope()
         self.supervisor = Supervisor()
         self.observers = {side: AlphaBetaObserver() for side in SIDES}
@@ -73,6 +73,9 @@ class MotorCore:
         self.virtual_mass_kg = setpoint.load_n / 9.80665
 
     def hold_gains(self) -> tuple[float, float]:
+        measured_k, measured_c = self.profile.hold_k_n_per_mm.value, self.profile.hold_c_n_per_mm_s.value
+        if measured_k is not None and measured_c is not None:  # H1: tuned on this machine under load
+            return float(measured_k), float(measured_c)
         k_u = self.profile.hold_ultimate_k_n_per_mm.value
         period = self.profile.hold_ultimate_period_s.value
         if k_u is None or period is None:

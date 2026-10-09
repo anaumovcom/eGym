@@ -76,19 +76,9 @@ def friction_up(
 
 
 def _steady(trace: Sequence[tuple[float, float, float, dict[Side, float]]], target: float) -> tuple[list[float], dict[Side, list[float]]]:
-    """Speeds and forces beyond the edge while the speed is within ±30 % of ``target`` for ≥ 0.4 s."""
+    from app.motor.calibration.procedures.common import steady
 
-    speeds: list[float] = []
-    extras: dict[Side, list[float]] = {side: [] for side in SIDES}
-    since: float | None = None
-    for t, _x, v, extra in trace:
-        in_band = abs(v - target) <= 0.3 * target
-        since = (since if since is not None else t) if in_band else None
-        if since is not None and t - since >= 0.4:
-            speeds.append(v)
-            for side in SIDES:
-                extras[side].append(extra[side])
-    return speeds, extras
+    return steady(trace, target)
 
 
 # ---------------------------------------------------------------- D4

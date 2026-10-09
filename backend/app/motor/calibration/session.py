@@ -29,11 +29,16 @@ from app.motor.calibration.procedures.bus import (
     fit_delay,
     fit_zero,
 )
+from app.motor.calibration.procedures.common import Build, Context, Fit, Operator, Outcome
 from app.motor.calibration.procedures.coupling import fit_coupling, side_coupling
 from app.motor.calibration.procedures.daily import daily_check, fit_daily
 from app.motor.calibration.procedures.direction import direction_test
+from app.motor.calibration.procedures.drive_response import SPECS as DRIVE_SPECS
 from app.motor.calibration.procedures.dynamics import fit_friction_up, fit_moving_mass, friction_up, moving_mass
+from app.motor.calibration.procedures.friction_map import SPECS as FRICTION_SPECS
 from app.motor.calibration.procedures.heightmap import fit_height_map, height_map, map_heights
+from app.motor.calibration.procedures.holding import SPECS as HOLDING_SPECS
+from app.motor.calibration.procedures.loaded import SPECS as LOADED_SPECS
 from app.motor.calibration.procedures.motion import Balance
 from app.motor.calibration.procedures.moves import (
     braking_test,
@@ -45,6 +50,7 @@ from app.motor.calibration.procedures.moves import (
     motion_check,
     travel_feed,
 )
+from app.motor.calibration.procedures.positioning import SPECS as POSITIONING_SPECS
 from app.motor.calibration.procedures.reference import fit_accuracy, fit_scale, loaded_window, weight_shift
 from app.motor.calibration.procedures.relay import fit_relay, relay_test
 from app.motor.calibration.procedures.statics import balance_and_friction, fit_balance
@@ -56,6 +62,7 @@ from app.motor.calibration.runner import (
     Procedure,
     ProcedureEnvelope,
     ProcedureError,
+    Prompt,
     RunResult,
 )
 from app.motor.calibration.wizard import DIRECTION_ENVELOPE, _measured
@@ -66,18 +73,20 @@ from app.motor.units import SIDES, Side, n_to_kgf
 
 SessionStatus = Literal["running", "done", "aborted", "failed"]
 StageStatus = Literal["pending", "running", "done", "aborted", "failed"]
-DEAD_MAN_TIMEOUT_S = 0.6
+DEAD_MAN_TIMEOUT_S = 1.5  # heartbeat from the calibration screen (sent automatically while it is open)
 ON_STOPS_MM = 15.0
 RELAY_STEPS_N = (6.0, 12.0)
 LOG_POINTS = 600
 REFERENCE_KG = (2.0, 60.0)
-MAX_S = {"S7": 1500.0}
+MAX_S = {"S7": 1500.0, "L1": 1500.0, "L2": 1500.0, "H2": 900.0, "W2": 900.0, "B6": 900.0, "S8": 900.0}
 TRAVEL_ENVELOPE_MM = 2000.0  # B8 rises to the real upper stop: beyond the software limit, below the screw length
 _RESCALED = (
     "gravity_map", "coulomb_up_n", "coulomb_down_n", "viscous_n_per_mm_s", "stribeck_extra_n", "moving_mass_kg",
-    "liftoff_extra_n", "travel_extra_up_n", "travel_extra_down_n",
+    "liftoff_extra_n", "travel_extra_up_n", "travel_extra_down_n", "travel_table_up", "travel_table_down",
+    "dwell_extra_n", "screw_ripple_n",
 )
-_RESCALED_MACHINE = ("hold_ultimate_k_n_per_mm", "side_coupling_n_per_mm")
+_RESCALED_MACHINE = ("hold_ultimate_k_n_per_mm", "side_coupling_n_per_mm", "hold_k_n_per_mm", "hold_c_n_per_mm_s", "sync_k_n_per_mm", "tight_spots")
+EXTENDED: dict[str, tuple[Build, Fit]] = {**DRIVE_SPECS, **FRICTION_SPECS, **POSITIONING_SPECS, **HOLDING_SPECS, **LOADED_SPECS}
 EXTRA_PATHS = {
     "S3": ("left.stribeck_extra_n", "right.stribeck_extra_n"),
     "S7": ("left.coulomb_up_n", "left.coulomb_down_n", "right.coulomb_up_n", "right.coulomb_down_n", "left.stribeck_extra_n", "right.stribeck_extra_n"),
@@ -175,6 +184,8 @@ class CalibrationSession:
         self._relay_attempt = 0
         self._window: dict[Side, tuple[float, float]] | None = None
         self._balance: Balance | None = None
+        self.operator = Operator()
+        self._context: Context | None = None
         self._bar_up = False  # the bar is held above the stops by the previous stage
         self._started_monotonic = time.monotonic()
         self._finished_monotonic: float | None = None
@@ -190,6 +201,23 @@ class CalibrationSession:
 
     def keepalive(self) -> None:
         self.keepalive_at = time.monotonic()
+
+    @property
+    def prompt(self) -> Prompt | None:
+        return self.operator.prompt if self.running else None
+
+    def reply(self, value: float | None) -> None:
+        """The operator's answer to the current prompt; ``ValueError`` with a readable message if it does not fit."""
+
+        prompt = self.prompt
+        if prompt is None:
+            raise ValueError("Калибровка ничего не спрашивает")
+        if prompt.kind == "input":
+            if value is None or not math.isfinite(value):
+                raise ValueError(f"Введите число: {prompt.label or 'значение'}")
+            if (prompt.min is not None and value < prompt.min) or (prompt.max is not None and value > prompt.max):
+                raise ValueError(f"{prompt.label or 'Значение'}: допустимо {prompt.min:g}…{prompt.max:g} {prompt.unit or ''}".rstrip())
+        self.operator.answer(value)
 
     def _dead_man_held(self) -> bool:
         return time.monotonic() - self.keepalive_at <= self.dead_man_timeout_s
@@ -235,6 +263,9 @@ class CalibrationSession:
         if code == "B1":
             return bus_timing(), None
         self._balance = Balance.from_profile(self.profile)
+        if code in EXTENDED:
+            self._context = Context(self.profile, self._balance, self.safety, self.options, self.operator, self.drives)
+            return EXTENDED[code][0](self._context)
         if code == "B7":
             return absolute_zero(self._balance), None
         if code == "S7":
@@ -381,6 +412,10 @@ class CalibrationSession:
             ]}
             return False
         fitter = getattr(self, f"_fit_{stage.code.lower()}", None)
+        if fitter is None and stage.code in EXTENDED:
+            self._fit_extended(stage, EXTENDED[stage.code][1](data, self._context))
+            self._bar_up = False
+            return False
         if fitter is None:
             raise ValueError(stage.code)
         fitter(stage, data)
@@ -390,6 +425,15 @@ class CalibrationSession:
 
     def _set_side(self, side: Side, **values: Measured) -> None:
         self.profile = self.profile.with_side(side, replace(self.profile.side(side), **values))
+
+    def _fit_extended(self, stage: Stage, outcome: Outcome) -> None:
+        stage.result = {**outcome.data, "report": outcome.report}
+        if outcome.error:
+            raise ProcedureError(outcome.error)
+        for side, values in outcome.sides.items():
+            self._set_side(side, **{key: _measured(value, ci, self.id) for key, (value, ci) in values.items()})
+        if outcome.machine:
+            self.profile = replace(self.profile, **{key: _measured(value, ci, self.id) for key, (value, ci) in outcome.machine.items()})
 
     def _fit_b0(self, stage: Stage, data: dict[str, Any]) -> None:
         result = fit_config(data)
@@ -740,6 +784,7 @@ class CalibrationSession:
             "progress": round(progress, 3),
             "currentStage": current.code if self.running else None,
             "note": current.note if self.running else "",
+            "prompt": self.prompt.to_dict() if self.prompt else None,
             "deadManHeld": self._dead_man_held() if self.running else False,
             "stages": [stage.to_payload() for stage in self.stages],
             "changes": changes,

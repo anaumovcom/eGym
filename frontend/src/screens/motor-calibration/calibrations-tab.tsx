@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import type { KeyboardEvent, PointerEvent } from 'react'
+import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -8,6 +8,7 @@ import {
   kgfHint,
   motorApi,
   type CalibrationChange,
+  type CalibrationPrompt,
   type CalibrationSessionPayload,
   type CalibrationSpec,
   type CalibrationStage,
@@ -23,7 +24,8 @@ import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { SessionChart } from './session-chart'
 
-const KEEPALIVE_MS = 150
+// the screen heartbeat: the backend aborts the run when it is missing for 1.5 s (closed / hidden page, lost network)
+const KEEPALIVE_MS = 300
 const REFERENCE_KG = { min: 2, max: 60 }
 const card = 'rounded-[24px] border border-white/8 bg-white/4 p-5'
 
@@ -221,53 +223,94 @@ function Preconditions({ items }: { items: Precondition[] }) {
   )
 }
 
-function HoldButton({ disabled, holding, running, onPress, onRelease }: {
-  disabled: boolean
-  holding: boolean
-  running: boolean
-  onPress: () => void
-  onRelease: () => void
-}) {
-  const down = (event: PointerEvent<HTMLButtonElement>) => {
-    if (disabled || (event.pointerType === 'mouse' && event.button !== 0)) return
-    event.currentTarget.setPointerCapture?.(event.pointerId)
-    onPress()
-  }
-  const keyDown = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if ((event.key === ' ' || event.key === 'Enter') && !event.repeat && !disabled) { event.preventDefault(); onPress() }
-  }
-  const keyUp = (event: KeyboardEvent<HTMLButtonElement>) => {
-    if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); onRelease() }
-  }
-
+function StartButton({ disabled, starting, onStart }: { disabled: boolean; starting: boolean; onStart: () => void }) {
   return (
     <button
       type="button"
-      disabled={disabled && !holding}
-      onPointerDown={down}
-      onPointerUp={onRelease}
-      onPointerCancel={onRelease}
-      onLostPointerCapture={onRelease}
-      onKeyDown={keyDown}
-      onKeyUp={keyUp}
-      onBlur={onRelease}
-      onContextMenu={(event) => event.preventDefault()}
-      style={{ touchAction: 'none' }}
+      disabled={disabled || starting}
+      onClick={onStart}
       className={cn(
-        'relative w-full select-none overflow-hidden rounded-[28px] px-6 py-7 text-center transition',
+        'w-full select-none rounded-[28px] border border-[#b5852f]/60 bg-[#b5852f]/15 px-6 py-6 text-center text-[#f4dfb4] transition hover:bg-[#b5852f]/25',
         'disabled:cursor-not-allowed disabled:opacity-40',
-        holding
-          ? 'bg-linear-to-r from-[#b5852f] via-[#d6b05f] to-[#aa7b26] text-[#1b1303] shadow-[0_0_40px_rgba(214,176,95,0.45)] ring-4 ring-[#f2cf87]/40'
-          : 'border border-[#b5852f]/60 bg-[#b5852f]/15 text-[#f4dfb4] hover:bg-[#b5852f]/25',
       )}
     >
-      <span className="block text-lg font-bold">
-        {holding ? (running ? 'Калибровка идёт — держите' : 'Запуск…') : 'Нажмите и удерживайте для запуска'}
-      </span>
-      <span className={cn('mt-1 block text-xs', holding ? 'text-[#1b1303]/70' : 'text-white/45')}>
-        Отпустите кнопку, чтобы немедленно прервать: приводы вернутся в поддержку
+      <span className="block text-lg font-bold">{starting ? 'Запуск…' : 'Запустить калибровку'}</span>
+      <span className="mt-1 block text-xs text-white/45">
+        Держать кнопку не нужно. Остановить можно в любой момент кнопкой «СТОП»; калибровка прервётся сама, если закрыть или свернуть эту страницу
       </span>
     </button>
+  )
+}
+
+function StopButton({ onStop }: { onStop: () => void }) {
+  return (
+    <div className="sticky bottom-4 z-10">
+      <button
+        type="button"
+        onClick={onStop}
+        className="w-full select-none rounded-[28px] bg-[#d9473b] px-6 py-6 text-center text-white shadow-[0_0_40px_rgba(217,71,59,0.45)] ring-4 ring-[#ff8f84]/40 transition hover:bg-[#e85548] active:bg-[#b93a30]"
+      >
+        <span className="block text-2xl font-black tracking-[0.2em]">СТОП</span>
+        <span className="mt-1 block text-xs text-white/80">Немедленно прервать: гриф остановится, приводы вернутся в поддержку</span>
+      </button>
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ operator prompt
+function PromptPanel({ prompt, busy, onReply }: { prompt: CalibrationPrompt; busy: boolean; onReply: (value: number | null) => void }) {
+  const [text, setText] = useState('')
+  const value = Number(text.replace(',', '.'))
+  const valid = text.trim() !== '' && Number.isFinite(value)
+    && (prompt.min === null || value >= prompt.min) && (prompt.max === null || value <= prompt.max)
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    if (prompt.kind === 'input') { if (valid) onReply(value) } else onReply(null)
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      role="alertdialog"
+      aria-label="Действие оператора"
+      className={cn(
+        'space-y-3 rounded-[22px] border-2 p-5',
+        prompt.kind === 'action' ? 'border-[#7fb8ff]/60 bg-[#7fb8ff]/10' : 'border-[#f2cf87]/70 bg-[#f2cf87]/10',
+      )}
+    >
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/50">
+        {prompt.kind === 'action' ? 'Выполните действие — тренажёр сам заметит его' : 'Требуется ваше действие'}
+      </p>
+      <p className="text-lg font-semibold leading-snug text-white">{prompt.text}</p>
+      {prompt.kind === 'input' ? (
+        <label className="block space-y-1.5">
+          <span className="block text-sm text-white/80">{prompt.label ?? 'Значение'}{prompt.unit ? `, ${prompt.unit}` : ''}</span>
+          <input
+            type="number"
+            inputMode="decimal"
+            autoFocus
+            min={prompt.min ?? undefined}
+            max={prompt.max ?? undefined}
+            step="any"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            className={cn(
+              'w-48 rounded-xl border bg-black/30 px-3 py-2 text-lg text-white outline-none focus:border-[#b5852f]',
+              text && !valid ? 'border-[#ff8f84]/70' : 'border-white/15',
+            )}
+          />
+          {prompt.min !== null && prompt.max !== null ? (
+            <span className="block text-xs text-white/40">Допустимо {prompt.min.toLocaleString('ru-RU')}–{prompt.max.toLocaleString('ru-RU')}{prompt.unit ? ` ${prompt.unit}` : ''}</span>
+          ) : null}
+        </label>
+      ) : null}
+      <p className="text-xs text-white/45">Пока вы не ответите, гриф удерживается или стоит на упорах.</p>
+      {prompt.kind === 'action' ? (
+        <Button type="submit" variant="ghost" disabled={busy}>Пропустить</Button>
+      ) : (
+        <Button type="submit" disabled={busy || (prompt.kind === 'input' && !valid)}>Готово</Button>
+      )}
+    </form>
   )
 }
 
@@ -598,12 +641,13 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
   const linked = searchParams.get('code')
   const [code, setCode] = useState<string>(linked ?? 'WIZARD')
   const [userPicked, setUserPicked] = useState(Boolean(linked))
-  const [holding, setHolding] = useState(false)
+  const [starting, setStarting] = useState(false)
+  const [replying, setReplying] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [referenceKg, setReferenceKg] = useState('')
   const [onlySelected, setOnlySelected] = useState(false)
-  const holdingRef = useRef(false)
+  const activeRef = useRef(false) // this screen started the run and keeps it alive
   const timerRef = useRef<number | null>(null)
 
   const catalog = useQuery({ queryKey: ['motor', 'calibrations'], queryFn: motorApi.calibrations })
@@ -612,7 +656,7 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
   const state = useQuery({
     queryKey: ['motor', 'session', code],
     queryFn: () => motorApi.session(code),
-    refetchInterval: (query) => (holdingRef.current || query.state.data?.session?.status === 'running' ? 250 : 1500),
+    refetchInterval: (query) => (activeRef.current || query.state.data?.session?.status === 'running' ? 250 : 1500),
   })
   const session = state.data?.session ?? null
   const running = session?.status === 'running'
@@ -641,60 +685,64 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
 
   const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: ['motor', 'session'] }), [queryClient])
 
-  const stopKeepalive = () => {
+  const stopHeartbeat = useCallback(() => {
+    activeRef.current = false
     if (timerRef.current !== null) { window.clearInterval(timerRef.current); timerRef.current = null }
-  }
+  }, [])
 
-  const release = useCallback(async (abort = true) => {
-    if (!holdingRef.current) return
-    holdingRef.current = false
-    setHolding(false)
-    stopKeepalive()
-    if (abort) {
-      try { await motorApi.abort() } catch (err) { setError(errorText(err)) }
-    }
+  const stop = useCallback(async () => {
+    stopHeartbeat()
+    try { await motorApi.abort() } catch (err) { setError(errorText(err)) }
     await refresh()
-  }, [refresh])
+  }, [refresh, stopHeartbeat])
 
-  const press = async () => {
-    if (holdingRef.current || !spec?.runnable || (needsReference && !referenceValid)) return
-    holdingRef.current = true
-    setHolding(true)
+  const start = async () => {
+    if (activeRef.current || starting || !spec?.runnable || (needsReference && !referenceValid)) return
+    setStarting(true)
     setError(null)
     try {
       const next = await motorApi.start(code as RunnableCode, needsReference ? { referenceKg: referenceValue } : {})
       queryClient.setQueryData<CalibrationState>(['motor', 'session', code], next)
+      activeRef.current = true
+      timerRef.current = window.setInterval(() => {
+        // a failed request is not fatal: the backend aborts by itself after 1.5 s without a heartbeat
+        motorApi.keepalive()
+          .then((result) => { if (!result.running) { stopHeartbeat(); void refresh() } })
+          .catch(() => undefined)
+      }, KEEPALIVE_MS)
     } catch (err) {
-      holdingRef.current = false
-      setHolding(false)
       setError(errorText(err))
       await refresh()
-      return
+    } finally {
+      setStarting(false)
     }
-    if (!holdingRef.current) {
-      // released while the start request was in flight
-      await motorApi.abort().catch(() => undefined)
+  }
+
+  const reply = async (value: number | null) => {
+    setReplying(true)
+    setError(null)
+    try {
+      await motorApi.reply(value)
       await refresh()
-      return
+    } catch (err) {
+      setError(errorText(err))
+    } finally {
+      setReplying(false)
     }
-    timerRef.current = window.setInterval(() => {
-      motorApi.keepalive()
-        .then((result) => { if (!result.running) void release(false) })
-        .catch(() => { void release(false) })
-    }, KEEPALIVE_MS)
   }
 
   useEffect(() => {
-    const lost = () => { void release() }
-    const hidden = () => { if (document.hidden) void release() }
-    window.addEventListener('blur', lost)
+    // the screen must stay in front while the bar moves: hiding or leaving it stops the run
+    const hidden = () => { if (document.hidden && activeRef.current) void stop() }
+    const leave = () => { if (activeRef.current) void stop() }
     document.addEventListener('visibilitychange', hidden)
+    window.addEventListener('pagehide', leave)
     return () => {
-      window.removeEventListener('blur', lost)
       document.removeEventListener('visibilitychange', hidden)
-      void release()
+      window.removeEventListener('pagehide', leave)
+      if (activeRef.current) void stop()
     }
-  }, [release])
+  }, [stop])
 
   const act = async (action: () => Promise<unknown>) => {
     setBusy(true)
@@ -715,7 +763,7 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
   }
 
   const select = (next: string) => {
-    if (running || holdingRef.current) return
+    if (running || activeRef.current) return
     setUserPicked(true)
     setCode(next)
   }
@@ -741,7 +789,11 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
             {spec.runnable ? (
               <>
                 {running && session ? (
-                  <LiveProgress session={session} durationS={catalog.data?.find((item) => item.code === session.code)?.durationS ?? null} />
+                  <>
+                    {session.prompt ? <PromptPanel key={session.prompt.text} prompt={session.prompt} busy={replying} onReply={(value) => { void reply(value) }} /> : null}
+                    <StopButton onStop={() => { void stop() }} />
+                    <LiveProgress session={session} durationS={catalog.data?.find((item) => item.code === session.code)?.durationS ?? null} />
+                  </>
                 ) : (
                   <div className="space-y-3 rounded-[20px] border border-white/8 bg-black/15 p-4">
                     <h4 className="text-xs font-semibold uppercase tracking-[0.14em] text-white/35">Перед запуском</h4>
@@ -771,17 +823,12 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
                     {!serviceMode ? <p className="text-xs text-white/45">Включите сервисный режим кнопкой вверху страницы.</p> : null}
                   </div>
                 )}
-                <HoldButton
-                  disabled={blocked || busy || (needsReference && !referenceValid)}
-                  holding={holding}
-                  running={running}
-                  onPress={() => { void press() }}
-                  onRelease={() => { void release() }}
-                />
-                {running ? (
-                  <Button variant="danger" className="w-full" onClick={() => { void act(async () => { holdingRef.current = false; setHolding(false); stopKeepalive(); await motorApi.abort() }) }}>
-                    Прервать
-                  </Button>
+                {!running ? (
+                  <StartButton
+                    disabled={blocked || busy || (needsReference && !referenceValid)}
+                    starting={starting}
+                    onStart={() => { void start() }}
+                  />
                 ) : null}
                 {session && !running && session.code === code ? (
                   <p className="text-xs text-white/40">Новый запуск заменит текущий несохранённый результат.</p>

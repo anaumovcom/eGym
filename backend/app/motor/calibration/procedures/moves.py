@@ -21,6 +21,7 @@ from collections.abc import Generator, Sequence
 from typing import Any
 
 from app.motor.calibration.fit import BreakawayDetector, least_squares, stat
+from app.motor.calibration.procedures.common import steady
 from app.motor.calibration.procedures.motion import (
     FEED_SPEED_MM_S,
     STOPS_MM,
@@ -145,16 +146,11 @@ def fit_travel_feed(data: dict[str, Any]) -> dict[str, Any]:
         speeds: list[float] = []
         moving: list[float] = []
         for trace in runs:
-            since: float | None = None
-            for t, _x, v, extra in trace:
-                if v > 0.3 * target:
-                    moving.append(v)
-                in_band = abs(v - target) <= 0.3 * target
-                since = (since if since is not None else t) if in_band else None
-                if since is not None and t - since >= 0.5:
-                    speeds.append(v)
-                    for side in SIDES:
-                        per_side[side].append(extra[side])
+            moving.extend(v for _t, _x, v, _e in trace if v > 0.3 * target)
+            run_speeds, run_extras = steady(trace, target)
+            speeds.extend(run_speeds)
+            for side in SIDES:
+                per_side[side].extend(run_extras[side])
         if len(speeds) < 6:
             raise ProcedureError(f"{'подъём' if key == 'up' else 'опускание'}: скорость не держится около {target:.0f} мм/с — повторите S3 и M1")
         result[key] = {

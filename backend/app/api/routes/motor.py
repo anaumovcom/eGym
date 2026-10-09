@@ -139,9 +139,25 @@ def start_calibration(payload: CalibrationStartRequest, session: Session = Depen
 
 @router.post("/calibration/keepalive")
 def calibration_keepalive() -> dict[str, bool]:
-    """Dead-man: the UI posts this while the operator holds the button; silence > 0.6 s aborts to support."""
+    """Heartbeat of the calibration screen: silence > 1.5 s (screen closed, hidden, network lost) aborts to support."""
 
     return {"running": hardware_runtime.calibration_keepalive()}
+
+
+class CalibrationReply(BaseModel):
+    value: float | None = None
+
+
+@router.post("/calibration/reply")
+def calibration_reply(payload: CalibrationReply) -> dict[str, Any]:
+    """Operator's answer to a prompt: «Готово» (no value) or a measured number."""
+
+    try:
+        hardware_runtime.calibration_reply(payload.value)
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error)) from error
+    run = hardware_runtime.calibration
+    return {"session": run.to_payload() if run is not None else None}
 
 
 @router.post("/calibration/abort")

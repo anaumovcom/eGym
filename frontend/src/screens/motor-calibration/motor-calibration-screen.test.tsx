@@ -95,19 +95,19 @@ beforeEach(() => {
 afterEach(() => { cleanup(); client.clear(); vi.restoreAllMocks() })
 
 describe('MotorCalibrationScreen', () => {
-  it('describes the selected calibration and blocks the hold button until preconditions pass', async () => {
+  it('describes the selected calibration and blocks the start button until preconditions pass', async () => {
     state = { ...state, preconditions: preconditions(false) }
     renderScreen()
     expect(await screen.findByText('Последовательно выполняет B5, S3, C1.')).toBeInTheDocument()
     expect(screen.getByText('S3: окно')).toBeInTheDocument()
     expect(await screen.findByText('Настройки → Сервис')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Нажмите и удерживайте/ })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /Запустить калибровку/ })).toBeDisabled()
 
     fireEvent.click(screen.getByRole('button', { name: /Тайминг шины/ }))
     expect(await screen.findByText('Запуск этой калибровки из интерфейса пока не реализован.')).toBeInTheDocument()
   })
 
-  it('starts on press, keeps the dead-man alive and aborts on release', async () => {
+  it('starts on a click, keeps the screen heartbeat and aborts on STOP', async () => {
     vi.mocked(apiPost).mockImplementation(async <T,>(path: string): Promise<T> => {
       if (path.endsWith('/start')) { state = { ...state, session: baseSession }; return state as T }
       if (path.endsWith('/keepalive')) return { running: true } as T
@@ -115,19 +115,45 @@ describe('MotorCalibrationScreen', () => {
       throw new Error(path)
     })
     renderScreen()
-    const hold = await screen.findByRole('button', { name: /Нажмите и удерживайте/ })
-    await waitFor(() => expect(hold).toBeEnabled())
-    fireEvent.pointerDown(hold, { button: 0, pointerId: 1 })
+    const start = await screen.findByRole('button', { name: /Запустить калибровку/ })
+    await waitFor(() => expect(start).toBeEnabled())
+    fireEvent.click(start)
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/motor/calibration/start', { code: 'WIZARD' }))
     expect(await screen.findByText('Сейчас выполняется')).toBeInTheDocument()
     expect(screen.getAllByText('трогание вверх 2/3').length).toBeGreaterThan(0)
     expect(screen.getByText('40%')).toBeInTheDocument()
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/motor/calibration/keepalive', {}), { timeout: 1000 })
+    expect(apiPost).not.toHaveBeenCalledWith('/api/motor/calibration/abort', {})
 
-    fireEvent.pointerUp(screen.getByRole('button', { name: /Калибровка идёт/ }), { pointerId: 1 })
+    fireEvent.click(screen.getByRole('button', { name: /СТОП/ }))
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/motor/calibration/abort', {}))
     expect(await screen.findByText('Калибровка прервана')).toBeInTheDocument()
     expect(screen.getByText('Причина: прервано оператором')).toBeInTheDocument()
+  })
+
+  it('shows the operator prompt and sends the answer', async () => {
+    const prompt = { text: 'Измерьте рулеткой высоту грифа', kind: 'input' as const, label: 'Высота', unit: 'мм', min: 50, max: 600 }
+    vi.mocked(apiPost).mockImplementation(async <T,>(path: string): Promise<T> => {
+      if (path.endsWith('/start')) { state = { ...state, session: { ...baseSession, prompt } }; return state as T }
+      if (path.endsWith('/keepalive')) return { running: true } as T
+      if (path.endsWith('/reply')) { state = { ...state, session: { ...baseSession, prompt: null } }; return { session: state.session } as T }
+      return { session: null } as T
+    })
+    renderScreen()
+    const start = await screen.findByRole('button', { name: /Запустить калибровку/ })
+    await waitFor(() => expect(start).toBeEnabled())
+    fireEvent.click(start)
+    const dialog = await screen.findByRole('alertdialog', { name: 'Действие оператора' })
+    expect(within(dialog).getByText('Измерьте рулеткой высоту грифа')).toBeInTheDocument()
+    const done = within(dialog).getByRole('button', { name: 'Готово' })
+    const field = within(dialog).getByRole('spinbutton', { name: /Высота, мм/ })
+    fireEvent.change(field, { target: { value: '700' } })
+    expect(done).toBeDisabled()
+    fireEvent.change(field, { target: { value: '251.5' } })
+    expect(done).toBeEnabled()
+    fireEvent.click(done)
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/motor/calibration/reply', { value: 251.5 }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
   })
 
   it('shows the result with old and new values and saves them', async () => {
@@ -156,16 +182,15 @@ describe('MotorCalibrationScreen', () => {
     })
     renderScreen()
     fireEvent.click(await screen.findByRole('button', { name: /Масштаб силы/ }))
-    const hold = await screen.findByRole('button', { name: /Нажмите и удерживайте/ })
+    const hold = await screen.findByRole('button', { name: /Запустить калибровку/ })
     const mass = screen.getByRole('spinbutton', { name: /Масса эталонного груза/ })
     expect(hold).toBeDisabled()
     fireEvent.change(mass, { target: { value: '100' } })
     expect(hold).toBeDisabled()
     fireEvent.change(mass, { target: { value: '20' } })
     await waitFor(() => expect(hold).toBeEnabled())
-    fireEvent.pointerDown(hold, { button: 0, pointerId: 1 })
+    fireEvent.click(hold)
     await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/motor/calibration/start', { code: 'S9', referenceKg: 20 }))
-    fireEvent.pointerUp(hold, { pointerId: 1 })
   })
 
   it('renders the report of a check without profile changes', async () => {

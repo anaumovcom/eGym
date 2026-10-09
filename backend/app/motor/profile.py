@@ -52,6 +52,19 @@ class SideProfile:
     liftoff_extra_n: Measured = field(default_factory=lambda: _d(None))
     travel_extra_up_n: Measured = field(default_factory=lambda: _d(None))
     travel_extra_down_n: Measured = field(default_factory=lambda: _d(None))
+    # positioning (P1, P2): force beyond the window edge by speed [(v_mm_s, extra_n)]
+    travel_table_up: Measured = field(default_factory=lambda: _d(None))
+    travel_table_down: Measured = field(default_factory=lambda: _d(None))
+    # friction under an axial load (L1, L2): ΔFc = coeff · ΔW
+    friction_load_up: Measured = field(default_factory=lambda: _d(None))
+    friction_load_down: Measured = field(default_factory=lambda: _d(None))
+    # breakaway growth with the time at rest (S5): + n·(1 − exp(−t/τ))
+    dwell_extra_n: Measured = field(default_factory=lambda: _d(None))
+    dwell_tau_s: Measured = field(default_factory=lambda: _d(None))
+    # force ripple with the screw revolution (S6)
+    screw_ripple_n: Measured = field(default_factory=lambda: _d(None))
+    screw_ripple_phase_rad: Measured = field(default_factory=lambda: _d(None))
+    deadband_raw: Measured = field(default_factory=lambda: _d(None))  # D1
 
     def weight_n(self, x_mm: float) -> float:
         points: list[tuple[float, float]] = [tuple(p) for p in self.gravity_map.value]  # type: ignore[misc]
@@ -91,6 +104,22 @@ class MachineProfile:
     brake_lag_s: Measured = field(default_factory=lambda: _d(None))
     brake_decel_up_mm_s2: Measured = field(default_factory=lambda: _d(None))
     brake_decel_down_mm_s2: Measured = field(default_factory=lambda: _d(None))
+    # automatic moves (P, A)
+    position_speed_up_mm_s: Measured = field(default_factory=lambda: _d(None))
+    position_speed_down_mm_s: Measured = field(default_factory=lambda: _d(None))
+    accel_mm_s2: Measured = field(default_factory=lambda: _d(None))
+    decel_mm_s2: Measured = field(default_factory=lambda: _d(None))
+    landing_speed_mm_s: Measured = field(default_factory=lambda: _d(None))
+    stop_overshoot_mm: Measured = field(default_factory=lambda: _d(None))  # E1
+    reversal_stick_s: Measured = field(default_factory=lambda: _d(None))  # R1
+    torque_lag_s: Measured = field(default_factory=lambda: _d(None))  # B2
+    tight_spots: Measured = field(default_factory=lambda: _d(None))  # S8: [(x_mm, extra_n)]
+    # behaviour identified on the machine; override the Tunables defaults when measured
+    hold_k_n_per_mm: Measured = field(default_factory=lambda: _d(None))  # H1
+    hold_c_n_per_mm_s: Measured = field(default_factory=lambda: _d(None))
+    sync_k_n_per_mm: Measured = field(default_factory=lambda: _d(None))  # X3
+    weightless_gain_up: Measured = field(default_factory=lambda: _d(None))  # W1
+    weightless_gain_down: Measured = field(default_factory=lambda: _d(None))
 
     def side(self, side: Side) -> SideProfile:
         return self.left if side == "left" else self.right
@@ -183,8 +212,19 @@ class SafetyEnvelope:
         return SafetyEnvelope(**{key: type(getattr(defaults, key))(value) for key, value in data.items() if key in known})
 
 
+def calibrated_tunables(profile: MachineProfile, tunables: Tunables) -> Tunables:
+    """Tunables with the values identified by calibrations (W1 weightless gains, X3 sync) taking precedence."""
+
+    overrides: dict[str, float] = {}
+    for key, path in (("friction_gain_up", "weightless_gain_up"), ("friction_gain_down", "weightless_gain_down"), ("sync_k_n_per_mm", "sync_k_n_per_mm")):
+        item: Measured = getattr(profile, path)
+        if item.value is not None and item.provenance in ("measured", "manual"):
+            overrides[key] = float(item.value)
+    return replace(tunables, **overrides) if overrides else tunables
+
+
 def default_profile() -> MachineProfile:
     return MachineProfile()
 
 
-__all__ = ["SIDES", "MachineProfile", "Measured", "SafetyEnvelope", "SideProfile", "Tunables", "default_profile"]
+__all__ = ["SIDES", "MachineProfile", "Measured", "SafetyEnvelope", "SideProfile", "Tunables", "calibrated_tunables", "default_profile"]

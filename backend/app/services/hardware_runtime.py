@@ -622,6 +622,15 @@ class HardwareRuntime:
             self.calibration.keepalive()
             return True
 
+    def calibration_reply(self, value: float | None) -> None:
+        """Operator's answer to the prompt of the running calibration (``ValueError`` if nothing is asked or it does not fit)."""
+
+        with self._lock:
+            if self.calibration is None or not self.calibration.running:
+                raise ValueError("Калибровка не выполняется")
+            self.calibration.reply(value)
+            self._record_command("calibration_reply", {"id": self.calibration.id, "value": value})
+
     def _abort_calibration_locked(self, reason: str) -> bool:
         session = self.calibration
         if session is None or not session.running:

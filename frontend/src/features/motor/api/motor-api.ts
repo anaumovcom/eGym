@@ -66,6 +66,15 @@ export type CalibrationStage = {
 
 export type CalibrationLog = Record<'t' | 'xL' | 'xR' | 'vL' | 'vR' | 'fL' | 'fR', number[]>
 
+export type CalibrationPrompt = {
+  text: string
+  kind: 'confirm' | 'input' | 'action'
+  label: string | null
+  unit: string | null
+  min: number | null
+  max: number | null
+}
+
 export type CalibrationSessionPayload = {
   id: string
   code: RunnableCode
@@ -79,6 +88,7 @@ export type CalibrationSessionPayload = {
   currentStage: string | null
   note: string
   deadManHeld: boolean
+  prompt?: CalibrationPrompt | null
   stages: CalibrationStage[]
   changes: CalibrationChange[]
   hasChanges: boolean
@@ -140,6 +150,7 @@ export const motorApi = {
     apiPost<CalibrationState>('/api/motor/calibration/start', { code, ...options }),
   keepalive: () => apiPost<{ running: boolean }>('/api/motor/calibration/keepalive', {}),
   abort: () => apiPost<{ session: CalibrationSessionPayload | null }>('/api/motor/calibration/abort', {}),
+  reply: (value: number | null = null) => apiPost<{ session: CalibrationSessionPayload | null }>('/api/motor/calibration/reply', { value }),
   accept: () => apiPost<{ version: number; session: CalibrationSessionPayload }>('/api/motor/calibration/accept', {}),
   discard: () => apiPost<{ ok: boolean }>('/api/motor/calibration/discard', {}),
   runs: (limit = 20) => apiGet<CalibrationRunRecord[]>(`/api/motor/calibration/runs?limit=${limit}`),

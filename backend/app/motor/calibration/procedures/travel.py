@@ -1,9 +1,11 @@
 """B8 working travel: governed rise to the upper stop (plan 14 §13.1, CZ).
 
 The bar rises at a governed speed. At the upper stop the speed integrator
-saturates while the bar stays still: pressing ≥ 0.5·Fc⁺ beyond the window
-edge and still for ``press_frames`` = the stop. The extra force is capped by
-the governor (≤ 0.6·Fc⁺), so the bar meets the stop gently.
+saturates while the bar stays still. A tight spot looks the same, so the stop
+is confirmed only after the governor has raised its cap once (0.6 → 0.85·Fc⁺,
+see ``ESCALATE_S``): pressing ≥ 0.85·Fc⁺ beyond the window edge and still for
+``press_frames`` = the stop. A tight spot gives way at the raised cap and the
+governor drops the extra back at once, so the bar does not jump.
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ def travel_range(balance: Balance, *, expected_mm: float = 1400.0, speed_mm_s: f
     pressed = {"frames": 0}
 
     def at_top(f: Frame, extra: dict[Side, float]) -> bool:
-        pressing = all(extra[side] >= 0.5 * balance.coulomb_up[side] for side in SIDES)
+        pressing = all(extra[side] >= max(0.6 * balance.coulomb_up[side], 10.0) + 0.25 * balance.coulomb_up[side] - 0.5 for side in SIDES)
         pressed["frames"] = pressed["frames"] + 1 if pressing and _still(f) and f.x_mean > start + 50 else 0
         return pressed["frames"] >= press_frames
 

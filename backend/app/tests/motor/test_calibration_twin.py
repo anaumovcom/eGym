@@ -149,7 +149,7 @@ def test_dead_man_release_aborts_to_support() -> None:
 
     result = runner.run(procedure())
     assert result.status == "aborted"
-    assert "удержания" in (result.reason or "")
+    assert "экраном" in (result.reason or "")
     assert all(drive.writes[-1] == 100 * drive.profile.sign for drive in bench.drives.values())
 
 

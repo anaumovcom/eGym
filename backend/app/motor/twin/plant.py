@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass, field, replace
 
-from app.motor.units import SIDES, Side, kgf_to_n, passport_n_per_raw
+from app.motor.units import SCREW_LEAD_MM, SIDES, Side, kgf_to_n, passport_n_per_raw
 
 
 @dataclass(frozen=True)
@@ -22,9 +22,23 @@ class SidePhysics:
     direction_sign: int = 1
     extra_mass_kg: float = 0.0  # reference weight hung on this side
     stop_adhesion_n: float = 0.0  # extra breakaway force when resting on the bottom stops (sticking, grease)
+    friction_load_up: float = 0.0  # Coulomb grows with the axial load: + coeff · (extra weight, N)
+    friction_load_down: float = 0.0
+    dwell_stiction_n: float = 0.0  # breakaway grows with the time at rest: + n · (1 − exp(−t/τ))
+    dwell_tau_s: float = 5.0
+    ripple_n: float = 0.0  # force ripple with the screw revolution (lead 32 mm)
+    ripple_phase_rad: float = 0.0
+    tight_spots: tuple[tuple[float, float, float], ...] = ()  # (x_mm, half width mm, extra friction N)
 
     def weight_at(self, x_mm: float) -> float:
-        return self.weight_n + self.weight_slope_n_per_mm * x_mm + kgf_to_n(self.extra_mass_kg)
+        ripple = self.ripple_n * math.sin(2 * math.pi * x_mm / SCREW_LEAD_MM + self.ripple_phase_rad) if self.ripple_n else 0.0
+        return self.weight_n + self.weight_slope_n_per_mm * x_mm + kgf_to_n(self.extra_mass_kg) + ripple
+
+    def coulomb(self, direction: int, x_mm: float) -> float:
+        base = self.coulomb_up_n if direction > 0 else self.coulomb_down_n
+        load = (self.friction_load_up if direction > 0 else self.friction_load_down) * kgf_to_n(self.extra_mass_kg)
+        spot = sum(extra for center, half, extra in self.tight_spots if abs(x_mm - center) <= half)
+        return base + load + spot
 
     @property
     def total_mass_kg(self) -> float:
@@ -64,6 +78,7 @@ class SideState:
     a_mm_s2: float = 0.0
     motor_force_n: float = 0.0  # after lag and clamps
     stuck: bool = True
+    stuck_s: float = 0.0  # time at rest (dwell stiction)
 
 
 class Plant:
@@ -76,8 +91,8 @@ class Plant:
         self.state: dict[Side, SideState] = {side: SideState(x_mm=x0_mm) for side in SIDES}
         self.t = 0.0
 
-    def _friction(self, physics: SidePhysics, v: float) -> float:
-        coulomb = physics.coulomb_up_n if v > 0 else physics.coulomb_down_n
+    def _friction(self, physics: SidePhysics, v: float, x: float) -> float:
+        coulomb = physics.coulomb(1 if v > 0 else -1, x)
         stribeck = physics.stiction_extra_n * math.exp(-((v / max(physics.stribeck_v_mm_s, 1e-6)) ** 2))
         return math.copysign(coulomb + stribeck, v) + physics.viscous_n_per_mm_s * v
 
@@ -103,8 +118,10 @@ class Plant:
                 mass = physics.total_mass_kg
                 if s.stuck:
                     on_stops = s.x_mm <= 0.0
-                    breakaway_up = physics.coulomb_up_n + physics.stiction_extra_n + (physics.stop_adhesion_n if on_stops else 0.0)
-                    breakaway_dn = physics.coulomb_down_n + physics.stiction_extra_n
+                    s.stuck_s += h
+                    dwell = physics.dwell_stiction_n * (1 - math.exp(-s.stuck_s / physics.dwell_tau_s)) if physics.dwell_stiction_n else 0.0
+                    breakaway_up = physics.coulomb(1, s.x_mm) + physics.stiction_extra_n + dwell + (physics.stop_adhesion_n if on_stops else 0.0)
+                    breakaway_dn = physics.coulomb(-1, s.x_mm) + physics.stiction_extra_n + dwell
                     on_bottom = s.x_mm <= 0.0 and drive < 0
                     on_top = s.x_mm >= p.travel_mm and drive > 0
                     if drive > breakaway_up and not on_top:
@@ -119,7 +136,8 @@ class Plant:
                     s.a_mm_s2 = 1000 * net / mass
                     s.v_mm_s = s.a_mm_s2 * h
                 else:
-                    net = drive - self._friction(physics, s.v_mm_s)
+                    s.stuck_s = 0.0
+                    net = drive - self._friction(physics, s.v_mm_s, s.x_mm)
                     s.a_mm_s2 = 1000 * net / mass
                     v_new = s.v_mm_s + s.a_mm_s2 * h
                     if v_new * s.v_mm_s < 0 or v_new == 0:

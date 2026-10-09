@@ -30,13 +30,15 @@ def _bench(params: PlantParams, profile: MachineProfile) -> TwinBench:
     return TwinBench(params, {side: profile.side(side) for side in SIDES}, initial_raw=100)
 
 
-def _run(bench: TwinBench, code: str, profile: MachineProfile, max_s: float = 1600.0, **options: Any) -> CalibrationSession:
+def _run(bench: TwinBench, code: str, profile: MachineProfile, max_s: float = 1600.0, operator: Any = None, **options: Any) -> CalibrationSession:
     session = CalibrationSession(code, bench.drives, profile, options=options)
     session.begin()
     end = bench.t + max_s
     while session.running and bench.t < end:
         bench.advance(0.05)
         session.keepalive()
+        if operator is not None:
+            operator(session)
         session.step(Frame(bench.t, {side: bench.drives[side].read() for side in SIDES}))
     assert not session.running, f"{code} did not finish"
     return session
@@ -66,7 +68,7 @@ def _done(session: CalibrationSession) -> dict[str, Any]:
 def test_catalog_is_fully_implemented() -> None:
     assert all(spec.implemented and spec.description and spec.steps and spec.duration_s for spec in CATALOG)
     assert BY_CODE["S9"].inputs == ("referenceKg",) and BY_CODE["G1"].inputs == ("referenceKg",)
-    assert set(ORDER) == set(BY_CODE) and ORDER[:len(WIZARD_STAGES)] == WIZARD_STAGES
+    assert set(ORDER) == set(BY_CODE) and [code for code in ORDER if code in WIZARD_STAGES] == list(WIZARD_STAGES)
     produced = {path.split(".")[-1] for spec in CATALOG for path in spec.produces}
     for spec in PARAMS:
         if spec.scope in ("side", "machine") and spec.key != "mm_per_pulse":
@@ -405,3 +407,156 @@ def test_envelope_ignores_a_single_speed_spike() -> None:
         drives = {side: Spiky(bench.drives[side], spikes) for side in SIDES}
         runner = CalibrationRunner(drives, tick, ProcedureEnvelope())
         assert runner.run(rest()).status == expected
+
+
+# ---------------------------------------------------------------- extended set (B2 … L2)
+# a bench like the A6 one (2026-10-09) with the effects the new calibrations measure
+# (dwell stiction, screw ripple, a tight spot, load friction)
+FEATURES: dict[str, Any] = {
+    "weight_n": 150.0, "coulomb_up_n": 40.0, "coulomb_down_n": 40.0, "viscous_n_per_mm_s": 0.3, "stop_adhesion_n": 20.0,
+    "stiction_extra_n": 1.0, "dwell_stiction_n": 3.0, "dwell_tau_s": 6.0, "ripple_n": 3.0,
+    "friction_load_up": 0.1, "friction_load_down": 0.05, "tight_spots": ((600.0, 15.0, 25.0),),
+}
+
+
+class _Operator:
+    """A simulated person: types the tape reading, hangs/removes the weight, pushes the bar like a hand."""
+
+    def __init__(self, bench: TwinBench, base: PlantParams, kg: float = 20.0) -> None:
+        self.bench, self.base, self.kg = bench, base, kg
+        self.force, self.until, self.text, self.x0 = 0.0, 0.0, "", 0.0
+        bench.user = self._hand
+
+    def _hand(self, t: float, bench: TwinBench) -> dict[str, float]:
+        if t >= self.until:
+            return {}
+        sign = 1.0 if self.force > 0 else -1.0
+        # a person eases off once the bar moves (≈ 15 mm/s)
+        return {side: max(-90.0, min(90.0, self.force + 3.0 * (sign * 15.0 - bench.plant.state[side].v_mm_s))) for side in SIDES}
+
+    def _set(self, params: PlantParams) -> None:
+        self.bench.params = self.bench.plant.params = params
+
+    def __call__(self, session: CalibrationSession) -> None:
+        prompt = session.prompt
+        if prompt is None:
+            return
+        x = self.bench.plant.state["left"].x_mm
+        if prompt.kind == "input":
+            session.reply(round(x, 1))
+        elif "Повесьте" in prompt.text:
+            extra = replace(self.base.left, extra_mass_kg=self.kg / 2)
+            self._set(self.base.with_side("left", extra).with_side("right", replace(self.base.right, extra_mass_kg=self.kg / 2)))
+            session.reply(None)
+        elif "Снимите" in prompt.text:
+            self._set(self.base)
+            session.reply(None)
+        elif prompt.kind == "action" and self.until < self.bench.t:
+            sign = -1.0 if ("вниз" in prompt.text or "опустите" in prompt.text.lower()) else 1.0
+            if prompt.text != self.text:
+                self.text, self.x0 = prompt.text, x
+            if "10 см" not in prompt.text:
+                self.force, self.until = sign * 50.0, self.bench.t + 0.6
+            elif sign * (x - self.x0) < 90.0:
+                self.force, self.until = sign * 50.0, self.bench.t + 0.3
+        elif prompt.kind == "confirm":
+            session.reply(None)
+
+
+@pytest.fixture(scope="module")
+def commissioned() -> tuple[PlantParams, MachineProfile]:
+    """The commissioning chain the extended calibrations need: S3, M1, M2, M3, C3, C1, X2."""
+
+    params = _params(**FEATURES)
+    bench = _bench(params, MachineProfile())
+    profile = _calibrated(bench)
+    for code in ("M1", "M2", "M3", "C3", "C1", "X2"):
+        session = _run(bench, code, profile)
+        assert session.status == "done", (code, session.reason)
+        profile = session.profile
+    return params, profile
+
+
+def _chain(params: PlantParams, profile: MachineProfile, codes: tuple[str, ...], **options: Any) -> tuple[MachineProfile, dict[str, CalibrationSession]]:
+    bench = _bench(params, profile)
+    operator = _Operator(bench, params)
+    sessions = {}
+    for code in codes:
+        session = _run(bench, code, profile, operator=operator, **options)
+        _done(session)
+        sessions[code] = session
+        profile = session.profile
+        assert all(bench.plant.state[side].x_mm < 15 for side in SIDES), f"{code}: the bar is not back on the stops"
+    return profile, sessions
+
+
+def test_drive_response_b2_d1_b6(commissioned: tuple[PlantParams, MachineProfile]) -> None:
+    params, profile = commissioned
+    profile, _ = _chain(replace(params, deadband_raw=6), profile, ("B2", "D1", "B6"))
+    assert 0.0 < profile.torque_lag_s.value < 0.1
+    for side in SIDES:
+        assert profile.side(side).deadband_raw.value == pytest.approx(6, abs=2)
+
+
+def test_friction_map_s5_s6_s8(commissioned: tuple[PlantParams, MachineProfile]) -> None:
+    params, profile = commissioned
+    profile, _ = _chain(params, profile, ("S5", "S6", "S8"))
+    for side in SIDES:
+        item = profile.side(side)
+        assert item.dwell_extra_n.value == pytest.approx(3.0 + 1.0, abs=2.5)  # dwell + Stribeck
+        assert item.screw_ripple_n.value == pytest.approx(3.0, abs=1.0)
+    spots = profile.tight_spots.value
+    assert len(spots) == 1 and spots[0][0] == pytest.approx(600.0, abs=40.0)
+
+
+def test_positioning_p1_p2_a1_a2_a3_r1_e1(commissioned: tuple[PlantParams, MachineProfile]) -> None:
+    params, profile = commissioned
+    profile, sessions = _chain(params, profile, ("P1", "P2", "A1", "A2", "A3", "R1", "E1"))
+    assert profile.position_speed_up_mm_s.value >= 20 and profile.position_speed_down_mm_s.value >= 20
+    assert profile.left.travel_table_up.provenance == "measured"
+    assert profile.accel_mm_s2.value >= 60 and profile.decel_mm_s2.value >= 60
+    assert 5 <= profile.landing_speed_mm_s.value <= 25
+    assert 0.0 <= profile.reversal_stick_s.value < 0.5
+    assert 0.0 <= profile.stop_overshoot_mm.value < 10.0
+
+
+def test_holding_h1_h2_w1_w2_x3(commissioned: tuple[PlantParams, MachineProfile]) -> None:
+    params, profile = commissioned
+    profile, _ = _chain(params, profile, ("H1", "H2", "W1", "W2", "X3"))
+    k_u = profile.hold_ultimate_k_n_per_mm.value
+    assert 0.1 * k_u <= profile.hold_k_n_per_mm.value <= 0.5 * k_u
+    assert 0.3 <= profile.weightless_gain_up.value <= 1.0 and 0.3 <= profile.weightless_gain_down.value <= 1.0
+    assert 0.0 <= profile.sync_k_n_per_mm.value <= 0.2 * profile.side_coupling_n_per_mm.value
+    # the trainer core uses the measured values
+    from app.motor.profile import Tunables, calibrated_tunables
+
+    tuned = calibrated_tunables(profile, Tunables())
+    assert tuned.friction_gain_up == profile.weightless_gain_up.value and tuned.sync_k_n_per_mm == profile.sync_k_n_per_mm.value
+
+
+def test_loaded_friction_l1_l2(commissioned: tuple[PlantParams, MachineProfile]) -> None:
+    params, profile = commissioned
+    profile, _ = _chain(params, profile, ("L1", "L2"), referenceKg=20.0)
+    for side in SIDES:
+        assert profile.side(side).friction_load_up.value == pytest.approx(0.1, abs=0.04)
+        assert profile.side(side).friction_load_down.value == pytest.approx(0.05, abs=0.04)
+
+
+def test_operator_reply_validation(client) -> None:
+    assert client.post("/api/motor/calibration/reply", json={"value": 1.0}).status_code == 422  # nothing is running
+    bench = _bench(PlantParams(), MachineProfile())
+    profile = _calibrated(bench)
+    session = CalibrationSession("B6", bench.drives, profile)
+    session.begin()
+    while session.running and session.prompt is None:
+        bench.advance(0.05)
+        session.keepalive()
+        session.step(Frame(bench.t, {side: bench.drives[side].read() for side in SIDES}))
+    prompt = session.to_payload()["prompt"]
+    assert prompt["kind"] == "input" and prompt["unit"] == "мм"
+    with pytest.raises(ValueError, match="Введите число"):
+        session.reply(None)
+    with pytest.raises(ValueError, match="допустимо"):
+        session.reply(prompt["max"] + 1)
+    session.cancel("тест")
+    assert session.prompt is None

@@ -26,6 +26,7 @@ glitch (seen on the A6: 90 mm/s on a resting bar) is replaced by Δx/Δt.
 from __future__ import annotations
 
 import bisect
+import math
 from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import Any
@@ -44,6 +45,8 @@ GLITCH_MM_S = 20.0  # PA_1C1 vs Δx/Δt disagreement treated as a register glitc
 DEFAULT_BRAKE_LAG_S = 0.1
 LANDED_MM = 20.0
 RUNAWAY_MM_S = 70.0  # below the procedure envelope (80 mm/s)
+MIN_PROFILE_SPEED_MM_S = 5.0
+SYNC_LIMIT_FC = 0.3  # sync correction ≤ 0.3·Fc per side
 
 
 def _value(item: Any) -> float | None:
@@ -61,6 +64,12 @@ class Balance:
     feed_down: dict[Side, float] = field(default_factory=dict)
     brake_lag_s: float | None = None  # M3
     brake_decel: dict[int, float] = field(default_factory=dict)  # direction → mm/s²
+    table_up: dict[Side, list[tuple[float, float]]] = field(default_factory=dict)  # P1: [(v, extra)]
+    table_down: dict[Side, list[tuple[float, float]]] = field(default_factory=dict)  # P2
+    accel_mm_s2: float | None = None  # A1: target speed ramps up at this rate
+    decel_mm_s2: float | None = None  # A2: target speed ramps down to the stop point
+    landing_speed_mm_s: float | None = None  # A3
+    sync_k: float = 0.0  # X3: force per mm of skew, pulls the sides together during moves
 
     @classmethod
     def from_profile(cls, profile: MachineProfile) -> Balance:
@@ -73,6 +82,9 @@ class Balance:
         def table(key: str) -> dict[Side, float]:
             return {side: v for side in SIDES if (v := _value(getattr(profile.side(side), key))) is not None}
 
+        def curve(key: str) -> dict[Side, list[tuple[float, float]]]:
+            return {side: sorted((float(v), float(f)) for v, f in points) for side in SIDES if (points := getattr(profile.side(side), key).value)}
+
         decel = {d: v for d, key in ((1, "brake_decel_up_mm_s2"), (-1, "brake_decel_down_mm_s2")) if (v := _value(getattr(profile, key))) is not None and v > 0}
         return cls(
             {side: sorted((float(x), float(w)) for x, w in profile.side(side).gravity_map.value) for side in SIDES},
@@ -83,6 +95,12 @@ class Balance:
             feed_down=table("travel_extra_down_n"),
             brake_lag_s=_value(profile.brake_lag_s),
             brake_decel=decel,
+            table_up=curve("travel_table_up"),
+            table_down=curve("travel_table_down"),
+            accel_mm_s2=_value(profile.accel_mm_s2),
+            decel_mm_s2=_value(profile.decel_mm_s2),
+            landing_speed_mm_s=_value(profile.landing_speed_mm_s),
+            sync_k=_value(profile.sync_k_n_per_mm) or 0.0,
         )
 
     def weight(self, side: Side, x_mm: float) -> float:
@@ -111,8 +129,29 @@ class Balance:
         kept = [p for p in self.points[side] if abs(p[0] - x_mm) > merge_mm]
         self.points[side] = sorted([*kept, (x_mm, weight_n)])
 
-    def feed(self, side: Side, direction: int) -> float | None:
+    def feed(self, side: Side, direction: int, speed_mm_s: float = FEED_SPEED_MM_S) -> float | None:
+        """Force beyond the edge for a steady ``speed_mm_s``: P1/P2 table (interpolated), else the M2 point."""
+
+        points = (self.table_up if direction > 0 else self.table_down).get(side)
+        if points:
+            if len(points) == 1 or speed_mm_s <= points[0][0]:
+                return points[0][1]
+            if speed_mm_s >= points[-1][0]:
+                return points[-1][1]
+            i = bisect.bisect_left([v for v, _ in points], speed_mm_s)
+            (v0, f0), (v1, f1) = points[i - 1], points[i]
+            return f0 + (f1 - f0) * (speed_mm_s - v0) / (v1 - v0)
         return (self.feed_up if direction > 0 else self.feed_down).get(side)
+
+    def target_speed(self, speed_mm_s: float, elapsed_s: float, remaining_mm: float | None) -> float:
+        """Speed profile of a move: A1 ramp-up from 5 mm/s, A2 ramp-down √(2·a·d) to the stop point."""
+
+        v = speed_mm_s
+        if self.accel_mm_s2:
+            v = min(v, MIN_PROFILE_SPEED_MM_S + self.accel_mm_s2 * elapsed_s)
+        if self.decel_mm_s2 and remaining_mm is not None:
+            v = min(v, MIN_PROFILE_SPEED_MM_S + math.sqrt(2 * self.decel_mm_s2 * max(remaining_mm, 0.0)))
+        return max(v, MIN_PROFILE_SPEED_MM_S)
 
     def brake_distance(self, direction: int, speed_mm_s: float) -> float:
         """Distance the bar runs after the force switches to the middle of the window (M3; lag only before it)."""
@@ -160,6 +199,8 @@ class Motion:
     extra: dict[Side, float] = field(default_factory=dict)  # force beyond the window edge (integrator)
     moving: bool = False
     escalations: int = 0  # times the cap was raised because the bar stayed put
+    target_v: float = 0.0  # current target of the speed profile
+    profile_trace: list[tuple[float, float, float]] | None = None  # (t, target_v, v) if recorded
     released_at: float | None = None  # first motion after an escalation or a lift-off from the stops
     trace: list[tuple[float, float, float, dict[Side, float]]] | None = None  # (t, x_mean, v, extra) if recorded
 
@@ -174,8 +215,13 @@ def _governed(
     note: str,
     progress: Any,
     state: Motion | None = None,
+    remaining: Any = None,
+    force_offset: Any = None,
 ) -> Gen:
     """Move in ``direction`` at about ``speed_mm_s`` until ``done(frame, extra)``; returns the last frame.
+
+    ``remaining(frame)`` (mm to the stop point) lets the A2 ramp-down slow the move; the A1 ramp-up starts
+    at 5 mm/s. ``force_offset(frame)`` adds a test force (a simulated load) to both sides.
 
     The integrator works in N/s (frame period independent) and starts at the M2 feed force if measured.
     At the cap and still for ``ESCALATE_S`` the cap rises by 0.25·Fc (up to +1·Fc); the first motion
@@ -187,7 +233,7 @@ def _governed(
     friction = {side: balance.friction(side, direction) for side in SIDES}
 
     def start() -> dict[Side, float]:
-        return {side: feed if (feed := balance.feed(side, direction)) is not None else -0.15 * friction[side] for side in SIDES}
+        return {side: feed if (feed := balance.feed(side, direction, speed_mm_s)) is not None else -0.15 * friction[side] for side in SIDES}
 
     extra = start()
     rate = {side: max(4.0, 0.2 * friction[side]) for side in SIDES}  # N/s
@@ -203,9 +249,12 @@ def _governed(
     previous: Frame | None = None
     moving_at, stuck_since, t_prev = frame.t, None, frame.t
     lifting = direction > 0 and any(frame.x(side) < STOPS_MM for side in SIDES)
+    t_start = frame.t
     while True:
         v = direction * speed(frame, previous)
         state.v, state.extra, state.moving = v, extra, v > STILL_MM_S
+        target_v = balance.target_speed(speed_mm_s, frame.t - t_start, remaining(frame) if remaining else None)
+        state.target_v = target_v
         if done(frame, extra):
             break
         dt = min(max(frame.t - t_prev, 0.0), 0.25)
@@ -235,22 +284,27 @@ def _governed(
                 stuck_since, state.escalations = None, state.escalations + 1
         for side in SIDES:
             # integral of the speed error: ``rate`` N/s at half the target speed missing, twice that when too fast
-            error = max(-2.0, min(1.0, (speed_mm_s - v) / (0.5 * speed_mm_s)))
+            error = max(-2.0, min(1.0, (target_v - v) / (0.5 * target_v)))
             extra[side] = min(extra[side] + rate[side] * error * dt, cap[side])
         forces = {}
         effective = {}
         for side in SIDES:
             # 90 % of the M1 lift-off force: the integrator adds the rest gently instead of overshooting it
             lift = 0.9 * balance.liftoff.get(side, 0.0) if direction > 0 and frame.x(side) < STOPS_MM else 0.0
-            p_term = max(-p_cap[side], min(p_cap[side], kp[side] * (speed_mm_s - v)))
+            p_term = max(-p_cap[side], min(p_cap[side], kp[side] * (target_v - v)))
             if lift > 0 or v <= STILL_MM_S:
                 # standing (on the stops or held by stiction): the speed is 0 by contact, not by too little force —
                 # a P kick here only makes the breakaway violent; the integrator finds the force
                 p_term = min(p_term, 0.0)
+            other: Side = "right" if side == "left" else "left"
+            sync = max(-SYNC_LIMIT_FC * friction[side], min(SYNC_LIMIT_FC * friction[side], balance.sync_k * (frame.x(other) - frame.x(side))))
             effective[side] = extra[side] + p_term
-            forces[side] = balance.edge(side, frame.x(side), direction) + direction * (extra[side] + lift + p_term)
+            offset = force_offset(frame) if force_offset else 0.0
+            forces[side] = balance.edge(side, frame.x(side), direction) + direction * (extra[side] + lift + p_term) + sync + offset
         if state.trace is not None:
             state.trace.append((frame.t, frame.x_mean, v, effective))
+        if state.profile_trace is not None:
+            state.profile_trace.append((frame.t, target_v, v))
         frame = yield Command(forces, note=note, progress=progress(frame), liftoff=lifting or cap != cap0 or _freshly_lifted(state, frame))
     return frame
 
@@ -294,14 +348,18 @@ def travel(
     def arrived(f: Frame, _extra: dict[Side, float]) -> bool:
         return direction * (target_mm - f.x_mean) <= balance.brake_distance(direction, state.v)
 
+    def remaining(f: Frame) -> float:
+        return direction * (target_mm - f.x_mean) - balance.brake_distance(direction, state.v)
+
     if abs(target_mm - start) > 1.0:
-        frame = yield from _governed(balance, frame, direction, speed_mm_s, arrived, note=label, progress=progress, state=state)
+        frame = yield from _governed(balance, frame, direction, speed_mm_s, arrived, note=label, progress=progress, state=state, remaining=remaining)
     return (yield from hold_still(balance, frame, note=label, progress=progress(frame)))
 
 
-def land(balance: Balance, frame: Frame, *, speed_mm_s: float = 15.0, progress: float | None = None) -> Gen:
+def land(balance: Balance, frame: Frame, *, speed_mm_s: float | None = None, progress: float | None = None, state: Motion | None = None) -> Gen:
     """Down to the stops: pushing ≥ 0.25·Fc⁻ below the window, low and still for 1 s = resting on the stops."""
 
+    speed_mm_s = speed_mm_s if speed_mm_s is not None else (balance.landing_speed_mm_s or 15.0)
     if frame.x_mean > 60.0:
         frame = yield from travel(balance, frame, 30.0, speed_mm_s=max(speed_mm_s, 20.0), progress_span=progress)
     rested: dict[str, float | None] = {"since": None}
@@ -314,6 +372,6 @@ def land(balance: Balance, frame: Frame, *, speed_mm_s: float = 15.0, progress: 
             rested["since"] = None
         return rested["since"] is not None and f.t - rested["since"] >= 1.0
 
-    frame = yield from _governed(balance, frame, -1, speed_mm_s, done, note="опускание на упоры", progress=lambda _f: progress)
+    frame = yield from _governed(balance, frame, -1, speed_mm_s, done, note="опускание на упоры", progress=lambda _f: progress, state=state)
     forces = {side: balance.weight(side, frame.x(side)) - 0.5 * balance.coulomb_down[side] for side in SIDES}
     return (yield Command(forces, note="гриф на упорах", progress=progress))

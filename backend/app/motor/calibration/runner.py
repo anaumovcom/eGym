@@ -37,6 +37,25 @@ class Frame:
 
 
 @dataclass(frozen=True)
+class Prompt:
+    """An instruction for the operator shown during the procedure.
+
+    ``confirm`` — wait for the «Готово» button; ``input`` — a number is required; ``action`` — the
+    machine detects the action itself (the bar moved), the button only skips it.
+    """
+
+    text: str
+    kind: str = "confirm"  # confirm | input | action
+    label: str | None = None  # input field label
+    unit: str | None = None
+    min: float | None = None
+    max: float | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"text": self.text, "kind": self.kind, "label": self.label, "unit": self.unit, "min": self.min, "max": self.max}
+
+
+@dataclass(frozen=True)
 class Command:
     forces_n: dict[Side, float] | None = None  # None → support
     raw: dict[Side, int] | None = None  # direct PA_12C (direction test only)
@@ -45,6 +64,7 @@ class Command:
     # lift-off from the stops: released adhesion throws the bar for 1–3 frames of bus delay;
     # a procedure may raise the speed limit up to LIFTOFF_SPEED_MM_S, only below LIFTOFF_ZONE_MM
     liftoff: bool = False
+    prompt: Prompt | None = None  # the operator is asked to do something
 
 
 LIFTOFF_SPEED_MM_S = 150.0
@@ -113,7 +133,7 @@ class CalibrationRunner:
         must be confirmed by the encoder (Δx/Δt ≥ half the limit) or last three frames."""
 
         if not self.dead_man():
-            return "кнопка удержания отпущена"
+            return "нет связи с экраном калибровки (закрыт, свёрнут или потеряна сеть)"
         previous = self._previous
         self._previous = frame
         liftoff = self._command.liftoff and all(sample.position_mm <= LIFTOFF_ZONE_MM for sample in frame.samples.values())
