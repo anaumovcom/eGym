@@ -42,10 +42,11 @@ def test_wizard_session_runs_stages_and_proposes_changes(twin_runtime: HardwareR
     _run(twin_runtime)
     payload = session.to_payload()
     assert payload["status"] == "done", payload["reason"]
-    assert [stage["status"] for stage in payload["stages"]] == ["done", "done", "done"]
+    assert [stage["code"] for stage in payload["stages"]] == ["B0", "B1", "B5", "S3", "M1", "M2", "M3", "C3", "B7", "C1"]
+    assert all(stage["status"] == "done" and stage["result"]["report"] for stage in payload["stages"])
     assert payload["progress"] == 1.0 and payload["hasChanges"]
     keys = {(item["side"], item["key"]) for item in payload["changes"]}
-    assert {("left", "direction_sign"), ("right", "coulomb_up_n"), (None, "hold_ultimate_k_n_per_mm")} <= keys
+    assert {("left", "direction_sign"), ("right", "coulomb_up_n"), ("left", "support_raw"), ("right", "zero_counts"), (None, "loop_period_s"), (None, "hold_ultimate_k_n_per_mm")} <= keys
     assert payload["log"]["t"] and len(payload["log"]["t"]) <= 601
     assert twin_runtime.mode == "support" and _support_written(twin_runtime)
     assert twin_runtime.profile.left.gravity_map.provenance == "default"  # candidate not active until saved
@@ -78,7 +79,7 @@ def test_dead_man_release_aborts_to_support(twin_runtime: HardwareRuntime) -> No
     session.dead_man_timeout_s = -1.0
     twin_runtime.tick()
     assert session.status == "aborted" and "удержания" in (session.reason or "")
-    assert session.stages[0].status == "aborted"
+    assert session.current_stage.status == "aborted"
     assert _support_written(twin_runtime)
 
 
@@ -134,7 +135,7 @@ def test_calibration_api_accept_saves_and_applies(client) -> None:
 def test_parameters_api_describes_and_validates(client) -> None:
     data = client.get("/api/motor/parameters").json()
     groups = {group["id"]: group for group in data["groups"]}
-    assert set(groups) == {"drive", "statics", "dynamics", "behaviour", "safety"}
+    assert set(groups) == {"drive", "statics", "dynamics", "motion", "behaviour", "safety"}
     items = {item["key"]: item for group in data["groups"] for item in group["items"]}
     assert items["coulomb_up_n"]["values"]["left"]["value"] > 0 and items["coulomb_up_n"]["description"]
     assert items["direction_sign"]["editable"] is False

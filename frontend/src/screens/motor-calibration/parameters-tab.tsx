@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import {
   PROVENANCE_LABEL,
   formatValue,
@@ -15,6 +16,26 @@ import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 
 type Draft = Record<string, string | boolean>
+type Filter = 'all' | 'measured' | 'manual' | 'default'
+
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: 'all', label: 'Все' },
+  { id: 'measured', label: 'Измерено' },
+  { id: 'manual', label: 'Вручную' },
+  { id: 'default', label: 'Не измерено' },
+]
+
+function provenances(item: ParamItem): ValueInfo['provenance'][] {
+  return item.values ? [item.values.left.provenance, item.values.right.provenance] : item.value ? [item.value.provenance] : []
+}
+
+function matches(item: ParamItem, filter: Filter, query: string): boolean {
+  const kinds = provenances(item)
+  if (filter === 'default' && !kinds.some((kind) => kind === 'default' || kind === 'derived')) return false
+  if ((filter === 'measured' || filter === 'manual') && !kinds.includes(filter)) return false
+  const text = query.trim().toLowerCase()
+  return !text || [item.label, item.description, item.key, ...item.producedBy].some((part) => part.toLowerCase().includes(text))
+}
 
 const PROVENANCE_CLASS: Record<ValueInfo['provenance'], string> = {
   measured: 'bg-[#79de83]/15 text-[#79de83]',
@@ -105,14 +126,30 @@ function ValueCell({ item, info, side, draft, canEdit, onChange }: {
   )
 }
 
-function ParamRow({ item, draft, canEdit, onChange }: { item: ParamItem; draft: Draft; canEdit: boolean; onChange: (key: string, value: string | boolean | undefined) => void }) {
+function ParamRow({ item, draft, canEdit, onChange, onOpen }: {
+  item: ParamItem
+  draft: Draft
+  canEdit: boolean
+  onChange: (key: string, value: string | boolean | undefined) => void
+  onOpen: (code: string) => void
+}) {
   return (
     <li className="grid gap-3 border-t border-white/6 py-4 first:border-t-0 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-medium text-white">{item.label}</span>
           {!item.editable ? <span className="rounded-full bg-white/6 px-2 py-0.5 text-[11px] text-white/40">только калибровкой</span> : null}
-          {item.producedBy ? <span className="rounded-full bg-[#b5852f]/15 px-2 py-0.5 text-[11px] text-[#f2cf87]">измеряет {item.producedBy}</span> : null}
+          {item.producedBy.map((code) => (
+            <button
+              key={code}
+              type="button"
+              onClick={() => onOpen(code)}
+              title={`Открыть калибровку ${code}`}
+              className="rounded-full bg-[#b5852f]/15 px-2 py-0.5 text-[11px] text-[#f2cf87] hover:bg-[#b5852f]/30"
+            >
+              измеряет {code} →
+            </button>
+          ))}
           {item.restart ? <span className="rounded-full bg-[#ff8f84]/10 px-2 py-0.5 text-[11px] text-[#ff8f84]">после перезапуска</span> : null}
         </div>
         <p className="mt-1 text-sm leading-relaxed text-white/55">{item.description}</p>
@@ -139,7 +176,23 @@ export function ParametersTab({ serviceMode, calibrating }: { serviceMode: boole
   const [draft, setDraft] = useState<Draft>({})
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null)
+  const [filter, setFilter] = useState<Filter>('all')
+  const [search, setSearch] = useState('')
+  const [, setSearchParams] = useSearchParams()
   const canEdit = serviceMode && !calibrating
+  const openCalibration = (code: string) => setSearchParams({ tab: 'calibrations', code })
+
+  const summary = useMemo(() => {
+    const counts: Record<ValueInfo['provenance'], number> = { measured: 0, manual: 0, default: 0, derived: 0 }
+    for (const group of query.data?.groups ?? []) {
+      for (const item of group.items) if (item.scope === 'side' || item.scope === 'machine') for (const kind of provenances(item)) counts[kind] += 1
+    }
+    return counts
+  }, [query.data])
+  const groups = useMemo(
+    () => (query.data?.groups ?? []).map((group) => ({ ...group, items: group.items.filter((item) => matches(item, filter, search)) })),
+    [query.data, filter, search],
+  )
 
   const items = useMemo(() => new Map<string, ParamItem>((query.data?.groups ?? []).flatMap((group) => group.items.map((item) => [`${item.scope}|${item.key}`, item] as const))), [query.data])
 
@@ -204,12 +257,51 @@ export function ParametersTab({ serviceMode, calibrating }: { serviceMode: boole
         </span>
       </div>
 
-      {query.data.groups.map((group) => (
-        <section key={group.id} className="rounded-[24px] border border-white/8 bg-white/4 p-5" aria-label={group.title}>
+      <div className="space-y-3 rounded-[20px] border border-white/8 bg-white/4 px-5 py-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Поиск: трение, S3, support…"
+            aria-label="Поиск параметра"
+            className="min-w-56 flex-1 rounded-xl border border-white/10 bg-black/25 px-3 py-2 text-sm text-white outline-none focus:border-[#d6b05f]"
+          />
+          <div className="flex gap-1" role="group" aria-label="Фильтр по происхождению">
+            {FILTERS.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={filter === item.id}
+                onClick={() => setFilter(item.id)}
+                className={cn('rounded-xl px-3 py-1.5 text-xs transition', filter === item.id ? 'bg-[#b5852f]/30 text-[#f4dfb4]' : 'text-white/50 hover:bg-white/6')}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-white/40">Значения тренажёра:</span>
+          {(['measured', 'manual', 'derived', 'default'] as const).map((kind) => (
+            <span key={kind} className={cn('rounded-full px-2 py-0.5', PROVENANCE_CLASS[kind])}>{PROVENANCE_LABEL[kind]} · {summary[kind]}</span>
+          ))}
+          <span className="ml-auto flex flex-wrap gap-1">
+            {groups.map((group) => (
+              <a key={group.id} href={`#params-${group.id}`} className="rounded-lg px-2 py-0.5 text-white/45 hover:bg-white/6 hover:text-white">{group.title} ({group.items.length})</a>
+            ))}
+          </span>
+        </div>
+      </div>
+
+      {groups.every((group) => !group.items.length) ? <p className="text-sm text-white/45">Ничего не найдено.</p> : null}
+
+      {groups.filter((group) => group.items.length).map((group) => (
+        <section key={group.id} id={`params-${group.id}`} className="scroll-mt-4 rounded-[24px] border border-white/8 bg-white/4 p-5" aria-label={group.title}>
           <h3 className="text-lg font-semibold text-[#f4dfb4]">{group.title}</h3>
           <p className="mt-1 text-sm text-white/50">{group.description}</p>
           <ul className="mt-3">
-            {group.items.map((item) => <ParamRow key={`${item.scope}|${item.key}`} item={item} draft={draft} canEdit={canEdit} onChange={onChange} />)}
+            {group.items.map((item) => <ParamRow key={`${item.scope}|${item.key}`} item={item} draft={draft} canEdit={canEdit} onChange={onChange} onOpen={openCalibration} />)}
           </ul>
         </section>
       ))}

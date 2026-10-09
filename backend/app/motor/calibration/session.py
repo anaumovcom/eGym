@@ -23,18 +23,33 @@ from app.motor.calibration.procedures.bus import (
     absolute_zero,
     bus_timing,
     config_check,
+    control_delay,
     fit_bus_timing,
     fit_config,
+    fit_delay,
     fit_zero,
 )
+from app.motor.calibration.procedures.coupling import fit_coupling, side_coupling
+from app.motor.calibration.procedures.daily import daily_check, fit_daily
 from app.motor.calibration.procedures.direction import direction_test
 from app.motor.calibration.procedures.dynamics import fit_friction_up, fit_moving_mass, friction_up, moving_mass
 from app.motor.calibration.procedures.heightmap import fit_height_map, height_map, map_heights
 from app.motor.calibration.procedures.motion import Balance
+from app.motor.calibration.procedures.moves import (
+    braking_test,
+    fit_braking,
+    fit_liftoff,
+    fit_motion_check,
+    fit_travel_feed,
+    liftoff_test,
+    motion_check,
+    travel_feed,
+)
 from app.motor.calibration.procedures.reference import fit_accuracy, fit_scale, loaded_window, weight_shift
 from app.motor.calibration.procedures.relay import fit_relay, relay_test
 from app.motor.calibration.procedures.statics import balance_and_friction, fit_balance
 from app.motor.calibration.procedures.support import fit_support, support_descent
+from app.motor.calibration.procedures.travel import fit_travel, travel_range
 from app.motor.calibration.runner import (
     CalibrationRunner,
     Frame,
@@ -57,12 +72,19 @@ RELAY_STEPS_N = (6.0, 12.0)
 LOG_POINTS = 600
 REFERENCE_KG = (2.0, 60.0)
 MAX_S = {"S7": 1500.0}
-_RESCALED = ("gravity_map", "coulomb_up_n", "coulomb_down_n", "viscous_n_per_mm_s", "stribeck_extra_n", "moving_mass_kg")
+TRAVEL_ENVELOPE_MM = 2000.0  # B8 rises to the real upper stop: beyond the software limit, below the screw length
+_RESCALED = (
+    "gravity_map", "coulomb_up_n", "coulomb_down_n", "viscous_n_per_mm_s", "stribeck_extra_n", "moving_mass_kg",
+    "liftoff_extra_n", "travel_extra_up_n", "travel_extra_down_n",
+)
+_RESCALED_MACHINE = ("hold_ultimate_k_n_per_mm", "side_coupling_n_per_mm")
 EXTRA_PATHS = {
     "S3": ("left.stribeck_extra_n", "right.stribeck_extra_n"),
-    "S7": ("left.coulomb_up_n", "left.coulomb_down_n", "right.coulomb_up_n", "right.coulomb_down_n"),
-    "S9": (*(f"{side}.{key}" for side in SIDES for key in _RESCALED), "hold_ultimate_k_n_per_mm"),
+    "S7": ("left.coulomb_up_n", "left.coulomb_down_n", "right.coulomb_up_n", "right.coulomb_down_n", "left.stribeck_extra_n", "right.stribeck_extra_n"),
+    "D2": ("left.coulomb_up_n", "left.coulomb_down_n", "right.coulomb_up_n", "right.coulomb_down_n", "left.stribeck_v_mm_s", "right.stribeck_v_mm_s"),
+    "S9": (*(f"{side}.{key}" for side in SIDES for key in _RESCALED), *_RESCALED_MACHINE),
 }
+STRIBECK_MIN_N = 2.0  # a smaller static − kinetic difference is noise: no split
 _SIDE_LABEL = {"left": "Л", "right": "П"}
 
 
@@ -230,17 +252,35 @@ class CalibrationSession:
             npr = {side: self.profile.side(side).n_per_raw_value for side in SIDES}
             signs = {side: self.profile.side(side).sign for side in SIDES}
             return support_descent(self._balance, npr, signs), ProcedureEnvelope(max_x_mm=200.0)
+        if code == "B3":
+            return control_delay(self._balance), ProcedureEnvelope(max_x_mm=120.0)
+        if code == "X2":
+            return side_coupling(self._balance), ProcedureEnvelope(max_x_mm=120.0)
+        if code == "B8":
+            return travel_range(self._balance, expected_mm=float(self.profile.travel_mm.value)), ProcedureEnvelope(max_x_mm=TRAVEL_ENVELOPE_MM)
+        if code == "Q1":
+            start = {side: self._balance.edge(side, 0.0, -1) for side in SIDES}
+            return daily_check(self.drives, start), ProcedureEnvelope(max_x_mm=80.0)
+        if code == "M1":
+            return liftoff_test(self._balance), ProcedureEnvelope(max_x_mm=80.0)
+        if code == "M2":
+            return travel_feed(self._balance), ProcedureEnvelope(max_x_mm=220.0)
+        if code == "M3":
+            return braking_test(self._balance), ProcedureEnvelope(max_x_mm=240.0)
+        if code == "M4":
+            return motion_check(self._balance), ProcedureEnvelope(max_x_mm=200.0)
         raise ValueError(code)
 
     def _top_mm(self) -> float:
-        return min(float(self.profile.travel_mm.value), self.safety.soft_max_mm) - 80.0
+        return min(float(self.profile.travel_mm.value) - 20.0, self.safety.soft_max_mm) - 80.0
 
     def _profile_window(self) -> dict[Side, tuple[float, float]]:
         window = {}
         for side in SIDES:
             profile = self.profile.side(side)
             weight = profile.weight_n(10.0)
-            window[side] = (weight - float(profile.coulomb_down_n.value), weight + float(profile.coulomb_up_n.value))
+            extra = float(profile.stribeck_extra_n.value or 0.0)
+            window[side] = (weight - float(profile.coulomb_down_n.value) - extra, weight + float(profile.coulomb_up_n.value) + extra)
         return window
 
     def _start_stage(self) -> None:
@@ -284,7 +324,10 @@ class CalibrationSession:
             for side in SIDES:
                 sign = data["sides"][side]["direction_sign"]
                 self.profile = self.profile.with_side(side, replace(self.profile.side(side), direction_sign=_measured(sign, None, self.id)))
-            stage.result = {"sides": data["sides"]}
+            stage.result = {"sides": data["sides"], "report": [
+                _line(f"{_SIDE_LABEL[side]}: поднимает момент", f"{'+' if item['direction_sign'] > 0 else '−'} (отрыв при {abs(item['lift_raw'])} ед.)", True)
+                for side, item in data["sides"].items()
+            ]}
             self._bar_up = False
             return False
         if stage.code == "S3":
@@ -296,12 +339,23 @@ class CalibrationSession:
                     gravity_map=_measured([(estimate.height_mm, estimate.weight_n[side].mean)], estimate.weight_n[side].ci95, self.id),
                     coulomb_up_n=_measured(estimate.coulomb_up_n[side].mean, estimate.coulomb_up_n[side].ci95, self.id),
                     coulomb_down_n=_measured(estimate.coulomb_down_n[side].mean, estimate.coulomb_down_n[side].ci95, self.id),
-                    stribeck_extra_n=_measured(0.0, None, self.id),
+                    stribeck_extra_n=replace(current.stribeck_extra_n, value=0.0),  # breakaway again: D2 splits it
                 ))
             self._window = {
                 side: (estimate.weight_n[side].mean - estimate.coulomb_down_n[side].mean, estimate.weight_n[side].mean + estimate.coulomb_up_n[side].mean) for side in SIDES
             }
-            stage.result = estimate.to_dict()
+            stage.result = estimate.to_dict() | {"report": [
+                line
+                for side in SIDES
+                for line in (
+                    _line(
+                        f"{_SIDE_LABEL[side]}: вес (баланс)",
+                        f"{estimate.weight_n[side].mean:.1f} ± {_finite(estimate.weight_n[side].ci95) or 0:.1f} Н ({n_to_kgf(estimate.weight_n[side].mean):.1f} кгс)",
+                        estimate.weight_n[side].rel_spread < 0.05,
+                    ),
+                    _line(f"{_SIDE_LABEL[side]}: трение вверх / вниз", f"{estimate.coulomb_up_n[side].mean:.1f} / {estimate.coulomb_down_n[side].mean:.1f} Н"),
+                )
+            ] + [_line("Высота замера", f"{estimate.height_mm:.1f} мм")]}
             self._bar_up = True
             return False
         if stage.code == "C1":
@@ -320,7 +374,11 @@ class CalibrationSession:
                 hold_ultimate_k_n_per_mm=_measured(relay["k_u_n_per_mm"], None, self.id),
                 hold_ultimate_period_s=_measured(relay["period_s"], None, self.id),
             )
-            stage.result = {**relay, "relay_n": relay_n}
+            stage.result = {**relay, "relay_n": relay_n, "report": [
+                _line("Предельная жёсткость Kᵤ", f"{relay['k_u_n_per_mm']:.2f} Н/мм"),
+                _line("Период / амплитуда цикла", f"{relay['period_s']:.2f} с / {relay['amplitude_mm']:.2f} мм"),
+                _line("Реле", f"±{relay_n:.0f} Н"),
+            ]}
             return False
         fitter = getattr(self, f"_fit_{stage.code.lower()}", None)
         if fitter is None:
@@ -361,6 +419,8 @@ class CalibrationSession:
             _line("Джиттер p95", ms(r["jitter_p95_s"])),
             _line("Среднее чтение шины", ms(r["read_mean_s"])),
             _line("Опоздавшие циклы (> 2× медианы)", f"{r['late_frames']} из {r['cycles']}", r["late_frames"] == 0),
+            _line("Шум положения в покое (СКО)", f"{r['noise_mm'] * 1000:.1f} мкм (критерий < 50)", r["noise_ok"]),
+            _line("Шум скорости в покое (СКО)", f"{r['noise_mm_s']:.2f} мм/с (порог трогания 1,5)", r["noise_mm_s"] < 0.5),
         ]}
 
     def _fit_b7(self, stage: Stage, data: dict[str, Any]) -> None:
@@ -387,6 +447,7 @@ class CalibrationSession:
                 gravity_map=_measured([(float(x), float(w)) for x, w in item["map"]], _finite(item["ci95"]), self.id),
                 coulomb_up_n=_measured(up.mean, _finite(up.ci95), self.id),
                 coulomb_down_n=_measured(down.mean, _finite(down.ci95), self.id),
+                stribeck_extra_n=replace(self.profile.side(side).stribeck_extra_n, value=0.0),  # breakaway again: D2 splits it
             )
             weights = [w for _, w in item["map"]]
             report.append(_line(f"{_SIDE_LABEL[side]}: вес по высоте", f"{min(weights):.1f}…{max(weights):.1f} Н ({n_to_kgf(min(weights)):.1f}…{n_to_kgf(max(weights)):.1f} кгс)"))
@@ -406,45 +467,68 @@ class CalibrationSession:
         shifts = self._shifts(data)
         sides = {side: self.profile.side(side) for side in SIDES}
         scale = fit_scale(shifts, {side: sides[side].n_per_raw_value for side in SIDES}, {side: sides[side].n_per_raw.ci95 for side in SIDES})
-        report = []
+        ratio = scale["ratio"]
+        report = [
+            _line("Сдвиг баланса от груза", f"{scale['delta_n']:.1f} ± {scale['delta_ci95']:.1f} Н при ожидаемых {scale['expected_n']:.1f} Н"),
+            _line("Поправка масштаба", f"×{ratio:.3f}", abs(ratio - 1) < 0.2),
+        ]
         for side in SIDES:
-            item, current = scale[side], sides[side]
-            ratio = item["ratio"]
+            item, current = scale["sides"][side], sides[side]
             rescaled = {key: _scaled(getattr(current, key), ratio) for key in _RESCALED}
             self._set_side(side, n_per_raw=_measured(item["n_per_raw"], item["ci95"], self.id), **rescaled)
-            report.append(_line(f"{_SIDE_LABEL[side]}: ΔW от груза", f"{shifts[side]['delta_n']:.1f} Н при ожидаемых {shifts[side]['expected_n']:.1f} Н"))
-            report.append(_line(f"{_SIDE_LABEL[side]}: масштаб силы", f"{item['old_n_per_raw']:.4f} → {item['n_per_raw']:.4f} Н/ед. (×{ratio:.3f})", abs(ratio - 1) < 0.2))
-        mean_ratio = sum(scale[side]["ratio"] for side in SIDES) / len(SIDES)
-        self.profile = replace(self.profile, hold_ultimate_k_n_per_mm=_scaled(self.profile.hold_ultimate_k_n_per_mm, mean_ratio))
-        stage.result = {"referenceKg": self.options["referenceKg"], "shifts": shifts, "sides": scale, "report": report}
+            side_ratio = f" (по стороне ×{item['side_ratio']:.2f})" if item["side_ratio"] else ""
+            report.append(_line(f"{_SIDE_LABEL[side]}: масштаб силы", f"{item['old_n_per_raw']:.4f} → {item['n_per_raw']:.4f} Н/ед.{side_ratio}"))
+        self.profile = replace(self.profile, **{key: _scaled(getattr(self.profile, key), ratio) for key in _RESCALED_MACHINE})
+        stage.result = {"referenceKg": self.options["referenceKg"], "shifts": shifts, **scale, "report": report}
 
     def _fit_g1(self, stage: Stage, data: dict[str, Any]) -> None:
         shifts = self._shifts(data)
         r = fit_accuracy(shifts, float(self.options["referenceKg"]))
         report = [
             _line(
-                f"{_SIDE_LABEL[side]}: груз на стороне",
-                f"{item['measured_kg']:.2f} кг при {item['expected_kg']:.2f} кг (ошибка {item['error_kg']:+.2f} кг, {item['error_pct']:+.1f}%)",
-                item["ok"],
-            )
-            for side, item in r["sides"].items()
+                "Измеренная масса груза",
+                f"{r['measured_kg']:.2f} ± {r['ci95_kg']:.2f} кг при {r['expected_kg']:.2f} кг (ошибка {r['error_kg']:+.2f} кг, {r['error_pct']:+.1f} %)",
+                r["ok"],
+            ),
+            _line("Допуск", f"±{r['limit_kg']:.2f} кг"),
+            *(
+                _line(f"{_SIDE_LABEL[side]}: приходится на сторону (справочно)", f"{item['measured_kg']:.2f} кг из {item['expected_kg']:.2f}")
+                for side, item in r["sides"].items()
+            ),
         ]
-        report.append(_line("Допуск", f"±{r['limit_kg']:.2f} кг", r["ok"]))
         stage.result = {"referenceKg": self.options["referenceKg"], **r, "report": report}
         if not r["ok"]:
             raise ProcedureError(f"статическая точность вне допуска ±{r['limit_kg']:.2f} кг")
 
     def _fit_d2(self, stage: Stage, data: dict[str, Any]) -> None:
+        """Viscous friction; the static window splits into kinetic Coulomb + stiction extra (edges unchanged)."""
+
         assert self._balance is not None
         r = fit_friction_up(data, self._balance)
         report, sides = [], {}
         for side in SIDES:
-            item = r[side]
-            self._set_side(side, viscous_n_per_mm_s=_measured(item["viscous_n_per_mm_s"], _finite(item["ci95"]), self.id))
-            sides[side] = {key: value for key, value in item.items() if key != "rows"}
+            item, current = r[side], self.profile.side(side)
+            static_up, static_down = self._balance.coulomb_up[side], self._balance.coulomb_down[side]
+            extra = min(max(static_up - item["coulomb_kin_n"], 0.0), static_down)
+            if extra < max(STRIBECK_MIN_N, item["coulomb_kin_ci95"] if math.isfinite(item["coulomb_kin_ci95"]) else 0.0):
+                extra = 0.0
+            values: dict[str, Measured] = {
+                "viscous_n_per_mm_s": _measured(item["viscous_n_per_mm_s"], _finite(item["ci95"]), self.id),
+                "stribeck_extra_n": _measured(extra, None, self.id),
+                # the window edges stay those measured by S3/S7: keep their provenance and time
+                "coulomb_up_n": replace(current.coulomb_up_n, value=static_up - extra),
+                "coulomb_down_n": replace(current.coulomb_down_n, value=static_down - extra),
+            }
+            if extra > 0 and item["stribeck_v_mm_s"]:
+                values["stribeck_v_mm_s"] = _measured(float(item["stribeck_v_mm_s"]), None, self.id)
+            self._set_side(side, **values)
+            sides[side] = {key: value for key, value in item.items() if key != "rows"} | {"stribeck_extra_n": extra}
             report.append(_line(f"{_SIDE_LABEL[side]}: вязкое трение", f"{item['viscous_n_per_mm_s']:.3f} ± {item['ci95']:.3f} Н·с/мм", item["viscous_raw"] > -item["ci95"]))
-            report.append(_line(f"{_SIDE_LABEL[side]}: кинетическое трение (статическое)", f"{item['coulomb_kin_n']:.1f} Н ({self._balance.coulomb_up[side]:.1f} Н)"))
-            report.append(_line(f"{_SIDE_LABEL[side]}: невязка / задержка", f"{item['rmse_n']:.1f} Н / {item['lag_frames']} кадр. ({item['rows']} точек)"))
+            report.append(_line(f"{_SIDE_LABEL[side]}: трение движения / трогания", f"{static_up - extra:.1f} / {static_up:.1f} Н"))
+            stribeck = f"{extra:.1f} Н" + (f", vₛ ≈ {item['stribeck_v_mm_s']:.0f} мм/с" if extra > 0 and item["stribeck_v_mm_s"] else "")
+            report.append(_line(f"{_SIDE_LABEL[side]}: добавка трогания (Штрибек)", stribeck if extra > 0 else "нет (трогание ≈ движение)"))
+            points = ", ".join(f"{v:.0f} мм/с → {y:+.1f} Н" for v, y in item["points"])
+            report.append(_line(f"{_SIDE_LABEL[side]}: сила сверх окна по скоростям", f"{points} (невязка {item['rmse_n']:.1f} Н)"))
         stage.result = {"sides": sides, "report": report}
 
     def _fit_d4(self, stage: Stage, data: dict[str, Any]) -> None:
@@ -474,6 +558,136 @@ class CalibrationSession:
         ]
         stage.result = {**r, "report": report}
 
+    def _fit_b3(self, stage: Stage, data: dict[str, Any]) -> None:
+        r = fit_delay(data)
+        self.profile = replace(self.profile, loop_delay_s=_measured(r["delay_s"], _finite(r["ci95"]), self.id))
+        frames = f" ≈ {r['frames']:.1f} периода" if r["frames"] else ""
+        stage.result = {**r, "report": [
+            _line("Задержка команда → движение", f"{r['delay_s'] * 1000:.0f} мс{frames}"),
+            _line("Минимум / максимум", f"{r['min_s'] * 1000:.0f} / {r['max_s'] * 1000:.0f} мс", r["ok"]),
+            _line("Период кадра во время замера", f"{r['period_s'] * 1000:.0f} мс"),
+            _line("Ступеней", str(r["steps"])),
+        ]}
+
+    def _fit_b8(self, stage: Stage, data: dict[str, Any]) -> None:
+        r = fit_travel(data)
+        self.profile = replace(self.profile, travel_mm=_measured(round(r["travel_mm"], 1), None, self.id))
+        soft_ok = self.safety.soft_max_mm <= r["travel_mm"] - 20.0
+        stage.result = {**r, "report": [
+            _line("Рабочий ход", f"{r['travel_mm']:.0f} мм"),
+            _line("Верхний упор Л / П", f"{r['top']['left']:.1f} / {r['top']['right']:.1f} мм", abs(r["skew_mm"]) < 3.0),
+            _line(
+                "Верхний программный предел",
+                f"{self.safety.soft_max_mm:.0f} мм" + ("" if soft_ok else f" — выше хода − 20 мм: уменьшите до {r['travel_mm'] - 20:.0f} мм в «Параметрах»"),
+                soft_ok,
+            ),
+        ]}
+
+    def _fit_x2(self, stage: Stage, data: dict[str, Any]) -> None:
+        r = fit_coupling(data)
+        self.profile = replace(self.profile, side_coupling_n_per_mm=_measured(round(r["k_n_per_mm"], 1), r["ci95"], self.id))
+        bound = "не менее " if r["lower_bound"] else ""
+        report = [_line("Жёсткость связи сторон", f"{bound}{r['k_n_per_mm']:.0f} Н/мм")]
+        for side, item in r["sides"].items():
+            fit = f", R² {item['r2']:.2f}" if item["r2"] is not None else ", перекос ниже разрешения"
+            report.append(_line(f"{_SIDE_LABEL[side]} тянется: перекос до {item['skew_max_mm']:.2f} мм", f"{item['k_n_per_mm']:.0f} Н/мм{fit} ({item['reason']})"))
+        report.append(_line("Рекомендуемое «Выравнивание сторон»", f"не более {0.2 * r['k_n_per_mm']:.1f} Н/мм (20 % жёсткости)"))
+        stage.result = {**r, "report": report}
+
+    # ---------------------------------------------------------- motion (M)
+    def _fit_m1(self, stage: Stage, data: dict[str, Any]) -> None:
+        r = fit_liftoff(data)
+        report = []
+        for side in SIDES:
+            item = r["sides"][side]
+            ci = item["ci95"]
+            self._set_side(side, liftoff_extra_n=_measured(round(item["extra_n"], 1), _finite(ci) if ci is not None else None, self.id))
+            values = " / ".join(f"{v:+.0f}" for v in item["values"])
+            friction = self._balance.coulomb_up[side] if self._balance else 0.0
+            share = f" ({100 * item['extra_n'] / friction:.0f} % трения)" if friction else ""
+            report.append(_line(f"{_SIDE_LABEL[side]}: добавка для отрыва от упоров", f"{item['extra_n']:.1f} Н{share}", item["extra_n"] < 1.5 * friction if friction else None))
+            report.append(_line(f"{_SIDE_LABEL[side]}: по повторам (первый — после стоянки)", f"{values} Н"))
+        stage.result = {**r, "report": report}
+
+    def _fit_m2(self, stage: Stage, data: dict[str, Any]) -> None:
+        r = fit_travel_feed(data)
+        target = r["speed_mm_s"]
+        report = []
+        for key, label, path in (("up", "вверх", "travel_extra_up_n"), ("down", "вниз", "travel_extra_down_n")):
+            item = r[key]
+            for side in SIDES:
+                value = item["sides"][side]
+                self._set_side(side, **{path: _measured(round(value["extra_n"], 1), _finite(value["ci95"]), self.id)})
+            extras = " / ".join(f"{item['sides'][side]['extra_n']:+.1f}" for side in SIDES)
+            report.append(_line(f"Сила сверх окна {label} (Л / П)", f"{extras} Н"))
+            rms = item["speed_rms_err"]
+            report.append(_line(
+                f"Скорость {label}: средняя / ошибка (СКО)",
+                f"{item['speed_mean']:.1f} мм/с / {rms:.1f} мм/с (цель {target:.0f})" if rms is not None else f"{item['speed_mean']:.1f} мм/с",
+                rms is None or rms < 0.4 * target,
+            ))
+        stage.result = {**r, "report": report}
+
+    def _fit_m3(self, stage: Stage, data: dict[str, Any]) -> None:
+        r = fit_braking(data)
+        self.profile = replace(
+            self.profile,
+            brake_lag_s=_measured(round(r["lag_s"], 3), None, self.id),
+            brake_decel_up_mm_s2=_measured(round(r["decel_up_mm_s2"], 1) if r["decel_up_mm_s2"] else None, None, self.id),
+            brake_decel_down_mm_s2=_measured(round(r["decel_down_mm_s2"], 1) if r["decel_down_mm_s2"] else None, None, self.id),
+        )
+
+        def decel(value: float | None) -> str:
+            return f"{value:.0f} мм/с²" if value else "мгновенно (путь только от задержки)"
+
+        report = [
+            _line("Задержка торможения", f"{r['lag_s'] * 1000:.0f} мс"),
+            _line("Замедление вверх / вниз", f"{decel(r['decel_up_mm_s2'])} / {decel(r['decel_down_mm_s2'])}"),
+        ]
+        for run in r["runs"]:
+            report.append(_line(
+                f"{'↑' if run['direction'] > 0 else '↓'} {run['v_mm_s']:.0f} мм/с",
+                f"путь {run['distance_mm']:.1f} мм за {run['time_s']:.2f} с",
+                run["distance_mm"] < 30.0,
+            ))
+        stage.result = {**r, "report": report}
+
+    def _fit_m4(self, stage: Stage, data: dict[str, Any]) -> None:
+        r = fit_motion_check(data)
+        report = [
+            _line(
+                f"→ {move['target_mm']:.0f} мм",
+                f"стоп {move['stop_mm']:.1f} мм ({move['error_mm']:+.1f}), перелёт {move['overshoot_mm']:.1f}, перекос {move['skew_mm']:.1f} мм, {move['time_s']:.1f} с",
+                abs(move["error_mm"]) <= 5.0 and move["skew_mm"] <= 5.0,
+            )
+            for move in r["moves"]
+        ]
+        report.append(_line("Наибольшая ошибка остановки", f"{r['max_error_mm']:.1f} мм (допуск 5)", r["ok_stop"]))
+        report.append(_line("Наибольший перекос сторон", f"{r['max_skew_mm']:.1f} мм (допуск 5)", r["ok_skew"]))
+        stage.result = {**r, "report": report}
+        if not r["ok"]:
+            raise ProcedureError(f"перемещение вне допуска: ошибка {r['max_error_mm']:.1f} мм, перекос {r['max_skew_mm']:.1f} мм — повторите M2/M3")
+
+    def _fit_q1(self, stage: Stage, data: dict[str, Any]) -> None:
+        r = fit_daily(data, self.profile)
+        d = r["deviation"]
+
+        def pct(value: float) -> str:
+            return f"{100 * value:+.1f} %"
+
+        report = [
+            _line("Настройки приводов", "в порядке" if r["config"]["ok"] else "; ".join(r["config"]["mismatches"]), r["config"]["ok"]),
+            _line("Положение на упорах Л / П", f"{r['rest_mm']['left']:.1f} / {r['rest_mm']['right']:.1f} мм", r["zero_ok"]),
+            _line("Вес грифа (сумма сторон)", f"{r['weight_n']:.1f} Н против {r['weight_profile_n']:.1f} Н ({pct(d['weight'])})", abs(d["weight"]) <= 0.07),
+            _line("Трение вверх", f"{r['up_n']:.1f} Н против {r['up_profile_n']:.1f} Н ({pct(d['up'])})", abs(d["up"]) <= 0.25),
+            _line("Трение вниз", f"{r['down_n']:.1f} Н против {r['down_profile_n']:.1f} Н ({pct(d['down'])})", abs(d["down"]) <= 0.25),
+        ]
+        if r["warnings"] and r["ok"]:
+            report.append(_line("Рекомендация", "повторите S3 (и S7, D2): " + "; ".join(r["warnings"]), False))
+        stage.result = {key: value for key, value in r.items() if key != "config"} | {"report": report}
+        if not r["ok"]:
+            raise ProcedureError("ежедневная проверка не пройдена: " + "; ".join(r["failures"]))
+
     def _finish(self, status: SessionStatus, reason: str | None) -> None:
         self.status = status
         self.reason = reason
@@ -484,7 +698,7 @@ class CalibrationSession:
     # -------------------------------------------------------------- results
     def changes(self) -> list[dict[str, Any]]:
         done = [stage.code for stage in self.stages if stage.status == "done"]
-        paths = [path for code in done for path in (*BY_CODE[code].produces, *EXTRA_PATHS.get(code, ()))]
+        paths = list(dict.fromkeys(path for code in done for path in (*BY_CODE[code].produces, *EXTRA_PATHS.get(code, ()))))
         items = []
         for path in paths:
             parts = path.split(".")

@@ -64,27 +64,52 @@ def weight_shift(data: dict[str, Any], unloaded: Callable[[Side, float], float],
     return shifts
 
 
-def fit_scale(shifts: dict[Side, dict[str, float]], n_per_raw: dict[Side, float], n_per_raw_ci: dict[Side, float | None]) -> dict[Side, dict[str, float]]:
-    result: dict[Side, dict[str, float]] = {}
+def _total(shifts: dict[Side, dict[str, float]]) -> tuple[float, float, float]:
+    """ΔW, its ci95 and the expected m·g of the whole bar (the per-side split is not observable statically)."""
+
+    delta = sum(shift["delta_n"] for shift in shifts.values())
+    ci = math.sqrt(sum(shift["delta_ci95"] ** 2 for shift in shifts.values()))
+    expected = sum(shift["expected_n"] for shift in shifts.values())
+    return delta, ci, expected
+
+
+def fit_scale(shifts: dict[Side, dict[str, float]], n_per_raw: dict[Side, float], n_per_raw_ci: dict[Side, float | None]) -> dict[str, Any]:
+    """One ratio m·g / ΔW for the whole bar, applied to both sides; per-side ratios are for reference."""
+
+    delta, ci, expected = _total(shifts)
+    if delta < 0.3 * expected:
+        raise ProcedureError(f"груз не обнаружен (ΔW = {delta:.1f} Н при ожидаемых {expected:.1f} Н)")
+    ratio = expected / delta
+    if not SCALE_LIMITS[0] <= ratio <= SCALE_LIMITS[1]:
+        raise ProcedureError(f"масштаб отличается от текущего в {ratio:.2f} раза — проверьте массу груза")
+    relative = ci / delta
+    sides: dict[Side, dict[str, float]] = {}
     for side in SIDES:
         shift = shifts[side]
-        if shift["delta_n"] < 0.3 * shift["expected_n"]:
-            raise ProcedureError(f"{side}: груз не обнаружен (ΔW = {shift['delta_n']:.1f} Н при ожидаемых {shift['expected_n']:.1f} Н)")
-        ratio = shift["expected_n"] / shift["delta_n"]
-        if not SCALE_LIMITS[0] <= ratio <= SCALE_LIMITS[1]:
-            raise ProcedureError(f"{side}: масштаб отличается от текущего в {ratio:.2f} раза — проверьте массу груза")
         value = n_per_raw[side] * ratio
-        relative = shift["delta_ci95"] / shift["delta_n"]
-        result[side] = {"ratio": ratio, "n_per_raw": value, "ci95": value * relative, "old_n_per_raw": n_per_raw[side], "old_ci95": n_per_raw_ci[side] or 0.0}
-    return result
+        sides[side] = {
+            "n_per_raw": value,
+            "ci95": value * relative,
+            "old_n_per_raw": n_per_raw[side],
+            "old_ci95": n_per_raw_ci[side] or 0.0,
+            "side_ratio": shift["expected_n"] / shift["delta_n"] if shift["delta_n"] > 0 else None,
+        }
+    return {"ratio": ratio, "delta_n": delta, "delta_ci95": ci, "expected_n": expected, "sides": sides}
 
 
 def fit_accuracy(shifts: dict[Side, dict[str, float]], reference_kg: float, tolerance: float = 0.05, floor_kg: float = 0.5) -> dict[str, Any]:
-    side_kg = reference_kg / 2
-    limit = max(tolerance * side_kg, floor_kg)
-    sides = {}
-    for side in SIDES:
-        shift = shifts[side]
-        error_kg = (shift["delta_n"] - shift["expected_n"]) / G
-        sides[side] = {"measured_kg": shift["delta_n"] / G, "expected_kg": side_kg, "error_kg": error_kg, "error_pct": 100 * error_kg / side_kg, "ok": abs(error_kg) <= limit}
-    return {"sides": sides, "limit_kg": limit, "ok": all(item["ok"] for item in sides.values())}
+    delta, ci, _expected = _total(shifts)
+    measured_kg = delta / G
+    error_kg = measured_kg - reference_kg
+    limit = max(tolerance * reference_kg, floor_kg)
+    sides = {side: {"measured_kg": shift["delta_n"] / G, "expected_kg": reference_kg / 2} for side, shift in shifts.items()}
+    return {
+        "measured_kg": measured_kg,
+        "ci95_kg": ci / G,
+        "expected_kg": reference_kg,
+        "error_kg": error_kg,
+        "error_pct": 100 * error_kg / reference_kg,
+        "limit_kg": limit,
+        "sides": sides,
+        "ok": abs(error_kg) <= limit,
+    }

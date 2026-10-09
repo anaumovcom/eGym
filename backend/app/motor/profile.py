@@ -48,6 +48,10 @@ class SideProfile:
     moving_mass_kg: Measured = field(default_factory=lambda: _d(60.0))
     support_raw: Measured = field(default_factory=lambda: _d(100))
     zero_counts: Measured = field(default_factory=lambda: _d(None))
+    # motion (M1, M2): force beyond the window edge; None = not measured, the motion primitives adapt
+    liftoff_extra_n: Measured = field(default_factory=lambda: _d(None))
+    travel_extra_up_n: Measured = field(default_factory=lambda: _d(None))
+    travel_extra_down_n: Measured = field(default_factory=lambda: _d(None))
 
     def weight_n(self, x_mm: float) -> float:
         points: list[tuple[float, float]] = [tuple(p) for p in self.gravity_map.value]  # type: ignore[misc]
@@ -83,6 +87,10 @@ class MachineProfile:
     hold_ultimate_period_s: Measured = field(default_factory=lambda: _d(None))
     side_coupling_n_per_mm: Measured = field(default_factory=lambda: _d(None))
     travel_mm: Measured = field(default_factory=lambda: _d(1400.0, None, "manual"))
+    # M3: stopping by the middle of the static window
+    brake_lag_s: Measured = field(default_factory=lambda: _d(None))
+    brake_decel_up_mm_s2: Measured = field(default_factory=lambda: _d(None))
+    brake_decel_down_mm_s2: Measured = field(default_factory=lambda: _d(None))
 
     def side(self, side: Side) -> SideProfile:
         return self.left if side == "left" else self.right
@@ -152,7 +160,7 @@ class SafetyEnvelope:
     max_raw: int = 1000  # PA_05E
     soft_min_mm: float = 20.0
     soft_max_mm: float = 1380.0
-    max_speed_mm_s: float = 500.0  # 0.8·n_cr for BK+BF (plan 14 §2.8)
+    max_speed_mm_s: float = 450.0  # below the drive limit PA_056 (480 mm/s), screw 0.8·n_cr ≈ 510 (plan 14 §2.8)
     max_descent_mm_s: float = 400.0
     overspeed_rpm_alarm: float = 1000.0  # 533 mm/s
     max_rate_n_per_s: float = 2000.0
@@ -162,7 +170,7 @@ class SafetyEnvelope:
     comm_freeze_frames: int = 2
     comm_fault_frames: int = 6
     temp_max_c: float = 80.0
-    speed_limit_rpm: int = 1000  # PA_056
+    speed_limit_rpm: int = 900  # PA_056 = 480 mm/s; must stay below the overspeed alarm
     fault_lockout: bool = True
 
     def to_dict(self) -> dict[str, Any]:

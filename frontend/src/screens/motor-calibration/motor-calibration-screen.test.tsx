@@ -23,6 +23,8 @@ const catalog: CalibrationSpec[] = [
   { code: 'WIZARD', group: 'W', groupTitle: 'Мастер', title: 'Мастер первичной настройки', description: 'Последовательно выполняет B5, S3, C1.', steps: ['B5: направление', 'S3: окно', 'C1: устойчивость'], durationS: 240, requires: [], produces: ['left.coulomb_up_n'], implemented: true, runnable: true, status: 'missing', measuredAt: null },
   { code: 'B1', group: 'B', groupTitle: 'Привод и шина', title: 'Тайминг шины', description: 'Период цикла.', steps: [], durationS: null, requires: ['B0'], produces: [], implemented: false, runnable: false, status: 'planned', measuredAt: null },
   { code: 'S9', group: 'S', groupTitle: 'Статика', title: 'Масштаб силы', description: 'Эталонный груз.', steps: [], durationS: 150, requires: ['S3'], produces: ['left.n_per_raw'], inputs: ['referenceKg'], implemented: true, runnable: true, status: 'missing', measuredAt: null },
+  { code: 'B5', group: 'B', groupTitle: 'Привод и шина', title: 'Направление', description: 'Знак момента.', steps: [], durationS: 20, requires: [], produces: ['left.direction_sign'], order: 1, implemented: true, runnable: true, status: 'missing', measuredAt: null },
+  { code: 'S3', group: 'S', groupTitle: 'Статика', title: 'Окно невесомости', description: 'Вес и трение.', steps: [], durationS: 180, requires: ['B5'], produces: ['left.coulomb_up_n', 'right.coulomb_up_n'], order: 2, implemented: true, runnable: true, status: 'stale', staleReason: 'после неё выполнена S9: повторите', measuredAt: '2026-01-01T10:00:00Z' },
 ]
 
 const parameters: ParametersPayload = {
@@ -30,10 +32,10 @@ const parameters: ParametersPayload = {
   runtimeVersion: 3,
   groups: [
     { id: 'statics', title: 'Вес и трение', description: 'Окно невесомости.', items: [
-      { scope: 'side', key: 'coulomb_up_n', label: 'Трение вверх', description: 'Добавка к весу.', unit: 'Н', kind: 'float', editable: true, min: 0, max: 500, step: 1, producedBy: 'S3', restart: false, values: { left: value(49), right: value(50) } },
+      { scope: 'side', key: 'coulomb_up_n', label: 'Трение вверх', description: 'Добавка к весу.', unit: 'Н', kind: 'float', editable: true, min: 0, max: 500, step: 1, producedBy: ['S3'], restart: false, values: { left: value(49), right: value(50) } },
     ] },
     { id: 'behaviour', title: 'Поведение тренажёра', description: 'Коэффициенты.', items: [
-      { scope: 'tunables', key: 'hold_k_fraction', label: 'Доля жёсткости удержания', description: 'Доля K_u.', unit: '×', kind: 'float', editable: true, min: 0.05, max: 0.6, step: 0.05, producedBy: null, restart: false, value: value(0.3) },
+      { scope: 'tunables', key: 'hold_k_fraction', label: 'Доля жёсткости удержания', description: 'Доля K_u.', unit: '×', kind: 'float', editable: true, min: 0.05, max: 0.6, step: 0.05, producedBy: [], restart: false, value: value(0.3) },
     ] },
   ],
 }
@@ -182,6 +184,33 @@ describe('MotorCalibrationScreen', () => {
     expect(within(result).getByText('Проверка пройдена, параметры профиля не меняются.')).toBeInTheDocument()
     expect(within(result).queryByRole('button', { name: 'Сохранить новые значения' })).not.toBeInTheDocument()
     expect(within(result).getByRole('button', { name: 'Закрыть' })).toBeInTheDocument()
+  })
+
+  it('shows the commissioning path, the next step, blockers and why a result is out of date', async () => {
+    renderScreen()
+    const path = await screen.findByRole('region', { name: 'Порядок пусконаладки' })
+    expect(within(path).getByText(/из 2 актуальны/)).toBeInTheDocument()
+    fireEvent.click(within(path).getByRole('button', { name: 'Открыть B5' }))
+    expect(await screen.findByRole('heading', { name: 'Направление' })).toBeInTheDocument()
+
+    fireEvent.click(within(path).getByRole('button', { name: /Шаг 2: S3/ }))
+    expect(await screen.findByText('Результат устарел')).toBeInTheDocument()
+    expect(screen.getByText('Сначала выполните')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'B5 · Направление' })).toBeInTheDocument()
+    expect(await screen.findByText('Определяет · текущие значения')).toBeInTheDocument()
+  })
+
+  it('filters parameters and links them to their calibration', async () => {
+    renderScreen('/motor-calibration?tab=parameters')
+    expect(await screen.findByText('Трение вверх')).toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Поиск параметра' }), { target: { value: 'жёсткост' } })
+    expect(screen.queryByText('Трение вверх')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Поиск параметра' }), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Измерено' }))
+    expect(screen.getByText('Ничего не найдено.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Все' }))
+    fireEvent.click(screen.getByRole('button', { name: /измеряет S3/ }))
+    expect(await screen.findByRole('heading', { name: 'Окно невесомости' })).toBeInTheDocument()
   })
 
   it('lists parameters with descriptions and saves edits in service mode', async () => {

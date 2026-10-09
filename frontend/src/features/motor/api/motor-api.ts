@@ -1,7 +1,7 @@
 import { apiGet, apiPost, apiPut } from '@/shared/api/client'
 
 export type RunnableCode = string
-export type CalibrationStatus = 'actual' | 'missing' | 'planned'
+export type CalibrationStatus = 'actual' | 'stale' | 'failed' | 'missing' | 'planned'
 export type Provenance = 'default' | 'measured' | 'manual' | 'derived'
 export type Side = 'left' | 'right'
 
@@ -15,11 +15,17 @@ export type CalibrationSpec = {
   durationS: number | null
   requires: string[]
   produces: string[]
+  uses?: string[]
   inputs?: string[]
+  prepare?: string | null
+  order?: number
+  stages?: string[]
   implemented: boolean
   runnable: boolean
   status: CalibrationStatus
+  staleReason?: string | null
   measuredAt: string | null
+  lastCheck?: { finishedAt: string; ok: boolean } | null
 }
 
 export type ValueInfo = {
@@ -115,7 +121,7 @@ export type ParamItem = {
   min: number | null
   max: number | null
   step: number | null
-  producedBy: string | null
+  producedBy: string[]
   restart: boolean
   values?: Record<Side, ValueInfo>
   value?: ValueInfo

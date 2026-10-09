@@ -21,6 +21,7 @@ class SidePhysics:
     n_per_raw: float = passport_n_per_raw()
     direction_sign: int = 1
     extra_mass_kg: float = 0.0  # reference weight hung on this side
+    stop_adhesion_n: float = 0.0  # extra breakaway force when resting on the bottom stops (sticking, grease)
 
     def weight_at(self, x_mm: float) -> float:
         return self.weight_n + self.weight_slope_n_per_mm * x_mm + kgf_to_n(self.extra_mass_kg)
@@ -101,7 +102,8 @@ class Plant:
                 drive = s.motor_force_n + user_force_n.get(side, 0.0) - physics.weight_at(s.x_mm) + coupling
                 mass = physics.total_mass_kg
                 if s.stuck:
-                    breakaway_up = physics.coulomb_up_n + physics.stiction_extra_n
+                    on_stops = s.x_mm <= 0.0
+                    breakaway_up = physics.coulomb_up_n + physics.stiction_extra_n + (physics.stop_adhesion_n if on_stops else 0.0)
                     breakaway_dn = physics.coulomb_down_n + physics.stiction_extra_n
                     on_bottom = s.x_mm <= 0.0 and drive < 0
                     on_top = s.x_mm >= p.travel_mm and drive > 0

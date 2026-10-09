@@ -42,6 +42,13 @@ class Command:
     raw: dict[Side, int] | None = None  # direct PA_12C (direction test only)
     note: str = ""
     progress: float | None = None  # 0..1 inside the procedure, for the UI
+    # lift-off from the stops: released adhesion throws the bar for 1–3 frames of bus delay;
+    # a procedure may raise the speed limit up to LIFTOFF_SPEED_MM_S, only below LIFTOFF_ZONE_MM
+    liftoff: bool = False
+
+
+LIFTOFF_SPEED_MM_S = 150.0
+LIFTOFF_ZONE_MM = 60.0
 
 
 Procedure = Generator[Command, Frame, dict[str, Any]]
@@ -85,6 +92,9 @@ class CalibrationRunner:
         self._t0: float | None = None
         self.note = ""
         self.progress = 0.0
+        self._previous: Frame | None = None
+        self._overspeed: dict[Side, int] = {side: 0 for side in SIDES}
+        self.glitches = 0  # unconfirmed speed spikes ignored by the envelope
 
     @property
     def active(self) -> bool:
@@ -99,15 +109,29 @@ class CalibrationRunner:
         return self._result
 
     def _check(self, frame: Frame, envelope: ProcedureEnvelope) -> str | None:
+        """Envelope check. A speed spike (PA_1C1 glitch while the bar is still) is not an abort: overspeed
+        must be confirmed by the encoder (Δx/Δt ≥ half the limit) or last three frames."""
+
         if not self.dead_man():
             return "кнопка удержания отпущена"
+        previous = self._previous
+        self._previous = frame
+        liftoff = self._command.liftoff and all(sample.position_mm <= LIFTOFF_ZONE_MM for sample in frame.samples.values())
+        speed_limit = max(envelope.max_speed_mm_s, LIFTOFF_SPEED_MM_S) if liftoff else envelope.max_speed_mm_s
         for side, sample in frame.samples.items():
             if not sample.ok:
                 return f"{side}: {sample.error}"
-            if abs(sample.speed_mm_s) > envelope.max_speed_mm_s:
-                return f"{side}: скорость {sample.speed_mm_s:.0f} мм/с вне огибающей"
             if not envelope.min_x_mm <= sample.position_mm <= envelope.max_x_mm:
                 return f"{side}: позиция {sample.position_mm:.0f} мм вне огибающей"
+            if abs(sample.speed_mm_s) <= speed_limit:
+                self._overspeed[side] = 0
+                continue
+            self._overspeed[side] += 1
+            dt = frame.t - previous.t if previous is not None else 0.0
+            moved = abs(sample.position_mm - previous.x(side)) / dt if previous is not None and dt > 0 else 0.0
+            if self._overspeed[side] >= 3 or moved > 0.5 * speed_limit:
+                return f"{side}: скорость {sample.speed_mm_s:.0f} мм/с вне огибающей"
+            self.glitches += 1
         return None
 
     def _write(self, command: Command) -> dict[Side, str]:
@@ -145,6 +169,9 @@ class CalibrationRunner:
         self._result = RunResult("done")
         self.note = ""
         self.progress = 0.0
+        self._previous = None
+        self._overspeed = {side: 0 for side in SIDES}
+        self.glitches = 0
         try:
             command = next(procedure)
         except StopIteration as stop:

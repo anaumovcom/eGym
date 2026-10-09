@@ -4,14 +4,14 @@ from dataclasses import replace
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
 from app.models.motor import CalibrationRun, MachineProfileRecord
 from app.motor import store
-from app.motor.calibration.graph import CATALOG, graph
+from app.motor.calibration.graph import CATALOG, RUNNABLE, CheckResult, graph
 from app.motor.calibration.session import CalibrationSession
 from app.motor.parameters import apply_changes, describe
 from app.services.hardware_runtime import hardware_runtime
@@ -58,31 +58,41 @@ def activate_version(version: int, session: Session = Depends(get_session)) -> d
 VERIFICATION_CODES = tuple(spec.code for spec in CATALOG if spec.implemented and not spec.produces)
 
 
-def _verified(session: Session) -> dict[str, str]:
-    """code → finish time of the latest run, if it passed (checks without parameters: B0, G1)."""
+def _checks(session: Session) -> dict[str, CheckResult]:
+    """code → latest finished run of the checks without parameters (B0, G1, Q1): passed or failed."""
 
-    verified: dict[str, str] = {}
+    checks: dict[str, CheckResult] = {}
     for code in VERIFICATION_CODES:
         row = session.scalars(
-            select(CalibrationRun).where(CalibrationRun.procedure == code).order_by(CalibrationRun.started_at.desc()).limit(1)
+            select(CalibrationRun)
+            .where(CalibrationRun.procedure == code, CalibrationRun.status.in_(("done", "saved", "failed")))
+            .order_by(CalibrationRun.started_at.desc())
+            .limit(1)
         ).first()
-        if row is not None and row.status in {"done", "saved"} and row.finished_at is not None:
-            verified[code] = row.finished_at.isoformat()
-    return verified
+        if row is not None and row.finished_at is not None:
+            checks[code] = CheckResult(row.finished_at.isoformat(), row.status != "failed")
+    return checks
 
 
 @router.get("/calibrations")
 def list_calibrations(session: Session = Depends(get_session)) -> list[dict[str, object]]:
     _persist_finished(session)
-    return graph(store.load_active(session).machine, _verified(session))
+    return graph(store.load_active(session).machine, _checks(session))
 
 
 # ------------------------------------------------------------------ calibration runs
 class CalibrationStartRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
-    code: Literal["WIZARD", "B0", "B1", "B5", "B7", "S3", "S7", "S9", "D2", "D4", "C1", "C3", "G1"]
+    code: str = Field(min_length=2, max_length=16)
     reference_kg: float | None = Field(None, alias="referenceKg", ge=2, le=60)
+
+    @field_validator("code")
+    @classmethod
+    def _runnable(cls, value: str) -> str:
+        if value not in RUNNABLE:
+            raise ValueError(f"неизвестная калибровка {value}")
+        return value
 
 
 def _persist_run(session: Session, run: CalibrationSession, run_status: str) -> None:

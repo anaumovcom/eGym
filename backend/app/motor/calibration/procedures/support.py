@@ -83,6 +83,13 @@ def support_descent(
 def fit_support(data: dict[str, Any]) -> dict[str, Any]:
     moving = [trial for trial in data["trials"] if trial["speed_mm_s"] > 1.0 and not trial["fast"]]
     if not moving:
+        fast = [trial["offset"] for trial in data["trials"] if trial["fast"]]
+        still = [trial["offset"] for trial in data["trials"] if not trial["fast"] and trial["speed_mm_s"] <= 1.0]
+        if fast and still and min(abs(a - b) for a in fast for b in still) <= 1:
+            raise ProcedureError(
+                "между «стоит» и «падает быстрее 40 мм/с» нет плавного режима: после трогания трение падает сильнее, "
+                "чем растёт вязкое — постоянным моментом гриф плавно не опустить; поддержка оставлена прежней (выполните D2)"
+            )
         raise ProcedureError("ни одна попытка не дала плавного опускания: гриф либо стоит, либо падает быстрее 40 мм/с")
     best = min(moving, key=lambda trial: abs(trial["speed_mm_s"] - data["target_mm_s"]))
     return {

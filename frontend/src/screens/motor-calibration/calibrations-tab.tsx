@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import {
+  PROVENANCE_LABEL,
   formatValue,
   kgfHint,
   motorApi,
@@ -10,6 +12,8 @@ import {
   type CalibrationSpec,
   type CalibrationStage,
   type CalibrationState,
+  type CalibrationStatus,
+  type ParamItem,
   type Precondition,
   type ReportLine,
   type RunnableCode,
@@ -36,10 +40,25 @@ function dateTime(iso: string | null): string {
   return iso ? new Date(iso).toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
 }
 
-const SPEC_STATUS: Record<CalibrationSpec['status'], { label: string; className: string }> = {
-  actual: { label: 'актуальна', className: 'bg-[#79de83]/15 text-[#79de83]' },
-  missing: { label: 'не выполнена', className: 'bg-[#f2cf87]/15 text-[#f2cf87]' },
-  planned: { label: 'в разработке', className: 'bg-white/6 text-white/40' },
+const SPEC_STATUS: Record<CalibrationStatus, { label: string; className: string; dot: string }> = {
+  actual: { label: 'актуальна', className: 'bg-[#79de83]/15 text-[#79de83]', dot: 'border-[#79de83]/50 bg-[#79de83]/20 text-[#c9f5cd]' },
+  stale: { label: 'устарела', className: 'bg-[#f2cf87]/15 text-[#f2cf87]', dot: 'border-[#f2cf87]/50 bg-[#f2cf87]/15 text-[#f8e6bd]' },
+  failed: { label: 'не пройдена', className: 'bg-[#ff8f84]/15 text-[#ff8f84]', dot: 'border-[#ff8f84]/50 bg-[#ff8f84]/15 text-[#ffc9c3]' },
+  missing: { label: 'не выполнена', className: 'bg-white/8 text-white/55', dot: 'border-white/12 bg-white/4 text-white/55' },
+  planned: { label: 'в разработке', className: 'bg-white/6 text-white/40', dot: 'border-white/8 bg-transparent text-white/30' },
+}
+
+const SIDE_PATH = /^(left|right)\./
+
+function isDone(status: CalibrationStatus | undefined): boolean {
+  return status === 'actual' || status === 'stale'
+}
+
+/** Requirements that block the start (as on the backend: checks without parameters do not block). */
+function blockers(spec: CalibrationSpec, byCode: Map<string, CalibrationSpec>): CalibrationSpec[] {
+  return spec.requires
+    .map((code) => byCode.get(code))
+    .filter((item): item is CalibrationSpec => Boolean(item && item.produces.length && !isDone(item.status)))
 }
 
 const RUN_STATUS: Record<string, { label: string; className: string }> = {
@@ -71,6 +90,71 @@ function ProgressBar({ value, className }: { value: number; className?: string }
   )
 }
 
+// ------------------------------------------------------------------ commissioning path
+function CommissioningPath({ specs, selected, onSelect }: { specs: CalibrationSpec[]; selected: string; onSelect: (code: string) => void }) {
+  const byCode = useMemo(() => new Map(specs.map((spec) => [spec.code, spec])), [specs])
+  const steps = useMemo(() => specs.filter((spec) => (spec.order ?? 0) > 0).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [specs])
+  const wizard = byCode.get('WIZARD')
+  const done = steps.filter((spec) => spec.status === 'actual').length
+  const next = steps.find((spec) => spec.status !== 'actual' && spec.runnable && !blockers(spec, byCode).length)
+  const wizardSteps = new Set(wizard?.stages ?? [])
+
+  return (
+    <section className={cn(card, 'space-y-4')} aria-label="Порядок пусконаладки">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-[#f4dfb4]">Порядок пусконаладки</h2>
+          <p className="text-sm text-white/50">Каждый шаг использует результаты предыдущих. Шаги {wizard?.stages?.[0]}…{wizard?.stages?.at(-1)} делает мастер ★ за один запуск.</p>
+        </div>
+        <div className="min-w-48 text-right">
+          <p className="text-sm text-white/70"><span className="font-display text-2xl font-bold text-white">{done}</span> из {steps.length} актуальны</p>
+          <ProgressBar value={steps.length ? done / steps.length : 0} className="mt-1" />
+        </div>
+      </div>
+      <ol className="flex flex-wrap gap-1.5" aria-label="Шаги">
+        {steps.map((spec) => (
+          <li key={spec.code}>
+            <button
+              type="button"
+              onClick={() => onSelect(spec.code)}
+              title={`${spec.order}. ${spec.title} — ${SPEC_STATUS[spec.status].label}`}
+              aria-label={`Шаг ${spec.order}: ${spec.code} ${spec.title}, ${SPEC_STATUS[spec.status].label}`}
+              aria-pressed={selected === spec.code}
+              className={cn(
+                'flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs transition hover:brightness-125',
+                SPEC_STATUS[spec.status].dot,
+                selected === spec.code && 'ring-2 ring-[#d6b05f]',
+                next?.code === spec.code && 'outline outline-1 outline-offset-2 outline-[#d6b05f]/70',
+              )}
+            >
+              <span className="opacity-60">{spec.order}</span>
+              <span className="font-mono font-semibold">{spec.code}</span>
+              {wizardSteps.has(spec.code) ? <span className="text-[10px] opacity-60" aria-hidden>★</span> : null}
+            </button>
+          </li>
+        ))}
+      </ol>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[18px] bg-black/20 px-4 py-3">
+        {next ? (
+          <p className="text-sm text-white/70">
+            Следующий шаг: <span className="font-mono text-[#f4dfb4]">{next.code}</span> <span className="font-medium text-white">{next.title}</span>
+            {next.status === 'stale' && next.staleReason ? <span className="block text-xs text-[#f2cf87]">устарела: {next.staleReason}</span> : null}
+            {next.status === 'failed' ? <span className="block text-xs text-[#ff8f84]">последняя проверка не пройдена</span> : null}
+          </p>
+        ) : (
+          <p className="text-sm text-[#79de83]">Все шаги актуальны. Перед тренировками достаточно ежедневной проверки Q1.</p>
+        )}
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-white/45">
+          {(['actual', 'stale', 'failed', 'missing'] as const).map((status) => (
+            <span key={status} className="flex items-center gap-1"><span className={cn('h-2.5 w-2.5 rounded-full border', SPEC_STATUS[status].dot)} />{SPEC_STATUS[status].label}</span>
+          ))}
+          {next && next.code !== selected ? <Button variant="secondary" className="py-1.5" onClick={() => onSelect(next.code)}>Открыть {next.code}</Button> : null}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 // ------------------------------------------------------------------ catalog
 function CatalogList({ specs, selected, onSelect }: { specs: CalibrationSpec[]; selected: string; onSelect: (code: string) => void }) {
   const groups = useMemo(() => {
@@ -80,6 +164,7 @@ function CatalogList({ specs, selected, onSelect }: { specs: CalibrationSpec[]; 
       if (group) group.items.push(spec)
       else result.push({ title: spec.groupTitle, items: [spec] })
     }
+    for (const group of result) group.items.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
     return result
   }, [specs])
 
@@ -104,10 +189,13 @@ function CatalogList({ specs, selected, onSelect }: { specs: CalibrationSpec[]; 
                 {spec.code === 'WIZARD' ? '★' : spec.code}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-sm font-medium text-white">{spec.title}</span>
-                {spec.measuredAt ? <span className="block text-xs text-white/35">измерено {dateTime(spec.measuredAt)}</span> : null}
+                <span className="block text-sm font-medium text-white">
+                  {spec.order ? <span className="mr-1.5 text-xs text-white/35">{spec.order}.</span> : null}{spec.title}
+                </span>
+                {spec.measuredAt ? <span className="block text-xs text-white/35">{spec.produces.length ? 'измерено' : 'проверено'} {dateTime(spec.measuredAt)}</span> : null}
+                {spec.status === 'stale' && spec.staleReason ? <span className="block text-xs text-[#f2cf87]/80">{spec.staleReason}</span> : null}
               </span>
-              <Badge {...SPEC_STATUS[spec.status]} />
+              <StatusBadge status={spec.status} />
             </button>
           ))}
         </section>
@@ -267,6 +355,17 @@ function ChangeValue({ change, which }: { change: CalibrationChange; which: 'old
   )
 }
 
+function changeDelta(change: CalibrationChange): { text: string; large: boolean } | null {
+  const before = change.old?.value
+  const after = change.new?.value
+  if (typeof before !== 'number' || typeof after !== 'number' || before === after || change.kind === 'sign' || change.kind === 'counts') return null
+  const diff = after - before
+  const pct = before !== 0 ? (100 * diff) / Math.abs(before) : null
+  const sign = diff > 0 ? '+' : '−'
+  const text = `${sign}${formatValue(Math.abs(diff), change.kind, change.unit)}${pct !== null ? ` (${sign}${Math.abs(pct).toLocaleString('ru-RU', { maximumFractionDigits: 1 })} %)` : ''}`
+  return { text, large: pct !== null && Math.abs(pct) > 20 }
+}
+
 function ChangesTable({ changes }: { changes: CalibrationChange[] }) {
   return (
     <div className="overflow-x-auto">
@@ -277,19 +376,23 @@ function ChangesTable({ changes }: { changes: CalibrationChange[] }) {
             <th className="py-2 pr-3 font-medium">Сторона</th>
             <th className="py-2 pr-3 font-medium">Было</th>
             <th className="py-2 pr-3 font-medium">Стало</th>
+            <th className="py-2 pr-3 font-medium">Изменение</th>
           </tr>
         </thead>
         <tbody>
           {changes.map((change) => {
             const same = change.old?.value === change.new?.value
+            const delta = changeDelta(change)
             return (
-              <tr key={`${change.key}-${change.side ?? ''}`} className="border-t border-white/6 align-top">
+              <tr key={`${change.key}-${change.side ?? ''}`} className={cn('border-t border-white/6 align-top', !change.changed && 'opacity-55')}>
                 <td className="py-2 pr-3 text-white/80">{change.label}</td>
                 <td className="py-2 pr-3 text-white/50">{change.side === 'left' ? 'Левая' : change.side === 'right' ? 'Правая' : '—'}</td>
                 <td className="py-2 pr-3"><ChangeValue change={change} which="old" /></td>
-                <td className="py-2 pr-3">
-                  <ChangeValue change={change} which="new" />
-                  {same && change.changed ? <span className="block text-xs text-[#79de83]">подтверждено измерением</span> : null}
+                <td className="py-2 pr-3"><ChangeValue change={change} which="new" /></td>
+                <td className="py-2 pr-3 text-xs">
+                  {delta ? <span className={delta.large ? 'text-[#f2cf87]' : 'text-white/60'}>{delta.text}</span> : null}
+                  {same && change.changed ? <span className="text-[#79de83]">подтверждено измерением</span> : null}
+                  {!change.changed ? <span className="text-white/40">без изменений</span> : null}
                 </td>
               </tr>
             )
@@ -348,19 +451,114 @@ function ResultPanel({ session, busy, onAccept, onDiscard }: {
 }
 
 // ------------------------------------------------------------------ details panel
-function SpecDetails({ spec, labels }: { spec: CalibrationSpec; labels: Map<string, string> }) {
+function StatusBadge({ status }: { status: CalibrationStatus }) {
+  return <Badge label={SPEC_STATUS[status].label} className={SPEC_STATUS[status].className} />
+}
+
+function Callout({ tone, title, children }: { tone: 'warn' | 'bad' | 'info'; title: string; children: React.ReactNode }) {
+  const color = { warn: 'border-[#f2cf87]/40 bg-[#f2cf87]/8 text-[#f8e6bd]', bad: 'border-[#ff8f84]/40 bg-[#ff8f84]/8 text-[#ffd2cd]', info: 'border-[#7fb8ff]/35 bg-[#7fb8ff]/8 text-[#d6e8ff]' }[tone]
+  return (
+    <div className={cn('rounded-[18px] border px-4 py-3 text-sm', color)} role={tone === 'bad' ? 'alert' : undefined}>
+      <p className="font-semibold">{title}</p>
+      <div className="mt-0.5 text-white/75">{children}</div>
+    </div>
+  )
+}
+
+function ProducedValues({ spec, params }: { spec: CalibrationSpec; params: Map<string, ParamItem> }) {
+  const keys = [...new Set(spec.produces.map((path) => path.replace(SIDE_PATH, '')))]
+  const items = keys.map((key) => params.get(key)).filter((item): item is ParamItem => Boolean(item))
+  if (!items.length) return null
+  return (
+    <div>
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/35">Определяет · текущие значения</h4>
+      <div className="overflow-x-auto rounded-[18px] border border-white/8">
+        <table className="w-full text-sm">
+          <tbody>
+            {items.map((item) => (
+              <tr key={item.key} className="border-t border-white/6 first:border-t-0">
+                <td className="px-3 py-2 text-white/70">{item.label}</td>
+                {item.values
+                  ? (['left', 'right'] as const).map((side) => <ParamValue key={side} item={item} info={item.values![side]} side={side} />)
+                  : item.value ? <ParamValue item={item} info={item.value} side={null} colSpan={2} /> : null}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function ParamValue({ item, info, side, colSpan }: { item: ParamItem; info: NonNullable<ParamItem['value']>; side: 'left' | 'right' | null; colSpan?: number }) {
+  const value = item.kind === 'weight' && (info.points ?? 1) > 1 ? `карта, ${info.points} точек` : formatValue(info.value, item.kind, item.unit)
+  return (
+    <td className="px-3 py-2" colSpan={colSpan}>
+      {side ? <span className="mr-1 text-[11px] text-white/35">{side === 'left' ? 'Л' : 'П'}</span> : null}
+      <span className="font-medium text-white">{value}</span>
+      <span className={cn('ml-2 text-[11px]', info.provenance === 'measured' ? 'text-[#79de83]' : info.provenance === 'manual' ? 'text-[#7fb8ff]' : 'text-white/35')}>
+        {PROVENANCE_LABEL[info.provenance]}
+      </span>
+    </td>
+  )
+}
+
+function SpecDetails({ spec, byCode, params, onSelect }: {
+  spec: CalibrationSpec
+  byCode: Map<string, CalibrationSpec>
+  params: Map<string, ParamItem>
+  onSelect: (code: string) => void
+}) {
+  const blocking = blockers(spec, byCode)
+  const stages = spec.code === 'WIZARD' ? (spec.stages ?? []).map((code) => byCode.get(code)).filter((item): item is CalibrationSpec => Boolean(item)) : []
   return (
     <div className="space-y-4">
       <div>
         <div className="flex flex-wrap items-center gap-2">
+          <span className="rounded-lg bg-[#b5852f]/30 px-2 py-0.5 font-mono text-sm text-[#f4dfb4]">{spec.code === 'WIZARD' ? '★' : spec.code}</span>
           <h2 className="text-xl font-semibold text-[#f4dfb4]">{spec.title}</h2>
-          <Badge {...SPEC_STATUS[spec.status]} />
+          <StatusBadge status={spec.status} />
+          {spec.durationS ? <span className="text-xs text-white/40">~{clock(spec.durationS)}</span> : null}
         </div>
         <p className="mt-2 text-sm leading-relaxed text-white/70">{spec.description}</p>
       </div>
-      {spec.steps.length ? (
+
+      {spec.status === 'stale' && spec.staleReason ? <Callout tone="warn" title="Результат устарел">{spec.staleReason}.</Callout> : null}
+      {spec.status === 'failed' && spec.lastCheck ? (
+        <Callout tone="bad" title="Последняя проверка не пройдена">{dateTime(spec.lastCheck.finishedAt)} — подробности в истории ниже. Исправьте причину и повторите.</Callout>
+      ) : null}
+      {blocking.length ? (
+        <Callout tone="warn" title="Сначала выполните">
+          <span className="flex flex-wrap gap-2 pt-1">
+            {blocking.map((item) => (
+              <button key={item.code} type="button" onClick={() => onSelect(item.code)} className="rounded-lg border border-[#f2cf87]/40 px-2 py-0.5 text-xs text-[#f8e6bd] hover:bg-[#f2cf87]/15">
+                {item.code} · {item.title}
+              </button>
+            ))}
+          </span>
+        </Callout>
+      ) : null}
+      {spec.prepare ? <Callout tone="info" title="Перед запуском">{spec.prepare}</Callout> : null}
+
+      {stages.length ? (
         <div>
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/35">Как проходит{spec.durationS ? ` · ~${clock(spec.durationS)}` : ''}</h4>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/35">Этапы мастера</h4>
+          <ol className="grid gap-1.5 sm:grid-cols-2">
+            {stages.map((stage, index) => (
+              <li key={stage.code}>
+                <button type="button" onClick={() => onSelect(stage.code)} className="flex w-full items-center gap-2 rounded-[14px] border border-white/8 bg-white/3 px-3 py-2 text-left text-sm hover:border-white/20">
+                  <span className="text-xs text-white/35">{index + 1}</span>
+                  <span className="font-mono text-xs text-white/50">{stage.code}</span>
+                  <span className="min-w-0 flex-1 truncate text-white/80">{stage.title}</span>
+                  <StatusBadge status={stage.status} />
+                </button>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : spec.steps.length ? (
+        <div>
+          <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-white/35">Как проходит</h4>
           <ol className="space-y-1.5">
             {spec.steps.map((step, index) => (
               <li key={step} className="flex gap-3 text-sm text-white/75">
@@ -371,12 +569,24 @@ function SpecDetails({ spec, labels }: { spec: CalibrationSpec; labels: Map<stri
           </ol>
         </div>
       ) : null}
-      <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs text-white/45">
-        {spec.requires.length ? <span>Требует: {spec.requires.join(', ')}</span> : null}
-        {spec.produces.length ? (
-          <span>Определяет: {[...new Set(spec.produces.map((path) => labels.get(path.replace(/^(left|right)\./, '')) ?? path.replace(/^(left|right)\./, '')))].join(', ')}</span>
-        ) : null}
-      </div>
+
+      {spec.code !== 'WIZARD' ? <ProducedValues spec={spec} params={params} /> : null}
+
+      {spec.requires.length || spec.uses?.length ? (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-white/45">
+          {spec.requires.length ? <span>Требует:</span> : null}
+          {spec.requires.map((code) => {
+            const item = byCode.get(code)
+            return (
+              <button key={code} type="button" onClick={() => onSelect(code)} title={item?.title} className={cn('rounded-lg border px-2 py-0.5 font-mono', SPEC_STATUS[item?.status ?? 'missing'].dot)}>
+                {code}
+              </button>
+            )
+          })}
+          {spec.uses?.length ? <span className="ml-2">Устаревает после повтора: {spec.uses.join(', ')}</span> : null}
+        </div>
+      ) : null}
+      {!spec.produces.length && spec.code !== 'WIZARD' ? <p className="text-xs text-white/40">Проверка: параметры профиля не меняет, статус — по последнему запуску.</p> : null}
     </div>
   )
 }
@@ -384,12 +594,15 @@ function SpecDetails({ spec, labels }: { spec: CalibrationSpec; labels: Map<stri
 // ------------------------------------------------------------------ tab
 export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
   const queryClient = useQueryClient()
-  const [code, setCode] = useState<string>('WIZARD')
-  const [userPicked, setUserPicked] = useState(false)
+  const [searchParams] = useSearchParams()
+  const linked = searchParams.get('code')
+  const [code, setCode] = useState<string>(linked ?? 'WIZARD')
+  const [userPicked, setUserPicked] = useState(Boolean(linked))
   const [holding, setHolding] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [referenceKg, setReferenceKg] = useState('')
+  const [onlySelected, setOnlySelected] = useState(false)
   const holdingRef = useRef(false)
   const timerRef = useRef<number | null>(null)
 
@@ -408,9 +621,10 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
   const referenceValue = Number(referenceKg.replace(',', '.'))
   const referenceValid = referenceKg.trim() !== '' && Number.isFinite(referenceValue) && referenceValue >= REFERENCE_KG.min && referenceValue <= REFERENCE_KG.max
 
-  const labels = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const group of parameters.data?.groups ?? []) for (const item of group.items) map.set(item.key, item.label)
+  const byCode = useMemo(() => new Map((catalog.data ?? []).map((item) => [item.code, item])), [catalog.data])
+  const params = useMemo(() => {
+    const map = new Map<string, ParamItem>()
+    for (const group of parameters.data?.groups ?? []) for (const item of group.items) if (item.scope === 'side' || item.scope === 'machine') map.set(item.key, item)
     return map
   }, [parameters.data])
 
@@ -508,8 +722,11 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
 
   const preconditions = state.data?.preconditions ?? []
   const blocked = preconditions.some((item) => !item.ok)
+  const history = (runs.data ?? []).filter((run) => !onlySelected || run.code === code)
 
   return (
+    <div className="space-y-6">
+    {catalog.data ? <CommissioningPath specs={catalog.data} selected={code} onSelect={select} /> : null}
     <div className="grid gap-6 xl:grid-cols-[minmax(280px,380px)_minmax(0,1fr)]">
       <aside className="space-y-4">
         {catalog.isError ? <p className="text-sm text-[#ff8f84]">Каталог недоступен: {errorText(catalog.error)}</p> : null}
@@ -519,7 +736,7 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
       <div className="min-w-0 space-y-6">
         {spec ? (
           <section className={cn(card, 'space-y-5')} aria-label="Калибровка">
-            <SpecDetails spec={spec} labels={labels} />
+            <SpecDetails spec={spec} byCode={byCode} params={params} onSelect={select} />
 
             {spec.runnable ? (
               <>
@@ -587,10 +804,16 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
         ) : null}
 
         <section className={cn(card, 'space-y-3')} aria-label="История калибровок">
-          <h3 className="text-sm font-semibold text-white/80">История</h3>
-          {runs.data?.length ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold text-white/80">История</h3>
+            <label className="flex items-center gap-2 text-xs text-white/50">
+              <input type="checkbox" className="accent-[#b5852f]" checked={onlySelected} onChange={(event) => setOnlySelected(event.target.checked)} />
+              только {code === 'WIZARD' ? 'мастер' : code}
+            </label>
+          </div>
+          {history.length ? (
             <ul className="divide-y divide-white/6">
-              {runs.data.map((run) => (
+              {history.map((run) => (
                 <li key={run.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 text-sm">
                   <span className="w-28 text-white/45">{dateTime(run.startedAt)}</span>
                   <span className="min-w-0 flex-1 text-white/80"><span className="font-mono text-white/45">{run.code}</span> {run.title ?? ''}</span>
@@ -603,6 +826,7 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
           ) : <p className="text-sm text-white/40">Запусков пока не было.</p>}
         </section>
       </div>
+    </div>
     </div>
   )
 }

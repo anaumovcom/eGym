@@ -579,7 +579,7 @@ class HardwareRuntime:
             missing = sorted({
                 required for stage in stages[:1] for required in BY_CODE[stage].requires
                 if BY_CODE[required].implemented and BY_CODE[required].produces
-                and calibration_status(self.profile, BY_CODE[required]) != "actual"
+                and calibration_status(self.profile, BY_CODE[required]) not in ("actual", "stale")
             })
             busy = self.calibration is not None and self.calibration.running
             estop = self.state.safety_state == SafetyState.emergency_stop

@@ -1,17 +1,4 @@
 
-  VITE v7.3.3  ready in 310 ms
+  VITE v7.3.3  ready in 376 ms
 
   ➜  Local:   http://127.0.0.1:5173/
-11:08:31 PM [vite] (client) hmr update /src/screens/settings/system-settings-screen.tsx, /src/app/styles.css
-11:08:31 PM [vite] (client) hmr update /src/app/router.tsx, /src/app/styles.css
-11:09:48 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/parameters-tab.tsx
-11:10:50 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/calibrations-tab.tsx
-11:40:01 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/parameters-tab.tsx, /src/screens/motor-calibration/calibrations-tab.tsx
-11:40:38 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/calibrations-tab.tsx
-11:44:27 PM [vite] (client) hmr update /src/app/router.tsx, /src/app/styles.css
-11:44:27 PM [vite] (client) hmr update /src/screens/settings/system-settings-screen.tsx, /src/app/styles.css
-11:44:27 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/parameters-tab.tsx, /src/screens/motor-calibration/calibrations-tab.tsx
-11:44:27 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/session-chart.tsx
-11:44:27 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/parameters-tab.tsx
-11:44:27 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/calibrations-tab.tsx
-11:44:27 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/motor-calibration-screen.tsx
