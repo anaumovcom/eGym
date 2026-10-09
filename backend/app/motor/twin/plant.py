@@ -22,8 +22,9 @@ class SidePhysics:
     direction_sign: int = 1
     extra_mass_kg: float = 0.0  # reference weight hung on this side
     stop_adhesion_n: float = 0.0  # extra breakaway force when resting on the bottom stops (sticking, grease)
-    friction_load_up: float = 0.0  # Coulomb grows with the axial load: + coeff · (extra weight, N)
-    friction_load_down: float = 0.0
+    friction_load_up: float = 0.0  # Coulomb grows with the screw load beyond the bar weight while the motor drives the motion
+    friction_load_down: float = 0.0  # … and while the motion drives the motor (back-driving)
+    pull_scale: float = 1.0  # downward motor force per raw relative to the upward one
     dwell_stiction_n: float = 0.0  # breakaway grows with the time at rest: + n · (1 − exp(−t/τ))
     dwell_tau_s: float = 5.0
     ripple_n: float = 0.0  # force ripple with the screw revolution (lead 32 mm)
@@ -34,9 +35,19 @@ class SidePhysics:
         ripple = self.ripple_n * math.sin(2 * math.pi * x_mm / SCREW_LEAD_MM + self.ripple_phase_rad) if self.ripple_n else 0.0
         return self.weight_n + self.weight_slope_n_per_mm * x_mm + kgf_to_n(self.extra_mass_kg) + ripple
 
-    def coulomb(self, direction: int, x_mm: float) -> float:
+    def coulomb(self, direction: int, x_mm: float, motor_force_n: float | None = None) -> float:
+        """Kinetic Coulomb friction; the screw load beyond the bare bar weight adds the L1/L2 growth.
+
+        Without ``motor_force_n`` the motor is taken to hold the bar and the hung weight. The coefficient
+        follows the power flow: "up" when the motor drives the motion (force along it), "down" when back-driven.
+        """
+
         base = self.coulomb_up_n if direction > 0 else self.coulomb_down_n
-        load = (self.friction_load_up if direction > 0 else self.friction_load_down) * kgf_to_n(self.extra_mass_kg)
+        bare = self.weight_n + self.weight_slope_n_per_mm * x_mm
+        force = bare + kgf_to_n(self.extra_mass_kg) if motor_force_n is None else motor_force_n
+        excess = max(0.0, abs(force) - bare)
+        driving = direction * (1 if force >= 0 else -1) > 0
+        load = (self.friction_load_up if driving else self.friction_load_down) * excess
         spot = sum(extra for center, half, extra in self.tight_spots if abs(x_mm - center) <= half)
         return base + load + spot
 
@@ -92,8 +103,8 @@ class Plant:
         self.state: dict[Side, SideState] = {side: SideState(x_mm=x0_mm) for side in SIDES}
         self.t = 0.0
 
-    def _friction(self, physics: SidePhysics, v: float, x: float) -> float:
-        coulomb = physics.coulomb(1 if v > 0 else -1, x)
+    def _friction(self, physics: SidePhysics, v: float, x: float, motor_force_n: float | None = None) -> float:
+        coulomb = physics.coulomb(1 if v > 0 else -1, x, motor_force_n)
         stribeck = physics.stiction_extra_n * math.exp(-((v / max(physics.stribeck_v_mm_s, 1e-6)) ** 2))
         return math.copysign(coulomb + stribeck, v) + physics.viscous_n_per_mm_s * v
 
@@ -121,8 +132,8 @@ class Plant:
                     on_stops = s.x_mm <= 0.0
                     s.stuck_s += h
                     dwell = physics.dwell_stiction_n * (1 - math.exp(-s.stuck_s / physics.dwell_tau_s)) if physics.dwell_stiction_n else 0.0
-                    breakaway_up = physics.coulomb(1, s.x_mm) + physics.stiction_extra_n + dwell + (physics.stop_adhesion_n if on_stops else 0.0)
-                    breakaway_dn = physics.coulomb(-1, s.x_mm) + physics.stiction_extra_n + dwell
+                    breakaway_up = physics.coulomb(1, s.x_mm, s.motor_force_n) + physics.stiction_extra_n + dwell + (physics.stop_adhesion_n if on_stops else 0.0)
+                    breakaway_dn = physics.coulomb(-1, s.x_mm, s.motor_force_n) + physics.stiction_extra_n + dwell
                     on_bottom = s.x_mm <= 0.0 and drive < 0
                     on_top = s.x_mm >= p.travel_mm and drive > 0
                     if drive > breakaway_up and not on_top:
@@ -138,7 +149,7 @@ class Plant:
                     s.v_mm_s = s.a_mm_s2 * h
                 else:
                     s.stuck_s = 0.0
-                    net = drive - self._friction(physics, s.v_mm_s, s.x_mm)
+                    net = drive - self._friction(physics, s.v_mm_s, s.x_mm, s.motor_force_n)
                     s.a_mm_s2 = 1000 * net / mass
                     v_new = s.v_mm_s + s.a_mm_s2 * h
                     if v_new * s.v_mm_s < 0 or v_new == 0:

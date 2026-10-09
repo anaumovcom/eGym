@@ -70,6 +70,8 @@ class SideProfile:
     friction_table_down: Measured = field(default_factory=lambda: _d(None))
     # friction along the travel (S10): [(x_mm, ΔF_n)] beyond the usual friction, both directions
     friction_map: Measured = field(default_factory=lambda: _d(None))
+    # downward (pulling) force per raw relative to the upward one (N1): heavy loads make the motor pull the bar down
+    pull_scale: Measured = field(default_factory=lambda: _d(None))
 
     def weight_n(self, x_mm: float) -> float:
         points: list[tuple[float, float]] = [tuple(p) for p in self.gravity_map.value]  # type: ignore[misc]
@@ -87,6 +89,11 @@ class SideProfile:
     @property
     def n_per_raw_value(self) -> float:
         return float(self.n_per_raw.value)
+
+    @property
+    def pull_scale_value(self) -> float:
+        value = self.pull_scale.value
+        return float(value) if value else 1.0
 
     @property
     def sign(self) -> int:

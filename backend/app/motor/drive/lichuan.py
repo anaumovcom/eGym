@@ -35,7 +35,7 @@ class LichuanTorqueDrive:
             ok=alarm == 0 and position is not None,
             position_mm=float(position or 0.0) * sign,
             speed_mm_s=rpm_to_mm_s(float(data.get("feedback_speed_rpm") or 0)) * sign,
-            motor_force_n=raw_to_force(float(data.get("feedback_torque_raw") or 0), self.profile.n_per_raw_value, sign),
+            motor_force_n=raw_to_force(float(data.get("feedback_torque_raw") or 0), self.profile.n_per_raw_value, sign),  # PA_1C4: the torque made, no N1 scale
             command_raw=self.last_raw,
             alarm=alarm,
             error=alarm_text(alarm) if alarm else (None if position is not None else "Ноль энкодера не известен"),
@@ -54,7 +54,7 @@ class LichuanTorqueDrive:
         return error
 
     def write_force(self, force_n: float) -> str | None:
-        return self.write_raw(force_to_raw(force_n, self.profile.n_per_raw_value, self.profile.sign))
+        return self.write_raw(force_to_raw(force_n, self.profile.n_per_raw_value, self.profile.sign, self.profile.pull_scale_value))
 
     def support(self) -> str | None:
         """Upward support against gravity: ``support_raw`` in the motor direction."""

@@ -67,12 +67,16 @@ def fit_mass_reference(data: dict[str, Any], ctx: Context) -> Outcome:
     delta = loaded - empty
     previous = mean([float(ctx.profile.side(side).moving_mass_kg.value) for side in SIDES])
     ratio = delta / added
+    plausible = 0.6 <= ratio <= 1.6
     report = [
         line("Масса без груза (покачивание 1 Гц)", f"{empty:.1f} кг на сторону (D4: {previous:.1f})", abs(empty - previous) <= 0.15 * previous or None),
-        line("С грузом", f"{loaded:.1f} кг: прирост {delta:+.1f} кг при {added:g} кг на сторону ({ratio:.0%})", 0.6 <= ratio <= 1.6),
+        # the weight grows the screw friction (L1) and one wobble scatters ±15 %: only a missing weight fails
+        line("С грузом", f"{loaded:.1f} кг: прирост {delta:+.1f} кг при {added:g} кг на сторону ({ratio:.0%})", plausible or None),
     ]
-    if not 0.6 <= ratio <= 1.6:
+    if delta <= 0.2 * added:
         return Outcome(report=report, error=f"прирост массы {ratio:.0%} от груза: груз не повешен, или шкала силы (S9) неверна")
+    if not plausible:
+        report.append(line("Проверка грузом неточна", "трение под грузом (L1) или разброс покачивания; масса взята без груза", None))
     if abs(empty - previous) > 0.15 * previous:
         report.append(line("D4 расходится", f"на {empty - previous:+.1f} кг: компенсация инерции (F1, F2) настраивалась по неточной массе — повторите их", False))
     sides = {side: {"moving_mass_kg": (round(empty, 1), None)} for side in SIDES}

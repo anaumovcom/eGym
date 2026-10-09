@@ -1652,3 +1652,285 @@ INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 INFO:     ('127.0.0.1', 58160) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [579104]
+INFO:     Started server process [594536]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 54298) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [594536]
+INFO:     Started server process [595349]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 40944) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [595349]
+INFO:     Started server process [596264]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 60298) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [596264]
+INFO:     Started server process [596827]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 37832) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [596827]
+INFO:     Started server process [597099]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 49578) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [597099]
+INFO:     Started server process [600425]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 52672) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [600425]
+INFO:     Started server process [603015]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 40362) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [603015]
+INFO:     Started server process [603818]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 55796) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [603818]
+INFO:     Started server process [605402]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 47620) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [605402]
+INFO:     Started server process [605661]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 49494) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [605661]
+INFO:     Started server process [608681]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 48732) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [608681]
+INFO:     Started server process [612486]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 34226) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [612486]
+INFO:     Started server process [614825]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 38198) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [614825]
+INFO:     Started server process [615920]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 32908) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [615920]
+INFO:     Started server process [616979]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 41522) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [616979]
+INFO:     Started server process [619018]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 45710) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [619018]
+INFO:     Started server process [620869]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 33112) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [620869]
+INFO:     Started server process [621845]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 56240) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [621845]
+INFO:     Started server process [623004]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 41278) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [623004]
+INFO:     Started server process [625991]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 58258) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [625991]
+INFO:     Started server process [626291]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 53516) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [626291]
+INFO:     Started server process [629311]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 45448) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [629311]
+INFO:     Started server process [630051]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 55142) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [630051]
+INFO:     Started server process [637269]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 58686) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [637269]
+INFO:     Started server process [664536]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 60662) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open

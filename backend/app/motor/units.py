@@ -45,9 +45,14 @@ def mm_s_to_rpm(speed_mm_s: float, lead_mm: float = SCREW_LEAD_MM) -> float:
     return speed_mm_s * 60.0 / lead_mm
 
 
-def force_to_raw(force_n: float, n_per_raw: float, direction_sign: int) -> int:
-    """The single N → PA_12C conversion (rounded, sign = motor direction)."""
+def force_to_raw(force_n: float, n_per_raw: float, direction_sign: int, pull_scale: float = 1.0) -> int:
+    """The single N → PA_12C conversion (rounded, sign = motor direction).
 
+    ``pull_scale`` (N1): the drive's downward force per raw relative to the upward one; a pull is sent larger by 1/scale.
+    """
+
+    if force_n < 0 and pull_scale > 0:
+        force_n /= pull_scale
     return int(round(force_n / n_per_raw)) * direction_sign
 
 

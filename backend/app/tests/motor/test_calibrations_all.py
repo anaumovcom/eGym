@@ -751,3 +751,42 @@ def test_core_feel_terms() -> None:
     core.set_load(LoadSetpoint(load_n=kgf_to_n(8.0)))
     run_core(core, bench, 2.0)  # nobody holds the 16-kg bar
     assert core.supervisor.mode == Mode.HOLD
+
+
+def test_heavy_load_pulls_down_quadrant_and_limit() -> None:
+    """A load above the bar weight: the motor pulls, friction growth swaps quadrant, the load is capped."""
+
+    from app.motor.core import MotorCore
+    from app.motor.estimation.friction import FrictionModel
+    from app.motor.force.load_models import LoadSetpoint
+    from app.motor.units import force_to_raw, raw_to_force
+
+    model = FrictionModel(40.0, 40.0, 0.0, load_up=0.1, load_down=0.05, load_gain=1.0)
+    # lifting with the motor pushing up drives the screw (L1); with the motor pulling down the bar back-drives it (L2)
+    assert model.force(50.0, axial_excess_n=100.0) == pytest.approx(40.0 + 10.0)
+    assert model.force(50.0, axial_excess_n=100.0, motor_sign=-1) == pytest.approx(40.0 + 5.0)
+    assert model.force(-50.0, axial_excess_n=100.0, motor_sign=-1) == pytest.approx(-(40.0 + 10.0))  # lowering: the motor drives
+    # the N1 scale: a pull is sent larger and read back the same
+    assert force_to_raw(-90.0, 0.7, 1, 0.9) == round(-100.0 / 0.7)
+    assert 0.9 * raw_to_force(force_to_raw(-90.0, 0.7, 1, 0.9), 0.7, 1) == pytest.approx(-90.0, abs=0.7)  # what a 0.9 drive makes
+    assert force_to_raw(90.0, 0.7, 1, 0.9) == round(90.0 / 0.7)
+
+    core = MotorCore(MachineProfile())
+    limit = core.load_limit_n()
+    assert kgf_to_n(7.0) < limit < kgf_to_n(7.0) + core.envelope.max_force_n_per_side
+    core.set_load(LoadSetpoint(load_n=limit + 200.0))
+    assert core.load_capped and core.load.load_n == pytest.approx(limit)
+
+
+def test_pull_scale_n1_and_heavy_check_n2(feel_ready: tuple[PlantParams, MachineProfile, dict[str, CalibrationSession]]) -> None:
+    params, profile, _sessions = feel_ready
+    pulling = replace(params, left=replace(params.left, pull_scale=0.85), right=replace(params.right, pull_scale=0.85))
+    profile, _ = _chain(pulling, profile, ("N1",))
+    for side in SIDES:
+        assert profile.side(side).pull_scale.value == pytest.approx(0.85, abs=0.03)
+    profile, _ = _chain(pulling, profile, ("N1",))  # a second run with the scale applied stays put
+    for side in SIDES:
+        assert profile.side(side).pull_scale.value == pytest.approx(0.85, abs=0.03)
+    _profile, sessions = _chain(pulling, profile, ("N2",))
+    result = sessions["N2"].stages[0].result
+    assert result["min_force_n"] < 0 and result["turns"]["chatter"] == 0

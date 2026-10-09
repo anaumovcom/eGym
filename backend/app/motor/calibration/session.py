@@ -39,6 +39,7 @@ from app.motor.calibration.procedures.estimation import SPECS as ESTIMATION_SPEC
 from app.motor.calibration.procedures.feel import SPECS as FEEL_SPECS
 from app.motor.calibration.procedures.feel_operator import SPECS as FEEL_OPERATOR_SPECS
 from app.motor.calibration.procedures.friction_map import SPECS as FRICTION_SPECS
+from app.motor.calibration.procedures.heavy import SPECS as HEAVY_SPECS
 from app.motor.calibration.procedures.heightmap import fit_height_map, height_map, map_heights
 from app.motor.calibration.procedures.holding import SPECS as HOLDING_SPECS
 from app.motor.calibration.procedures.loaded import SPECS as LOADED_SPECS
@@ -97,7 +98,7 @@ _RESCALED_MACHINE = (
 )
 EXTENDED: dict[str, tuple[Build, Fit]] = {
     **DRIVE_SPECS, **FRICTION_SPECS, **POSITIONING_SPECS, **HOLDING_SPECS, **LOADED_SPECS,
-    **ESTIMATION_SPECS, **FEEL_SPECS, **FEEL_OPERATOR_SPECS,
+    **ESTIMATION_SPECS, **FEEL_SPECS, **FEEL_OPERATOR_SPECS, **HEAVY_SPECS,
 }
 EXTRA_PATHS = {
     "S3": ("left.stribeck_extra_n", "right.stribeck_extra_n"),

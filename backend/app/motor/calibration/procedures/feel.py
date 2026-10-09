@@ -221,10 +221,25 @@ def _wobble(
             return frame, result
         swing = math.hypot(fit.coef[3], fit.coef[4])
         if swing > 1.0:
-            felt = 1000 * amplitude / (omega * swing)
+            # impedance Z = F/V = c + jωm: the push acts after the bus delay τ (phasor A·e^(−jωτ)); sin ↔ 1, cos ↔ j.
+            # The real part is damping (viscous friction, the law's own speed terms, friction growing with the
+            # force) — taking |Z| as ωm would count it as mass
+            tau = (_value_or(ctx.profile.loop_delay_s, 0.04)) + (_value_or(ctx.profile.torque_lag_s, 0.0))
+            push = complex(math.cos(omega * tau), -math.sin(omega * tau)) * amplitude
+            impedance = push / complex(fit.coef[3], fit.coef[4])
+            felt = 1000 * impedance.imag / omega
+            if felt <= 0:
+                return frame, result
             accel = fit.coef[1] + fit.coef[2] * (usable[0].t + usable[-1].t - 2 * t0)  # mean slope over the window
-            result.update(mass_kg=round(felt, 1), residual_n=round(base - held - felt * accel / 1000, 1), swing_mm_s=round(swing, 1))
+            result.update(
+                mass_kg=round(felt, 1), residual_n=round(base - held - felt * accel / 1000, 1), swing_mm_s=round(swing, 1),
+                damping_n_per_mm_s=round(impedance.real, 3),
+            )
     return frame, result
+
+
+def _value_or(item: Any, default: float) -> float:
+    return float(item.value) if item.value is not None else default
 
 
 def _felt_item(ctx: Context, frame: Frame, load_kgf: float, *, progress: float, note: str, profile: MachineProfile | None = None) -> Gen:

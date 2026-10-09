@@ -15,7 +15,16 @@ from collections.abc import Callable
 from app.motor.drive.protocol import DriveSample
 from app.motor.profile import SideProfile
 from app.motor.twin.plant import Plant, PlantParams
-from app.motor.units import SIDES, Side, clamp, force_to_raw, mm_s_to_rpm, passport_mm_per_pulse, rpm_to_mm_s
+from app.motor.units import (
+    SIDES,
+    Side,
+    clamp,
+    force_to_raw,
+    mm_s_to_rpm,
+    passport_mm_per_pulse,
+    raw_to_force,
+    rpm_to_mm_s,
+)
 
 UserModel = Callable[[float, "TwinBench"], dict[Side, float]]
 
@@ -44,7 +53,7 @@ class TwinDrive:
         return None
 
     def write_force(self, force_n: float) -> str | None:
-        return self.write_raw(force_to_raw(force_n, self.profile.n_per_raw_value, self.profile.sign))
+        return self.write_raw(force_to_raw(force_n, self.profile.n_per_raw_value, self.profile.sign, self.profile.pull_scale_value))
 
     def support(self) -> str | None:
         return self.write_raw(int(self.profile.support_raw.value) * self.profile.sign)
@@ -98,7 +107,8 @@ class TwinBench:
         if abs(raw) < self.params.deadband_raw:
             return 0.0
         physics = self.params.side(side)
-        return raw * physics.direction_sign * physics.n_per_raw
+        force = raw * physics.direction_sign * physics.n_per_raw
+        return force * physics.pull_scale if force < 0 else force
 
     def applied_raw(self, side: Side) -> int:
         return self._applied_raw[side]
@@ -136,7 +146,7 @@ class TwinBench:
         # registers as the drive reports them (motor direction), then the believed profile
         reg_position = x * physics.direction_sign + (self.rng.gauss(0, self.params.position_noise_mm) if self.params.position_noise_mm else 0.0)
         reg_rpm = round(mm_s_to_rpm(v * physics.direction_sign))
-        reg_torque = round(force * physics.direction_sign / physics.n_per_raw)
+        reg_torque = round(force * physics.direction_sign / physics.n_per_raw)  # PA_1C4: the torque made
         sign = profile.sign
         alarm = self.alarm[side]
         return DriveSample(
@@ -145,7 +155,7 @@ class TwinBench:
             ok=alarm == 0,
             position_mm=reg_position * sign,
             speed_mm_s=rpm_to_mm_s(reg_rpm) * sign,
-            motor_force_n=reg_torque * sign * profile.n_per_raw_value,
+            motor_force_n=raw_to_force(reg_torque, profile.n_per_raw_value, sign),
             command_raw=self.drives[side].last_raw,
             alarm=alarm,
             error=f"twin alarm {alarm}" if alarm else None,

@@ -131,10 +131,15 @@ class FrictionModel:
             return 0.0
         return self.track_gain * self.ripple_n * math.sin(2 * math.pi * x_mm / SCREW_LEAD_MM + self.ripple_phase_rad)
 
-    def force(self, v_mm_s: float, blend_mm_s: float = 0.0, *, x_mm: float | None = None, axial_excess_n: float | None = None) -> float:
+    def force(
+        self, v_mm_s: float, blend_mm_s: float = 0.0, *, x_mm: float | None = None, axial_excess_n: float | None = None, motor_sign: int = 1,
+    ) -> float:
         """Friction resisting motion (same sign as v): what the motor must add to cancel it.
 
         ``axial_excess_n`` — axial load on the screw beyond the bar weight (|motor force| − W): the L1/L2 growth.
+        ``motor_sign`` — sign of the motor force. L1/L2 measure with the motor pushing up: "up" is the motor
+        driving the motion, "down" the motion back-driving the motor. A heavy load makes the motor pull down,
+        and the two swap: lifting back-drives the screw, lowering is driven.
         """
 
         s = smooth_sign(v_mm_s, blend_mm_s)
@@ -144,7 +149,8 @@ class FrictionModel:
         if x_mm is not None:
             magnitude += self.track_extra(x_mm)
         if axial_excess_n is not None and self.load_gain:
-            magnitude += self.load_gain * (self.load_up if direction > 0 else self.load_down) * axial_excess_n
+            driving = direction * (1 if motor_sign >= 0 else -1) > 0
+            magnitude += self.load_gain * (self.load_up if driving else self.load_down) * axial_excess_n
         magnitude = max(magnitude, MIN_FRICTION_SHARE * base)
         if self.table_up or self.table_down:
             return s * magnitude
@@ -154,8 +160,9 @@ class FrictionModel:
 
     def compensation(
         self, v_mm_s: float, gain_up: float, gain_down: float, blend_mm_s: float, *, x_mm: float | None = None, axial_excess_n: float | None = None,
+        motor_sign: int = 1,
     ) -> float:
-        force = self.force(v_mm_s, blend_mm_s, x_mm=x_mm, axial_excess_n=axial_excess_n)
+        force = self.force(v_mm_s, blend_mm_s, x_mm=x_mm, axial_excess_n=axial_excess_n, motor_sign=motor_sign)
         return force * (gain_up if force >= 0 else gain_down)
 
     def window(self, weight_n: float) -> tuple[float, float]:

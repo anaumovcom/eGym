@@ -11,11 +11,15 @@ Free-weight feel (all parts off until their calibration is measured):
 * softened friction compensation right after a breakaway from rest (F6);
 * deadband inverse (D1 × F8), dither against static friction (F9), speed cushions at the ends (F10);
 * release detection in training (F11): the user let go → hold.
+
+A load heavier than the bar makes the motor pull down (F < 0): the friction growth swaps its quadrant,
+the pull is sent through the N1 scale, and ``set_load`` caps the load at what the drives can pull
+(``load_limit_n``); a fast fall with such a load is caught by the load relief and the cushions.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal
 
 from app.motor.drive.protocol import DriveSample
@@ -44,6 +48,7 @@ CUSHION_DECEL_SHARE = 0.35  # the cushion asks for a third of it: room for the d
 CUSHION_BLEND_MM_S = 10.0
 CUSHION_MARGIN_MM = 10.0  # the landing speed is reached this far before the soft limit
 DEFAULT_LANDING_MM_S = 15.0
+LOAD_RESERVE_SHARE = 0.1  # of the strongest pull: inertia, cushions and the sync act on top of the load
 
 
 def _value(item: Measured, default: float | None = None) -> float | None:
@@ -73,6 +78,7 @@ class MotorCore:
         self.hold_target: dict[Side, float | None] = {side: None for side in SIDES}
         self._hold_caught: dict[Side, bool] = {side: False for side in SIDES}
         self.load = LoadSetpoint()
+        self.load_capped = False
         self.virtual_mass_kg = 0.0
         self.phase = PhaseTracker(self.tunables.phase_hysteresis_mm_s, self.tunables.phase_blend_s)
         self.calibration_force: dict[Side, float] | None = None
@@ -100,7 +106,27 @@ class MotorCore:
                 monitor.reset()
         return mode
 
+    def load_limit_n(self) -> float:
+        """Heaviest load per side the drives can make: bar weight + the strongest pull down, less the friction reserve.
+
+        Above the bar weight the motor pulls the bar down; the pull is limited by the envelope and by PA_05E
+        (times the N1 pull scale). Lowering adds the friction compensation to the pull, so it is kept in reserve.
+        """
+
+        limits = []
+        for side in SIDES:
+            profile = self.profile.side(side)
+            weights = [float(w) for _x, w in profile.gravity_map.value]
+            pull = min(self.envelope.max_force_n_per_side, self.envelope.max_raw * profile.n_per_raw_value * profile.pull_scale_value)
+            reserve = float(profile.coulomb_down_n.value) + LOAD_RESERVE_SHARE * pull
+            limits.append(min(weights) + pull - reserve)
+        return max(0.0, min(limits))
+
     def set_load(self, setpoint: LoadSetpoint) -> None:
+        limit = self.load_limit_n()
+        self.load_capped = setpoint.load_n > limit
+        if self.load_capped:  # a set the drives cannot make: the user gets the heaviest honest load, not a saturated one
+            setpoint = replace(setpoint, load_n=limit)
         self.load = setpoint
         self.virtual_mass_kg = setpoint.load_n / 9.80665
 
@@ -295,9 +321,11 @@ class MotorCore:
         weight = compensation.gravity(profile, state.x_mm) + model.ripple(state.x_mm)
         # the command acts after the bus delay: friction sign and size for the velocity then (V3)
         v_ahead = state.v_mm_s + state.a_mm_s2 * self.horizon_s
-        # screw load beyond the bar weight: friction grows with it (L1/L2); below the weight the preload keeps it
+        # screw load beyond the bar weight: friction grows with it (L1/L2); below the weight the preload keeps it.
+        # A load heavier than the bar makes the motor pull down: |F| − W again, with the power flow swapped
         axial = max(0.0, abs(self.previous[side]) - weight)
-        friction = compensation.friction(model, v_ahead, t, x_mm=state.x_mm, axial_excess_n=axial) * self._breakaway_scale(side)
+        motor_sign = 1 if self.previous[side] >= 0 else -1
+        friction = compensation.friction(model, v_ahead, t, x_mm=state.x_mm, axial_excess_n=axial, motor_sign=motor_sign) * self._breakaway_scale(side)
         sync = side_sync(state.x_mm, other.x_mm, t.sync_k_n_per_mm, t.sync_max_n)
         speed_guard = governor(state.v_mm_s, self.envelope.max_speed_mm_s, self.envelope.max_descent_mm_s)
         if output == "calibrate":
