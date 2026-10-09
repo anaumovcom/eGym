@@ -9,10 +9,11 @@ import bisect
 from dataclasses import asdict, dataclass, field, fields, replace
 from typing import Any, Literal
 
-from app.motor.units import SIDES, Side, kgf_to_n, passport_mm_per_pulse, passport_n_per_raw
+from app.motor.units import SIDES, Side, kgf_to_n, passport_mm_per_pulse, passport_moving_mass_kg, passport_n_per_raw
 
 Provenance = Literal["measured", "derived", "default", "manual"]
 SCHEMA_VERSION = 1
+DEFAULT_MOVING_MASS_KG = round(passport_moving_mass_kg())
 
 
 @dataclass(frozen=True)
@@ -45,7 +46,7 @@ class SideProfile:
     viscous_n_per_mm_s: Measured = field(default_factory=lambda: _d(0.05))
     stribeck_v_mm_s: Measured = field(default_factory=lambda: _d(5.0))
     stribeck_extra_n: Measured = field(default_factory=lambda: _d(0.0))
-    moving_mass_kg: Measured = field(default_factory=lambda: _d(60.0))
+    moving_mass_kg: Measured = field(default_factory=lambda: _d(float(DEFAULT_MOVING_MASS_KG), 25.0, "derived"))
     support_raw: Measured = field(default_factory=lambda: _d(100))
     zero_counts: Measured = field(default_factory=lambda: _d(None))
     # motion (M1, M2): force beyond the window edge; None = not measured, the motion primitives adapt

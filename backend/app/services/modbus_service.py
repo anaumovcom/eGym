@@ -204,6 +204,7 @@ class ModbusService:
         self._manual_torque = False
         self._torque_limit: dict[int, int] = {}
         self._speed_limit_rpm: dict[int, int] = {}
+        self._speed_limit_connect_rpm: dict[int, int] = {}  # PA_056 written at connect: restored after calibration moves
         self._profiles: list[ParameterProfileSchema] = []
         self._profile_id_counter = 0
 
@@ -367,7 +368,7 @@ class ModbusService:
     # ------------------------------------------------------------------
 
     def connect(
-        self, params: ModbusConnectionParamsSchema, *, initial_commands: dict[int, int] | None = None,
+        self, params: ModbusConnectionParamsSchema, *, initial_commands: dict[int, int] | None = None, torque_limit: int = DEFAULT_TORQUE_LIMIT,
     ) -> ModbusConnectionStatusSchema:
         with self._lock:
             if params.slave_id == params.right_slave_id:
@@ -400,7 +401,7 @@ class ModbusService:
                 self._error_count = 0
                 self._last_success_at = self._now()
                 self._log_info("CONNECT", f"Connected to {params.port} (simulation mode)")
-                errors = self.initialize_torque_mode(initial_commands=initial_commands)
+                errors = self.initialize_torque_mode(initial_commands=initial_commands, torque_limit=torque_limit)
                 if errors:
                     self._connection_error = "; ".join(errors)
                     self._log_info("SYNC_ERR", self._connection_error)
@@ -428,7 +429,7 @@ class ModbusService:
                 self._error_count = 0
                 self._last_success_at = self._now()
                 self._log_info("CONNECT", f"Connected to {params.port} @ {params.baud_rate}")
-                errors = self.initialize_torque_mode(initial_commands=initial_commands)
+                errors = self.initialize_torque_mode(initial_commands=initial_commands, torque_limit=torque_limit)
                 if errors:
                     self._connection_error = "; ".join(errors)
                     self._log_info("SYNC_ERR", self._connection_error)
@@ -456,6 +457,7 @@ class ModbusService:
         self._torque_command.clear()
         self._torque_limit.clear()
         self._speed_limit_rpm.clear()
+        self._speed_limit_connect_rpm.clear()
 
     def disconnect(self, *, preserve_torque: bool = False) -> ModbusConnectionStatusSchema:
         with self._lock:
@@ -777,6 +779,7 @@ class ModbusService:
             self.right_zero_pulses = int(feedback)  # type: ignore[arg-type]
         self._torque_limit[slave_id] = torque_limit
         self._speed_limit_rpm[slave_id] = speed_limit_rpm
+        self._speed_limit_connect_rpm[slave_id] = speed_limit_rpm
         self._torque_command[slave_id] = initial_command
         self._torque_ready[slave_id] = True
         self._log_info("TORQUE_INIT", f"slave {slave_id}: PA_002=2, PA_093=0, PA_12C={initial_command}, speed limit={speed_limit_rpm} rpm, torque limit={torque_limit}")
@@ -930,6 +933,10 @@ class ModbusService:
             if result.success:
                 self._speed_limit_rpm[slave_id] = rpm
             return None if result.success else result.error
+
+    def connect_speed_limit_rpm(self, slave_id: int) -> int | None:
+        """PA_056 written by ``initialize_torque_mode`` (the value a temporary limit returns to)."""
+        return self._speed_limit_connect_rpm.get(slave_id)
 
     def _read_torque_telemetry_locked(self, slave_id: int, *, extended: bool = False, log: bool = True) -> dict[str, int | float | str | None]:
         # PA_1BC..PA_1C9 in one transaction: position, position error, speeds, torques, alarm

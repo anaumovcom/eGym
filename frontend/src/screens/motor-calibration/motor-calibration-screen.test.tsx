@@ -122,7 +122,7 @@ describe('MotorCalibrationScreen', () => {
     expect(await screen.findByText('Сейчас выполняется')).toBeInTheDocument()
     expect(screen.getAllByText('трогание вверх 2/3').length).toBeGreaterThan(0)
     expect(screen.getByText('40%')).toBeInTheDocument()
-    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/motor/calibration/keepalive', {}), { timeout: 1000 })
+    await waitFor(() => expect(apiPost).toHaveBeenCalledWith('/api/motor/calibration/keepalive', expect.anything()), { timeout: 1000 })
     expect(apiPost).not.toHaveBeenCalledWith('/api/motor/calibration/abort', {})
 
     fireEvent.click(screen.getByRole('button', { name: /СТОП/ }))

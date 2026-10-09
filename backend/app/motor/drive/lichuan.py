@@ -10,6 +10,8 @@ from app.motor.drive.registers import PA_TORQUE_COMMAND, PA_VIRTUAL_DI, alarm_te
 from app.motor.profile import SideProfile
 from app.motor.units import Side, clamp, force_to_raw, raw_to_force, rpm_to_mm_s
 
+RESTORE_SPEED_LIMIT_RPM = 300  # modbus_service.DEFAULT_SPEED_LIMIT_RPM, if the connect value is unknown
+
 
 class LichuanTorqueDrive:
     def __init__(self, side: Side, slave_id: int, profile: SideProfile, max_raw: int, service: Any) -> None:
@@ -60,6 +62,15 @@ class LichuanTorqueDrive:
         """Upward support against gravity: ``support_raw`` in the motor direction."""
 
         return self.write_raw(int(self.profile.support_raw.value) * self.profile.sign)
+
+    def limit_speed_rpm(self, rpm: int | None) -> str | None:
+        """Runtime PA_056 for a calibration move; ``None`` restores the value written at connect."""
+
+        value = rpm if rpm is not None else (self.service.connect_speed_limit_rpm(self.slave_id) or RESTORE_SPEED_LIMIT_RPM)
+        try:
+            return self.service.set_speed_limit_rpm(self.slave_id, int(clamp(value, 1, 3000)), log=False)
+        except Exception as exc:  # noqa: BLE001
+            return str(exc)
 
     def zero(self) -> str | None:
         return self.write_raw(0)

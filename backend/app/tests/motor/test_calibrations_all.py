@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from app.motor.calibration.graph import BY_CODE, CATALOG, ORDER, WIZARD_STAGES, CheckResult, graph, status
+from app.motor.calibration.procedures.motion import TRANSIT_UP_MM_S
 from app.motor.calibration.runner import Frame
 from app.motor.calibration.session import CalibrationSession
 from app.motor.parameters import PARAMS, apply_changes
@@ -16,7 +17,7 @@ from app.motor.profile import MachineProfile, Measured
 from app.motor.store import ProfileBundle
 from app.motor.twin.bench import TwinBench
 from app.motor.twin.plant import PlantParams
-from app.motor.units import SIDES, kgf_to_n, passport_n_per_raw
+from app.motor.units import SIDES, kgf_to_n, mm_s_to_rpm, passport_n_per_raw
 from app.services.hardware_runtime import hardware_runtime
 
 
@@ -233,6 +234,32 @@ def test_b8_travel_to_the_upper_stop() -> None:
     assert all(bench.plant.state[side].x_mm < 15 for side in SIDES)  # back on the stops
 
 
+def test_b8_passes_tight_spots_without_stalls() -> None:
+    """A6 bench B8 (2026-10-09): stick-slip — 1 s of motion, 10–40 s stalls while the cap crept up, at a dozen heights.
+    The rise is limited by PA_056: the force keeps its margin, tight spots pass at once; PA_056 is restored."""
+
+    spots = ((250.0, 10.0, 45.0), (480.0, 10.0, 60.0), (700.0, 15.0, 30.0))
+    params = replace(_params(weight_n=150.0, coulomb_up_n=48.0, coulomb_down_n=48.0, stiction_extra_n=15.0, dwell_stiction_n=20.0, dwell_tau_s=3.0, tight_spots=spots), travel_mm=900.0)
+    bench = _bench(params, MachineProfile())
+    profile = _calibrated(bench)
+    trace: list[tuple[float, float]] = []
+    session = _run(bench, "B8", profile, operator=lambda _s: trace.append((bench.t, bench.plant.state["left"].x_mm)))
+    _done(session)
+    assert session.profile.travel_mm.value == pytest.approx(900.0, abs=5.0)
+    rise = [(t, x) for t, x in trace[: max(range(len(trace)), key=lambda i: trace[i][1]) + 1] if 30.0 < x < 880.0]
+    stall, since = 0.0, rise[0]
+    for t, x in rise:
+        if x - since[1] > 2.0:
+            since = (t, x)
+        stall = max(stall, t - since[0])
+    assert stall < 4.0, f"stalled {stall:.1f} s at {since[1]:.0f} mm"
+    assert rise[-1][0] - rise[0][0] < 60.0
+    for side in SIDES:
+        limits = bench.drives[side].speed_limits
+        assert limits and min(rpm for rpm in limits if rpm is not None) <= mm_s_to_rpm(1.3 * TRANSIT_UP_MM_S) and limits[-1] is None
+        assert bench.plant.speed_limit_rpm[side] == params.speed_limit_rpm
+
+
 @pytest.mark.parametrize(("coupling", "lower_bound"), [(40.0, False), (2000.0, True)])
 def test_x2_side_coupling(coupling: float, lower_bound: bool) -> None:
     bench = _bench(replace(PlantParams(), coupling_n_per_mm=coupling), MachineProfile())
@@ -373,6 +400,33 @@ def test_m2_m3_m4_governed_motion() -> None:
     assert result["ok"] and result["max_error_mm"] <= 5.0 and not payload["hasChanges"]
 
 
+def test_one_side_breaking_free_stops_the_move() -> None:
+    """A6 bench M3 (2026-10-09): left fell at −82 mm/s, right stuck — the mean (−41) hid it from the runaway check."""
+
+    from app.motor.calibration.procedures.motion import Balance, _governed
+    from app.motor.calibration.runner import Frame
+    from app.motor.drive.protocol import DriveSample
+
+    balance = Balance({side: [(0.0, 150.0)] for side in SIDES}, {side: 40.0 for side in SIDES}, {side: 40.0 for side in SIDES})
+    assert Balance.from_profile(MachineProfile()).sync_k > 0  # side sync works before X3
+
+    def frame(t: float, x: dict[str, float], v: dict[str, float]) -> Frame:
+        return Frame(t, {side: DriveSample(side, t, True, position_mm=x[side], speed_mm_s=v[side]) for side in SIDES})
+
+    move = _governed(balance, frame(0.0, {"left": 150.0, "right": 150.0}, {"left": 0.0, "right": 0.0}), -1, 40.0,
+                     lambda f, extra: False, note="тест", progress=lambda f: None)
+    command = next(move)
+    assert command.note == "тест"
+    x = {"left": 150.0, "right": 150.0}
+    for i in range(1, 3):
+        x["left"] -= 85.0 * 0.05
+        command = move.send(frame(0.05 * i, x, {"left": -85.0, "right": 0.0}))
+        if command.note != "тест":
+            break
+    assert command.note == "тест: торможение"
+    assert command.forces_n == pytest.approx({side: 150.0 for side in SIDES})
+
+
 def test_envelope_ignores_a_single_speed_spike() -> None:
     """A6 bench: PA_1C1 reported 91 mm/s for one frame on a resting bar — not an abort; two frames are."""
 
@@ -406,7 +460,7 @@ def test_envelope_ignores_a_single_speed_spike() -> None:
     for spikes, expected in (({5}, "done"), ({5, 6}, "done"), ({5, 6, 7}, "aborted")):
         frames["n"] = 0
         drives = {side: Spiky(bench.drives[side], spikes) for side in SIDES}
-        runner = CalibrationRunner(drives, tick, ProcedureEnvelope())
+        runner = CalibrationRunner(drives, tick, ProcedureEnvelope(max_speed_mm_s=80.0))
         assert runner.run(rest()).status == expected
 
 
@@ -655,8 +709,9 @@ def test_feel_check_g2_and_core_uses_the_table(feel_ready: tuple[PlantParams, Ma
 
     params, profile, _sessions = feel_ready
     core = MotorCore(profile)
-    core.set_load(LoadSetpoint(load_n=kgf_to_n(5.0)))
-    assert core.inertia_share("left") == pytest.approx(dict(profile.inertia_table.value)[round(kgf_to_n(5.0), 1)], abs=1e-6)
+    key = round(kgf_to_n(5.0), 1)
+    core.set_load(LoadSetpoint(load_n=key))
+    assert core.inertia_share("left") == pytest.approx(dict(profile.inertia_table.value)[key], abs=1e-6)
     _done(_run(_bench(params, profile), "G2", profile, operator=None))
 
 
@@ -790,3 +845,36 @@ def test_pull_scale_n1_and_heavy_check_n2(feel_ready: tuple[PlantParams, Machine
     _profile, sessions = _chain(pulling, profile, ("N2",))
     result = sessions["N2"].stages[0].result
     assert result["min_force_n"] < 0 and result["turns"]["chatter"] == 0
+
+
+@pytest.mark.parametrize("mass", [60.0, 86.0, 110.0])
+def test_fast_transit_reaches_points_quickly(mass: float) -> None:
+    from app.motor.calibration.procedures.motion import FAST_TOLERANCE_MM, Balance, land, travel
+    from app.motor.calibration.runner import CalibrationRunner, Command
+
+    params = replace(_params(weight_n=150.0, coulomb_up_n=48.0, coulomb_down_n=48.0, mass_kg=mass), travel_mm=1300.0, command_delay_ticks=2)
+    bench = _bench(params, MachineProfile())
+    balance = Balance.from_profile(_calibrated(bench))
+
+    def proc() -> Any:
+        frame = yield Command(None)
+        t0 = frame.t
+        frame = yield from travel(balance, frame, 900.0)
+        up = (frame.t - t0, frame.x_mean)
+        t1 = frame.t
+        frame = yield from travel(balance, frame, 300.0)
+        down = (frame.t - t1, frame.x_mean)
+        frame = yield from land(balance, frame)
+        return {"up": up, "down": down}
+
+    def tick() -> float:
+        bench.advance(0.074)
+        return bench.t
+
+    result = CalibrationRunner(bench.drives, tick).run(proc())
+    assert result.status == "done", result.reason
+    (t_up, x_up), (t_down, x_down) = result.data["up"], result.data["down"]
+    assert abs(x_up - 900.0) <= FAST_TOLERANCE_MM and abs(x_down - 300.0) <= FAST_TOLERANCE_MM
+    assert t_up < 8.0 and t_down < 8.0  # 600 mm at the governed 60/40 mm/s would take 10–15 s
+    assert max(max(abs(r[3]), abs(r[4])) for r in result.log) >= 300.0
+    assert all(bench.plant.state[side].x_mm < 5 for side in SIDES)

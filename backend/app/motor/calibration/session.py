@@ -10,6 +10,7 @@ the operator saves it.
 
 from __future__ import annotations
 
+import logging
 import math
 import time
 import uuid
@@ -77,6 +78,7 @@ from app.motor.units import SIDES, Side, n_to_kgf
 
 SessionStatus = Literal["running", "done", "aborted", "failed"]
 StageStatus = Literal["pending", "running", "done", "aborted", "failed"]
+logger = logging.getLogger(__name__)
 DEAD_MAN_TIMEOUT_S = 1.5  # heartbeat from the calibration screen (sent automatically while it is open)
 ON_STOPS_MM = 15.0
 RELAY_STEPS_N = (6.0, 12.0)
@@ -215,6 +217,13 @@ class CalibrationSession:
     def keepalive(self) -> None:
         self.keepalive_at = time.monotonic()
 
+    def excuse_stall(self, seconds: float) -> None:
+        """The control loop itself stood still (event loop / executor busy): requests from the screen could
+        not be served, so that time is not the screen's silence. Bounded by one dead-man timeout."""
+
+        if seconds > 0:
+            self.keepalive_at = min(time.monotonic(), self.keepalive_at + min(seconds, self.dead_man_timeout_s))
+
     @property
     def prompt(self) -> Prompt | None:
         return self.operator.prompt if self.running else None
@@ -233,7 +242,11 @@ class CalibrationSession:
         self.operator.answer(value)
 
     def _dead_man_held(self) -> bool:
-        return time.monotonic() - self.keepalive_at <= self.dead_man_timeout_s
+        silence = time.monotonic() - self.keepalive_at
+        if silence > self.dead_man_timeout_s:
+            logger.warning("Calibration %s: no heartbeat from the screen for %.2f s", self.code, silence)
+            return False
+        return True
 
     def begin(self) -> None:
         self._start_stage()
@@ -798,7 +811,7 @@ class CalibrationSession:
             "currentStage": current.code if self.running else None,
             "note": current.note if self.running else "",
             "prompt": self.prompt.to_dict() if self.prompt else None,
-            "deadManHeld": self._dead_man_held() if self.running else False,
+            "deadManHeld": self.running and time.monotonic() - self.keepalive_at <= self.dead_man_timeout_s,
             "stages": [stage.to_payload() for stage in self.stages],
             "changes": changes,
             "hasChanges": any(item["changed"] for item in changes),

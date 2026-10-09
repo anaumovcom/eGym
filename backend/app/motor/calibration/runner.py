@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from typing import Any, Literal
 
 from app.motor.drive.protocol import DriveSample, TorqueDrive
-from app.motor.units import SIDES, Side
+from app.motor.units import SIDES, Side, mm_s_to_rpm
 
 
 @dataclass(frozen=True)
@@ -65,10 +65,18 @@ class Command:
     # a procedure may raise the speed limit up to LIFTOFF_SPEED_MM_S, only below LIFTOFF_ZONE_MM
     liftoff: bool = False
     prompt: Prompt | None = None  # the operator is asked to do something
+    # temporary drive speed limit PA_056 per side (governed up moves): the drive clamps the speed at kHz rate,
+    # so a side breaking free from stiction does not overshoot; None → the limit written at connect
+    speed_limit_mm_s: dict[Side, float] | None = None
+    # fast transit (motion._fast): the envelope speed limit rises to this, at most FAST_CEILING_MM_S
+    max_speed_mm_s: float | None = None
 
 
 LIFTOFF_SPEED_MM_S = 150.0
+FAST_CEILING_MM_S = 480.0  # PA_056 900 rpm (SafetyEnvelope.speed_limit_rpm), below the 533 mm/s overspeed alarm
 LIFTOFF_ZONE_MM = 60.0
+MIN_LIMIT_RPM = 5  # ≈ 2.7 mm/s
+LIMIT_HYSTERESIS = 0.1  # rewrite PA_056 only when it changes by > 10 % (≥ 3 rpm): bus time
 
 
 Procedure = Generator[Command, Frame, dict[str, Any]]
@@ -76,7 +84,9 @@ Procedure = Generator[Command, Frame, dict[str, Any]]
 
 @dataclass(frozen=True)
 class ProcedureEnvelope:
-    max_speed_mm_s: float = 80.0
+    # governed moves stop themselves at 70 mm/s (motion.RUNAWAY_MM_S); with a 1-frame bus delay a side breaking
+    # free from stiction (A6 bench: 61 → 87 mm/s in one 70 ms frame) needs room above that before the abort
+    max_speed_mm_s: float = 120.0
     min_x_mm: float = -5.0
     max_x_mm: float = 1500.0
     max_force_n: float = 600.0
@@ -115,6 +125,7 @@ class CalibrationRunner:
         self._previous: Frame | None = None
         self._overspeed: dict[Side, int] = {side: 0 for side in SIDES}
         self.glitches = 0  # unconfirmed speed spikes ignored by the envelope
+        self._limit_rpm: dict[Side, int | None] = {side: None for side in SIDES}  # PA_056 written by a command
 
     @property
     def active(self) -> bool:
@@ -138,6 +149,8 @@ class CalibrationRunner:
         self._previous = frame
         liftoff = self._command.liftoff and all(sample.position_mm <= LIFTOFF_ZONE_MM for sample in frame.samples.values())
         speed_limit = max(envelope.max_speed_mm_s, LIFTOFF_SPEED_MM_S) if liftoff else envelope.max_speed_mm_s
+        if self._command.max_speed_mm_s is not None:
+            speed_limit = max(speed_limit, min(self._command.max_speed_mm_s, FAST_CEILING_MM_S))
         for side, sample in frame.samples.items():
             if not sample.ok:
                 return f"{side}: {sample.error}"
@@ -158,6 +171,11 @@ class CalibrationRunner:
         errors: dict[Side, str] = {}
         for side in SIDES:
             drive = self.drives[side]
+            # the limit first: a lower limit must be in place before a larger force
+            error = self._limit(side, None if command.speed_limit_mm_s is None else command.speed_limit_mm_s[side])
+            if error:
+                errors[side] = f"PA_056: {error}"
+                continue
             if command.raw is not None:
                 error = drive.write_raw(command.raw[side])
             elif command.forces_n is None:
@@ -169,6 +187,23 @@ class CalibrationRunner:
                 errors[side] = error
         return errors
 
+    def _limit(self, side: Side, speed_mm_s: float | None) -> str | None:
+        applied = self._limit_rpm[side]
+        wanted = None if speed_mm_s is None else max(MIN_LIMIT_RPM, round(mm_s_to_rpm(speed_mm_s)))
+        if wanted == applied:
+            return None
+        if wanted is not None and applied is not None and abs(wanted - applied) < max(3, LIMIT_HYSTERESIS * applied):
+            return None
+        error = self.drives[side].limit_speed_rpm(wanted)
+        self._limit_rpm[side] = wanted if not error else applied
+        return error
+
+    def _restore_limits(self) -> None:
+        for side in SIDES:
+            if self._limit_rpm[side] is not None:
+                self.drives[side].limit_speed_rpm(None)
+                self._limit_rpm[side] = None
+
     def _finish(self, status: Literal["done", "aborted", "failed"], reason: str | None = None, *, support: bool = True) -> RunResult:
         if self._procedure is not None:
             self._procedure.close()
@@ -176,6 +211,7 @@ class CalibrationRunner:
         if support and status != "done":
             for drive in self.drives.values():
                 drive.support()
+        self._restore_limits()
         self._result.status = status
         self._result.reason = reason
         return self._result
@@ -231,6 +267,7 @@ class CalibrationRunner:
             command = self._procedure.send(frame)
         except StopIteration as stop:
             self._procedure = None
+            self._restore_limits()
             self._result.data = stop.value or {}
             return self._result
         except ProcedureError as error:

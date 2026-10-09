@@ -101,6 +101,7 @@ class Plant:
     def __init__(self, params: PlantParams, x0_mm: float = 0.0) -> None:
         self.params = params
         self.state: dict[Side, SideState] = {side: SideState(x_mm=x0_mm) for side in SIDES}
+        self.speed_limit_rpm: dict[Side, float] = {side: params.speed_limit_rpm for side in SIDES}  # PA_056, runtime
         self.t = 0.0
 
     def _friction(self, physics: SidePhysics, v: float, x: float, motor_force_n: float | None = None) -> float:
@@ -121,9 +122,10 @@ class Plant:
                 other_x, other_v = snapshot["right" if side == "left" else "left"]
                 target = motor_target_n.get(side, 0.0)
                 rpm = abs(s.v_mm_s) * 60 / 32
-                if s.v_mm_s > 0 and target > 0 and rpm > p.speed_limit_rpm:
+                limit = self.speed_limit_rpm[side]
+                if s.v_mm_s > 0 and target > 0 and rpm > limit:
                     # PA_056 limits the motor only while it drives the motion (not descent under gravity)
-                    target *= max(0.0, 1 - (rpm - p.speed_limit_rpm) / (0.1 * p.speed_limit_rpm))
+                    target *= max(0.0, 1 - (rpm - limit) / (0.1 * limit))
                 s.motor_force_n += (target - s.motor_force_n) * lag
                 coupling = p.coupling_n_per_mm * (other_x - s.x_mm) + p.coupling_damping_n_per_mm_s * (other_v - s.v_mm_s)
                 drive = s.motor_force_n + user_force_n.get(side, 0.0) - physics.weight_at(s.x_mm) + coupling

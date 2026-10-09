@@ -253,7 +253,9 @@ def motion_check(balance: Balance, *, targets: Sequence[float] = (80.0, 150.0, 5
         start = frame.x_mean
         direction = 1 if target > start else -1
         state = Motion(trace=[])
-        frame = yield from travel(balance, frame, target, speed_mm_s=speed_mm_s, state=state, note=f"перемещение на {target:.0f} мм ({index + 1}/{len(targets)})", progress_span=progress)
+        frame = yield from travel(
+            balance, frame, target, speed_mm_s=speed_mm_s, state=state, note=f"перемещение на {target:.0f} мм ({index + 1}/{len(targets)})", progress_span=progress, drive_limit=True,
+        )
         trace = state.trace or []
         peak = max((direction * (x - target) for _t, x, _v, _e in trace), default=0.0)
         moves.append({

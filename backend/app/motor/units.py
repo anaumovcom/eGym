@@ -17,6 +17,20 @@ ENCODER_BITS = 17
 SCREW_EFFICIENCY = 0.9
 RAW_PER_RATED = 1000  # PA_12C unit = 0.1 % of rated torque
 MAX_RAW_ABSOLUTE = 3000  # PA_05E upper bound (≈ 3·T_rated)
+SCREW_LENGTH_MM = 1800.0
+SCREW_DIAMETER_MM = 32.0
+STEEL_DENSITY_KG_M3 = 7850.0
+ROTOR_INERTIA_KG_M2 = 2.6e-4  # 1 kW, 90 mm flange (catalogue class value)
+BAR_AND_CARRIAGES_KG = 40.0  # the bar with both carriages, split between the sides
+
+
+def passport_moving_mass_kg() -> float:
+    """Reflected mass per side: screw (solid cylinder) + rotor through (2π/p)² + half the bar ≈ 86 kg."""
+
+    radius = SCREW_DIAMETER_MM / 2000
+    screw = 0.5 * STEEL_DENSITY_KG_M3 * math.pi * radius**2 * (SCREW_LENGTH_MM / 1000) * radius**2
+    ratio = (2 * math.pi / (SCREW_LEAD_MM / 1000)) ** 2
+    return (screw + ROTOR_INERTIA_KG_M2) * ratio + BAR_AND_CARRIAGES_KG / 2
 
 
 def kgf_to_n(kgf: float) -> float:

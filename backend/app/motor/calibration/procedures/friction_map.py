@@ -131,7 +131,7 @@ def tight_spot_scan(balance: Balance, *, start_mm: float = 30.0, top_mm: float =
     frame = yield from travel(balance, frame, start_mm, progress_span=(0.0, 0.03))
     state = Motion(trace=[])
     frame = yield from travel(balance, frame, top_mm, speed_mm_s=speed_mm_s, state=state, note=f"подъём по всему ходу до {top_mm:.0f} мм", progress_span=(0.03, 0.6))
-    yield from land(balance, frame, speed_mm_s=20.0, progress=0.8)
+    yield from land(balance, frame, progress=0.8)
     return {"trace": state.trace or [], "speed_mm_s": speed_mm_s, "top_mm": top_mm}
 
 

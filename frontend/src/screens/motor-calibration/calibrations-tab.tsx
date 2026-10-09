@@ -19,18 +19,53 @@ import {
   type ReportLine,
   type RunnableCode,
 } from '@/features/motor/api/motor-api'
-import { ApiError } from '@/shared/api/client'
+import { ApiError, resolveApiAssetUrl } from '@/shared/api/client'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { SessionChart } from './session-chart'
 
 // the screen heartbeat: the backend aborts the run when it is missing for 1.5 s (closed / hidden page, lost network)
-const KEEPALIVE_MS = 300
+const KEEPALIVE_MS = 250
+const KEEPALIVE_PATH = '/api/motor/calibration/keepalive'
 const REFERENCE_KG = { min: 2, max: 60 }
 const card = 'rounded-[24px] border border-white/8 bg-white/4 p-5'
 
 function errorText(error: unknown): string {
   return error instanceof ApiError || error instanceof Error ? error.message : 'Ошибка запроса'
+}
+
+/** Starts the heartbeat (in a worker: a busy main thread must not look like a lost screen); returns its stop. */
+function startHeartbeat(onStopped: () => void): () => void {
+  let stop = () => {}
+  const onMainThread = () => {
+    let last = 0
+    const beat = () => {
+      const now = performance.now()
+      const intervalMs = last ? Math.round(now - last) : 0
+      last = now
+      motorApi.keepalive(intervalMs)
+        .then((result) => { if (!result.running) onStopped() })
+        .catch(() => undefined)
+    }
+    beat()
+    const timer = window.setInterval(beat, KEEPALIVE_MS)
+    stop = () => window.clearInterval(timer)
+  }
+  if (typeof Worker === 'undefined') {
+    onMainThread()
+  } else {
+    try {
+      const worker = new Worker(new URL('./heartbeat.worker.ts', import.meta.url), { type: 'module' })
+      worker.onmessage = () => onStopped()
+      worker.onerror = () => { worker.terminate(); onMainThread() }
+      const url = new URL(resolveApiAssetUrl(KEEPALIVE_PATH) ?? KEEPALIVE_PATH, window.location.href).href
+      worker.postMessage({ type: 'start', url, periodMs: KEEPALIVE_MS })
+      stop = () => worker.terminate()
+    } catch {
+      onMainThread()
+    }
+  }
+  return () => stop()
 }
 
 function clock(seconds: number): string {
@@ -648,7 +683,7 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
   const [referenceKg, setReferenceKg] = useState('')
   const [onlySelected, setOnlySelected] = useState(false)
   const activeRef = useRef(false) // this screen started the run and keeps it alive
-  const timerRef = useRef<number | null>(null)
+  const heartbeatRef = useRef<(() => void) | null>(null)
 
   const catalog = useQuery({ queryKey: ['motor', 'calibrations'], queryFn: motorApi.calibrations })
   const parameters = useQuery({ queryKey: ['motor', 'parameters'], queryFn: motorApi.parameters, staleTime: 30_000 })
@@ -687,7 +722,8 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
 
   const stopHeartbeat = useCallback(() => {
     activeRef.current = false
-    if (timerRef.current !== null) { window.clearInterval(timerRef.current); timerRef.current = null }
+    heartbeatRef.current?.()
+    heartbeatRef.current = null
   }, [])
 
   const stop = useCallback(async () => {
@@ -704,12 +740,7 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
       const next = await motorApi.start(code as RunnableCode, needsReference ? { referenceKg: referenceValue } : {})
       queryClient.setQueryData<CalibrationState>(['motor', 'session', code], next)
       activeRef.current = true
-      timerRef.current = window.setInterval(() => {
-        // a failed request is not fatal: the backend aborts by itself after 1.5 s without a heartbeat
-        motorApi.keepalive()
-          .then((result) => { if (!result.running) { stopHeartbeat(); void refresh() } })
-          .catch(() => undefined)
-      }, KEEPALIVE_MS)
+      heartbeatRef.current = startHeartbeat(() => { stopHeartbeat(); void refresh() })
     } catch (err) {
       setError(errorText(err))
       await refresh()

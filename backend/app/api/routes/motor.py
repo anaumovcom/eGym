@@ -1,6 +1,7 @@
 """Motor control v2 API: profile versions, calibration runs and parameters (plan 14 §8, plan 15 §6)."""
 
 from dataclasses import replace
+from datetime import UTC
 from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -62,6 +63,7 @@ def _checks(session: Session) -> dict[str, CheckResult]:
     """code → latest finished run of the checks without parameters (B0, G1, Q1): passed or failed."""
 
     checks: dict[str, CheckResult] = {}
+    since = store.calibrations_reset_at(session)
     for code in VERIFICATION_CODES:
         row = session.scalars(
             select(CalibrationRun)
@@ -70,6 +72,9 @@ def _checks(session: Session) -> dict[str, CheckResult]:
             .limit(1)
         ).first()
         if row is not None and row.finished_at is not None:
+            finished = row.finished_at if row.finished_at.tzinfo else row.finished_at.replace(tzinfo=UTC)
+            if since is not None and finished <= since:
+                continue
             checks[code] = CheckResult(row.finished_at.isoformat(), row.status != "failed")
     return checks
 
@@ -137,11 +142,21 @@ def start_calibration(payload: CalibrationStartRequest, session: Session = Depen
     return hardware_runtime.calibration_payload(payload.code)
 
 
-@router.post("/calibration/keepalive")
-def calibration_keepalive() -> dict[str, bool]:
-    """Heartbeat of the calibration screen: silence > 1.5 s (screen closed, hidden, network lost) aborts to support."""
+class CalibrationKeepalive(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
 
-    return {"running": hardware_runtime.calibration_keepalive()}
+    interval_ms: float | None = Field(None, alias="intervalMs", ge=0, le=3_600_000)
+
+
+@router.post("/calibration/keepalive")
+async def calibration_keepalive(payload: CalibrationKeepalive | None = None) -> dict[str, bool]:
+    """Heartbeat of the calibration screen: silence > 1.5 s (screen closed, hidden, network lost) aborts to support.
+
+    Served on the event loop without the runtime lock: a slow control tick (RS-485 retries) must not
+    delay the heartbeat and turn into a false «no link with the screen».
+    """
+
+    return {"running": hardware_runtime.calibration_keepalive(payload.interval_ms if payload else None)}
 
 
 class CalibrationReply(BaseModel):
@@ -258,4 +273,23 @@ def update_parameters(payload: ParametersUpdate, session: Session = Depends(get_
     except PermissionError as error:
         raise _conflict(f"Профиль v{version} сохранён, но не применён: {error}") from error
     saved = store.load_active(session)
+    return {**describe(saved), "runtimeVersion": hardware_runtime.profile.version}
+
+
+class ResetRequest(BaseModel):
+    scope: Literal["calibrations", "parameters", "all"]
+
+
+@router.post("/profile/reset")
+def reset_profile(payload: ResetRequest, session: Session = Depends(get_session)) -> dict[str, Any]:
+    _require_service_mode()
+    if hardware_runtime.calibration is not None and hardware_runtime.calibration.running:
+        raise _conflict("Идёт калибровка — сброс недоступен")
+    version = store.reset(session, payload.scope)
+    session.commit()
+    saved = store.load_active(session)
+    try:
+        hardware_runtime.apply_profile(saved.machine, saved.envelope)
+    except PermissionError as error:
+        raise _conflict(f"Профиль v{version} сохранён, но не применён: {error}") from error
     return {**describe(saved), "runtimeVersion": hardware_runtime.profile.version}

@@ -8,6 +8,7 @@ import {
   motorApi,
   type ParamItem,
   type ParameterChangeRequest,
+  type ResetScope,
   type Side,
   type ValueInfo,
 } from '@/features/motor/api/motor-api'
@@ -17,6 +18,12 @@ import { Button } from '@/shared/ui/button'
 
 type Draft = Record<string, string | boolean>
 type Filter = 'all' | 'measured' | 'manual' | 'default'
+
+const RESETS: { scope: ResetScope; label: string; warning: string }[] = [
+  { scope: 'calibrations', label: 'Сбросить калибровки', warning: 'Все измеренные значения тренажёра вернутся к паспортным; калибровки придётся пройти заново. Направление двигателей и ноль энкодера сохранятся.' },
+  { scope: 'parameters', label: 'Сбросить настройки', warning: 'Настройки поведения и пределы безопасности вернутся к значениям по умолчанию.' },
+  { scope: 'all', label: 'Сбросить всё', warning: 'Калибровки и настройки вернутся к значениям по умолчанию. Направление двигателей и ноль энкодера сохранятся.' },
+]
 
 const FILTERS: { id: Filter; label: string }[] = [
   { id: 'all', label: 'Все' },
@@ -242,6 +249,23 @@ export function ParametersTab({ serviceMode, calibrating }: { serviceMode: boole
     }
   }
 
+  const reset = async (scope: ResetScope) => {
+    const option = RESETS.find((item) => item.scope === scope)
+    if (!option || !window.confirm(`${option.label}?\n${option.warning}\nПрежние версии профиля останутся в истории.`)) return
+    setSaving(true)
+    try {
+      const result = await motorApi.reset(scope)
+      queryClient.setQueryData(['motor', 'parameters'], result)
+      void queryClient.invalidateQueries({ queryKey: ['motor', 'calibrations'] })
+      setDraft({})
+      setMessage({ ok: true, text: `Сброшено: профиль v${result.version ?? '—'}` })
+    } catch (error) {
+      setMessage({ ok: false, text: error instanceof ApiError || error instanceof Error ? error.message : 'Ошибка сброса' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (query.isError) return <p className="text-sm text-[#ff8f84]">Параметры недоступны: {(query.error as Error).message}</p>
   if (!query.data) return <p className="text-sm text-white/40">Загрузка…</p>
 
@@ -254,6 +278,13 @@ export function ParametersTab({ serviceMode, calibrating }: { serviceMode: boole
         </span>
         <span className="text-white/45">
           {calibrating ? 'Идёт калибровка — изменение недоступно' : serviceMode ? 'Сервисный режим: значения можно менять' : 'Для изменения включите сервисный режим'}
+        </span>
+        <span className="flex flex-wrap gap-2" role="group" aria-label="Сброс">
+          {RESETS.map((item) => (
+            <Button key={item.scope} variant="ghost" onClick={() => void reset(item.scope)} disabled={saving || !canEdit} title={item.warning}>
+              {item.label}
+            </Button>
+          ))}
         </span>
       </div>
 

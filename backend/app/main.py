@@ -39,6 +39,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     bundle = load_motor_profile()
     if settings.hardware_adapter == "modbus":
         # the first PA_12C written at startup is upward support, never 0 (R1)
+        # PA_05E from the safety envelope (as after a fault reset), not the 40 % commissioning default:
+        # tight spots need up to W + 2.6·Fc ≈ 290 N, 40 % is ≈ 283 N
         modbus_service.connect(ModbusConnectionParamsSchema(
             port=settings.modbus_port,
             baud_rate=settings.modbus_baud_rate,
@@ -47,7 +49,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         ), initial_commands={
             settings.modbus_left_slave_id: int(bundle.machine.left.support_raw.value) * bundle.machine.left.sign,
             settings.modbus_right_slave_id: int(bundle.machine.right.support_raw.value) * bundle.machine.right.sign,
-        })
+        }, torque_limit=bundle.envelope.max_raw)
     try:
         hardware_runtime.reset(profile=bundle.machine, envelope=bundle.envelope)
         await hardware_runtime.start()

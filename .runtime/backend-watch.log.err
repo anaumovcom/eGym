@@ -1,780 +1,62 @@
-INFO:     Started server process [3944]
+INFO:     Started server process [1094534]
 INFO:     Waiting for application startup.
+Control loop stalled: 669 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 50450) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 38890) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
+INFO:     ('127.0.0.1', 38942) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection closed
-INFO:     ('127.0.0.1', 50466) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 50518) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
+Slow control tick: 409 ms (calibration=S7)
+Slow control tick: 400 ms (calibration=A1)
 INFO:     Shutting down
 INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [3944]
-INFO:     Started server process [10596]
+INFO:     Finished server process [1094534]
+INFO:     Started server process [1232361]
 INFO:     Waiting for application startup.
+Control loop stalled: 623 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 33332) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [10596]
-INFO:     Started server process [27444]
+INFO:     Started server process [1232407]
 INFO:     Waiting for application startup.
+Control loop stalled: 616 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 51192) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 38902) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
 INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [27444]
-INFO:     Started server process [31912]
+INFO:     Finished server process [1232407]
+INFO:     Started server process [1232801]
 INFO:     Waiting for application startup.
+Control loop stalled: 619 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 57956) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [31912]
-INFO:     Started server process [39417]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 41790) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 49900) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
 INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [39417]
-INFO:     Started server process [42812]
+INFO:     Finished server process [1232801]
+INFO:     Started server process [1236438]
 INFO:     Waiting for application startup.
+Control loop stalled: 727 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 41504) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 32900) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-INFO:     Shutting down
 INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [42812]
-INFO:     Started server process [43203]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 40740) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [43203]
-INFO:     Started server process [46163]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 46222) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [46163]
-INFO:     Started server process [46432]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 45252) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [46432]
-INFO:     Started server process [47827]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 45532) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [47827]
-INFO:     Started server process [47984]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 54198) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [47984]
-INFO:     Started server process [48436]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 43314) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [48436]
-INFO:     Started server process [49184]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 56978) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [49184]
-INFO:     Started server process [49854]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 49738) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [49854]
-INFO:     Started server process [50418]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 53090) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [50418]
-INFO:     Started server process [50857]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 44436) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [50857]
-INFO:     Started server process [51466]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 55320) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [51466]
-INFO:     Started server process [54391]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 54872) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [54391]
-INFO:     Started server process [54671]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 40012) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [54671]
-INFO:     Started server process [54942]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 46404) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [54942]
-INFO:     Started server process [58512]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58260) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [58512]
-INFO:     Started server process [60209]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 55274) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [60209]
-INFO:     Started server process [62618]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 59888) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [62618]
-INFO:     Started server process [65799]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 41052) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 52082) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 52166) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [65799]
-INFO:     Started server process [69829]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 40522) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [69829]
-INFO:     Started server process [70505]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 56600) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [70505]
-INFO:     Started server process [71393]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 54122) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [71393]
-INFO:     Started server process [72632]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58662) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [72632]
-INFO:     Started server process [73778]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 56072) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [73778]
-INFO:     Started server process [74488]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 38592) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [74488]
-INFO:     Started server process [75138]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 45560) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [75138]
-INFO:     Started server process [75960]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 60164) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [75960]
-INFO:     Started server process [76387]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 51016) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [76387]
-INFO:     Started server process [78959]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 43476) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [78959]
-INFO:     Started server process [79585]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 55432) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [79585]
-INFO:     Started server process [79970]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 50796) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [79970]
-INFO:     Started server process [80309]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 33432) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [80309]
-INFO:     Started server process [81087]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 48760) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [81087]
-INFO:     Started server process [83721]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 42496) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [83721]
-INFO:     Started server process [86233]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 40746) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 41828) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 41886) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [86233]
-INFO:     Started server process [90584]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started server process [90614]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 45470) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [90614]
-INFO:     Started server process [90935]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 49498) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [90935]
-INFO:     Started server process [94037]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started server process [94100]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 59898) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [94100]
-INFO:     Started server process [96687]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 33056) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [96687]
-INFO:     Started server process [102091]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 47508) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 39116) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 39176) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [102091]
-INFO:     Started server process [117479]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 41100) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [117479]
-INFO:     Started server process [118348]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 34510) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [118348]
-INFO:     Started server process [119335]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 47978) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [119335]
-INFO:     Started server process [120249]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 47178) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [120249]
-INFO:     Started server process [126217]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 43328) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [126217]
-INFO:     Started server process [126545]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 57416) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [126545]
-INFO:     Started server process [127535]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 35698) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [127535]
-INFO:     Started server process [131145]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 38676) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [131145]
-INFO:     Started server process [132520]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 45586) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [132520]
-INFO:     Started server process [133918]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 53224) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [133918]
-INFO:     Started server process [136035]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 59332) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [136035]
-INFO:     Started server process [138545]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 53546) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [138545]
-INFO:     Started server process [139546]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 39724) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [139546]
-INFO:     Started server process [142354]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started server process [142389]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 45374) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [142389]
-INFO:     Started server process [143393]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 47522) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [143393]
-INFO:     Started server process [144153]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 55612) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [144153]
-INFO:     Started server process [144543]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 43704) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [144543]
-INFO:     Started server process [144929]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 56890) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [144929]
-INFO:     Started server process [146080]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 42568) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [146080]
-INFO:     Started server process [146701]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 53438) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [146701]
-INFO:     Started server process [151409]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 48814) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 49762) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 39050) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-INFO:     ('127.0.0.1', 49838) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 39128) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
 INFO:     connection closed
 INFO:     Shutting down
@@ -782,1155 +64,1638 @@ INFO:     connection closed
 INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [151409]
-INFO:     Started server process [158133]
+INFO:     Finished server process [1236438]
+INFO:     Started server process [1238893]
 INFO:     Waiting for application startup.
+Control loop stalled: 852 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 60688) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [158133]
-INFO:     Started server process [164289]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 60184) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [164289]
-INFO:     Started server process [167540]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 34198) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 48496) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
 INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [167540]
-INFO:     Started server process [171137]
+INFO:     Finished server process [1238893]
+INFO:     Started server process [1239230]
 INFO:     Waiting for application startup.
+Control loop stalled: 620 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 40378) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 52036) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
+INFO:     ('127.0.0.1', 56214) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+Slow control tick: 398 ms (calibration=None)
 INFO:     Shutting down
+INFO:     connection closed
 INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [171137]
-INFO:     Started server process [173797]
+INFO:     Finished server process [1239230]
+INFO:     Started server process [1292383]
 INFO:     Waiting for application startup.
+Control loop stalled: 641 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 39328) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 49550) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 49574) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [173797]
-INFO:     Started server process [176956]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 59130) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 40812) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 40890) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 47562) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 47628) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 42294) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 42356) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
 INFO:     connection closed
 INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [176956]
-INFO:     Started server process [193629]
+INFO:     Finished server process [1292383]
+INFO:     Started server process [1294992]
 INFO:     Waiting for application startup.
+Control loop stalled: 611 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 56646) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     Started server process [1295016]
+INFO:     Waiting for application startup.
+Control loop stalled: 612 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 40090) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 44994) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [193629]
-INFO:     Started server process [194996]
+INFO:     Finished server process [1295016]
+INFO:     Started server process [1295933]
 INFO:     Waiting for application startup.
+Control loop stalled: 619 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58606) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 33714) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 33760) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 33832) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 33720) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
+INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [194996]
-INFO:     Started server process [285381]
+INFO:     Finished server process [1295933]
+INFO:     Started server process [1296274]
 INFO:     Waiting for application startup.
+Control loop stalled: 614 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 37074) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 34094) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 34096) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
+INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [285381]
-INFO:     Started server process [319512]
+INFO:     Finished server process [1296274]
+INFO:     Started server process [1296580]
 INFO:     Waiting for application startup.
+Control loop stalled: 609 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 50216) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 35136) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 35150) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [319512]
-INFO:     Started server process [321488]
+INFO:     Finished server process [1296580]
+INFO:     Started server process [1299326]
 INFO:     Waiting for application startup.
+Control loop stalled: 612 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 38194) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 44820) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 44826) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
+INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [321488]
-INFO:     Started server process [321883]
+INFO:     Finished server process [1299326]
+INFO:     Started server process [1303819]
 INFO:     Waiting for application startup.
+Control loop stalled: 624 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 38640) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 50072) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 50086) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [321883]
-INFO:     Started server process [322754]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 36196) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [322754]
-INFO:     Started server process [322909]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 36306) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [322909]
-INFO:     Started server process [324590]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started server process [324623]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 53328) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
 INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [324623]
-INFO:     Started server process [327331]
+INFO:     Finished server process [1303819]
+INFO:     Started server process [1304558]
 INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 54624) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [327331]
-INFO:     Started server process [329277]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started server process [329316]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 52478) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [329316]
-INFO:     Started server process [337712]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started server process [337737]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 51456) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [337737]
-INFO:     Started server process [337958]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 50380) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [337958]
-INFO:     Started server process [340202]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 39960) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [340202]
-INFO:     Started server process [340646]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started server process [340670]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 57130) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [340670]
-INFO:     Started server process [347055]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 36252) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [347055]
-INFO:     Started server process [348288]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 49868) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [348288]
-INFO:     Started server process [351407]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 56216) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [351407]
-INFO:     Started server process [351703]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 60370) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [351703]
-INFO:     Started server process [363671]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 39392) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [363671]
-INFO:     Started server process [364793]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 36756) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 35108) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 35170) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [364793]
-INFO:     Started server process [369918]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 51086) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [369918]
-INFO:     Started server process [427806]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 33568) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [427806]
-INFO:     Started server process [428711]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 53046) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 38500) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 38588) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [428711]
-INFO:     Started server process [436255]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 45240) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [436255]
-INFO:     Started server process [438610]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 38742) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [438610]
-INFO:     Started server process [439136]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 37994) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [439136]
-INFO:     Started server process [440066]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58914) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [440066]
-INFO:     Started server process [441652]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58780) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [441652]
-INFO:     Started server process [442761]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 34898) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [442761]
-INFO:     Started server process [443260]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 51490) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [443260]
-INFO:     Started server process [447431]
-INFO:     Waiting for application startup.
+Control loop stalled: 627 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 INFO:     ('127.0.0.1', 35660) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
+INFO:     ('127.0.0.1', 60734) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
 INFO:     Shutting down
+INFO:     connection closed
 INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [447431]
-INFO:     Started server process [448728]
+INFO:     Finished server process [1304558]
+INFO:     Started server process [1307358]
 INFO:     Waiting for application startup.
+Control loop stalled: 621 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 59734) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 53658) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 53666) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1307358]
+INFO:     Started server process [1307724]
+INFO:     Waiting for application startup.
+Control loop stalled: 609 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 58026) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 58038) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1307724]
+INFO:     Started server process [1307991]
+INFO:     Waiting for application startup.
+Control loop stalled: 694 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 53820) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 53824) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1307991]
+INFO:     Started server process [1310391]
+INFO:     Waiting for application startup.
+Control loop stalled: 619 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 44838) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 44846) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1310391]
+INFO:     Started server process [1318452]
+INFO:     Waiting for application startup.
+Control loop stalled: 611 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 51902) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 51910) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1318452]
+INFO:     Started server process [1320149]
+INFO:     Waiting for application startup.
+Control loop stalled: 636 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 42408) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 42416) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1320149]
+INFO:     Started server process [1321120]
+INFO:     Waiting for application startup.
+Control loop stalled: 660 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 36240) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 36248) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1321120]
+INFO:     Started server process [1321899]
+INFO:     Waiting for application startup.
+Control loop stalled: 806 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 48854) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 48870) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1321899]
+INFO:     Started server process [1322677]
+INFO:     Waiting for application startup.
+Control loop stalled: 655 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 43242) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 43254) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1322677]
+INFO:     Started server process [1326631]
+INFO:     Waiting for application startup.
+Control loop stalled: 630 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 37502) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 37508) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1326631]
+INFO:     Started server process [1327073]
+INFO:     Waiting for application startup.
+Control loop stalled: 693 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 47424) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 47436) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+Slow control tick: 414 ms (calibration=None)
+INFO:     Shutting down
+INFO:     connection closed
 INFO:     connection closed
 INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [448728]
-INFO:     Started server process [449612]
+INFO:     Finished server process [1327073]
+INFO:     Started server process [1338374]
 INFO:     Waiting for application startup.
+Control loop stalled: 637 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 59346) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 60608) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 60618) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
+INFO:     connection closed
 INFO:     connection closed
 INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [449612]
-INFO:     Started server process [450204]
+INFO:     Finished server process [1338374]
+INFO:     Started server process [1343622]
 INFO:     Waiting for application startup.
+Control loop stalled: 636 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 46784) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 48976) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 56374) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [450204]
-INFO:     Started server process [453535]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 40152) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
 INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [453535]
-INFO:     Started server process [455295]
+INFO:     Finished server process [1343622]
+INFO:     Started server process [1344239]
 INFO:     Waiting for application startup.
+Control loop stalled: 716 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 54738) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 57072) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 57100) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
+INFO:     connection closed
 INFO:     connection closed
 INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [455295]
-INFO:     Started server process [457350]
+INFO:     Finished server process [1344239]
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/__main__.py", line 4, in <module>
+    uvicorn.main()
+    ~~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1524, in __call__
+    return self.main(*args, **kwargs)
+           ~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1445, in main
+    rv = self.invoke(ctx)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 1308, in invoke
+    return ctx.invoke(self.callback, **ctx.params)
+           ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/click/core.py", line 877, in invoke
+    return callback(*args, **kwargs)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 412, in main
+    run(
+    ~~~^
+        app,
+        ^^^^
+    ...<45 lines>...
+        h11_max_incomplete_event_size=h11_max_incomplete_event_size,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/main.py", line 579, in run
+    server.run()
+    ~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 65, in run
+    return asyncio.run(self.serve(sockets=sockets))
+           ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 195, in run
+    return runner.run(main)
+           ~~~~~~~~~~^^^^^^
+  File "/usr/lib/python3.13/asyncio/runners.py", line 118, in run
+    return self._loop.run_until_complete(task)
+           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "uvloop/loop.pyx", line 1518, in uvloop.loop.Loop.run_until_complete
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 69, in serve
+    await self._serve(sockets)
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/server.py", line 76, in _serve
+    config.load()
+    ~~~~~~~~~~~^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/config.py", line 434, in load
+    self.loaded_app = import_from_string(self.app)
+                      ~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/importer.py", line 19, in import_from_string
+    module = importlib.import_module(module_str)
+  File "/usr/lib/python3.13/importlib/__init__.py", line 88, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+           ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<frozen importlib._bootstrap>", line 1387, in _gcd_import
+  File "<frozen importlib._bootstrap>", line 1360, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 1331, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 935, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 1026, in exec_module
+  File "<frozen importlib._bootstrap>", line 488, in _call_with_frames_removed
+  File "/home/alex/DEV/eGym/backend/app/main.py", line 9, in <module>
+    from app.api.router import api_router
+  File "/home/alex/DEV/eGym/backend/app/api/router.py", line 7, in <module>
+    from app.api.routes.hardware import router as hardware_router
+  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 17, in <module>
+    from app.services.hardware_runtime import hardware_runtime
+  File "/home/alex/DEV/eGym/backend/app/services/hardware_runtime.py", line 34, in <module>
+    from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/session.py", line 23, in <module>
+    from app.motor.calibration.procedures.bus import (
+    ...<8 lines>...
+    )
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/bus.py", line 9, in <module>
+    from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
+  File "/home/alex/DEV/eGym/backend/app/motor/calibration/procedures/motion.py", line 40, in <module>
+    from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
+ImportError: cannot import name 'DEFAULT_MOVING_MASS_KG' from 'app.motor.profile' (/home/alex/DEV/eGym/backend/app/motor/profile.py)
+INFO:     Started server process [1345765]
 INFO:     Waiting for application startup.
+Control loop stalled: 640 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 36284) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     Started server process [1345813]
+INFO:     Waiting for application startup.
+Control loop stalled: 608 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     Started server process [1345856]
+INFO:     Waiting for application startup.
+Control loop stalled: 591 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 37886) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 37194) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [457350]
-INFO:     Started server process [460005]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 33522) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
 INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [460005]
-INFO:     Started server process [461439]
+INFO:     Finished server process [1345856]
+INFO:     Started server process [1351578]
 INFO:     Waiting for application startup.
+Control loop stalled: 686 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     Started server process [461480]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58062) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 34392) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 34400) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open
 INFO:     Shutting down
 INFO:     connection closed
+INFO:     connection closed
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [461480]
-INFO:     Started server process [463223]
+INFO:     Finished server process [1351578]
+INFO:     Started server process [1353435]
 INFO:     Waiting for application startup.
+Control loop stalled: 642 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 56920) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 53074) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 53092) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
 INFO:     Shutting down
+INFO:     connection closed
 INFO:     connection closed
 INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
 INFO:     Waiting for application shutdown.
 INFO:     Application shutdown complete.
-INFO:     Finished server process [463223]
-INFO:     Started server process [464383]
+INFO:     Finished server process [1353435]
+INFO:     Started server process [1378032]
 INFO:     Waiting for application startup.
+Control loop stalled: 1009 ms between ticks
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 37006) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 48014) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [464383]
-INFO:     Started server process [466989]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 46848) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [466989]
-INFO:     Started server process [467457]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 57580) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [467457]
-INFO:     Started server process [468159]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 41490) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [468159]
-INFO:     Started server process [469147]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 44518) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [469147]
-INFO:     Started server process [471367]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 44620) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [471367]
-INFO:     Started server process [472216]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58664) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [472216]
-INFO:     Started server process [472844]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 56526) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [472844]
-INFO:     Started server process [474869]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 49198) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [474869]
-INFO:     Started server process [476358]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 52712) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [476358]
-INFO:     Started server process [476762]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 33920) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [476762]
-INFO:     Started server process [480868]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 48966) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [480868]
-INFO:     Started server process [482128]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 34700) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [482128]
-INFO:     Started server process [484182]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 55294) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [484182]
-INFO:     Started server process [486931]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 56028) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [486931]
-INFO:     Started server process [487616]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 41600) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [487616]
-INFO:     Started server process [488973]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 35074) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [488973]
-INFO:     Started server process [491559]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 40184) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [491559]
-INFO:     Started server process [561339]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58794) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [561339]
-INFO:     Started server process [562512]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 60160) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [562512]
-INFO:     Started server process [563665]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 36552) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [563665]
-INFO:     Started server process [569059]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 52106) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [569059]
-INFO:     Started server process [569921]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 43286) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [569921]
-INFO:     Started server process [570279]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 43378) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [570279]
-INFO:     Started server process [579104]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58160) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [579104]
-INFO:     Started server process [594536]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 54298) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [594536]
-INFO:     Started server process [595349]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 40944) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [595349]
-INFO:     Started server process [596264]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 60298) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [596264]
-INFO:     Started server process [596827]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 37832) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [596827]
-INFO:     Started server process [597099]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 49578) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [597099]
-INFO:     Started server process [600425]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 52672) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [600425]
-INFO:     Started server process [603015]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 40362) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [603015]
-INFO:     Started server process [603818]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 55796) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [603818]
-INFO:     Started server process [605402]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 47620) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [605402]
-INFO:     Started server process [605661]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 49494) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [605661]
-INFO:     Started server process [608681]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 48732) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [608681]
-INFO:     Started server process [612486]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 34226) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [612486]
-INFO:     Started server process [614825]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 38198) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [614825]
-INFO:     Started server process [615920]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 32908) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [615920]
-INFO:     Started server process [616979]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 41522) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [616979]
-INFO:     Started server process [619018]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 45710) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [619018]
-INFO:     Started server process [620869]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 33112) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [620869]
-INFO:     Started server process [621845]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 56240) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [621845]
-INFO:     Started server process [623004]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 41278) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [623004]
-INFO:     Started server process [625991]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58258) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [625991]
-INFO:     Started server process [626291]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 53516) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [626291]
-INFO:     Started server process [629311]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 45448) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [629311]
-INFO:     Started server process [630051]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 55142) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [630051]
-INFO:     Started server process [637269]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58686) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [637269]
-INFO:     Started server process [664536]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 60662) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 48060) - "WebSocket /api/coach/runs/e3d8833848c8f320eaf51308f3fd8811/live" [accepted]
 INFO:     connection open

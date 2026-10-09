@@ -53,6 +53,9 @@ TICK_SECONDS = 0.05
 SUPPORT_REFRESH_S = 0.2
 ZERO_SYNC_MAX_MM = 50.0
 BROADCAST_INTERVAL_SECONDS = 0.1
+SLOW_TICK_S = 0.3  # logged: bus retries / timeouts stretch the control period
+STALL_S = 0.5  # gap between ticks: the loop stood still, the screen heartbeat could not be served
+HEARTBEAT_GAP_S = 0.7  # logged: the screen heartbeat (every 0.25 s) came late
 MOTION_DISABLED_MESSAGE = "Управление двигателями переводится на v2: движение и нагрузка временно отключены, приводы держат поддержку"
 SERVO_OFF_MESSAGE = "Приводы выключены (Servo OFF): гриф не поддерживается. Включить — в сервисном режиме"
 
@@ -140,6 +143,7 @@ class HardwareRuntime:
         self._subscribers: set[asyncio.Queue[dict[str, object]]] = set()
         self._command_counter = 0
         self.tick_seconds = TICK_SECONDS
+        self._tick_started: float | None = None
         self.events: deque[dict[str, Any]] = deque(maxlen=400)
         self.panel = self._build_panel_bridge()
         self.reset()
@@ -263,6 +267,22 @@ class HardwareRuntime:
 
     # ------------------------------------------------------------------ tick
     def tick(self) -> None:
+        started = time.monotonic()
+        gap = started - self._tick_started if self._tick_started is not None else 0.0
+        self._tick_started = started
+        if gap >= STALL_S:
+            logger.warning("Control loop stalled: %.0f ms between ticks", gap * 1000)
+            session = self.calibration
+            if session is not None and session.running:
+                session.excuse_stall(gap - self.tick_seconds)
+        try:
+            self._tick()
+        finally:
+            elapsed = time.monotonic() - started
+            if elapsed >= SLOW_TICK_S:
+                logger.warning("Slow control tick: %.0f ms (calibration=%s)", elapsed * 1000, self.calibration.code if self.calibration is not None and self.calibration.running else None)
+
+    def _tick(self) -> None:
         with self._lock:
             if self.bench is not None:
                 self.bench.advance(self.tick_seconds)
@@ -615,12 +635,20 @@ class HardwareRuntime:
         self._schedule_broadcast()
         return session
 
-    def calibration_keepalive(self) -> bool:
-        with self._lock:
-            if self.calibration is None or not self.calibration.running:
-                return False
-            self.calibration.keepalive()
-            return True
+    def calibration_keepalive(self, client_interval_ms: float | None = None) -> bool:
+        # no lock: the tick holds it for the whole bus exchange; one float store is atomic
+        session = self.calibration
+        if session is None or not session.running:
+            return False
+        gap = time.monotonic() - session.keepalive_at
+        if gap >= HEARTBEAT_GAP_S:
+            # client interval ≈ gap: the browser sent late; client interval small: the request was held up on the way
+            logger.warning(
+                "Calibration %s: heartbeat after %.0f ms (screen sent it %s ms after the previous one)",
+                session.code, gap * 1000, "?" if client_interval_ms is None else f"{client_interval_ms:.0f}",
+            )
+        session.keepalive()
+        return True
 
     def calibration_reply(self, value: float | None) -> None:
         """Operator's answer to the prompt of the running calibration (``ValueError`` if nothing is asked or it does not fit)."""
@@ -845,7 +873,7 @@ class HardwareRuntime:
         asyncio.run_coroutine_threadsafe(self._broadcast_snapshot(), self._loop)
 
     async def _broadcast_snapshot(self) -> None:
-        payload = self.snapshot_payload()
+        payload = await asyncio.to_thread(self.snapshot_payload)  # never wait for the runtime lock on the event loop
         with self._lock:
             subscribers = list(self._subscribers)
         for subscriber in subscribers:

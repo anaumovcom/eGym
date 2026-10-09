@@ -20,13 +20,13 @@ def map_heights(bottom_mm: float, top_mm: float, count: int = 5) -> list[float]:
     return [round(bottom_mm + (top_mm - bottom_mm) * i / (count - 1), 1) for i in range(count)]
 
 
-def height_map(balance: Balance, heights: Sequence[float], *, repeats: int = 2, slow_rate_n_s: float = 6.0, speed_mm_s: float = 30.0) -> Procedure:
+def height_map(balance: Balance, heights: Sequence[float], *, repeats: int = 2, slow_rate_n_s: float = 6.0) -> Procedure:
     frame = yield Command(None, note="старт", progress=0.0)
     points: list[dict[str, Any]] = []
     span = 1.0 / (len(heights) + 1)
     for index, height in enumerate(heights):
         p0 = index * span
-        frame = yield from travel(balance, frame, height, speed_mm_s=speed_mm_s, progress_span=(p0, p0 + 0.3 * span))
+        frame = yield from travel(balance, frame, height, progress_span=(p0, p0 + 0.3 * span))
         forces = balance.mid(frame)
         frame, data = yield from measure_window(
             forces, frame, repeats=repeats, slow_rate_n_s=slow_rate_n_s, progress_span=(p0 + 0.3 * span, p0 + span), label=f"{height:.0f} мм: ",
@@ -35,7 +35,7 @@ def height_map(balance: Balance, heights: Sequence[float], *, repeats: int = 2, 
         for side in SIDES:
             balance.set_point(side, estimate.height_mm, estimate.weight_n[side].mean)  # the next move starts from a better window
         points.append(data)
-    frame = yield from land(balance, frame, speed_mm_s=speed_mm_s, progress=1.0 - 0.5 * span)
+    frame = yield from land(balance, frame, progress=1.0 - 0.5 * span)
     return {"points": points}
 
 

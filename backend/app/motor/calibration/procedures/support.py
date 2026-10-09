@@ -41,7 +41,7 @@ def support_descent(
     for trial in range(max_trials):
         progress = 0.05 + 0.85 * trial / max_trials
         if frame.x_mean < start_mm - 15:
-            frame = yield from travel(balance, frame, start_mm, speed_mm_s=20.0, progress_span=progress)
+            frame = yield from travel(balance, frame, start_mm, progress_span=progress)
         raw = {side: max(0, math.floor(base[side]) - offset) for side in SIDES}
         note = f"опускание поддержкой {raw['left']}/{raw['right']} ед., попытка {trial + 1}"
         x0, t0 = frame.x_mean, frame.t

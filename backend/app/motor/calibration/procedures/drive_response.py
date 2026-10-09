@@ -117,7 +117,7 @@ def fit_deadband(data: dict[str, Any], _ctx: Context) -> Outcome:
 def tape_check(ctx: Context, *, height_mm: float = 250.0) -> Procedure:
     balance = ctx.balance
     frame = yield Command(None, note="старт", progress=0.0)
-    frame = yield from travel(balance, frame, height_mm, speed_mm_s=20.0, progress_span=(0.0, 0.4))
+    frame = yield from travel(balance, frame, height_mm, progress_span=(0.0, 0.4))
     frame = yield from hold_still(balance, frame, progress=0.45)
     encoder: dict[Side, list[float]] = {side: [] for side in SIDES}
 

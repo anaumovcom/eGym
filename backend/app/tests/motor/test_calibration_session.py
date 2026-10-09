@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+
 import pytest
 
 from app.core.config import get_settings
@@ -83,6 +85,41 @@ def test_dead_man_release_aborts_to_support(twin_runtime: HardwareRuntime) -> No
     assert _support_written(twin_runtime)
 
 
+def test_keepalive_not_blocked_by_slow_tick(twin_runtime: HardwareRuntime) -> None:
+    """A tick stuck on the bus (RS-485 retries) holds the runtime lock; the heartbeat must still land."""
+
+    session = twin_runtime.start_calibration("B5")
+    session.keepalive_at -= 1.0
+    done = threading.Event()
+
+    def heartbeat() -> None:
+        twin_runtime.calibration_keepalive()
+        done.set()
+
+    with twin_runtime._lock:  # the tick is in the middle of a long bus exchange
+        worker = threading.Thread(target=heartbeat)
+        worker.start()
+        assert done.wait(1.0)
+    worker.join()
+    twin_runtime.tick()
+    assert session.running
+
+
+def test_loop_stall_is_not_blamed_on_the_screen(twin_runtime: HardwareRuntime) -> None:
+    """The control loop stood still for 2 s: the heartbeats queued meanwhile could not be served."""
+
+    session = twin_runtime.start_calibration("B5")
+    twin_runtime.tick()
+    session.keepalive_at -= 2.0
+    assert twin_runtime._tick_started is not None
+    twin_runtime._tick_started -= 2.0
+    twin_runtime.tick()
+    assert session.running
+    session.keepalive_at -= 2.0  # real silence of the screen still aborts
+    twin_runtime.tick()
+    assert session.status == "aborted" and "экраном" in (session.reason or "")
+
+
 def test_estop_and_operator_abort(twin_runtime: HardwareRuntime) -> None:
     session = twin_runtime.start_calibration("B5")
     session.keepalive()
@@ -155,5 +192,32 @@ def test_parameters_api_describes_and_validates(client) -> None:
         assert items["hold_k_fraction"]["value"] == {**items["hold_k_fraction"]["value"], "value": 0.2, "provenance": "manual"}
         assert items["support_raw"]["values"]["left"]["value"] == 120
         assert hardware_runtime.drives["left"].profile.support_raw.value == 120  # type: ignore[attr-defined]
+    finally:
+        hardware_runtime.set_service_mode(False)
+
+
+def test_profile_reset_keeps_commissioning(client) -> None:
+    assert client.post("/api/motor/profile/reset", json={"scope": "all"}).status_code == 409  # not in service mode
+    hardware_runtime.set_service_mode(True)
+    try:
+        assert client.post("/api/motor/profile/reset", json={"scope": "bogus"}).status_code == 422
+        client.put("/api/motor/parameters", json={"changes": [
+            {"scope": "tunables", "key": "hold_k_fraction", "value": 0.2},
+            {"scope": "side", "key": "support_raw", "side": "left", "value": 120},
+        ]})
+        sign = client.get("/api/motor/parameters").json()
+
+        def values(payload: dict) -> dict:
+            return {item["key"]: item for group in payload["groups"] for item in group["items"]}
+
+        kept = values(sign)["direction_sign"]["values"]
+        result = client.post("/api/motor/profile/reset", json={"scope": "calibrations"})
+        assert result.status_code == 200, result.text
+        items = values(result.json())
+        assert items["support_raw"]["values"]["left"]["provenance"] == "default"
+        assert items["hold_k_fraction"]["value"]["value"] == 0.2  # parameters untouched
+        assert items["direction_sign"]["values"] == kept
+        items = values(client.post("/api/motor/profile/reset", json={"scope": "parameters"}).json())
+        assert items["hold_k_fraction"]["value"]["value"] != 0.2
     finally:
         hardware_runtime.set_service_mode(False)

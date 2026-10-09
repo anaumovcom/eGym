@@ -50,10 +50,10 @@ def _move(balance: Balance, frame: Any, direction: int, label: str, progress: tu
     low, high = 40.0, 140.0
     state = Motion(trace=[])
     if direction > 0:
-        frame = yield from travel(balance, frame, low, speed_mm_s=SPEED_MM_S, note=f"{label}: к началу", progress_span=(progress[0], progress[0]))
+        frame = yield from travel(balance, frame, low, note=f"{label}: к началу", progress_span=(progress[0], progress[0]))
         frame = yield from travel(balance, frame, high, speed_mm_s=SPEED_MM_S, state=state, note=f"{label}: подъём {SPEED_MM_S:.0f} мм/с", progress_span=progress)
     else:
-        frame = yield from travel(balance, frame, high, speed_mm_s=SPEED_MM_S, note=f"{label}: подъём к началу", progress_span=(progress[0], progress[0]))
+        frame = yield from travel(balance, frame, high, note=f"{label}: подъём к началу", progress_span=(progress[0], progress[0]))
         frame = yield from travel(balance, frame, low, speed_mm_s=SPEED_MM_S, state=state, note=f"{label}: опускание {SPEED_MM_S:.0f} мм/с", progress_span=progress)
     speeds, extras = steady(state.trace or [], SPEED_MM_S)
     if len(speeds) < 5:

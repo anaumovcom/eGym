@@ -148,7 +148,7 @@ export const motorApi = {
   session: (code: string) => apiGet<CalibrationState>(`/api/motor/calibration/session?code=${encodeURIComponent(code)}`),
   start: (code: RunnableCode, options: StartOptions = {}) =>
     apiPost<CalibrationState>('/api/motor/calibration/start', { code, ...options }),
-  keepalive: () => apiPost<{ running: boolean }>('/api/motor/calibration/keepalive', {}),
+  keepalive: (intervalMs?: number) => apiPost<{ running: boolean }>('/api/motor/calibration/keepalive', { intervalMs }),
   abort: () => apiPost<{ session: CalibrationSessionPayload | null }>('/api/motor/calibration/abort', {}),
   reply: (value: number | null = null) => apiPost<{ session: CalibrationSessionPayload | null }>('/api/motor/calibration/reply', { value }),
   accept: () => apiPost<{ version: number; session: CalibrationSessionPayload }>('/api/motor/calibration/accept', {}),
@@ -157,7 +157,10 @@ export const motorApi = {
   parameters: () => apiGet<ParametersPayload>('/api/motor/parameters'),
   updateParameters: (changes: ParameterChangeRequest[], note?: string) =>
     apiPut<ParametersPayload>('/api/motor/parameters', { changes, note }),
+  reset: (scope: ResetScope) => apiPost<ParametersPayload>('/api/motor/profile/reset', { scope }),
 }
+
+export type ResetScope = 'calibrations' | 'parameters' | 'all'
 
 export function formatValue(value: ValueInfo['value'] | undefined, kind: ParamKind, unit: string): string {
   if (value === null || value === undefined) return '—'

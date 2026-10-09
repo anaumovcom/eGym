@@ -43,7 +43,7 @@ SIDE_LABEL = {"left": "Л", "right": "П"}
 HOLD_ABORT_MM = 40.0
 LOAD_RATE_PER_S = 0.5  # H1: share of 2·Fc added per second until the bar yields
 COAST_LIMIT_MM = 20.0  # W1: after a push the bar must stop by itself within this
-UNSTABLE_MM_S = 65.0  # a candidate that throws the bar faster is unstable: stop it before the envelope (80 mm/s)
+UNSTABLE_MM_S = 65.0  # a candidate that throws the bar faster is unstable: stop it before the envelope (120 mm/s)
 
 
 def _gains(ctx: Context) -> tuple[float, float]:

@@ -331,7 +331,7 @@ def friction_speed(ctx: Context, speeds: tuple[float, ...] = F3_SPEEDS) -> Proce
             if len(speeds_seen) >= 4:
                 guess[direction] = {side: mean(extras[side]) for side in SIDES}
                 previous[direction] = mean(speeds_seen)
-    yield from land(balance, frame, speed_mm_s=20.0, progress=0.95)
+    yield from land(balance, frame, progress=0.95)
     return {"runs": runs}
 
 

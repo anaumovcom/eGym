@@ -37,6 +37,7 @@ class TwinDrive:
         self.last_raw: int | None = None
         self.fail_writes = False
         self.writes: list[int] = []
+        self.speed_limits: list[int | None] = []  # PA_056 writes (None = restore)
         self.servo_on = True
 
     def read(self) -> DriveSample:
@@ -57,6 +58,13 @@ class TwinDrive:
 
     def support(self) -> str | None:
         return self.write_raw(int(self.profile.support_raw.value) * self.profile.sign)
+
+    def limit_speed_rpm(self, rpm: int | None) -> str | None:
+        if self.fail_writes:
+            return "twin: запись не прошла"
+        self.speed_limits.append(rpm)
+        self.bench.plant.speed_limit_rpm[self.side] = float(rpm) if rpm is not None else self.bench.params.speed_limit_rpm
+        return None
 
     def zero(self) -> str | None:
         return self.write_raw(0)
