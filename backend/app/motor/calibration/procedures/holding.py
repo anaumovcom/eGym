@@ -41,6 +41,7 @@ from app.motor.units import SIDES, Side, n_to_kgf
 
 SIDE_LABEL = {"left": "Л", "right": "П"}
 HOLD_ABORT_MM = 40.0
+HOLD_LOAD_MM = 20.0  # H1: the test load deflects the spring by about this much
 LOAD_RATE_PER_S = 0.5  # H1: share of 2·Fc added per second until the bar yields
 COAST_LIMIT_MM = 20.0  # W1: after a push the bar must stop by itself within this
 UNSTABLE_MM_S = 65.0  # a candidate that throws the bar faster is unstable: stop it before the envelope (120 mm/s)
@@ -81,8 +82,14 @@ def hold_under_load(ctx: Context, *, fractions: tuple[float, ...] = (0.15, 0.25,
         x0 = {side: frame.x(side) for side in SIDES}
         x0_mean = mean(list(x0.values()))
         law = _hold_law(balance, x0, k, c, gains)
-        # the "user": the load grows at LOAD_RATE until the bar yields (> 1 mm), then stays — like a hand pushing
-        cap = {1: {side: 2.0 * balance.coulomb_up[side] for side in SIDES}, -1: {side: 2.0 * balance.coulomb_down[side] for side in SIDES}}
+        # the "user": the load grows at LOAD_RATE until the bar yields (> 1 mm), then stays — like a hand pushing.
+        # At most what the spring holds within HOLD_LOAD_MM beyond the uncompensated friction: a soft hold (a heavy
+        # bar with bus delay → low Kᵤ) is not pushed 100+ mm away and aborted as «unstable»
+        rest = {1: (1 - gains[0]), -1: (1 - gains[1])}
+        cap = {
+            sign: {side: min(2.0 * balance.friction(side, sign), rest[sign] * balance.friction(side, sign) + k * HOLD_LOAD_MM) for side in SIDES}
+            for sign in (1, -1)
+        }
         applied: dict[int, float] = {}
         phases = ((0, 1.0), (1, step_s), (0, step_s), (-1, step_s), (0, step_s))
         rows: list[tuple[int, int, float, float]] = []  # (phase index, load sign, dx, v)

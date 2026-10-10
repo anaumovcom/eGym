@@ -51,6 +51,9 @@ logger = logging.getLogger(__name__)
 
 TICK_SECONDS = 0.05
 SUPPORT_REFRESH_S = 0.2
+# an interrupted calibration (abort, failure, latch) leaves PA_12C = 100 on both drives instead of the profile support:
+# no jerk from a changed or wrong support_raw (C3 hold, a candidate profile); kept until the next calibration starts
+ABORT_SUPPORT_RAW = 100
 ZERO_SYNC_MAX_MM = 50.0
 BROADCAST_INTERVAL_SECONDS = 0.1
 SLOW_TICK_S = 0.3  # logged: bus retries / timeouts stretch the control period
@@ -176,6 +179,7 @@ class HardwareRuntime:
             self._powered_on = True
             self._panel_clear_stop_pending = False
             self.write_errors: dict[Side, str] = {}
+            self.abort_hold = False  # ABORT_SUPPORT_RAW instead of support after an interrupted calibration
             self.state = HardwareRuntimeState(emulator_mode=not self.modbus)
             self.events.clear()
             self._command_counter = 0
@@ -295,7 +299,7 @@ class HardwareRuntime:
             overspeed_mm_s = rpm_to_mm_s(self.envelope.overspeed_rpm_alarm)
             for side, sample in self.samples.items():
                 if sample.ok and abs(sample.speed_mm_s) >= overspeed_mm_s:
-                    self._set_latch("overspeed", f"Превышение скорости: {side} {sample.speed_mm_s:.0f} мм/с; PA_12C = 0")
+                    self._set_latch("overspeed", f"Превышение скорости: {side} {sample.speed_mm_s:.0f} мм/с; PA_12C = {ABORT_SUPPORT_RAW}")
             failed = [s for s in self.samples.values() if not s.ok]
             if failed and self.latch is None:
                 self._set_fault("; ".join(f"{'левый' if s.side == 'left' else 'правый'}: {s.error}" for s in failed))
@@ -354,7 +358,13 @@ class HardwareRuntime:
             modbus_service.end_manual_torque()
         for side in SIDES:
             try:
-                error = self.drives[side].zero() if self.latch == "overspeed" else self.drives[side].support()
+                drive = self.drives[side]
+                if self.latch == "overspeed" or self.abort_hold:
+                    # no brake: zero torque would let the bar fall freely; 100 is below the weight — it cannot drive
+                    # a runaway up and lowers the bar slowly
+                    error = drive.write_raw(ABORT_SUPPORT_RAW * self.profile.side(side).sign)
+                else:
+                    error = drive.support()
             except Exception as exc:  # noqa: BLE001
                 error = str(exc)
             if error:
@@ -363,7 +373,7 @@ class HardwareRuntime:
         return errors
 
     def _set_latch(self, kind: str, reason: str) -> None:
-        if self.latch == kind or self.latch == "overspeed":  # R5: zero torque is never overridden
+        if self.latch == kind or self.latch == "overspeed":  # R5: the overspeed output is never overridden
             return
         if self.latch == "estop" and kind != "overspeed":
             return
@@ -373,6 +383,7 @@ class HardwareRuntime:
         self._emit(kind, reason)
         if self.calibration is not None and self.calibration.running:
             # the caller writes the safe output (support, or 0 on overspeed)
+            self.abort_hold = True
             self.calibration.cancel(reason, support=False)
             self._emit("calibration_aborted", f"Калибровка {self.calibration.code} прервана: {reason}")
 
@@ -535,6 +546,27 @@ class HardwareRuntime:
         self._schedule_broadcast()
         return command
 
+    def reset_zero(self) -> HardwareCommandRecord:
+        """Software rebase of both encoders at the current bar position; drives do not move."""
+
+        with self._lock:
+            if not self.state.service_mode:
+                raise PermissionError("Сброс нуля — только в сервисном режиме")
+            if not self.modbus:
+                raise PermissionError("Сброс нуля доступен только на реальных приводах (Modbus)")
+            positions = modbus_service.capture_zero()
+            if positions.error:
+                raise PermissionError("Ноль не сброшен: " + positions.error)
+            # keep the operator's zero: do not let B7 sync replace it with the profile zero
+            self._zero_seen = (int(positions.left_zero_pulses), int(positions.right_zero_pulses))
+            self._emit("zero", "Нулевая позиция грифа обновлена оператором")
+            command = self._record_command("reset_zero_position", {
+                "leftZeroPulses": positions.left_zero_pulses,
+                "rightZeroPulses": positions.right_zero_pulses,
+            })
+        self._schedule_broadcast()
+        return command
+
     def servo_states(self) -> dict[Side, bool | None]:
         return {side: self.drives[side].servo_state() for side in SIDES}
 
@@ -594,6 +626,9 @@ class HardwareRuntime:
             positions = {side: sample.position_mm for side, sample in samples.items() if sample.ok}
             telemetry_ok = len(samples) == len(SIDES) and all(sample.ok for sample in samples.values())
             on_stops = telemetry_ok and all(abs(x) <= ON_STOPS_MM for x in positions.values())
+            stops_detail = ", ".join(f"{'Л' if side == 'left' else 'П'} {x:.1f} мм" for side, x in positions.items()) or None
+            if not on_stops and telemetry_ok and self.profile.support_holds.value:
+                stops_detail = f"{stops_detail}; поддержка держит гриф — опустите его рукой"
             manual = self.modbus and modbus_service.manual_torque_active()
             stages = RUNNABLE.get(code, ())
             missing = sorted({
@@ -608,7 +643,7 @@ class HardwareRuntime:
                 {"id": "safety", "label": "Нет СТОП и ошибок привода", "ok": self.latch is None and not estop, "detail": self.fault_reason if self.latch or estop else None},
                 {"id": "servo", "label": "Приводы включены (Servo ON)", "ok": all(servo.values()), "detail": None if all(servo.values()) else "Включите приводы в настройках сервиса"},
                 {"id": "telemetry", "label": "Телеметрия обеих сторон в норме", "ok": telemetry_ok, "detail": None if telemetry_ok else "; ".join(f"{s.side}: {s.error}" for s in samples.values() if not s.ok) or "нет данных"},
-                {"id": "stops", "label": f"Гриф на нижних упорах (≤ {ON_STOPS_MM:.0f} мм)", "ok": on_stops, "detail": ", ".join(f"{'Л' if side == 'left' else 'П'} {x:.1f} мм" for side, x in positions.items()) or None},
+                {"id": "stops", "label": f"Гриф на нижних упорах (≤ {ON_STOPS_MM:.0f} мм)", "ok": on_stops, "detail": stops_detail},
                 {"id": "manual", "label": "Ручной момент debug-панели не активен", "ok": not manual, "detail": None if not manual else "Остановите ручной момент на странице Modbus"},
                 {"id": "requires", "label": "Выполнены предыдущие калибровки", "ok": not missing, "detail": ("Сначала: " + ", ".join(missing)) if missing else None},
                 {"id": "idle", "label": "Другая калибровка не выполняется", "ok": not busy, "detail": None},
@@ -625,6 +660,7 @@ class HardwareRuntime:
                 item = failed[0]
                 raise PermissionError(f"Не выполнено условие «{item['label']}»" + (f": {item['detail']}" if item["detail"] else ""))
             session = CalibrationSession(code, self.drives, self.profile, options=options, safety=self.envelope)
+            self.abort_hold = False
             self.calibration = session
             self._emit("calibration_start", f"Калибровка {code} запущена", {"id": session.id})
             self._record_command("calibration_start", {"code": code, "id": session.id})
@@ -677,6 +713,9 @@ class HardwareRuntime:
     def _calibration_finished(self) -> None:
         """Support right after the session releases the drives (with the active profile restored)."""
 
+        session = self.calibration
+        if session is not None and session.status != "done":
+            self.abort_hold = True
         errors = self._write_safe_output()
         self._last_write = time.monotonic()
         self._force_write = bool(errors)

@@ -1,104 +1,94 @@
 Backend supervisor is watching backend, exercises and exercise_name_translations.csv.
-Backend server started. PID: 1094534
+Backend server started. PID: 459763
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1232361
+Backend server started. PID: 462907
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1232407
+Backend server started. PID: 467155
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1232801
+Backend server started. PID: 467541
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1236438
+Backend server started. PID: 467983
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1238893
+Backend server started. PID: 493624
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1239230
+Backend server started. PID: 498536
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1292383
+Backend server started. PID: 499405
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1294992
+Backend server started. PID: 500509
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1295016
+Backend server started. PID: 501533
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1295933
+Backend server started. PID: 502511
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1296274
+Backend server started. PID: 505162
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1296580
+Backend server started. PID: 510021
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1299326
+Backend server started. PID: 514620
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1303819
+Backend server started. PID: 535046
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1304558
+Backend server started. PID: 535549
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1307358
+Backend server started. PID: 536437
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1307724
+Backend server started. PID: 543755
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1307991
+Backend server started. PID: 563176
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1310391
+Backend server started. PID: 568663
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1318452
+Backend server started. PID: 569030
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1320149
+Backend server started. PID: 569241
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1321120
+Backend server started. PID: 569757
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1321899
+Backend server started. PID: 574189
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1322677
+Backend server started. PID: 576036
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1326631
+Backend server started. PID: 576742
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1327073
+Backend server started. PID: 581454
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1338374
+Backend server started. PID: 603781
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1343622
+Backend server started. PID: 631739
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1344239
+Backend server started. PID: 633534
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1345029
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345066
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345121
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345167
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345207
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345263
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345298
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345357
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345390
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345450
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345484
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345544
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345577
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345629
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345662
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345720
-Backend server exited with code 1. Restarting.
-Backend server started. PID: 1345765
+Backend server started. PID: 634142
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1345813
+Backend server started. PID: 643369
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1345856
+Backend server started. PID: 645549
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1351578
+Backend server started. PID: 647564
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1353435
+Backend server started. PID: 648317
 Detected backend file changes. Restarting backend server.
-Backend server started. PID: 1378032
+Backend server started. PID: 651152
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 660318
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 668056
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 668804
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 711500
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 712766
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 714975
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 715561
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 718681
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 725700
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 726007
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 764775

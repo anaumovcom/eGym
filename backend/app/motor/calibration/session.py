@@ -35,8 +35,14 @@ from app.motor.calibration.procedures.coupling import fit_coupling, side_couplin
 from app.motor.calibration.procedures.daily import daily_check, fit_daily
 from app.motor.calibration.procedures.direction import direction_test
 from app.motor.calibration.procedures.drive_response import SPECS as DRIVE_SPECS
-from app.motor.calibration.procedures.dynamics import fit_friction_up, fit_moving_mass, friction_up, moving_mass
+from app.motor.calibration.procedures.dynamics import (
+    fit_friction_speeds,
+    fit_moving_mass,
+    friction_speeds,
+    moving_mass_fast,
+)
 from app.motor.calibration.procedures.estimation import SPECS as ESTIMATION_SPECS
+from app.motor.calibration.procedures.fast import SPECS as FAST_SPECS
 from app.motor.calibration.procedures.feel import SPECS as FEEL_SPECS
 from app.motor.calibration.procedures.feel_operator import SPECS as FEEL_OPERATOR_SPECS
 from app.motor.calibration.procedures.friction_map import SPECS as FRICTION_SPECS
@@ -100,7 +106,7 @@ _RESCALED_MACHINE = (
 )
 EXTENDED: dict[str, tuple[Build, Fit]] = {
     **DRIVE_SPECS, **FRICTION_SPECS, **POSITIONING_SPECS, **HOLDING_SPECS, **LOADED_SPECS,
-    **ESTIMATION_SPECS, **FEEL_SPECS, **FEEL_OPERATOR_SPECS, **HEAVY_SPECS,
+    **ESTIMATION_SPECS, **FEEL_SPECS, **FEEL_OPERATOR_SPECS, **HEAVY_SPECS, **FAST_SPECS,
 }
 EXTRA_PATHS = {
     "S3": ("left.stribeck_extra_n", "right.stribeck_extra_n"),
@@ -109,6 +115,8 @@ EXTRA_PATHS = {
     "S9": (*(f"{side}.{key}" for side in SIDES for key in _RESCALED), *_RESCALED_MACHINE),
 }
 STRIBECK_MIN_N = 2.0  # a smaller static − kinetic difference is noise: no split
+D2_LOW_MM = 100.0
+D4_HIGH_MM = 700.0
 _SIDE_LABEL = {"left": "Л", "right": "П"}
 
 
@@ -301,10 +309,12 @@ class CalibrationSession:
             start = {side: self._balance.edge(side, 0.0, -1) for side in SIDES}
             return loaded_window(start), ProcedureEnvelope(max_x_mm=80.0)
         if code == "D2":
-            top = min(400.0, self._top_mm())
-            return friction_up(self._balance, top_mm=top), ProcedureEnvelope(max_x_mm=top + 60.0)
+            # B8 measured: the whole working travel; else up to 400 mm (the top is unknown)
+            top = self._top_mm() if self.profile.travel_mm.provenance == "measured" else min(400.0, self._top_mm())
+            return friction_speeds(self._balance, low_mm=D2_LOW_MM, high_mm=top), ProcedureEnvelope(max_x_mm=top + 100.0)
         if code == "D4":
-            return moving_mass(self._balance), ProcedureEnvelope(max_x_mm=150.0)
+            top = min(self._top_mm(), D4_HIGH_MM) if self.profile.travel_mm.provenance == "measured" else min(400.0, self._top_mm())
+            return moving_mass_fast(self._balance, low_mm=D2_LOW_MM, high_mm=top), ProcedureEnvelope(max_x_mm=top + 100.0)
         if code == "C3":
             npr = {side: self.profile.side(side).n_per_raw_value for side in SIDES}
             signs = {side: self.profile.side(side).sign for side in SIDES}
@@ -574,31 +584,35 @@ class CalibrationSession:
         """Viscous friction; the static window splits into kinetic Coulomb + stiction extra (edges unchanged)."""
 
         assert self._balance is not None
-        r = fit_friction_up(data, self._balance)
+        r = fit_friction_speeds(data, self._balance)
         report, sides = [], {}
         for side in SIDES:
             item, current = r[side], self.profile.side(side)
             static_up, static_down = self._balance.coulomb_up[side], self._balance.coulomb_down[side]
-            extra = min(max(static_up - item["coulomb_kin_n"], 0.0), static_down)
+            # the stiction extra: the S3 breakaway above the kinetic friction, the same for both edges (the window stays)
+            extra = min(max(static_up - item["coulomb_kin_up_n"], 0.0), max(static_down - item["coulomb_kin_down_n"], 0.0))
             if extra < max(STRIBECK_MIN_N, item["coulomb_kin_ci95"] if math.isfinite(item["coulomb_kin_ci95"]) else 0.0):
                 extra = 0.0
             values: dict[str, Measured] = {
-                "viscous_n_per_mm_s": _measured(item["viscous_n_per_mm_s"], _finite(item["ci95"]), self.id),
+                "viscous_n_per_mm_s": _measured(round(item["viscous_n_per_mm_s"], 4), _finite(item["ci95"]), self.id),
                 "stribeck_extra_n": _measured(extra, None, self.id),
                 # the window edges stay those measured by S3/S7: keep their provenance and time
                 "coulomb_up_n": replace(current.coulomb_up_n, value=static_up - extra),
                 "coulomb_down_n": replace(current.coulomb_down_n, value=static_down - extra),
+                "friction_table_up": _measured(item["table_up"], None, self.id),
+                "friction_table_down": _measured(item["table_down"], None, self.id),
             }
-            if extra > 0 and item["stribeck_v_mm_s"]:
-                values["stribeck_v_mm_s"] = _measured(float(item["stribeck_v_mm_s"]), None, self.id)
             self._set_side(side, **values)
-            sides[side] = {key: value for key, value in item.items() if key != "rows"} | {"stribeck_extra_n": extra}
+            sides[side] = item | {"stribeck_extra_n": extra}
             report.append(_line(f"{_SIDE_LABEL[side]}: вязкое трение", f"{item['viscous_n_per_mm_s']:.3f} ± {item['ci95']:.3f} Н·с/мм", item["viscous_raw"] > -item["ci95"]))
-            report.append(_line(f"{_SIDE_LABEL[side]}: трение движения / трогания", f"{static_up - extra:.1f} / {static_up:.1f} Н"))
-            stribeck = f"{extra:.1f} Н" + (f", vₛ ≈ {item['stribeck_v_mm_s']:.0f} мм/с" if extra > 0 and item["stribeck_v_mm_s"] else "")
-            report.append(_line(f"{_SIDE_LABEL[side]}: добавка трогания (Штрибек)", stribeck if extra > 0 else "нет (трогание ≈ движение)"))
-            points = ", ".join(f"{v:.0f} мм/с → {y:+.1f} Н" for v, y in item["points"])
-            report.append(_line(f"{_SIDE_LABEL[side]}: сила сверх окна по скоростям", f"{points} (невязка {item['rmse_n']:.1f} Н)"))
+            report.append(_line(f"{_SIDE_LABEL[side]}: трение движения вверх / вниз", f"{item['coulomb_kin_up_n']:.1f} / {item['coulomb_kin_down_n']:.1f} Н (трогание S3: {static_up:.1f} / {static_down:.1f})"))
+            report.append(_line(f"{_SIDE_LABEL[side]}: добавка трогания (Штрибек)", f"{extra:.1f} Н" if extra > 0 else "нет (трогание ≈ движение)"))
+            for label, points in (("вверх", item["table_up"]), ("вниз", item["table_down"])):
+                report.append(_line(f"{_SIDE_LABEL[side]}: трение {label}", ", ".join(f"{v:.0f} мм/с → {f:.0f} Н" for v, f in points)))
+            report.append(_line(f"{_SIDE_LABEL[side]}: невязка", f"{item['rmse_n']:.1f} Н", item["rmse_n"] < 10.0))
+        fallbacks = [run for run in data["runs"] if run["fallback"]]
+        if fallbacks:
+            report.append(_line("Прогоны в медленном режиме", "; ".join(f"{run['speed_mm_s']:.0f} мм/с {'↑' if run['direction'] > 0 else '↓'}: {run['reason']}" for run in fallbacks), False))
         stage.result = {"sides": sides, "report": report}
 
     def _fit_d4(self, stage: Stage, data: dict[str, Any]) -> None:
@@ -620,12 +634,22 @@ class CalibrationSession:
         r = fit_support(data)
         for side in SIDES:
             self._set_side(side, support_raw=_measured(int(r["support_raw"][side]), None, self.id))
+        self.profile = replace(self.profile, support_holds=_measured(r["hold"], None, self.id))
         raw = r["support_raw"]
-        report = [
-            _line("Ток поддержки Л / П", f"{raw['left']} / {raw['right']} ед."),
-            _line("Скорость опускания", f"{r['speed_mm_s']:.1f} мм/с (цель 15 ± 5)", r["in_band"]),
-            _line("Попыток", str(len(r["trials"]))),
-        ]
+        if r["hold"]:
+            report = [
+                _line("Плавное опускание постоянным моментом", "невозможно: гриф либо стоит, либо падает быстрее 40 мм/с (трение после трогания падает)", False),
+                _line("Точка трогания Л / П", f"{r['breakaway_raw']['left']} / {r['breakaway_raw']['right']} ед."),
+                _line("Поддержка Л / П (удержание)", f"{raw['left']} / {raw['right']} ед."),
+                _line("После СТОП и отмены", "гриф зависает на месте; опустите его рукой (нажать вниз) перед следующей калибровкой"),
+                _line("Попыток", str(len(r["trials"]))),
+            ]
+        else:
+            report = [
+                _line("Ток поддержки Л / П", f"{raw['left']} / {raw['right']} ед."),
+                _line("Скорость опускания", f"{r['speed_mm_s']:.1f} мм/с (цель 15 ± 5)", r["in_band"]),
+                _line("Попыток", str(len(r["trials"]))),
+            ]
         stage.result = {**r, "report": report}
 
     def _fit_b3(self, stage: Stage, data: dict[str, Any]) -> None:
@@ -778,7 +802,8 @@ class CalibrationSession:
             items.append({
                 "scope": spec.scope, "key": key, "side": side, "label": spec.label, "unit": spec.unit, "kind": spec.kind,
                 "old": _measured_payload(old, spec.kind), "new": _measured_payload(new, spec.kind),
-                "changed": old.value != new.value or old.provenance != new.provenance,
+                # a new measurement with the same value still counts: saving it refreshes the time (stale → actual)
+                "changed": old.value != new.value or old.provenance != new.provenance or old.run_id != new.run_id,
             })
         return items
 

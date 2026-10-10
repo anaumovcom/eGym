@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from fastapi.encoders import jsonable_encoder
@@ -10,6 +11,8 @@ from app.models.audit import AuditLog
 from app.models.enums import AuditAction, AuditSeverity, MachineState, SafetyState
 from app.models.hardware import ExerciseCalibration, HardwareDiagnosticRecord
 from app.models.settings import AppSetting
+from app.motor import store as motor_store
+from app.motor.profile import Measured
 from app.repositories.audit_repository import AuditRepository
 from app.repositories.settings_repository import SettingsRepository
 from app.schemas.hardware import (
@@ -29,7 +32,7 @@ from app.services.exercise_library import get_imported_exercise
 from app.services.hardware_runtime import MOTION_DISABLED_MESSAGE, hardware_runtime
 
 MOTION_ACTIONS = {
-    "home", "reset_zero_position", "manual_move", "jog_start", "start_motion", "move_to_start",
+    "home", "manual_move", "jog_start", "start_motion", "move_to_start",
     "start_fixed_position", "range_preview", "enter_weightless", "capture_point", "hold", "pause",
     "resume", "park", "set_load", "manual_rep", "align_sides", "complete_set",
 }
@@ -265,6 +268,11 @@ class HardwareService:
             command = hardware_runtime.reset_fault()
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.warning
+        elif payload.action == "reset_zero_position":
+            command = hardware_runtime.reset_zero()
+            self._save_zero_to_profile(session, command.payload)
+            audit_action = AuditAction.hardware_command
+            severity = AuditSeverity.warning
         elif payload.action in {"servo_on", "servo_off"}:
             command = hardware_runtime.set_servo(payload.action == "servo_on")
             audit_action = AuditAction.hardware_command
@@ -289,6 +297,18 @@ class HardwareService:
             message=self._message_for_action(payload.action),
             snapshot=snapshot,
         )
+
+    def _save_zero_to_profile(self, session: Session, payload: dict) -> None:
+        """The operator's zero becomes the profile's absolute zero (B7), so calibrations and restarts use it."""
+
+        measured_at = datetime.now(UTC).isoformat()
+        bundle = motor_store.load_active(session)
+        machine = bundle.machine
+        for side, key in (("left", "leftZeroPulses"), ("right", "rightZeroPulses")):
+            zero = Measured(int(payload[key]), None, "measured", "reset_zero_position", measured_at)
+            machine = machine.with_side(side, replace(machine.side(side), zero_counts=zero))
+        version = motor_store.save_version(session, replace(bundle, machine=machine), note="Сброс нуля")
+        hardware_runtime.apply_profile(replace(machine, version=version), bundle.envelope)
 
     def update_safety_settings(self, session: Session, user_id: str | None, payload: HardwareSafetySettingsSchema) -> HardwareSafetySettingsSchema:
         key = "hardware.safety.settings"

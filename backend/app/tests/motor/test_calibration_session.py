@@ -38,6 +38,12 @@ def _support_written(runtime: HardwareRuntime) -> bool:
     return all(drive.last_raw == int(drive.profile.support_raw.value) * drive.profile.sign for drive in runtime.drives.values())  # type: ignore[attr-defined]
 
 
+def _abort_hold_written(runtime: HardwareRuntime) -> bool:
+    from app.services.hardware_runtime import ABORT_SUPPORT_RAW
+
+    return all(drive.last_raw == ABORT_SUPPORT_RAW * drive.profile.sign for drive in runtime.drives.values())  # type: ignore[attr-defined]
+
+
 def test_wizard_session_runs_stages_and_proposes_changes(twin_runtime: HardwareRuntime) -> None:
     session = twin_runtime.start_calibration("WIZARD")
     assert twin_runtime.mode == "calibration"
@@ -126,14 +132,17 @@ def test_estop_and_operator_abort(twin_runtime: HardwareRuntime) -> None:
     twin_runtime.tick()
     twin_runtime.trigger_emergency_stop()
     assert session.status == "aborted" and twin_runtime.mode == "estop"
-    assert _support_written(twin_runtime)
+    assert _abort_hold_written(twin_runtime)
 
     twin_runtime.clear_emergency_stop()
     twin_runtime.discard_calibration()
     session = twin_runtime.start_calibration("B5")
     assert twin_runtime.abort_calibration()
     assert session.status == "aborted" and session.reason == "прервано оператором"
-    assert _support_written(twin_runtime)
+    assert _abort_hold_written(twin_runtime)
+    twin_runtime._last_write -= 1.0
+    twin_runtime.tick()  # the periodic refresh keeps 100, not the profile support
+    assert _abort_hold_written(twin_runtime)
 
 
 def test_calibration_api_accept_saves_and_applies(client) -> None:

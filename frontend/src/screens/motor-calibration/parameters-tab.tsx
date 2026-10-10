@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -177,7 +177,7 @@ function ParamRow({ item, draft, canEdit, onChange, onOpen }: {
   )
 }
 
-export function ParametersTab({ serviceMode, calibrating }: { serviceMode: boolean; calibrating: boolean }) {
+export const ParametersTab = memo(function ParametersTab({ serviceMode, calibrating }: { serviceMode: boolean; calibrating: boolean }) {
   const queryClient = useQueryClient()
   const query = useQuery({ queryKey: ['motor', 'parameters'], queryFn: motorApi.parameters })
   const [draft, setDraft] = useState<Draft>({})
@@ -348,4 +348,4 @@ export function ParametersTab({ serviceMode, calibrating }: { serviceMode: boole
       ) : null}
     </div>
   )
-}
+})

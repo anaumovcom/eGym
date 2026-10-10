@@ -878,3 +878,58 @@ def test_fast_transit_reaches_points_quickly(mass: float) -> None:
     assert t_up < 8.0 and t_down < 8.0  # 600 mm at the governed 60/40 mm/s would take 10–15 s
     assert max(max(abs(r[3]), abs(r[4])) for r in result.log) >= 300.0
     assert all(bench.plant.state[side].x_mm < 5 for side in SIDES)
+
+
+def test_fast_braking_m5_and_check_m6(commissioned: tuple[PlantParams, MachineProfile]) -> None:
+    from app.motor.calibration.procedures.motion import Balance, _end_bound
+
+    params, profile = commissioned
+    profile, sessions = _chain(params, profile, ("M5", "M6"))
+    assert 0.0 <= profile.fast_brake_lag_s.value < 0.3
+    assert profile.fast_brake_up_mm_s2.value > 300 and profile.fast_brake_down_mm_s2.value > 300
+    assert profile.fast_coast_up_mm_s2.value > profile.fast_coast_down_mm_s2.value  # gravity brakes a rise only
+    runs = sessions["M5"].stages[0].result["runs"]
+    assert all(run["ok"] for run in runs) and max(run["brake_v_mm_s"] for run in runs if run["mode"] == "brake") >= 250  # 350 needs D2 viscous (twin 0.3 N·s/mm, unmeasured here)
+    moves = sessions["M6"].stages[0].result["moves"]
+    assert all(not move["fallback"] and abs(move["error_mm"]) <= 15 for move in moves)
+    balance = Balance.from_profile(profile)
+    assert _end_bound(balance, 300.0, -1) < _end_bound(balance, 900.0, -1)
+
+
+def test_c3_holds_the_bar_when_no_smooth_descent_exists() -> None:
+    """A6 bench 2026-10-10: stands at one raw, falls > 40 mm/s at the next — C3 must not block D2/S7/B8."""
+
+    params = _params(weight_n=157.0, coulomb_up_n=55.0, coulomb_down_n=55.0, stiction_extra_n=15.0, viscous_n_per_mm_s=0.05, mass_kg=86.0)
+    bench = _bench(params, MachineProfile())
+    profile = _calibrated(bench)
+    profile = _run(bench, "M1", profile).profile
+    session = _run(bench, "C3", profile)
+    payload = _done(session)
+    result = payload["stages"][0]["result"]
+    assert result["hold"] is True and session.profile.support_holds.value is True
+    for side in SIDES:
+        raw = session.profile.side(side).support_raw.value
+        assert result["breakaway_raw"][side] < raw <= 157.0 / session.profile.side(side).n_per_raw_value
+    assert all(bench.plant.state[side].x_mm < 15 for side in SIDES)
+
+
+def test_fast_descent_never_pulls_down_with_a_wrong_viscous() -> None:
+    """A6 bench D2 2026-10-10: viscous 1.0–1.3 N·s/mm (stick-slip) → feed-forward pulled the bar down to −444 mm/s."""
+
+    from app.motor.calibration.procedures.motion import Balance, travel
+    from app.motor.calibration.runner import CalibrationRunner, Command
+
+    params = replace(_params(weight_n=150.0, coulomb_up_n=50.0, coulomb_down_n=50.0, mass_kg=86.0), travel_mm=1300.0, command_delay_ticks=2)
+    bench = _bench(params, MachineProfile())
+    balance = replace(Balance.from_profile(_calibrated(bench)), viscous={side: 1.27 for side in SIDES})
+
+    def proc() -> Any:
+        frame = yield Command(None)
+        frame = yield from travel(balance, frame, 1100.0)
+        frame = yield from travel(balance, frame, 150.0)
+        return {"x": frame.x_mean}
+
+    result = CalibrationRunner(bench.drives, lambda: (bench.advance(0.074), bench.t)[1]).run(proc())
+    assert result.status == "done", result.reason
+    assert abs(result.data["x"] - 150.0) <= 15.0
+    assert min(min(r[5], r[6]) for r in result.log) >= 0.0

@@ -74,12 +74,12 @@ def test_overspeed_zero_latch(modbus_runtime) -> None:
     service.writes.clear()
     runtime.tick()
     assert runtime.latch == "overspeed"
-    assert service.writes[-2:] == [(1, 0), (2, 0)]
+    assert service.writes[-2:] == [(1, 100), (2, 100)]  # not 0: without a brake the bar would fall freely
     service.speed_rpm = {}
     runtime.trigger_emergency_stop()
     runtime.apply_shutdown_support()
     assert runtime.latch == "overspeed"
-    assert service.writes[-2:] == [(1, 0), (2, 0)]  # neither E-stop nor shutdown override it
+    assert service.writes[-2:] == [(1, 100), (2, 100)]  # neither E-stop nor shutdown override it
 
 
 def test_estop_support_and_release(modbus_runtime) -> None:

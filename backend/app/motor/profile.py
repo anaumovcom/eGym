@@ -113,10 +113,18 @@ class MachineProfile:
     hold_ultimate_period_s: Measured = field(default_factory=lambda: _d(None))
     side_coupling_n_per_mm: Measured = field(default_factory=lambda: _d(None))
     travel_mm: Measured = field(default_factory=lambda: _d(1400.0, None, "manual"))
+    # C3: True — no constant torque lowers the bar slowly (stick-slip), support holds it in place instead
+    support_holds: Measured = field(default_factory=lambda: _d(None))
     # M3: stopping by the middle of the static window
     brake_lag_s: Measured = field(default_factory=lambda: _d(None))
     brake_decel_up_mm_s2: Measured = field(default_factory=lambda: _d(None))
     brake_decel_down_mm_s2: Measured = field(default_factory=lambda: _d(None))
+    # M5: braking from fast-transit speeds (150–350 mm/s)
+    fast_coast_up_mm_s2: Measured = field(default_factory=lambda: _d(None))  # support (an abort) slows a rise
+    fast_coast_down_mm_s2: Measured = field(default_factory=lambda: _d(None))  # support slows a descent (≈ 0)
+    fast_brake_up_mm_s2: Measured = field(default_factory=lambda: _d(None))  # active brake force
+    fast_brake_down_mm_s2: Measured = field(default_factory=lambda: _d(None))
+    fast_brake_lag_s: Measured = field(default_factory=lambda: _d(None))
     # automatic moves (P, A)
     position_speed_up_mm_s: Measured = field(default_factory=lambda: _d(None))
     position_speed_down_mm_s: Measured = field(default_factory=lambda: _d(None))

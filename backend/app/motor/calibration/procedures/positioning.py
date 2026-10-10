@@ -38,15 +38,32 @@ from app.motor.units import SIDES, Side
 SIDE_LABEL = {"left": "Л", "right": "П"}
 STOP_TOLERANCE_MM = 2.0
 OVERSHOOT_MM = 1.5
+A1_OVERSHOOT_MM_S = 12.0
 
 
 # ---------------------------------------------------------------- P1, P2
-def positioning(balance: Balance, direction: int, *, speeds: tuple[float, ...] = (10.0, 20.0, 35.0, 50.0), low_mm: float = 40.0, high_mm: float = 180.0) -> Procedure:
+FAST_SPEEDS = {1: (100.0, 200.0, 300.0, 400.0), -1: (100.0, 200.0, 300.0)}
+FAST_STOP_MM = 10.0  # a fast move stops within this (the governed correction finishes the rest)
+FAST_LOW_MM = 100.0
+
+
+def positioning(
+    balance: Balance, direction: int, *, speeds: tuple[float, ...] = (20.0, 50.0), low_mm: float = 40.0, high_mm: float = 180.0,
+    fast_high_mm: float | None = None,
+) -> Procedure:
+    """Slow governed moves (the force table of the governor), then fast moves between ``FAST_LOW_MM`` and
+    ``fast_high_mm`` at rising top speeds: the fastest one that stops within ``FAST_STOP_MM`` becomes the
+    positioning speed — the top speed of all fast moves."""
+
+    from app.motor.calibration.procedures.motion import _fast
+
     frame = yield Command(None, note="старт", progress=0.0)
     start, end = (low_mm, high_mm) if direction > 0 else (high_mm, low_mm)
+    fast = FAST_SPEEDS[direction] if fast_high_mm is not None and fast_high_mm - FAST_LOW_MM >= 300.0 else ()
+    total = len(speeds) + len(fast)
     runs = []
     for index, v in enumerate(speeds):
-        progress = 0.05 + 0.85 * index / len(speeds)
+        progress = 0.05 + 0.85 * index / total
         frame = yield from recenter(balance, frame, start, progress)
         state = Motion(trace=[])
         frame = yield from travel(balance, frame, end, speed_mm_s=v, state=state, note=f"{'подъём' if direction > 0 else 'опускание'} на {end:.0f} мм со скоростью {v:.0f} мм/с", progress_span=progress)
@@ -62,8 +79,24 @@ def positioning(balance: Balance, direction: int, *, speeds: tuple[float, ...] =
             "overshoot_mm": max(0.0, peak, direction * error),
             "time_s": (state.trace[-1][0] - state.trace[0][0]) if state.trace and len(state.trace) > 1 else 0.0,
         })
+    fast_runs = []
+    for index, v in enumerate(fast):
+        progress = 0.05 + 0.85 * (len(speeds) + index) / total
+        f_start, f_end = (FAST_LOW_MM, fast_high_mm) if direction > 0 else (fast_high_mm, FAST_LOW_MM)
+        assert f_start is not None and f_end is not None
+        frame = yield from recenter(balance, frame, f_start, progress)
+        stats: dict[str, Any] = {}
+        t0 = frame.t
+        note = f"{'подъём' if direction > 0 else 'опускание'} на {f_end:.0f} мм со скоростью до {v:.0f} мм/с"
+        frame = yield from _fast(balance, frame, f_end, note=note, progress=lambda _f, p=progress: p, top_mm_s=v, stats=stats)
+        fast_runs.append({
+            "speed_mm_s": v, "vmax_mm_s": stats.get("vmax", 0.0), "error_mm": frame.x_mean - f_end, "time_s": frame.t - t0,
+            "distance_mm": abs(f_end - f_start), "fallback": bool(stats.get("failed")), "reason": stats.get("reason"),
+        })
+        if stats.get("failed") and index > 0 and fast_runs[-2]["fallback"]:
+            break  # two in a row: faster ones fail too, no need to throw the bar
     yield from land(balance, frame, progress=0.95)
-    return {"runs": runs, "direction": direction}
+    return {"runs": runs, "fast_runs": fast_runs, "direction": direction}
 
 
 def fit_positioning(data: dict[str, Any], _ctx: Context) -> Outcome:
@@ -84,10 +117,24 @@ def fit_positioning(data: dict[str, Any], _ctx: Context) -> Outcome:
         )
         for run in runs
     ]
-    report.append(line("Скорость позиционирования", f"{best['speed_mm_s']:.0f} мм/с" if best else "ни одна скорость не дала точной остановки", best is not None))
+    fast_runs = data.get("fast_runs", [])
+
+    def fast_ok(run: dict[str, Any]) -> bool:
+        return not run["fallback"] and abs(run["error_mm"]) <= FAST_STOP_MM
+
+    for run in fast_runs:
+        text = f"до {run['vmax_mm_s']:.0f} мм/с, {run['distance_mm']:.0f} мм за {run['time_s']:.1f} с, ошибка {run['error_mm']:+.1f} мм"
+        report.append(line(f"быстро {run['speed_mm_s']:.0f} мм/с", text + (f"; медленный режим: {run['reason']}" if run["fallback"] else ""), fast_ok(run)))
+    fast_best = max((run for run in fast_runs if fast_ok(run)), key=lambda run: run["speed_mm_s"], default=None)
+    chosen = fast_best["speed_mm_s"] if fast_best else best["speed_mm_s"] if best else None
+    report.append(line(
+        "Скорость позиционирования",
+        f"{chosen:.0f} мм/с" + (" (быстрые переезды)" if fast_best else "") if chosen else "ни одна скорость не дала точной остановки",
+        chosen is not None,
+    ))
     sides = {side: {f"travel_table_{key}": ([(round(run["steady_speed"], 1), round(run["extra"][side], 2)) for run in table], None)} for side in SIDES}
-    machine = {f"position_speed_{key}_mm_s": (best["speed_mm_s"], None)} if best else {}
-    return Outcome(report=report, sides=sides, machine=machine, data={"runs": runs}, error=None if best else "точная остановка не получилась ни на одной скорости: повторите M3")
+    machine = {f"position_speed_{key}_mm_s": (chosen, None)} if chosen else {}
+    return Outcome(report=report, sides=sides, machine=machine, data={"runs": runs, "fast_runs": fast_runs}, error=None if chosen else "точная остановка не получилась ни на одной скорости: повторите M3")
 
 
 # ---------------------------------------------------------------- A1
@@ -119,7 +166,8 @@ def fit_accel(data: dict[str, Any], _ctx: Context) -> Outcome:
     runs = data["runs"]
 
     def smooth(run: dict[str, Any]) -> bool:
-        return run["overshoot_mm_s"] <= 0.2 * v and (run["rmse_mm_s"] is None or run["rmse_mm_s"] <= 0.25 * v)
+        # a heavy bar breaking free from stiction overshoots by a fixed ~10 mm/s whatever the ramp
+        return run["overshoot_mm_s"] <= max(0.2 * v, A1_OVERSHOOT_MM_S) and (run["rmse_mm_s"] is None or run["rmse_mm_s"] <= 0.25 * v)
 
     good = [run for run in runs if smooth(run)]
     best = max(good, key=lambda run: run["accel"]) if good else None
@@ -277,24 +325,28 @@ def stop_reaction(balance: Balance, *, speeds: tuple[float, ...] = (20.0, 40.0),
     return {"runs": runs}
 
 
-def fit_stop(data: dict[str, Any], _ctx: Context) -> Outcome:
+def fit_stop(data: dict[str, Any], ctx: Context) -> Outcome:
     runs = data["runs"]
+    holds = bool(ctx.profile.support_holds.value)  # C3: support holds the bar (stick-slip), hanging is expected
     overshoot = max(run["overshoot_mm"] for run in runs)
     report = [
         line(
             f"СТОП на {run['speed_mm_s']:.0f} мм/с",
             f"доезд вверх {run['overshoot_mm']:.1f} мм, затем опускание {run['descent_mm_s']:.0f} мм/с" if run["descent_mm_s"] is not None else f"доезд вверх {run['overshoot_mm']:.1f} мм",
-            run["on_stops"] and (run["descent_mm_s"] is None or 3.0 <= run["descent_mm_s"] <= 40.0),
+            (holds and (run["descent_mm_s"] is None or run["descent_mm_s"] <= 3.0))
+            or (run["on_stops"] and (run["descent_mm_s"] is None or 3.0 <= run["descent_mm_s"] <= 40.0)),
         )
         for run in runs
     ]
     report.append(line("Запас до верхнего предела", f"не менее {overshoot + 5:.0f} мм"))
     hanging = [run for run in runs if not run["on_stops"]]
+    if holds:
+        report.append(line("Поддержка (C3)", "удержание: после СТОП гриф зависает"))
     return Outcome(
         report=report,
         machine={"stop_overshoot_mm": (round(overshoot, 1), None)},
         data={"runs": runs},
-        error="после СТОП гриф не опустился на упоры за 25 с: повторите C3" if hanging else None,
+        error="после СТОП гриф не опустился на упоры за 25 с: повторите C3" if hanging and not holds else None,
     )
 
 
@@ -302,9 +354,16 @@ def _envelope(top: float) -> ProcedureEnvelope:
     return ProcedureEnvelope(max_x_mm=top)
 
 
+def _fast_top(ctx: Context) -> float:
+    """Upper end of the fast runs: the working travel (B8), else 400 mm; at most 900 mm."""
+
+    top = ctx.top_mm if ctx.profile.travel_mm.provenance == "measured" else min(400.0, ctx.top_mm)
+    return max(240.0, min(900.0, top))
+
+
 SPECS = {
-    "P1": (lambda ctx: (positioning(ctx.balance, +1), _envelope(240.0)), fit_positioning),
-    "P2": (lambda ctx: (positioning(ctx.balance, -1), _envelope(240.0)), fit_positioning),
+    "P1": (lambda ctx: (positioning(ctx.balance, +1, fast_high_mm=_fast_top(ctx)), _envelope(_fast_top(ctx) + 100.0)), fit_positioning),
+    "P2": (lambda ctx: (positioning(ctx.balance, -1, fast_high_mm=_fast_top(ctx)), _envelope(_fast_top(ctx) + 100.0)), fit_positioning),
     "A1": (lambda ctx: (accel_test(ctx.balance), _envelope(250.0)), fit_accel),
     "A2": (lambda ctx: (decel_test(ctx.balance), _envelope(250.0)), fit_decel),
     "A3": (lambda ctx: (landing_test(ctx.balance), _envelope(120.0)), fit_landing),

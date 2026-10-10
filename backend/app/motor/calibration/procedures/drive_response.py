@@ -19,7 +19,8 @@ from app.motor.calibration.procedures.motion import Balance, hold_still, land, t
 from app.motor.calibration.runner import Command, ProcedureEnvelope, ProcedureError, Prompt
 from app.motor.units import SIDES, Side
 
-ON_STOPS = ProcedureEnvelope(max_x_mm=15.0)
+# on the stops; a bar left a little higher (C3 hold, a previous stage) is landed first instead of aborting
+ON_STOPS = ProcedureEnvelope(max_x_mm=80.0)
 
 
 # ---------------------------------------------------------------- B2

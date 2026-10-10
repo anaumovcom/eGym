@@ -10,7 +10,7 @@
 | R2 | Поддержка направлена против гравитации и учитывает `direction_sign` стороны | `test_drive.py::test_support_respects_direction` |
 | R3 | Отказ одной стороны: попытка поддержки на **обе** стороны независимо; ошибка записи одной не пропускает другую | `test_safe_runtime.py::test_support_attempts_both_sides` |
 | R4 | Ошибка чтения/записи/исключение тика → latch FAULT + поддержка; выход только явным сбросом | `test_safe_runtime.py::test_read_failure_latches_fault_and_keeps_support`, `::test_tick_exception_latches_fault_with_support` |
-| R5 | Overspeed → PA_12C = 0 на обе стороны, latch не перекрывается ESTOP/idle/shutdown/поддержкой | `test_safe_runtime.py::test_overspeed_zero_latch`, `test_supervisor.py::test_overspeed_zero_latch_survives_estop_and_clear` |
+| R5 | Overspeed → PA_12C = 100 (ABORT_SUPPORT_RAW) на обе стороны, не 0: тормоза нет, нулевой момент = свободное падение грифа; 100 меньше веса — не разгоняет вверх, гриф медленно опускается. Latch не перекрывается ESTOP/idle/shutdown/поддержкой. То же 100 — после прерванной калибровки | `test_safe_runtime.py::test_overspeed_zero_latch`, `test_supervisor.py::test_overspeed_zero_latch_survives_estop_and_clear` |
 | R6 | ESTOP → поддержка на обе стороны, завершает ручной момент, latch; снятие ESTOP снимает только latch ESTOP | `test_safe_runtime.py::test_estop_support_and_release` |
 | R7 | Shutdown: поддержка пишется после последнего тика (сериализация по lock), закрытие порта не обнуляет момент | `test_safe_runtime.py::test_shutdown_writes_support` |
 | R8 | Ручной PA_12C из debug-панели не перезаписывается циклом, пока активен | `test_safe_runtime.py::test_manual_torque_not_overwritten` |

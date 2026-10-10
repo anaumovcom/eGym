@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
@@ -128,7 +128,7 @@ function ProgressBar({ value, className }: { value: number; className?: string }
 }
 
 // ------------------------------------------------------------------ commissioning path
-function CommissioningPath({ specs, selected, onSelect }: { specs: CalibrationSpec[]; selected: string; onSelect: (code: string) => void }) {
+const CommissioningPath = memo(function CommissioningPath({ specs, selected, onSelect }: { specs: CalibrationSpec[]; selected: string; onSelect: (code: string) => void }) {
   const byCode = useMemo(() => new Map(specs.map((spec) => [spec.code, spec])), [specs])
   const steps = useMemo(() => specs.filter((spec) => (spec.order ?? 0) > 0).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)), [specs])
   const wizard = byCode.get('WIZARD')
@@ -190,10 +190,10 @@ function CommissioningPath({ specs, selected, onSelect }: { specs: CalibrationSp
       </div>
     </section>
   )
-}
+})
 
 // ------------------------------------------------------------------ catalog
-function CatalogList({ specs, selected, onSelect }: { specs: CalibrationSpec[]; selected: string; onSelect: (code: string) => void }) {
+const CatalogList = memo(function CatalogList({ specs, selected, onSelect }: { specs: CalibrationSpec[]; selected: string; onSelect: (code: string) => void }) {
   const groups = useMemo(() => {
     const result: { title: string; items: CalibrationSpec[] }[] = []
     for (const spec of specs) {
@@ -239,7 +239,7 @@ function CatalogList({ specs, selected, onSelect }: { specs: CalibrationSpec[]; 
       ))}
     </nav>
   )
-}
+})
 
 // ------------------------------------------------------------------ preconditions / hold button
 function Preconditions({ items }: { items: Precondition[] }) {
@@ -581,7 +581,7 @@ function ParamValue({ item, info, side, colSpan }: { item: ParamItem; info: NonN
   )
 }
 
-function SpecDetails({ spec, byCode, params, onSelect }: {
+const SpecDetails = memo(function SpecDetails({ spec, byCode, params, onSelect }: {
   spec: CalibrationSpec
   byCode: Map<string, CalibrationSpec>
   params: Map<string, ParamItem>
@@ -667,10 +667,10 @@ function SpecDetails({ spec, byCode, params, onSelect }: {
       {!spec.produces.length && spec.code !== 'WIZARD' ? <p className="text-xs text-white/40">Проверка: параметры профиля не меняет, статус — по последнему запуску.</p> : null}
     </div>
   )
-}
+})
 
 // ------------------------------------------------------------------ tab
-export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
+export const CalibrationsTab = memo(function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const linked = searchParams.get('code')
@@ -793,11 +793,13 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
     }
   }
 
-  const select = (next: string) => {
-    if (running || activeRef.current) return
+  const runningRef = useRef(false)
+  runningRef.current = running
+  const select = useCallback((next: string) => {
+    if (runningRef.current || activeRef.current) return
     setUserPicked(true)
     setCode(next)
-  }
+  }, [])
 
   const preconditions = state.data?.preconditions ?? []
   const blocked = preconditions.some((item) => !item.ok)
@@ -907,4 +909,4 @@ export function CalibrationsTab({ serviceMode }: { serviceMode: boolean }) {
     </div>
     </div>
   )
-}
+})

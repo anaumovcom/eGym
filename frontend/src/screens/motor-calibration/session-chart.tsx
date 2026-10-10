@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import type { CalibrationLog } from '@/features/motor/api/motor-api'
 
 const WIDTH = 640
@@ -50,7 +51,7 @@ function Plot({ t, series, unit, title }: { t: number[]; series: Series[]; unit:
   )
 }
 
-export function SessionChart({ log }: { log: CalibrationLog }) {
+export const SessionChart = memo(function SessionChart({ log }: { log: CalibrationLog }) {
   if (log.t.length < 2) {
     return <p className="rounded-2xl border border-white/8 bg-black/20 p-4 text-sm text-white/40">Данные появятся после старта.</p>
   }
@@ -66,4 +67,4 @@ export function SessionChart({ log }: { log: CalibrationLog }) {
       ]} />
     </div>
   )
-}
+})

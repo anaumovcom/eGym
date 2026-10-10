@@ -59,6 +59,7 @@ TRANSIT_DOWN_MM_S = 40.0
 # feed-forward (window edge + m·a + viscous) and a slow PI on the tracking error (bus delay ~1–2 frames)
 FAST_UP_MM_S = 400.0
 FAST_DOWN_MM_S = 300.0
+FAST_MIN_TOP_MM_S = 100.0  # a P1/P2 positioning speed below this is a slow governed one: not a fast-move top
 FAST_ACCEL_MM_S2 = 1000.0  # m·a ≈ 60 N at 60 kg; also the bound of the reference's own slowdown
 FAST_DECEL_MM_S2 = 800.0  # the end of the move: below the ramp, the bar lags the reference by the bus delay
 FAST_SMOOTH_S = 0.3  # the reference speed follows its cap with this time constant: no steps in a_ref
@@ -68,6 +69,9 @@ FAST_END_MM_S = 60.0
 FAST_COAST_DOWN_MM_S2 = 250.0
 FAST_COAST_UP_MM_S2 = 800.0
 FAST_COAST_MASS_KG = 60.0  # the coasting decelerations above at this reflected mass; scaled down for a heavier one
+FAST_COAST_SHARE = 0.7  # margin on the M5 coast deceleration (support varies with temperature, wear)
+FAST_COAST_MIN_MM_S2 = 30.0
+FAST_DECEL_SHARE = 0.6  # the reference slowdown: this share of the M5 active brake (the PI keeps the rest)
 FAST_MIN_MM = 80.0  # shorter moves are governed moves
 FAST_START_MM = 3.0  # the governed start breaks the bar free (stops, stiction, M1) before the reference runs
 FAST_TOLERANCE_MM = 15.0  # farther from the target after the fast move → a governed correction
@@ -75,6 +79,11 @@ FAST_SETTLE_S = 2.0  # after the reference arrived: the PI pulls the bar into th
 FAST_KX = 0.8  # N/mm
 FAST_KV = 0.4  # N per mm/s (≤ 0.5: m/Kv ≥ 0.12 s against the bus delay)
 FAST_MASS_SHARE = 0.75  # m·a feed-forward with an under-estimated mass: a lag is caught by the PI, an overshoot is not
+FAST_VISCOUS_MAX = 0.4  # N·s/mm: a larger D2 value is a measurement error (A6 bench: 1.0–1.3 from stick-slip at 13–24 mm/s)
+# descent: an overestimated viscous lowers the force below what holds the speed — gravity runs the bar away (A6 bench
+# D2 2026-10-10: −444 mm/s); the PI adds the rest, a lag is safe there
+FAST_VISCOUS_DOWN_MAX = 0.25
+FAST_FORCE_FLOOR_N = 0.0  # fast moves never command a downward pull
 FAST_KI = 1.0  # N/(mm·s)
 FAST_LAG_MM = 25.0  # the bar behind the reference by more → the reference waits for it
 FAST_LEAD_MM = 25.0  # the bar ahead by more → the reference catches up
@@ -82,6 +91,10 @@ FAST_LEAD_MM = 25.0  # the bar ahead by more → the reference catches up
 FAST_RUNAWAY_MARGIN_MM_S = 60.0
 FAST_RUNAWAY_SHARE = 0.25
 FAST_OVER_TOP_MM_S = 40.0  # a side faster than the top speed + this → brake (well before the envelope)
+# …or + this share of a low top: the break-free jerk (A6 bench P1 at 100 mm/s: 144 mm/s for one frame) is not a runaway
+FAST_OVER_TOP_SHARE = 0.6
+FAST_CATCH_UP_MM = 8.0  # a side this far behind the reference may be faster than it (it catches up)
+FAST_BRAKE_SHARE = 0.5  # stop check of a fast move: half the M5 brake (or of FAST_BRAKE_MM_S2)
 FAST_SKEW_MM = 25.0
 FAST_STALL_S = 1.5  # the bar still this long during a fast move → governed rest (escalations)
 FAST_ENVELOPE_MARGIN_MM_S = 120.0  # runner speed allowance above the move's top speed
@@ -126,6 +139,17 @@ class Balance:
     viscous: dict[Side, float] = field(default_factory=lambda: {side: 0.05 for side in SIDES})  # N per mm/s
     travel_mm: float = 1400.0  # B8: the upper end for the speed bound of fast moves
     stribeck_extra: dict[Side, float] = field(default_factory=dict)  # D2: breakaway above the kinetic friction
+    # M5: high-speed braking; direction → mm/s² (coast = support after an abort, brake = active brake force)
+    fast_coast: dict[int, float] = field(default_factory=dict)
+    fast_brake: dict[int, float] = field(default_factory=dict)
+    fast_brake_lag_s: float | None = None
+    position_speed: dict[int, float] = field(default_factory=dict)  # P1/P2: the top speed of fast moves (≥ 100)
+
+    def fast_top(self, direction: int) -> float:
+        measured = self.position_speed.get(direction)
+        if measured is not None and measured >= FAST_MIN_TOP_MM_S:
+            return min(measured, FAST_DRIVE_LIMIT_MM_S - FAST_OVER_TOP_MM_S)
+        return FAST_UP_MM_S if direction > 0 else FAST_DOWN_MM_S
 
     @classmethod
     def from_profile(cls, profile: MachineProfile) -> Balance:
@@ -161,6 +185,10 @@ class Balance:
             viscous={side: max(0.0, _value(profile.side(side).viscous_n_per_mm_s) or 0.0) for side in SIDES},
             travel_mm=_value(profile.travel_mm) or 1400.0,
             stribeck_extra={side: max(0.0, _value(profile.side(side).stribeck_extra_n) or 0.0) for side in SIDES},
+            fast_coast={d: v for d, key in ((1, "fast_coast_up_mm_s2"), (-1, "fast_coast_down_mm_s2")) if (v := _value(getattr(profile, key))) is not None},
+            fast_brake={d: v for d, key in ((1, "fast_brake_up_mm_s2"), (-1, "fast_brake_down_mm_s2")) if (v := _value(getattr(profile, key))) is not None and v > 0},
+            fast_brake_lag_s=_value(profile.fast_brake_lag_s),
+            position_speed={d: v for d, key in ((1, "position_speed_up_mm_s"), (-1, "position_speed_down_mm_s")) if (v := _value(getattr(profile, key))) is not None},
         )
 
     def weight(self, side: Side, x_mm: float) -> float:
@@ -438,12 +466,34 @@ def _end_bound(balance: Balance, x_mm: float, direction: int) -> float:
     """Top speed at ``x_mm``: an abort (support) still reaches the end stop ahead at ≤ ``FAST_END_MM_S``."""
 
     room, coast = (balance.travel_mm - x_mm, FAST_COAST_UP_MM_S2) if direction > 0 else (x_mm, FAST_COAST_DOWN_MM_S2)
+    if direction in balance.fast_coast:
+        # M5 measured the coast on support: with a margin, never below FAST_COAST_MIN_MM_S2 (then the bound is ~walking speed)
+        coast = max(FAST_COAST_MIN_MM_S2, FAST_COAST_SHARE * balance.fast_coast[direction])
+        return math.sqrt(FAST_END_MM_S**2 + 2 * coast * max(0.0, room))
     # the coasting decelerations hold for FAST_COAST_MASS_KG: a heavier bar (screw inertia) coasts farther
     coast *= min(1.0, FAST_COAST_MASS_KG / max(min(balance.mass_kg.values()), 1.0))
     return math.sqrt(FAST_END_MM_S**2 + 2 * coast * max(0.0, room))
 
 
-def _fast(balance: Balance, frame: Frame, target_mm: float, *, note: str, progress: Any) -> Gen:
+def fast_decel(balance: Balance, direction: int) -> float:
+    """Reference slowdown of a fast move: ``FAST_DECEL_MM_S2``, lower if M5 measured a weaker active brake."""
+
+    measured = balance.fast_brake.get(direction)
+    return FAST_DECEL_MM_S2 if measured is None else max(100.0, min(FAST_DECEL_MM_S2, FAST_DECEL_SHARE * measured))
+
+
+def _fast(
+    balance: Balance,
+    frame: Frame,
+    target_mm: float,
+    *,
+    note: str,
+    progress: Any,
+    top_mm_s: float | None = None,
+    cut_mm: float | None = None,
+    stats: dict[str, Any] | None = None,
+    trace: list[dict[str, Any]] | None = None,
+) -> Gen:
     """Fast transit to ``target_mm``; returns the frame after a stop in the middle of the window.
 
     A governed start breaks the bar free (stops, stiction, M1 lift-off), then a smooth reference
@@ -451,10 +501,16 @@ def _fast(balance: Balance, frame: Frame, target_mm: float, *, note: str, progre
     tracked: window edge + viscous·v + m·a feed-forward, PI on the tracking error per side, sync.
     The bar falling behind makes the reference wait; the bar ahead, a side faster than the reference,
     skew or a stall end the fast move with a brake — the caller finishes with a governed move.
+    ``cut_mm`` (M5): return at once, still at speed, when the bar passes it; ``stats`` gets the peak
+    speed and whether the move fell back to the slow mode.
     """
 
     direction = 1 if target_mm > frame.x_mean else -1
-    top = FAST_UP_MM_S if direction > 0 else FAST_DOWN_MM_S
+    top = top_mm_s if top_mm_s is not None else balance.fast_top(direction)
+    decel = fast_decel(balance, direction)
+    lag = max(FAST_SMOOTH_S, balance.fast_brake_lag_s or 0.0)
+    stats = stats if stats is not None else {}
+    stats.update(vmax=0.0, failed=False)
     allowance = top + FAST_ENVELOPE_MARGIN_MM_S
     # up: the drive clamps an overshoot over the top speed itself (PA_056); down it does not brake gravity
     limits = {side: min(FAST_DRIVE_LIMIT_MM_S, top + 20.0) if direction > 0 else FAST_DRIVE_LIMIT_MM_S for side in SIDES}
@@ -483,6 +539,9 @@ def _fast(balance: Balance, frame: Frame, target_mm: float, *, note: str, progre
         side_v = {side: side_speed(frame, previous, side) for side in SIDES}
         v_bar = direction * speed(frame, previous)
         previous = frame
+        stats["vmax"] = max(stats["vmax"], v_bar)
+        if cut_mm is not None and direction * (frame.x_mean - cut_mm) >= 0:
+            return frame
         lead = max(direction * (frame.x(side) - x_seen) for side in SIDES)
         if lead > FAST_LEAD_MM:
             # the bar ahead of the reference (friction lower than the model): the reference catches up, the
@@ -496,8 +555,19 @@ def _fast(balance: Balance, frame: Frame, target_mm: float, *, note: str, progre
         still_since = None if abs(v_bar) > STILL_MM_S else (still_since if still_since is not None else frame.t)
         stalled = arrived_at is None and still_since is not None and frame.t - still_since > FAST_STALL_S
         v_allowed = max(v_ref, v_seen)
-        runaway = fastest > min(top + FAST_OVER_TOP_MM_S, v_allowed + max(FAST_RUNAWAY_MARGIN_MM_S, FAST_RUNAWAY_SHARE * v_allowed))
+        # faster than the reference is a runaway only if the side is not catching up a lag (behind it in position)
+        catching_up = min(behind.values()) >= FAST_CATCH_UP_MM
+        # and only if the bar can no longer stop in time: before the target (+ tolerance) and under the end-stop bound
+        brake = FAST_BRAKE_SHARE * balance.fast_brake.get(direction, FAST_BRAKE_MM_S2)
+        to_go = direction * (target_mm - frame.x_mean) + FAST_TOLERANCE_MM
+        overrun = fastest * fastest / (2 * brake) + fastest * (balance.fast_brake_lag_s or FAST_SMOOTH_S) > to_go
+        unsafe = fastest > _end_bound(balance, frame.x_mean, direction) + FAST_RUNAWAY_MARGIN_MM_S
+        overspeed = not catching_up and fastest > v_allowed + max(FAST_RUNAWAY_MARGIN_MM_S, FAST_RUNAWAY_SHARE * v_allowed)
+        runaway = fastest > top + min(max(FAST_OVER_TOP_MM_S, FAST_OVER_TOP_SHARE * top), FAST_ENVELOPE_MARGIN_MM_S - 40.0) or unsafe or (overspeed and overrun)
         if runaway or skew > FAST_SKEW_MM or stalled:
+            stats["reason"] = (
+                f"скорость {fastest:.0f} мм/с при заданной {v_allowed:.0f}" if runaway else f"перекос {skew:.0f} мм" if skew > FAST_SKEW_MM else "гриф остановился"
+            ) + f" на {frame.x_mean:.0f} мм"
             failed = True
             break
         if arrived_at is not None and (
@@ -509,7 +579,7 @@ def _fast(balance: Balance, frame: Frame, target_mm: float, *, note: str, progre
         a_ref = 0.0
         if arrived_at is None:
             remaining = direction * (target_mm - x_ref)
-            cap = min(top, _end_bound(balance, x_ref, direction), math.sqrt(2 * FAST_DECEL_MM_S2 * max(0.0, remaining - v_ref * FAST_SMOOTH_S)))
+            cap = min(top, _end_bound(balance, x_ref, direction), math.sqrt(2 * decel * max(0.0, remaining - v_ref * lag)))
             if max(behind.values()) > FAST_LAG_MM:
                 cap = min(cap, max(0.0, v_bar))  # wait for the bar (a tight spot): the force does not run away
             a_ref = max(-FAST_ACCEL_MM_S2, min(FAST_ACCEL_MM_S2, (cap - v_ref) / FAST_SMOOTH_S))
@@ -533,10 +603,21 @@ def _fast(balance: Balance, frame: Frame, target_mm: float, *, note: str, progre
                 # M2/P1/P2: measured beyond the breakaway edge; else the kinetic friction
                 feed = balance.feed(side, direction, max(v_ref, FEED_SPEED_MM_S))
                 resist = friction[side] + feed if feed is not None else kinetic[side]
-            ahead = resist + balance.viscous[side] * v_ref + FAST_MASS_SHARE * balance.mass_kg[side] * a_ref / 1000.0
+            viscous = min(balance.viscous[side], FAST_VISCOUS_MAX if direction > 0 else FAST_VISCOUS_DOWN_MAX)
+            ahead = resist + viscous * v_ref + FAST_MASS_SHARE * balance.mass_kg[side] * a_ref / 1000.0
             forces[side] = balance.weight(side, frame.x(side)) + direction * ahead + feedback + sync
+            if overspeed:
+                # ahead of the reference and faster than it (the end of the slowdown, bus delay): brake this frame,
+                # the PI starts over — the move goes on
+                integral[side] = 0.0
+                forces[side] = balance.weight(side, frame.x(side)) + direction * (friction[side] - balance.mass_kg[side] * FAST_BRAKE_MM_S2 / 1000.0)
+            # the motor never pulls the bar down: gravity is enough, a wrong model must not drive a fall
+            forces[side] = max(FAST_FORCE_FLOOR_N, forces[side])
+        if trace is not None:
+            trace.append({"t": frame.t, "x": {side: frame.x(side) for side in SIDES}, "v": dict(side_v), "v_ref": v_cmp, "a_ref": a_ref, "f": dict(forces), "brake": overspeed})
         frame = yield Command(forces, note=note, progress=progress(frame), speed_limit_mm_s=limits, max_speed_mm_s=allowance)
     if failed:
+        stats["failed"] = True
         t0 = frame.t
         while direction * frame.v_mean > FAST_BRAKE_END_MM_S and frame.t - t0 < 2.0:
             forces = {
@@ -558,6 +639,7 @@ def travel(
     progress_span: tuple[float, float] | float | None = None,
     state: Motion | None = None,
     drive_limit: bool | None = None,
+    fast_stats: dict[str, Any] | None = None,
 ) -> Gen:
     """Governed move to ``target_mm`` (bar mean), then a stop in the middle of the window.
 
@@ -586,7 +668,7 @@ def travel(
         return note or f"{'подъём' if direction > 0 else 'опускание'} на {target_mm:.0f} мм"
 
     if fast:
-        frame = yield from _fast(balance, frame, target_mm, note=label_for(1 if target_mm > start else -1), progress=progress)
+        frame = yield from _fast(balance, frame, target_mm, note=label_for(1 if target_mm > start else -1), progress=progress, stats=fast_stats)
         if abs(target_mm - frame.x_mean) <= FAST_TOLERANCE_MM:
             return frame
     direction = 1 if target_mm > frame.x_mean else -1

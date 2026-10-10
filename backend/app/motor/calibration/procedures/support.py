@@ -77,24 +77,36 @@ def support_descent(
         if min(math.floor(base[side]) - offset for side in SIDES) < 0:
             break
     yield from land(balance, frame, progress=0.95)
-    return {"trials": trials, "base_raw": base, "target_mm_s": target_mm_s, "tolerance_mm_s": tolerance_mm_s}
+    # no smooth descent (stick-slip): the fallback holds the bar — this far above the lowest raw that stood, at most the middle
+    hold_margin = {side: max(HOLD_MARGIN_MIN_RAW, round(HOLD_MARGIN_FC * balance.coulomb_down[side] / n_per_raw[side])) for side in SIDES}
+    middle = {side: math.floor(balance.weight(side, start_mm) / n_per_raw[side]) for side in SIDES}
+    return {
+        "trials": trials, "base_raw": base, "target_mm_s": target_mm_s, "tolerance_mm_s": tolerance_mm_s,
+        "hold_margin_raw": hold_margin, "middle_raw": middle,
+    }
+
+
+HOLD_MARGIN_FC = 0.25  # hold support: 0.25·Fc⁻ above the breakaway — friction may drop (temperature, wear)
+HOLD_MARGIN_MIN_RAW = 3
 
 
 def fit_support(data: dict[str, Any]) -> dict[str, Any]:
     moving = [trial for trial in data["trials"] if trial["speed_mm_s"] > 1.0 and not trial["fast"]]
     if not moving:
-        fast = [trial["offset"] for trial in data["trials"] if trial["fast"]]
-        still = [trial["offset"] for trial in data["trials"] if not trial["fast"] and trial["speed_mm_s"] <= 1.0]
-        if fast and still and min(abs(a - b) for a in fast for b in still) <= 1:
-            raise ProcedureError(
-                "между «стоит» и «падает быстрее 40 мм/с» нет плавного режима: после трогания трение падает сильнее, "
-                "чем растёт вязкое — постоянным моментом гриф плавно не опустить; поддержка оставлена прежней (выполните D2)"
-            )
-        raise ProcedureError("ни одна попытка не дала плавного опускания: гриф либо стоит, либо падает быстрее 40 мм/с")
+        still = [trial for trial in data["trials"] if not trial["fast"] and trial["speed_mm_s"] <= 1.0]
+        if not still or "hold_margin_raw" not in data:
+            raise ProcedureError("ни одна попытка не дала плавного опускания и ни одна не удержала гриф: повторите S3")
+        # stick-slip: between «stands» and «falls faster than 40 mm/s» there is nothing — a constant torque cannot
+        # lower the bar slowly. Support then holds the bar (above the breakaway with a margin): after STOP or an
+        # abort it hangs and is lowered by a landing («Опустить гриф») or by hand
+        lowest = min(still, key=lambda trial: min(trial["raw"].values()))
+        raw = {side: min(data["middle_raw"][side], lowest["raw"][side] + data["hold_margin_raw"][side]) for side in lowest["raw"]}
+        return {"support_raw": raw, "speed_mm_s": 0.0, "in_band": False, "hold": True, "breakaway_raw": lowest["raw"], "trials": data["trials"]}
     best = min(moving, key=lambda trial: abs(trial["speed_mm_s"] - data["target_mm_s"]))
     return {
         "support_raw": best["raw"],
         "speed_mm_s": best["speed_mm_s"],
         "in_band": abs(best["speed_mm_s"] - data["target_mm_s"]) <= data["tolerance_mm_s"],
+        "hold": False,
         "trials": data["trials"],
     }
