@@ -2,7 +2,7 @@ from sqlalchemy import select
 
 from app.models.audit import AuditLog
 from app.models.enums import AuditAction
-from app.services.hardware_runtime import MOTION_DISABLED_MESSAGE, hardware_runtime
+from app.services.hardware_runtime import SERVO_OFF_MESSAGE, hardware_runtime
 
 
 def test_current_calibration_returns_null_without_404(client) -> None:
@@ -30,9 +30,9 @@ def test_safety_gate_skips_calibration_for_band_exercises(client) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert "Для запуска нужна актуальная калибровка." not in payload["blockingReasons"]
-    # motor control v2 is not enabled yet: the gate stays closed for every exercise
+    # the drives are off (Servo OFF) and the profile is not calibrated: the gate stays closed with the reason
     assert payload["allowed"] is False
-    assert MOTION_DISABLED_MESSAGE in payload["blockingReasons"]
+    assert SERVO_OFF_MESSAGE in payload["blockingReasons"]
 
 
 def test_safety_gate_requires_calibration_for_barbell(client) -> None:
@@ -104,7 +104,7 @@ def test_fixed_bar_setup_is_saved_per_user_and_exercise_and_used_for_start(clien
     command = {"action": "start_fixed_position", "userId": "alexey", "exerciseSlug": "bodyweight-pull-up", "calibrationRequired": True}
     rejected = client.post("/api/hardware/commands", json=command)
     assert rejected.status_code == 409
-    assert rejected.json()["detail"] == MOTION_DISABLED_MESSAGE
+    assert rejected.json()["detail"] == SERVO_OFF_MESSAGE
 
     updated = client.post(url, json={**fixed, "fixedPositionMm": 1600})
     assert updated.status_code == 200
@@ -125,14 +125,18 @@ def test_bar_setup_rejects_mixed_or_incomplete_parameters(client) -> None:
     assert client.post(url, json={**base, "lowerPointMm": 900}).status_code == 422
 
 
-def test_every_motion_command_is_rejected_until_motor_v2(client) -> None:
+def test_motion_commands_are_rejected_while_the_drives_are_off(client) -> None:
     base = {"userId": "alexey", "exerciseSlug": "band-chest-press", "calibrationRequired": False, "rangeConfirmed": True}
-    for action in ("start_motion", "move_to_start", "enter_weightless", "jog_start", "manual_move", "capture_point", "pause", "resume", "set_load", "home", "park"):
+    for action in ("start_motion", "move_to_start", "enter_weightless", "jog_start", "capture_point", "pause", "resume", "set_load", "home", "park"):
         response = client.post("/api/hardware/commands", json={**base, "action": action, "direction": "up", "distanceMm": 10, "which": "lower"})
         assert response.status_code == 409, action
-        assert response.json()["detail"] == MOTION_DISABLED_MESSAGE
-    # releasing a hold-to-run button must never fail
+        assert response.json()["detail"] == SERVO_OFF_MESSAGE
+    for action in ("manual_move", "range_preview", "manual_rep", "align_sides"):
+        response = client.post("/api/hardware/commands", json={**base, "action": action})
+        assert response.status_code == 409 and "не поддерживается" in response.json()["detail"], action
+    # releasing a hold-to-run button and finishing a set must never fail
     assert client.post("/api/hardware/commands", json={**base, "action": "jog_stop", "jogId": "x"}).status_code == 200
+    assert client.post("/api/hardware/commands", json={**base, "action": "complete_set"}).status_code == 200
 
 
 def test_emergency_stop_is_audited_and_keeps_support(client, db_session) -> None:
@@ -141,7 +145,7 @@ def test_emergency_stop_is_audited_and_keeps_support(client, db_session) -> None
     snapshot = response.json()["snapshot"]
     assert snapshot["control"]["mode"] == "estop"
     assert all(raw is not None and raw != 0 for raw in snapshot["control"]["supportRaw"].values())
-    assert client.post("/api/hardware/commands", json={"action": "clear_emergency_stop", "userId": "alexey"}).json()["snapshot"]["control"]["mode"] == "support"
+    assert client.post("/api/hardware/commands", json={"action": "clear_emergency_stop", "userId": "alexey"}).json()["snapshot"]["control"]["mode"] == "idle"  # back on the support, no exercise
     actions = list(db_session.scalars(select(AuditLog.action).order_by(AuditLog.id.asc())))
     assert AuditAction.emergency_stop in actions
     assert hardware_runtime.latch is None

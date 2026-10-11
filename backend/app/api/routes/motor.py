@@ -269,7 +269,7 @@ def update_parameters(payload: ParametersUpdate, session: Session = Depends(get_
     version = store.save_version(session, updated, note=payload.note or "Ручная настройка параметров")
     session.commit()
     try:
-        hardware_runtime.apply_profile(replace(updated.machine, version=version), updated.envelope)
+        hardware_runtime.apply_profile(replace(updated.machine, version=version), updated.envelope, updated.tunables)
     except PermissionError as error:
         raise _conflict(f"Профиль v{version} сохранён, но не применён: {error}") from error
     saved = store.load_active(session)
@@ -289,7 +289,7 @@ def reset_profile(payload: ResetRequest, session: Session = Depends(get_session)
     session.commit()
     saved = store.load_active(session)
     try:
-        hardware_runtime.apply_profile(saved.machine, saved.envelope)
+        hardware_runtime.apply_profile(saved.machine, saved.envelope, saved.tunables)
     except PermissionError as error:
         raise _conflict(f"Профиль v{version} сохранён, но не применён: {error}") from error
     return {**describe(saved), "runtimeVersion": hardware_runtime.profile.version}

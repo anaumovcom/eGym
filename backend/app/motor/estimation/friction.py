@@ -111,9 +111,17 @@ class FrictionModel:
         if not table:
             return coulomb + stribeck + self.viscous_n_per_mm_s * speed
         v0, f0 = table[0]
-        if speed >= v0:
-            return interpolate(table, speed, extrapolate=True)
-        return coulomb + stribeck + (f0 - coulomb) * speed / max(v0, 1e-6)
+        if speed < v0:
+            return coulomb + stribeck + (f0 - coulomb) * speed / max(v0, 1e-6)
+        last_v, last_f = table[-1]
+        if speed <= last_v:
+            return interpolate(table, speed)
+        # above the table friction grows at least by the D2 viscous slope: a falling last segment
+        # (Stribeck tail, noise) must not take the compensation away in a fast rep
+        slope = 0.0
+        if len(table) > 1 and last_v != table[-2][0]:
+            slope = (last_f - table[-2][1]) / (last_v - table[-2][0])
+        return last_f + max(slope, self.viscous_n_per_mm_s) * (speed - last_v)
 
     def track_extra(self, x_mm: float) -> float:
         """Extra friction at height ``x`` (S10 map, else S8 tight spots), × the F7 gain."""

@@ -84,6 +84,18 @@ describe('E09 prepared pack client', () => {
     expect(f.fetch.mock.calls.map(call => call[0])).toEqual([manifestUrl('ash')])
   })
 
+  it('restore after a reload re-pins a pack prepared earlier but never starts a first download', async () => {
+    const f = await fixture()
+    expect((await f.client.restore('ash')).state).toBe('not_prepared')
+    expect(f.fetch).not.toHaveBeenCalled()
+    await f.client.prepare('ash')
+    // A reloaded page: new client, same CacheStorage.
+    const reloaded = (await fixture({ openCache: async () => f.cache as unknown as Cache })).client
+    expect((await reloaded.restore('ash')).state).toBe('ready')
+    expect(reloaded.clipsFor('ash').get('count-1')).not.toBeNull()
+    expect((await reloaded.restore('cedar')).slot).toBe('ash') // nothing cached for another voice
+  })
+
   it('rejects checksum mismatch, never caches it and reports partial', async () => {
     const f = await fixture()
     const bad = f.clips[1].bytes.slice(); bad[60] ^= 1

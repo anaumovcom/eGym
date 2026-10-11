@@ -124,6 +124,19 @@ export class CoachPackClient {
     this.publish(CoachPackClient.empty(slot))
   }
 
+  /** After a page reload the decoded clips are gone: re-pin a pack prepared on this device earlier
+   * (its manifest is in CacheStorage). Never starts a first download. */
+  async restore(slot: PackSlot): Promise<PackSnapshot> {
+    if (!PACK_SLOTS.includes(slot) || (this.value.slot === slot && this.value.state !== 'not_prepared')) return this.value
+    const epoch = this.epoch
+    let cache: Cache | null = null
+    try { cache = await this.deps.openCache() } catch { cache = null }
+    const hit = await cache?.match(manifestUrl(slot)).catch(() => undefined)
+    // A manual prepare/select/delete meanwhile wins.
+    if (!hit || epoch !== this.epoch) return this.value
+    return this.prepare(slot)
+  }
+
   async prepare(slot: PackSlot): Promise<PackSnapshot> {
     if (!PACK_SLOTS.includes(slot)) throw new Error('invalid_slot')
     const epoch = ++this.epoch

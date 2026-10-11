@@ -17,6 +17,7 @@ import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-components'
 import { ExerciseDetailsModal, ExercisePreviewCard } from '@/shared/ui/stage2/screen-components'
 import { useAppStore } from '@/stores/app-store'
+import { useRuntimeStore } from '@/stores/runtime-store'
 
 type FilterKey = 'muscles' | 'equipment' | 'difficulty' | 'force' | 'mechanic' | 'grips'
 type FilterSection = 'muscles' | 'equipment' | 'all'
@@ -326,7 +327,11 @@ export function ExerciseCatalogScreen() {
           exercise={details}
           open={Boolean(selectedSlug)}
           onOpenChange={(open) => { if (!open) updateParams((next) => next.delete('selected')) }}
-          onStart={() => navigate(`/exercise-setup?source=catalog&slug=${encodeURIComponent(details.slug)}`)}
+          onStart={() => {
+            // a start from the catalog is a new workout: the same exercise done earlier today must not be resumed
+            useRuntimeStore.getState().resetSession()
+            navigate(`/exercise-setup?source=catalog&slug=${encodeURIComponent(details.slug)}`)
+          }}
           onAdd={() => setAddSlug(details.slug)}
           onOpenFullScreen={() => navigate(`/catalog/${encodeURIComponent(details.slug)}`)}
           preferredVideoGender={resolvedUserId === 'elena' ? 'female' : 'male'}

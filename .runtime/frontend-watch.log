@@ -1,11 +1,11 @@
 
-  VITE v7.3.3  ready in 316 ms
+  VITE v7.3.3  ready in 364 ms
 
   ➜  Local:   http://127.0.0.1:5173/
-7:21:59 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/parameters-tab.tsx
-7:21:59 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/session-chart.tsx
-7:21:59 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/calibrations-tab.tsx
-7:22:15 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/parameters-tab.tsx
-7:33:09 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/session-chart.tsx
-7:33:09 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/parameters-tab.tsx
-7:33:09 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/motor-calibration/calibrations-tab.tsx
+11:52:36 AM [vite] (client) hmr update /src/screens/catalog/exercise-catalog-screen.tsx, /src/app/styles.css
+11:52:36 AM [vite] (client) hmr update /src/screens/catalog/exercise-details-screen.tsx, /src/app/styles.css
+11:52:36 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+11:52:36 AM [vite] (client) hmr update /src/app/router.tsx
+11:52:44 AM [vite] (client) hmr update /src/screens/catalog/exercise-details-screen.tsx, /src/app/styles.css
+12:11:53 PM [vite] (client) hmr update /src/screens/catalog/exercise-catalog-screen.tsx, /src/app/styles.css
+12:11:53 PM [vite] (client) hmr update /src/screens/catalog/exercise-details-screen.tsx, /src/app/styles.css

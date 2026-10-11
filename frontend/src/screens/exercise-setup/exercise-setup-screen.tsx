@@ -587,7 +587,7 @@ export function ExerciseSetupScreen() {
                 <AlertTriangle aria-hidden="true" />
                 <div>
                   <strong>Управление двигателями отключено</strong>
-                  <p>{String(snapshot.control.motorControlMessage ?? 'Управление переводится на v2.')}</p>
+                  <p>{String(snapshot.control.motorControlMessage ?? 'Управление двигателями недоступно.')}</p>
                 </div>
               </div>
             ) : null}

@@ -29,13 +29,15 @@ from app.schemas.hardware import (
     SafetyGateResponseSchema,
 )
 from app.services.exercise_library import get_imported_exercise
-from app.services.hardware_runtime import MOTION_DISABLED_MESSAGE, hardware_runtime
+from app.services.hardware_runtime import hardware_runtime
 
 MOTION_ACTIONS = {
-    "home", "manual_move", "jog_start", "start_motion", "move_to_start",
+    "home", "manual_move", "jog_start", "jog_keepalive", "jog_stop", "start_motion", "move_to_start",
     "start_fixed_position", "range_preview", "enter_weightless", "capture_point", "hold", "pause",
     "resume", "park", "set_load", "manual_rep", "align_sides", "complete_set",
 }
+UNSUPPORTED_MOTION_ACTIONS = {"manual_move", "range_preview", "manual_rep", "align_sides"}
+QUIET_ACTIONS = {"jog_keepalive"}
 
 
 CALIBRATION_EXEMPT_EQUIPMENT = {
@@ -220,7 +222,7 @@ class HardwareService:
             self._check("estop", "СТОП не активен", runtime.safety.state != SafetyState.emergency_stop, "critical", "Аварийная остановка не активна" if runtime.safety.state != SafetyState.emergency_stop else "Сначала снимите аварийную остановку."),
             self._check("drives", "Оба привода доступны", drives_ok, "critical", "Приводы доступны" if drives_ok else "; ".join(drive_problems)),
             self._check("critical-errors", "Нет критических ошибок", not_blocked, "critical", "Критических ошибок нет" if not_blocked else block_message),
-            self._check("motor-control", "Управление двигателями", motor_enabled, "critical", "Управление двигателями включено" if motor_enabled else MOTION_DISABLED_MESSAGE),
+            self._check("motor-control", "Управление двигателями", motor_enabled, "critical", "Управление двигателями включено" if motor_enabled else str(control.get("motorControlMessage") or "Управление двигателями недоступно")),
             self._check("position-known", "Позиция определена", position_known or payload.mode == "homing", "critical", "Нулевая позиция известна" if position_known else "Позиция не определена — выполните homing."),
             self._check("sync", "Стороны синхронны", sync_ok, "critical", "Рассинхрон в допуске" if sync_ok else f"Критический рассинхрон {runtime.motion.sync_delta_mm:.1f} мм — выровняйте стороны."),
             self._check("thermal", "Ток и температура в норме", thermal_ok, "critical", "Приводы в тепловой норме" if thermal_ok else "Превышение тока или температуры привода."),
@@ -240,10 +242,18 @@ class HardwareService:
         )
 
     def execute_command(self, session: Session, payload: HardwareCommandRequestSchema) -> HardwareCommandResponseSchema:
+        captured: float | None = None
         if payload.action in MOTION_ACTIONS:
-            hardware_runtime.reject_motion(payload.action)
-
-        if payload.action == "trigger_emergency_stop":
+            if payload.action in UNSUPPORTED_MOTION_ACTIONS:
+                raise PermissionError(f"Команда «{payload.action}» пока не поддерживается")
+            command = hardware_runtime.workout_command(
+                payload.action, payload.model_dump(exclude_none=True), self._set_calibration(session, payload)
+            )
+            value = command.payload.get("capturedPositionMm")
+            captured = float(value) if isinstance(value, int | float) else None
+            audit_action = AuditAction.hardware_command
+            severity = AuditSeverity.info
+        elif payload.action == "trigger_emergency_stop":
             command = hardware_runtime.trigger_emergency_stop()
             audit_action = AuditAction.emergency_stop
             severity = AuditSeverity.critical
@@ -260,8 +270,8 @@ class HardwareService:
             audit_action = AuditAction.diagnostics_run
             severity = AuditSeverity.info
             self._store_diagnostics(session)
-        elif payload.action in {"jog_keepalive", "jog_stop", "run_self_test"}:
-            command = hardware_runtime.run_diagnostics() if payload.action == "run_self_test" else hardware_runtime._record_command(payload.action, {})
+        elif payload.action == "run_self_test":
+            command = hardware_runtime.run_diagnostics()
             audit_action = AuditAction.hardware_command
             severity = AuditSeverity.info
         elif payload.action == "reset_fault":
@@ -280,6 +290,11 @@ class HardwareService:
         else:
             raise ValueError("Unsupported hardware action")
 
+        if payload.action in QUIET_ACTIONS:  # every 0.2 s while a jog button is held: no audit row per keepalive
+            return HardwareCommandResponseSchema(
+                command_id=command.id, status=command.status, message=self._message_for_action(payload.action),
+                snapshot=self.get_snapshot(session, payload.user_id),
+            )
         self.audit_repository.record(
             session,
             actor_user_id=payload.user_id,
@@ -296,7 +311,31 @@ class HardwareService:
             status=command.status,
             message=self._message_for_action(payload.action),
             snapshot=snapshot,
+            captured_position_mm=captured,
         )
+
+    def _set_calibration(self, session: Session, payload: HardwareCommandRequestSchema) -> dict[str, object] | None:
+        """The bar setup of the exercise for a set start: the saved calibration, overridden by explicit points."""
+
+        if payload.action not in {"start_motion", "start_fixed_position"}:
+            return None
+        calibration = (
+            self.get_current_calibration(session, payload.user_id, payload.exercise_slug)
+            if payload.user_id and payload.exercise_slug else None
+        )
+        setup: dict[str, object] = {}
+        if calibration is not None:
+            setup = {
+                "setup_type": calibration.setup_type,
+                "lower_point_mm": calibration.lower_point_mm,
+                "upper_point_mm": calibration.upper_point_mm,
+                "fixed_position_mm": calibration.fixed_position_mm,
+            }
+        if payload.lower_mm is not None and payload.upper_mm is not None:
+            setup |= {"lower_point_mm": payload.lower_mm, "upper_point_mm": payload.upper_mm}
+        if payload.action == "start_fixed_position" and payload.position_mm is not None:
+            setup |= {"setup_type": "fixed_position", "fixed_position_mm": payload.position_mm}
+        return setup or None
 
     def _save_zero_to_profile(self, session: Session, payload: dict) -> None:
         """The operator's zero becomes the profile's absolute zero (B7), so calibrations and restarts use it."""
@@ -553,7 +592,7 @@ class HardwareService:
             "toggle_service_mode": "Сервисный режим обновлён",
             "run_diagnostics": "Диагностика выполнена",
             "run_self_test": "Самотест запущен",
-            "home": "Homing запущен",
+            "home": "Гриф опускается на упоры",
             "reset_zero_position": "Нулевая позиция обновлена",
             "manual_move": "Команда ручного движения выполнена",
             "start_motion": "Тренировочное движение запущено",

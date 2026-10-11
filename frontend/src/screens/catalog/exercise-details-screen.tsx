@@ -12,6 +12,7 @@ import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-components'
 import { BuilderWarningPanel, CalibrationStatusBlock, ExerciseActionBar, ExerciseVideoPlayer, FilterChip, LoadSettingsControl, MuscleMapCompact, MuscleStatusList } from '@/shared/ui/stage2/screen-components'
 import { useAppStore } from '@/stores/app-store'
+import { useRuntimeStore } from '@/stores/runtime-store'
 
 const tabs = [
   { id: 'overview', label: 'Обзор' },
@@ -108,6 +109,11 @@ export function ExerciseDetailsScreen() {
   const availableGenders = Array.from(new Set(data.videos.map((video) => video.gender)))
   const availableViews = Array.from(new Set(data.videos.filter((video) => video.gender === selectedGender).map((video) => video.view)))
   const activeVideo = hasVideo ? data.videos.find((video) => video.gender === selectedGender && video.view === selectedView) ?? data.videos[0] : null
+  const startFromCatalog = () => {
+    // a start from the catalog is a new workout: the same exercise done earlier today must not be resumed
+    useRuntimeStore.getState().resetSession()
+    navigate(`/exercise-setup?source=catalog&slug=${encodeURIComponent(data.slug)}`)
+  }
 
   return (
     <FormaShell userName={getUserName(resolvedUserId)} machine={machine} onStop={() => setEmergencyStopActive(true)}>
@@ -132,7 +138,7 @@ export function ExerciseDetailsScreen() {
               <FilterChip label={data.grips} active />
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
-              <Button iconLeft={<Play className="h-4 w-4" />} disabled={blocked} onClick={() => navigate(`/exercise-setup?source=catalog&slug=${encodeURIComponent(data.slug)}`)}>
+              <Button iconLeft={<Play className="h-4 w-4" />} disabled={blocked} onClick={startFromCatalog}>
                 Начать упражнение
               </Button>
               <Button variant="secondary" onClick={() => navigate('/builder')}>Добавить в тренировку</Button>
@@ -197,7 +203,7 @@ export function ExerciseDetailsScreen() {
         </div>
       </div>
 
-      <ExerciseActionBar onStart={() => navigate(`/exercise-setup?source=catalog&slug=${encodeURIComponent(data.slug)}`)} onAdd={() => navigate('/builder')} onOpenFullScreen={() => navigate('/catalog')} />
+      <ExerciseActionBar onStart={startFromCatalog} onAdd={() => navigate('/builder')} onOpenFullScreen={() => navigate('/catalog')} />
 
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
     </FormaShell>

@@ -9,6 +9,7 @@ import { ExerciseCatalogScreen } from '@/screens/catalog/exercise-catalog-screen
 import { WorkoutCalendarScreen } from '@/screens/calendar/workout-calendar-screen'
 import { apiGet } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
+import { useRuntimeStore } from '@/stores/runtime-store'
 
 vi.mock('@/shared/api/client', async () => ({
   ...await vi.importActual<typeof import('@/shared/api/client')>('@/shared/api/client'),
@@ -79,6 +80,9 @@ describe('Stage 1 discovery transitions', () => {
 
   it('starts a standalone exercise from its catalog card without quick-start or photos', async () => {
     const user = userEvent.setup()
+    // the same exercise was already done from the catalog today: its sets must not count for the new start
+    useRuntimeStore.getState().initializeSession({ source: 'catalog', slug: 'barbell-floor-press' })
+    useRuntimeStore.setState((state) => ({ session: state.session && { ...state.session, currentSetIndex: 2, view: 'workout-summary' } }))
     render(
       <QueryClientProvider client={client}>
         <MemoryRouter initialEntries={['/catalog?selected=barbell-floor-press']}>
@@ -93,6 +97,7 @@ describe('Stage 1 discovery transitions', () => {
     expect(screen.queryByRole('button', { name: 'Открыть быстрый старт' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Начать упражнение', exact: true }))
     expect(screen.getByText('Настройка упражнения')).toBeVisible()
+    expect(useRuntimeStore.getState().session).toBeNull()
   })
 
   it('has no workout launch, planning or legacy plan actions in the calendar', async () => {

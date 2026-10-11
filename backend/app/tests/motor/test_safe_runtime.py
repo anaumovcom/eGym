@@ -70,7 +70,7 @@ def test_tick_exception_latches_fault_with_support(modbus_runtime) -> None:
 
 def test_overspeed_zero_latch(modbus_runtime) -> None:
     runtime, service = modbus_runtime
-    service.speed_rpm = {1: 1200}
+    service.speed_rpm = {1: 2300}
     service.writes.clear()
     runtime.tick()
     assert runtime.latch == "overspeed"
@@ -117,10 +117,11 @@ def test_shutdown_writes_support(modbus_runtime) -> None:
     assert service.writes[-2:] == [(1, 100), (2, 100)]
 
 
-def test_motion_is_rejected(modbus_runtime) -> None:
+def test_motion_is_rejected_while_servo_off(modbus_runtime) -> None:
     runtime, _service = modbus_runtime
-    with pytest.raises(PermissionError, match="v2"):
-        runtime.reject_motion("start_motion")
+    with pytest.raises(PermissionError, match="Servo OFF"):
+        runtime.workout_command("enter_weightless", {})
+    assert runtime.snapshot_payload()["control"]["motorControl"] == "disabled"
 
 
 def test_servo_requires_service_mode(modbus_runtime) -> None:

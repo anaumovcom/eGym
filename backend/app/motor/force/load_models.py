@@ -21,6 +21,7 @@ class LoadSetpoint:
     upper_mm: float = 1000.0
     curve_start: float = 1.0  # curve: multiplier at lower → upper (band/chain > 1 at top)
     curve_end: float = 1.0
+    range_guard: bool = False  # a set: below lower the bar returns up to it, above upper its rise is braked
 
 
 def phase_multiplier(setpoint: LoadSetpoint, phase: Phase) -> float:

@@ -69,3 +69,20 @@ def test_rep_counter_full_and_partial() -> None:
     events = [event for x in path if (event := counter.update(float(x)))]
     assert events == ["full", "partial"]
     assert (counter.full, counter.partial) == (1, 1)
+
+
+def test_rep_counter_keeps_counting_after_a_deeper_bottom() -> None:
+    # rep 4 dips 20 mm below the range; later bottoms stop 5–10 mm above the bound — all reps still count
+    counter = RepCounter(lower_mm=500, upper_mm=800)
+    path: list[int] = []
+    for bottom in (500, 500, 500, 480, 505, 510, 505, 508):
+        path += [*range(path[-1] if path else 500, bottom - 1, -5), *range(bottom, 801, 10), *range(800, bottom - 1, -10)]
+    events = [event for x in path if (event := counter.update(float(x)))]
+    assert events == ["full"] * 8
+
+
+def test_rep_counter_shallow_bottom_reversal_closes_the_rep() -> None:
+    counter = RepCounter(lower_mm=500, upper_mm=800)
+    path = [*range(500, 801, 10), *range(800, 599, -10), *range(600, 801, 10), *range(800, 499, -10), *range(500, 801, 10), *range(800, 499, -10)]
+    events = [event for x in path if (event := counter.update(float(x)))]
+    assert events == ["partial", "partial", "full"]

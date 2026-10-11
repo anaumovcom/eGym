@@ -232,9 +232,10 @@ class SafetyEnvelope:
     max_raw: int = 1000  # PA_05E
     soft_min_mm: float = 20.0
     soft_max_mm: float = 1380.0
-    max_speed_mm_s: float = 450.0  # below the drive limit PA_056 (480 mm/s), screw 0.8·n_cr ≈ 510 (plan 14 §2.8)
+    # owner's decision: above the BK+BF screw estimate 0.8·n_cr ≈ 510 mm/s (plan 14 §2.8)
+    max_speed_mm_s: float = 700.0  # below the drive limit PA_056 (741 mm/s)
     max_descent_mm_s: float = 400.0
-    overspeed_rpm_alarm: float = 1000.0  # 533 mm/s
+    overspeed_rpm_alarm: float = 2250.0  # 1200 mm/s (owner's decision, risk accepted; screw estimate n_cr ≈ 635 mm/s)
     max_rate_n_per_s: float = 2000.0
     sync_warning_mm: float = 5.0
     sync_critical_mm: float = 15.0
@@ -242,7 +243,7 @@ class SafetyEnvelope:
     comm_freeze_frames: int = 2
     comm_fault_frames: int = 6
     temp_max_c: float = 80.0
-    speed_limit_rpm: int = 900  # PA_056 = 480 mm/s; must stay below the overspeed alarm
+    speed_limit_rpm: int = 1390  # PA_056 = 741 mm/s; must stay below the overspeed alarm
     fault_lockout: bool = True
 
     def to_dict(self) -> dict[str, Any]:

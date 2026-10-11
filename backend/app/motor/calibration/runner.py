@@ -73,7 +73,7 @@ class Command:
 
 
 LIFTOFF_SPEED_MM_S = 150.0
-FAST_CEILING_MM_S = 480.0  # PA_056 900 rpm (SafetyEnvelope.speed_limit_rpm), below the 533 mm/s overspeed alarm
+FAST_CEILING_MM_S = 480.0  # calibration transit ceiling, below SafetyEnvelope.speed_limit_rpm and the overspeed alarm
 LIFTOFF_ZONE_MM = 60.0
 MIN_LIMIT_RPM = 5  # ≈ 2.7 mm/s
 LIMIT_HYSTERESIS = 0.1  # rewrite PA_056 only when it changes by > 10 % (≥ 3 rpm): bus time

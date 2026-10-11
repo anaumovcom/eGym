@@ -369,6 +369,7 @@ class ModbusService:
 
     def connect(
         self, params: ModbusConnectionParamsSchema, *, initial_commands: dict[int, int] | None = None, torque_limit: int = DEFAULT_TORQUE_LIMIT,
+        speed_limit_rpm: int = DEFAULT_SPEED_LIMIT_RPM,
     ) -> ModbusConnectionStatusSchema:
         with self._lock:
             if params.slave_id == params.right_slave_id:
@@ -401,7 +402,7 @@ class ModbusService:
                 self._error_count = 0
                 self._last_success_at = self._now()
                 self._log_info("CONNECT", f"Connected to {params.port} (simulation mode)")
-                errors = self.initialize_torque_mode(initial_commands=initial_commands, torque_limit=torque_limit)
+                errors = self.initialize_torque_mode(initial_commands=initial_commands, torque_limit=torque_limit, speed_limit_rpm=speed_limit_rpm)
                 if errors:
                     self._connection_error = "; ".join(errors)
                     self._log_info("SYNC_ERR", self._connection_error)
@@ -429,7 +430,7 @@ class ModbusService:
                 self._error_count = 0
                 self._last_success_at = self._now()
                 self._log_info("CONNECT", f"Connected to {params.port} @ {params.baud_rate}")
-                errors = self.initialize_torque_mode(initial_commands=initial_commands, torque_limit=torque_limit)
+                errors = self.initialize_torque_mode(initial_commands=initial_commands, torque_limit=torque_limit, speed_limit_rpm=speed_limit_rpm)
                 if errors:
                     self._connection_error = "; ".join(errors)
                     self._log_info("SYNC_ERR", self._connection_error)

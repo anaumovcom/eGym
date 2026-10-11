@@ -15,6 +15,7 @@ import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { FormaState } from '@/shared/ui/status/forma-state'
 import { CompactBodyMapMini } from '@/shared/ui/stage2/screen-components'
 import { useAppStore } from '@/stores/app-store'
+import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 
 function getUserName(userId: string | null) {
@@ -42,6 +43,8 @@ export function WorkoutSummaryScreen() {
   const replaceWorkoutSummary = useRuntimeStore((state) => state.replaceWorkoutSummary)
   const applyLoadAdjustment = useRuntimeStore((state) => state.applyLoadAdjustment)
   const resumeWorkoutExercise = useRuntimeStore((state) => state.resumeWorkoutExercise)
+  const runCommand = useHardwareStore((state) => state.runCommand)
+  const barResting = useHardwareStore((state) => state.snapshot?.control?.mode === 'weightless')
   const saveTriggeredRef = useRef(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pendingAdjustment, setPendingAdjustment] = useState<string | null>(null)
@@ -75,6 +78,14 @@ export function WorkoutSummaryScreen() {
         setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить итог тренировки. Попробуйте ещё раз.')
       })
   }, [replaceWorkoutSummary, retryToken, selectedUserId, session])
+
+  useEffect(() => {
+    // The workout is over: the bar floating weightless since the last set goes to the stops.
+    if (!selectedUserId || !barResting) {
+      return
+    }
+    void runCommand({ action: 'park', userId: selectedUserId }).catch(() => undefined)
+  }, [barResting, runCommand, selectedUserId])
 
   if (!session) {
     return (

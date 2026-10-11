@@ -325,9 +325,9 @@ def test_graph_checks_and_staleness() -> None:
 def test_parameter_cross_checks() -> None:
     bundle = ProfileBundle(MachineProfile())
     with pytest.raises(ValueError, match="аварийная|Аварийная"):
-        apply_changes(bundle, [{"scope": "envelope", "key": "overspeed_rpm_alarm", "value": 900}])
+        apply_changes(bundle, [{"scope": "envelope", "key": "overspeed_rpm_alarm", "value": 1300}])
     with pytest.raises(ValueError, match="PA_056"):
-        apply_changes(bundle, [{"scope": "envelope", "key": "max_speed_mm_s", "value": 600}])
+        apply_changes(bundle, [{"scope": "envelope", "key": "max_speed_mm_s", "value": 800}])
     with pytest.raises(ValueError, match="рабочего хода"):
         apply_changes(bundle, [{"scope": "machine", "key": "travel_mm", "value": 1300}])
     updated = apply_changes(bundle, [{"scope": "machine", "key": "travel_mm", "value": 1300}, {"scope": "envelope", "key": "soft_max_mm", "value": 1270}])
@@ -765,6 +765,8 @@ def test_core_feel_terms() -> None:
     model = FrictionModel(40.0, 40.0, 0.3, table_up=((40.0, 52.0), (120.0, 76.0)), track=((590.0, 20.0), (610.0, 14.0)), track_gain=1.0, load_up=0.1, load_gain=1.0, ripple_n=3.0)
     assert model.force(80.0) == pytest.approx(64.0)  # the F3 table
     assert model.force(200.0) == pytest.approx(100.0)  # beyond: the slope of the last points
+    falling = FrictionModel(58.0, 58.0, 0.2, table_up=((40.0, 71.0), (70.0, 66.0)))
+    assert falling.force(300.0) == pytest.approx(66.0 + 0.2 * 230.0)  # a falling tail never lowers it: at least the D2 slope
     assert model.force(80.0, x_mm=600.0) == pytest.approx(64.0 + 17.0)  # the S10 map
     assert model.force(80.0, axial_excess_n=100.0) == pytest.approx(64.0 + 10.0)  # L1 growth with the screw load
     assert model.ripple(8.0) == pytest.approx(3.0)  # a quarter of the 32-mm lead

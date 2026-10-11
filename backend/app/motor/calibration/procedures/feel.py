@@ -357,7 +357,7 @@ def fit_friction_speed(data: dict[str, Any], ctx: Context) -> Outcome:
                 f"{SIDE_LABEL[side]}: трение {label}",
                 ", ".join(f"{v:.0f} мм/с → {f:.0f} Н" for v, f in points) + f"; рост {slope_n:.2f} Н на мм/с (D2: {float(ctx.profile.side(side).viscous_n_per_mm_s.value):.2f})",
             ))
-    report.append(line("Выше 160 мм/с", "продолжается по наклону двух последних точек"))
+    report.append(line("Выше последней точки", "продолжается по наклону двух последних точек, но не меньше вязкого наклона D2"))
     return Outcome(report=report, sides=sides, data={"points": {str(k): v for k, v in tables.items()}})
 
 

@@ -41,6 +41,8 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         # the first PA_12C written at startup is upward support, never 0 (R1)
         # PA_05E from the safety envelope (as after a fault reset), not the 40 % commissioning default:
         # tight spots need up to W + 2.6·Fc ≈ 290 N, 40 % is ≈ 283 N
+        # PA_056 from the envelope too: the 300-rpm default (160 mm/s) is a wall for a fast rep, and above it the
+        # drive does not brake a falling bar; temporary calibration limits return to this value
         modbus_service.connect(ModbusConnectionParamsSchema(
             port=settings.modbus_port,
             baud_rate=settings.modbus_baud_rate,
@@ -49,9 +51,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         ), initial_commands={
             settings.modbus_left_slave_id: int(bundle.machine.left.support_raw.value) * bundle.machine.left.sign,
             settings.modbus_right_slave_id: int(bundle.machine.right.support_raw.value) * bundle.machine.right.sign,
-        }, torque_limit=bundle.envelope.max_raw)
+        }, torque_limit=bundle.envelope.max_raw, speed_limit_rpm=bundle.envelope.speed_limit_rpm)
     try:
-        hardware_runtime.reset(profile=bundle.machine, envelope=bundle.envelope)
+        hardware_runtime.reset(profile=bundle.machine, envelope=bundle.envelope, tunables=bundle.tunables)
         await hardware_runtime.start()
         yield
     finally:

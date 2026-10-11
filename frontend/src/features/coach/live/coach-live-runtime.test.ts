@@ -24,6 +24,7 @@ class Fixture {
   lifecycle: CoachEvent[] = []
   managers: LocalCoachAudioManager[] = []
   available = new Set<string>(REQUIRED_LOCAL_CLIPS)
+  restored: string[] = []
   private listener: (() => void) | null = null
   private emitted = 0
   readonly runtime: CoachLiveRuntime
@@ -40,7 +41,7 @@ class Fixture {
       createManager: (context, scope) => {
         const manager = new LocalCoachAudioManager({ context, scope, clock: this.clock }); this.managers.push(manager); return manager
       },
-      clips: () => clips, beep: this.beep, now: () => this.clock.now(),
+      clips: () => clips, restorePack: slot => { this.restored.push(slot) }, beep: this.beep, now: () => this.clock.now(),
       setInterval: () => 1, clearInterval: () => undefined, allowEmulator: false, network,
     })
   }
@@ -120,6 +121,16 @@ describe('CoachLiveRuntime', () => {
     f.view('exercise-setup'); f.view('exercise-session'); f.hw('start_hold', 0); f.hw('training', 0)
     expect(f.managers).toHaveLength(0)
     expect(f.runtime.getSnapshot().reason).toBe('audio_locked')
+  })
+
+  it('restores the prepared voice pack once audio runs, once per voice', () => {
+    const f = new Fixture(); fixtures.push(f); f.context.setState('suspended'); f.runtime.start()
+    f.view('exercise-setup')
+    expect(f.restored).toEqual([]) // decoding waits for the user-unlocked context
+    f.context.setState('running'); f.view('exercise-session'); f.hw('training', 0)
+    expect(f.restored).toEqual([saved.voiceProfile])
+    f.change({ saved: { ...saved, voiceProfile: 'cedar' } })
+    expect(f.restored).toEqual([saved.voiceProfile, 'cedar'])
   })
 
   it('emergency cancels ordinary speech and plays the safety cue', () => {

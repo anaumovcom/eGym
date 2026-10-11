@@ -9,9 +9,10 @@ The v1 motion stack is removed. Until the v2 ``motor-rt`` process takes over
 * leaves PA_12C to the debug panel while its manual torque is active;
 * runs calibration sessions (service mode, dead-man, envelope) step by step
   inside the tick: the session writes PA_12C instead of support until it ends;
+* runs exercises (``WorkoutController``: weightless setup, jog, move to the start
+  point, grip wait, load ramp, reps, pause, park) on a calibrated profile;
 * publishes position/telemetry snapshots and serves the physical panel.
 
-Every motion request is rejected with ``MOTION_DISABLED_MESSAGE``.
 Safety requirements: ``app/motor/SAFETY_REQUIREMENTS.md``.
 """
 
@@ -34,10 +35,11 @@ from app.motor.calibration.runner import Frame
 from app.motor.calibration.session import ON_STOPS_MM, CalibrationSession
 from app.motor.drive.lichuan import LichuanTorqueDrive
 from app.motor.drive.protocol import DriveSample, TorqueDrive
-from app.motor.profile import MachineProfile, SafetyEnvelope
+from app.motor.profile import MachineProfile, SafetyEnvelope, Tunables
 from app.motor.twin.bench import TwinBench
 from app.motor.twin.plant import PlantParams
-from app.motor.units import SIDES, Side, rpm_to_mm_s
+from app.motor.units import SIDES, G, Side, rpm_to_mm_s
+from app.motor.workout import SetPlan, WorkoutController, WorkoutError, load_mode, per_side_n
 from app.services.modbus_service import modbus_service
 from app.services.panel.bridge import PanelBridge, PanelBridgeConfig
 from app.services.panel.protocol import (
@@ -59,8 +61,10 @@ BROADCAST_INTERVAL_SECONDS = 0.1
 SLOW_TICK_S = 0.3  # logged: bus retries / timeouts stretch the control period
 STALL_S = 0.5  # gap between ticks: the loop stood still, the screen heartbeat could not be served
 HEARTBEAT_GAP_S = 0.7  # logged: the screen heartbeat (every 0.25 s) came late
-MOTION_DISABLED_MESSAGE = "Управление двигателями переводится на v2: движение и нагрузка временно отключены, приводы держат поддержку"
+PANEL_MOTION_MESSAGE = "Кнопки панели не двигают гриф: управляйте с экрана"
 SERVO_OFF_MESSAGE = "Приводы выключены (Servo OFF): гриф не поддерживается. Включить — в сервисном режиме"
+# exercises drive the motors only on a calibrated profile: balance, support, motion, mass, stop distances
+MOTION_REQUIRED_CALIBRATIONS = ("S3", "M1", "M3", "C3")
 
 
 @dataclass
@@ -98,6 +102,13 @@ class MotionRuntimeState:
     upper_bound_mm: float = 0.0
     control_mode: str = "support"
     velocity_mm_per_sec: float = 0.0
+    partial_reps: int = 0
+    load_target_kg: float = 0.0
+    load_effective_kg: float = 0.0
+    load_mode: str = "normal_weight"
+    user_force_kg: float = 0.0
+    start_point: str = "lower"
+    fixed_position_mm: float | None = None
 
 
 @dataclass
@@ -122,9 +133,9 @@ class HardwareCommandRecord:
 class HardwareRuntimeState:
     emulator_mode: bool = True
     machine_state: MachineState = MachineState.warning
-    machine_label: str = "Управление двигателями отключено"
+    machine_label: str = "Готов к тренировке"
     safety_state: SafetyState = SafetyState.enabled
-    safety_message: str = MOTION_DISABLED_MESSAGE
+    safety_message: str = ""
     selected_user_id: str | None = None
     service_mode: bool = False
     calibration_required: bool = False
@@ -152,10 +163,11 @@ class HardwareRuntime:
         self.reset()
 
     # ------------------------------------------------------------- lifecycle
-    def reset(self, *, profile: MachineProfile | None = None, envelope: SafetyEnvelope | None = None) -> None:
+    def reset(self, *, profile: MachineProfile | None = None, envelope: SafetyEnvelope | None = None, tunables: Tunables | None = None) -> None:
         with self._lock:
             self.profile = profile or MachineProfile()
             self.envelope = envelope or SafetyEnvelope()
+            self.tunables = tunables or Tunables()
             settings = get_settings()
             self.modbus = settings.hardware_adapter == "modbus"
             self.bench: TwinBench | None = None
@@ -180,6 +192,7 @@ class HardwareRuntime:
             self._panel_clear_stop_pending = False
             self.write_errors: dict[Side, str] = {}
             self.abort_hold = False  # ABORT_SUPPORT_RAW instead of support after an interrupted calibration
+            self.workout = WorkoutController(self.drives, self.profile, self.tunables, self.envelope)
             self.state = HardwareRuntimeState(emulator_mode=not self.modbus)
             self.events.clear()
             self._command_counter = 0
@@ -309,20 +322,34 @@ class HardwareRuntime:
             if session is not None and session.running and manual:
                 session.cancel("включён ручной момент debug-панели", support=False)
                 self._emit("calibration_aborted", f"Калибровка {session.code} прервана: {session.reason}")
+            if manual and self.workout.active:
+                self._abort_workout("включён ручной момент debug-панели")
+            frame = Frame(self._frame_t(), dict(self.samples))
             if session is not None and session.running:
-                if session.step(Frame(self._frame_t(), dict(self.samples))):
+                if session.step(frame):
                     self._calibration_finished()
                 else:
                     self._last_write = now
-            elif not manual and (self._force_write or now - self._last_write >= SUPPORT_REFRESH_S):
-                if self.modbus and not modbus_service.get_status().connected:
-                    self._force_write = True
-                else:
-                    errors = self._write_safe_output()
-                    self._last_write = now
-                    self._force_write = bool(errors)
-                    if errors and self.latch is None:
-                        self._set_fault("Запись PA_12C: " + "; ".join(f"{side}: {error}" for side, error in errors.items()))
+            elif self.workout.active and self.latch is None and not manual:
+                fault = self.workout.step(frame)
+                if fault:
+                    self._emit("workout_aborted", fault)
+                    self._set_fault(fault)
+                    self.abort_hold = True
+                    self._write_safe_output()
+                self._last_write = now
+                self._force_write = not self.workout.active  # parked / aborted: support at once
+            else:
+                self.workout.step(frame)  # inactive: only follows the bar (stillness for the next start)
+                if not manual and (self._force_write or now - self._last_write >= SUPPORT_REFRESH_S):
+                    if self.modbus and not modbus_service.get_status().connected:
+                        self._force_write = True
+                    else:
+                        errors = self._write_safe_output()
+                        self._last_write = now
+                        self._force_write = bool(errors)
+                        if errors and self.latch is None:
+                            self._set_fault("Запись PA_12C: " + "; ".join(f"{side}: {error}" for side, error in errors.items()))
             self._sync_state(manual)
 
     def _sync_zero(self) -> None:
@@ -381,6 +408,8 @@ class HardwareRuntime:
         self.fault_reason = reason
         self._force_write = True
         self._emit(kind, reason)
+        if self.workout.active:
+            self._abort_workout(reason)
         if self.calibration is not None and self.calibration.running:
             # the caller writes the safe output (support, or 0 on overspeed)
             self.abort_hold = True
@@ -412,7 +441,9 @@ class HardwareRuntime:
             motion.sync_delta_mm = round(left.position_mm - right.position_mm, 2)
             motion.velocity_mm_per_sec = round((left.speed_mm_s + right.speed_mm_s) / 2, 1)
             motion.moving = abs(motion.velocity_mm_per_sec) > 1.0
-            motion.control_mode = self.mode
+            motion.control_mode = self.control_mode
+            motion.direction = "up" if motion.velocity_mm_per_sec > 1.0 else "down" if motion.velocity_mm_per_sec < -1.0 else motion.direction
+            self._sync_workout(motion)
         if state.safety_state == SafetyState.emergency_stop:
             return
         if not self._powered_on:
@@ -422,7 +453,9 @@ class HardwareRuntime:
             state.machine_state, state.machine_label = MachineState.blocked, "Тренажёр заблокирован"
             state.safety_message = self.fault_reason or "Ошибка привода"
         else:
-            state.machine_state, state.machine_label = MachineState.warning, "Управление двигателями отключено"
+            blocked = self.motion_block_reason()
+            state.machine_state = MachineState.warning if blocked else MachineState.ready
+            state.machine_label = "Упражнения недоступны" if blocked else "Готов к тренировке"
             calibration = self.calibration
             if calibration is not None and calibration.running:
                 stage = calibration.current_stage
@@ -430,21 +463,149 @@ class HardwareRuntime:
                 state.safety_message = f"Калибровка {stage.code}: {stage.note or stage.title}"
             elif manual:
                 state.safety_message = "Ручной момент из debug-панели"
-            elif not all(self.servo_states().values()):
-                state.safety_message = SERVO_OFF_MESSAGE
+            elif self.workout.active or self.workout.reason:
+                state.machine_label = "Упражнение" if self.workout.active else state.machine_label
+                state.safety_message = self.workout.message() or ""
             else:
-                state.safety_message = MOTION_DISABLED_MESSAGE
+                state.safety_message = blocked or "Приводы держат поддержку: гриф на месте"
         state.alerts = ["Сервисный режим активен"] if state.service_mode else []
+
+    def _sync_workout(self, motion: MotionRuntimeState) -> None:
+        workout = self.workout
+        plan = workout.plan
+        full, partial = workout.repetitions()
+        motion.repetition_count, motion.partial_reps = full, partial
+        motion.amplitude_percent = workout.amplitude_percent()
+        motion.load_effective_kg = round(2 * workout.load_n / G, 1) if workout.active else 0.0
+        motion.user_force_kg = round(workout.user_force_n() / G, 1) if workout.active else 0.0
+        motion.motion_profile = workout.mode if workout.active else "support"
+        if plan is not None:
+            motion.load_target_kg = round(2 * plan.load_n / G, 1)
+            motion.lower_bound_mm, motion.upper_bound_mm = plan.lower_mm, plan.upper_mm
+            motion.target_reps, motion.target_set, motion.current_set = plan.target_reps, plan.target_set, plan.target_set
+            motion.start_point = plan.start_point
+            motion.fixed_position_mm = plan.fixed_mm
+            motion.load_mode = plan.load_mode
 
     @property
     def mode(self) -> str:
         if self.latch is None and self.calibration is not None and self.calibration.running:
             return "calibration"
+        if self.latch is None and self.workout.active:
+            return self.workout.mode
         return self.latch or "support"
 
     @property
+    def control_mode(self) -> str:
+        """The mode for the screens: the resting support is ``idle`` (or ``parked`` after a set)."""
+
+        mode = self.mode
+        return self.workout.mode if mode == "support" else mode
+
+    def motion_block_reason(self) -> str | None:
+        """Why exercises cannot drive the motors now, ``None`` if they can."""
+
+        if self.latch is not None or self.state.safety_state == SafetyState.emergency_stop:
+            return self.fault_reason or "Аварийная остановка активна"
+        if not self._powered_on:
+            return "Тренажёр выключен"
+        if self.calibration is not None and self.calibration.running:
+            return "Идёт калибровка привода"
+        if not all(self.servo_states().values()):
+            return SERVO_OFF_MESSAGE
+        if not all(sample.ok for sample in self.samples.values()) or len(self.samples) != len(SIDES):
+            return "Нет телеметрии приводов"
+        if self.modbus and modbus_service.manual_torque_active():
+            return "Активен ручной момент debug-панели"
+        missing = [code for code in MOTION_REQUIRED_CALIBRATIONS if calibration_status(self.profile, BY_CODE[code]) not in ("actual", "stale")]
+        if missing:
+            return "Сначала выполните калибровки привода: " + ", ".join(missing)
+        return None
+
+    # ------------------------------------------------------------ exercises
+    def _abort_workout(self, reason: str) -> None:
+        self.workout.abort(reason)
+        self.abort_hold = True  # interrupted: the bar is lowered slowly (R5)
+        self._force_write = True
+        self._emit("workout_aborted", f"Упражнение прервано: {reason}")
+
+    def workout_command(self, action: str, payload: dict[str, Any], calibration: dict[str, Any] | None = None) -> HardwareCommandRecord:
+        """Exercise commands from the screens; ``WorkoutError`` / ``PermissionError`` with the reason for the user."""
+
+        extra: dict[str, object] = {}
+        with self._lock:
+            stopping = action in {"pause", "jog_stop", "jog_keepalive", "complete_set", "park", "hold"}
+            blocked = self.motion_block_reason()
+            if blocked and not (stopping and self.workout.active and self.latch is None):
+                if action in {"jog_stop", "complete_set"} and not self.workout.active:
+                    return self._record_command(action, {"skipped": blocked})
+                raise WorkoutError(blocked)
+            workout = self.workout
+            if not workout.active:
+                self.abort_hold = False
+            if action == "enter_weightless":
+                workout.enter_weightless()
+            elif action == "hold":
+                workout.hold()
+            elif action == "capture_point":
+                extra["capturedPositionMm"] = workout.capture_point()
+            elif action == "jog_start":
+                workout.jog_start(str(payload.get("jog_id") or ""), 1 if payload.get("direction") == "up" else -1)
+            elif action == "jog_keepalive":
+                workout.jog_keepalive(str(payload.get("jog_id") or ""))
+            elif action == "jog_stop":
+                workout.jog_stop(payload.get("jog_id"))
+            elif action in {"start_motion", "start_fixed_position"}:
+                workout.start_set(self._set_plan(action, payload, calibration))
+            elif action == "pause":
+                workout.pause()
+            elif action == "resume":
+                weight = payload.get("weight_kg")
+                workout.resume(float(weight) if weight else None)
+            elif action == "set_load":
+                workout.set_load(float(payload.get("weight_kg") or 0.0))
+            elif action == "complete_set":
+                if workout.active:
+                    workout.complete_set()
+            elif action in {"park", "home"}:
+                workout.park()
+            elif action == "move_to_start":
+                if workout.plan is None:
+                    raise WorkoutError("Подход не начат")
+                workout.start_set(workout.plan)
+            else:
+                raise WorkoutError(f"Команда «{action}» пока не поддерживается")
+            if workout.active:
+                self._force_write = False
+            command = self._record_command(action, {key: value for key, value in payload.items() if value is not None} | extra)
+            self._sync_state(False)
+        self._schedule_broadcast()
+        return command
+
+    def _set_plan(self, action: str, payload: dict[str, Any], calibration: dict[str, Any] | None) -> SetPlan:
+        if calibration is None:
+            raise WorkoutError("Настройка грифа для упражнения не найдена: выполните настройку упражнения")
+        load = per_side_n(float(payload.get("weight_kg") or 0.0))
+        common = {
+            "load_n": load,
+            "load_mode": load_mode(payload.get("load_mode")),
+            "target_reps": int(payload.get("target_reps") or 10),
+            "target_set": int(payload.get("target_set") or 1),
+        }
+        if action == "start_fixed_position" or calibration.get("setup_type") == "fixed_position":
+            position = payload.get("position_mm") or calibration.get("fixed_position_mm")
+            if position is None:
+                raise WorkoutError("Не задана высота фиксации грифа")
+            return SetPlan(lower_mm=float(position) - 1.0, upper_mm=float(position) + 1.0, fixed_mm=float(position), **common)
+        lower, upper = calibration.get("lower_point_mm"), calibration.get("upper_point_mm")
+        if lower is None or upper is None:
+            raise WorkoutError("В настройке грифа нет нижней и верхней точки")
+        start = "upper" if payload.get("start_point") == "upper" else "lower"
+        return SetPlan(lower_mm=float(lower), upper_mm=float(upper), start_point=start, **common)  # type: ignore[arg-type]
+
+    @property
     def jog_active(self) -> bool:
-        return False
+        return self.workout.active and self.workout.mode == "moving"
 
     # -------------------------------------------------------------- commands
     def set_selected_user(self, user_id: str | None, *, broadcast: bool = True) -> None:
@@ -577,6 +738,8 @@ class HardwareRuntime:
             if not self.state.service_mode:
                 raise PermissionError("Включение и выключение приводов — только в сервисном режиме")
             self._abort_calibration_locked("приводы включены/выключены оператором")
+            if self.workout.active:
+                self._abort_workout("приводы включены/выключены оператором")
             if on:
                 if self.latch is not None:
                     raise PermissionError("Сначала снимите СТОП и сбросьте ошибку")
@@ -610,11 +773,6 @@ class HardwareRuntime:
         self._schedule_broadcast()
         return command
 
-    def reject_motion(self, action: str) -> None:
-        with self._lock:
-            self._emit("motion_rejected", f"{action}: {MOTION_DISABLED_MESSAGE}")
-        raise PermissionError(MOTION_DISABLED_MESSAGE)
-
     # ----------------------------------------------------------- calibration
     def _frame_t(self) -> float:
         return self.bench.t if self.bench is not None else time.monotonic()
@@ -647,6 +805,7 @@ class HardwareRuntime:
                 {"id": "manual", "label": "Ручной момент debug-панели не активен", "ok": not manual, "detail": None if not manual else "Остановите ручной момент на странице Modbus"},
                 {"id": "requires", "label": "Выполнены предыдущие калибровки", "ok": not missing, "detail": ("Сначала: " + ", ".join(missing)) if missing else None},
                 {"id": "idle", "label": "Другая калибровка не выполняется", "ok": not busy, "detail": None},
+                {"id": "workout", "label": "Упражнение не выполняется", "ok": not self.workout.active, "detail": None if not self.workout.active else "Завершите подход или опустите гриф на упоры"},
             ]
 
     def start_calibration(self, code: str, options: dict[str, Any] | None = None) -> CalibrationSession:
@@ -655,6 +814,8 @@ class HardwareRuntime:
         with self._lock:
             if code not in RUNNABLE:
                 raise ValueError(f"Калибровка {code} не запускается из интерфейса")
+            if self.workout.active:
+                raise PermissionError("Упражнение выполняется: завершите подход, затем запускайте калибровку")
             failed = [item for item in self.calibration_preconditions(code) if not item["ok"]]
             if failed:
                 item = failed[0]
@@ -740,16 +901,21 @@ class HardwareRuntime:
                 "profileVersion": self.profile.version,
             }
 
-    def apply_profile(self, profile: MachineProfile, envelope: SafetyEnvelope | None = None) -> None:
+    def apply_profile(self, profile: MachineProfile, envelope: SafetyEnvelope | None = None, tunables: Tunables | None = None) -> None:
         """Make a saved profile active without a restart; support is rewritten with the new sign/raw."""
 
         with self._lock:
             if self.calibration is not None and self.calibration.running:
                 raise PermissionError("Идёт калибровка — профиль нельзя менять")
+            if self.workout.active:
+                raise PermissionError("Идёт упражнение — профиль нельзя менять")
             self.profile = profile
             self._zero_seen = None  # re-check the absolute zero against the new profile
             if envelope is not None:
                 self.envelope = envelope
+            if tunables is not None:
+                self.tunables = tunables
+            self.workout.configure(self.profile, self.tunables, self.envelope)
             for side in SIDES:
                 drive = self.drives[side]
                 drive.profile = profile.side(side)  # type: ignore[attr-defined]
@@ -805,12 +971,17 @@ class HardwareRuntime:
 
     def _control_payload(self) -> dict[str, Any]:
         motion = self.state.motion
+        blocked = self.motion_block_reason()
         return {
-            "mode": self.mode,
+            "mode": self.control_mode,
             "label": self.state.machine_label,
             "message": self.state.safety_message,
-            "motorControl": "disabled",
-            "motorControlMessage": MOTION_DISABLED_MESSAGE,
+            "motorControl": "disabled" if blocked else "enabled",
+            "motorControlMessage": blocked,
+            "stillMs": int(self.workout.still_s * 1000),
+            "holdReason": self.workout.reason,
+            "loadTargetKg": motion.load_target_kg,
+            "loadEffectiveKg": motion.load_effective_kg,
             "positionMm": motion.bar_position_mm,
             "velocityMmPerSec": motion.velocity_mm_per_sec,
             "syncDeltaMm": motion.sync_delta_mm,
@@ -880,7 +1051,7 @@ class HardwareRuntime:
             accepted = True
         elif event.action in {"pressed", "repeat"}:
             with self._lock:
-                self._emit("panel_button_rejected", MOTION_DISABLED_MESSAGE, {"button": event.button_id})
+                self._emit("panel_button_rejected", PANEL_MOTION_MESSAGE, {"button": event.button_id})
         if event.action in {"pressed", "repeat"}:
             self.panel.send_command("button_feedback", id=event.button_id, request_seq=event.sequence, accepted=accepted)
         self._schedule_broadcast()
