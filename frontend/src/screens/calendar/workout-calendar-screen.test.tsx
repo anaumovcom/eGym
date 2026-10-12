@@ -5,13 +5,14 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getWorkoutCalendarData } from '@/mocks/stage2-data'
 import { formatDayTitle, shiftMonth, WorkoutCalendarScreen } from '@/screens/calendar/workout-calendar-screen'
-import { apiGet } from '@/shared/api/client'
+import { apiDelete, apiGet } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 
 vi.mock('@/shared/api/client', async () => ({
   ...await vi.importActual<typeof import('@/shared/api/client')>('@/shared/api/client'),
   apiGet: vi.fn(),
+  apiDelete: vi.fn(),
 }))
 
 const fetchMock = vi.fn().mockRejectedValue(new Error('Real network is forbidden in calendar tests'))
@@ -41,6 +42,7 @@ beforeEach(() => {
     if (url.pathname === '/api/calendar') return getWorkoutCalendarData(url.searchParams.get('month') ?? undefined) as T
     throw new Error(`Unexpected request ${path}`)
   })
+  vi.mocked(apiDelete).mockReset()
 })
 
 afterEach(() => {
@@ -69,7 +71,7 @@ describe('WorkoutCalendarScreen', () => {
     expect(cells[0]).toHaveAttribute('aria-label', expect.stringMatching(/27 апреля 2026/))
     expect(cells[0]).toHaveAttribute('data-in-month', 'false')
     const today = cells.find((cell) => cell.dataset.today === 'true')!
-    expect(today).toHaveTextContent(/14сегодня/)
+    expect(today).toHaveTextContent(/^14сегодня/)
     expect(within(today).getByRole('button', { name: /14 мая 2026 г\., 2 тренировки/ })).toBeVisible()
     expect(within(today).getByText('×2')).toBeVisible()
     const empty = cells.find((cell) => cell.getAttribute('aria-label')?.startsWith('Пятница, 15 мая'))!
@@ -82,7 +84,7 @@ describe('WorkoutCalendarScreen', () => {
     expect(screen.getByText('6 тренировок за месяц')).toBeVisible()
   })
 
-  it('opens a read-only day dialog with every workout, restores focus and never touches runtime', async () => {
+  it('opens a compact day dialog with every workout, restores focus and never touches runtime', async () => {
     const user = userEvent.setup()
     const runtimeBefore = useRuntimeStore.getState()
     renderCalendar()
@@ -90,21 +92,69 @@ describe('WorkoutCalendarScreen', () => {
     await user.click(trigger)
     const dialog = screen.getByRole('dialog', { name: /Четверг, 14 мая 2026 г\./ })
     expect(dialog).toBeVisible()
-    expect(within(dialog).getByText(/2 тренировки · только просмотр/)).toBeVisible()
+    expect(within(dialog).getByText('2 тренировки')).toBeVisible()
     const records = within(dialog).getAllByRole('article')
     expect(records.map((record) => record.getAttribute('aria-label'))).toEqual(['Фуллбоди', 'Ноги + кор'])
     expect(within(records[0]).getByText('07:10–07:40')).toBeVisible()
     expect(within(records[0]).getByText('Выполнена')).toBeVisible()
+    expect(within(records[0]).getByText('2 подхода')).toBeVisible()
+    expect(within(records[0]).queryByText('—')).not.toBeInTheDocument()
+    expect(within(records[1]).getByText('45 мин')).toBeVisible()
     expect(within(records[1]).getByText('1 850 кг')).toBeVisible()
     expect(within(records[1]).getByText('3 подх. · 30 повт. · до 50 кг')).toBeVisible()
     expect(within(dialog).getByRole('button', { name: 'Аварийная остановка', exact: true })).toBeVisible()
-    expect(within(dialog).queryByRole('button', { name: /Начать|Изменить|Убрать|Удалить|Повторить/ })).not.toBeInTheDocument()
+    expect(within(dialog).queryByRole('button', { name: /Начать|Изменить|Убрать|Повторить/ })).not.toBeInTheDocument()
     expect(within(dialog).queryByRole('link')).not.toBeInTheDocument()
     await user.click(within(dialog).getByRole('button', { name: 'Закрыть', exact: true }))
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(trigger).toHaveFocus()
     expect(useRuntimeStore.getState()).toBe(runtimeBefore)
     expect(screen.getByTestId('location')).toHaveTextContent('/calendar')
+  })
+
+  it('deletes a workout after confirmation and refreshes every cached view', async () => {
+    const user = userEvent.setup()
+    let deleted = false
+    vi.mocked(apiGet).mockImplementation(async <T,>(path: string): Promise<T> => {
+      const data = getWorkoutCalendarData()
+      if (deleted) {
+        const today = data.days.find((day) => day.id === data.today)!
+        today.workouts = today.workouts.filter((workout) => workout.id !== 99001)
+      }
+      if (new URL(path, 'http://localhost').pathname === '/api/calendar') return data as T
+      throw new Error(`Unexpected request ${path}`)
+    })
+    vi.mocked(apiDelete).mockImplementation(async () => { deleted = true })
+    const invalidate = vi.spyOn(client, 'invalidateQueries')
+    renderCalendar()
+    await user.click(await screen.findByRole('button', { name: /14 мая 2026 г\., 2 тренировки/ }))
+    const dialog = screen.getByRole('dialog')
+
+    await user.click(within(dialog).getByRole('button', { name: 'Удалить тренировку Фуллбоди' }))
+    const confirm = within(dialog).getByRole('group', { name: 'Подтверждение удаления: Фуллбоди' })
+    expect(confirm).toHaveTextContent('Она исчезнет из календаря, прогресса и усталости мышц.')
+    await user.click(within(confirm).getByRole('button', { name: 'Отмена' }))
+    expect(within(dialog).queryByRole('group', { name: /Подтверждение удаления/ })).not.toBeInTheDocument()
+    expect(apiDelete).not.toHaveBeenCalled()
+
+    await user.click(within(dialog).getByRole('button', { name: 'Удалить тренировку Фуллбоди' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Удалить', exact: true }))
+    expect(apiDelete).toHaveBeenCalledWith('/api/runtime/workouts/99001?userId=alexey')
+    expect(invalidate).toHaveBeenCalledWith()
+    expect(await within(dialog).findByText('1 тренировка')).toBeVisible()
+    expect(within(dialog).getAllByRole('article').map((record) => record.getAttribute('aria-label'))).toEqual(['Ноги + кор'])
+  })
+
+  it('keeps the workout and shows an error when deletion fails', async () => {
+    const user = userEvent.setup()
+    vi.mocked(apiDelete).mockRejectedValue(new Error('offline'))
+    renderCalendar()
+    await user.click(await screen.findByRole('button', { name: /14 мая 2026 г\., 2 тренировки/ }))
+    const dialog = screen.getByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Удалить тренировку Ноги + кор' }))
+    await user.click(within(dialog).getByRole('button', { name: 'Удалить', exact: true }))
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent('Не удалось удалить тренировку.')
+    expect(within(dialog).getAllByRole('article')).toHaveLength(2)
   })
 
   it('navigates months through the URL and returns to the current month', async () => {

@@ -3,13 +3,13 @@ import { openAppAsAlexey, savedBrowserState, test } from './fixtures/navigation'
 import { buildDashboardScenario } from '../src/mocks/data'
 
 for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 1080 }]) {
-  for (const count of [3, 4]) {
+  for (const count of [3, 4, 6]) {
     test(`${count} home workout cards at ${viewport.width}x${viewport.height}`, async ({ page, navigationApi }, testInfo) => {
       await page.setViewportSize(viewport)
       const dashboard = buildDashboardScenario()
       dashboard.muscles = [{ name: 'Грудь', status: 'critical', score: 150 }, { name: 'Икры', status: 'no_data', score: 0 }]
       dashboard.workouts = Array.from({ length: count }, (_, index) => ({
-        id: `personal ${index}`, title: ['Спина и бицепс', 'Грудь и плечи', 'Ноги', 'Общая тренировка'][index], duration: '≈ 45 минут',
+        id: `personal ${index}`, title: ['Спина и бицепс', 'Грудь и плечи', 'Ноги', 'Общая тренировка', 'Плечи и кор', 'Растяжка'][index], duration: '≈ 45 минут',
         lastPerformedAt: '2026-09-13T12:00:00Z', lastStatus: 'completed',
         exercises: Array.from({ length: 7 }, (_, row) => ({ slug: `exercise-${row}`, name: `Упражнение ${row + 1}` })),
       }))
@@ -19,7 +19,7 @@ for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 10
       await expect(page.getByRole('dialog')).toHaveCount(0)
       const cards = page.getByRole('button', { name: /^Выбрать тренировку «/ })
       await expect(cards).toHaveCount(count)
-      await expect(page.getByRole('button', { name: /Новая тренировка/ })).toHaveCount(count < 4 ? 1 : 0)
+      await expect(page.getByRole('button', { name: /Новая тренировка/ })).toHaveCount(1)
       for (const card of await cards.all()) await expect(card).toBeInViewport({ ratio: 1 })
       expect(await page.locator('main').evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(2)
       expect(await page.locator('main').evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(2)

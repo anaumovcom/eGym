@@ -285,7 +285,9 @@ describe('ExerciseSessionScreen', () => {
     act(() => useRuntimeStore.getState().beginNextStep())
 
     await user.click(screen.getByRole('button', { name: 'Пропустить упражнение' }))
-
+    const confirm = screen.getByRole('dialog', { name: 'Пропустить упражнение?' })
+    expect(navigateMock).not.toHaveBeenCalledWith(`/exercise-summary${currentSearch}`)
+    await user.click(within(confirm).getByRole('button', { name: 'Пропустить', exact: true }))
     await waitFor(() => expect(navigateMock).toHaveBeenLastCalledWith(`/exercise-summary${currentSearch}`))
     const finalSave = vi.mocked(apiPost).mock.calls.filter(([path]) => path === '/api/runtime/exercises').at(-1)
     expect(finalSave?.[1]).toMatchObject({ status: 'partial', exerciseSessionId: 7 })

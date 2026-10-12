@@ -47,7 +47,7 @@ describe('HomeRecovery', () => {
     for (const name of ['Спина: Нет данных', 'Икры: Готова к нагрузке, 10 балл.', 'Грудь: Перегрузка, 150 балл.', 'Бицепс: Высокая усталость, 80 балл.', 'Пресс: Умеренная усталость, 40 балл.']) {
       expect(screen.getByRole('button', { name, exact: true })).toBeVisible()
     }
-    expect(screen.getByText('Наведите на мышцу')).toBeVisible()
+    expect(screen.getByText('Нажмите на мышцу')).toBeVisible()
     expect(screen.queryByRole('list', { name: 'Краткая сводка усталости' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Карта мышц', exact: true })).not.toBeInTheDocument()
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

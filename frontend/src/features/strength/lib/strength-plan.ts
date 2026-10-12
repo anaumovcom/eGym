@@ -91,7 +91,61 @@ function planItem(
   }
 }
 
-export function buildStrengthPlan(modeId: string | undefined, dayType: string | null | undefined, settings: Pick<ExerciseLoadSettings, 'weight' | 'reps' | 'restSeconds'>, kind?: RuntimeExerciseKind | 'weighted' | 'bodyweight' | 'timed'): StrengthSetPlan[] {
+export type StrengthPlanShape = {
+  /** Total number of sets in the plan, warm-ups included. */
+  sets: number
+  /** Hold/cardio duration; when the exercise is timed every set targets it. */
+  durationSeconds?: number
+}
+
+/**
+ * Builder variant: the user's set count, reps and duration win over the mode template.
+ * Warm-ups and the final failure set are kept only while enough working sets remain.
+ */
+export function buildStrengthPlan(modeId: string | undefined, dayType: string | null | undefined, settings: Pick<ExerciseLoadSettings, 'weight' | 'reps' | 'restSeconds'>, kind?: RuntimeExerciseKind | 'weighted' | 'bodyweight' | 'timed', shape?: StrengthPlanShape): StrengthSetPlan[] {
+  const template = buildStrengthTemplate(modeId, dayType, settings, kind, Boolean(shape))
+  if (!shape) {
+    return template
+  }
+
+  const total = Math.max(1, Math.round(shape.sets))
+  if (kind === 'timed') {
+    const seconds = Math.max(1, shape.durationSeconds ?? settings.reps)
+    return Array.from({ length: total }, (_, index) => ({
+      setNumber: index + 1,
+      setType: 'work' as const,
+      label: 'Подход',
+      targetRepsLabel: `${seconds} сек`,
+      recommendedWeightLabel: 'вес тела',
+      restSeconds: Math.max(15, settings.restSeconds),
+      rirLabel: 'ровный темп',
+      note: 'Держите заданное время без потери техники.',
+    }))
+  }
+
+  return resizeStrengthPlan(template, total, normalizeStrengthModeId(modeId))
+}
+
+function resizeStrengthPlan(template: StrengthSetPlan[], total: number, modeId: string): StrengthSetPlan[] {
+  const warmups = template.filter((set) => set.setType === 'warmup')
+  const failures = template.filter((set) => set.setType === 'failure')
+  const work = template.filter((set) => set.setType === 'work')
+  const warmupCount = Math.min(warmups.length, Math.max(0, total - 2))
+  const failureCount = Math.min(failures.length, Math.max(0, total - warmupCount - 1))
+  const workCount = total - warmupCount - failureCount
+  const workSource = work.length ? work : failures.slice(0, 1)
+  const chosenWork = workCount <= workSource.length
+    ? modeId === 'straight_pyramid' ? workSource.slice(workSource.length - workCount) : workSource.slice(0, workCount)
+    : [...workSource, ...Array.from({ length: workCount - workSource.length }, () => workSource[workSource.length - 1])]
+
+  return [...warmups.slice(warmups.length - warmupCount), ...chosenWork, ...failures.slice(0, failureCount)].map((set, index) => ({
+    ...set,
+    setNumber: index + 1,
+    label: set.label.startsWith('Круг ') ? `Круг ${index + 1}` : set.label,
+  }))
+}
+
+function buildStrengthTemplate(modeId: string | undefined, dayType: string | null | undefined, settings: Pick<ExerciseLoadSettings, 'weight' | 'reps' | 'restSeconds'>, kind: RuntimeExerciseKind | 'weighted' | 'bodyweight' | 'timed' | undefined, useTargetReps: boolean): StrengthSetPlan[] {
   const normalizedModeId = normalizeStrengthModeId(modeId)
   const normalizedDayType = normalizeStrengthDayType(normalizedModeId, dayType)
   const restSeconds = Math.max(15, settings.restSeconds)
@@ -156,6 +210,20 @@ export function buildStrengthPlan(modeId: string | undefined, dayType: string | 
     }
 
     return Array.from({ length: 3 }, (_, index) => item(index + 1, 'work', 'Средний день', '8–12', 0.9, 90, '1–3 в запасе', 'Средняя нагрузка без перегруза.'))
+  }
+
+  if (useTargetReps) {
+    // Basic mode follows the reps the user typed; the warm-up stays light and a bit longer.
+    const reps = Math.max(1, settings.reps)
+    const warmupMin = Math.max(8, reps - 2)
+    const warmupMax = Math.max(10, reps)
+    const workRest = Math.max(60, Math.min(restSeconds, 120))
+    return [
+      item(1, 'warmup', 'Разминка', warmupMin === warmupMax ? String(warmupMin) : `${warmupMin}–${warmupMax}`, 0.5, 60, '4–5 в запасе', 'Лёгкий разминочный подход.'),
+      item(2, 'work', 'Рабочий подход', String(reps), 1, workRest, '1–3 в запасе', 'Стабильная техника без отказа.'),
+      item(3, 'work', 'Рабочий подход', String(reps), 1, workRest, '1–3 в запасе', 'Сохранять амплитуду.'),
+      item(4, 'work', 'Рабочий подход', String(reps), 1, workRest, '1–3 в запасе', 'Остановиться до потери техники.'),
+    ]
   }
 
   return [

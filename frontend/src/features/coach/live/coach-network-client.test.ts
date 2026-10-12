@@ -35,7 +35,7 @@ class FakeSocket implements SocketLike {
   }
   serverClose() { this.readyState = 3; this.onclose?.({}) }
   types() { return this.sent.map(item => item.type) }
-  events() { return this.sent.filter(item => item.type === 'event') as Array<{ event: CoachEvent; refs?: unknown; context?: Record<string, number> }> }
+  events() { return this.sent.filter(item => item.type === 'event') as Array<{ event: CoachEvent; refs?: unknown; context?: Record<string, unknown> }> }
 }
 
 class Fixture {
@@ -138,8 +138,10 @@ describe('CoachNetworkClient', () => {
       session: session({ currentExerciseId: 'e2', completedSets: { e1: [{}] } }) })
     const sent = f.socket.events()
     expect(sent.map(item => item.event.kind)).toEqual(['workout_started', 'rep_milestone', 'rest_long_opportunity', 'exercise_ready'])
-    expect(sent[2].context).toEqual({ restMs: 90_000, restElapsedMs: 20_000 })
-    expect(sent[3].context).toEqual({ exerciseName: 'Тяга' })
+    expect(sent[0].context).toEqual({ exerciseCount: 2, exerciseName: 'Жим ногами' })
+    expect(sent[1].context).toEqual({ phaseElapsedMs: 0, exerciseName: 'Жим ногами', totalSets: 2 })
+    expect(sent[2].context).toEqual({ restMs: 90_000, restElapsedMs: 20_000, exerciseName: 'Жим ногами', totalSets: 2 })
+    expect(sent[3].context).toEqual({ exerciseName: 'Тяга', exerciseIndex: 2, exerciseCount: 2, totalSets: 1, targetReps: 10 })
     expect(sent[3].event.scope).toMatchObject({ exerciseId: 'e2', setOrdinal: null })
   })
 
@@ -154,6 +156,11 @@ describe('CoachNetworkClient', () => {
     const sent = f.socket.events().filter(item => item.event.kind === 'set_persisted')
     expect(sent).toHaveLength(1)
     expect(sent[0]).toMatchObject({ event: { id: 'l2' }, refs: { backendSetId: 7 }, context: { restMs: 90_000, restElapsedMs: 0 } })
+    expect(sent[0].context).not.toHaveProperty('nextExerciseName')
+    const last = { ...lifecycleEvent('l3', 'set_persisted', 'finalizing-set'), scope: scope({ setOrdinal: 2 }) }
+    f.refs.l3 = { backendSetId: 8 }
+    f.tick({ lifecycle: [last] })
+    expect(f.socket.events().at(-1)).toMatchObject({ event: { id: 'l3' }, context: { nextExerciseName: 'Тяга' } })
   })
 
   it('streams speech into the mixer under the current scope and acknowledges playback', async () => {

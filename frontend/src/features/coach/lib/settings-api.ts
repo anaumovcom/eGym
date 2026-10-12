@@ -1,5 +1,5 @@
 import { coachVoice } from '../model/contracts'
-import { preferencesValid, type CoachPreferences } from '../model/preferences'
+import { pickTuning, preferencesValid, type CoachPreferences } from '../model/preferences'
 
 export type CoachApiErrorCode = 'revision_conflict' | 'unauthorized' | 'rate_limited' | 'unavailable' | 'invalid_response' | 'request_failed' | 'aborted'
 export class CoachApiError extends Error {
@@ -19,7 +19,9 @@ function object(value: unknown): JsonObject {
   return value as JsonObject
 }
 function preferences(value: unknown): CoachPreferences {
-  const p = object(value)
+  const raw = object(value)
+  const tuning = pickTuning(raw)
+  const p: JsonObject = { ...raw, ...tuning }
   if (typeof p.enabled !== 'boolean' || typeof p.historyConsent !== 'boolean' || typeof p.duringSets !== 'boolean' ||
       typeof p.duringRest !== 'boolean' || !['local', 'hybrid', 'text-only'].includes(String(p.mode)) ||
       !['quiet', 'companion', 'talkative'].includes(String(p.density)) || !['every', 'last-three', 'milestones', 'off'].includes(String(p.count)) ||
@@ -33,7 +35,7 @@ function preferences(value: unknown): CoachPreferences {
     style: p.style as CoachPreferences['style'], humor: p.humor as CoachPreferences['humor'],
     humorKinds: [...p.humorKinds as CoachPreferences['humorKinds']], edgyOptIn: p.edgyOptIn as boolean,
     extras: [...p.extras as CoachPreferences['extras']], address: p.address as CoachPreferences['address'],
-    nickname: p.nickname as string, duringSets: p.duringSets, duringRest: p.duringRest }
+    nickname: p.nickname as string, duringSets: p.duringSets, duringRest: p.duringRest, ...tuning }
 }
 function session(value: unknown): OperatorSession {
   const s = object(value)

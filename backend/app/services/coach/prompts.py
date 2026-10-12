@@ -9,7 +9,7 @@ from typing import Literal
 
 from app.services.coach.facts import AllowedFact, ComparisonStatus, HistoryStatus
 
-PROMPT_VERSION = "coach-prompts-0.6"
+PROMPT_VERSION = "coach-prompts-0.7"
 
 P0 = """Ты — русскоязычный персональный тренер-напарник в фитнес-приложении.
 Ты произносишь одну короткую реплику по выбранному приложением поводу.
@@ -80,6 +80,35 @@ EXTRA_MODULES: dict[str, str] = {
 }
 ADDRESS_VY = "Обращайся на «вы» вместо «ты»."
 NAME_MODULE = "Пользователь разрешил обращение по имени из userName: используй его изредка, не в каждой реплике."
+VERBOSITY_MODULES: dict[str, str] = {
+    "short": "Длина реплик: предельно коротко, одна фраза без вводных слов.",
+    "detailed": "Длина реплик: можно чуть развёрнуто, до maxWords, с одной конкретной деталью из allowedFacts.",
+}
+PRAISE_MODULES: dict[str, str] = {
+    "rare": "Похвала редко и только за конкретный подтверждённый факт; чаще спокойная констатация.",
+    "generous": "Хвали щедро и тепло, но конкретно, без преувеличений и выдуманных достижений.",
+}
+GOAL_MODULES: dict[str, str] = {
+    "strength": "Цель пользователя — сила: акцент на собранности и качестве каждого повторения. План и вес не меняй.",
+    "hypertrophy": "Цель пользователя — рост мышц: акцент на контроле движения и ощущении работающей мышцы. План не меняй.",
+    "endurance": "Цель пользователя — выносливость: акцент на ровном ритме, дыхании и умении держать темп. План не меняй.",
+    "health": "Цель пользователя — здоровье и самочувствие: акцент на регулярности и комфорте, без давления.",
+}
+EXPERIENCE_MODULES: dict[str, str] = {
+    "beginner": "Пользователь — новичок: простые слова без жаргона, больше ободрения за сам факт работы.",
+    "advanced": "Пользователь опытный: короче и профессиональнее, без азбучных пояснений.",
+}
+USER_GENDER_MODULES: dict[str, str] = {
+    "unspecified": "Пол пользователя не указан: избегай форм прошедшего времени и прилагательных с родовыми окончаниями о нём.",
+    "m": "Пользователь — мужчина: глаголы прошедшего времени и прилагательные о нём — в мужском роде.",
+    "f": "Пользователь — женщина: глаголы прошедшего времени и прилагательные о ней — в женском роде.",
+}
+COACH_GENDER_MODULES: dict[str, str] = {
+    "m": "О себе тренер говорит в мужском роде.",
+    "f": "О себе тренер говорит в женском роде.",
+}
+SLANG_MODULE = "Можно умеренный сленг зала (рабочий вес, забить подход, пампинг), без грубости и мата."
+NO_NUMBERS_MODULE = "Пользователь просил не озвучивать числа: не называй цифры, говори об итоге словами."
 
 P2: dict[str, str] = {
     "setup/opening": "Короткий настрой перед тренировкой или упражнением, одна живая мысль. Без чисел и плана вне facts, без обещаний результата. 8–20 слов.",
@@ -139,6 +168,14 @@ class AuthorRequest:
     dark_humor: bool = False
     extras: tuple[str, ...] = ()
     address: Literal["ty", "vy"] = "ty"
+    verbosity: str = "normal"
+    praise: str = "normal"
+    goal: str = "none"
+    experience: str = "intermediate"
+    user_gender: str | None = None
+    coach_gender: str = "unspecified"
+    slang: bool = False
+    say_numbers: bool = True
 
     def __post_init__(self):
         if self.task not in P2:
@@ -146,6 +183,12 @@ class AuthorRequest:
         if (self.style != "companion" and self.style not in STYLE_MODULES) or (
                 self.humor is not None and self.humor not in HUMOR_MODULES) or (
                 not set(self.humor_kinds) <= set(HUMOR_KINDS)) or not set(self.extras) <= set(EXTRA_MODULES):
+            raise ValueError("Unknown personality module")
+        if (self.verbosity not in {"normal", *VERBOSITY_MODULES} or self.praise not in {"normal", *PRAISE_MODULES}
+                or self.goal not in {"none", *GOAL_MODULES}
+                or self.experience not in {"intermediate", *EXPERIENCE_MODULES}
+                or (self.user_gender is not None and self.user_gender not in USER_GENDER_MODULES)
+                or self.coach_gender not in {"unspecified", *COACH_GENDER_MODULES}):
             raise ValueError("Unknown personality module")
         if not 1 <= self.max_words <= 60 or not self.intents or not self.topic_key:
             raise ValueError("Invalid author request")
@@ -212,6 +255,15 @@ def personality_modules(req: AuthorRequest) -> list[str]:
     if joking and req.dark_humor:
         modules.append(P1_DARK)
     modules.extend(EXTRA_MODULES[e] for e in req.extras)
+    for table, key in ((VERBOSITY_MODULES, req.verbosity), (PRAISE_MODULES, req.praise), (GOAL_MODULES, req.goal),
+                       (EXPERIENCE_MODULES, req.experience), (USER_GENDER_MODULES, req.user_gender),
+                       (COACH_GENDER_MODULES, req.coach_gender)):
+        if key in table:
+            modules.append(table[key])
+    if req.slang:
+        modules.append(SLANG_MODULE)
+    if not req.say_numbers:
+        modules.append(NO_NUMBERS_MODULE)
     return modules
 
 
@@ -236,7 +288,9 @@ def build_prompt(req: AuthorRequest) -> BuiltPrompt:
 
 def static_hashes() -> dict[str, str]:
     personality = [*STYLE_MODULES.values(), *HUMOR_MODULES.values(), *HUMOR_KINDS.values(), P1_DARK,
-                   *EXTRA_MODULES.values(), ADDRESS_VY, NAME_MODULE]
+                   *EXTRA_MODULES.values(), ADDRESS_VY, NAME_MODULE, *VERBOSITY_MODULES.values(),
+                   *PRAISE_MODULES.values(), *GOAL_MODULES.values(), *EXPERIENCE_MODULES.values(),
+                   *USER_GENDER_MODULES.values(), *COACH_GENDER_MODULES.values(), SLANG_MODULE, NO_NUMBERS_MODULE]
     return {"version": PROMPT_VERSION, "p0": sha256(P0), "p1": sha256(P1), "p1Sharp": sha256(P1_SHARP),
             "p1User": sha256("\n".join(personality)),
             **{f"p2:{key}": sha256(value) for key, value in P2.items()}}

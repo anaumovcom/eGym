@@ -37,6 +37,7 @@ MOTION_ACTIONS = {
     "resume", "park", "set_load", "manual_rep", "align_sides", "complete_set",
 }
 UNSUPPORTED_MOTION_ACTIONS = {"manual_move", "range_preview", "manual_rep", "align_sides"}
+WEIGHT_ACTIONS = {"start_motion", "start_fixed_position", "resume", "set_load"}  # the load limit holds for each of them
 QUIET_ACTIONS = {"jog_keepalive"}
 
 
@@ -246,6 +247,13 @@ class HardwareService:
         if payload.action in MOTION_ACTIONS:
             if payload.action in UNSUPPORTED_MOTION_ACTIONS:
                 raise PermissionError(f"Команда «{payload.action}» пока не поддерживается")
+            if payload.action in WEIGHT_ACTIONS and payload.weight_kg:
+                settings = self._get_safety_settings(session, payload.user_id)
+                max_load_kg = self._parse_kg(settings.max_load)
+                if payload.mode == "guest":
+                    max_load_kg = min(max_load_kg, self._parse_kg(settings.guest_weight_limit))
+                if payload.weight_kg > max_load_kg:
+                    raise PermissionError(f"Превышен лимит нагрузки {max_load_kg:.0f} кг.")
             command = hardware_runtime.workout_command(
                 payload.action, payload.model_dump(exclude_none=True), self._set_calibration(session, payload)
             )

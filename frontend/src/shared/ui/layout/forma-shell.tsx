@@ -112,6 +112,7 @@ export function TopNavigationMenu({ userName, systemBar }: { userName: string; s
             <NavLink
               key={item.path}
               to={item.path}
+              title={item.label}
               className={({ isActive }) =>
                 cn(
                   'flex min-h-14 items-center gap-3 rounded-2xl border px-4 text-base font-medium transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f4dfb4]',
@@ -122,7 +123,7 @@ export function TopNavigationMenu({ userName, systemBar }: { userName: string; s
               }
             >
               <Icon className="h-5 w-5" aria-hidden="true" />
-              {item.label}
+              <span className="forma-nav-label">{item.label}</span>
             </NavLink>
           )
         })}

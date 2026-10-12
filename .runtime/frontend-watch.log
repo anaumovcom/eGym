@@ -1,11 +1,34 @@
 
-  VITE v7.3.3  ready in 364 ms
+  VITE v7.3.3  ready in 368 ms
 
   ➜  Local:   http://127.0.0.1:5173/
-11:52:36 AM [vite] (client) hmr update /src/screens/catalog/exercise-catalog-screen.tsx, /src/app/styles.css
-11:52:36 AM [vite] (client) hmr update /src/screens/catalog/exercise-details-screen.tsx, /src/app/styles.css
-11:52:36 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-11:52:36 AM [vite] (client) hmr update /src/app/router.tsx
-11:52:44 AM [vite] (client) hmr update /src/screens/catalog/exercise-details-screen.tsx, /src/app/styles.css
-12:11:53 PM [vite] (client) hmr update /src/screens/catalog/exercise-catalog-screen.tsx, /src/app/styles.css
-12:11:53 PM [vite] (client) hmr update /src/screens/catalog/exercise-details-screen.tsx, /src/app/styles.css
+7:48:14 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/builder/workout-builder-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-settings-panel.tsx
+7:48:14 PM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+7:48:14 PM [vite] (client) hmr update /src/app/router.tsx
+7:48:40 PM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx, /src/app/styles.css
+7:48:47 PM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx, /src/app/styles.css
+7:49:10 PM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx, /src/app/styles.css
+7:49:48 PM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx, /src/app/styles.css
+7:50:23 PM [vite] (client) hmr update /src/app/styles.css
+7:55:32 PM [vite] (client) hmr update /src/app/styles.css
+7:55:32 PM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx, /src/app/styles.css
+7:55:32 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/builder/workout-builder-screen.tsx, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-settings-panel.tsx
+7:55:32 PM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+7:55:32 PM [vite] (client) hmr update /src/app/router.tsx
+7:58:24 PM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx, /src/app/styles.css
+7:58:56 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-settings-panel.tsx
+7:58:56 PM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+7:58:56 PM [vite] (client) hmr update /src/app/router.tsx
+7:59:34 PM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
+7:59:56 PM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
+8:00:02 PM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
+8:01:00 PM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
+8:01:18 PM [vite] (client) hmr update /src/app/styles.css
+8:09:51 PM [vite] (client) hmr update /src/app/styles.css
+8:09:51 PM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx, /src/app/styles.css
+8:09:51 PM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
+8:09:51 PM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
+8:09:51 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-settings-panel.tsx
+8:09:51 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx
+8:09:52 PM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+8:09:52 PM [vite] (client) hmr update /src/app/router.tsx

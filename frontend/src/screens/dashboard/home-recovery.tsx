@@ -36,7 +36,7 @@ export function HomeRecovery({ muscles, figureGender = 'male' }: { muscles: Musc
     }}>
       <header className="home-recovery-heading">
         <h2>Усталость мышц</h2>
-        <p>{muscles.some((item) => item.status !== 'no_data') ? 'Наведите на мышцу' : 'Пока нет данных о нагрузке'}</p>
+        <p>{muscles.some((item) => item.status !== 'no_data') ? 'Нажмите на мышцу' : 'Пока нет данных о нагрузке'}</p>
       </header>
       <CompactBodyMapGrid highlights={highlights} figureGender={figureGender} plainFigures showFigureTitles={false}
         className="home-recovery-figures" figureContainerClassName="home-recovery-figure" figureMarkupClassName="home-recovery-figure-svg"

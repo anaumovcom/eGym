@@ -46,18 +46,18 @@ for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 10
       expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(64)
     }
 
-    // BUILD-6/7: no JSON, persistent bottom actions with separated delete.
+    // BUILD-6/7: no JSON; "Done" lives in the header, delete is separated in the side panel.
     await expect(page.getByRole('button', { name: 'JSON', exact: true })).toHaveCount(0)
     const actions = page.getByRole('group', { name: 'Действия с тренировкой' })
     await expect(actions.getByRole('button', { name: 'Готово', exact: true })).toBeInViewport()
-    await expect(actions.getByRole('button', { name: 'Удалить тренировку', exact: true })).toBeInViewport()
-    const doneBox = (await actions.getByRole('button', { name: 'Готово', exact: true }).boundingBox())!
-    const deleteBox = (await actions.getByRole('button', { name: 'Удалить тренировку', exact: true }).boundingBox())!
-    expect(deleteBox.x - (doneBox.x + doneBox.width)).toBeGreaterThan(200)
+    await expect(actions.getByRole('button', { name: 'Удалить тренировку', exact: true })).toHaveCount(0)
+    const deleteWorkout = side.getByRole('button', { name: 'Удалить тренировку', exact: true })
+    await expect(deleteWorkout).toBeVisible()
     const actionsBox = (await actions.boundingBox())!
-    expect(actionsBox.y + actionsBox.height).toBeLessThanOrEqual(viewport.height)
     const stopBox = (await page.getByRole('button', { name: 'Аварийная остановка', exact: true }).boundingBox())!
     expect(stopBox.y + stopBox.height).toBeLessThanOrEqual(actionsBox.y)
+    // Panels scroll on their own; the page itself never scrolls, so header actions stay put.
+    expect(await page.locator('main').evaluate((node) => node.scrollHeight - node.clientHeight)).toBeLessThanOrEqual(2)
 
     const editorShot = testInfo.outputPath('builder-editor.png')
     await page.screenshot({ path: editorShot })
@@ -87,7 +87,7 @@ for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 10
     await expect(page.getByRole('dialog')).toHaveCount(0)
 
     // Deleting requires confirmation and is cancellable.
-    await actions.getByRole('button', { name: 'Удалить тренировку', exact: true }).click()
+    await deleteWorkout.click()
     const confirm = page.getByRole('dialog', { name: /Удалить тренировку/ })
     await expect(confirm.getByRole('button', { name: 'Аварийная остановка', exact: true })).toBeInViewport()
     await confirm.getByRole('button', { name: 'Отмена', exact: true }).click()

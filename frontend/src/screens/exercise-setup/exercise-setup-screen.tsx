@@ -11,6 +11,7 @@ import { buildBackendBuilderRuntimeSession } from '@/features/runtime/lib/backen
 import { getRuntimeResumeView, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
 import { requiresMachineCalibration, supportsFixedBarSetup } from '@/features/runtime/lib/runtime-exercise'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
+import { formatTimedSeconds, stepTimedSeconds } from '@/features/runtime/lib/timed-set'
 import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { apiGet } from '@/shared/api/client'
@@ -126,6 +127,7 @@ export function ExerciseSetupScreen() {
   const [calibrationOpen, setCalibrationOpen] = useState(false)
   const [modeDialogOpen, setModeDialogOpen] = useState(false)
   const [jogPending, setJogPending] = useState(false)
+  const [finishDialogOpen, setFinishDialogOpen] = useState(false)
 
   const initOptions = useMemo(() => getRuntimeInitOptions(searchParams), [searchParams])
   const { data: catalogExerciseDetails } = useQuery({
@@ -336,8 +338,6 @@ export function ExerciseSetupScreen() {
   const weightlessActive = controlMode === 'weightless'
   const barMoving = jogPending || controlMode === 'moving' || snapshot?.motion.moving === true
   const barStill = (snapshot?.control?.stillMs ?? 0) >= 500
-  const liveLowerBoundMm = snapshot?.motion.lowerBoundMm ?? null
-  const liveUpperBoundMm = snapshot?.motion.upperBoundMm ?? null
   const lowerPointMm = capturedLowerPointMm ?? null
   const upperPointMm = capturedUpperPointMm ?? null
   const fixedPositionMm = capturedFixedPositionMm
@@ -458,6 +458,8 @@ export function ExerciseSetupScreen() {
         setHardwareError('Для запуска тренажёрного упражнения нужно выбрать пользователя.')
         return
       }
+      // the motor gets the weight of the set being started (a warm-up is lighter than the working weight)
+      const firstSetWeightKg = currentExercise.plan[0]?.recommendedWeightKg ?? settings.weight
 
       try {
         const safetyGate = await checkSafetyGate({
@@ -465,7 +467,7 @@ export function ExerciseSetupScreen() {
           exerciseSlug: currentExercise.slug,
           calibrationRequired: true,
           rangeConfirmed: setupType === 'bar_range',
-          weightKg: settings.weight,
+          weightKg: firstSetWeightKg,
           mode: 'machine',
         })
 
@@ -479,7 +481,7 @@ export function ExerciseSetupScreen() {
           exerciseSlug: currentExercise.slug,
           calibrationRequired: true,
           rangeConfirmed: setupType === 'bar_range',
-          weightKg: settings.weight,
+          weightKg: firstSetWeightKg,
           mode: 'machine',
           targetSet: 1,
           targetReps: currentExercise.plan[0]?.targetMaxReps ?? currentExercise.plan[0]?.targetReps ?? settings.reps,
@@ -498,7 +500,7 @@ export function ExerciseSetupScreen() {
   const showCalibrationPanel = calibrationRequired && (startBlocked || calibrationOpen)
   const readyNote = (
     <>
-      Готово к старту: <strong>{settings.sets} × {settings.reps}</strong> · вес {settings.weight} кг · отдых {settings.restSeconds} с
+      Готово к старту: <strong>{settings.sets} × {settings.reps}</strong> · вес {exercise.plan[0]?.recommendedWeightKg ?? settings.weight} кг · отдых {settings.restSeconds} с
     </>
   )
 
@@ -566,9 +568,11 @@ export function ExerciseSetupScreen() {
               {exercise.secondaryName ? <p>{exercise.secondaryName}</p> : null}
               {exercise.muscles.length ? <div className="rt-muscles">{exercise.muscles.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div> : null}
             </div>
-            <Button variant="secondary" iconLeft={<SlidersHorizontal aria-hidden="true" />} onClick={() => setModeDialogOpen(true)}>
-              Режим тренировки
-            </Button>
+            {exercise.kind !== 'timed' ? (
+              <Button variant="secondary" iconLeft={<SlidersHorizontal aria-hidden="true" />} onClick={() => setModeDialogOpen(true)}>
+                Режим тренировки
+              </Button>
+            ) : null}
             </div>
 
             {hardwareError ? (
@@ -593,25 +597,37 @@ export function ExerciseSetupScreen() {
             ) : null}
 
             <div className="rt-steppers">
-              <ValueStepper
-                label="Вес"
-                unit="кг"
-                value={settings.weight}
-                onChange={(delta) => updateLoadSettings({ weight: Math.max(0, settings.weight + delta * 2.5) })}
-                onValueCommit={(value) => updateLoadSettings({ weight: Math.max(0, value ?? 0) })}
-              />
+              {exercise.kind !== 'timed' ? (
+                <ValueStepper
+                  label="Вес"
+                  unit="кг"
+                  value={settings.weight}
+                  onChange={(delta) => updateLoadSettings({ weight: Math.max(0, settings.weight + delta * 2.5) })}
+                  onValueCommit={(value) => updateLoadSettings({ weight: Math.max(0, value ?? 0) })}
+                />
+              ) : null}
               <ValueStepper
                 label="Подходы"
                 value={settings.sets}
                 onChange={(delta) => updateLoadSettings({ sets: Math.max(1, settings.sets + delta) })}
                 onValueCommit={(value) => updateLoadSettings({ sets: Math.max(1, value ?? 1) })}
               />
-              <ValueStepper
-                label={exercise.kind === 'timed' ? 'Секунды' : 'Повторы'}
-                value={settings.reps}
-                onChange={(delta) => updateLoadSettings({ reps: Math.max(1, settings.reps + delta) })}
-                onValueCommit={(value) => updateLoadSettings({ reps: Math.max(1, value ?? 1) })}
-              />
+              {exercise.kind === 'timed' ? (
+                <ValueStepper
+                  label="Длительность"
+                  unit="сек"
+                  value={settings.reps}
+                  onChange={(delta) => updateLoadSettings({ reps: stepTimedSeconds(settings.reps, delta) })}
+                  onValueCommit={(value) => updateLoadSettings({ reps: Math.max(5, value ?? settings.reps) })}
+                />
+              ) : (
+                <ValueStepper
+                  label="Повторы"
+                  value={settings.reps}
+                  onChange={(delta) => updateLoadSettings({ reps: Math.max(1, settings.reps + delta) })}
+                  onValueCommit={(value) => updateLoadSettings({ reps: Math.max(1, value ?? 1) })}
+                />
+              )}
               <ValueStepper
                 label="Отдых"
                 unit="сек"
@@ -621,7 +637,7 @@ export function ExerciseSetupScreen() {
               />
             </div>
 
-            <p className="rt-setup-parameters-note">{currentStrengthMode.title} · {settings.mode} · безопасный диапазон {settings.safeRange[0]}–{settings.safeRange[1]} кг</p>
+            <p className="rt-setup-parameters-note">{exercise.kind === 'timed' ? `На время · ${settings.sets} × ${formatTimedSeconds(settings.reps)}` : `${currentStrengthMode.title} · ${settings.mode} · безопасный диапазон ${settings.safeRange[0]}–${settings.safeRange[1]} кг`}</p>
           </section>
           {showCalibrationPanel ? (
             <section className="rt-calibration" data-saved={Boolean(savedCalibration)} aria-label="Настройка грифа">
@@ -650,8 +666,8 @@ export function ExerciseSetupScreen() {
                 <div><dt>Текущая позиция</dt><dd>{formatMillimeters(livePositionMm)}</dd><small>Гриф сейчас</small></div>
                 {setupType === 'bar_range' ? (
                   <>
-                    <div><dt>Нижняя точка</dt><dd>{formatMillimeters(lowerPointMm)}</dd><small>Live-низ: {formatMillimeters(liveLowerBoundMm)}</small></div>
-                    <div><dt>Верхняя точка</dt><dd>{formatMillimeters(upperPointMm)}</dd><small>Live-верх: {formatMillimeters(liveUpperBoundMm)}</small></div>
+                    <div><dt>Нижняя точка</dt><dd>{formatMillimeters(lowerPointMm)}</dd><small>{lowerPointMm == null ? 'Опустите гриф и нажмите «Запомнить низ»' : 'Зафиксирована'}</small></div>
+                    <div><dt>Верхняя точка</dt><dd>{formatMillimeters(upperPointMm)}</dd><small>{upperPointMm == null ? 'Поднимите гриф и нажмите «Запомнить верх»' : 'Зафиксирована'}</small></div>
                   </>
                 ) : (
                   <div><dt>Фиксированная высота</dt><dd>{formatMillimeters(fixedPositionMm)}</dd><small>Гриф удерживается на этой высоте</small></div>
@@ -678,7 +694,9 @@ export function ExerciseSetupScreen() {
               <p className="rt-calibration-hint" data-active={weightlessActive}>
                 {weightlessActive
                   ? <>Гриф скомпенсирован — переместите его руками в нужную точку и отпустите. {barStill ? 'Гриф неподвижен — можно фиксировать точку.' : 'Дождитесь остановки грифа.'}</>
-                  : '\u00a0'}
+                  : barMoving
+                    ? 'Гриф движется — дождитесь остановки.'
+                    : 'Включите «Невесомый гриф», чтобы двигать гриф руками.'}
               </p>
             </section>
           ) : null}
@@ -686,13 +704,7 @@ export function ExerciseSetupScreen() {
         </div>
 
         <div className="rt-actions" role="group" aria-label="Действия с упражнением">
-          <Button
-            variant="secondary"
-            onClick={() => {
-              completeWorkout('aborted')
-              navigate(withSearch('/workout-summary', location.search))
-            }}
-          >
+          <Button variant="secondary" onClick={() => setFinishDialogOpen(true)}>
             Завершить тренировку
           </Button>
           <div className="rt-actions-note">{startBlocked ? 'Сначала сохраните настройку грифа — после этого старт откроется.' : readyNote}</div>
@@ -722,6 +734,28 @@ export function ExerciseSetupScreen() {
             </div>
             <div className="builder-dialog-actions">
               <Dialog.Close asChild><Button>Готово</Button></Dialog.Close>
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <Dialog.Root open={finishDialogOpen} onOpenChange={setFinishDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="builder-dialog">
+            <Dialog.Title className="font-display text-3xl font-bold">Завершить тренировку сейчас?</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/70">Выполненные подходы сохранятся, оставшиеся упражнения останутся незавершёнными.</Dialog.Description>
+            <div className="builder-dialog-actions">
+              <Dialog.Close asChild><Button variant="secondary">Вернуться к настройке</Button></Dialog.Close>
+              <Button
+                onClick={() => {
+                  setFinishDialogOpen(false)
+                  completeWorkout('aborted')
+                  navigate(withSearch('/workout-summary', location.search))
+                }}
+              >
+                Завершить тренировку
+              </Button>
             </div>
           </SafetyDialogContent>
         </Dialog.Portal>

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import logging.handlers
 import time
 from collections import deque
 from dataclasses import asdict, dataclass, field
@@ -27,7 +28,7 @@ from datetime import UTC, datetime
 from threading import RLock
 from typing import Any
 
-from app.core.config import get_settings
+from app.core.config import BACKEND_ROOT, get_settings
 from app.models.enums import DriveState, MachineState, SafetyState
 from app.motor.calibration.graph import BY_CODE, RUNNABLE
 from app.motor.calibration.graph import status as calibration_status
@@ -50,6 +51,20 @@ from app.services.panel.protocol import (
 )
 
 logger = logging.getLogger(__name__)
+# exercises on the real drives: one line per tick (positions, speeds, forces, guard state) for post-mortems
+motion_trace = logging.getLogger("egym.motion.trace")
+MOTION_LOG = BACKEND_ROOT / "logs" / "motion.log"
+
+
+def _motion_trace_handler() -> None:
+    if motion_trace.handlers:
+        return
+    MOTION_LOG.parent.mkdir(parents=True, exist_ok=True)
+    handler = logging.handlers.RotatingFileHandler(MOTION_LOG, maxBytes=5_000_000, backupCount=5, encoding="utf-8")
+    handler.setFormatter(logging.Formatter("%(asctime)s.%(msecs)03d %(message)s", "%Y-%m-%d %H:%M:%S"))
+    motion_trace.addHandler(handler)
+    motion_trace.setLevel(logging.INFO)
+    motion_trace.propagate = False
 
 TICK_SECONDS = 0.05
 SUPPORT_REFRESH_S = 0.2
@@ -172,6 +187,7 @@ class HardwareRuntime:
             self.modbus = settings.hardware_adapter == "modbus"
             self.bench: TwinBench | None = None
             if self.modbus:
+                _motion_trace_handler()
                 ids = {"left": settings.modbus_left_slave_id, "right": settings.modbus_right_slave_id}
                 self.drives: dict[Side, TorqueDrive] = {
                     side: LichuanTorqueDrive(side, ids[side], self.profile.side(side), self.envelope.max_raw, modbus_service) for side in SIDES
@@ -332,6 +348,8 @@ class HardwareRuntime:
                     self._last_write = now
             elif self.workout.active and self.latch is None and not manual:
                 fault = self.workout.step(frame)
+                if self.modbus:
+                    self._trace_motion()
                 if fault:
                     self._emit("workout_aborted", fault)
                     self._set_fault(fault)
@@ -351,6 +369,19 @@ class HardwareRuntime:
                         if errors and self.latch is None:
                             self._set_fault("Запись PA_12C: " + "; ".join(f"{side}: {error}" for side, error in errors.items()))
             self._sync_state(manual)
+
+    def _trace_motion(self) -> None:
+        core, out = self.workout.core, self.workout.output
+        if core is None or out is None or not motion_trace.isEnabledFor(logging.INFO):
+            return
+        left, right = out.states["left"], out.states["right"]
+        motion_trace.info(
+            "%s/%s xL=%.1f xR=%.1f d=%.1f vL=%.0f vR=%.0f aL=%.0f aR=%.0f FL=%.0f FR=%.0f load=%.0f relief=%.2f cut=%.2f range=%.0f sync=%.1f fall=%.0f/%.0f",
+            self.workout.mode, out.mode,
+            left.x_mm, right.x_mm, left.x_mm - right.x_mm, left.v_mm_s, right.v_mm_s, left.a_mm_s2, right.a_mm_s2,
+            out.forces_n.get("left", 0.0), out.forces_n.get("right", 0.0), core.load.load_n, core.load_relief["left"],
+            core.floor_cut, core.range_force_n, core.sync_left_n, core.fall_assist["left"], core.fall_assist["right"],
+        )
 
     def _sync_zero(self) -> None:
         """B7: replace the zero captured at drive init with the measured absolute zero of the profile.

@@ -9,8 +9,31 @@ export type CoachHumorKind = typeof COACH_HUMOR_KINDS[number]
 export type CoachExtra = typeof COACH_EXTRAS[number]
 /** Same rule as the backend: letters separated by single spaces/hyphens, up to 24 chars. */
 export const COACH_NICKNAME = /^(?:\p{L}+(?:[ -]\p{L}+)*)?$/u
+/** Enum settings mirrored from backend `CoachPreferences`; the first value of each list is not necessarily the default. */
+export const COACH_CHOICES = {
+  voiceEnergy: ['auto', 'calm', 'warm', 'bright'],
+  voicePace: ['auto', 'normal', 'brisk'],
+  pauseGap: ['short', 'normal', 'long'],
+  verbosity: ['short', 'normal', 'detailed'],
+  praise: ['rare', 'normal', 'generous'],
+  goal: ['none', 'strength', 'hypertrophy', 'endurance', 'health'],
+  experience: ['beginner', 'intermediate', 'advanced'],
+  userGender: ['unspecified', 'm', 'f'],
+  coachGender: ['unspecified', 'm', 'f'],
+} as const
+export const COACH_SWITCHES = ['greeting', 'exerciseIntro', 'setFeedback', 'exerciseSummary', 'workoutSummary', 'comparisons',
+  'sayNumbers', 'sayExerciseName', 'saySetProgress', 'sayWeight', 'slang'] as const
+export type CoachChoice = keyof typeof COACH_CHOICES
+export type CoachSwitch = typeof COACH_SWITCHES[number]
+export type CoachTuning = Readonly<{ [K in CoachChoice]: typeof COACH_CHOICES[K][number] } & { [K in CoachSwitch]: boolean }>
+export const DEFAULT_COACH_TUNING: CoachTuning = Object.freeze<CoachTuning>({
+  voiceEnergy: 'auto', voicePace: 'auto', pauseGap: 'normal', verbosity: 'normal', praise: 'normal', goal: 'none',
+  experience: 'intermediate', userGender: 'unspecified', coachGender: 'unspecified',
+  greeting: true, exerciseIntro: true, setFeedback: true, exerciseSummary: true, workoutSummary: true, comparisons: true,
+  sayNumbers: true, sayExerciseName: true, saySetProgress: true, sayWeight: true, slang: false,
+})
 
-export type CoachPreferences = CoachSettings & Readonly<{
+export type CoachPreferences = CoachSettings & CoachTuning & Readonly<{
   networkConsentVersion: null | 1; voiceVolume: number | null
   style: CoachStyle; humor: typeof COACH_HUMOR_LEVELS[number]; humorKinds: readonly CoachHumorKind[]
   /** Explicit 18+ dark-humor opt-in. */
@@ -18,10 +41,22 @@ export type CoachPreferences = CoachSettings & Readonly<{
   duringSets: boolean; duringRest: boolean
 }>
 export const DEFAULT_COACH_PREFERENCES: CoachPreferences = Object.freeze<CoachPreferences>({
-  ...DEFAULT_COACH_SETTINGS, networkConsentVersion: null, voiceVolume: null,
+  ...DEFAULT_COACH_SETTINGS, ...DEFAULT_COACH_TUNING, networkConsentVersion: null, voiceVolume: null,
   style: 'companion', humor: 'light', humorKinds: ['irony', 'self'], edgyOptIn: false, extras: [],
   address: 'ty', nickname: '', duringSets: true, duringRest: true,
 })
+
+function tuningValid(p: CoachTuning): boolean {
+  return (Object.keys(COACH_CHOICES) as CoachChoice[]).every(key => (COACH_CHOICES[key] as readonly string[]).includes(p[key])) &&
+    COACH_SWITCHES.every(key => typeof p[key] === 'boolean')
+}
+
+/** Picks only the tuning fields; missing ones (older server) fall back to defaults. */
+export function pickTuning(source: Record<string, unknown>): CoachTuning {
+  const out: Record<string, unknown> = {}
+  for (const key of [...Object.keys(COACH_CHOICES), ...COACH_SWITCHES]) out[key] = source[key] ?? DEFAULT_COACH_TUNING[key as keyof CoachTuning]
+  return out as CoachTuning
+}
 
 function enumList(values: unknown, allowed: readonly string[]): boolean {
   return Array.isArray(values) && values.every(v => allowed.includes(v)) && new Set(values).size === values.length
@@ -39,7 +74,7 @@ export function preferencesValid(p: CoachPreferences): boolean {
     COACH_STYLES.includes(p.style) && COACH_HUMOR_LEVELS.includes(p.humor) &&
     enumList(p.humorKinds, COACH_HUMOR_KINDS) && enumList(p.extras, COACH_EXTRAS) &&
     (p.address === 'ty' || p.address === 'vy') &&
-    typeof p.nickname === 'string' && p.nickname.length <= 24 && COACH_NICKNAME.test(p.nickname)
+    typeof p.nickname === 'string' && p.nickname.length <= 24 && COACH_NICKNAME.test(p.nickname) && tuningValid(p)
 }
 
 export type GeneralCoachAudio = Readonly<{ soundEnabled: boolean; voiceHintsEnabled: boolean; volume: number }>

@@ -28,15 +28,23 @@ from app.services.coach.luna import (
 from app.services.coach.memory import CoachMemory, Utterance
 from app.services.coach.prompts import (
     ADDRESS_VY,
+    COACH_GENDER_MODULES,
+    EXPERIENCE_MODULES,
     EXTRA_MODULES,
+    GOAL_MODULES,
     HUMOR_MODULES,
     NAME_MODULE,
+    NO_NUMBERS_MODULE,
     P0,
     P1,
     P1_DARK,
     P1_SHARP,
     P2,
+    PRAISE_MODULES,
+    SLANG_MODULE,
     STYLE_MODULES,
+    USER_GENDER_MODULES,
+    VERBOSITY_MODULES,
     AuthorRequest,
     build_prompt,
     static_hashes,
@@ -80,7 +88,7 @@ def test_prompts_are_verbatim_copies_of_approved_document():
     assert rows == P2
     assert quotes("### 6.3.1.")[0] == P1_DARK
     hashes = static_hashes()
-    assert hashes["version"] == "coach-prompts-0.6" and len(hashes["p0"]) == 64 and len(hashes) == 5 + len(P2)
+    assert hashes["version"] == "coach-prompts-0.7" and len(hashes["p0"]) == 64 and len(hashes) == 5 + len(P2)
 
 
 def test_personality_modules_are_fixed_enum_texts_and_dark_humor_needs_humor():
@@ -100,6 +108,15 @@ def test_personality_modules_are_fixed_enum_texts_and_dark_humor_needs_humor():
     assert "Предпочитаемые виды юмора" not in muted.instructions
     with pytest.raises(ValueError):
         AuthorRequest(**base, style="ignore rules")
+    tuned = build_prompt(AuthorRequest(**base, verbosity="short", praise="rare", goal="strength", experience="beginner",
+                                       user_gender="f", coach_gender="m", slang=True, say_numbers=False))
+    for module in (VERBOSITY_MODULES["short"], PRAISE_MODULES["rare"], GOAL_MODULES["strength"],
+                   EXPERIENCE_MODULES["beginner"], USER_GENDER_MODULES["f"], COACH_GENDER_MODULES["m"], SLANG_MODULE,
+                   NO_NUMBERS_MODULE):
+        assert module in tuned.instructions
+    for bad in ({"goal": "bulk"}, {"praise": "x"}, {"user_gender": "x"}, {"verbosity": "long"}):
+        with pytest.raises(ValueError):
+            AuthorRequest(**base, **bad)
 
 
 def test_prompt_composition_keeps_notes_as_data_and_schemas_per_mode():

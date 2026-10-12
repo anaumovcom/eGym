@@ -126,7 +126,7 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
           exerciseSlug: nextExercisePlan.slug,
           calibrationRequired: true,
           rangeConfirmed: setup.setupType === 'bar_range',
-          weightKg: nextExercisePlan.loadSettings.weight,
+          weightKg: nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.recommendedWeightKg ?? nextExercisePlan.loadSettings.weight,
           mode: 'machine',
           targetSet: hasNextSet ? activeSession.currentSetIndex + 2 : 1,
           targetReps: nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.targetMaxReps ?? nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.targetReps ?? nextExercisePlan.loadSettings.reps,

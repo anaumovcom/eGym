@@ -133,7 +133,18 @@ function buildNormalizedWorkoutSummary(
 }
 
 function rebuildExercisePlan(exercise: RuntimeWorkoutSession['exercises'][number]) {
-  if (exercise.kind === 'timed' || exercise.kind === 'group') {
+  if (exercise.kind === 'timed') {
+    // Timed sets: `reps` holds the seconds per set; the setup steppers reshape the plan directly.
+    const settings = exercise.loadSettings
+    return Array.from({ length: Math.max(1, settings.sets) }, (_, index) => ({
+      ...(exercise.plan[index] ?? exercise.plan[exercise.plan.length - 1]),
+      targetSeconds: Math.max(1, settings.reps),
+      weightLabel: 'вес тела',
+      restSeconds: settings.restSeconds,
+    }))
+  }
+
+  if (exercise.kind === 'group') {
     return exercise.plan
   }
 

@@ -145,6 +145,20 @@ describe('new CoachSettingsPanel', () => {
     expect(runtime.setSavedCoachPreferences).not.toHaveBeenCalled()
     expect(screen.queryByText(/Настройки тренера сохранены/)).not.toBeInTheDocument()
   })
+  it('edits and saves extended coach tuning', async () => {
+    fetchMock.mockResolvedValue(reply({ ...defaults, verbosity: 'detailed', sayWeight: false, revision: 2 }))
+    render(<CoachSettingsPanel />); await loaded()
+    expect(screen.getByLabelText('Длина реплик')).toHaveValue('detailed')
+    expect(screen.getByLabelText('Называть рабочий вес')).not.toBeChecked()
+    change('Длина реплик', 'short'); change('Цель тренировок', 'strength'); change('Ваш пол', 'f'); change('Энергия голоса', 'calm')
+    fireEvent.click(screen.getByLabelText('Называть рабочий вес'))
+    fireEvent.click(screen.getByLabelText('Приветствие в начале тренировки'))
+    fetchMock.mockResolvedValue(reply({ ...defaults, revision: 3 }))
+    click('Сохранить настройки тренера')
+    await screen.findByText(/Настройки тренера сохранены/)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).settings).toMatchObject({ verbosity: 'short', goal: 'strength', userGender: 'f',
+      voiceEnergy: 'calm', sayWeight: true, greeting: false })
+  })
   it('requires explicit trainer/network consent and bounds budget', async () => {
     render(<CoachSettingsPanel />); await loaded()
     fireEvent.click(screen.getByLabelText('Включить AI-тренера'))

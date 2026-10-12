@@ -59,16 +59,29 @@ LOAD_RESERVE_SHARE = 0.1  # of the strongest pull: inertia, cushions and the syn
 FALL_STATIC_MARGIN = 1.15  # × static friction down, at rest
 FALL_RAMP_N_PER_S = 60.0
 FALL_DROP_N_PER_S = 400.0  # the user lifts: the assist goes at once
-# range guard of a set: below the lower point the load ramps out and a spring returns the bar up to it…
-FLOOR_K_N_PER_MM = 3.0  # with the downward damper ζ ≈ 0.7 on the 60 kg bar, slow enough for the bus delay
-FLOOR_MAX_N = 200.0
-# …above the upper point a brake stops the bar's momentum and a light spring turns it back down
-CEILING_STOP_MM = 25.0
-CEILING_STOP_MIN_MM = 5.0
-CEILING_BRAKE_MAX_N = 250.0
-CEILING_K_N_PER_MM = 1.0
+# range guard of a set, judged on the bar as a whole (the mean of the sides: per-side decisions near a point give one
+# side its load and not the other, a racking force). Below the lower point the load ramps out, a damper (delay-limited)
+# slows the fall and a soft spring returns the bar up to the point. Its force is small: whatever the law pushes acts a
+# loop delay (~0.12 s on the bench) after the bar has stopped, and 200 N there threw the bar back into the range,
+# where the load came back and dropped it again (the bar bounced on the point)…
+FLOOR_K_N_PER_MM = 3.0
+FLOOR_MAX_N = 120.0
+FLOOR_RETURN_MM_S = 60.0  # …and fades out above this return speed
+# above the upper point a brake stops the bar's momentum within RANGE_STOP_MM
+RANGE_STOP_MM = 25.0
+RANGE_STOP_MIN_MM = 5.0
+RANGE_BRAKE_MAX_N = 250.0
+CEILING_K_N_PER_MM = 1.0  # a light spring turns the bar back down from above the upper point
 CEILING_MAX_N = 60.0
-RANGE_DAMPING_N_PER_MM_S = 0.6  # like the cushions: low enough for 1–3 frames of bus delay
+RANGE_DAMPING_N_PER_MM_S = 0.6  # at most; c·delay/m below FIXED_DAMPING_DELAY_SHARE (the damper acts a loop delay late)
+# side sync in free motion (weightless, training). Under the user's hands the real bar barely couples the sides (skews
+# of 130 mm with no sign of the bench's 4.5 N/mm), so the skew is a free mass on ~0.12 s of bus + torque delay:
+# * a stiff spring (3 N/mm) arrives late and pumps it; an integral on a free mass is worse still (its force follows
+#   the skew rate: the sides were thrown up and down against each other at the ±60 N limit);
+# * a damper is safe up to c·delay/m = FIXED_DAMPING_DELAY_SHARE, and a weak spring with its corner a third of the
+#   damper's crossover (k = c²/(3·m)) only pulls a lasting skew back, slowly.
+# Holds keep the tunable spring (their own springs damp the bar).
+SYNC_SPRING_CORNER = 3.0
 
 
 def _value(item: Measured, default: float | None = None) -> float | None:
@@ -105,7 +118,11 @@ class MotorCore:
         self.calibration_force: dict[Side, float] | None = None
         self.load_relief: dict[Side, float] = {side: 1.0 for side in SIDES}
         self.fall_assist: dict[Side, float] = {side: 0.0 for side in SIDES}
-        self.floor_cut: dict[Side, float] = {side: 0.0 for side in SIDES}  # load ramped out below the set's range
+        self.floor_cut = 0.0  # share of the load ramped out below the set's range
+        self.range_force_n = 0.0  # the range guard's force, the same on both sides
+        self._bar_x_mm = 0.0
+        self.sync_left_n = 0.0  # the sync force of the left side, the right one gets the opposite
+        self._bar_a_mm_s2 = 0.0
         self._dt = 0.0
         self._t: float | None = None
         # free-weight feel
@@ -132,7 +149,7 @@ class MotorCore:
             self.fixed_integral = {side: 0.0 for side in SIDES}
         if mode != before:
             self.fall_assist = {side: 0.0 for side in SIDES}
-            self.floor_cut = {side: 0.0 for side in SIDES}
+            self.floor_cut = 0.0
         if event == "reset":
             for monitor in self.comm.values():
                 monitor.reset()
@@ -190,6 +207,20 @@ class MotorCore:
         if delay > 0:
             wanted = min(wanted, FIXED_DAMPING_DELAY_SHARE * mass / (1000.0 * delay))
         return max(c, wanted)
+
+    def _update_sync(self, output: str, states: dict[Side, ObservedState]) -> None:
+        """Once per tick: the sync force of the left side (the right one gets the opposite)."""
+
+        t = self.tunables
+        if output not in {"weightless", "idle", "train"}:
+            self.sync_left_n = side_sync(states["left"].x_mm, states["right"].x_mm, t.sync_k_n_per_mm, t.sync_max_n)
+            return
+        skew = states["left"].x_mm - states["right"].x_mm
+        skew_rate = states["left"].v_mm_s - states["right"].v_mm_s
+        mass = min(float(self.profile.side(side).moving_mass_kg.value) for side in SIDES) / 1000.0  # N·s²/mm
+        c = FIXED_DAMPING_DELAY_SHARE * mass / self._loop_delay()
+        k = min(t.sync_k_n_per_mm, c * c / (SYNC_SPRING_CORNER * mass))
+        self.sync_left_n = max(-t.sync_max_n, min(t.sync_max_n, -(k * skew + c * skew_rate) / 2))
 
     def _support_force(self, side: Side) -> float:
         profile = self.profile.side(side)
@@ -343,6 +374,9 @@ class MotorCore:
             return CoreOutput("support", dict(self.previous), self.supervisor.mode, states, user_force, phase)
 
         forces: dict[Side, float] = {}
+        self._update_sync(output, states)
+        if output == "train":
+            self._update_range(states)
         for side in SIDES:
             other: Side = "right" if side == "left" else "left"
             state = states[side]
@@ -374,7 +408,7 @@ class MotorCore:
         axial = max(0.0, abs(self.previous[side]) - weight)
         motor_sign = 1 if self.previous[side] >= 0 else -1
         friction = compensation.friction(model, v_ahead, t, x_mm=state.x_mm, axial_excess_n=axial, motor_sign=motor_sign) * self._breakaway_scale(side)
-        sync = side_sync(state.x_mm, other.x_mm, t.sync_k_n_per_mm, t.sync_max_n)
+        sync = self.sync_left_n if side == "left" else -self.sync_left_n
         speed_guard = governor(state.v_mm_s, self.envelope.max_speed_mm_s, self.envelope.max_descent_mm_s)
         if output == "calibrate":
             return (self.calibration_force or {}).get(side, weight)
@@ -402,52 +436,74 @@ class MotorCore:
                 spring += self.fixed_integral[side]
             return weight + friction + spring + sync + speed_guard
         # train
-        descent_onset = 0.6 * self.envelope.max_descent_mm_s
-        if state.v_mm_s < -descent_onset:
-            self.load_relief[side] = max(0.0, self.load_relief[side] - self._dt / LOAD_RELIEF_DROP_S)
-        elif state.v_mm_s > -0.5 * descent_onset:
-            self.load_relief[side] = min(1.0, self.load_relief[side] + self._dt / LOAD_RELIEF_RECOVER_S)
-        load = load_force(self.load, state.x_mm, blend) * self.load_relief[side]
-        inertia = compensation.inertia(float(profile.moving_mass_kg.value), self.virtual_mass_kg, state.a_mm_s2, self.inertia_share(side))
-        load, guard = self._range_guard(side, state, load)
+        load = load_force(self.load, state.x_mm, blend) * self.load_relief[side] * (1.0 - self.floor_cut)
+        # on the bar's acceleration, not the side's: cancelled mass on a skew (delayed, per side) makes it lighter and
+        # livelier, the sides race each other
+        inertia = compensation.inertia(float(profile.moving_mass_kg.value), self.virtual_mass_kg, self._bar_a_mm_s2, self.inertia_share(side))
         fall = self._fall_assist(side, state, load)
-        return weight + friction + inertia - load - fall + guard + sync + speed_guard
+        return weight + friction + inertia - load - fall + self.range_force_n + sync + speed_guard
 
-    def _range_guard(self, side: Side, state: ObservedState, load: float) -> tuple[float, float]:
-        """The set's range: (load, extra force).
+    def _loop_delay(self) -> float:
+        return (_value(self.profile.loop_delay_s, 0.04) or 0.04) + (_value(self.profile.torque_lag_s, 0.0) or 0.0)
 
-        Below the lower point the load ramps out (in time, at the load ramp rate: a position fade of a heavy load
-        would be a stiff spring that rings with the bus delay) and a soft spring with a damper on the fall returns
-        the bar up instead of letting it sink to the stops; the load ramps in again once the bar is lifted back into
-        the range by more than the rep hysteresis (else the bar would bounce on the point). Above the
-        upper point a brake stops the bar's momentum within ``CEILING_STOP_MM`` and a light spring turns it back down.
-        Moving back into the range is not resisted.
+    def _range_damping(self) -> float:
+        mass = min(float(self.profile.side(side).moving_mass_kg.value) for side in SIDES)
+        return min(RANGE_DAMPING_N_PER_MM_S, FIXED_DAMPING_DELAY_SHARE * mass / (1000.0 * self._loop_delay()))
+
+    def _update_range(self, states: dict[Side, ObservedState]) -> None:
+        """Once per tick, on the bar as a whole: the load relief, the floor cut and the range force of both sides.
+
+        A bar running away downwards loses its load (relief). Below the lower point the load ramps out (in time, at
+        the load ramp rate: a position fade of a heavy load would be a stiff spring that rings with the bus delay),
+        a brake stops the fall and a soft spring returns the bar up to the point at no more than
+        ``FLOOR_RETURN_MM_S``; the load ramps in again once the bar is lifted back into the range by more than the
+        rep hysteresis. Above the upper point a brake stops the bar's momentum within ``RANGE_STOP_MM`` and a light
+        spring turns it back down. Moving back into the range is not resisted.
         """
 
+        x = (states["left"].x_mm + states["right"].x_mm) / 2
+        v = (states["left"].v_mm_s + states["right"].v_mm_s) / 2
+        a = (states["left"].a_mm_s2 + states["right"].a_mm_s2) / 2
+        self._bar_x_mm = x
+        self._bar_a_mm_s2 = a
+        descent_onset = 0.6 * self.envelope.max_descent_mm_s
+        relief = self.load_relief["left"]
+        if v < -descent_onset:
+            relief = max(0.0, relief - self._dt / LOAD_RELIEF_DROP_S)
+        elif v > -0.5 * descent_onset:
+            relief = min(1.0, relief + self._dt / LOAD_RELIEF_RECOVER_S)
+        self.load_relief = {side: relief for side in SIDES}
+        self.range_force_n = 0.0
         if not self.load.range_guard:
-            self.floor_cut[side] = 0.0
-            return load, 0.0
-        below = self.load.lower_mm - state.x_mm
-        step = self.tunables.load_ramp_n_per_s * self._dt
-        cut = self.floor_cut[side]
+            self.floor_cut = 0.0
+            return
+        below = self.load.lower_mm - x
+        step = self.tunables.load_ramp_n_per_s * self._dt / max(self.load.load_n, 1.0)
         if below > 0:
-            cut += step
+            self.floor_cut = min(1.0, self.floor_cut + step)
         elif -below > self.tunables.reps_hysteresis_mm:
-            cut -= step  # lifted back into the range (not just bounced off the floor): the load ramps in
-        self.floor_cut[side] = cut = max(0.0, min(cut, max(load, 0.0)))
-        load -= cut
+            self.floor_cut = max(0.0, self.floor_cut - step)  # lifted back into the range: the load ramps in
+        mass = sum(float(self.profile.side(side).moving_mass_kg.value) for side in SIDES) / 2
+        damping = self._range_damping()
+        # the brakes act a loop delay late: sized for the speed by then, gone once the bar will have stopped (a brake
+        # still on after the stop throws the bar back)
+        v_ahead = v + a * self._loop_delay()
         if below > 0:
-            return load, min(FLOOR_K_N_PER_MM * below, FLOOR_MAX_N) + RANGE_DAMPING_N_PER_MM_S * max(-state.v_mm_s, 0.0)
-        above = state.x_mm - self.load.upper_mm
+            spring = min(FLOOR_K_N_PER_MM * below, FLOOR_MAX_N) * max(0.0, min(1.0, (FLOOR_RETURN_MM_S - v) / FLOOR_RETURN_MM_S))
+            self.range_force_n = spring + damping * max(-v, 0.0)
+        if self.floor_cut > 0 and v > 0:
+            # without its load a free bar thrown up off the floor would coast high into the range, meet the load there
+            # and drop again: the damper stays while the load is out (the user lifting feels it instead of the load)
+            self.range_force_n -= damping * self.floor_cut * v
+        if below > 0:
+            return
+        above = x - self.load.upper_mm
         if above > 0:
             brake = 0.0
-            if state.v_mm_s > 0:
-                # the force that stops the bar's momentum (m·v²/2s) within CEILING_STOP_MM of the point, plus a damper
-                room = max(CEILING_STOP_MM - above, CEILING_STOP_MIN_MM)
-                mass = float(self.profile.side(side).moving_mass_kg.value)
-                brake = min(mass * state.v_mm_s**2 / (2000.0 * room), CEILING_BRAKE_MAX_N) + RANGE_DAMPING_N_PER_MM_S * state.v_mm_s
-            return load, -(min(CEILING_K_N_PER_MM * above, CEILING_MAX_N) + brake)
-        return load, 0.0
+            if v > 0 and v_ahead > 0:
+                room = max(RANGE_STOP_MM - above, RANGE_STOP_MIN_MM)
+                brake = min(mass * v_ahead**2 / (2000.0 * room), RANGE_BRAKE_MAX_N) + damping * v
+            self.range_force_n = -(min(CEILING_K_N_PER_MM * above, CEILING_MAX_N) + brake)
 
     def _fall_assist(self, side: Side, state: ObservedState, load: float) -> float:
         """A light load (below the static friction) left alone must sink like a free weight, not stick.
@@ -459,7 +515,7 @@ class MotorCore:
 
         model = self.friction[side]
         assist = self.fall_assist[side]
-        if load <= 1.0 or (self.load.range_guard and state.x_mm < self.load.lower_mm):
+        if load <= 1.0 or (self.load.range_guard and self._bar_x_mm < self.load.lower_mm):
             assist = 0.0  # no load: nothing pulls a free bar down; below the set's range the bar goes up
         elif state.v_mm_s > STILL_MM_S:
             assist = max(0.0, assist - FALL_DROP_N_PER_S * self._dt)

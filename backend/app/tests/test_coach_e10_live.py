@@ -252,6 +252,130 @@ async def test_preferences_shape_opportunities(session_factory):
     assert sink2.of("decision")[-1]["reason"] == "no_window"
 
 
+def add_set(db, exercise_id, set_number, *, actual=10, planned=10, weight=20.0, low=None, high=None):
+    return RuntimeService().save_set_result(db, SetResultSaveSchema(
+        exercise_session_id=exercise_id, set_number=set_number, planned_value=planned, actual_value=actual, reps=actual,
+        weight_kg=weight, tempo_label="unknown", machine_metrics={"completionStatus": "completed"},
+        target_min_reps=low, target_max_reps=high)).set_id
+
+
+def plan(coach, run_id, kind, **kwargs):
+    message = event(kind, run_id, **kwargs)
+    with coach.sessions() as db:
+        return coach.plan(db, live.CoachEvent.model_validate(message["event"]), message.get("refs"),
+                          message.get("context", {}))
+
+
+def test_history_skips_shorter_last_session_and_summaries_are_rich(db_session):
+    _, old_exercise, _ = seed(db_session, days_ago=14, actual=8, planned=8, status="completed")
+    add_set(db_session, old_exercise, 2, actual=7, planned=8)
+    seed(db_session, days_ago=7, actual=9, planned=9, status="completed")  # Only set 1 last time.
+    workout_id, exercise_id, _ = seed(db_session, actual=10, planned=10, status="completed")
+    set_id = add_set(db_session, exercise_id, 2, actual=9, planned=9)
+    saved = history.load_saved_set(db_session, "alexey", set_id, history_consent=True)
+    assert saved.history == "available" and saved.previous.value == 7
+    package = history.exercise_summary(db_session, "alexey", exercise_id, scope_epoch=1, valid_until_ms=10**13)
+    facts = {f.id: f for f in package.facts}
+    assert facts["total"].value == 19 and facts["weight"].value == 20 and facts["planned-sets"].value == 1
+    total = history.workout_summary(db_session, "alexey", workout_id, scope_epoch=1, valid_until_ms=10**13)
+    facts = {f.id: f for f in total.facts}
+    assert facts["total-reps"].value == 19 and facts["exercise-names"].value == "Тяга сверху"
+    assert all(f.ref == f"workout:{workout_id}" for f in total.facts)
+
+
+async def test_equal_results_of_next_sets_are_not_blocked_as_repeats(session_factory):
+    with session_factory() as db:
+        _, exercise_id, first = seed(db, actual=10, planned=10, status="completed")
+        second = add_set(db, exercise_id, 2)
+
+    lines = iter(["Десять повторений, ровно и собранно.", "Снова десять повторений, стабильно держишь план."])
+
+    def speak(body):
+        data = json.loads(body["input"][0]["content"])
+        return {"action": "speak", "intent": data["intent"][0], "topicKey": data["topicKey"], "usedFactIds": ["saved-set"],
+                "silenceReason": None, "delivery": {"energy": "warm", "pace": "normal", "emphasis": "result"},
+                "text": next(lines)}
+
+    coach, sink, run_id = make_coach(session_factory, fake_text=FakeTextAuthor(speak))
+    clock = [time.time() * 1000]
+    coach.now_ms = lambda: clock[0]
+    for ordinal, set_id in ((1, first), (2, second)):
+        await coach.handle(event("set_persisted", run_id, set_ordinal=ordinal, phase="rest", refs={"backendSetId": set_id},
+                                 context={"restMs": 90_000, "restElapsedMs": 1_000}))
+        await settle(coach)
+        start = sink.of("speech_start")[-1]
+        await coach.handle({"type": "playback_started", "generationId": start["generationId"], "durationMs": 2_000})
+        await coach.handle({"type": "playback_completed", "generationId": start["generationId"]})
+        clock[0] += 40_000
+    assert len(sink.of("speech_start")) == 2, sink.json
+    # Only spoken facts are remembered, per saved set.
+    assert set(coach.memory.fact_mentions) == {(f"saved-set@set:{first}", "10"), (f"saved-set@set:{second}", "10")}
+
+
+async def test_saved_set_package_carries_exercise_progress_and_half_kg(session_factory):
+    with session_factory() as db:
+        _, exercise_id, _ = seed(db, actual=10, planned=10, status="completed")
+        set_id = add_set(db, exercise_id, 2, actual=9, planned=12, weight=22.5, low=8, high=12)
+    coach, _, run_id = make_coach(session_factory)
+    op = plan(coach, run_id, "set_persisted", set_ordinal=2, phase="rest", refs={"backendSetId": set_id},
+              context={"nextExerciseName": "Жим ногами"})
+    facts = {f.id: f for f in op.package.facts}
+    assert facts["weight"].numbers == (22.5, 22) and "с половиной" in facts["weight"].claim
+    assert facts["target"].numbers == (8, 12) and facts["exercise"].value == "Тяга сверху"
+    assert facts["next-exercise"].value == "Жим ногами" and all(f.ref == f"set:{set_id}" for f in facts.values())
+    # target_sets=1 in the seed: set 2 is out of plan, so no position facts are invented.
+    assert "set-position" not in facts
+
+
+async def test_context_facts_and_content_switches(session_factory):
+    context = {"exerciseName": "Тяга сверху", "exerciseIndex": 2, "exerciseCount": 4, "totalSets": 3,
+               "targetReps": 10, "weightKg": 30}
+    coach, _, run_id = make_coach(session_factory)
+    ready = plan(coach, run_id, "exercise_ready", context=context)
+    assert {f.id for f in ready.package.facts} == {"exercise", "exercise-position", "plan-sets", "target", "weight"}
+    opening = plan(coach, run_id, "workout_started", context={"exerciseCount": 4, "exerciseName": "Тяга сверху"})
+    assert {f.id for f in opening.package.facts} == {"exercise-count", "exercise"}
+    rest = plan(coach, run_id, "rest_long_opportunity", set_ordinal=3, phase="rest",
+                context={"restMs": 120_000, "restElapsedMs": 10_000, "totalSets": 3, "exerciseName": "Тяга сверху",
+                         "nextExerciseName": "Жим ногами"})
+    assert {f.id for f in rest.package.facts} == {"exercise", "set-position", "sets-left", "next-exercise"}
+    bad = plan(coach, run_id, "exercise_ready", exercise="ex-9",
+               context={"exerciseName": "Lat pulldown", "totalSets": 99, "weightKg": 20.3, "targetReps": True})
+    assert bad.package is None
+
+    picky = CoachPreferences(**HYBRID, say_numbers=False, say_exercise_name=False, greeting=False, set_feedback=False)
+    coach2, _, run2 = make_coach(session_factory, picky)
+    assert plan(coach2, run2, "exercise_ready", context=context).package is None
+    assert plan(coach2, run2, "workout_started") == "disabled"
+    assert plan(coach2, run2, "set_persisted", set_ordinal=1, phase="rest", refs={"backendSetId": 1}) == "disabled"
+    request = coach2._request(plan(coach2, run2, "rep_milestone", set_ordinal=1, phase="active-set"), 10)
+    assert request.say_numbers is False and [f.id for f in request.facts] == ["milestone"]
+
+
+async def test_comparison_switch_and_voice_overrides(session_factory):
+    with session_factory() as db:
+        seed(db, days_ago=7, actual=8, planned=8, status="completed")
+        _, _, set_id = seed(db, actual=10, planned=10, status="completed")
+    prefs = CoachPreferences(**HYBRID, history_consent=True, comparisons=False, voice_energy="calm", voice_pace="brisk",
+                             pause_gap="long", verbosity="short")
+    coach, sink, run_id = make_coach(session_factory, prefs)
+    op = plan(coach, run_id, "set_persisted", set_ordinal=1, phase="rest", refs={"backendSetId": set_id})
+    assert op.candidate.trigger_id == "T36" and op.package.locked_clause is None
+    assert coach.director.gap_scale == 1.6 and coach.director.words_scale == 0.6
+
+    deliveries = []
+
+    class Recording(FakeVoiceStream):
+        def stream(self, text, scope, generation_id, delivery, **kwargs):
+            deliveries.append(delivery)
+            return super().stream(text, scope, generation_id, delivery, **kwargs)
+
+    coach.voice = voice(session_factory, Recording())
+    await coach.handle(event("workout_started", run_id))
+    await settle(coach)
+    assert sink.of("speech_start") and (deliveries[0].energy, deliveries[0].pace) == ("calm", "brisk")
+
+
 async def test_forget_user_clears_live_memory(session_factory):
     coach, _, run_id = make_coach(session_factory)
     coach.memory.note_attempted("set-result")

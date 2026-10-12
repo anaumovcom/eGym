@@ -68,6 +68,7 @@ UNIT_FORMS = {
     "kg": ("m", "килограмм", "килограмма", "килограммов"),
     "sets": ("m", "подход", "подхода", "подходов"),
     "exercises": ("n", "упражнение", "упражнения", "упражнений"),
+    "minutes": ("f", "минута", "минуты", "минут"),
 }
 
 
@@ -87,12 +88,48 @@ class AllowedFact:
     numbers: tuple[float, ...] = ()
     scope_epoch: int = 0
     valid_until_ms: float = float("inf")
+    # Source record ("set:12", "exercise:3"): equal values of different sets are different facts for memory.
+    ref: str = ""
 
     def __post_init__(self):
         if self.id in FORBIDDEN_METRICS:
             raise ValueError("Unvalidated metric cannot become a speech fact")
         if not self.claim or len(self.claim) > 200:
             raise ValueError("Invalid fact claim")
+
+
+def memory_key(fact: AllowedFact) -> str:
+    return f"{fact.id}@{fact.ref}" if fact.ref else fact.id
+
+
+def weight_fact(kg: float | None, *, fact_id: str = "weight", prefix: str = "Вес", **common) -> AllowedFact | None:
+    """Whole or half kilograms only (machine resolution); anything else is not a speakable fact."""
+    if kg is None or isinstance(kg, bool) or not 0 < kg <= 1000:
+        return None
+    steps = round(kg / WEIGHT_RESOLUTION_KG)
+    if abs(steps * WEIGHT_RESOLUTION_KG - kg) > 1e-6:
+        return None
+    whole, half = divmod(steps, 2)
+    if not whole:
+        return None
+    if half:
+        return AllowedFact(fact_id, f"{prefix} {number_words(whole)} с половиной килограмма", "confirmed", whole + 0.5,
+                           "kg", numbers=(whole + 0.5, whole), **common)
+    return AllowedFact(fact_id, f"{prefix} {spoken_quantity(whole, 'kg')}", "confirmed", whole, "kg",
+                       numbers=(whole,), **common)
+
+
+def target_fact(low: int | None, high: int | None, unit: str, *, prefix: str = "План подхода —",
+                **common) -> AllowedFact | None:
+    if type(high) is not int or not 0 < high <= 1000:
+        return None
+    if low is None or low == high:
+        return AllowedFact("target", f"{prefix} {spoken_quantity(high, unit)}", "confirmed", high, unit,
+                           numbers=(high,), **common)
+    if type(low) is not int or not 0 < low < high:
+        return None
+    return AllowedFact("target", f"{prefix} от {low} до {high} {UNIT_FORMS[unit][3]}", "confirmed", f"{low}-{high}",
+                       unit, numbers=(low, high), **common)
 
 
 @dataclass(frozen=True, slots=True)
@@ -113,6 +150,7 @@ class SetResult:
     range_id: str | None = None
     calibration_id: str | None = None
     count_method: str | None = None
+    target_min: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,10 +201,10 @@ class FactPackage:
 
 
 def saved_set_facts(current: SetResult, comparison: Comparison, *, scope_epoch: int, valid_until_ms: float,
-                    history: HistoryStatus = "unavailable", analysis_opt_in: bool = False) -> FactPackage:
+                    history: HistoryStatus = "unavailable", analysis_opt_in: bool = False, ref: str = "") -> FactPackage:
     if not current.confirmed:
         raise ValueError("Only saved acknowledged results build facts")
-    common = {"scope_epoch": scope_epoch, "valid_until_ms": valid_until_ms}
+    common = {"scope_epoch": scope_epoch, "valid_until_ms": valid_until_ms, "ref": ref}
     if current.outcome == "skipped" or not current.value:
         return FactPackage("T38", (AllowedFact("outcome", "Подход пропущен", "confirmed", "skipped", **common),),
                            Comparison("unavailable"), "skipped", history=history)
@@ -178,13 +216,12 @@ def saved_set_facts(current: SetResult, comparison: Comparison, *, scope_epoch: 
     outcome = "partial" if partial else "full"
     facts.append(AllowedFact("outcome", "План подхода выполнен частично" if partial else "План подхода выполнен",
                              "confirmed", outcome, **common))
-    if current.target is not None and current.target_exact:
-        facts.append(AllowedFact("target", f"План подхода — {spoken_quantity(current.target, unit)}", "confirmed",
-                                 current.target, unit, numbers=(current.target,), **common))
-    if current.weight_kg is not None and float(current.weight_kg).is_integer() and current.weight_kg > 0:
-        kg = int(current.weight_kg)
-        facts.append(AllowedFact("weight", f"Вес {spoken_quantity(kg, 'kg')}", "confirmed", kg, "kg",
-                                 numbers=(kg,), **common))
+    if current.target is not None and (current.target_exact or current.target_min is not None):
+        low = current.target if current.target_exact else current.target_min
+        if (target := target_fact(low, current.target, unit, **common)) is not None:
+            facts.append(target)
+    if (weight := weight_fact(current.weight_kg, **common)) is not None:
+        facts.append(weight)
     trigger, clause, locked = ("T37" if partial else "T36"), None, ()
     if comparison.status == "comparable" and comparison.delta is not None:
         previous = current.value - comparison.delta

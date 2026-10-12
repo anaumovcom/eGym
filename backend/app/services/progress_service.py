@@ -298,9 +298,9 @@ class ProgressService:
         total_reps = sum(item.reps for item in history)
         return [
             MetricCardSchema(label="тренировок", value=str(len(workouts)), hint="за период"),
-            MetricCardSchema(label="подходов", value=str(total_sets), hint="сохранено"),
+            MetricCardSchema(label="подходов", value=str(total_sets), hint="выполнено"),
             MetricCardSchema(label="повторов", value=str(total_reps), hint="всего"),
-            MetricCardSchema(label="общий объём", value=f"{total_volume} кг", hint="по history"),
+            MetricCardSchema(label="общий объём", value=f"{total_volume} кг", hint="за период"),
             MetricCardSchema(label="серия", value=f"{self._streak_weeks(workouts)} недели", hint="регулярности"),
             MetricCardSchema(label="лучший день", value=f"{self._best_volume(history)} кг", hint="макс. объём", tone="good"),
         ]

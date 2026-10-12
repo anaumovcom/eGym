@@ -4,8 +4,8 @@ import { useStage4Store } from '@/stores/stage4-store'
 import { coachErrorMessage, coachSettingsApi } from '../lib/settings-api'
 import { isCurrentCoachScope, useCoachSettingsScope } from '../lib/settings-scope'
 import {
-  COACH_EXTRAS, COACH_HUMOR_KINDS, COACH_NICKNAME, COACH_STYLES, DEFAULT_COACH_PREFERENCES, effectiveCoachState, preferencesValid,
-  type CoachExtra, type CoachHumorKind, type CoachPreferences,
+  COACH_CHOICES, COACH_EXTRAS, COACH_HUMOR_KINDS, COACH_NICKNAME, COACH_STYLES, DEFAULT_COACH_PREFERENCES, effectiveCoachState, preferencesValid,
+  type CoachChoice, type CoachExtra, type CoachHumorKind, type CoachPreferences, type CoachSwitch,
 } from '../model/preferences'
 import { CoachOperatorPanel } from './coach-operator-panel'
 import { localAudioRuntime } from '../audio/local-audio-runtime'
@@ -37,6 +37,18 @@ const EXTRA_HINTS: Record<CoachExtra, string> = {
   'pop-culture': 'Сравнения из фильмов, спорта и мультфильмов.',
   trivia: 'Интересное о мышцах и тренировках на отдыхе.',
   breathing: 'На отдыхе напоминает выдохнуть и расслабить плечи.',
+}
+const GENDER_LABELS = { unspecified: 'Не указан', m: 'Мужской', f: 'Женский' } as const
+const CHOICE_LABELS: { [K in CoachChoice]: Record<typeof COACH_CHOICES[K][number], string> } = {
+  voiceEnergy: { auto: 'По ситуации', calm: 'Спокойно', warm: 'Тепло', bright: 'Ярко' },
+  voicePace: { auto: 'По ситуации', normal: 'Обычный', brisk: 'Быстрый' },
+  pauseGap: { short: 'Короткие', normal: 'Обычные', long: 'Длинные' },
+  verbosity: { short: 'Коротко', normal: 'Обычно', detailed: 'Подробно' },
+  praise: { rare: 'Скупо', normal: 'В меру', generous: 'Щедро' },
+  goal: { none: 'Не указана', strength: 'Сила', hypertrophy: 'Рост мышц', endurance: 'Выносливость', health: 'Здоровье и тонус' },
+  experience: { beginner: 'Новичок', intermediate: 'Средний', advanced: 'Опытный' },
+  userGender: GENDER_LABELS,
+  coachGender: GENDER_LABELS,
 }
 
 function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (checked: boolean) => void }) {
@@ -103,6 +115,15 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
     edits.current++
     setDraft(current => ({ ...current, [name]: value }))
     setDirty(true)
+  }
+  function choice<K extends CoachChoice>(name: K, label: string, hint?: string) {
+    const labels = CHOICE_LABELS[name] as Record<string, string>
+    return <Field label={label} hint={hint}><select className="rt-input" value={draft[name]} onChange={event => change(name, event.target.value as CoachPreferences[K])}>
+      {COACH_CHOICES[name].map(value => <option key={value} value={value}>{labels[value]}</option>)}
+    </select></Field>
+  }
+  function flag(name: CoachSwitch, label: string, hint?: string) {
+    return <Toggle label={label} hint={hint} checked={draft[name]} onChange={checked => change(name, checked)} />
   }
   async function hydrate(discard = false) {
     controller.current?.abort()
@@ -176,7 +197,20 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
           <Field label="Громкость тренера"><select className="rt-input" value={draft.voiceVolume === null ? 'inherit' : String(draft.voiceVolume)} onChange={event => change('voiceVolume', event.target.value === 'inherit' ? null : Number(event.target.value))}><option value="inherit">Как общая</option>{[...new Set([0, 0.25, 0.5, 0.75, 1, ...(draft.voiceVolume === null ? [] : [draft.voiceVolume])])].sort((a, b) => a - b).map(volume => <option key={volume} value={volume}>{Math.round(volume * 100)}%</option>)}</select></Field>
           <CoachVoicePackSection slot={draft.voiceProfile} />
         </Group>
+        <Group title="Что озвучивать" note={cloud ? undefined : 'Только с облачным ИИ'}>
+          {flag('greeting', 'Приветствие в начале тренировки')}
+          {flag('exerciseIntro', 'Представлять упражнение')}
+          {flag('setFeedback', 'Комментировать подходы')}
+          {flag('exerciseSummary', 'Итог упражнения')}
+          {flag('workoutSummary', 'Итог тренировки')}
+          {flag('comparisons', 'Сравнивать с прошлыми тренировками', 'Нужна история тренировок и цифры.')}
+          {flag('sayNumbers', 'Называть цифры', 'Повторения, вес, время. Без цифр — только качественные оценки.')}
+          {flag('sayExerciseName', 'Называть упражнение')}
+          {flag('saySetProgress', 'Номер подхода и сколько осталось')}
+          {flag('sayWeight', 'Называть рабочий вес')}
+        </Group>
       </div>
+      <div className="grid gap-3">
       <Group title="Характер и юмор" note={cloud ? undefined : 'Только с облачным ИИ'}>
         <Field label="Стиль тренера" hint={STYLES[draft.style][1]}><select className="rt-input" value={draft.style} onChange={event => change('style', event.target.value as CoachPreferences['style'])}>{COACH_STYLES.map(style => <option key={style} value={style}>{STYLES[style][0]}</option>)}</select></Field>
         <Field label="Обращение"><select className="rt-input" value={draft.address} onChange={event => change('address', event.target.value as CoachPreferences['address'])}><option value="ty">На «ты»</option><option value="vy">На «вы»</option></select></Field>
@@ -189,6 +223,21 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
         <Chips label="Фишки" options={COACH_EXTRAS} labels={EXTRA_LABELS} titles={EXTRA_HINTS} value={draft.extras} onChange={next => change('extras', next)} />
         {draft.extras.length > 0 && <p className="coach-row-hint">{draft.extras.map(extra => EXTRA_HINTS[extra]).join(' ')}</p>}
       </Group>
+      <Group title="Манера речи" note={cloud ? undefined : 'Только с облачным ИИ'}>
+        {choice('voiceEnergy', 'Энергия голоса', '«По ситуации» — тренер сам выбирает тон под момент.')}
+        {choice('voicePace', 'Темп речи')}
+        {choice('pauseGap', 'Паузы между репликами')}
+        {choice('verbosity', 'Длина реплик')}
+        {choice('praise', 'Похвала')}
+        {flag('slang', 'Разговорный сленг', 'Лёгкий спортзальный сленг без мата.')}
+        {choice('coachGender', 'Пол тренера', 'Для согласования слов: «рад» или «рада».')}
+      </Group>
+      <Group title="О спортсмене" note={cloud ? undefined : 'Только с облачным ИИ'}>
+        {choice('goal', 'Цель тренировок')}
+        {choice('experience', 'Опыт')}
+        {choice('userGender', 'Ваш пол', 'Для обращения: «молодец» или «умница», «сделал» или «сделала».')}
+      </Group>
+      </div>
     </div>
     <footer className="coach-footer">
       {issues.length > 0 && <ul role="alert" className="coach-issues">{issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}

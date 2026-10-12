@@ -3,6 +3,7 @@
 import re
 from dataclasses import dataclass
 
+from app.services.coach.facts import memory_key
 from app.services.coach.memory import CoachMemory, words
 from app.services.coach.prompts import EMPHASIS, ENERGY, PACE, SILENCE_REASONS, AuthorRequest
 
@@ -176,7 +177,7 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
         if memory.repeated(final) or memory.opening_blocked(speech or final):
             return _fail("topic_repeat")
         for fact_id in used:
-            if not memory.fact_allowed(fact_id, facts[fact_id].value, summary=req.summary):
+            if not memory.fact_allowed(memory_key(facts[fact_id]), facts[fact_id].value, summary=req.summary):
                 return _fail("fact_repeat")
     return Verdict(True, None, final, tuple(sorted(used)), delivery, "speak")
 

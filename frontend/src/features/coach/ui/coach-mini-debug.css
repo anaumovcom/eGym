@@ -40,7 +40,7 @@
 .coach-local-preview { padding: 16px; border: 1px solid #a78bfa40; border-radius: 16px; background: #8b5cf60a; }
 .coach-local-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* Only coach-bearing headers: let the secondary navigation wrap, not hide STOP/motors. */
-@media (max-width: 1024px) {
+@media (max-width: 899px) {
   .forma-header:has(.coach-mini-debug-trigger) { grid-template-columns: auto minmax(0, 1fr); overflow: visible; }
   .forma-header:has(.coach-mini-debug-trigger) .forma-header-side { grid-column: 1 / -1; flex-wrap: wrap; gap: 8px; }
 }

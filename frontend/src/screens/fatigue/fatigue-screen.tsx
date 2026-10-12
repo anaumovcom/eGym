@@ -111,8 +111,6 @@ export function FatigueScreen() {
             </Button>
           </div>
         </div>
-        <div className="text-sm text-white/45">Данные обновлены: {data.updatedAt}</div>
-        <p className="text-sm text-white/55">{data.recoveryNote}</p>
         <MetricCardGrid items={data.overview} columns="xl:grid-cols-4" />
         <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
           <div className="space-y-6">

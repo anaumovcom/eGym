@@ -3,10 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.models.analytics import ExerciseSession, MuscleFatigueEvent, MuscleFatigueSnapshot, SetResult, WorkoutSession
+from app.models.coach import CoachLedgerRun
 from app.models.enums import (
     DiscomfortLevel,
     ExerciseSessionStatus,
@@ -372,6 +373,74 @@ class RuntimeService:
     def get_workout_summary(self, session: Session, workout_session_id: int) -> RuntimeWorkoutSummarySchema:
         return self.build_workout_summary(session, workout_session_id)
 
+    def delete_workout_session(self, session: Session, *, workout_session_id: int, user_id: str) -> None:
+        """Remove a finished workout from history together with everything derived from it."""
+        workout_session = session.get(WorkoutSession, workout_session_id)
+        if workout_session is None or workout_session.user_id != user_id:
+            raise LookupError("Workout session not found")
+        if workout_session.status == WorkoutSessionStatus.in_progress:
+            raise ValueError("Workout session is still in progress")
+
+        exercises = list(workout_session.exercise_sessions)
+        exercise_ids = [exercise.id for exercise in exercises]
+        set_ids = [result.id for exercise in exercises for result in exercise.set_results]
+        conditions = [MuscleFatigueEvent.workout_session_id == workout_session.id]
+        if exercise_ids:
+            conditions.append(MuscleFatigueEvent.exercise_session_id.in_(exercise_ids))
+        if set_ids:
+            conditions.append(MuscleFatigueEvent.set_result_id.in_(set_ids))
+        events = list(session.scalars(select(MuscleFatigueEvent).where(MuscleFatigueEvent.user_id == user_id, or_(*conditions))))
+        self._remove_fatigue_events(session, user_id, events)
+
+        self._delete_exercise_history(session, user_id, exercises)
+        session.execute(update(CoachLedgerRun).where(CoachLedgerRun.workout_id == workout_session.id).values(workout_id=None))
+        session.delete(workout_session)
+        session.flush()
+        self._refresh_exercise_states(session, user_id, exercises)
+        session.commit()
+
+    def _delete_exercise_history(self, session: Session, user_id: str, exercises: list[ExerciseSession]) -> None:
+        # History rows have no FK to the exercise session; _sync_training_state stamps them with
+        # the exercise finish time or a set's creation time, so match on those per exercise slug.
+        performed_by_slug: dict[str, set[datetime]] = {}
+        for exercise in exercises:
+            if not exercise.set_results:
+                continue
+            candidates = performed_by_slug.setdefault(exercise.exercise_slug, set())
+            if exercise.finished_at is not None:
+                candidates.add(self.fatigue_service.ensure_utc(exercise.finished_at))
+            candidates.update(self.fatigue_service.ensure_utc(result.created_at) for result in exercise.set_results)
+        if not performed_by_slug:
+            return
+        records = session.scalars(
+            select(ExerciseHistoryRecord).where(
+                ExerciseHistoryRecord.user_id == user_id,
+                ExerciseHistoryRecord.exercise_slug.in_(list(performed_by_slug)),
+            )
+        ).all()
+        for record in records:
+            if self.fatigue_service.ensure_utc(record.performed_at) in performed_by_slug[record.exercise_slug]:
+                session.delete(record)
+
+    def _refresh_exercise_states(self, session: Session, user_id: str, exercises: list[ExerciseSession]) -> None:
+        deleted_ids = {exercise.id for exercise in exercises}
+        for slug in {exercise.exercise_slug for exercise in exercises}:
+            state = self._user_state(session, user_id, slug)
+            if state is None:
+                continue
+            metadata = dict(state.calibration_payload or {})
+            last_result = metadata.get("lastResult")
+            if not isinstance(last_result, dict) or last_result.get("exerciseSessionId") not in deleted_ids:
+                continue
+            metadata.pop("lastResult")
+            state.calibration_payload = metadata
+            state.last_performed_at = session.scalar(
+                select(func.max(ExerciseHistoryRecord.performed_at)).where(
+                    ExerciseHistoryRecord.user_id == user_id,
+                    ExerciseHistoryRecord.exercise_slug == slug,
+                )
+            )
+
     def build_exercise_summary(self, exercise_session: ExerciseSession) -> RuntimeExerciseSummarySchema:
         results = sorted(exercise_session.set_results, key=lambda item: item.set_number)
         total_value = sum(item.actual_value for item in results)
@@ -569,39 +638,44 @@ class RuntimeService:
                 )
             )
         )
-        if events:
-            now = datetime.now(UTC)
-            decayed_deltas: dict[str, float] = {}
-            for event in events:
-                event_time = self.fatigue_service.ensure_utc(event.occurred_at)
-                elapsed_hours = max(0.0, (now - event_time).total_seconds() / 3600)
-                decayed_delta = self.fatigue_service.decay_score(event.fatigue_delta, elapsed_hours, event.recovery_half_life_hours)
-                decayed_deltas[event.muscle_id] = decayed_deltas.get(event.muscle_id, 0.0) + decayed_delta
-                session.delete(event)
-
-            session.flush()
-            for muscle_id, delta in decayed_deltas.items():
-                snapshot = session.scalars(
-                    select(MuscleFatigueSnapshot).where(
-                        MuscleFatigueSnapshot.user_id == exercise_session.user_id,
-                        MuscleFatigueSnapshot.muscle_id == muscle_id,
-                    )
-                ).first()
-                if snapshot is None:
-                    continue
-                self.fatigue_service.hydrate_snapshot(snapshot, now)
-                snapshot.fatigue_score = max(0.0, snapshot.fatigue_score - delta)
-                snapshot.last_load_at = session.scalar(
-                    select(func.max(MuscleFatigueEvent.occurred_at)).where(
-                        MuscleFatigueEvent.user_id == exercise_session.user_id,
-                        MuscleFatigueEvent.muscle_id == muscle_id,
-                    )
-                )
+        self._remove_fatigue_events(session, exercise_session.user_id, events)
 
         for set_result in list(exercise_session.set_results):
             session.delete(set_result)
         session.flush()
         session.expire(exercise_session, ["set_results"])
+
+    def _remove_fatigue_events(self, session: Session, user_id: str, events: list[MuscleFatigueEvent]) -> None:
+        """Delete fatigue events and subtract their still-remaining (decayed) load from the snapshots."""
+        if not events:
+            return
+        now = datetime.now(UTC)
+        decayed_deltas: dict[str, float] = {}
+        for event in events:
+            event_time = self.fatigue_service.ensure_utc(event.occurred_at)
+            elapsed_hours = max(0.0, (now - event_time).total_seconds() / 3600)
+            decayed_delta = self.fatigue_service.decay_score(event.fatigue_delta, elapsed_hours, event.recovery_half_life_hours)
+            decayed_deltas[event.muscle_id] = decayed_deltas.get(event.muscle_id, 0.0) + decayed_delta
+            session.delete(event)
+
+        session.flush()
+        for muscle_id, delta in decayed_deltas.items():
+            snapshot = session.scalars(
+                select(MuscleFatigueSnapshot).where(
+                    MuscleFatigueSnapshot.user_id == user_id,
+                    MuscleFatigueSnapshot.muscle_id == muscle_id,
+                )
+            ).first()
+            if snapshot is None:
+                continue
+            self.fatigue_service.hydrate_snapshot(snapshot, now)
+            snapshot.fatigue_score = max(0.0, snapshot.fatigue_score - delta)
+            snapshot.last_load_at = session.scalar(
+                select(func.max(MuscleFatigueEvent.occurred_at)).where(
+                    MuscleFatigueEvent.user_id == user_id,
+                    MuscleFatigueEvent.muscle_id == muscle_id,
+                )
+            )
 
     def _metric_str(self, metrics: dict[str, object], key: str) -> str | None:
         value = metrics.get(key)

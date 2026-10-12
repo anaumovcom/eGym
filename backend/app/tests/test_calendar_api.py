@@ -5,6 +5,11 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session
+
+from app.models.analytics import ExerciseSession, MuscleFatigueEvent, MuscleFatigueSnapshot, SetResult, WorkoutSession
+from app.models.training import ExerciseHistoryRecord, UserExerciseState
 
 
 @pytest.fixture(autouse=True)
@@ -106,7 +111,7 @@ def test_calendar_lists_saved_workouts_by_day_for_the_user(client: TestClient) -
     first, second = day["workouts"]
     assert first["title"] == "Спина и бицепс"
     assert first["status"] == "completed"
-    assert first["duration"] == "45 минут"
+    assert first["duration"] == "45 мин"
     assert first["exerciseCount"] == 2
     assert first["setCount"] == 2
     assert first["volume"] == "1 000 кг"
@@ -134,3 +139,52 @@ def test_calendar_defaults_to_current_month_and_marks_today(client: TestClient) 
 def test_calendar_rejects_invalid_month(client: TestClient) -> None:
     assert client.get("/api/calendar", params={"userId": "alexey", "month": "2026-13"}).status_code == 422
     assert client.get("/api/calendar", params={"userId": "alexey", "month": "05-2026"}).status_code == 422
+
+
+def _history_count(session: Session, slug: str) -> int:
+    return session.scalar(select(func.count()).select_from(ExerciseHistoryRecord).where(ExerciseHistoryRecord.user_id == "alexey", ExerciseHistoryRecord.exercise_slug == slug)) or 0
+
+
+def _fatigue_total(session: Session) -> float:
+    session.expire_all()
+    return sum(item.fatigue_score for item in session.scalars(select(MuscleFatigueSnapshot).where(MuscleFatigueSnapshot.user_id == "alexey")))
+
+
+def test_deleting_workout_removes_it_from_calendar_history_and_fatigue(client: TestClient, db_session: Session) -> None:
+    history_before = _history_count(db_session, "machine-pulldown")
+    fatigue_before = _fatigue_total(db_session)
+    started = datetime(2026, 3, 10, 7, 30, tzinfo=UTC)
+    deleted_id = _save_workout(client, title="Спина и бицепс", status="completed", started_at=started, minutes=45)
+    kept_id = _save_workout(client, title="Ноги", status="partial", started_at=started + timedelta(hours=9), minutes=20, sets=1)
+    exercise_ids = list(db_session.scalars(select(ExerciseSession.id).where(ExerciseSession.workout_session_id == deleted_id)))
+    assert _history_count(db_session, "machine-pulldown") == history_before + 2
+    fatigue_with_both = _fatigue_total(db_session)
+    assert fatigue_with_both > fatigue_before
+
+    assert client.delete(f"/api/runtime/workouts/{deleted_id}", params={"userId": "elena"}).status_code == 404
+    response = client.delete(f"/api/runtime/workouts/{deleted_id}", params={"userId": "alexey"})
+    assert response.status_code == 204
+
+    day = next(item for item in client.get("/api/calendar", params={"userId": "alexey", "month": "2026-03"}).json()["days"] if item["id"] == "2026-03-10")
+    assert [workout["id"] for workout in day["workouts"]] == [kept_id]
+    db_session.expire_all()
+    assert db_session.get(WorkoutSession, deleted_id) is None
+    assert not list(db_session.scalars(select(ExerciseSession).where(ExerciseSession.id.in_(exercise_ids))))
+    assert not list(db_session.scalars(select(SetResult).where(SetResult.exercise_session_id.in_(exercise_ids))))
+    assert not list(db_session.scalars(select(MuscleFatigueEvent).where(MuscleFatigueEvent.exercise_session_id.in_(exercise_ids))))
+    assert _history_count(db_session, "machine-pulldown") == history_before + 1
+    fatigue_after = _fatigue_total(db_session)
+    assert fatigue_before < fatigue_after < fatigue_with_both
+    state = db_session.scalars(select(UserExerciseState).where(UserExerciseState.user_id == "alexey", UserExerciseState.exercise_slug == "machine-pulldown")).one()
+    assert state.calibration_payload["lastResult"]["exerciseSessionId"] not in exercise_ids
+
+    assert client.delete(f"/api/runtime/workouts/{deleted_id}", params={"userId": "alexey"}).status_code == 404
+
+
+def test_deleting_in_progress_workout_is_rejected(client: TestClient) -> None:
+    response = client.post(
+        "/api/runtime/workouts",
+        json={"userId": "alexey", "source": "builder", "title": "Идёт", "status": "in_progress", "startedAt": datetime(2026, 3, 12, 10, 0, tzinfo=UTC).isoformat(), "finishedAt": None, "durationSeconds": 0, "exercises": []},
+    )
+    workout_id = response.json()["workoutSessionId"]
+    assert client.delete(f"/api/runtime/workouts/{workout_id}", params={"userId": "alexey"}).status_code == 409

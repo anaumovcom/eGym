@@ -1,11 +1,11 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { useQuery } from '@tanstack/react-query'
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Check, ChevronLeft, ChevronRight, Clock3, Dumbbell, Layers, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { CalendarDay, CalendarWorkout, WorkoutCalendarData } from '@/entities/calendar/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
-import { apiGet } from '@/shared/api/client'
+import { apiDelete, apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
@@ -31,12 +31,16 @@ export function formatDayTitle(dayId: string) {
   return title.charAt(0).toUpperCase() + title.slice(1)
 }
 
-function workoutsWord(count: number) {
+function plural(count: number, one: string, few: string, many: string) {
   const mod10 = count % 10
   const mod100 = count % 100
-  if (mod10 === 1 && mod100 !== 11) return 'тренировка'
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'тренировки'
-  return 'тренировок'
+  if (mod10 === 1 && mod100 !== 11) return one
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
+  return many
+}
+
+function workoutsWord(count: number) {
+  return plural(count, 'тренировка', 'тренировки', 'тренировок')
 }
 
 export function WorkoutCalendarScreen() {
@@ -70,13 +74,13 @@ export function WorkoutCalendarScreen() {
           <Button variant="secondary" onClick={() => void refetch()}>Повторить</Button>
         </div>
       ) : null}
-      {data ? <MonthJournal key={`${userId}-${data.month}`} data={data} onMonthChange={goToMonth} /> : null}
+      {data ? <MonthJournal key={`${userId}-${data.month}`} userId={userId} data={data} onMonthChange={goToMonth} /> : null}
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
     </FormaShell>
   )
 }
 
-function MonthJournal({ data, onMonthChange }: { data: WorkoutCalendarData; onMonthChange: (month: string | null) => void }) {
+function MonthJournal({ userId, data, onMonthChange }: { userId: string; data: WorkoutCalendarData; onMonthChange: (month: string | null) => void }) {
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
   const selectedDay = data.days.find((day) => day.id === selectedDayId && day.workouts.length > 0) ?? null
@@ -112,12 +116,12 @@ function MonthJournal({ data, onMonthChange }: { data: WorkoutCalendarData; onMo
               <div className="calendar-day-heading">
                 <div>
                   <Dialog.Title className="font-display text-3xl font-bold text-white">{formatDayTitle(selectedDay.id)}</Dialog.Title>
-                  <Dialog.Description className="mt-2 text-sm text-white/60">{selectedDay.workouts.length} {workoutsWord(selectedDay.workouts.length)} · только просмотр сохранённых результатов</Dialog.Description>
+                  <Dialog.Description className="mt-1 text-sm text-white/60">{selectedDay.workouts.length} {workoutsWord(selectedDay.workouts.length)}</Dialog.Description>
                 </div>
                 <Dialog.Close asChild><Button variant="secondary">Закрыть</Button></Dialog.Close>
               </div>
               <div className="calendar-day-workouts">
-                {selectedDay.workouts.map((workout) => <WorkoutRecord key={workout.id} workout={workout} />)}
+                {selectedDay.workouts.map((workout) => <WorkoutRecord key={workout.id} userId={userId} workout={workout} />)}
               </div>
             </> : null}
           </SafetyDialogContent>
@@ -130,10 +134,14 @@ function MonthJournal({ data, onMonthChange }: { data: WorkoutCalendarData; onMo
 function DayCell({ day, onOpen }: { day: CalendarDay; onOpen: (element: HTMLElement) => void }) {
   const count = day.workouts.length
   const label = `${formatDayTitle(day.id)}${count ? `, ${count} ${workoutsWord(count)}` : ''}`
-  const content = <>
-    <span className="calendar-day-number">{day.day}{day.isToday ? <small>сегодня</small> : null}</span>
-    {count ? <span className="calendar-day-mark"><span className="calendar-day-check"><Check aria-hidden="true" />{count > 1 ? <b>×{count}</b> : null}</span><span className="calendar-day-title">{day.workouts[0].title}</span>{count > 1 ? <span className="calendar-day-more">и ещё {count - 1}</span> : null}</span> : null}
-  </>
+  const content = <span className="calendar-day-body">
+    <span className="calendar-day-top">
+      <span className="calendar-day-number">{day.day}</span>
+      {day.isToday ? <small className="calendar-day-today">сегодня</small> : null}
+      {count ? <span className="calendar-day-check"><Check aria-hidden="true" />{count > 1 ? <b>×{count}</b> : null}</span> : null}
+    </span>
+    {count ? <span className="calendar-day-title">{day.workouts[0].title}</span> : null}
+  </span>
   if (!count) {
     return <div role="gridcell" aria-label={label} className="calendar-day" data-in-month={day.inMonth} data-today={day.isToday}>{content}</div>
   }
@@ -144,22 +152,38 @@ function DayCell({ day, onOpen }: { day: CalendarDay; onOpen: (element: HTMLElem
   )
 }
 
-function WorkoutRecord({ workout }: { workout: CalendarWorkout }) {
+function WorkoutRecord({ userId, workout }: { userId: string; workout: CalendarWorkout }) {
+  const queryClient = useQueryClient()
+  const [confirming, setConfirming] = useState(false)
+  const removal = useMutation({
+    mutationFn: () => apiDelete(`/api/runtime/workouts/${workout.id}?userId=${encodeURIComponent(userId)}`),
+    // History feeds the dashboard, progress, fatigue and recommendations, so every cached view is refreshed.
+    onSuccess: () => queryClient.invalidateQueries(),
+  })
+
   return (
-    <article className="calendar-workout" data-status={workout.status} aria-label={workout.title}>
+    <article className="calendar-workout" data-status={workout.status} aria-label={workout.title} aria-busy={removal.isPending}>
       <header>
+        <span className="calendar-workout-time">{workout.timeLabel}</span>
         <h3>{workout.title}</h3>
         <span className="calendar-workout-status">{statusLabels[workout.status]}</span>
+        {!confirming ? <Button variant="ghost" className="calendar-workout-delete" aria-label={`Удалить тренировку ${workout.title}`} onClick={() => setConfirming(true)}><Trash2 aria-hidden="true" /></Button> : null}
       </header>
-      <dl className="calendar-workout-facts">
-        <div><dt>Время</dt><dd>{workout.timeLabel}</dd></div>
-        <div><dt>Длительность</dt><dd>{workout.duration}</dd></div>
-        <div><dt>Объём</dt><dd>{workout.volume}</dd></div>
-        <div><dt>Подходы</dt><dd>{workout.setCount}</dd></div>
-      </dl>
+      <ul className="calendar-workout-facts" aria-label="Итоги">
+        <li><Clock3 aria-hidden="true" />{workout.duration}</li>
+        <li><Layers aria-hidden="true" />{workout.setCount} {plural(workout.setCount, 'подход', 'подхода', 'подходов')}</li>
+        {workout.volume !== '—' ? <li><Dumbbell aria-hidden="true" />{workout.volume}</li> : null}
+      </ul>
       <ol className="calendar-workout-exercises" aria-label={`Упражнения: ${workout.title}`}>
         {workout.exercises.map((exercise, index) => <li key={`${exercise.name}-${index}`} data-status={exercise.status}><span>{exercise.name}</span><span>{exercise.result}</span></li>)}
       </ol>
+      {confirming ? (
+        <div className="calendar-workout-confirm" role="group" aria-label={`Подтверждение удаления: ${workout.title}`}>
+          <p>{removal.isError ? <span role="alert">Не удалось удалить тренировку. Попробуйте ещё раз.</span> : 'Удалить тренировку? Она исчезнет из календаря, прогресса и усталости мышц.'}</p>
+          <Button variant="secondary" disabled={removal.isPending} onClick={() => { removal.reset(); setConfirming(false) }}>Отмена</Button>
+          <Button variant="danger" disabled={removal.isPending} onClick={() => removal.mutate()}>{removal.isPending ? 'Удаление…' : 'Удалить'}</Button>
+        </div>
+      ) : null}
     </article>
   )
 }

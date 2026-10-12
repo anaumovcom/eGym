@@ -10,7 +10,7 @@ import secrets
 import time
 from collections import Counter, deque
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 import httpx
 from fastapi import HTTPException
@@ -22,7 +22,16 @@ from app.schemas.coach import CoachEvent, CoachScope
 from app.schemas.coach_control import CoachPreferences
 from app.services.coach import history, security
 from app.services.coach.director import Candidate, Director
-from app.services.coach.facts import AllowedFact, Comparison, FactPackage, saved_set_facts
+from app.services.coach.facts import (
+    AllowedFact,
+    Comparison,
+    FactPackage,
+    memory_key,
+    saved_set_facts,
+    spoken_quantity,
+    target_fact,
+    weight_fact,
+)
 from app.services.coach.luna import LunaTextAdapter, TextAuthor, text_pricing
 from app.services.coach.memory import CoachMemory, Utterance
 from app.services.coach.prompts import AuthorRequest
@@ -48,6 +57,10 @@ RESULT_TASKS = {"T36": "rest/full-feedback", "T37": "rest/partial-feedback", "T3
                 "T40": "rest/comparison"}
 RESULT_INTENTS = {"T36": ("factual-feedback", "motivation", "humor"), "T37": ("factual-feedback", "motivation"),
                   "T39": ("factual-feedback",), "T40": ("factual-feedback",)}
+GAP_SCALE = {"short": 0.7, "normal": 1.0, "long": 1.6}
+WORDS_SCALE = {"short": 0.6, "normal": 1.0, "detailed": 1.25}
+NAME_FACTS = frozenset({"exercise", "next-exercise", "exercise-names"})
+PROGRESS_FACTS = frozenset({"set-position", "sets-left", "exercise-position", "plan-sets", "planned-sets"})
 
 
 @dataclass(frozen=True)
@@ -88,6 +101,38 @@ def _ref(refs: object, name: str) -> int | None:
     return value if type(value) is int and 0 < value < 2**53 else None
 
 
+def _count(context: dict, name: str, upper: int = 50) -> int | None:
+    value = context.get(name)
+    return value if type(value) is int and 0 < value <= upper else None
+
+
+def _name(context: dict, name: str) -> str | None:
+    value = context.get(name)
+    return history.speakable_name(value if isinstance(value, str) and len(value) <= 120 else None)
+
+
+def _kg(context: dict, name: str) -> float | None:
+    value = context.get(name)
+    return float(value) if isinstance(value, int | float) and not isinstance(value, bool) else None
+
+
+def progress_facts(ordinal: int | None, total: int | None, *, next_exercise: str | None = None,
+                   **common) -> list[AllowedFact]:
+    """Where the user is inside the exercise: set N of M, sets left, what comes next."""
+    found = []
+    if ordinal and total and 0 < ordinal <= total <= 50:
+        found.append(AllowedFact("set-position", f"Подход {ordinal} из {total}", "confirmed", f"{ordinal}/{total}",
+                                 numbers=(ordinal, total), **common))
+        left = total - ordinal
+        found.append(AllowedFact("sets-left", f"Осталось {spoken_quantity(left, 'sets')}", "confirmed", left, "sets",
+                                 numbers=(left,), **common) if left else
+                     AllowedFact("sets-left", "Это был последний подход упражнения", "confirmed", 0, **common))
+    if next_exercise:
+        found.append(AllowedFact("next-exercise", f"Дальше по плану — {next_exercise}", "confirmed", next_exercise,
+                                 **common))
+    return found
+
+
 class LiveCoach:
     def __init__(self, sessions: Callable[[], Session], *, run_id: str, owner: str, generation: int, user_id: str,
                  settings: CoachPreferences, author: TextAuthor | None, voice: VoiceStreamer | None,
@@ -96,11 +141,12 @@ class LiveCoach:
         self.user_id, self.settings, self.author, self.voice = user_id, settings, author, voice
         self.send_json, self.send_bytes, self.now_ms = send_json, send_bytes, now_ms
         self.memory = CoachMemory()
-        self.director = Director(settings.density, self.memory)
+        self.director = Director(settings.density, self.memory, gap_scale=GAP_SCALE[settings.pause_gap],
+                                 words_scale=WORDS_SCALE[settings.verbosity])
         self.task: asyncio.Task | None = None
         self.queued: Opportunity | None = None
         self.seen: set[str] = set()
-        self.acks: dict[str, tuple[Opportunity, str]] = {}
+        self.acks: dict[str, tuple[Opportunity, str, tuple[str, ...]]] = {}
         self.stats = LiveStats()
         self.closed = False
 
@@ -190,10 +236,12 @@ class LiveCoach:
         entry = self.acks.get(gid) if isinstance(gid, str) else None
         if entry is None:
             return
-        op, text = entry
+        op, text, used_ids = entry
         now = self.now_ms()
         self.director.note_audible(now, duration or 2_500, content=True)
-        used = {f.id: f.value for f in (op.package.facts if op.package else ())}
+        # Only facts the line actually spoke are "mentioned"; keys are per source record, so the same
+        # value in the next set (10 reps again) is a new fact, not a repeat.
+        used = {memory_key(f): f.value for f in (op.package.facts if op.package else ()) if f.id in used_ids}
         self.memory.note_started(Utterance(gid, op.candidate.trigger_id, op.candidate.topic_key, text, now,
                                            duration or 2_500, exercise_id=op.exercise_id,
                                            topic_family=op.candidate.topic_family,
@@ -235,49 +283,95 @@ class LiveCoach:
         def op(c: Candidate, task: str, intents: tuple[str, ...], package: FactPackage | None = None) -> Opportunity:
             if self.settings.humor == "off":
                 intents = tuple(i for i in intents if i != "humor") or ("motivation",)
-            return Opportunity(event.id, c, task, intents, scope, package, scope.exercise_id)
+            return Opportunity(event.id, c, task, intents, scope, self._shape(package), scope.exercise_id)
 
+        def plan_package(trigger: str, found: list[AllowedFact | None]) -> FactPackage | None:
+            kept = tuple(f for f in found if f is not None)
+            return FactPackage(trigger, kept, Comparison("unavailable"), "none") if kept else None
+
+        s = self.settings
         epoch, valid = scope.scope_epoch, now + 60_000
+        common = {"scope_epoch": epoch, "valid_until_ms": valid, "ref": f"{event.kind}:{set_key}"}
+        unit = "seconds" if event.exercise_kind in history.TIMED_KINDS else "reps"
+        name = _name(context, "exerciseName")
+        named = AllowedFact("exercise", f"Упражнение — {name}", "confirmed", name, **common) if name else None
         if event.kind == "workout_started":
-            return op(candidate("T01", "setup", "workout-opening", hint=3_000), "setup/opening", ("motivation", "humor"))
+            if not s.greeting:
+                return "disabled"
+            count = _count(context, "exerciseCount")
+            package = plan_package("T01", [
+                AllowedFact("exercise-count", f"В тренировке {spoken_quantity(count, 'exercises')}", "confirmed", count,
+                            "exercises", numbers=(count,), **common) if count else None,
+                AllowedFact("exercise", f"Первое упражнение — {name}", "confirmed", name, **common) if name else None])
+            return op(candidate("T01", "setup", "workout-opening", hint=3_000), "setup/opening", ("motivation", "humor"),
+                      package)
         if event.kind == "exercise_ready":
-            name = history.speakable_name(context.get("exerciseName") if isinstance(context.get("exerciseName"), str) else None)
-            package = None
-            if name:
-                fact = AllowedFact("exercise", f"Упражнение — {name}", "confirmed", name, scope_epoch=epoch,
-                                   valid_until_ms=valid)
-                package = FactPackage("T04", (fact,), Comparison("unavailable"), "none")
+            if not s.exercise_intro:
+                return "disabled"
+            index, count, sets = _count(context, "exerciseIndex"), _count(context, "exerciseCount"), _count(context, "totalSets")
+            position = None
+            if index and count and index <= count and count > 1:
+                position = (AllowedFact("exercise-position", "Это последнее упражнение тренировки", "confirmed", index,
+                                        **common) if index == count else
+                            AllowedFact("exercise-position", f"Упражнение {index} из {count}", "confirmed", f"{index}/{count}",
+                                        numbers=(index, count), **common))
+            exact = _count(context, "targetReps", 1000)
+            low, high = _count(context, "targetMin", 1000), _count(context, "targetMax", 1000)
+            target = (target_fact(exact, exact, unit, prefix="План на подход —", **common) if exact else
+                      target_fact(low, high, unit, prefix="План на подход —", **common) if low and high else None)
+            package = plan_package("T04", [
+                named, position,
+                AllowedFact("plan-sets", f"По плану {spoken_quantity(sets, 'sets')}", "confirmed", sets, "sets",
+                            numbers=(sets,), **common) if sets else None,
+                target, weight_fact(_kg(context, "weightKg"), prefix="Рабочий вес", **common)])
             return op(candidate("T04", "setup", f"exercise-intro:{exercise}", hint=3_000), "setup/opening",
                       ("motivation",), package)
         if event.kind == "rep_milestone":
-            if not self.settings.during_sets:
+            if not s.during_sets:
                 return "disabled"
+            package = plan_package("T21", [
+                named, *progress_facts(scope.set_ordinal, _count(context, "totalSets"), **common)[:1],
+                AllowedFact("milestone", "Половина подхода уже позади", "confirmed", "half", **common)])
             return op(candidate("T21", "active", f"set-support:{set_key}", started=now - phase_elapsed),
-                      "active/support", ("motivation", "humor"))
+                      "active/support", ("motivation", "humor"), package)
         if event.kind == "set_persisted":
+            if not s.set_feedback:
+                return "disabled"
             set_id = _ref(refs, "backendSetId")
             if set_id is None:
                 return "no_source"
-            saved = history.load_saved_set(db, self.user_id, set_id, history_consent=self.settings.history_consent)
-            package = saved_set_facts(saved.current, saved.comparison, scope_epoch=epoch, valid_until_ms=valid,
-                                      history=saved.history)
+            saved = history.load_saved_set(db, self.user_id, set_id, history_consent=s.history_consent)
+            comparison = saved.comparison if s.comparisons and s.say_numbers else Comparison("unavailable")
+            package = saved_set_facts(saved.current, comparison, scope_epoch=epoch, valid_until_ms=valid,
+                                      history=saved.history, ref=f"set:{set_id}")
             if package.trigger_id not in RESULT_TASKS:
                 return None  # Skipped set: local clip territory.
+            set_common = {**common, "ref": f"set:{set_id}"}
+            extra = [AllowedFact("exercise", f"Упражнение — {saved.exercise_name}", "confirmed", saved.exercise_name,
+                                 **set_common)] if saved.exercise_name else []
+            extra += progress_facts(saved.current.ordinal, saved.target_sets or None,
+                                    next_exercise=_name(context, "nextExerciseName"), **set_common)
+            package = replace(package, facts=package.facts + tuple(extra))
             until = now - rest_elapsed + rest_ms - 3_000 if rest_ms else None
             c = candidate(package.trigger_id, "rest", f"set-result:{set_key}", until=until, hint=4_000,
                           started=now - rest_elapsed, length=rest_ms)
             return op(c, RESULT_TASKS[package.trigger_id], RESULT_INTENTS[package.trigger_id], package)
         if event.kind == "rest_long_opportunity":
-            if not self.settings.during_rest:
+            if not s.during_rest:
                 return "disabled"
             if rest_ms is None or rest_ms - rest_elapsed < REST_EXTRA_MIN_MS:
                 return "no_window"
             if any(gid not in self.memory.completed for gid in self.acks if self.acks[gid][0].scope == scope):
                 return "utterance_pending"
+            package = plan_package("T46", [
+                named, *progress_facts(scope.set_ordinal, _count(context, "totalSets"),
+                                       next_exercise=_name(context, "nextExerciseName"), **common)])
             c = candidate("T46", "rest", f"rest-playful:{set_key}", until=now - rest_elapsed + rest_ms - 5_000,
                           hint=4_000, started=now - rest_elapsed, length=rest_ms)
-            return op(c, "rest/playful", ("humor", "motivation"))
+            return op(c, "rest/playful", ("humor", "motivation"), package)
         if event.kind == "exercise_finalized":
+            if not s.exercise_summary:
+                return "disabled"
             exercise_ref = _ref(refs, "backendExerciseId")
             if exercise_ref is None:
                 return "no_source"
@@ -285,6 +379,8 @@ class LiveCoach:
             return op(candidate(package.trigger_id, "summary", f"exercise-summary:{exercise}", hint=4_000),
                       "summary/exercise", ("summary",), package)
         if event.kind == "workout_finalized":
+            if not s.workout_summary:
+                return "disabled"
             workout_ref = _ref(refs, "backendWorkoutId")
             if workout_ref is None:
                 return "no_source"
@@ -292,6 +388,23 @@ class LiveCoach:
             return op(candidate(package.trigger_id, "summary", "workout-summary", hint=6_000),
                       "summary/workout", ("summary",), package)
         return None
+
+    def _shape(self, package: FactPackage | None) -> FactPackage | None:
+        """User 'what to mention' switches drop facts before the model sees them; locked clauses stay intact."""
+        if package is None:
+            return None
+        s = self.settings
+
+        def keep(f: AllowedFact) -> bool:
+            if f.id in package.locked_fact_ids:
+                return True
+            return not ((not s.say_numbers and f.numbers) or (not s.say_exercise_name and f.id in NAME_FACTS)
+                        or (not s.say_set_progress and f.id in PROGRESS_FACTS) or (not s.say_weight and f.id == "weight"))
+
+        kept = tuple(f for f in package.facts if keep(f))
+        if not kept and package.outcome == "none":
+            return None  # Plan-only package with nothing left to say about.
+        return replace(package, facts=kept)
 
     # ---------- pipeline ----------
 
@@ -308,7 +421,9 @@ class LiveCoach:
             summary=op.candidate.trigger_id in SUMMARY_TRIGGERS,
             name_allowed=bool(s.nickname), user_name=s.nickname or None, persona="sharp" if dark else "default",
             style=s.style, humor=s.humor, humor_kinds=tuple(s.humor_kinds), dark_humor=dark,
-            extras=tuple(s.extras), address=s.address)
+            extras=tuple(s.extras), address=s.address, verbosity=s.verbosity, praise=s.praise, goal=s.goal,
+            experience=s.experience, user_gender=s.user_gender, coach_gender=s.coach_gender, slang=s.slang,
+            say_numbers=s.say_numbers)
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:
         try:
@@ -343,11 +458,14 @@ class LiveCoach:
             delivery = Delivery(**(outcome.delivery or {}))
         except (TypeError, ValueError):
             delivery = Delivery()
+        s = self.settings
+        delivery = Delivery(energy=delivery.energy if s.voice_energy == "auto" else s.voice_energy,
+                            pace=delivery.pace if s.voice_pace == "auto" else s.voice_pace, emphasis=delivery.emphasis)
         voice = VoiceOutcome()
         await self.send_json({"type": "speech_start", "eventId": op.event_id, "triggerId": trigger, "generationId": gid,
                               "text": outcome.text, "validForMs": round(valid_for), "sampleRate": 24_000,
                               "source": self.voice.adapter.name})
-        self._remember(gid, op, outcome.text)
+        self._remember(gid, op, outcome.text, outcome.used_fact_ids)
         try:
             async with contextlib.aclosing(self.voice.stream(
                     run_id=self.run_id, owner=self.owner, generation=self.generation, opportunity=opportunity,
@@ -368,8 +486,8 @@ class LiveCoach:
         await self.send_json({"type": "speech_end", "generationId": gid, "status": voice.status,
                               "reason": voice.reason or None, "frames": voice.frames, "firstAudioMs": voice.first_audio_ms})
 
-    def _remember(self, gid: str, op: Opportunity, text: str) -> None:
-        self.acks[gid] = (op, text)
+    def _remember(self, gid: str, op: Opportunity, text: str, used: tuple[str, ...] = ()) -> None:
+        self.acks[gid] = (op, text, tuple(used))
         while len(self.acks) > MAX_PENDING_ACKS:
             self.acks.pop(next(iter(self.acks)))
 

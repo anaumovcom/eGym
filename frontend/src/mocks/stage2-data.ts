@@ -855,7 +855,7 @@ export function getWorkoutCalendarData(month?: string, today = '2026-05-14'): Wo
       startedAt: `${id}T18:05:00Z`,
       finishedAt: `${id}T18:50:00Z`,
       timeLabel: '18:05–18:50',
-      duration: '45 минут',
+      duration: '45 мин',
       exerciseCount: 2,
       setCount: 6,
       volume: '1 850 кг',
@@ -866,7 +866,7 @@ export function getWorkoutCalendarData(month?: string, today = '2026-05-14'): Wo
     }] : []
     if (id === today) {
       workouts.push({
-        id: 99001, title: 'Фуллбоди', status: 'completed', startedAt: `${id}T07:10:00Z`, finishedAt: `${id}T07:40:00Z`, timeLabel: '07:10–07:40', duration: '30 минут',
+        id: 99001, title: 'Фуллбоди', status: 'completed', startedAt: `${id}T07:10:00Z`, finishedAt: `${id}T07:40:00Z`, timeLabel: '07:10–07:40', duration: '30 мин',
         exerciseCount: 1, setCount: 2, volume: '—', exercises: [{ name: 'Планка', status: 'completed', setCount: 2, result: '2 подх. · 90 сек' }],
       })
       workouts.sort((a, b) => a.startedAt.localeCompare(b.startedAt))

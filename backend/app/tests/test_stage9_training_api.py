@@ -285,8 +285,8 @@ def test_builder_load_mode_and_tempo_change_effective_plan_values(client: TestCl
     assert item["sets"] == "3×7"
     assert item["load"] == "36 кг"
     assert item["rest"] == "105 сек"
-    assert payload["selectedExercise"]["setParams"] == {"reps": 10, "weight": 50, "restSeconds": 60}
-    assert payload["selectedExercise"]["effectiveSetParams"] == {"reps": 7, "weight": 36, "restSeconds": 105}
+    assert payload["selectedExercise"]["setParams"] == {"sets": 3, "reps": 10, "weight": 50, "restSeconds": 60}
+    assert payload["selectedExercise"]["effectiveSetParams"] == {"sets": 3, "reps": 7, "weight": 36, "restSeconds": 105}
     assert "снижает" in payload["selectedExercise"]["loadModeDescription"]
     assert "эксцентрики" in payload["selectedExercise"]["tempoDescription"]
 
@@ -508,8 +508,52 @@ def test_builder_duration_is_calculated_from_exercises(client: TestClient) -> No
     assert builder_response.status_code == 200
     payload = builder_response.json()
     duration_card = next(card for card in payload["summaryCards"] if card["label"] == "минут")
-    assert duration_card["value"] == "6"
-    assert payload["info"]["duration"] == "≈ 6 минут"
+    # "3×10" now means exactly three sets in the plan.
+    assert duration_card["value"] == "4"
+    assert payload["info"]["duration"] == "≈ 4 минут"
+
+
+def test_builder_set_count_shapes_strength_plan(client: TestClient) -> None:
+    save_response = client.put(
+        "/api/builder/plan",
+        json={
+            "userId": "alexey",
+            "programId": "back-biceps",
+            "groups": [
+                {
+                    "id": "group-a",
+                    "kind": "single",
+                    "title": "Блок",
+                    "items": [
+                        {"id": "row-1", "slug": "machine-pulldown", "name": "Тяга сверху", "muscleGroup": "Спина", "sets": "4×10", "rest": "60 сек", "load": "45 кг"},
+                        {"id": "bike-1", "slug": "machine-pulldown", "name": "Кардио", "muscleGroup": "Спина", "sets": "1×10", "rest": "60 сек", "load": "вес тела"},
+                    ],
+                }
+            ],
+            "selectedExerciseId": "bike-1",
+            "selectedExercise": {
+                "name": "Кардио",
+                "subtitle": "Спина",
+                "setParams": {"sets": 2, "reps": 10, "weight": 0, "restSeconds": 60, "durationSeconds": 600},
+                "loadType": "timed",
+                "loadMode": "Обычный вес",
+                "tempo": "Обычный",
+                "note": "",
+            },
+        },
+    )
+    assert save_response.status_code == 200
+
+    payload = client.get("/api/builder", params={"userId": "alexey", "programId": "back-biceps", "selectedExerciseId": "bike-1"}).json()
+    row, bike = payload["groups"][0]["items"]
+    assert len(row["strengthPlan"]) == 4
+    assert [s["targetRepsLabel"] for s in row["strengthPlan"][1:]] == ["10", "10", "10"]
+    assert bike["loadType"] == "timed"
+    assert bike["sets"] == "2×600 сек"
+    assert bike["load"] == "вес тела"
+    assert [s["targetRepsLabel"] for s in bike["strengthPlan"]] == ["600 сек", "600 сек"]
+    assert payload["selectedExercise"]["loadType"] == "timed"
+    assert payload["selectedExercise"]["setParams"]["sets"] == 2
 
 
 def test_builder_preserves_empty_group(client: TestClient) -> None:

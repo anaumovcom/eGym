@@ -53,6 +53,28 @@ const REST_EXTRA_MIN_LEFT_S = 40
 const USAGE_EVERY_MS = 15_000
 const PING_EVERY_MS = 20_000
 
+type SessionExercise = RuntimeWorkoutSession['exercises'][number]
+function whole(value: number | null | undefined): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
+}
+/** Plan facts the backend coach may voice when introducing an exercise. */
+function exerciseContext(session: RuntimeWorkoutSession, exercise: SessionExercise): Record<string, unknown> {
+  const first = exercise.plan[0]
+  const exact = whole(exactRepTarget(first)) ?? whole(first?.targetSeconds)
+  const low = whole(first?.targetMinReps), high = whole(first?.targetMaxReps)
+  const weight = first?.recommendedWeightKg
+  return { exerciseName: exercise.name.slice(0, 120), exerciseIndex: session.exercises.indexOf(exercise) + 1,
+    exerciseCount: session.exercises.length, totalSets: exercise.plan.length,
+    ...(exact ? { targetReps: exact } : low && high ? { targetMin: low, targetMax: high } : {}),
+    ...(typeof weight === 'number' && Number.isFinite(weight) && weight > 0 ? { weightKg: weight } : {}) }
+}
+/** Name of the following exercise, only once the last planned set of the current one is done. */
+function nextExercise(session: RuntimeWorkoutSession, exerciseId: string | null, setOrdinal: number | null): Record<string, string> {
+  const index = session.exercises.findIndex(item => item.id === exerciseId)
+  const next = index >= 0 && setOrdinal !== null && setOrdinal >= session.exercises[index].plan.length ? session.exercises[index + 1] : undefined
+  return next ? { nextExerciseName: next.name.slice(0, 120) } : {}
+}
+
 function defaults(): NetworkDependencies {
   return {
     fetch: (url, init) => fetch(url, init),
@@ -402,7 +424,8 @@ export class CoachNetworkClient {
     if (!this.sentKeys.has('workout')) {
       this.sentKeys.add('workout')
       if (exercise) this.sentKeys.add(`exercise:${exercise.id}`) // The opening already covers the first exercise.
-      if (!progress && (input.phase === 'setup' || input.phase === 'waiting-start')) this.emit('workout_started', { ...scope, setOrdinal: null, exerciseId: null }, input, 'setup')
+      if (!progress && (input.phase === 'setup' || input.phase === 'waiting-start')) this.emit('workout_started', { ...scope, setOrdinal: null, exerciseId: null }, input, 'setup',
+        { exerciseCount: session.exercises.length, ...(session.exercises[0] ? { exerciseName: session.exercises[0].name.slice(0, 120) } : {}) })
       return
     }
     if (!exercise) return
@@ -410,7 +433,7 @@ export class CoachNetworkClient {
     if (!this.sentKeys.has(exerciseKey) && (input.phase === 'setup' || input.phase === 'waiting-start')) {
       this.sentKeys.add(exerciseKey)
       if (!(session.completedSets[exercise.id]?.length)) {
-        this.emit('exercise_ready', { ...scope, setOrdinal: null }, input, 'setup', { exerciseName: exercise.name.slice(0, 120) })
+        this.emit('exercise_ready', { ...scope, setOrdinal: null }, input, 'setup', exerciseContext(session, exercise))
         return
       }
     }
@@ -420,7 +443,7 @@ export class CoachNetworkClient {
       const reps = input.reps
       if (target !== null && target >= 8 && reps !== null && reps >= Math.ceil(target / 2) && reps <= target - 2) {
         this.sentKeys.add(`milestone:${setKey}`)
-        this.emit('rep_milestone', scope, input, 'active-set', { phaseElapsedMs: 0 }, 'reps')
+        this.emit('rep_milestone', scope, input, 'active-set', { phaseElapsedMs: 0, exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length }, 'reps')
       }
     }
     const rest = session.restState
@@ -428,16 +451,18 @@ export class CoachNetworkClient {
       const elapsed = rest.totalSeconds - rest.remainingSeconds
       if (elapsed >= REST_EXTRA_MIN_ELAPSED_S && rest.remainingSeconds >= REST_EXTRA_MIN_LEFT_S) {
         this.sentKeys.add(`rest:${setKey}`)
-        this.emit('rest_long_opportunity', scope, input, 'rest', { restMs: rest.totalSeconds * 1000, restElapsedMs: elapsed * 1000 })
+        this.emit('rest_long_opportunity', scope, input, 'rest', { restMs: rest.totalSeconds * 1000, restElapsedMs: elapsed * 1000,
+          exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length, ...nextExercise(session, exercise.id, scope.setOrdinal) })
       }
     }
   }
 
-  private restContext(session: RuntimeWorkoutSession, exerciseId: string | null, setOrdinal: number | null): Record<string, number> {
+  private restContext(session: RuntimeWorkoutSession, exerciseId: string | null, setOrdinal: number | null): Record<string, unknown> {
+    const next = nextExercise(session, exerciseId, setOrdinal)
     const rest = session.restState
-    if (rest) return { restMs: rest.totalSeconds * 1000, restElapsedMs: Math.max(0, rest.totalSeconds - rest.remainingSeconds) * 1000 }
+    if (rest) return { restMs: rest.totalSeconds * 1000, restElapsedMs: Math.max(0, rest.totalSeconds - rest.remainingSeconds) * 1000, ...next }
     const plan = session.exercises.find(item => item.id === exerciseId)?.plan[(setOrdinal ?? 1) - 1]
-    return plan && Number.isFinite(plan.restSeconds) && plan.restSeconds > 0 ? { restMs: plan.restSeconds * 1000, restElapsedMs: 0 } : {}
+    return plan && Number.isFinite(plan.restSeconds) && plan.restSeconds > 0 ? { restMs: plan.restSeconds * 1000, restElapsedMs: 0, ...next } : next
   }
 
   private emit(kind: CoachEventKind, scope: CoachScope, input: NetworkTick, phase: CoachPhase, context: Record<string, unknown> = {},

@@ -23,6 +23,30 @@ class CoachPreferences(CoachSettings):
     nickname: str = Field(default="", max_length=24, pattern=r"^(?:[^\W\d_]+(?:[ -][^\W\d_]+)*)?$")
     during_sets: bool = True
     during_rest: bool = True
+    # Voice delivery: "auto" keeps the author's per-line choice.
+    voice_energy: Literal["auto", "calm", "warm", "bright"] = "auto"
+    voice_pace: Literal["auto", "normal", "brisk"] = "auto"
+    pause_gap: Literal["short", "normal", "long"] = "normal"
+    verbosity: Literal["short", "normal", "detailed"] = "normal"
+    # Which moments may be voiced.
+    greeting: bool = True
+    exercise_intro: bool = True
+    set_feedback: bool = True
+    exercise_summary: bool = True
+    workout_summary: bool = True
+    # What the coach may mention (filters server facts before they reach the model).
+    comparisons: bool = True
+    say_numbers: bool = True
+    say_exercise_name: bool = True
+    say_set_progress: bool = True
+    say_weight: bool = True
+    # Fixed prompt modules chosen by enum.
+    praise: Literal["rare", "normal", "generous"] = "normal"
+    goal: Literal["none", "strength", "hypertrophy", "endurance", "health"] = "none"
+    experience: Literal["beginner", "intermediate", "advanced"] = "intermediate"
+    user_gender: Literal["unspecified", "m", "f"] = "unspecified"
+    coach_gender: Literal["unspecified", "m", "f"] = "unspecified"
+    slang: bool = False
 
     @model_validator(mode="after")
     def validate_consent(self):

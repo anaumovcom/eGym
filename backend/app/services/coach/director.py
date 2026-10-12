@@ -74,10 +74,11 @@ class Admission:
 
 class Director:
     def __init__(self, profile: DensityName = "companion", memory: CoachMemory | None = None, *,
-                 live_latency_ms: float = 1_500):
+                 live_latency_ms: float = 1_500, gap_scale: float = 1.0, words_scale: float = 1.0):
         self.profile = PROFILES[profile]
         self.memory = memory or CoachMemory()
         self.live_latency_ms = live_latency_ms
+        self.gap_scale, self.words_scale = gap_scale, words_scale
         self.trigger_counts: dict[tuple[str, str], int] = {}
         self.group_counts: dict[tuple[str, str], int] = {}
         self.slot_counts: dict[tuple[str, str], int] = {}
@@ -122,7 +123,10 @@ class Director:
                 (spec.group, group_scope), 0) >= 1:
             return Admission(False, "cooldown")
         if live:
-            if self.last_start_ms is not None and now_ms - self.last_start_ms < self.profile.min_start_gap_ms:
+            # A summary closes an exercise/workout right after the last set feedback; the mixer queues it,
+            # so the start gap must not swallow it.
+            if c.phase != "summary" and self.last_start_ms is not None and (
+                    now_ms - self.last_start_ms < self.profile.min_start_gap_ms * self.gap_scale):
                 return Admission(False, "cooldown")
         elif spec.group == "set-support" and self.last_local_support_ms is not None and (
                 now_ms - self.last_local_support_ms < self.profile.local_support_gap_ms):
@@ -150,7 +154,7 @@ class Director:
             return Admission(False, "no_window")
         low, high = self.profile.words_set if c.phase == "active" else (12, 25) if c.phase == "setup" else self.profile.words_rest
         fit = int(remaining / 1000 * WORDS_PER_SECOND)
-        max_words = min(high, fit)
+        max_words = min(max(1, round(high * self.words_scale)), fit)
         if live and max_words < min(low, 4):
             return Admission(False, "no_window")
         return Admission(True, None, max_words, live)

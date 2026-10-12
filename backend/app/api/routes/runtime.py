@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
@@ -60,6 +60,20 @@ def get_exercise_summary(exercise_session_id: int, session: Session = Depends(ge
         return runtime_service.get_exercise_summary(session, exercise_session_id)
     except LookupError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+
+@router.delete("/runtime/workouts/{workout_session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_workout_session(
+    workout_session_id: int,
+    user_id: str = Query(..., alias="userId"),
+    session: Session = Depends(get_session),
+) -> None:
+    try:
+        runtime_service.delete_workout_session(session, workout_session_id=workout_session_id, user_id=user_id)
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
 
 
 @router.get("/runtime/workouts/{workout_session_id}/summary", response_model=RuntimeWorkoutSummarySchema)

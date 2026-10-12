@@ -637,7 +637,7 @@ class TrainingService:
             started_at=workout_session.started_at.astimezone(UTC) if workout_session.started_at.tzinfo else workout_session.started_at.replace(tzinfo=UTC),
             finished_at=(workout_session.finished_at.astimezone(UTC) if workout_session.finished_at.tzinfo else workout_session.finished_at.replace(tzinfo=UTC)) if workout_session.finished_at else None,
             time_label=f"{local_started:%H:%M}–{finished_local:%H:%M}" if finished_local else f"{local_started:%H:%M}",
-            duration=f"{duration_minutes} минут" if duration_minutes else "—",
+            duration=f"{duration_minutes} мин" if duration_minutes else "—",
             exercise_count=len(exercises),
             set_count=len(set_results),
             volume=f"{volume:,} кг".replace(",", " ") if volume > 0 else "—",
@@ -743,9 +743,9 @@ class TrainingService:
             selected_item = next((item for group in groups for item in group.items if item.id == payload.selected_exercise_id), None)
             if selected_item is not None:
                 exercise = get_imported_exercise(selected_item.slug)
-                load_type = self._builder_load_type(exercise)
+                load_type = payload.selected_exercise.load_type or selected_item.load_type or self._builder_load_type(exercise)
                 default_target = self._parse_builder_target_value(selected_item.sets, selected_item.load, self._default_builder_target_value(exercise))
-                editor = self._normalize_builder_editor(payload.selected_exercise, load_type, default_target)
+                editor = self._normalize_builder_editor(payload.selected_exercise, load_type, default_target, self._builder_item_set_count(selected_item, load_type))
                 groups = self._apply_builder_editor_to_groups(groups, payload.selected_exercise_id, editor)
                 editors[str(payload.selected_exercise_id)] = editor.model_dump(mode="json", by_alias=True)
             else:
@@ -802,10 +802,10 @@ class TrainingService:
                 exercise = get_imported_exercise(item.slug)
                 if exercise is None:
                     continue
-                load_type = self._builder_load_type(exercise)
-                sets = self._parse_builder_set_count(item.sets)
+                load_type = item.load_type or self._builder_load_type(exercise)
+                sets = self._builder_item_set_count(item, load_type)
                 target_value = self._parse_builder_target_value(item.sets, item.load, self._default_builder_target_value(exercise))
-                duration_seconds = self._parse_builder_duration(item.sets)
+                duration_seconds = self._parse_builder_duration(item.sets) if load_type == "timed" else None
                 rest_seconds = self._parse_builder_rest(item.rest)
                 weight = self._parse_weight(item.load)
                 if load_type == "weighted" and weight <= 0 and duration_seconds is None:
@@ -817,6 +817,7 @@ class TrainingService:
                     strength_day_type,
                     load_type,
                     {
+                        "sets": sets,
                         "reps": target_value,
                         "weight": int(round(weight)),
                         "restSeconds": rest_seconds,
@@ -872,14 +873,15 @@ class TrainingService:
         settings: ExerciseLoadSettingsSchema,
     ) -> BuilderExerciseEditorSchema:
         exercise = get_imported_exercise(selected_item.slug)
-        load_type = self._builder_load_type(exercise)
+        load_type = selected_item.load_type or self._builder_load_type(exercise)
         default_target = self._parse_builder_target_value(selected_item.sets, selected_item.load, self._default_builder_target_value(exercise))
+        default_sets = self._builder_item_set_count(selected_item, load_type)
         value = self._builder_setting_value(session, user_id, program_id).get("editors")
         raw_editor = value.get(selected_item.id) if isinstance(value, dict) else None
         if isinstance(raw_editor, dict):
             try:
                 editor = BuilderExerciseEditorSchema.model_validate(raw_editor)
-                return self._normalize_builder_editor(editor, load_type, default_target)
+                return self._normalize_builder_editor(editor, editor.load_type or load_type, default_target, default_sets)
             except ValidationError:
                 pass
 
@@ -903,7 +905,7 @@ class TrainingService:
             strength_plan=selected_item.strength_plan,
             note=state.notes if state and state.notes else "Следить за техникой и не терять контроль в нижней точке.",
         )
-        return self._normalize_builder_editor(editor, load_type, default_target)
+        return self._normalize_builder_editor(editor, load_type, default_target, default_sets)
 
     def _empty_builder_editor(self, workout_name: str) -> BuilderExerciseEditorSchema:
         return BuilderExerciseEditorSchema(
@@ -1013,18 +1015,17 @@ class TrainingService:
         slug = slug.strip("-")
         return slug or "workout"
 
-    def _normalize_builder_editor(self, editor: BuilderExerciseEditorSchema, load_type: str, default_target: int) -> BuilderExerciseEditorSchema:
+    def _normalize_builder_editor(self, editor: BuilderExerciseEditorSchema, load_type: str, default_target: int, default_sets: int = 3) -> BuilderExerciseEditorSchema:
         set_params = dict(editor.set_params)
         normalized_set_params = {
+            "sets": self._coerce_builder_int(set_params.get("sets"), default_sets, 1),
             "reps": self._coerce_builder_int(set_params.get("reps"), default_target, 1),
             "weight": self._coerce_builder_int(set_params.get("weight"), 0, 0),
             "restSeconds": self._coerce_builder_int(set_params.get("restSeconds"), 60, 15),
         }
         duration_seconds = self._coerce_builder_optional_int(set_params.get("durationSeconds"), 1)
-        if duration_seconds is not None:
-            normalized_set_params["durationSeconds"] = duration_seconds
-        elif load_type == "timed":
-            normalized_set_params["durationSeconds"] = default_target
+        if load_type == "timed":
+            normalized_set_params["durationSeconds"] = duration_seconds if duration_seconds is not None else default_target
 
         strength_mode_id = self._normalize_strength_mode_id(editor.strength_mode_id)
         strength_day_type = self._normalize_strength_day_type(strength_mode_id, editor.strength_day_type)
@@ -1054,6 +1055,49 @@ class TrainingService:
         return day_type if day_type in {"light", "medium", "heavy"} else "medium"
 
     def _builder_strength_plan(self, mode_id: str, day_type: str | None, load_type: str, set_params: dict[str, int]) -> list[BuilderStrengthSetPlanSchema]:
+        """Mode template, reshaped to the user's set count when one is given (mirrors the frontend)."""
+        sets = set_params.get("sets")
+        template = self._builder_strength_template(mode_id, day_type, load_type, set_params, sets is not None)
+        if sets is None:
+            return template
+
+        total = max(1, int(sets))
+        if load_type == "timed":
+            seconds = max(1, int(set_params.get("durationSeconds") or set_params.get("reps", 45)))
+            return [
+                BuilderStrengthSetPlanSchema(
+                    set_number=index,
+                    set_type="work",
+                    label="Подход",
+                    target_reps_label=f"{seconds} сек",
+                    recommended_weight_label="вес тела",
+                    rest_seconds=max(15, int(set_params.get("restSeconds", 60))),
+                    rir_label="ровный темп",
+                    note="Держите заданное время без потери техники.",
+                )
+                for index in range(1, total + 1)
+            ]
+        return self._resize_builder_strength_plan(template, total, mode_id)
+
+    def _resize_builder_strength_plan(self, template: list[BuilderStrengthSetPlanSchema], total: int, mode_id: str) -> list[BuilderStrengthSetPlanSchema]:
+        warmups = [item for item in template if item.set_type == "warmup"]
+        failures = [item for item in template if item.set_type == "failure"]
+        work = [item for item in template if item.set_type == "work"]
+        warmup_count = min(len(warmups), max(0, total - 2))
+        failure_count = min(len(failures), max(0, total - warmup_count - 1))
+        work_count = total - warmup_count - failure_count
+        work_source = work or failures[:1]
+        if work_count <= len(work_source):
+            chosen_work = work_source[len(work_source) - work_count:] if mode_id == "straight_pyramid" else work_source[:work_count]
+        else:
+            chosen_work = work_source + [work_source[-1]] * (work_count - len(work_source))
+        chosen_warmups = warmups[len(warmups) - warmup_count:] if warmup_count else []
+        return [
+            item.model_copy(update={"set_number": index, "label": f"Круг {index}" if item.label.startswith("Круг ") else item.label})
+            for index, item in enumerate([*chosen_warmups, *chosen_work, *failures[:failure_count]], start=1)
+        ]
+
+    def _builder_strength_template(self, mode_id: str, day_type: str | None, load_type: str, set_params: dict[str, int], use_target_reps: bool) -> list[BuilderStrengthSetPlanSchema]:
         reps = max(1, int(set_params.get("reps", 10)))
         rest_seconds = max(15, int(set_params.get("restSeconds", 90)))
         weight = max(0, int(set_params.get("weight", 0)))
@@ -1117,11 +1161,13 @@ class TrainingService:
                 return [item(index, "work", "Тяжёлый день", "4–8", 1.0, 180, "1–2 в запасе", "Отдых длиннее, отказ не нужен.") for index in range(1, 5)]
             return [item(index, "work", "Средний день", "8–12", 0.9, 90, "1–3 в запасе", "Средняя нагрузка без перегруза.") for index in range(1, 4)]
 
+        work_rest = max(60, min(rest_seconds, 120))
+        work_target = str(reps) if use_target_reps else "8–12"
         return [
             item(1, "warmup", "Разминка", target_range(max(8, reps - 2), max(10, reps)), 0.5, 60, "4–5 в запасе", "Лёгкий разминочный подход."),
-            item(2, "work", "Рабочий подход", "8–12", 1.0, max(60, min(rest_seconds, 120)), "1–3 в запасе", "Стабильная техника без отказа."),
-            item(3, "work", "Рабочий подход", "8–12", 1.0, max(60, min(rest_seconds, 120)), "1–3 в запасе", "Сохранять амплитуду."),
-            item(4, "work", "Рабочий подход", "8–12", 1.0, max(60, min(rest_seconds, 120)), "1–3 в запасе", "Остановиться до потери техники."),
+            item(2, "work", "Рабочий подход", work_target, 1.0, work_rest, "1–3 в запасе", "Стабильная техника без отказа."),
+            item(3, "work", "Рабочий подход", work_target, 1.0, work_rest, "1–3 в запасе", "Сохранять амплитуду."),
+            item(4, "work", "Рабочий подход", work_target, 1.0, work_rest, "1–3 в запасе", "Остановиться до потери техники."),
         ]
 
     def _apply_builder_editor_to_groups(self, groups: list[BuilderWorkoutGroupSchema], selected_exercise_id: str, editor: BuilderExerciseEditorSchema) -> list[BuilderWorkoutGroupSchema]:
@@ -1143,7 +1189,7 @@ class TrainingService:
                     item.model_copy(
                         update={
                             "load_type": load_type,
-                            "sets": self._format_builder_sets(load_type, self._parse_builder_set_count(item.sets), effective_set_params["reps"], effective_set_params.get("durationSeconds")),
+                            "sets": self._format_builder_sets(load_type, effective_set_params.get("sets") or self._parse_builder_set_count(item.sets), effective_set_params["reps"], effective_set_params.get("durationSeconds")),
                             "load": self._format_builder_load(load_type, effective_set_params["weight"]),
                             "rest": f"{effective_set_params['restSeconds']} сек",
                             "strength_mode_id": strength_mode_id,
@@ -1166,6 +1212,8 @@ class TrainingService:
         duration_seconds = set_params.get("durationSeconds")
         if duration_seconds is not None:
             result["durationSeconds"] = max(1, int(round(duration_seconds * load_mode_rule["duration_factor"] * tempo_rule["duration_factor"])))
+        if set_params.get("sets") is not None:
+            result["sets"] = max(1, int(set_params["sets"]))
         return result
 
     def _builder_load_mode_rule(self, load_mode: str) -> dict[str, float | int | str]:
@@ -1281,14 +1329,19 @@ class TrainingService:
         if load_type == "timed" and duration_seconds is not None:
             return f"{max(1, sets)}×{max(1, duration_seconds)} сек"
 
-        duration_suffix = f" · {max(1, duration_seconds)} сек" if duration_seconds is not None else ""
-        return f"{max(1, sets)}×{max(1, target_value)}{duration_suffix}"
+        return f"{max(1, sets)}×{max(1, target_value)}"
 
     def _parse_builder_set_count(self, value: str) -> int:
         match = re.search(r"(\d+)", value)
         if match:
             return max(1, int(match.group(1)))
         return 3
+
+    def _builder_item_set_count(self, item: BuilderExerciseItemSchema, load_type: str) -> int:
+        # The saved plan is the source of truth for strength sets; timed items keep the "N×" prefix.
+        if item.strength_plan and load_type != "timed":
+            return len(item.strength_plan)
+        return self._parse_builder_set_count(item.sets)
 
     def _parse_builder_target_value(self, sets_value: str, load_value: str, default: int) -> int:
         sets_match = re.search(r"[×x]\s*(\d+)", sets_value, re.IGNORECASE)

@@ -1,5 +1,6 @@
 ﻿import { useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Dumbbell, Minus, Plus, SkipForward, Timer } from 'lucide-react'
+import * as Dialog from '@radix-ui/react-dialog'
+import { AlertTriangle, CheckCircle2, Dumbbell, Minus, Pause, Play, Plus, RotateCcw, SkipForward, Timer } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { ExerciseDetails } from '@/entities/exercise/model/types'
@@ -7,6 +8,7 @@ import type { HardwareCalibration, HardwareMotionTelemetry } from '@/features/ha
 import type { RuntimeExerciseOutcome, RuntimeExerciseSessionState, RuntimeExerciseSummaryState, RuntimeSetResult, RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { hasMovableMachineLoad, supportsFixedBarSetup } from '@/features/runtime/lib/runtime-exercise'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
+import { formatTimedSeconds, formatTimerClock } from '@/features/runtime/lib/timed-set'
 import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
 import { saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
 import { captureRuntimeLifecycle, coachLifecycle } from '@/features/coach/lib/runtime-observation'
@@ -17,6 +19,7 @@ import { apiGet, apiPost } from '@/shared/api/client'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
+import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { FormaState } from '@/shared/ui/status/forma-state'
 import { ExerciseVideoPlayer } from '@/shared/ui/stage2/screen-components'
@@ -209,6 +212,11 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const [calibrationBusy, setCalibrationBusy] = useState(false)
   const [jogHolding, setJogHolding] = useState(false)
   const [calibrationDirty, setCalibrationDirty] = useState(false)
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false)
+  // Timed sets: elapsed time is accumulated across pauses; `timerStartedAt` is set while the clock runs.
+  const [timerElapsedMs, setTimerElapsedMs] = useState(0)
+  const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
+  const [timerNow, setTimerNow] = useState(() => Date.now())
 
   useEffect(() => {
     if (snapshot?.safety.state === 'emergency_stop') {
@@ -239,12 +247,17 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       ? Math.max(0, liveMotion.repetitionCount + repAdjustment)
       : clamp(liveMotion.repetitionCount + repAdjustment, 0, plannedValue)
     : null
-  const factValue = state.kind !== 'timed' && correctedLiveRepetitionCount != null
-    ? correctedLiveRepetitionCount
-    : actualReps
-  const taskValue = state.kind === 'timed' ? `${state.currentValue} сек` : targetText
-  const progressPercent = state.kind === 'timed'
-    ? Math.round(((plannedValue - state.currentValue) / Math.max(1, plannedValue)) * 100)
+  const isTimed = state.kind === 'timed'
+  const timerElapsedSeconds = Math.floor((timerElapsedMs + (timerStartedAt != null ? Math.max(0, timerNow - timerStartedAt) : 0)) / 1000)
+  const timerRunning = timerStartedAt != null
+  const factValue = isTimed
+    ? timerElapsedSeconds
+    : correctedLiveRepetitionCount != null
+      ? correctedLiveRepetitionCount
+      : actualReps
+  const taskValue = isTimed ? formatTimedSeconds(plannedValue) : targetText
+  const progressPercent = isTimed
+    ? Math.round((timerElapsedSeconds / Math.max(1, plannedValue)) * 100)
     : correctedLiveRepetitionCount != null && liveMotion
       ? Math.round((correctedLiveRepetitionCount / Math.max(1, plannedValue)) * 100)
       : Math.round((state.currentValue / Math.max(1, plannedValue)) * 100)
@@ -256,9 +269,36 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         { label: 'Позиция', value: `${Math.round(liveMotion.barPositionMm)} мм`, tone: 'neutral' as const },
         { label: 'Синхронность', value: `${syncDeltaMm?.toFixed(1) ?? '0.0'} мм`, tone: (syncDeltaMm ?? 0) <= 5 ? 'good' as const : 'warning' as const },
       ]
-    : state.metrics
+    : isTimed
+      ? [
+          { label: 'Цель', value: formatTimedSeconds(plannedValue), tone: 'neutral' as const },
+          { label: 'Прошло', value: formatTimerClock(timerElapsedSeconds), tone: timerElapsedSeconds >= plannedValue ? 'good' as const : 'neutral' as const },
+          { label: 'Подход', value: `${state.setNumber} из ${state.totalSets}`, tone: 'neutral' as const },
+        ]
+      : state.metrics
   const motionRail = isMachineExercise && !isFixedExercise ? buildMotionRail(liveMotion, activeCalibration) : null
   const showWeightControl = isMachineExercise || actualWeight > 0
+  const controlMode = snapshot?.control?.mode
+  const motorSetActive = controlMode === 'moving' || controlMode === 'start_hold' || controlMode === 'training' || controlMode === 'paused' || controlMode === 'fixed_hold'
+  const sentWeightRef = useRef<number | null>(null)
+
+  // the motor follows the weight of the set shown here (the plan's per-set weight, the stepper during the set)
+  useEffect(() => {
+    if (!isMachineExercise || !selectedUserId || !motorSetActive || pendingAction || sentWeightRef.current === actualWeight) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      sentWeightRef.current = actualWeight
+      runCommand({ action: 'set_load', userId: selectedUserId, exerciseSlug: exercise.slug, mode: 'machine', weightKg: actualWeight })
+        .catch((error) => {
+          sentWeightRef.current = null
+          setHardwareError(error instanceof Error ? error.message : 'Не удалось изменить нагрузку.')
+        })
+    }, 400)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [actualWeight, exercise.slug, isMachineExercise, motorSetActive, pendingAction, runCommand, selectedUserId, setHardwareError])
 
   useEffect(() => {
     if (!supportsFixedBarSetup(exercise) || !selectedUserId) {
@@ -286,7 +326,45 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     setActualReps(liveMotion?.repetitionCount ?? state.currentValue)
     setRepAdjustment(0)
     setActualWeight(setPlan.recommendedWeightKg ?? parseWeightLabel(state.weightLabel))
+    setTimerElapsedMs(0)
+    setTimerStartedAt(null)
   }, [exercise.id, state.setNumber])
+
+  useEffect(() => {
+    if (timerStartedAt == null) {
+      return
+    }
+    const intervalId = window.setInterval(() => setTimerNow(Date.now()), 250)
+    return () => window.clearInterval(intervalId)
+  }, [timerStartedAt])
+
+  // A timed set finishes by itself when the countdown reaches zero.
+  useEffect(() => {
+    if (!isTimed || timerStartedAt == null || timerElapsedSeconds < plannedValue || autoFinishTriggeredRef.current || pendingAction) {
+      return
+    }
+    autoFinishTriggeredRef.current = true
+    setTimerElapsedMs((current) => current + Math.max(0, Date.now() - timerStartedAt))
+    setTimerStartedAt(null)
+    playRepCountedSound()
+    void handleRecordFact('completed')
+  }, [isTimed, pendingAction, plannedValue, timerElapsedSeconds, timerStartedAt])
+
+  function toggleTimer() {
+    const now = Date.now()
+    if (timerStartedAt != null) {
+      setTimerElapsedMs((current) => current + Math.max(0, now - timerStartedAt))
+      setTimerStartedAt(null)
+    } else {
+      setTimerNow(now)
+      setTimerStartedAt(now)
+    }
+  }
+
+  function resetTimer() {
+    setTimerElapsedMs(0)
+    setTimerStartedAt(null)
+  }
 
   useEffect(() => {
     if (!liveMotion) {
@@ -373,7 +451,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     setCalibrationBusy(true)
     setHardwareError(null)
     try {
-      await runCommand({ action: 'resume', userId: selectedUserId, exerciseSlug: exercise.slug, calibrationRequired: true, mode: 'machine', weightKg: exercise.loadSettings.weight })
+      await runCommand({ action: 'resume', userId: selectedUserId, exerciseSlug: exercise.slug, calibrationRequired: true, mode: 'machine', weightKg: actualWeight })
       setEditingPoint(null)
     } catch (error) {
       setHardwareError(error instanceof Error ? error.message : 'Не удалось продолжить подход.')
@@ -570,12 +648,20 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   }
 
   function handleFinishSet() {
+    // Finishing a timed set without the timer means it was timed elsewhere: count it as done.
+    if (isTimed && timerElapsedSeconds === 0) {
+      return handleRecordFact('completed')
+    }
+    setTimerStartedAt(null)
     return handleRecordFact(factValue >= plannedValue ? 'completed' : 'partial')
   }
 
   const errorMessage = saveError ?? hardwareError
   const setTypeLabel = getSetTypeLabel(state.setType)
   const factLabel = state.kind === 'timed' ? 'Секунды' : 'Повторы'
+  const nextExercise = !state.groupMeta && state.setNumber >= state.totalSets
+    ? activeSession.exercises[activeSession.exercises.indexOf(exercise) + 1]
+    : undefined
 
   return (
     <FormaShell
@@ -599,11 +685,13 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
               <span>Подход {state.setNumber} из {state.totalSets}</span>
               {setTypeLabel ? <span>{setTypeLabel}</span> : null}
               <span>Отдых после подхода {setPlan.restSeconds} с</span>
+              {nextExercise ? <span>Следующее упражнение: {nextExercise.name}</span> : null}
             </p>
           </div>
           <div className="rt-chips" aria-label="Текущий подход">
-            <span className="rt-chip" data-tone="good"><Dumbbell aria-hidden="true" />{state.weightLabel}</span>
-            {state.kind === 'timed' ? <span className="rt-chip"><Timer aria-hidden="true" />{taskValue}</span> : null}
+            {isTimed
+              ? <span className="rt-chip" data-tone="good"><Timer aria-hidden="true" />{taskValue}</span>
+              : <span className="rt-chip" data-tone="good"><Dumbbell aria-hidden="true" />{state.weightLabel}</span>}
           </div>
         </header>
 
@@ -635,12 +723,24 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
           </div>
 
           <section className="rt-panel rt-session-center" aria-label="Текущий подход">
-            <RepCounter
-              label={factLabel}
-              value={factValue}
-              targetText={targetText}
-              onChange={changeFactValue}
-            />
+            {isTimed ? (
+              <TimedSetClock
+                remainingSeconds={Math.max(0, plannedValue - timerElapsedSeconds)}
+                elapsedSeconds={timerElapsedSeconds}
+                plannedSeconds={plannedValue}
+                running={timerRunning}
+                disabled={pendingAction !== null}
+                onToggle={toggleTimer}
+                onReset={resetTimer}
+              />
+            ) : (
+              <RepCounter
+                label={factLabel}
+                value={factValue}
+                targetText={targetText}
+                onChange={changeFactValue}
+              />
+            )}
             <div className="rt-progress" role="progressbar" aria-label="Прогресс подхода" aria-valuemin={0} aria-valuemax={100} aria-valuenow={clamp(progressPercent, 0, 100)}>
               <div style={{ width: `${clamp(progressPercent, 0, 100)}%` }} />
             </div>
@@ -664,10 +764,11 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
               </div>
             </div>
             {machineHold ? (
-              <div className="mt-4 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-300/40 bg-amber-300/10 p-3" role="status" aria-label="Гриф удерживается">
-                <div className="min-w-0 flex-1">
-                  <strong className="block text-sm">{machineHold.label || 'Удержание'} · повторы не засчитываются</strong>
-                  {machineHold.message ? <span className="text-xs text-white/70">{machineHold.message}</span> : null}
+              <div className="rt-alert mt-4" data-tone="warning" role="status" aria-label="Гриф удерживается">
+                <AlertTriangle aria-hidden="true" />
+                <div className="min-w-0">
+                  <strong>{machineHold.label || 'Удержание'} · повторы не засчитываются</strong>
+                  <p>{machineHold.message || 'Гриф зафиксирован. Когда будете готовы, нажмите «Продолжить подход».'}</p>
                 </div>
                 <Button disabled={calibrationBusy} onClick={() => void resumeAfterHold()}>Продолжить подход</Button>
               </div>
@@ -710,7 +811,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         </div>
 
         <div className="rt-actions" role="group" aria-label="Действия с подходом">
-          <Button variant="secondary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy} iconLeft={<SkipForward aria-hidden="true" />} onClick={() => void handleRecordFact('skipped')}>
+          <Button variant="secondary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy} iconLeft={<SkipForward aria-hidden="true" />} onClick={() => setSkipDialogOpen(true)}>
             {pendingAction === 'skipped' ? 'Сохраняю…' : 'Пропустить упражнение'}
           </Button>
           <div className="rt-actions-note">
@@ -721,6 +822,28 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
           </Button>
         </div>
       </div>
+
+      <Dialog.Root open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="builder-dialog">
+            <Dialog.Title className="font-display text-3xl font-bold">Пропустить упражнение?</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/70">Выполненные подходы сохранятся, оставшиеся будут пропущены.</Dialog.Description>
+            <div className="builder-dialog-actions">
+              <Dialog.Close asChild><Button variant="secondary">Продолжить подход</Button></Dialog.Close>
+              <Button
+                disabled={pendingAction !== null}
+                onClick={() => {
+                  setSkipDialogOpen(false)
+                  void handleRecordFact('skipped')
+                }}
+              >
+                Пропустить
+              </Button>
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
 
       <EmergencyStopOverlay
         open={emergencyStopActive}
@@ -733,6 +856,24 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         }}
       />
     </FormaShell>
+  )
+}
+
+function TimedSetClock({ remainingSeconds, elapsedSeconds, plannedSeconds, running, disabled, onToggle, onReset }: { remainingSeconds: number; elapsedSeconds: number; plannedSeconds: number; running: boolean; disabled: boolean; onToggle: () => void; onReset: () => void }) {
+  const started = running || elapsedSeconds > 0
+  return (
+    <div className="rt-timer" role="group" aria-label="Таймер подхода" data-running={running}>
+      <div className="rt-timer-value">
+        <strong role="timer" aria-label="Осталось" aria-live="off">{formatTimerClock(remainingSeconds)}</strong>
+        <span>осталось · цель <strong>{formatTimedSeconds(plannedSeconds)}</strong></span>
+      </div>
+      <div className="rt-timer-actions">
+        <Button className="rt-primary" disabled={disabled} iconLeft={running ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />} onClick={onToggle}>
+          {running ? 'Пауза' : started ? 'Продолжить' : 'Старт'}
+        </Button>
+        <Button variant="secondary" disabled={disabled || !started} iconLeft={<RotateCcw aria-hidden="true" />} onClick={onReset}>Сбросить</Button>
+      </div>
+    </div>
   )
 }
 

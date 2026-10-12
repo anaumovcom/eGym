@@ -41,10 +41,10 @@ for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 10
     const dialog = page.getByRole('dialog', { name: /Четверг, 14 мая 2026 г\./ })
     await expect(dialog).toBeVisible()
     await expect(dialog.getByRole('article')).toHaveCount(2)
-    await expect(dialog.getByText(/только просмотр/)).toBeVisible()
     await expect(dialog.getByRole('button', { name: 'Аварийная остановка', exact: true })).toBeInViewport()
     await expect(page.getByRole('button', { name: 'Аварийная остановка', exact: true })).toHaveCount(1)
-    await expect(dialog.getByRole('button', { name: /Начать|Изменить|Убрать|Удалить|Повторить/ })).toHaveCount(0)
+    await expect(dialog.getByRole('button', { name: /^Удалить тренировку / })).toHaveCount(2)
+    await expect(dialog.getByRole('button', { name: /Начать|Изменить|Убрать|Повторить/ })).toHaveCount(0)
     const panel = (await page.locator('.calendar-day-panel').boundingBox())!
     const dock = (await page.locator('.forma-system-dock').boundingBox())!
     expect(panel.y).toBeGreaterThanOrEqual(dock.y + dock.height)

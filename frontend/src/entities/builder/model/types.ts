@@ -4,6 +4,7 @@ export type BuilderGroupKind = 'single' | 'alternating' | 'superset' | 'circuit'
 export type BuilderLoadType = 'weighted' | 'bodyweight' | 'timed'
 
 export type BuilderSetParams = {
+  sets?: number
   reps: number
   weight: number
   restSeconds: number

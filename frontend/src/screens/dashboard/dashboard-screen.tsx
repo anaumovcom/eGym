@@ -1,12 +1,14 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Clock3, Dumbbell, Plus } from 'lucide-react'
+import { ArrowRight, Clock3, ListChecks, Play, Plus } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { DashboardBuilderWorkout, DashboardData } from '@/entities/dashboard/model/types'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { getRuntimeResumeView, isSessionInCurrentTrainingDay, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
 import { apiGet } from '@/shared/api/client'
+import { exerciseCountLabel, shortDuration } from '@/shared/lib/ru-format'
+import { workoutBadge } from '@/entities/dashboard/lib/workout-badge'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
@@ -99,6 +101,7 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
   const resumable = selectedWorkout ? canResumeWorkout(runtimeSession, selectedWorkout) : false
   const continueAvailable = resumable
   const serverProgressOnly = !resumable && (selectedWorkout?.todayStatus === 'in_progress' || selectedWorkout?.resumeAvailable === true)
+  const resumableWorkout = workouts.find((workout) => canResumeWorkout(runtimeSession, workout))
 
   function handleConfirm(workout: DashboardBuilderWorkout) {
     if (!workout.exercises.length || confirmingRef.current) return
@@ -119,16 +122,39 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
   return (
     <section className="home-workouts" aria-labelledby="home-workouts-title">
       <header className="home-heading">
-        <h1 id="home-workouts-title" className="font-display font-bold text-white">Какую тренировку выберете?</h1>
+        <div className="min-w-0">
+          <h1 id="home-workouts-title" className="font-display font-bold text-white">Какую тренировку выберете?</h1>
+          {workouts.length ? <p>Нажмите на карточку, чтобы посмотреть упражнения и начать</p> : null}
+        </div>
+        <div className="home-heading-actions">
+          {resumableWorkout ? (
+            <Button
+              iconLeft={<Play aria-hidden="true" />}
+              aria-haspopup="dialog"
+              onClick={(event) => {
+                triggerRef.current = event.currentTarget
+                confirmingRef.current = false
+                setSelectedId(resumableWorkout.id)
+              }}
+            >
+              Продолжить «{resumableWorkout.title}»
+            </Button>
+          ) : null}
+          <Button variant="secondary" iconLeft={<Plus aria-hidden="true" />} onClick={() => navigate('/builder?create=new')}>Новая тренировка</Button>
+        </div>
       </header>
       {workouts.length === 0 ? <p className="text-center text-white/60">Тренировки не найдены. Создайте первую и добавьте упражнения.</p> : null}
       <div className="home-workouts-layout">
       <div className="home-workout-grid" data-count={workouts.length}>
-        {workouts.map((workout, index) => (
+        {workouts.map((workout) => {
+          const badge = workoutBadge(workout, canResumeWorkout(runtimeSession, workout))
+          const count = workout.exercises.length
+          return (
           <button
             key={workout.id}
             type="button"
             className="home-workout-card"
+            data-tone={badge.tone}
             aria-label={`Выбрать тренировку «${workout.title}»`}
             aria-haspopup="dialog"
             onClick={(event) => {
@@ -137,21 +163,24 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
               setSelectedId(workout.id)
             }}
           >
-            <span className="home-card-top"><span className="home-card-icon"><Dumbbell aria-hidden="true" /></span><span className="text-xs text-white/60">{String(index + 1).padStart(2, '0')}</span></span>
+            <span className="home-card-badge" data-tone={badge.tone}>{badge.label}</span>
             <span className="home-card-title">{workout.title}</span>
-            <span className="home-card-exercises">{workout.exercises.length ? workout.exercises.slice(0, 3).map((exercise) => exercise.name).join(' · ') : 'Пока нет упражнений'}</span>
-            {workout.exercises.length > 3 ? <span className="text-xs text-white/60">Ещё {workout.exercises.length - 3}</span> : null}
-            <span className="home-card-meta"><span className="inline-flex items-center gap-2"><Clock3 aria-hidden="true" className="h-5 w-5" />{workout.duration}</span><span>{workoutStatus(workout, canResumeWorkout(runtimeSession, workout))}</span></span>
-            <span className="home-card-select">Выбрать <ArrowRight aria-hidden="true" className="h-5 w-5" /></span>
+            <span className="home-card-exercises">
+              {count ? <>
+                {workout.exercises.slice(0, 3).map((exercise) => exercise.name).join(' · ')}
+                {count > 3 ? <span className="home-card-more"> и ещё {count - 3}</span> : null}
+              </> : 'Пока нет упражнений'}
+            </span>
+            <span className="home-card-footer">
+              <span className="home-card-meta">
+                <span><ListChecks aria-hidden="true" />{exerciseCountLabel(count)}</span>
+                <span><Clock3 aria-hidden="true" />{shortDuration(workout.duration)}</span>
+              </span>
+              <span className="home-card-select">{count ? 'Начать' : 'Добавить'} <ArrowRight aria-hidden="true" /></span>
+            </span>
           </button>
-        ))}
-        {workouts.length < 4 ? (
-          <button type="button" className="home-workout-card home-create-card" onClick={() => navigate('/builder?create=new')}>
-            <Plus aria-hidden="true" />
-            <span className="home-card-title">Новая тренировка</span>
-            <span className="text-sm text-white/60">Соберите свой набор упражнений</span>
-          </button>
-        ) : null}
+          )
+        })}
       </div>
       <HomeRecovery muscles={muscles} figureGender={selectedUserId === 'elena' ? 'female' : 'male'} />
       </div>
@@ -165,7 +194,7 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
           }}>
             {selectedWorkout ? <>
               <Dialog.Title className="font-display text-3xl font-bold text-white">{selectedWorkout.title}</Dialog.Title>
-              <Dialog.Description className="mt-3 text-base text-white/60">{selectedWorkout.duration} · {workoutStatus(selectedWorkout, resumable)}</Dialog.Description>
+              <Dialog.Description className="mt-3 text-base text-white/60">{shortDuration(selectedWorkout.duration)} · {workoutStatus(selectedWorkout, resumable)}</Dialog.Description>
               <ol className="home-confirm-exercises">
                 {selectedWorkout.exercises.map((exercise, index) => <li key={`${exercise.slug}-${index}`}><span className="text-white/60">{index + 1}.</span> {exercise.name}</li>)}
               </ol>

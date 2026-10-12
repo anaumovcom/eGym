@@ -125,7 +125,7 @@ describe('DashboardView', () => {
     expect(screen.getByText('Ошибка правого привода')).toBeInTheDocument()
   })
 
-  it.each([0, 3, 4, 5])('renders all %i workout cards and offers creation only below four', async (count) => {
+  it.each([0, 3, 4, 6])('renders all %i workout cards and always offers creation in the header', async (count) => {
     const user = userEvent.setup()
     const workouts = Array.from({ length: count }, (_, index) => makeWorkout(index + 1))
     const expectStoresUnchanged = captureStores()
@@ -140,16 +140,12 @@ describe('DashboardView', () => {
     expect(navigateMock).not.toHaveBeenCalled()
     expectStoresUnchanged()
 
-    const create = screen.queryByRole('button', { name: /Новая тренировка/ })
-    if (count < 4) {
-      expect(create).toBeVisible()
-      await user.click(create!)
-      expect(navigateMock).toHaveBeenCalledTimes(1)
-      expect(navigateMock).toHaveBeenCalledWith('/builder?create=new')
-      expectStoresUnchanged()
-    } else {
-      expect(create).not.toBeInTheDocument()
-    }
+    const create = screen.getByRole('button', { name: /Новая тренировка/ })
+    expect(create).toBeVisible()
+    await user.click(create)
+    expect(navigateMock).toHaveBeenCalledTimes(1)
+    expect(navigateMock).toHaveBeenCalledWith('/builder?create=new')
+    expectStoresUnchanged()
   })
 
   it('always shows the recovery map without a summary, dialog, statistics or daily reset controls', () => {

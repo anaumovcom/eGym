@@ -19,6 +19,17 @@ describe('Coach-only safe fetch', () => {
     expect(await api.get('actual-user', abort)).toEqual(defaults)
     expect(fetchMock).toHaveBeenCalledWith('/api/coach/users/actual-user/settings', expect.objectContaining({ credentials: 'include', signal: expect.any(AbortSignal), method: 'GET' }))
   })
+  it('reads extended tuning, defaults missing fields and rejects invalid values', async () => {
+    fetchMock.mockResolvedValue(reply({ ...defaults, goal: 'strength', slang: true }))
+    expect(await api.get('u', signal())).toMatchObject({ goal: 'strength', slang: true })
+    const { verbosity: _verbosity, sayNumbers: _sayNumbers, ...older } = defaults
+    fetchMock.mockResolvedValue(reply(older))
+    expect(await api.get('u', signal())).toEqual(defaults)
+    fetchMock.mockResolvedValue(reply({ ...defaults, praise: 'endless' }))
+    await expect(api.get('u', signal())).rejects.toMatchObject({ code: 'invalid_response' })
+    fetchMock.mockResolvedValue(reply({ ...defaults, sayWeight: 'yes' }))
+    await expect(api.get('u', signal())).rejects.toMatchObject({ code: 'invalid_response' })
+  })
   it.each(['../../credentials', 'https://example.org', 'user/path', '', 'user?query'])('rejects unsafe user paths %s without fetching', async id => {
     await expect(api.get(id, signal())).rejects.toMatchObject({ code: 'request_failed' })
     expect(fetchMock).not.toHaveBeenCalled()

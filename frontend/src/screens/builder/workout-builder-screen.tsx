@@ -1,15 +1,19 @@
 import * as Dialog from '@radix-ui/react-dialog'
+import * as Popover from '@radix-ui/react-popover'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Dumbbell, Flame, Gauge, OctagonAlert, Plus, Repeat2, Replace, Settings2, SlidersHorizontal, Target, Timer, Trash2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock3, CloudOff, Dumbbell, Flame, Gauge, ListChecks, LoaderCircle, OctagonAlert, Plus, Repeat2, Replace, Settings2, SlidersHorizontal, Target, Timer, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { BuilderExerciseEditor, BuilderExerciseItem, BuilderGroupKind, BuilderLoadType, BuilderWorkoutGroup, WorkoutBuilderData } from '@/entities/builder/model/types'
+import { workoutBadge } from '@/entities/dashboard/lib/workout-badge'
+import type { DashboardData } from '@/entities/dashboard/model/types'
 import type { ExerciseDetails } from '@/entities/exercise/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { StrengthSetPlan, StrengthSetType, StrengthTrainingMode } from '@/entities/strength/model/types'
 import { buildStrengthPlan, getSetTypeLabel, normalizeStrengthDayType, normalizeStrengthModeId } from '@/features/strength/lib/strength-plan'
 import { apiDelete, apiGet, apiPost, apiPut } from '@/shared/api/client'
 import { cn } from '@/shared/lib/cn'
+import { exerciseCountLabel, shortDuration } from '@/shared/lib/ru-format'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
@@ -91,6 +95,13 @@ export function WorkoutBuilderScreen() {
       return apiGet<WorkoutBuilderData>(`/api/builder?${params.toString()}`).then(normalizeBuilderData)
     },
     placeholderData: keepPreviousData,
+  })
+  // Same cache entry as the home screen: exercise count, duration and last run for list cards.
+  const { data: dashboard } = useQuery({
+    queryKey: ['dashboard', resolvedUserId, 'default'],
+    queryFn: () => apiGet<DashboardData>(`/api/dashboard?userId=${encodeURIComponent(resolvedUserId)}&scenario=default`),
+    enabled: !selectedProgramIdParam,
+    retry: false,
   })
 
   const [groups, setGroups] = useState(data?.groups ?? [])
@@ -553,14 +564,16 @@ export function WorkoutBuilderScreen() {
     const durationSeconds = getBuilderDuration(details)
     const strengthModeId = normalizeStrengthModeId(editor?.strengthModeId)
     const strengthDayType = normalizeStrengthDayType(strengthModeId, editor?.strengthDayType)
+    const setCount = editor?.setParams.sets ?? details.loadSettings.sets
     const setParams = {
+      sets: setCount,
       reps: details.loadSettings.reps,
       weight: Math.round(details.loadSettings.weight),
       restSeconds: details.loadSettings.restSeconds,
       ...(durationSeconds ? { durationSeconds } : {}),
     }
     const effectiveSetParams = getEffectiveBuilderSetParams(loadType, setParams, details.loadSettings.mode, details.loadSettings.tempo)
-    const strengthPlan = buildStrengthPlan(strengthModeId, strengthDayType, effectiveSetParams, loadType)
+    const strengthPlan = buildStrengthPlan(strengthModeId, strengthDayType, effectiveSetParams, loadType, { sets: setCount, durationSeconds: effectiveSetParams.durationSeconds })
     const nextGroups = groups.map((group) => ({
         ...group,
         items: group.items.map((item) =>
@@ -572,7 +585,7 @@ export function WorkoutBuilderScreen() {
                 muscleGroup: formatBuilderMuscleGroup(details),
                 muscles: details.muscles,
                 affectsFatigue: !isRecoveryEquipment(details.equipment),
-                sets: formatBuilderItemSets(loadType, details.loadSettings.sets, effectiveSetParams.reps, effectiveSetParams.durationSeconds),
+                sets: formatBuilderItemSets(loadType, setCount, effectiveSetParams.reps, effectiveSetParams.durationSeconds),
                 load: formatBuilderItemLoad(loadType, effectiveSetParams.weight),
                 loadType,
                 rest: `${effectiveSetParams.restSeconds} сек`,
@@ -595,6 +608,7 @@ export function WorkoutBuilderScreen() {
         name: details.name,
         subtitle: formatBuilderSubtitle(details),
         setParams: {
+          sets: setCount,
           reps: details.loadSettings.reps,
           weight: Math.round(details.loadSettings.weight),
           restSeconds: details.loadSettings.restSeconds,
@@ -618,6 +632,7 @@ export function WorkoutBuilderScreen() {
             name: details.name,
             subtitle: formatBuilderSubtitle(details),
             setParams: {
+              sets: setCount,
               reps: details.loadSettings.reps,
               weight: Math.round(details.loadSettings.weight),
               restSeconds: details.loadSettings.restSeconds,
@@ -646,14 +661,16 @@ export function WorkoutBuilderScreen() {
     const nextId = `${targetGroupId}-${details.slug}-${Math.random().toString(36).slice(2, 8)}`
     const loadType = getBuilderLoadType(details)
     const durationSeconds = getBuilderDuration(details)
+    const setCount = details.loadSettings.sets
     const setParams = {
+      sets: setCount,
       reps: details.loadSettings.reps,
       weight: Math.round(details.loadSettings.weight),
       restSeconds: details.loadSettings.restSeconds,
       ...(durationSeconds ? { durationSeconds } : {}),
     }
     const effectiveSetParams = getEffectiveBuilderSetParams(loadType, setParams, details.loadSettings.mode, details.loadSettings.tempo)
-    const strengthPlan = buildStrengthPlan('basic', null, effectiveSetParams, loadType)
+    const strengthPlan = buildStrengthPlan('basic', null, effectiveSetParams, loadType, { sets: setCount, durationSeconds: effectiveSetParams.durationSeconds })
     const nextItem = {
       id: nextId,
       slug: details.slug,
@@ -691,6 +708,7 @@ export function WorkoutBuilderScreen() {
             name: details.name,
             subtitle: formatBuilderSubtitle(details),
             setParams: {
+              sets: setCount,
               reps: details.loadSettings.reps,
               weight: Math.round(details.loadSettings.weight),
               restSeconds: details.loadSettings.restSeconds,
@@ -769,6 +787,9 @@ export function WorkoutBuilderScreen() {
   const groupDialog = groupDialogId ? groups.find((group) => group.id === groupDialogId) ?? null : null
   const groupDialogIndex = groupDialog ? groups.indexOf(groupDialog) : -1
   const weightlessSelected = selectedExerciseItem ? isWeightlessEquipment(selectedExerciseItem.item.load) || selectedExerciseItem.item.loadType === 'bodyweight' : false
+  // Timed sets replace reps and weight with seconds.
+  const timedSelected = editor?.loadType === 'timed'
+  const exerciseTotal = groups.reduce((total, group) => total + group.items.length, 0)
 
   return (
     <FormaShell userName={getUserName(selectedUserId)} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
@@ -776,31 +797,43 @@ export function WorkoutBuilderScreen() {
         {isListView ? (
           <section className="builder-list" aria-labelledby="builder-title">
             <header className="home-heading">
-              <h1 id="builder-title" className="font-display font-bold text-white">Мои тренировки</h1>
-              <p className="text-white/60">{hasPrograms ? 'Выберите тренировку, чтобы изменить упражнения и нагрузку.' : 'Все тренировки удалены. Создайте новую тренировку.'}</p>
+              <div className="min-w-0">
+                <h1 id="builder-title" className="font-display font-bold text-white">Мои тренировки</h1>
+                <p className="text-white/60">{hasPrograms ? 'Выберите тренировку, чтобы изменить упражнения и нагрузку.' : 'Все тренировки удалены. Создайте новую тренировку.'}</p>
+              </div>
+              <div className="home-heading-actions">
+                <Dialog.Trigger asChild>
+                  <Button iconLeft={<Plus aria-hidden="true" />} disabled={createPending}>Новая тренировка</Button>
+                </Dialog.Trigger>
+              </div>
             </header>
             <div className="builder-list-grid" data-count={data.programs.length}>
-              {data.programs.map((program) => (
-                <button key={program.id} type="button" className="home-workout-card builder-card" aria-label={`Открыть тренировку «${program.name}»`} onClick={() => handleSelectProgram(program.id)}>
-                  <span className="home-card-top"><span className="home-card-icon"><Dumbbell aria-hidden="true" /></span></span>
+              {data.programs.map((program) => {
+                const summary = dashboard?.workouts?.find((workout) => workout.id === program.id)
+                const badge = summary ? workoutBadge(summary) : null
+                return (
+                <button key={program.id} type="button" className="home-workout-card builder-card" data-tone={badge?.tone} aria-label={`Открыть тренировку «${program.name}»`} onClick={() => handleSelectProgram(program.id)}>
+                  {badge ? <span className="home-card-badge" data-tone={badge.tone}>{badge.label}</span> : null}
                   <span className="home-card-title">{program.name}</span>
-                  <span className="home-card-exercises">{program.subtitle}</span>
-                  <span className="home-card-select">Изменить <ArrowRight aria-hidden="true" className="h-5 w-5" /></span>
+                  <span className="home-card-exercises">{summary?.exercises.length ? summary.exercises.map((exercise) => exercise.name).join(' · ') : program.subtitle}</span>
+                  <span className="home-card-footer">
+                    <span className="home-card-meta">
+                      {summary ? <>
+                        <span><ListChecks aria-hidden="true" />{exerciseCountLabel(summary.exercises.length)}</span>
+                        <span><Clock3 aria-hidden="true" />{shortDuration(summary.duration)}</span>
+                      </> : null}
+                    </span>
+                    <span className="home-card-select">Изменить <ArrowRight aria-hidden="true" /></span>
+                  </span>
                 </button>
-              ))}
-              <Dialog.Trigger asChild>
-                <button type="button" className="home-workout-card home-create-card" aria-label="Новая тренировка" disabled={createPending}>
-                  <Plus aria-hidden="true" />
-                  <span className="home-card-title">Новая тренировка</span>
-                  <span className="text-sm text-white/60">Пустая тренировка для ручной сборки</span>
-                </button>
-              </Dialog.Trigger>
+                )
+              })}
             </div>
           </section>
         ) : (
           <section className="builder-editor" aria-labelledby="builder-title">
             <header className="builder-header">
-              <Button variant="secondary" iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => void handleDone()}>Мои тренировки</Button>
+              <Button variant="secondary" className="builder-header-button" title="Мои тренировки" iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => void handleDone()}><span className="builder-header-label">Мои тренировки</span></Button>
               <div className="builder-title">
                 <h1 id="builder-title" className="builder-title-heading font-display font-bold text-white">
                 {selectedProgram && isEditingWorkoutTitle ? (
@@ -842,13 +875,22 @@ export function WorkoutBuilderScreen() {
                 )}
                 </h1>
                 <div className="builder-title-meta">
-                  {data.info.duration ? <span className="inline-flex items-center gap-2"><Timer aria-hidden="true" className="h-5 w-5" />{data.info.duration}</span> : null}
-                  {data.warnings.map((warning) => <BuilderWarningIcon key={warning.title} warning={warning} />)}
+                  {exerciseTotal ? <span className="inline-flex items-center gap-2"><ListChecks aria-hidden="true" className="h-5 w-5" />{exerciseCountLabel(exerciseTotal)}</span> : null}
+                  {data.info.duration ? <span className="inline-flex items-center gap-2"><Timer aria-hidden="true" className="h-5 w-5" />{shortDuration(data.info.duration)}</span> : null}
+                  {data.warnings.filter((warning) => warning.tone !== 'success').map((warning) => <BuilderWarningIcon key={warning.title} warning={warning} />)}
+                  <span className="builder-save-status" role="status" data-status={saveStatus}>
+                    {saveStatus === 'saving' ? <LoaderCircle aria-hidden="true" /> : saveStatus === 'error' ? <CloudOff aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
+                    {saveStatus === 'saving' ? 'Сохранение…' : saveStatus === 'error' ? 'Не удалось сохранить изменения' : 'Сохранено'}
+                  </span>
+                  {saveStatus === 'error' ? <button type="button" className="builder-retry" onClick={retrySave}>Повторить</button> : null}
                 </div>
               </div>
-              <Dialog.Trigger asChild>
-                <Button variant="secondary" iconLeft={<Plus aria-hidden="true" />} disabled={createPending}>Новая тренировка</Button>
-              </Dialog.Trigger>
+              <div className="builder-header-actions" role="group" aria-label="Действия с тренировкой">
+                <Dialog.Trigger asChild>
+                  <Button variant="secondary" className="builder-header-button" title="Новая тренировка" iconLeft={<Plus aria-hidden="true" />} disabled={createPending}><span className="builder-header-label">Новая тренировка</span></Button>
+                </Dialog.Trigger>
+                <Button className="builder-header-button" iconLeft={<Check aria-hidden="true" />} onClick={() => void handleDone()} disabled={saveStatus === 'saving'}>Готово</Button>
+              </div>
             </header>
 
             <div className="builder-body">
@@ -879,7 +921,7 @@ export function WorkoutBuilderScreen() {
                               <span className="builder-item-index">{itemIndex + 1}</span>
                               <span className="builder-item-body">
                                 <span className="builder-item-name">{item.name}</span>
-                                <span className="builder-item-summary">{formatBuilderItemSummary(item)}</span>
+                                <span className="builder-item-summary">{formatBuilderItemSummary(item, item.id === selectedExerciseId ? editor?.strengthPlan : undefined)}</span>
                               </span>
                             </button>
                           </li>
@@ -901,6 +943,9 @@ export function WorkoutBuilderScreen() {
                   </section>
                 ))}
                 <Button variant="secondary" className="w-full" onClick={() => void handleAddGroup()}>Добавить группу</Button>
+                {selectedProgram ? (
+                  <Button variant="ghost" className="builder-delete-workout" iconLeft={<Trash2 aria-hidden="true" />} aria-haspopup="dialog" onClick={() => setDeleteDialogOpen(true)}>Удалить тренировку</Button>
+                ) : null}
               </aside>
 
               <section className="builder-stage" aria-label="Выбранное упражнение">
@@ -927,6 +972,65 @@ export function WorkoutBuilderScreen() {
                       </div>
                     </header>
 
+                    {/* Editing controls first: they are what the user came here for. */}
+                    <div className="builder-load-switch" role="radiogroup" aria-label="Как выполнять упражнение">
+                      <button type="button" role="radio" aria-checked={!timedSelected} onClick={() => { if (timedSelected) updateEditor((state) => ({ ...state, loadType: state.setParams.weight > 0 ? 'weighted' : 'bodyweight', setParams: { ...state.setParams, durationSeconds: undefined } })) }}>
+                        <Repeat2 aria-hidden="true" />Повторы
+                      </button>
+                      <button type="button" role="radio" aria-checked={timedSelected} onClick={() => { if (!timedSelected) updateEditor((state) => ({ ...state, loadType: 'timed', setParams: { ...state.setParams, durationSeconds: state.setParams.durationSeconds ?? 60 } })) }}>
+                        <Timer aria-hidden="true" />На время
+                      </button>
+                    </div>
+                    <div className="builder-steppers">
+                      <ValueStepper
+                        label="Подходы"
+                        value={editor.setParams.sets ?? editor.strengthPlan.length}
+                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, sets: Math.min(12, Math.max(1, (state.setParams.sets ?? state.strengthPlan.length) + delta)) } }))}
+                        onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, sets: Math.min(12, Math.max(1, value ?? state.setParams.sets ?? 1)) } }))}
+                      />
+                      {timedSelected ? (
+                        <ValueStepper
+                          label="Длительность"
+                          unit={formatBuilderDurationHint(editor.setParams.durationSeconds) ? `сек · ${formatBuilderDurationHint(editor.setParams.durationSeconds)}` : 'сек'}
+                          value={editor.setParams.durationSeconds ?? null}
+                          onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: adjustBuilderDuration(state.setParams.durationSeconds, delta) } }))}
+                          onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: Math.max(5, value ?? state.setParams.durationSeconds ?? 60) } }))}
+                        />
+                      ) : (
+                        <>
+                          <ValueStepper
+                            label="Повторы"
+                            value={editor.setParams.reps}
+                            onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, reps: Math.max(1, state.setParams.reps + delta) } }))}
+                            onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, reps: Math.max(1, value ?? state.setParams.reps) } }))}
+                          />
+                          <ValueStepper
+                            label="Вес"
+                            unit="кг"
+                            value={editor.setParams.weight > 0 ? editor.setParams.weight : null}
+                            emptyLabel={weightlessSelected ? 'вес тела' : '—'}
+                            onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: Math.max(0, state.setParams.weight + delta) } }))}
+                            onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: Math.max(0, value ?? 0) } }))}
+                            onReset={() => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: 0 } }))}
+                            resetLabel="Без веса"
+                          />
+                        </>
+                      )}
+                      <ValueStepper
+                        label="Отдых"
+                        unit="сек"
+                        value={editor.setParams.restSeconds}
+                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, state.setParams.restSeconds + delta * 15) } }))}
+                        onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, value ?? state.setParams.restSeconds) } }))}
+                      />
+                    </div>
+
+                    <ExercisePlanStrengthSets item={selectedExerciseItem.item} plan={editor.strengthPlan} modes={data.strengthModes} />
+
+                    <div className="flex flex-wrap gap-3">
+                      <Button variant="secondary" iconLeft={<SlidersHorizontal aria-hidden="true" />} aria-haspopup="dialog" onClick={() => setDetailsOpen(true)}>Режим и комментарий</Button>
+                    </div>
+
                     <div className="builder-stage-media">
                       <ExercisePlanVideo videoUrl={selectedExerciseItem.item.previewVideoUrl} title={selectedExerciseItem.item.name} />
                       <ExercisePlanMuscleMap
@@ -936,46 +1040,6 @@ export function WorkoutBuilderScreen() {
                         title={selectedExerciseItem.item.name}
                       />
                     </div>
-
-                    <div className="builder-steppers">
-                      <ValueStepper
-                        label="Повторы"
-                        value={editor.setParams.reps}
-                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, reps: Math.max(1, state.setParams.reps + delta) } }))}
-                        onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, reps: Math.max(1, value ?? state.setParams.reps) } }))}
-                      />
-                      <ValueStepper
-                        label="Вес"
-                        unit="кг"
-                        value={editor.setParams.weight > 0 ? editor.setParams.weight : null}
-                        emptyLabel={weightlessSelected ? 'вес тела' : '—'}
-                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: Math.max(0, state.setParams.weight + delta) } }))}
-                        onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: Math.max(0, value ?? 0) } }))}
-                        onReset={() => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: 0 } }))}
-                      />
-                      <ValueStepper
-                        label="Отдых"
-                        unit="сек"
-                        value={editor.setParams.restSeconds}
-                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, state.setParams.restSeconds + delta * 15) } }))}
-                        onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, value ?? state.setParams.restSeconds) } }))}
-                      />
-                      <ValueStepper
-                        label="Длительность"
-                        unit="сек"
-                        value={editor.setParams.durationSeconds ?? null}
-                        emptyLabel="не задана"
-                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: adjustOptionalSeconds(state.setParams.durationSeconds, delta, 15) } }))}
-                        onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: value ?? undefined } }))}
-                        onReset={() => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, durationSeconds: undefined } }))}
-                      />
-                    </div>
-
-                    <ExercisePlanStrengthSets item={selectedExerciseItem.item} modes={data.strengthModes} />
-
-                    <div>
-                      <Button variant="secondary" iconLeft={<SlidersHorizontal aria-hidden="true" />} aria-haspopup="dialog" onClick={() => setDetailsOpen(true)}>Режим и комментарий</Button>
-                    </div>
                   </>
                 ) : (
                   <div className="forma-state">
@@ -984,17 +1048,6 @@ export function WorkoutBuilderScreen() {
                   </div>
                 )}
               </section>
-            </div>
-
-            <div className="builder-actions" role="group" aria-label="Действия с тренировкой">
-              <Button onClick={() => void handleDone()} disabled={saveStatus === 'saving'}>Готово</Button>
-              <span className="builder-save-status" role="status" data-status={saveStatus}>
-                {saveStatus === 'saving' ? 'Сохранение…' : saveStatus === 'error' ? 'Не удалось сохранить изменения' : 'Все изменения сохранены'}
-              </span>
-              {saveStatus === 'error' ? <Button variant="secondary" onClick={retrySave}>Повторить</Button> : null}
-              {selectedProgram ? (
-                <Button variant="secondary" className="builder-danger builder-actions-delete" iconLeft={<Trash2 aria-hidden="true" />} aria-haspopup="dialog" onClick={() => setDeleteDialogOpen(true)}>Удалить тренировку</Button>
-              ) : null}
             </div>
           </section>
         )}
@@ -1076,7 +1129,13 @@ export function WorkoutBuilderScreen() {
                     selectedMode={selectedStrengthMode}
                     selectedModeId={editor.strengthModeId}
                     selectedDayType={editor.strengthDayType}
-                    onSelect={(modeId, dayType) => updateEditor((state) => ({ ...state, strengthModeId: modeId, strengthDayType: dayType }))}
+                    onSelect={(modeId, dayType) => updateEditor((state) => ({
+                      ...state,
+                      strengthModeId: modeId,
+                      strengthDayType: dayType,
+                      // A new mode brings its own number of sets; the user can still adjust it afterwards.
+                      setParams: state.loadType === 'timed' ? state.setParams : { ...state.setParams, sets: buildStrengthPlan(modeId, normalizeStrengthDayType(normalizeStrengthModeId(modeId), dayType), state.setParams, state.loadType).length },
+                    }))}
                   />
                   <label className="builder-field">
                     <span>Комментарий</span>
@@ -1155,8 +1214,14 @@ export function WorkoutBuilderScreen() {
   )
 }
 
-function formatBuilderItemSummary(item: BuilderExerciseItem) {
-  return [item.sets, item.load, item.rest ? `отдых ${item.rest}` : null].filter(Boolean).join(' · ')
+// Summarise from the set plan (what the session will actually run), not the raw item fields.
+function formatBuilderItemSummary(item: BuilderExerciseItem, planOverride?: StrengthSetPlan[]) {
+  const plan = planOverride?.length ? planOverride : item.strengthPlan
+  if (!plan?.length) {
+    return [item.sets, item.load, item.rest ? `отдых ${item.rest}` : null].filter(Boolean).join(' · ')
+  }
+  const working = plan.find((set) => set.setType !== 'warmup') ?? plan[0]
+  return `${formatSetCountLabel(plan.length)} · ${formatStrengthSetMainLine(working, item)} · отдых ${working.restSeconds} сек`
 }
 
 function formatBuilderMuscleGroup(details: ExerciseDetails) {
@@ -1257,12 +1322,12 @@ function applyEditorToGroups(groups: BuilderWorkoutGroup[], selectedExerciseId: 
       const effectiveSetParams = getEffectiveBuilderSetParams(loadType, editor.setParams, editor.loadMode, editor.tempo)
       const strengthModeId = normalizeStrengthModeId(editor.strengthModeId)
       const strengthDayType = normalizeStrengthDayType(strengthModeId, editor.strengthDayType)
-      const strengthPlan = buildStrengthPlan(strengthModeId, strengthDayType, effectiveSetParams, loadType)
+      const strengthPlan = buildStrengthPlan(strengthModeId, strengthDayType, effectiveSetParams, loadType, getBuilderPlanShape(effectiveSetParams, item))
 
       return {
         ...item,
         loadType,
-        sets: formatBuilderItemSets(loadType, parseBuilderSetCount(item.sets), effectiveSetParams.reps, effectiveSetParams.durationSeconds),
+        sets: formatBuilderItemSets(loadType, effectiveSetParams.sets ?? parseBuilderSetCount(item.sets), effectiveSetParams.reps, effectiveSetParams.durationSeconds),
         load: formatBuilderItemLoad(loadType, effectiveSetParams.weight),
         rest: `${effectiveSetParams.restSeconds} сек`,
         strengthModeId,
@@ -1276,6 +1341,36 @@ function applyEditorToGroups(groups: BuilderWorkoutGroup[], selectedExerciseId: 
 function parseBuilderSetCount(currentValue: string) {
   const match = currentValue.match(/^(\d+)/)
   return Number(match?.[1] ?? '3')
+}
+
+/** Set count the user currently sees: the saved plan for strength work, the "N×" prefix for timed work. */
+function getBuilderItemSetCount(item: Pick<BuilderExerciseItem, 'sets' | 'strengthPlan'> | undefined, loadType: BuilderLoadType) {
+  if (loadType !== 'timed' && item?.strengthPlan?.length) {
+    return item.strengthPlan.length
+  }
+  return parseBuilderSetCount(item?.sets ?? '3')
+}
+
+function getBuilderPlanShape(setParams: BuilderExerciseEditor['setParams'], item?: Pick<BuilderExerciseItem, 'sets' | 'strengthPlan'>) {
+  return { sets: setParams.sets ?? parseBuilderSetCount(item?.sets ?? '3'), durationSeconds: setParams.durationSeconds }
+}
+
+/** Coarser steps for long cardio so minutes are reachable without dozens of taps. */
+function adjustBuilderDuration(value: number | undefined, delta: number) {
+  const current = value ?? 0
+  const step = delta > 0
+    ? current >= 600 ? 60 : current >= 120 ? 30 : 15
+    : current > 600 ? 60 : current > 120 ? 30 : 15
+  return Math.max(15, current + delta * step)
+}
+
+function formatBuilderDurationHint(seconds?: number) {
+  if (!seconds || seconds < 60) {
+    return null
+  }
+  const minutes = Math.floor(seconds / 60)
+  const rest = seconds % 60
+  return rest ? `${minutes} мин ${rest} сек` : `${minutes} мин`
 }
 
 function getBuilderLoadType(details: Pick<ExerciseDetails, 'equipment' | 'force'>): BuilderLoadType {
@@ -1325,9 +1420,13 @@ function normalizeBuilderEditor(editor: WorkoutBuilderData['selectedExercise'], 
   const strengthDayType = normalizeStrengthDayType(strengthModeId, editor.strengthDayType)
   const setParams = {
     ...editor.setParams,
-    durationSeconds: typeof editor.setParams.durationSeconds === 'number'
-      ? editor.setParams.durationSeconds
-      : parseDurationSeconds(selectedItem?.sets),
+    sets: Math.max(1, Math.round(editor.setParams.sets ?? getBuilderItemSetCount(selectedItem, loadType))),
+    // Duration belongs to timed sets only; reps mode never carries it.
+    durationSeconds: loadType !== 'timed'
+      ? undefined
+      : typeof editor.setParams.durationSeconds === 'number'
+        ? editor.setParams.durationSeconds
+        : parseDurationSeconds(selectedItem?.sets) ?? 60,
   }
   const effectiveSetParams = getEffectiveBuilderSetParams(loadType, setParams, editor.loadMode, editor.tempo)
 
@@ -1338,7 +1437,7 @@ function normalizeBuilderEditor(editor: WorkoutBuilderData['selectedExercise'], 
     effectiveSetParams,
     strengthModeId,
     strengthDayType,
-    strengthPlan: buildStrengthPlan(strengthModeId, strengthDayType, effectiveSetParams, loadType),
+    strengthPlan: buildStrengthPlan(strengthModeId, strengthDayType, effectiveSetParams, loadType, getBuilderPlanShape(effectiveSetParams, selectedItem)),
   }
 }
 
@@ -1359,8 +1458,7 @@ function formatBuilderItemSets(loadType: BuilderLoadType, sets: number, reps: nu
     return `${sets}×${durationSeconds} сек`
   }
 
-  const durationSuffix = typeof durationSeconds === 'number' ? ` · ${durationSeconds} сек` : ''
-  return `${sets}×${reps}${durationSuffix}`
+  return `${sets}×${reps}`
 }
 
 function getBuilderDuration(details: Pick<ExerciseDetails, 'equipment' | 'force' | 'loadSettings'>) {
@@ -1371,15 +1469,6 @@ function parseDurationSeconds(value?: string) {
   const matches = [...(value?.matchAll(/(\d+)\s*сек/gi) ?? [])]
   const lastMatch = matches.at(-1)
   return lastMatch ? Number(lastMatch[1]) : undefined
-}
-
-function adjustOptionalSeconds(value: number | undefined, delta: number, step: number) {
-  if (typeof value !== 'number') {
-    return delta > 0 ? step : undefined
-  }
-
-  const next = value + delta * step
-  return next > 0 ? next : undefined
 }
 
 function getBuilderLoadModeRule(mode: string) {
@@ -1398,6 +1487,7 @@ function getEffectiveBuilderSetParams(loadType: BuilderLoadType, setParams: Buil
     : undefined
 
   return {
+    ...(typeof setParams.sets === 'number' ? { sets: Math.max(1, Math.round(setParams.sets)) } : {}),
     reps: Math.max(1, Math.round(setParams.reps * loadModeRule.repsFactor * tempoRule.repsFactor)),
     weight: loadType === 'weighted'
       ? Math.max(0, Math.round(setParams.weight * loadModeRule.weightFactor * tempoRule.weightFactor))
@@ -1441,12 +1531,12 @@ function ExercisePlanMuscleMap({ muscles, fallbackLabel, figureGender, title }: 
   )
 }
 
-function ExercisePlanStrengthSets({ item, modes }: { item: BuilderExerciseItem; modes: StrengthTrainingMode[] }) {
+function ExercisePlanStrengthSets({ item, plan: planOverride, modes }: { item: BuilderExerciseItem; plan?: StrengthSetPlan[]; modes: StrengthTrainingMode[] }) {
   const strengthModeId = normalizeStrengthModeId(item.strengthModeId)
   const strengthDayType = normalizeStrengthDayType(strengthModeId, item.strengthDayType)
   const mode = modes.find((entry) => entry.id === strengthModeId)
   const dayLabel = mode?.dayOptions.find((option) => option.id === strengthDayType)?.label
-  const plan = item.strengthPlan?.length ? item.strengthPlan : buildStrengthPlan(strengthModeId, strengthDayType, getBuilderItemSetParams(item), inferBuilderLoadTypeFromItem(item))
+  const plan = planOverride?.length ? planOverride : item.strengthPlan?.length ? item.strengthPlan : buildStrengthPlan(strengthModeId, strengthDayType, getBuilderItemSetParams(item), inferBuilderLoadTypeFromItem(item))
 
   return (
     <div className="rounded-[22px] border border-white/8 bg-[#0d1116]/82 p-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
@@ -1525,11 +1615,12 @@ function parseBuilderWeightValue(value: string) {
 }
 
 function formatStrengthSetMainLine(set: StrengthSetPlan, item: BuilderExerciseItem) {
-  const target = item.loadType === 'timed'
-    ? `${parseDurationSeconds(item.sets) ?? parseBuilderTargetValue(item.sets)} сек`
-    : set.targetRepsLabel
+  if (item.loadType === 'timed') {
+    const seconds = parseDurationSeconds(item.sets) ?? parseBuilderTargetValue(item.sets)
+    return formatBuilderDurationHint(seconds) ?? `${seconds} сек`
+  }
 
-  return `${set.recommendedWeightLabel} × ${target}`
+  return `${set.recommendedWeightLabel} × ${set.targetRepsLabel}`
 }
 
 function formatStrengthSetTargetMeta(set: StrengthSetPlan, item: BuilderExerciseItem) {
@@ -1610,21 +1701,28 @@ function BuilderWarningIcon({ warning }: { warning: WorkoutBuilderData['warnings
   const Icon = warning.tone === 'success' ? CheckCircle2 : warning.tone === 'blocked' ? OctagonAlert : AlertTriangle
 
   return (
-    <div
-      title={`${warning.title}: ${warning.description}`}
-      aria-label={`${warning.title}: ${warning.description}`}
-      className={cn(
-        'inline-flex h-11 items-center justify-center gap-2 rounded-2xl border px-3 text-xs font-semibold',
-        warning.tone === 'success'
-          ? 'border-[#6ecf71]/25 bg-[#6ecf71]/10 text-[#9ff5a2]'
-          : warning.tone === 'blocked'
-            ? 'border-[#eb5345]/28 bg-[#eb5345]/10 text-[#ffb1a8]'
-            : 'border-[#f0d08c]/25 bg-[#d6b05f]/10 text-[#f0d08c]',
-      )}
-    >
-      <Icon className="h-4 w-4 shrink-0" />
-      <span className="max-w-[150px] truncate">{warning.title}</span>
-    </div>
+    <Popover.Root>
+      <Popover.Trigger
+        aria-label={`${warning.title}: ${warning.description}`}
+        className={cn(
+          'builder-warning-chip inline-flex min-h-11 items-center justify-center gap-2 rounded-2xl border px-3 text-xs font-semibold',
+          warning.tone === 'success'
+            ? 'border-[#6ecf71]/25 bg-[#6ecf71]/10 text-[#9ff5a2]'
+            : warning.tone === 'blocked'
+              ? 'border-[#eb5345]/28 bg-[#eb5345]/10 text-[#ffb1a8]'
+              : 'border-[#f0d08c]/25 bg-[#d6b05f]/10 text-[#f0d08c]',
+        )}
+      >
+        <Icon className="h-4 w-4 shrink-0" />
+        <span className="max-w-[180px] truncate">{warning.title}</span>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content side="bottom" sideOffset={8} className="builder-warning-popover" data-tone={warning.tone}>
+          <strong>{warning.title}</strong>
+          <p>{warning.description}</p>
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
   )
 }
 
