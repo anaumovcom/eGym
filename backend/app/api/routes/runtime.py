@@ -32,7 +32,10 @@ def save_exercise_session(
     payload: ExerciseSessionCreateSchema,
     session: Session = Depends(get_session),
 ) -> RuntimeExerciseSummarySchema:
-    return runtime_service.save_exercise_session(session, payload).summary
+    try:
+        return runtime_service.save_exercise_session(session, payload).summary
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
 
 @router.post("/runtime/workouts", response_model=RuntimeWorkoutSummarySchema)

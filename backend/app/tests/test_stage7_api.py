@@ -305,6 +305,54 @@ def test_save_workout_links_existing_exercise_session(client: TestClient, db_ses
     assert len(saved_sessions) == 1
 
 
+def test_redoing_an_exercise_drops_its_earlier_sets_and_fatigue(client: TestClient, db_session) -> None:
+    started_at = datetime.now(UTC) - timedelta(minutes=10)
+    exercise = {
+        "userId": "alexey",
+        "exerciseSlug": "band-bench-press",
+        "exerciseName": "Жим с резинкой",
+        "kind": "machine",
+        "orderIndex": 1,
+        "startedAt": started_at.isoformat(),
+        "targetSets": 1,
+        "muscles": [{"muscleId": "chest", "name": "Грудь", "role": "primary"}],
+    }
+    exercise_session_id = client.post(
+        "/api/runtime/exercises",
+        json={**exercise, "status": "completed", "sets": [{"setNumber": 1, "plannedValue": 12, "actualValue": 12, "reps": 12, "weightKg": 35, "tempoLabel": "хорошо", "subjectiveEffort": 7, "discomfortLevel": 0}]},
+    ).json()["exerciseSessionId"]
+
+    response = client.post(
+        "/api/runtime/exercises",
+        json={**exercise, "exerciseSessionId": exercise_session_id, "status": "in_progress", "sets": [], "resetSets": True},
+    )
+
+    assert response.status_code == 200
+    db_session.expire_all()
+    redone = db_session.get(ExerciseSession, exercise_session_id)
+    assert redone.status.value == "in_progress"
+    assert redone.set_results == []
+    assert db_session.scalars(select(MuscleFatigueEvent).where(MuscleFatigueEvent.exercise_session_id == exercise_session_id)).all() == []
+
+
+def test_saving_a_missing_exercise_session_is_not_found(client: TestClient) -> None:
+    response = client.post(
+        "/api/runtime/exercises",
+        json={
+            "exerciseSessionId": 999_999,
+            "userId": "alexey",
+            "exerciseSlug": "band-bench-press",
+            "exerciseName": "Жим с резинкой",
+            "kind": "machine",
+            "status": "in_progress",
+            "startedAt": datetime.now(UTC).isoformat(),
+            "resetSets": True,
+        },
+    )
+
+    assert response.status_code == 404
+
+
 def test_early_finished_catalog_workout_keeps_sets_in_history_and_progress(client: TestClient, db_session) -> None:
     started_at = datetime.now(UTC) - timedelta(minutes=10)
     workout_session_id = client.post(
@@ -499,3 +547,40 @@ def test_fatigue_decay_uses_elapsed_time() -> None:
     decayed = service.decay_score(144.0, elapsed_hours=24.0, recovery_half_life_hours=24.0)
 
     assert round(decayed, 2) == 72.0
+
+
+def _set_fatigue_delta(db_session, **overrides) -> float:
+    params = {
+        "user_id": "alexey",
+        "workout_session_id": None,
+        "exercise_session_id": 1,
+        "set_result_id": 1,
+        "occurred_at": datetime(2026, 5, 25, 10, 0, tzinfo=UTC),
+        "exercise_name": "test",
+        "muscle_targets": [{"muscle_id": "calves", "role": "primary"}],
+        "planned_value": 12,
+        "actual_value": 12,
+        "reps": 12,
+        "weight_kg": 0.0,
+        "duration_seconds": None,
+        "amplitude_percent": None,
+        "subjective_effort": 7,
+        "discomfort_level": 0,
+    }
+    params.update(overrides)
+    updates = FatigueService().build_set_updates(db_session, **params)
+    db_session.rollback()
+    return sum(update.delta for update in updates)
+
+
+def test_timed_set_seconds_are_not_counted_as_reps(db_session) -> None:
+    rep_set = _set_fatigue_delta(db_session)
+    timed_set = _set_fatigue_delta(db_session, planned_value=120, actual_value=120, reps=None)
+    cardio_set = _set_fatigue_delta(db_session, planned_value=120, actual_value=120, reps=None, equipment="Cardio")
+
+    assert 0 < timed_set < rep_set * 1.5
+    assert cardio_set < rep_set
+
+
+def test_stretch_set_does_not_create_fatigue(db_session) -> None:
+    assert _set_fatigue_delta(db_session, planned_value=30, actual_value=30, reps=30, equipment="Stretches") == 0

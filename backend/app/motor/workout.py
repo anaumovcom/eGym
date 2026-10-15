@@ -4,14 +4,17 @@
 * scripted moves by the calibration motion primitives (fast transit, landing, jog) through a ``CalibrationRunner``:
   to the start point of a set, back to the stops after a set, jog while held.
 
-A set: move to the start point → hold until the user takes the bar (force or a shift) → the load ramps in →
+A set: move to the start point → hold until the user takes the bar (force or a shift; from the upper point only
+down) → the load ramps in →
 training (reps counted over the user's range) → ``complete_set``: the load ramps out, the bar floats weightless
 where it is for the rest (the next set moves it to its start point); a rest left alone ``REST_PARK_S`` parks it.
-The core's release detection (F11) and the runtime latches (STOP, faults) end training; the runtime writes support.
+A set never pauses by itself: the core's release detection (F11) is off in training (a released bar is held by the
+range guard at the lower point); only the user's pause and the runtime latches (STOP, faults) end training.
 """
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Generator
 from dataclasses import dataclass, replace
 from typing import Any, Literal
@@ -29,6 +32,8 @@ from app.motor.units import SIDES, G, Side, clamp
 WorkoutMode = Literal["idle", "parked", "moving", "weightless", "start_hold", "training", "paused", "fixed_hold"]
 Gen = Generator[Command, Frame, Any]
 
+logger = logging.getLogger(__name__)
+
 ABORT_RAW = 100  # the core's overspeed "zero" output: no brake, 0 would drop the bar (R5)
 JOG_SPEED_MM_S = 40.0
 JOG_TIMEOUT_S = 0.6  # no keepalive (every 0.2 s) this long → the jog stops
@@ -36,6 +41,7 @@ JOG_LIMIT_MARGIN_MM = 5.0
 GRIP_FORCE_N = 40.0  # both sides: the user pushes or pulls the held bar
 GRIP_MOVE_MM = 8.0  # …or shifts it this far from the hold point
 GRIP_S = 0.2
+LIFTED_GRIP_MOVE_MM = 40.0  # the bar pushed above the upper start point: taken down past the point this far
 STILL_MM_S = 2.0
 CAPTURE_STILL_S = 0.3
 START_TOLERANCE_MM = 8.0  # closer to the start point: no move
@@ -46,13 +52,13 @@ MOVE_MARGIN_MM = 60.0
 MOVE_START_MM_S = 25.0  # a scripted move starts from a (nearly) still bar…
 SETTLE_MAX_S = 3.0  # …caught by the hold first, at most this long
 UNLOADED_N = 1.0
-RELEASE_MIN_LOAD_SHARE = 1.5  # F11 release only with a load well above the release force (else 0 kg always «released»)
 FIXED_PRESS_SHARE = 0.5  # fixed position: a rep = the user force rises above this share of the load…
 FIXED_RELEASE_SHARE = 0.25  # …and falls below this one
 FIXED_MIN_FORCE_N = 100.0
 FIXED_DEBOUNCE_S = 0.3
 REST_PARK_S = 900.0  # a weightless rest after a set nobody came back to: the bar goes to the stops
 REST_CATCH_MM_S = 5.0  # the rest starts weightless from a bar (nearly) at rest
+TAKEN_MAX_MM_S = 300.0  # the move to the start aborted by its envelope at a speed below this, in the range: the user took the bar
 
 
 class WorkoutError(PermissionError):
@@ -146,12 +152,14 @@ class WorkoutController:
         self._last_jog_id: str | None = None
         self._load_n = 0.0
         self._grip_since: float | None = None
+        self._lifted = False
         self._still_since: float | None = None
         self._fixed_pressed = False
         self._fixed_flip_since: float | None = None
         self._t: float | None = None
         self._rest_since: float | None = None
         self._rest_catch = False
+        self._start_arrived: Callable[[], None] | None = None
         self.configure(profile, tunables, envelope)
 
     # ------------------------------------------------------------ state
@@ -248,7 +256,9 @@ class WorkoutController:
             if plan.fixed_mm is not None:
                 self._begin_fixed()
             else:
-                self._grip_since = None
+                self._grip_since, self._lifted = None, False
+
+        self._start_arrived = arrived
 
         def go() -> None:
             frame = self._require_frame()
@@ -287,7 +297,7 @@ class WorkoutController:
             self._begin_fixed()
         else:
             self._to_core(Mode.HOLD, "start_hold")
-            self._grip_since = None
+            self._grip_since, self._lifted = None, False
 
     def complete_set(self) -> None:
         self._require_frame()
@@ -356,10 +366,14 @@ class WorkoutController:
                 return None
             last = self.runner.command.forces_n
             self.runner = None
-            if result.status != "done":
+            if result.status != "done" and not (result.status == "aborted" and self._taken_at_start(frame)):
                 reason = f"Перемещение грифа прервано: {result.reason}"
                 self.abort(reason)
                 return reason
+            if result.status != "done":
+                # the user took the bar at the start point before the move settled (bench press: pressed off the chest):
+                # the hold catches the moving bar and the set starts on the grip, as after an arrival
+                logger.info("Move to the start handed over to the hold: %s", result.reason)
             if self.core is not None:
                 # the move put PA_056 back to the connect value: training needs the envelope limit
                 for side in SIDES:
@@ -404,8 +418,13 @@ class WorkoutController:
             self._watch_grip(frame)
         elif self.mode == "training":
             self._ramp_load(dt)
-            if self.reps is not None:
-                self.reps.update(frame.x_mean)
+            if self.reps is not None and self.plan is not None:
+                # a set from the upper point (squat, bench press) is the mirror of one from the lower point: a rep is
+                # counted at the far turn either way
+                x = frame.x_mean
+                if self.plan.start_point == "upper":
+                    x = self.plan.lower_mm + self.plan.upper_mm - x
+                self.reps.update(x)
         elif self.mode == "fixed_hold":
             self._count_fixed()
 
@@ -431,13 +450,29 @@ class WorkoutController:
     def _watch_grip(self, frame: Frame) -> None:
         core = self.core
         assert core is not None
+        assert self.plan is not None
         targets = [core.hold_target[side] for side in SIDES]
-        shift = max((abs(frame.x(side) - target) for side, target in zip(SIDES, targets, strict=True) if target is not None), default=0.0)
-        gripped = abs(self.user_force_n()) > GRIP_FORCE_N or shift > GRIP_MOVE_MM
+        offsets = [frame.x(side) - target for side, target in zip(SIDES, targets, strict=True) if target is not None]
+        if self.plan.start_point == "upper":
+            # the bar waits at the upper point until the user takes it down: a push up or a lift does not start the set,
+            # nor does the hold's rebound when the lifted bar is let go (it overshoots below the point for a moment)
+            if max(offsets, default=0.0) > GRIP_MOVE_MM:
+                self._lifted = True
+            elif self._lifted and abs(frame.v_mean) <= STILL_MM_S:
+                # back from the lift: the hold stays where the bar came to rest (friction may stop it short of the point)
+                self._lifted = False
+                core.hold_at({side: frame.x(side) for side in SIDES})
+                offsets = [0.0]
+            shift = max((-offset for offset in offsets), default=0.0)
+            if self._lifted:
+                gripped = shift > LIFTED_GRIP_MOVE_MM
+            else:
+                gripped = self.user_force_n() < -GRIP_FORCE_N or shift > GRIP_MOVE_MM
+        else:
+            shift = max((abs(offset) for offset in offsets), default=0.0)
+            gripped = abs(self.user_force_n()) > GRIP_FORCE_N or shift > GRIP_MOVE_MM
         self._grip_since = (self._grip_since if self._grip_since is not None else frame.t) if gripped else None
         if self._grip_since is not None and frame.t - self._grip_since >= GRIP_S:
-            assert self.plan is not None
-            core.release_enabled = self.plan.load_n > RELEASE_MIN_LOAD_SHARE * core.tunables.release_force_n
             # the hold already resists the user's push: the load starts from it, no jump on the handover
             pushed = clamp(self.user_force_n() / len(SIDES), 0.0, self.plan.load_n)
             core.command("train")
@@ -483,6 +518,9 @@ class WorkoutController:
     def _ensure_core(self) -> MotorCore:
         if self.core is None:
             self.core = MotorCore(self.profile, self.tunables, self.envelope)
+            # no automatic pause in a set (F11 off): a released bar sinks to the set's lower point and the range guard
+            # holds it there; the set goes on (reps counted) when the user lifts again
+            self.core.release_enabled = False
             self.core.command("ready")
             for side in SIDES:
                 error = self.drives[side].limit_speed_rpm(self.envelope.speed_limit_rpm)  # the user may move fast; PA_056 ≤ envelope
@@ -537,9 +575,10 @@ class WorkoutController:
         if core.supervisor.mode not in (Mode.IDLE,):
             self._to_core(Mode.IDLE, self.mode)
         self.mode = "moving"
-        envelope = ProcedureEnvelope(
-            min_x_mm=-5.0, max_x_mm=self.envelope.soft_max_mm + MOVE_MARGIN_MM, max_force_n=self.envelope.max_force_n_per_side,
-        )
+        # the bar may start above the soft limit (pushed up by hand in weightless, where nothing stops it):
+        # every move goes to a point at or below the limit, so the envelope covers the start height
+        top = max([self.envelope.soft_max_mm, *(frame.x(side) for side in SIDES)])
+        envelope = ProcedureEnvelope(min_x_mm=-5.0, max_x_mm=top + MOVE_MARGIN_MM, max_force_n=self.envelope.max_force_n_per_side)
         self.runner = CalibrationRunner(self.drives, envelope=envelope)
         result = self.runner.begin(factory(frame), max_s=MOVE_MAX_S, envelope=envelope)
         if result is not None:  # ended at once
@@ -547,6 +586,19 @@ class WorkoutController:
             after_, self._after = self._after, None
             if after_ is not None:
                 after_()
+
+    def _taken_at_start(self, frame: Frame) -> bool:
+        """The move to the set's start ended by its envelope with the bar in the set's range, moving at a sane speed."""
+
+        plan = self.plan
+        if plan is None or plan.fixed_mm is not None or self._after is None or self._after is not self._start_arrived:
+            return False
+        lo = max(plan.lower_mm - MOVE_MARGIN_MM, self.envelope.soft_min_mm)
+        hi = min(plan.upper_mm + MOVE_MARGIN_MM, self.envelope.soft_max_mm)
+        return all(
+            side in frame.samples and frame.samples[side].ok and lo <= frame.x(side) <= hi and abs(frame.v(side)) <= TAKEN_MAX_MM_S
+            for side in SIDES
+        )
 
     @property
     def _moving(self) -> bool:

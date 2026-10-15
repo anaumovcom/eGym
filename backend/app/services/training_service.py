@@ -63,7 +63,7 @@ from app.schemas.training import (
 )
 from app.schemas.analytics import MuscleCardSchema
 from app.services.exercise_library import ImportedExercise, get_imported_exercise, load_imported_exercises
-from app.services.fatigue_service import FatigueService
+from app.services.fatigue_service import FatigueService, equipment_affects_fatigue
 from app.services.machine_service import MachineService
 from app.services.muscle_catalog import CANONICAL_MUSCLE_DEFINITIONS
 
@@ -829,7 +829,7 @@ class TrainingService:
                     item.model_copy(
                         update={
                             "muscles": [self._translate_muscle(muscle) for muscle in exercise.muscles],
-                            "affects_fatigue": exercise.equipment != "Recovery",
+                            "affects_fatigue": equipment_affects_fatigue(exercise.equipment),
                             "preview_video_url": self._preview_video_url(exercise, user_id),
                             "load_type": load_type,
                             "sets": self._format_builder_sets(load_type, sets, target_value, duration_seconds),
@@ -1163,8 +1163,13 @@ class TrainingService:
 
         work_rest = max(60, min(rest_seconds, 120))
         work_target = str(reps) if use_target_reps else "8–12"
+        if load_type != "weighted" or weight <= 0:
+            # Without external weight the warm-up can't be lighter, so it is shorter: half the reps.
+            warmup_target = str(-(-reps // 2))
+        else:
+            warmup_target = target_range(max(8, reps - 2), max(10, reps))
         return [
-            item(1, "warmup", "Разминка", target_range(max(8, reps - 2), max(10, reps)), 0.5, 60, "4–5 в запасе", "Лёгкий разминочный подход."),
+            item(1, "warmup", "Разминка", warmup_target, 0.5, 60, "4–5 в запасе", "Лёгкий разминочный подход."),
             item(2, "work", "Рабочий подход", work_target, 1.0, work_rest, "1–3 в запасе", "Стабильная техника без отказа."),
             item(3, "work", "Рабочий подход", work_target, 1.0, work_rest, "1–3 в запасе", "Сохранять амплитуду."),
             item(4, "work", "Рабочий подход", work_target, 1.0, work_rest, "1–3 в запасе", "Остановиться до потери техники."),

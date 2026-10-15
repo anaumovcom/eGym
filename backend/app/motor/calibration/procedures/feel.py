@@ -48,6 +48,7 @@ from app.motor.calibration.procedures.trainer import (
     Trainer,
     drive,
     expected,
+    expected_down,
     handoff,
     rep_user,
     reversals,
@@ -364,7 +365,8 @@ def fit_friction_speed(data: dict[str, Any], ctx: Context) -> Outcome:
 # ---------------------------------------------------------------- reps (F4, F5, F7, F11, X4, G2)
 def _reps(ctx: Context, frame: Frame, trainer: Trainer, load_n: float, *, low: float, high: float, speed_mm_s: float, seconds: float, note: str, progress: float, rows: list[Row]) -> Gen:
     mass, residual = expected(ctx, load_n, speed_mm_s=speed_mm_s, profile=trainer.core.profile, inertia=trainer.core.inertia_override)
-    user = rep_user(load_n, low, high, speed_mm_s, gain=user_gain(ctx, mass), feed_n=residual)
+    residual_down = expected_down(ctx, load_n, speed_mm_s=speed_mm_s, profile=trainer.core.profile)
+    user = rep_user(load_n, low, high, speed_mm_s, gain=user_gain(ctx, mass), feed_n=residual, feed_down_n=residual_down)
     return (yield from drive(trainer, frame, user, seconds=seconds, note=note, progress=progress, rows=rows, x_range=(low - 60.0, high + 60.0), speed_cap=FEEL_SPEED_MM_S - 10))
 
 

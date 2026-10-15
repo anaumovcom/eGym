@@ -1,5 +1,5 @@
 import type { RuntimeWorkoutOutcome, RuntimeWorkoutSession, RuntimeWorkoutSummaryState } from '@/entities/runtime/model/types'
-import { apiPost } from '@/shared/api/client'
+import { ApiError, apiPost } from '@/shared/api/client'
 
 export type WorkoutSaveStatus = RuntimeWorkoutOutcome | 'in_progress'
 export type LoadAdjustmentDirection = 'increase' | 'decrease'
@@ -58,6 +58,45 @@ export async function saveWorkoutToBackend(session: RuntimeWorkoutSession, userI
     exerciseSessionIds: Object.values(session.backendExerciseSessionIds ?? {}),
     exercises: [],
   })
+}
+
+/**
+ * Drops the saved sets of the given exercises before they are done again.
+ * Returns the ids whose backend record is already gone, so the redo creates fresh ones.
+ */
+export async function resetExercisesOnBackend(session: RuntimeWorkoutSession, exercises: RuntimeWorkoutSession['exercises'], userId: string) {
+  const staleIds: string[] = []
+  for (const exercise of exercises) {
+    const exerciseSessionId = session.backendExerciseSessionIds?.[exercise.id]
+    if (!exerciseSessionId) continue
+    try {
+      await apiPost('/api/runtime/exercises', {
+        exerciseSessionId,
+        userId,
+        workoutSessionId: session.backendWorkoutSessionId,
+        exerciseSlug: exercise.slug,
+        exerciseName: exercise.name,
+        exerciseSecondaryName: exercise.secondaryName,
+        kind: exercise.kind,
+        orderIndex: exercise.order,
+        status: 'in_progress',
+        startedAt: new Date(Date.now() - 90_000).toISOString(),
+        finishedAt: new Date().toISOString(),
+        calibrationState: exercise.calibrationState,
+        targetSets: exercise.plan.length,
+        trainingMode: exercise.strengthMode.id,
+        trainingDayType: exercise.strengthMode.dayType,
+        muscles: exercise.muscles.map((name, index) => ({ muscleId: name, name, role: index === 0 ? 'primary' : 'secondary' })),
+        sets: [],
+        resetSets: true,
+      })
+    } catch (error) {
+      // the record is already gone: nothing to clear
+      if (!(error instanceof ApiError && error.status === 404)) throw error
+      staleIds.push(exercise.id)
+    }
+  }
+  return staleIds
 }
 
 export async function adjustExerciseLoadOnBackend({

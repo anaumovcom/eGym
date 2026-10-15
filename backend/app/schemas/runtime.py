@@ -57,6 +57,8 @@ class ExerciseSessionCreateSchema(SchemaModel):
     recommendation: str | None = None
     muscles: list[MuscleTargetSchema] = []
     sets: list[SetResultCreateSchema] = []
+    # an exercise done again: the earlier sets (and their fatigue) are dropped
+    reset_sets: bool = False
 
 
 class WorkoutSessionCreateSchema(SchemaModel):

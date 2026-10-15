@@ -17,6 +17,7 @@ class ExerciseCalibration(TimestampMixin, Base):
     lower_point_mm: Mapped[float | None] = mapped_column(Float, nullable=True)
     upper_point_mm: Mapped[float | None] = mapped_column(Float, nullable=True)
     fixed_position_mm: Mapped[float | None] = mapped_column(Float, nullable=True)
+    start_point: Mapped[str] = mapped_column(String(16), nullable=False, default="lower", server_default="lower")
     zero_position_mm: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
     movement_range_confirmed: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     calibration_required: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)

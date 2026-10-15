@@ -1,9 +1,10 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { ArrowRight, CheckCircle2, CircleAlert, ListChecks, Sparkles } from 'lucide-react'
+import { ArrowRight, CheckCircle2, CircleAlert, ListChecks, Play, SkipForward, Sparkles } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import { adjustExerciseLoadOnBackend } from '@/features/runtime/lib/runtime-persistence'
+import { getRuntimeResumeView, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { getBestSetLabel, getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { Button } from '@/shared/ui/button'
@@ -12,7 +13,7 @@ import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { FormaState } from '@/shared/ui/status/forma-state'
 import { useAppStore } from '@/stores/app-store'
-import { useRuntimeStore } from '@/stores/runtime-store'
+import { getNextPendingExercise, getReturnableExercises, useRuntimeStore } from '@/stores/runtime-store'
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
@@ -37,6 +38,7 @@ export function ExerciseSummaryScreen() {
   const session = useRuntimeStore((state) => state.session)
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
   const continueAfterExerciseSummary = useRuntimeStore((state) => state.continueAfterExerciseSummary)
+  const resumeWorkoutExercise = useRuntimeStore((state) => state.resumeWorkoutExercise)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
   const applyLoadAdjustment = useRuntimeStore((state) => state.applyLoadAdjustment)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -49,8 +51,13 @@ export function ExerciseSummaryScreen() {
   useEffect(() => {
     if (!session) {
       ensureSession(initOptions)
+      return
     }
-  }, [ensureSession, initOptions, session])
+    // The summary is gone once the workout moved on (e.g. history back): show the step the workout is really on.
+    if (!session.exerciseSummary && session.view !== 'exercise-summary') {
+      navigate(withSearch(runtimeViewPath(getRuntimeResumeView(session)), location.search), { replace: true })
+    }
+  }, [ensureSession, initOptions, location.search, navigate, session])
 
   if (!session || !session.exerciseSummary) {
     return (
@@ -62,7 +69,9 @@ export function ExerciseSummaryScreen() {
 
   const summary = session.exerciseSummary
   const currentExercise = session.exercises.find((item) => item.id === session.currentExerciseId) ?? session.exercises[0]
-  const hasNextExercise = Boolean(currentExercise && session.exercises[currentExercise.order])
+  const nextExercise = getNextPendingExercise(session)
+  const hasNextExercise = Boolean(nextExercise)
+  const returnableExercises = getReturnableExercises(session)
   const nextStepLabel = hasNextExercise ? 'Перейти к следующему упражнению' : 'Открыть итог тренировки'
   const bestSet = summary.totals.bestSet ?? getBestSetLabel(summary.setResults)
   const hasWarning = summary.setResults.some((result) => result.pain || result.techniqueBreakdown || (result.discomfortLevel ?? 0) >= 5)
@@ -106,6 +115,13 @@ export function ExerciseSummaryScreen() {
     continueAfterExerciseSummary()
     const nextView = useRuntimeStore.getState().session?.view
     navigate(withSearch(nextView === 'workout-summary' ? '/workout-summary' : '/exercise-setup', location.search))
+  }
+
+  function handleReturnToExercise(exerciseId: string) {
+    const nextView = resumeWorkoutExercise(exerciseId)
+    if (nextView) {
+      navigate(withSearch(runtimeViewPath(nextView), location.search))
+    }
   }
 
   return (
@@ -179,6 +195,29 @@ export function ExerciseSummaryScreen() {
               </Button>
             </div>
           </div>
+
+          {returnableExercises.length > 0 ? (
+            <section className="rt-summary-list" aria-label="Пропущенные упражнения">
+              {returnableExercises.map((exercise) => {
+                const doneSets = session.completedSets[exercise.id]?.length ?? 0
+                const remainingSets = exercise.plan.length - doneSets
+                return (
+                  <div key={exercise.id} className="rt-summary-item" data-status={doneSets > 0 ? 'partial' : 'skipped'}>
+                    <div className="rt-summary-item-icon" aria-hidden="true"><SkipForward /></div>
+                    <div className="rt-summary-item-body">
+                      <strong>{exercise.name}</strong>
+                      <span>{doneSets > 0 ? 'Не закончено' : 'Пропущено'} · осталось {remainingSets} {pluralizeSets(remainingSets)}</span>
+                    </div>
+                    <div className="rt-summary-item-actions">
+                      <Button variant="secondary" iconLeft={<Play aria-hidden="true" />} onClick={() => handleReturnToExercise(exercise.id)}>
+                        {doneSets === 0 ? 'Выполнить упражнение' : remainingSets > 1 ? `Доделать ${remainingSets} ${pluralizeSets(remainingSets)}` : 'Доделать подход'}
+                      </Button>
+                    </div>
+                  </div>
+                )
+              })}
+            </section>
+          ) : null}
         </div>
 
         <div className="rt-actions" role="group" aria-label="Действия после упражнения">
@@ -196,7 +235,7 @@ export function ExerciseSummaryScreen() {
               Завершить тренировку сейчас
             </Button>
           </div>
-          <div className="rt-actions-note">{hasNextExercise ? <>Дальше: <strong>{session.exercises[currentExercise.order]?.name}</strong></> : 'Это было последнее упражнение тренировки'}</div>
+          <div className="rt-actions-note">{hasNextExercise ? <>Дальше: <strong>{nextExercise?.name}</strong></> : 'Это было последнее упражнение тренировки'}</div>
           <Button className="rt-primary" iconLeft={<ArrowRight aria-hidden="true" />} onClick={handleContinue}>
             {nextStepLabel}
           </Button>
@@ -268,4 +307,12 @@ function formatSummaryPlan(result: { targetMinReps?: number | null; targetMaxRep
   }
 
   return `${result.targetMaxReps ?? result.plannedValue}`
+}
+
+function pluralizeSets(count: number) {
+  const mod10 = count % 10
+  const mod100 = count % 100
+  if (mod10 === 1 && mod100 !== 11) return 'подход'
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'подхода'
+  return 'подходов'
 }

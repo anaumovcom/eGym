@@ -12,10 +12,11 @@ def gravity(profile: SideProfile, x_mm: float) -> float:
 
 def friction(
     model: FrictionModel, v_mm_s: float, tunables: Tunables, *, x_mm: float | None = None, axial_excess_n: float | None = None, motor_sign: int = 1,
+    gain_down: float | None = None,
 ) -> float:
     return model.compensation(
-        v_mm_s, tunables.friction_gain_up, tunables.friction_gain_down, tunables.friction_blend_mm_s, x_mm=x_mm, axial_excess_n=axial_excess_n,
-        motor_sign=motor_sign,
+        v_mm_s, tunables.friction_gain_up, tunables.friction_gain_down if gain_down is None else gain_down, tunables.friction_blend_mm_s,
+        x_mm=x_mm, axial_excess_n=axial_excess_n, motor_sign=motor_sign,
     )
 
 

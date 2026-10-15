@@ -125,6 +125,7 @@ class CalibrationSummarySchema(SchemaModel):
     lower_point_mm: float | None = None
     upper_point_mm: float | None = None
     fixed_position_mm: float | None = None
+    start_point: Literal["lower", "upper"] = "lower"
     zero_position_mm: float
     movement_range_confirmed: bool
     calibration_required: bool
@@ -141,6 +142,7 @@ class CalibrationSaveSchema(SchemaModel):
     lower_point_mm: float | None = None
     upper_point_mm: float | None = None
     fixed_position_mm: float | None = None
+    start_point: Literal["lower", "upper"] | None = None  # None: keep the saved one
     zero_position_mm: float = 0.0
     movement_range_confirmed: bool = True
     calibration_required: bool = True

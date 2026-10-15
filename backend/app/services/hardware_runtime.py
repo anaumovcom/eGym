@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import logging.handlers
+import threading
 import time
 from collections import deque
 from dataclasses import asdict, dataclass, field
@@ -71,10 +72,12 @@ SUPPORT_REFRESH_S = 0.2
 # an interrupted calibration (abort, failure, latch) leaves PA_12C = 100 on both drives instead of the profile support:
 # no jerk from a changed or wrong support_raw (C3 hold, a candidate profile); kept until the next calibration starts
 ABORT_SUPPORT_RAW = 100
-ZERO_SYNC_MAX_MM = 50.0
+# the stored absolute zero is rejected only if it puts the bar outside the travel by more than this (encoder position lost)
+ZERO_SYNC_MARGIN_MM = 50.0
 BROADCAST_INTERVAL_SECONDS = 0.1
 SLOW_TICK_S = 0.3  # logged: bus retries / timeouts stretch the control period
 STALL_S = 0.5  # gap between ticks: the loop stood still, the screen heartbeat could not be served
+MIN_TICK_GAP_S = 0.005  # idle time after every tick: a back-to-back slow loop must not starve API calls waiting for the lock
 HEARTBEAT_GAP_S = 0.7  # logged: the screen heartbeat (every 0.25 s) came late
 PANEL_MOTION_MESSAGE = "Кнопки панели не двигают гриф: управляйте с экрана"
 SERVO_OFF_MESSAGE = "Приводы выключены (Servo OFF): гриф не поддерживается. Включить — в сервисном режиме"
@@ -169,6 +172,9 @@ class HardwareRuntime:
         self._lock = RLock()
         self._loop: asyncio.AbstractEventLoop | None = None
         self._task: asyncio.Task[None] | None = None
+        # the control loop owns a thread: a blocked event loop (sync DB/network in a handler) must not freeze the drives
+        self._thread: threading.Thread | None = None
+        self._stop_event = threading.Event()
         self._subscribers: set[asyncio.Queue[dict[str, object]]] = set()
         self._command_counter = 0
         self.tick_seconds = TICK_SECONDS
@@ -242,8 +248,12 @@ class HardwareRuntime:
         self._loop = asyncio.get_running_loop()
         if not self.panel.running:
             self.panel.configure(self._panel_config())
+        if self._thread is None or not self._thread.is_alive():
+            self._stop_event = threading.Event()
+            self._thread = threading.Thread(target=self._control_loop, args=(self._stop_event,), name="hardware-control", daemon=True)
+            self._thread.start()
         if self._task is None or self._task.done():
-            self._task = asyncio.create_task(self._run())
+            self._task = asyncio.create_task(self._broadcast_loop())
         await self.panel.start()
 
     async def stop(self) -> None:
@@ -256,6 +266,10 @@ class HardwareRuntime:
                     pass
         finally:
             self._task = None
+            thread, self._thread = self._thread, None
+            self._stop_event.set()
+            if thread is not None:
+                await asyncio.to_thread(thread.join, 2.0)
             try:
                 # the lock serializes this with an in-flight tick (R7)
                 await asyncio.to_thread(self.apply_shutdown_support)
@@ -269,29 +283,35 @@ class HardwareRuntime:
             if errors:
                 logger.error("Shutdown support delivery failed: %s", errors)
 
-    async def _run(self) -> None:
-        last_broadcast = 0.0
+    def _control_loop(self, stop: threading.Event) -> None:
         try:
             next_tick = time.monotonic()
-            while True:
+            while not stop.is_set():
                 next_tick += self.tick_seconds
                 delay = next_tick - time.monotonic()
-                if delay > 0:
-                    await asyncio.sleep(delay)
-                else:
-                    next_tick = time.monotonic()
-                    await asyncio.sleep(0)
+                if delay < MIN_TICK_GAP_S:
+                    delay = MIN_TICK_GAP_S
+                    next_tick = time.monotonic() + delay
+                if stop.wait(delay):
+                    break
                 try:
-                    await asyncio.to_thread(self.tick)
+                    self.tick()
                 except Exception as exc:  # keep support alive after a failed tick (R4)
                     logger.exception("Safe runtime tick failed")
-                    await asyncio.to_thread(self._handle_failure, exc)
-                now = time.monotonic()
-                if now - last_broadcast >= BROADCAST_INTERVAL_SECONDS:
-                    last_broadcast = now
-                    await self._broadcast_snapshot()
+                    try:
+                        self._handle_failure(exc)
+                    except Exception:  # noqa: BLE001
+                        logger.exception("Safe runtime failure handling failed")
         finally:
-            await asyncio.to_thread(self.apply_shutdown_support)
+            self.apply_shutdown_support()
+
+    async def _broadcast_loop(self) -> None:
+        while True:
+            await asyncio.sleep(BROADCAST_INTERVAL_SECONDS)
+            try:
+                await self._broadcast_snapshot()
+            except Exception:  # noqa: BLE001
+                logger.exception("Hardware snapshot broadcast failed")
 
     def _handle_failure(self, error: Exception) -> None:
         with self._lock:
@@ -384,10 +404,11 @@ class HardwareRuntime:
         )
 
     def _sync_zero(self) -> None:
-        """B7: replace the zero captured at drive init with the measured absolute zero of the profile.
+        """Replace the zero captured at drive init with the absolute zero of the profile (B7 / «Сброс нуля»).
 
-        Applied once per captured zero; a jump beyond ``ZERO_SYNC_MAX_MM`` means the absolute
-        position was lost (e.g. encoder battery), so the init zero is kept and a warning is logged.
+        Positions are counted from the absolute encoder, so a restart keeps the bar height wherever the bar is.
+        Applied once per captured zero; a position outside the travel by more than ``ZERO_SYNC_MARGIN_MM``
+        means the absolute position was lost (e.g. encoder battery): the init zero is kept and a warning is logged.
         """
 
         current = (getattr(modbus_service, "left_zero_pulses", None), getattr(modbus_service, "right_zero_pulses", None))
@@ -400,13 +421,21 @@ class HardwareRuntime:
         target = (int(stored[0].value), int(stored[1].value))
         if target == self._zero_seen:
             return
-        shift_mm = max(abs(t - c) * float(self.profile.side(side).mm_per_pulse.value) for side, t, c in zip(SIDES, target, self._zero_seen, strict=True))
-        if shift_mm > ZERO_SYNC_MAX_MM:
-            self._emit("zero", f"Абсолютный ноль профиля отличается на {shift_mm:.0f} мм — оставлен ноль инициализации; повторите B7")
+        # bar height at the init capture, counted from the stored zero
+        heights = {
+            side: (c - t) * float(self.profile.side(side).mm_per_pulse.value) * self.profile.side(side).sign
+            for side, t, c in zip(SIDES, target, self._zero_seen, strict=True)
+        }
+        limit = float(self.profile.travel_mm.value) + ZERO_SYNC_MARGIN_MM
+        if any(abs(height) > limit for height in heights.values()):
+            text = ", ".join(f"{'левый' if side == 'left' else 'правый'} {height:.0f} мм" for side, height in heights.items())
+            self._emit("zero", f"Абсолютный ноль профиля даёт высоту вне хода ({text}) — оставлен ноль инициализации; выполните «Сброс нуля» на упорах")
+            logger.warning("Profile absolute zero %s rejected: init zero %s gives %s mm", target, self._zero_seen, heights)
             return
         modbus_service.set_session_zero(*target)
         self._zero_seen = target
-        self._emit("zero", f"Применён абсолютный ноль B7 (сдвиг {shift_mm:.2f} мм)")
+        logger.info("Profile absolute zero %s applied: bar at %s mm", target, heights)
+        self._emit("zero", f"Применён абсолютный ноль: левый {heights['left']:.1f} мм, правый {heights['right']:.1f} мм")
 
     def _write_safe_output(self) -> dict[Side, str]:
         """Support on both drives (zero on overspeed); each side attempted independently (R3)."""
@@ -438,6 +467,7 @@ class HardwareRuntime:
         self.latch = kind
         self.fault_reason = reason
         self._force_write = True
+        logger.warning("Hardware latch %s: %s", kind, reason)
         self._emit(kind, reason)
         if self.workout.active:
             self._abort_workout(reason)
@@ -631,7 +661,7 @@ class HardwareRuntime:
         lower, upper = calibration.get("lower_point_mm"), calibration.get("upper_point_mm")
         if lower is None or upper is None:
             raise WorkoutError("В настройке грифа нет нижней и верхней точки")
-        start = "upper" if payload.get("start_point") == "upper" else "lower"
+        start = "upper" if (payload.get("start_point") or calibration.get("start_point")) == "upper" else "lower"
         return SetPlan(lower_mm=float(lower), upper_mm=float(upper), start_point=start, **common)  # type: ignore[arg-type]
 
     @property
@@ -746,6 +776,8 @@ class HardwareRuntime:
                 raise PermissionError("Сброс нуля — только в сервисном режиме")
             if not self.modbus:
                 raise PermissionError("Сброс нуля доступен только на реальных приводах (Modbus)")
+            if (self.calibration is not None and self.calibration.running) or self.workout.active:
+                raise PermissionError("Сброс нуля недоступен во время калибровки или упражнения")
             positions = modbus_service.capture_zero()
             if positions.error:
                 raise PermissionError("Ноль не сброшен: " + positions.error)
@@ -1090,6 +1122,8 @@ class HardwareRuntime:
     # ------------------------------------------------------------- plumbing
     def _emit(self, kind: str, message: str, payload: dict[str, Any] | None = None) -> None:
         self.events.append({"t": round(time.monotonic(), 3), "kind": kind, "message": message, "payload": payload or {}})
+        if kind.endswith("_aborted"):
+            logger.warning("Hardware event %s: %s", kind, message)
 
     def _record_command(self, action: str, payload: dict[str, object]) -> HardwareCommandRecord:
         self._command_counter += 1
@@ -1098,15 +1132,14 @@ class HardwareRuntime:
         return command
 
     async def subscribe(self) -> asyncio.Queue[dict[str, object]]:
+        # subscribers live on the event loop only: no runtime lock here, a tick may hold it for the whole RS-485 exchange
         queue: asyncio.Queue[dict[str, object]] = asyncio.Queue(maxsize=50)
-        with self._lock:
-            self._subscribers.add(queue)
-        await queue.put(self.snapshot_payload())
+        self._subscribers.add(queue)
+        await queue.put(await asyncio.to_thread(self.snapshot_payload))
         return queue
 
     def unsubscribe(self, queue: asyncio.Queue[dict[str, object]]) -> None:
-        with self._lock:
-            self._subscribers.discard(queue)
+        self._subscribers.discard(queue)
 
     def _schedule_broadcast(self) -> None:
         if self._loop is None or self._loop.is_closed():
@@ -1115,14 +1148,11 @@ class HardwareRuntime:
 
     async def _broadcast_snapshot(self) -> None:
         payload = await asyncio.to_thread(self.snapshot_payload)  # never wait for the runtime lock on the event loop
-        with self._lock:
-            subscribers = list(self._subscribers)
-        for subscriber in subscribers:
+        for subscriber in list(self._subscribers):
             try:
                 subscriber.put_nowait(payload)
             except asyncio.QueueFull:
-                with self._lock:
-                    self._subscribers.discard(subscriber)
+                self._subscribers.discard(subscriber)
 
 
 hardware_runtime = HardwareRuntime()

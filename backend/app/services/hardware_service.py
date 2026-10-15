@@ -121,6 +121,7 @@ class HardwareService:
                 lower_point_mm=payload.lower_point_mm,
                 upper_point_mm=payload.upper_point_mm,
                 fixed_position_mm=payload.fixed_position_mm,
+                start_point=payload.start_point or "lower",
                 zero_position_mm=payload.zero_position_mm,
                 movement_range_confirmed=payload.movement_range_confirmed,
                 calibration_required=payload.calibration_required,
@@ -135,6 +136,8 @@ class HardwareService:
             calibration.lower_point_mm = payload.lower_point_mm
             calibration.upper_point_mm = payload.upper_point_mm
             calibration.fixed_position_mm = payload.fixed_position_mm
+            if payload.start_point is not None:
+                calibration.start_point = payload.start_point
             calibration.zero_position_mm = payload.zero_position_mm
             calibration.movement_range_confirmed = payload.movement_range_confirmed
             calibration.calibration_required = payload.calibration_required
@@ -338,6 +341,7 @@ class HardwareService:
                 "lower_point_mm": calibration.lower_point_mm,
                 "upper_point_mm": calibration.upper_point_mm,
                 "fixed_position_mm": calibration.fixed_position_mm,
+                "start_point": calibration.start_point,
             }
         if payload.lower_mm is not None and payload.upper_mm is not None:
             setup |= {"lower_point_mm": payload.lower_mm, "upper_point_mm": payload.upper_mm}
@@ -456,8 +460,8 @@ class HardwareService:
                         "id": str(item.id),
                         "exercise": item.exercise_slug,
                         "muscle": "machine",
-                        "lowerPoint": f"{item.lower_point_mm:.0f} мм",
-                        "upperPoint": f"{item.upper_point_mm:.0f} мм",
+                        "lowerPoint": f"{item.lower_point_mm:.0f} мм" if item.lower_point_mm is not None else "—",
+                        "upperPoint": f"{item.upper_point_mm:.0f} мм" if item.upper_point_mm is not None else "—",
                         "updatedAt": item.captured_at.astimezone(UTC).strftime("%d.%m.%Y %H:%M"),
                         "status": "actual" if self._is_calibration_actual_model(item) else "stale",
                     }

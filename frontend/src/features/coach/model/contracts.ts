@@ -84,6 +84,23 @@ export type CoachCapabilities = Readonly<{
   lifecycleObservation: boolean; replay: 'test-only'
 }>
 
+const MAX_RUN_ID = 120
+
+/** Coach run identity of a workout session, within the backend scope limit (120 chars).
+ * Builder sessions join every exercise ID into `session.id`, so long workouts get a stable
+ * prefix + hash instead of an ID the backend rejects as `invalid_event`. */
+export function coachRunId(session: Readonly<{ id: string; runId?: string }>): string {
+  const id = session.runId ?? session.id
+  if (id.length <= MAX_RUN_ID) return id
+  let a = 0x811c9dc5, b = 0x01000193 ^ id.length
+  for (let index = 0; index < id.length; index++) {
+    const code = id.charCodeAt(index)
+    a = Math.imul(a ^ code, 0x01000193) >>> 0
+    b = Math.imul(b ^ code, 0x5bd1e995) >>> 0
+  }
+  return `${id.slice(0, 100)}~${a.toString(16).padStart(8, '0')}${b.toString(16).padStart(8, '0')}`
+}
+
 /** Backend IDs are aliases, never a replacement for this identity. */
 export function canonicalCoachKey(event: Pick<CoachEvent, 'scope' | 'kind' | 'ordinal'>): string {
   const { userId, runId, exerciseId, setOrdinal } = event.scope

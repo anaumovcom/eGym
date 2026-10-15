@@ -164,6 +164,13 @@ def expected(ctx: Context, load_n: float, *, speed_mm_s: float = 60.0, profile: 
     return mean(masses), mean(residual)
 
 
+def expected_down(ctx: Context, load_n: float, *, speed_mm_s: float = 60.0, profile: MachineProfile | None = None) -> float:
+    """Residual friction going down at ``load_n`` (the law compensates more of it under a load), N per side."""
+
+    core = MotorCore(profile or ctx.profile, envelope=ctx.safety)
+    return mean([(1 - core._descent_gain(side, load_n)) * abs(core.friction[side].force(-speed_mm_s)) for side in SIDES])
+
+
 def user_gain(ctx: Context, mass_kg: float) -> float:
     """Speed-correction gain of a virtual user, N per mm/s, stable against the bus delay for ``mass_kg``.
 
@@ -174,9 +181,11 @@ def user_gain(ctx: Context, mass_kg: float) -> float:
     return max(0.03, min(1.0, mass_kg / (4 * period) / 1000))
 
 
-def rep_user(load_n: float, low_mm: float, high_mm: float, speed_mm_s: float, *, gain: float, feed_n: float = 0.0, limit_n: float = 80.0) -> Probe:
-    """A person doing reps: holds ``load_n``, pushes ``feed_n`` with the motion (felt friction) and corrects
-    the speed towards ±``speed_mm_s`` with ``gain`` (turns at the heights)."""
+def rep_user(
+    load_n: float, low_mm: float, high_mm: float, speed_mm_s: float, *, gain: float, feed_n: float = 0.0, feed_down_n: float | None = None, limit_n: float = 80.0,
+) -> Probe:
+    """A person doing reps: holds ``load_n``, pushes ``feed_n`` with the motion (felt friction; ``feed_down_n`` going
+    down, if it differs) and corrects the speed towards ±``speed_mm_s`` with ``gain`` (turns at the heights)."""
 
     state = {"direction": 1, "boost": 0.0}
 
@@ -193,7 +202,7 @@ def rep_user(load_n: float, low_mm: float, high_mm: float, speed_mm_s: float, *,
             state["boost"] = 0.0
         elif along < 2.0:
             state["boost"] += STUCK_BOOST_N
-        correction = direction * (feed_n + state["boost"]) + gain * (direction * speed_mm_s - frame.v_mean)
+        correction = direction * ((feed_n if direction > 0 or feed_down_n is None else feed_down_n) + state["boost"]) + gain * (direction * speed_mm_s - frame.v_mean)
         return load_n + max(-limit_n, min(limit_n, correction))
 
     return probe

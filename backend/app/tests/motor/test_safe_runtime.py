@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import time
+from dataclasses import replace
 
 import pytest
 
 from app.core.config import get_settings
+from app.motor.profile import MachineProfile, Measured
+from app.motor.units import passport_mm_per_pulse
 from app.services import hardware_runtime as runtime_module
 from app.services.hardware_runtime import HardwareRuntime
 from app.tests.motor.fakes import FakeModbusService
@@ -25,6 +29,48 @@ def test_startup_writes_support_first(modbus_runtime) -> None:
     _runtime, service = modbus_runtime
     assert service.writes[:2] == [(1, 100), (2, 100)]
     assert all(raw != 0 for _slave, raw in service.writes)
+
+
+def _profile_with_zero(left: int, right: int) -> MachineProfile:
+    profile = MachineProfile()
+    for side, value in (("left", left), ("right", right)):
+        profile = profile.with_side(side, replace(profile.side(side), zero_counts=Measured(value, None, "measured", "reset_zero_position", None)))
+    return profile
+
+
+def test_restart_keeps_absolute_position_of_a_raised_bar(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    per_mm = 1 / passport_mm_per_pulse()
+    # restart with the bar 600 mm up: the drive init captures the current counts as zero
+    service.left_zero_pulses, service.right_zero_pulses = 7_634_010 + round(600 * per_mm), 49_321_568 + round(600 * per_mm)
+    runtime.apply_profile(_profile_with_zero(7_634_010, 49_321_568))
+    runtime.tick()
+    assert (service.left_zero_pulses, service.right_zero_pulses) == (7_634_010, 49_321_568)
+
+
+def test_operator_zero_survives_restart(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    runtime.set_service_mode(True)
+    service.counts = {1: 7_634_010, 2: 49_321_568}
+    command = runtime.reset_zero()
+    assert (command.payload["leftZeroPulses"], command.payload["rightZeroPulses"]) == (7_634_010, 49_321_568)
+    runtime.apply_profile(_profile_with_zero(7_634_010, 49_321_568))  # hardware_service saves it to the profile
+    runtime.tick()
+    assert (service.left_zero_pulses, service.right_zero_pulses) == (7_634_010, 49_321_568)
+    # restart with the bar 300 mm up: init captures the current counts, the profile zero replaces them
+    per_mm = 1 / passport_mm_per_pulse()
+    service.left_zero_pulses, service.right_zero_pulses = 7_634_010 + round(300 * per_mm), 49_321_568 + round(300 * per_mm)
+    runtime.reset(profile=_profile_with_zero(7_634_010, 49_321_568))
+    assert (service.left_zero_pulses, service.right_zero_pulses) == (7_634_010, 49_321_568)
+
+
+def test_lost_absolute_position_keeps_init_zero(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    service.left_zero_pulses, service.right_zero_pulses = 0, 0  # encoder reset: far outside the travel
+    runtime.apply_profile(_profile_with_zero(7_634_010, 49_321_568))
+    runtime.tick()
+    assert (service.left_zero_pulses, service.right_zero_pulses) == (0, 0)
+    assert any(event.get("kind") == "zero" and "вне хода" in str(event.get("message")) for event in runtime.events)
 
 
 def test_twin_startup_writes_support_first(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -115,6 +161,23 @@ def test_shutdown_writes_support(modbus_runtime) -> None:
 
     asyncio.run(lifecycle())
     assert service.writes[-2:] == [(1, 100), (2, 100)]
+
+
+def test_control_loop_ticks_while_event_loop_is_blocked(modbus_runtime) -> None:
+    runtime, _service = modbus_runtime
+
+    async def lifecycle() -> tuple[float, float]:
+        await runtime.start()
+        await asyncio.sleep(0.1)
+        before = runtime._tick_started
+        time.sleep(0.5)  # a handler waiting on a locked SQLite file blocks the event loop
+        after = runtime._tick_started
+        await runtime.stop()
+        assert before is not None and after is not None
+        return before, after
+
+    before, after = asyncio.run(lifecycle())
+    assert after - before >= 0.3
 
 
 def test_motion_is_rejected_while_servo_off(modbus_runtime) -> None:

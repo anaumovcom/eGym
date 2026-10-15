@@ -61,6 +61,24 @@ GAP_SCALE = {"short": 0.7, "normal": 1.0, "long": 1.6}
 WORDS_SCALE = {"short": 0.6, "normal": 1.0, "detailed": 1.25}
 NAME_FACTS = frozenset({"exercise", "next-exercise", "exercise-names"})
 PROGRESS_FACTS = frozenset({"set-position", "sets-left", "exercise-position", "plan-sets", "planned-sets"})
+# In-set moments (T21 set support): claim, per-set topic, intents. The browser only says which moment it is;
+# the claims are fixed server text, and the Director paces them by the set's real elapsed time.
+SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
+    "start": ("Подход только начался, первые повторения засчитаны", "set-start", ("motivation", "general-tip")),
+    "partial": ("Последнее движение не засчитано: гриф не прошёл всю амплитуду от нижней до верхней точки",
+                "set-range", ("general-tip", "motivation")),
+    "half": ("Половина подхода уже позади", "set-support", ("motivation", "humor")),
+    "finish": ("Идут последние повторения подхода", "set-finish", ("motivation",)),
+    "stall": ("В подходе пауза: новое повторение пока не засчитано", "set-stall", ("motivation",)),
+}
+SET_MOMENT_KINDS = {"set_activated": "start", "rep_completed": "partial", "rep_milestone": "half",
+                    "last_rep_pending": "finish"}
+# Timed sets (the browser follows the on-screen clock): same moments, claims about time instead of reps.
+TIMED_SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
+    "start": ("Таймер подхода запущен, работа началась", "set-start", ("motivation", "general-tip")),
+    "half": ("Половина времени подхода уже позади", "set-support", ("motivation", "humor")),
+    "finish": ("До конца подхода остаются последние секунды", "set-finish", ("motivation",)),
+}
 
 
 @dataclass(frozen=True)
@@ -326,14 +344,24 @@ class LiveCoach:
                 target, weight_fact(_kg(context, "weightKg"), prefix="Рабочий вес", **common)])
             return op(candidate("T04", "setup", f"exercise-intro:{exercise}", hint=3_000), "setup/opening",
                       ("motivation",), package)
-        if event.kind == "rep_milestone":
+        if event.kind in SET_MOMENT_KINDS and event.phase == "active-set":
             if not s.during_sets:
                 return "disabled"
+            moment = SET_MOMENT_KINDS[event.kind]
+            if event.kind == "rep_milestone" and context.get("moment") == "stall":
+                moment = "stall"
+            moments = TIMED_SET_MOMENTS if unit == "seconds" else SET_MOMENTS
+            if moment not in moments:
+                return None
+            claim, topic, intents = moments[moment]
+            exact = _count(context, "targetSeconds" if unit == "seconds" else "targetReps", 3600) if moment == "start" else None
             package = plan_package("T21", [
                 named, *progress_facts(scope.set_ordinal, _count(context, "totalSets"), **common)[:1],
-                AllowedFact("milestone", "Половина подхода уже позади", "confirmed", "half", **common)])
-            return op(candidate("T21", "active", f"set-support:{set_key}", started=now - phase_elapsed),
-                      "active/support", ("motivation", "humor"), package)
+                target_fact(exact, exact, unit, prefix="Цель подхода —", **common) if exact else None,
+                AllowedFact("milestone", claim, "confirmed", moment, **common)])
+            # Topic stays per set: "half" keeps the historical key so one comment per moment per set.
+            return op(candidate("T21", "active", f"{topic}:{set_key}", started=now - phase_elapsed),
+                      "active/support", intents, package)
         if event.kind == "set_persisted":
             if not s.set_feedback:
                 return "disabled"

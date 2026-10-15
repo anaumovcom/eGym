@@ -57,8 +57,13 @@ FIXED_DAMPING_DELAY_SHARE = 0.5
 LOAD_RESERVE_SHARE = 0.1  # of the strongest pull: inertia, cushions and the sync act on top of the load
 # a load below the screw's static friction never moves a released bar: after a rest the law breaks it away downwards
 FALL_STATIC_MARGIN = 1.15  # × static friction down, at rest
-FALL_RAMP_N_PER_S = 60.0
+# a stop at the top of a rep is short: the push starts soon after it, or the user has to drag the bar down
+FALL_REST_S = 0.2
+FALL_RAMP_N_PER_S = 120.0
 FALL_DROP_N_PER_S = 400.0  # the user lifts: the assist goes at once
+# extra descent friction compensation (train_friction_gain_down) fades out above a rep's speed, down to the base gain
+# at the load-relief onset: a released bar keeps the screw friction as a brake
+DESCENT_GAIN_FADE_START = 0.4  # × max_descent_mm_s
 # range guard of a set, judged on the bar as a whole (the mean of the sides: per-side decisions near a point give one
 # side its load and not the other, a racking force). Below the lower point the load ramps out, a damper (delay-limited)
 # slows the fall and a soft spring returns the bar up to the point. Its force is small: whatever the law pushes acts a
@@ -121,6 +126,7 @@ class MotorCore:
         self.floor_cut = 0.0  # share of the load ramped out below the set's range
         self.range_force_n = 0.0  # the range guard's force, the same on both sides
         self._bar_x_mm = 0.0
+        self._bar_v_mm_s = 0.0
         self.sync_left_n = 0.0  # the sync force of the left side, the right one gets the opposite
         self._bar_a_mm_s2 = 0.0
         self._dt = 0.0
@@ -407,7 +413,13 @@ class MotorCore:
         # A load heavier than the bar makes the motor pull down: |F| − W again, with the power flow swapped
         axial = max(0.0, abs(self.previous[side]) - weight)
         motor_sign = 1 if self.previous[side] >= 0 else -1
-        friction = compensation.friction(model, v_ahead, t, x_mm=state.x_mm, axial_excess_n=axial, motor_sign=motor_sign) * self._breakaway_scale(side)
+        load, gain_down = 0.0, None
+        if output == "train":
+            load = load_force(self.load, state.x_mm, blend) * self.load_relief[side] * (1.0 - self.floor_cut)
+            gain_down = self._descent_gain(side, load)
+        friction = compensation.friction(
+            model, v_ahead, t, x_mm=state.x_mm, axial_excess_n=axial, motor_sign=motor_sign, gain_down=gain_down,
+        ) * self._breakaway_scale(side)
         sync = self.sync_left_n if side == "left" else -self.sync_left_n
         speed_guard = governor(state.v_mm_s, self.envelope.max_speed_mm_s, self.envelope.max_descent_mm_s)
         if output == "calibrate":
@@ -436,7 +448,6 @@ class MotorCore:
                 spring += self.fixed_integral[side]
             return weight + friction + spring + sync + speed_guard
         # train
-        load = load_force(self.load, state.x_mm, blend) * self.load_relief[side] * (1.0 - self.floor_cut)
         # on the bar's acceleration, not the side's: cancelled mass on a skew (delayed, per side) makes it lighter and
         # livelier, the sides race each other
         inertia = compensation.inertia(float(profile.moving_mass_kg.value), self.virtual_mass_kg, self._bar_a_mm_s2, self.inertia_share(side))
@@ -445,6 +456,18 @@ class MotorCore:
 
     def _loop_delay(self) -> float:
         return (_value(self.profile.loop_delay_s, 0.04) or 0.04) + (_value(self.profile.torque_lag_s, 0.0) or 0.0)
+
+    def _descent_gain(self, side: Side, load: float) -> float:
+        """Friction compensation going down in training: from the weightless gain to ``train_friction_gain_down`` as the
+        load grows to the static friction (a bar without a load has nothing pulling it down and must stop by itself).
+        A bar running away downwards (load relief) gets the friction back as a brake."""
+
+        t = self.tunables
+        share = max(0.0, min(1.0, load / max(self.friction[side].coulomb_down_n, 1.0))) * self.load_relief[side]
+        start, end = DESCENT_GAIN_FADE_START * self.envelope.max_descent_mm_s, 0.6 * self.envelope.max_descent_mm_s
+        v_ahead = self._bar_v_mm_s + self._bar_a_mm_s2 * self._loop_delay()
+        share *= max(0.0, min(1.0, (end + v_ahead) / (end - start)))
+        return t.friction_gain_down + (t.train_friction_gain_down - t.friction_gain_down) * share
 
     def _range_damping(self) -> float:
         mass = min(float(self.profile.side(side).moving_mass_kg.value) for side in SIDES)
@@ -465,10 +488,13 @@ class MotorCore:
         v = (states["left"].v_mm_s + states["right"].v_mm_s) / 2
         a = (states["left"].a_mm_s2 + states["right"].a_mm_s2) / 2
         self._bar_x_mm = x
+        self._bar_v_mm_s = v
         self._bar_a_mm_s2 = a
         descent_onset = 0.6 * self.envelope.max_descent_mm_s
         relief = self.load_relief["left"]
-        if v < -descent_onset:
+        # judged on the speed a loop delay ahead while the bar speeds up downwards: the relief acts that late
+        v_relief = v + min(0.0, a) * self._loop_delay()
+        if v_relief < -descent_onset:
             relief = max(0.0, relief - self._dt / LOAD_RELIEF_DROP_S)
         elif v > -0.5 * descent_onset:
             relief = min(1.0, relief + self._dt / LOAD_RELIEF_RECOVER_S)
@@ -508,9 +534,9 @@ class MotorCore:
     def _fall_assist(self, side: Side, state: ObservedState, load: float) -> float:
         """A light load (below the static friction) left alone must sink like a free weight, not stick.
 
-        After ``BREAKAWAY_REST_S`` at rest the law adds a downward push that ramps up to the static friction
+        After ``FALL_REST_S`` at rest the law adds a downward push that ramps up to the static friction
         (less the load). Moving down it is cut to the friction the compensation leaves (1 − gain), so the bar
-        falls with its load, as a free weight does; moving up it goes at once. Ordinary reps never rest that long.
+        falls with its load, as a free weight does; moving up it goes at once.
         """
 
         model = self.friction[side]
@@ -520,11 +546,11 @@ class MotorCore:
         elif state.v_mm_s > STILL_MM_S:
             assist = max(0.0, assist - FALL_DROP_N_PER_S * self._dt)
         elif state.v_mm_s < -STILL_MM_S:
-            residual = (1.0 - self.tunables.friction_gain_down) * model.coulomb_down_n * self.load_relief[side]
+            residual = (1.0 - self._descent_gain(side, load)) * model.coulomb_down_n * self.load_relief[side]
             assist = min(assist, max(0.0, residual))
         else:
             static = max(0.0, FALL_STATIC_MARGIN * (model.coulomb_down_n + model.stribeck_extra_n) - load)
-            if self._still_s[side] >= BREAKAWAY_REST_S:
+            if self._still_s[side] >= FALL_REST_S:
                 assist = min(static, assist + FALL_RAMP_N_PER_S * self._dt)
             assist = min(assist, static)
         self.fall_assist[side] = assist

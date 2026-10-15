@@ -45,6 +45,11 @@ class RepCounter:
                 self._direction = 0
                 return self._record(amplitude)
             if x_mm > self._trough + self.hysteresis_mm:
+                if self._peak - self._trough < self.partial_percent / 100 * self._range_mm:
+                    # a wobble or pause at the top, not a rep: keep climbing from the real bottom
+                    self._peak = max(self._peak, x_mm)
+                    self._direction = 1
+                    return None
                 # bottom reversal short of the start: the next rep began from the trough
                 self._start, self._peak = self._trough, x_mm
                 self._direction = 1

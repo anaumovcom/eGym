@@ -215,8 +215,10 @@ function buildStrengthTemplate(modeId: string | undefined, dayType: string | nul
   if (useTargetReps) {
     // Basic mode follows the reps the user typed; the warm-up stays light and a bit longer.
     const reps = Math.max(1, settings.reps)
-    const warmupMin = Math.max(8, reps - 2)
-    const warmupMax = Math.max(10, reps)
+    // Without external weight the warm-up can't be lighter, so it is shorter: half the reps.
+    const bodyweight = kind === 'bodyweight' || kind === 'timed' || settings.weight <= 0
+    const warmupMin = bodyweight ? Math.ceil(reps / 2) : Math.max(8, reps - 2)
+    const warmupMax = bodyweight ? warmupMin : Math.max(10, reps)
     const workRest = Math.max(60, Math.min(restSeconds, 120))
     return [
       item(1, 'warmup', 'Разминка', warmupMin === warmupMax ? String(warmupMin) : `${warmupMin}–${warmupMax}`, 0.5, 60, '4–5 в запасе', 'Лёгкий разминочный подход.'),

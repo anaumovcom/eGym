@@ -406,12 +406,16 @@ async def coach_live(websocket: WebSocket, run_id: str, sessions: Callable[[], S
                            send_json=send_json, send_bytes=send_bytes)
     live.register(coach)
 
+    def lease() -> None:
+        with sessions() as db:
+            ledger.lease(db, run_id, config.owner_id, generation)
+
     async def renew() -> None:
         while True:
             await asyncio.sleep(LEASE_RENEW_S)
             try:
-                with sessions() as db:
-                    ledger.lease(db, run_id, config.owner_id, generation)
+                # a locked SQLite file waits up to 5 s: never on the event loop
+                await asyncio.to_thread(lease)
             except HTTPException as error:
                 # Settings change, takeover or closed run: this socket's generation is over; the client reconnects.
                 await refuse(str(error.detail))

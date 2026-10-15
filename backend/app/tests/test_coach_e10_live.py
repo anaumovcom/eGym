@@ -352,6 +352,49 @@ async def test_context_facts_and_content_switches(session_factory):
     assert request.say_numbers is False and [f.id for f in request.facts] == ["milestone"]
 
 
+def test_in_set_moments_get_own_topics_and_follow_real_set_time(session_factory):
+    coach, _, run_id = make_coach(session_factory)
+    context = {"exerciseName": "Жим в Смите", "totalSets": 3, "targetReps": 10, "phaseElapsedMs": 40_000}
+    ops = {kind if moment is None else moment: plan(coach, run_id, kind, set_ordinal=2, phase="active-set",
+                                                    context={**context, **({"moment": moment} if moment else {})})
+           for kind, moment in (("set_activated", None), ("rep_completed", None), ("rep_milestone", None),
+                                ("rep_milestone", "stall"), ("last_rep_pending", None))}
+    topics = {key: op.candidate.topic_key.split(":", 1)[0] for key, op in ops.items()}
+    assert topics == {"set_activated": "set-start", "rep_completed": "set-range", "rep_milestone": "set-support",
+                      "stall": "set-stall", "last_rep_pending": "set-finish"}
+    assert all(op.candidate.trigger_id == "T21" and op.task == "active/support" for op in ops.values())
+    claims = {key: next(f.claim for f in op.package.facts if f.id == "milestone") for key, op in ops.items()}
+    assert "амплитуду" in claims["rep_completed"] and "Половина" in claims["rep_milestone"]
+    assert "target" in {f.id for f in ops["set_activated"].package.facts}
+    assert "target" not in {f.id for f in ops["last_rep_pending"].package.facts}  # no stale "N left" during effort
+    started = ops["set_activated"].candidate.phase_started_ms
+    assert started is not None and coach.now_ms() - started >= 39_000  # 30–60 s slot cap, not the first-30 s cap
+    assert plan(coach, run_id, "rep_completed", set_ordinal=2, phase="rest") is None
+    assert plan(coach, run_id, "rep_milestone", set_ordinal=2, phase="active-set",
+                context={"moment": ["stall"]}).candidate.topic_key.startswith("set-support:")
+
+
+def test_timed_set_moments_speak_about_time(session_factory):
+    coach, _, run_id = make_coach(session_factory)
+
+    def timed(kind, moment=None, **context):
+        message = event(kind, run_id, set_ordinal=1, phase="active-set")
+        message["event"]["exerciseKind"] = "timed"
+        with coach.sessions() as db:
+            return coach.plan(db, live.CoachEvent.model_validate(message["event"]), None,
+                              {"exerciseName": "Планка", "totalSets": 2, "phaseElapsedMs": 4_000,
+                               **({"moment": moment} if moment else {}), **context})
+
+    start = timed("set_activated", targetSeconds=60)
+    claims = {key: next(f.claim for f in op.package.facts if f.id == "milestone")
+              for key, op in {"start": start, "half": timed("rep_milestone"),
+                              "finish": timed("last_rep_pending")}.items()}
+    assert "Таймер" in claims["start"] and "времени" in claims["half"] and "секунды" in claims["finish"]
+    assert not any("повторени" in claim for claim in claims.values())
+    assert start.candidate.topic_key.startswith("set-start:") and "target" in {f.id for f in start.package.facts}
+    assert timed("rep_completed") is None  # no partial-rep moment on a clock
+
+
 async def test_comparison_switch_and_voice_overrides(session_factory):
     with session_factory() as db:
         seed(db, days_ago=7, actual=8, planned=8, status="completed")

@@ -32,7 +32,8 @@ export function HardwareRealtimeProvider() {
 
     function refreshSnapshot() {
       return loadSnapshot(selectedUserId).catch(() => {
-        setConnectionStatus('error')
+        // A late poll failing must not mark a live stream as lost (the coach then stops counting).
+        if (socket?.readyState !== WebSocket.OPEN) setConnectionStatus('error')
       })
     }
 

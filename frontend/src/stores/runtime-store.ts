@@ -47,6 +47,7 @@ type RuntimeStore = {
   replaceWorkoutSummary: (summary: RuntimeWorkoutSession['workoutSummary'], saved?: boolean) => void
   applyLoadAdjustment: (exerciseSlug: string, adjustment: LoadAdjustmentResponse) => void
   resumeWorkoutExercise: (exerciseId: string) => RuntimeWorkoutSession['view'] | null
+  restartPreviousExercise: (staleBackendExerciseIds?: string[]) => RuntimeWorkoutSession['exercises'][number] | null
   setBackendWorkoutSessionId: (workoutSessionId: number) => void
   setBackendExerciseSessionId: (exerciseId: string, exerciseSessionId: number) => void
   markExerciseSaved: (exerciseId: string, exerciseSessionId: number | undefined, outcome: RuntimeExerciseOutcome) => void
@@ -78,6 +79,27 @@ function withoutRuntimePhotoStep(session: RuntimeWorkoutSession): RuntimeWorkout
 
 function getCurrentExercise(session: RuntimeWorkoutSession) {
   return session.exercises.find((exercise) => exercise.id === session.currentExerciseId) ?? session.exercises[0]
+}
+
+// Exercises already done or skipped are not offered again after a return to a skipped one.
+export function getNextPendingExercise(session: RuntimeWorkoutSession) {
+  if (session.source === 'quick-start' || session.source === 'catalog') {
+    return undefined
+  }
+
+  const currentIndex = session.exercises.indexOf(getCurrentExercise(session))
+  return session.exercises.slice(currentIndex + 1).find((exercise) => !session.completedExerciseIds.includes(exercise.id))
+}
+
+// Skipped or unfinished exercises whose remaining sets can still be done in this workout.
+export function getReturnableExercises(session: RuntimeWorkoutSession) {
+  return session.exercises.filter((exercise) => {
+    const outcome = session.exerciseOutcomes?.[exercise.id]
+    return session.completedExerciseIds.includes(exercise.id)
+      && outcome != null
+      && outcome !== 'completed'
+      && (session.completedSets[exercise.id]?.length ?? 0) < exercise.plan.length
+  })
 }
 
 function getWorkoutSummaryExerciseMergeBase(exercise: RuntimeWorkoutSession['workoutSummary']['exercises'][number]) {
@@ -671,6 +693,48 @@ export const useRuntimeStore = create<RuntimeStore>()(
 
     return nextView
   },
+  restartPreviousExercise: (staleBackendExerciseIds = []) => {
+    const session = get().session
+    if (!session) {
+      return null
+    }
+
+    const currentExercise = getCurrentExercise(session)
+    const previousExercise = session.exercises[session.exercises.indexOf(currentExercise) - 1]
+    if (!previousExercise) {
+      return null
+    }
+
+    // The previous exercise is done again from its first set; the current one starts over after it.
+    const resetIds = [previousExercise.id, currentExercise.id]
+    const completedSets = { ...session.completedSets }
+    const exerciseOutcomes = { ...(session.exerciseOutcomes ?? {}) }
+    for (const id of resetIds) {
+      delete completedSets[id]
+      delete exerciseOutcomes[id]
+    }
+    // Records missing on the backend are forgotten so the redo creates fresh ones.
+    const backendExerciseSessionIds = { ...(session.backendExerciseSessionIds ?? {}) }
+    for (const id of staleBackendExerciseIds) {
+      delete backendExerciseSessionIds[id]
+    }
+
+    const nextSession: RuntimeWorkoutSession = {
+      ...session,
+      currentExerciseId: previousExercise.id,
+      currentSetIndex: 0,
+      completedSets,
+      backendExerciseSessionIds,
+      completedExerciseIds: session.completedExerciseIds.filter((id) => !resetIds.includes(id)),
+      exerciseOutcomes,
+      exerciseSummary: undefined,
+      restState: undefined,
+      view: 'exercise-setup',
+      backendWorkoutSaved: false,
+    }
+    set({ session: { ...nextSession, ...rebuildSessionSnapshots(nextSession, 'partial') } })
+    return previousExercise
+  },
   setBackendWorkoutSessionId: (workoutSessionId) =>
     set((state) => (state.session ? { session: { ...state.session, backendWorkoutSessionId: workoutSessionId } } : state)),
   setBackendExerciseSessionId: (exerciseId, exerciseSessionId) =>
@@ -707,12 +771,13 @@ export const useRuntimeStore = create<RuntimeStore>()(
         return state
       }
 
-      const currentExercise = getCurrentExercise(state.session)
-      const nextExercise = state.session.exercises[currentExercise.order]
+      const nextExercise = getNextPendingExercise(state.session)
 
-      if (!nextExercise || state.session.source === 'quick-start' || state.session.source === 'catalog') {
+      if (!nextExercise) {
         const exerciseOutcomes = state.session.exerciseOutcomes ?? {}
-        const hasIncompleteExercise = state.session.completedExerciseIds.some((exerciseId) => exerciseOutcomes[exerciseId] && exerciseOutcomes[exerciseId] !== 'completed')
+        const completedExerciseIds = state.session.completedExerciseIds
+        const hasIncompleteExercise = state.session.exercises.some((exercise) =>
+          !completedExerciseIds.includes(exercise.id) || (exerciseOutcomes[exercise.id] && exerciseOutcomes[exercise.id] !== 'completed'))
         const workoutOutcome = state.session.exerciseSummary.outcome === 'aborted'
           ? 'aborted'
           : hasIncompleteExercise

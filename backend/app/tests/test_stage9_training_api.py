@@ -527,6 +527,7 @@ def test_builder_set_count_shapes_strength_plan(client: TestClient) -> None:
                     "items": [
                         {"id": "row-1", "slug": "machine-pulldown", "name": "Тяга сверху", "muscleGroup": "Спина", "sets": "4×10", "rest": "60 сек", "load": "45 кг"},
                         {"id": "bike-1", "slug": "machine-pulldown", "name": "Кардио", "muscleGroup": "Спина", "sets": "1×10", "rest": "60 сек", "load": "вес тела"},
+                        {"id": "pull-1", "slug": "machine-pulldown", "name": "Подтягивания", "muscleGroup": "Спина", "sets": "4×5", "rest": "60 сек", "load": "вес тела", "loadType": "bodyweight"},
                     ],
                 }
             ],
@@ -545,9 +546,11 @@ def test_builder_set_count_shapes_strength_plan(client: TestClient) -> None:
     assert save_response.status_code == 200
 
     payload = client.get("/api/builder", params={"userId": "alexey", "programId": "back-biceps", "selectedExerciseId": "bike-1"}).json()
-    row, bike = payload["groups"][0]["items"]
+    row, bike, pull = payload["groups"][0]["items"]
     assert len(row["strengthPlan"]) == 4
+    assert row["strengthPlan"][0]["targetRepsLabel"] == "8–10"
     assert [s["targetRepsLabel"] for s in row["strengthPlan"][1:]] == ["10", "10", "10"]
+    assert [s["targetRepsLabel"] for s in pull["strengthPlan"]] == ["3", "5", "5", "5"]
     assert bike["loadType"] == "timed"
     assert bike["sets"] == "2×600 сек"
     assert bike["load"] == "вес тела"

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { useRuntimeStore } from '@/stores/runtime-store'
+import { getReturnableExercises, useRuntimeStore } from '@/stores/runtime-store'
 
 describe('runtime store', () => {
   beforeEach(() => {
@@ -9,6 +9,42 @@ describe('runtime store', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('returns to a skipped exercise and then continues with the next exercise not done yet', () => {
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    const [first, second, third] = useRuntimeStore.getState().session!.exercises
+    expect(third).toBeDefined()
+
+    useRuntimeStore.getState().completeExercise('skipped')
+    useRuntimeStore.getState().continueAfterExerciseSummary()
+    expect(useRuntimeStore.getState().session?.currentExerciseId).toBe(second.id)
+    useRuntimeStore.getState().finishExerciseWithResults([], 'completed')
+    expect(getReturnableExercises(useRuntimeStore.getState().session!).map((exercise) => exercise.id)).toEqual([first.id])
+
+    expect(useRuntimeStore.getState().resumeWorkoutExercise(first.id)).toBe('exercise-setup')
+    const resumed = useRuntimeStore.getState().session!
+    expect(resumed).toMatchObject({ currentExerciseId: first.id, currentSetIndex: 0, view: 'exercise-setup' })
+    expect(resumed.completedExerciseIds).not.toContain(first.id)
+    expect(resumed.exerciseOutcomes?.[first.id]).toBeUndefined()
+
+    useRuntimeStore.getState().finishExerciseWithResults([], 'completed')
+    useRuntimeStore.getState().continueAfterExerciseSummary()
+    // The second exercise is already done: the workout goes on with the third one.
+    expect(useRuntimeStore.getState().session).toMatchObject({ currentExerciseId: third.id, view: 'exercise-setup' })
+  })
+
+  it('opens the workout summary as partial when the last pending exercise is done but earlier ones are not started', () => {
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    const exercises = useRuntimeStore.getState().session!.exercises
+    const last = exercises[exercises.length - 1]
+    useRuntimeStore.setState({ session: { ...useRuntimeStore.getState().session!, currentExerciseId: last.id } })
+
+    useRuntimeStore.getState().finishExerciseWithResults([], 'completed')
+    useRuntimeStore.getState().continueAfterExerciseSummary()
+
+    expect(useRuntimeStore.getState().session?.view).toBe('workout-summary')
+    expect(useRuntimeStore.getState().session?.workoutSummary.outcome).toBe('partial')
   })
 
   it.each(['pre-workout', 'post-workout', 'manual'] as const)('does not initialize a workout photo step for %s', (photoMode) => {

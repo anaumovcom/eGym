@@ -1,3 +1,5 @@
+import asyncio
+
 from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
 from sqlalchemy.orm import Session
 
@@ -115,7 +117,7 @@ async def hardware_realtime(websocket: WebSocket) -> None:
     user_id = websocket.query_params.get("userId")
     await websocket.accept()
     if user_id:
-        hardware_runtime.set_selected_user(user_id, broadcast=False)
+        await asyncio.to_thread(hardware_runtime.set_selected_user, user_id, broadcast=False)
     queue = await hardware_runtime.subscribe()
     try:
         while True:

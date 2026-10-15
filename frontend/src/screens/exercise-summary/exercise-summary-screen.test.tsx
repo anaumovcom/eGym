@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { MemoryRouter } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { ExerciseSummaryScreen } from '@/screens/exercise-summary/exercise-summary-screen'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
@@ -55,5 +56,47 @@ describe('ExerciseSummaryScreen', () => {
     )
 
     expect(screen.getByRole('button', { name: 'Открыть итог тренировки' })).toBeInTheDocument()
+  })
+
+  it('returns to a skipped exercise from the summary of the next one', async () => {
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    const [first, second] = useRuntimeStore.getState().session!.exercises
+    useRuntimeStore.getState().completeExercise('skipped')
+    useRuntimeStore.getState().continueAfterExerciseSummary()
+    useRuntimeStore.getState().finishExerciseWithResults([], 'completed')
+
+    render(
+      <MemoryRouter initialEntries={['/exercise-summary']}>
+        <Routes>
+          <Route path="/exercise-summary" element={<ExerciseSummaryScreen />} />
+          <Route path="/exercise-setup" element={<p>setup</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const skipped = screen.getByRole('region', { name: 'Пропущенные упражнения' })
+    expect(skipped).toHaveTextContent(first.name)
+    expect(skipped).not.toHaveTextContent(second.name)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Выполнить упражнение' }))
+
+    expect(await screen.findByText('setup')).toBeInTheDocument()
+    expect(useRuntimeStore.getState().session).toMatchObject({ currentExerciseId: first.id, view: 'exercise-setup' })
+  })
+
+  it('leaves a summary that was already consumed for the step the workout is on', async () => {
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    useRuntimeStore.getState().finishExerciseWithResults([], 'completed')
+    useRuntimeStore.getState().continueAfterExerciseSummary()
+
+    render(
+      <MemoryRouter initialEntries={['/exercise-summary']}>
+        <Routes>
+          <Route path="/exercise-summary" element={<ExerciseSummaryScreen />} />
+          <Route path="/exercise-setup" element={<p>setup</p>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('setup')).toBeInTheDocument()
   })
 })

@@ -86,3 +86,13 @@ def test_rep_counter_shallow_bottom_reversal_closes_the_rep() -> None:
     path = [*range(500, 801, 10), *range(800, 599, -10), *range(600, 801, 10), *range(800, 499, -10), *range(500, 801, 10), *range(800, 499, -10)]
     events = [event for x in path if (event := counter.update(float(x)))]
     assert events == ["partial", "partial", "full"]
+
+
+def test_rep_counter_top_wobble_does_not_swallow_the_rep() -> None:
+    # real set: up to the top, a 56 mm sag and re-lock while holding, then the full descent
+    counter = RepCounter(lower_mm=549.8, upper_mm=945.2)
+    path = [*range(531, 976, 8), *range(975, 918, -4), *range(919, 942, 4), *[941] * 20, *range(941, 512, -8)]
+    events = [event for x in path if (event := counter.update(float(x)))]
+    assert events == ["full"]
+    path = [*range(513, 976, 8), *range(975, 512, -8)]
+    assert [event for x in path if (event := counter.update(float(x)))] == ["full"]

@@ -181,6 +181,9 @@ export type HardwareSnapshot = {
   panel: HardwarePanelStatus
 }
 
+/** Where a set of a bar-range exercise starts: the bar is moved there before the user takes it. */
+export type BarStartPoint = 'lower' | 'upper'
+
 export type HardwareCalibration = {
   id: number
   userId: string
@@ -189,6 +192,7 @@ export type HardwareCalibration = {
   lowerPointMm: number | null
   upperPointMm: number | null
   fixedPositionMm: number | null
+  startPoint?: BarStartPoint
   zeroPositionMm: number
   movementRangeConfirmed: boolean
   calibrationRequired: boolean
@@ -274,6 +278,7 @@ export type HardwareCalibrationPayload = {
   lowerPointMm?: number | null
   upperPointMm?: number | null
   fixedPositionMm?: number | null
+  startPoint?: BarStartPoint
   zeroPositionMm: number
   movementRangeConfirmed?: boolean
   calibrationRequired?: boolean

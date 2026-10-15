@@ -5919,6 +5919,21 @@
             ],
             "title": "Fixedpositionmm"
           },
+          "startPoint": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "lower",
+                  "upper"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startpoint"
+          },
           "zeroPositionMm": {
             "type": "number",
             "title": "Zeropositionmm",
@@ -6048,6 +6063,15 @@
               }
             ],
             "title": "Fixedpositionmm"
+          },
+          "startPoint": {
+            "type": "string",
+            "enum": [
+              "lower",
+              "upper"
+            ],
+            "title": "Startpoint",
+            "default": "lower"
           },
           "zeroPositionMm": {
             "type": "number",
@@ -8299,6 +8323,11 @@
             "type": "array",
             "title": "Sets",
             "default": []
+          },
+          "resetSets": {
+            "type": "boolean",
+            "title": "Resetsets",
+            "default": false
           }
         },
         "type": "object",

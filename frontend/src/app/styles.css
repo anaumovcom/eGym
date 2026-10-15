@@ -1070,7 +1070,20 @@ svg [tabindex]:focus-visible { outline-offset: 0; }
 
 .rt-session-body { grid-template-columns: minmax(0, 1fr) minmax(26rem, 0.8fr); }
 .rt-session-body[data-rail='true'] { grid-template-columns: minmax(0, 1fr) minmax(26rem, 0.8fr) 9rem; }
-.rt-session-center { position: relative; container-type: size; justify-content: center; }
+.rt-session-center { position: relative; container-type: size; justify-content: safe center; overflow-y: auto; }
+.rt-session-center > * { flex-shrink: 0; }
+.rt-session-center[data-compact='true'] { gap: 0.75rem; }
+.rt-session-center[data-compact='true'] .rt-counter-value input { font-size: min(6rem, 18cqh); }
+.rt-session-center[data-compact='true'] .rt-timer-value > strong { font-size: min(5.5rem, 16cqh); }
+.rt-live-calibration { display: grid; gap: 0.75rem; padding: 0.75rem; border: 1px solid #ffffff1f; border-radius: var(--ui-radius); background: #ffffff0d; }
+.rt-live-calibration-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; min-width: 0; }
+.rt-live-calibration-position { margin-left: auto; font-size: var(--text-sm); color: #b8c1ce; }
+.rt-live-calibration-position strong { font-family: var(--font-display); font-size: 1.25rem; color: white; font-variant-numeric: tabular-nums; }
+.rt-start-point { display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; min-width: 0; }
+.rt-start-point-label { font-size: var(--text-xs); color: #c4cbd6; }
+.rt-start-point-options { display: flex; flex: 1 1 auto; gap: 0.35rem; min-width: 0; }
+.rt-start-point-options .forma-button { flex: 1 1 0; min-height: 2rem; padding: 0.2rem 0.5rem; font-size: var(--text-xs); line-height: 1.15; }
+.rt-start-point-hint { flex-basis: 100%; font-size: var(--text-xs); color: #9aa4b2; }
 .rt-counter { display: grid; grid-template-columns: var(--ui-primary) minmax(0, 1fr) var(--ui-primary); align-items: center; gap: 0.75rem; }
 .rt-counter > button { display: inline-flex; align-items: center; justify-content: center; height: var(--ui-primary); border: 1px solid #ffffff20; border-radius: var(--ui-radius); background: #182230; color: white; }
 .rt-counter > button:hover:not(:disabled) { background: #263244; border-color: #e5c779; }

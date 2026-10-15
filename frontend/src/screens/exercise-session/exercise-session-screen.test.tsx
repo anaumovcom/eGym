@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ExerciseSessionScreen } from '@/screens/exercise-session/exercise-session-screen'
 import { getExerciseDetails } from '@/mocks/stage2-data'
-import { apiGet, apiPost } from '@/shared/api/client'
+import { ApiError, apiGet, apiPost } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
@@ -246,6 +246,20 @@ describe('ExerciseSessionScreen', () => {
     expect(runCommandMock).toHaveBeenCalledWith({ action: 'resume', userId: 'alexey', exerciseSlug: 'barbell-floor-press' })
   })
 
+  it('tells the user when reps are counted as partial', () => {
+    const motion = {
+      barPositionMm: 450, lowerBoundMm: 356, upperBoundMm: 542,
+      leftPositionMm: 450, rightPositionMm: 450,
+      amplitudePercent: 60, repetitionCount: 1, partialReps: 0, syncDeltaMm: 0,
+    } as HardwareSnapshot['motion']
+    useHardwareStore.setState({ snapshot: { motion, control: { mode: 'training', label: '', message: '' }, safety: { state: 'enabled' } } as HardwareSnapshot })
+    renderScreen()
+    expect(screen.queryByRole('status', { name: 'Неполные повторы' })).not.toBeInTheDocument()
+
+    act(() => useHardwareStore.setState({ snapshot: { motion: { ...motion, partialReps: 2 }, control: { mode: 'training', label: '', message: '' }, safety: { state: 'enabled' } } as HardwareSnapshot }))
+    expect(screen.getByRole('status', { name: 'Неполные повторы' })).toHaveTextContent('Неполных повторов: 2 · не засчитаны')
+  })
+
   it('adjusts the repetition count and saves a partial set with the single finish button', async () => {
     const user = userEvent.setup()
     renderScreen()
@@ -359,5 +373,99 @@ describe('ExerciseSessionScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Продолжить подход' }))
     expect(runCommandMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'resume', calibrationRequired: true, exerciseSlug: 'barbell-floor-press' }))
     expect(navigateMock).not.toHaveBeenCalled()
+  })
+
+  it('shows the saved points when the trainer was not started and starts the set on request', async () => {
+    const user = userEvent.setup()
+    const saved: HardwareCalibration = {
+      id: 9, userId: 'alexey', exerciseSlug: 'barbell-floor-press', setupType: 'bar_range',
+      lowerPointMm: 550, upperPointMm: 945, fixedPositionMm: null,
+      zeroPositionMm: 747, movementRangeConfirmed: true,
+      calibrationRequired: true, isActive: true, capturedAt: new Date().toISOString(), expiresAt: null,
+    }
+    useHardwareStore.setState({
+      currentCalibration: saved,
+      snapshot: {
+        control: { mode: 'idle' },
+        motion: { barPositionMm: 19, lowerBoundMm: 0, upperBoundMm: 0, leftPositionMm: 19, rightPositionMm: 19, repetitionCount: 0, moving: false, amplitudePercent: 0, syncDeltaMm: 0 },
+        safety: { state: 'enabled' },
+      } as HardwareSnapshot,
+    })
+    renderScreen()
+
+    const rail = screen.getByRole('region', { name: 'Положение грифа' })
+    expect(within(rail).getByLabelText('Низ · 550 мм')).toBeInTheDocument()
+    expect(within(rail).getByLabelText('Верх · 945 мм')).toBeInTheDocument()
+    const idle = await screen.findByRole('status', { name: 'Тренажёр не запущен' }, { timeout: 3000 })
+    expect(idle).toHaveTextContent('низ 55.0 см, верх 94.5 см')
+
+    await user.click(within(idle).getByRole('button', { name: 'Запустить подход' }))
+
+    expect(runCommandMock).toHaveBeenCalledWith(expect.objectContaining({
+      action: 'start_motion', userId: 'alexey', exerciseSlug: 'barbell-floor-press',
+      calibrationRequired: true, rangeConfirmed: true, mode: 'machine', targetSet: 1,
+    }))
+  })
+
+  it('goes back to the previous exercise and does it again from the first set', async () => {
+    const user = userEvent.setup()
+    const session = useRuntimeStore.getState().session!
+    const first = session.exercises[0]
+    const second = { ...first, id: `${first.id}-again`, order: 2 }
+    useRuntimeStore.setState({ session: {
+      ...session,
+      exercises: [first, second],
+      currentExerciseId: second.id,
+      completedSets: { [first.id]: [{ setNumber: 1 } as never] },
+      completedExerciseIds: [first.id],
+      exerciseOutcomes: { [first.id]: 'completed' },
+      backendWorkoutSessionId: 42,
+      backendExerciseSessionIds: { [first.id]: 5 },
+    } })
+    useRuntimeStore.getState().startExercise()
+    renderScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Предыдущее упражнение' }))
+    const confirm = screen.getByRole('dialog', { name: 'Вернуться к предыдущему упражнению?' })
+    await user.click(within(confirm).getByRole('button', { name: 'Выполнить заново' }))
+
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-setup${currentSearch}`))
+    expect(apiPost).toHaveBeenCalledWith('/api/runtime/exercises', expect.objectContaining({ exerciseSessionId: 5, status: 'in_progress', sets: [], resetSets: true }))
+    const restarted = useRuntimeStore.getState().session!
+    expect(restarted.currentExerciseId).toBe(first.id)
+    expect(restarted.currentSetIndex).toBe(0)
+    expect(restarted.completedSets[first.id]).toBeUndefined()
+    expect(restarted.completedExerciseIds).not.toContain(first.id)
+  })
+
+  it('goes back to the previous exercise when its backend record is already gone', async () => {
+    const user = userEvent.setup()
+    vi.mocked(apiPost).mockRejectedValue(new ApiError(404, { detail: 'Exercise session not found' }))
+    const session = useRuntimeStore.getState().session!
+    const first = session.exercises[0]
+    const second = { ...first, id: `${first.id}-again`, order: 2 }
+    useRuntimeStore.setState({ session: {
+      ...session,
+      exercises: [first, second],
+      currentExerciseId: second.id,
+      backendWorkoutSessionId: 42,
+      backendExerciseSessionIds: { [first.id]: 5 },
+    } })
+    useRuntimeStore.getState().startExercise()
+    renderScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Предыдущее упражнение' }))
+    await user.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Выполнить заново' }))
+
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-setup${currentSearch}`))
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+    const restarted = useRuntimeStore.getState().session!
+    expect(restarted.currentExerciseId).toBe(first.id)
+    expect(restarted.backendExerciseSessionIds?.[first.id]).toBeUndefined()
+  })
+
+  it('has no previous exercise button on the first exercise', () => {
+    renderScreen()
+    expect(screen.queryByRole('button', { name: 'Предыдущее упражнение' })).not.toBeInTheDocument()
   })
 })

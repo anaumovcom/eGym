@@ -18,9 +18,19 @@ class FakeModbusService:
     servo: dict[int, bool] = field(default_factory=lambda: {1: False, 2: False})
     servo_fail_slaves: set[int] = field(default_factory=set)
     servo_calls: list[tuple[int, bool, int]] = field(default_factory=list)
+    left_zero_pulses: int | None = None
+    right_zero_pulses: int | None = None
+    counts: dict[int, int] = field(default_factory=dict)  # raw absolute encoder counts per slave
 
     def get_status(self) -> SimpleNamespace:
         return SimpleNamespace(connected=self.connected)
+
+    def set_session_zero(self, left_pulses: int, right_pulses: int) -> None:
+        self.left_zero_pulses, self.right_zero_pulses = left_pulses, right_pulses
+
+    def capture_zero(self) -> SimpleNamespace:
+        self.left_zero_pulses, self.right_zero_pulses = self.counts.get(1, 0), self.counts.get(2, 0)
+        return SimpleNamespace(error=None, left_zero_pulses=self.left_zero_pulses, right_zero_pulses=self.right_zero_pulses)
 
     def read_torque_telemetry(self, slave_id: int, *, extended: bool = False, log: bool = True) -> dict[str, object]:
         if not self.connected:

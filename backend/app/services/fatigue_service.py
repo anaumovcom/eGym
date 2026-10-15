@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from math import pow
+from math import pow, sqrt
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -24,6 +24,18 @@ SET_TYPE_FACTORS: dict[str, float] = {
     "work": 1.0,
     "failure": 1.2,
 }
+
+# Recovery and stretching do not tire muscles; cardio and yoga holds are low-intensity endurance work.
+EQUIPMENT_FACTORS: dict[str, float] = {
+    "Recovery": 0.0,
+    "Stretches": 0.0,
+    "Cardio": 0.5,
+    "Yoga": 0.5,
+}
+
+
+def equipment_affects_fatigue(equipment: str | None) -> bool:
+    return EQUIPMENT_FACTORS.get(equipment or "", 1.0) > 0
 
 
 @dataclass
@@ -198,19 +210,23 @@ class FatigueService:
         discomfort_level: int | None,
         set_type: str | None = None,
         completion_status: str | None = None,
+        equipment: str | None = None,
     ) -> list[FatigueUpdate]:
-        if completion_status == "skipped" or not self._has_performed_work(actual_value, reps, duration_seconds):
+        equipment_factor = EQUIPMENT_FACTORS.get(equipment or "", 1.0)
+        if equipment_factor <= 0 or completion_status == "skipped" or not self._has_performed_work(actual_value, reps, duration_seconds):
             return []
 
-        effective_reps = max(reps if reps is not None else actual_value, 0)
+        # A timed set has no reps: its actual value is seconds, not repetitions.
+        effective_reps = max(reps or 0, 0)
         effective_duration = max(duration_seconds or (actual_value if reps is None else 0), 0)
         completion_factor = min(1.25, max(actual_value / planned_value, 0.15)) if planned_value > 0 else 1.0
         set_factor = SET_TYPE_FACTORS.get(str(set_type or "work"), 1.0)
-        volume_factor = max(effective_reps / 10, 0.35) + (effective_duration / 60)
+        # 60 s of work ~ one 10-rep set; longer holds add load with diminishing returns.
+        volume_factor = effective_reps / 10 + sqrt(effective_duration / 60)
         intensity_factor = 1.0 + max((subjective_effort or 6) - 5, 0) * 0.08 + ((weight_kg or 0) / 100)
         quality_factor = 0.9 + (amplitude_percent or 90) / 1000
         subjective_factor = 1.0 + (discomfort_level or 0) * 0.05
-        base_load = 8.0 * max(volume_factor, 0.35) * intensity_factor * quality_factor * subjective_factor * completion_factor * set_factor
+        base_load = 8.0 * max(volume_factor, 0.35) * intensity_factor * quality_factor * subjective_factor * completion_factor * set_factor * equipment_factor
 
         updates: list[FatigueUpdate] = []
         for canonical_id, (target_factor, role) in self._target_contributions(muscle_targets).items():

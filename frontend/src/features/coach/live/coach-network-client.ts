@@ -1,9 +1,9 @@
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { CoachFrameError, decodeCoachFrame, pcmDurationMs } from '../audio/coach-frames'
 import type { AudioReason, LocalAudioSnapshot, LocalCoachAudioManager, NetworkAudioSource } from '../audio/local-coach-audio-manager'
-import { exactRepTarget } from '../interpreter/coach-interpreter'
+import { exactRepTarget, type SetTimerInput } from '../interpreter/coach-interpreter'
 import type { LifecycleRefs } from '../lib/lifecycle-observer'
-import type { CoachEvent, CoachEventKind, CoachPhase, CoachScope } from '../model/contracts'
+import { coachRunId, type CoachEvent, type CoachEventKind, type CoachPhase, type CoachScope } from '../model/contracts'
 import { preferencesValid, type CoachPreferences } from '../model/preferences'
 
 /** E10 live client: forwards a few semantic events over one WebSocket and plays the
@@ -13,7 +13,7 @@ export type NetworkMixer = Pick<LocalCoachAudioManager, 'beginStream' | 'pushStr
 export type NetworkTick = Readonly<{
   nowMs: number; userId: string | null; saved: CoachPreferences | null; session: RuntimeWorkoutSession | null
   featureEnabled: boolean; phase: CoachPhase; scope: CoachScope | null; latched: boolean; gate: AudioReason | null
-  reps: number | null; lifecycle: readonly CoachEvent[]; refs: (eventId: string) => LifecycleRefs | null
+  reps: number | null; partialReps?: number | null; timer?: SetTimerInput | null; lifecycle: readonly CoachEvent[]; refs: (eventId: string) => LifecycleRefs | null
   mixer: () => NetworkMixer | null
 }>
 export type NetworkState = 'off' | 'creating' | 'connecting' | 'ready' | 'retrying' | 'refused'
@@ -50,12 +50,19 @@ const FORWARDED: ReadonlySet<CoachEventKind> = new Set(['set_persisted', 'exerci
 const EXERCISE_KINDS = new Set(['machine', 'bodyweight', 'timed', 'stretch', 'group'])
 const REST_EXTRA_MIN_ELAPSED_S = 15
 const REST_EXTRA_MIN_LEFT_S = 40
+const SET_STALL_MS = 8_000
 const USAGE_EVERY_MS = 15_000
 const PING_EVERY_MS = 20_000
 
 type SessionExercise = RuntimeWorkoutSession['exercises'][number]
+type SetPlan = SessionExercise['plan'][number]
 function whole(value: number | null | undefined): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
+}
+/** Rep goal of a set for pacing: the exact target, else the top of the range. Failure sets have none. */
+function repGoal(plan: SetPlan | undefined): number | null {
+  if (!plan || plan.setType === 'failure') return null
+  return exactRepTarget(plan) ?? whole(plan.targetMaxReps) ?? null
 }
 /** Plan facts the backend coach may voice when introducing an exercise. */
 function exerciseContext(session: RuntimeWorkoutSession, exercise: SessionExercise): Record<string, unknown> {
@@ -117,6 +124,7 @@ export class CoachNetworkClient {
   private sequence = 0
   private sentKeys = new Set<string>()
   private forwarded = new Set<string>()
+  private inSet: { key: string; startedAt: number; reps: number | null; repAt: number; partial: number | null } | null = null
   private latched: boolean | null = null
   private streams = new Map<string, Stream>()
   private counters = { eventsSent: 0, streams: 0, spoken: 0, failed: 0 }
@@ -151,11 +159,11 @@ export class CoachNetworkClient {
     this.last = input
     if (!networkEligible(input)) { this.stop('off', null); return }
     const saved = input.saved!, session = input.session!
-    const key = JSON.stringify([input.userId, session.runId ?? session.id])
+    const key = JSON.stringify([input.userId, coachRunId(session)])
     if (key !== this.key) {
       this.stop('off', null)
       this.key = key
-      this.sentKeys = new Set(); this.forwarded = new Set(input.lifecycle.map(event => event.id)); this.latched = null
+      this.sentKeys = new Set(); this.forwarded = new Set(input.lifecycle.map(event => event.id)); this.latched = null; this.inSet = null
       this.run = this.loadRun(); this.boundWorkout = null; this.attempt = 0; this.refusedRevision = null
     }
     if (this.state === 'refused' && this.refusedRevision !== saved.revision) { this.refusedRevision = null; this.setState('off', null) }
@@ -438,14 +446,9 @@ export class CoachNetworkClient {
       }
     }
     const setKey = `${exercise.id}:${scope.setOrdinal}`
-    if (input.phase === 'active-set' && saved.duringSets && exercise.kind === 'machine' && !this.sentKeys.has(`milestone:${setKey}`)) {
-      const target = exactRepTarget(exercise.plan[session.currentSetIndex])
-      const reps = input.reps
-      if (target !== null && target >= 8 && reps !== null && reps >= Math.ceil(target / 2) && reps <= target - 2) {
-        this.sentKeys.add(`milestone:${setKey}`)
-        this.emit('rep_milestone', scope, input, 'active-set', { phaseElapsedMs: 0, exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length }, 'reps')
-      }
-    }
+    if (input.phase === 'active-set' && saved.duringSets && exercise.kind === 'machine') this.inSetEvents(input, session, exercise, scope, setKey)
+    else if (input.phase === 'active-set' && saved.duringSets && exercise.kind === 'timed') this.timedSetEvents(input, session, exercise, scope, setKey)
+    else if (this.inSet) this.inSet.repAt = input.nowMs // a pause is not a stall
     const rest = session.restState
     if (input.phase === 'rest' && saved.duringRest && rest && !rest.timerPaused && !this.sentKeys.has(`rest:${setKey}`)) {
       const elapsed = rest.totalSeconds - rest.remainingSeconds
@@ -457,6 +460,48 @@ export class CoachNetworkClient {
     }
   }
 
+  /** A few in-set moments per set (start, partial rep, half, final reps, stall); the backend Director paces them. */
+  private inSetEvents(input: NetworkTick, session: RuntimeWorkoutSession, exercise: SessionExercise, scope: CoachScope, setKey: string): void {
+    const now = input.nowMs, reps = input.reps, partial = input.partialReps ?? null
+    if (this.inSet?.key !== setKey) this.inSet = { key: setKey, startedAt: now, reps, repAt: now, partial }
+    const track = this.inSet
+    if (reps !== track.reps) { track.reps = reps; track.repAt = now }
+    const partialRose = partial !== null && track.partial !== null && partial > track.partial
+    track.partial = partial
+    if (reps === null) return
+    const plan = exercise.plan[session.currentSetIndex], target = repGoal(plan), exact = exactRepTarget(plan)
+    const left = target === null ? null : target - reps
+    const moments: Array<[CoachEventKind, string, boolean]> = [
+      ['rep_completed', 'partial', partialRose],
+      ['set_activated', 'start', reps >= 1 && reps <= 2 && (left === null || left >= 3)],
+      ['last_rep_pending', 'finish', target !== null && target >= 5 && left !== null && left >= 1 && left <= 2],
+      ['rep_milestone', 'half', target !== null && target >= 8 && reps >= Math.ceil(target / 2) && left !== null && left >= 3],
+      ['rep_milestone', 'stall', reps >= 1 && (left === null || left >= 1) && now - track.repAt >= SET_STALL_MS],
+    ]
+    const moment = moments.find(([, name, due]) => due && !this.sentKeys.has(`${name}:${setKey}`))
+    if (!moment) return
+    this.sentKeys.add(`${moment[1]}:${setKey}`)
+    this.emit(moment[0], scope, input, 'active-set', { phaseElapsedMs: Math.round(now - track.startedAt), moment: moment[1],
+      exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length, ...(exact !== null ? { targetReps: exact } : {}) }, 'reps')
+  }
+
+  /** Timed sets: start, half and the final stretch by the screen's clock; only while it runs. */
+  private timedSetEvents(input: NetworkTick, session: RuntimeWorkoutSession, exercise: SessionExercise, scope: CoachScope, setKey: string): void {
+    const timer = input.timer, target = whole(exercise.plan[session.currentSetIndex]?.targetSeconds)
+    if (!timer || !timer.running || !target || timer.exerciseId !== exercise.id || timer.setOrdinal !== scope.setOrdinal) return
+    const elapsed = timer.elapsedS, left = target - elapsed
+    const moments: Array<[CoachEventKind, string, boolean]> = [
+      ['set_activated', 'start', elapsed >= 3 && left >= 20],
+      ['rep_milestone', 'half', target >= 40 && elapsed >= target / 2 && left >= 15],
+      ['last_rep_pending', 'finish', target >= 30 && left <= 15 && left >= 6],
+    ]
+    const moment = moments.find(([, name, due]) => due && !this.sentKeys.has(`${name}:${setKey}`))
+    if (!moment) return
+    this.sentKeys.add(`${moment[1]}:${setKey}`)
+    this.emit(moment[0], scope, input, 'active-set', { phaseElapsedMs: Math.round(elapsed * 1000), moment: moment[1],
+      exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length, targetSeconds: target }, 'seconds')
+  }
+
   private restContext(session: RuntimeWorkoutSession, exerciseId: string | null, setOrdinal: number | null): Record<string, unknown> {
     const next = nextExercise(session, exerciseId, setOrdinal)
     const rest = session.restState
@@ -466,7 +511,7 @@ export class CoachNetworkClient {
   }
 
   private emit(kind: CoachEventKind, scope: CoachScope, input: NetworkTick, phase: CoachPhase, context: Record<string, unknown> = {},
-    progressUnit: 'reps' | null = null): void {
+    progressUnit: 'reps' | 'seconds' | null = null): void {
     const session = input.session!
     const exerciseKind = session.exercises.find(item => item.id === scope.exerciseId)?.kind
     const now = Math.max(0, input.nowMs)

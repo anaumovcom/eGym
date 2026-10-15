@@ -5,7 +5,7 @@ import { useStage4Store } from '@/stores/stage4-store'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import { coachSettingsApi } from '../lib/settings-api'
-import type { CoachScope } from '../model/contracts'
+import { coachRunId, type CoachScope } from '../model/contracts'
 import { effectiveCoachState, preferencesValid, type CoachPreferences } from '../model/preferences'
 import { LocalClipPreparer } from './fixture-pack-storage'
 import { LocalCoachAudioManager, type AudioReason, type LocalAudioSnapshot } from './local-coach-audio-manager'
@@ -343,7 +343,7 @@ export class LocalAudioRuntime {
   private makeScope(): CoachScope {
     const s = this.inputs.session
     return Object.freeze({ schemaVersion: 1, userId: this.inputs.userId ?? 'no-user',
-      runId: s?.runId ?? s?.id ?? `local-preview-${this.lifetime}`, exerciseId: s?.currentExerciseId ?? 'test-preview',
+      runId: s ? coachRunId(s) : `local-preview-${this.lifetime}`, exerciseId: s?.currentExerciseId ?? 'test-preview',
       setOrdinal: s ? s.currentSetIndex + 1 : null, scopeEpoch: this.scopeEpoch })
   }
   private applyVolume(): void {

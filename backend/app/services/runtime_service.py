@@ -37,7 +37,7 @@ from app.schemas.runtime import (
 )
 from app.services.coach.lifecycle import RuntimeObservationBuffer, runtime_observations
 from app.services.exercise_library import get_imported_exercise
-from app.services.fatigue_service import FatigueService, FatigueUpdate
+from app.services.fatigue_service import FatigueService, FatigueUpdate, equipment_affects_fatigue
 
 
 @dataclass
@@ -117,7 +117,7 @@ class RuntimeService:
         )
         session.add(set_result)
         session.flush()
-        if exercise and exercise.equipment == "Recovery":
+        if exercise and not equipment_affects_fatigue(exercise.equipment):
             updates = []
         else:
             updates = self.fatigue_service.build_set_updates(
@@ -139,6 +139,7 @@ class RuntimeService:
                 discomfort_level=payload.discomfort_level,
                 set_type=payload.set_type,
                 completion_status=str(machine_metrics.get("completionStatus")) if machine_metrics.get("completionStatus") is not None else None,
+                equipment=exercise.equipment if exercise else None,
             )
         return set_result, updates
 
@@ -154,7 +155,7 @@ class RuntimeService:
             exercise_session = session.get(ExerciseSession, payload.exercise_session_id)
             if exercise_session is None or exercise_session.user_id != payload.user_id:
                 raise LookupError("Exercise session not found")
-            if payload.sets or status == ExerciseSessionStatus.skipped:
+            if payload.sets or payload.reset_sets or status == ExerciseSessionStatus.skipped:
                 self._clear_exercise_sets_and_fatigue(session, exercise_session)
             exercise_session.workout_session_id = payload.workout_session_id if payload.workout_session_id is not None else exercise_session.workout_session_id
             exercise_session.exercise_slug = payload.exercise_slug

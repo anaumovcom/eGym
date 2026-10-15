@@ -143,6 +143,39 @@ def test_set_moves_to_start_waits_for_grip_and_counts_reps(runtime: HardwareRunt
     assert runtime.mode == "support"
 
 
+@pytest.mark.parametrize("from_top", [False, True])
+def test_user_pushing_the_bar_at_the_start_point_starts_the_set(runtime: HardwareRuntime, from_top: bool) -> None:
+    """Bench press: the bar arrives at the chest and the user presses it off before the move has settled.
+
+    The move envelope (120 mm/s) must not latch a fault here: the hold catches the bar and the set starts.
+    """
+
+    bench = runtime.bench
+    assert bench is not None
+    if from_top:
+        runtime.workout_command("start_motion", {"weight_kg": 10}, RANGE_PLAN | {"lower_point_mm": 650.0, "upper_point_mm": 900.0})
+        assert _ticks(runtime, 40, lambda: runtime.control_mode == "start_hold")
+        runtime.workout_command("complete_set", {})
+        _ticks(runtime, 1)
+    runtime.workout_command("start_motion", {"weight_kg": 10, "target_reps": 5}, RANGE_PLAN)
+    assert runtime.control_mode == "moving"
+    assert _ticks(runtime, 40, lambda: abs(_x(runtime) - 300) < 40), _x(runtime)
+    bench.user = lifter(10.0, 330, 670, speed_mm_s=250, start_s=bench.t)
+    assert _ticks(runtime, 5, lambda: runtime.control_mode == "training"), (runtime.workout.message(), runtime.latch)
+    assert runtime.latch is None
+    assert _ticks(runtime, 30, lambda: runtime.state.motion.repetition_count >= 2), (runtime.state.motion.repetition_count, _x(runtime))
+
+
+def test_bar_pushed_far_from_the_start_point_still_aborts_the_move(runtime: HardwareRuntime) -> None:
+    bench = runtime.bench
+    assert bench is not None
+    runtime.workout_command("start_motion", {"weight_kg": 10, "target_reps": 5}, RANGE_PLAN | {"lower_point_mm": 900.0, "upper_point_mm": 1200.0})
+    assert _ticks(runtime, 40, lambda: _x(runtime) > 100), _x(runtime)
+    bench.user = users.constant(400.0, start_s=bench.t, stop_s=bench.t + 3)
+    assert _ticks(runtime, 3, lambda: runtime.latch is not None), _x(runtime)
+    assert runtime.latch == "fault" and "Перемещение грифа прервано" in (runtime.workout.message() or "")
+
+
 def test_rest_left_alone_parks_the_bar(runtime: HardwareRuntime, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(workout_module, "REST_PARK_S", 3.0)
     runtime.workout_command("start_motion", {"weight_kg": 10}, RANGE_PLAN)
@@ -164,6 +197,30 @@ def test_next_set_starts_from_the_weightless_rest(runtime: HardwareRuntime) -> N
     runtime.workout_command("start_motion", {"weight_kg": 10}, RANGE_PLAN | {"lower_point_mm": 400.0})
     assert _ticks(runtime, 40, lambda: runtime.control_mode == "start_hold"), runtime.workout.message()
     assert abs(_x(runtime) - 400) < 15 and runtime.latch is None
+
+
+def test_next_set_starts_from_a_rest_above_the_soft_limit(runtime: HardwareRuntime, calibrated_profile) -> None:
+    """The set ended with the bar pushed above the soft limit; the weightless rest left it there.
+
+    The move to the next start begins outside soft_max + margin: it must go down, not latch a fault.
+    """
+
+    runtime.reset(profile=calibrated_profile, envelope=replace(runtime.envelope, soft_max_mm=800.0))
+    runtime.set_service_mode(True)
+    runtime.set_servo(True)
+    runtime.set_service_mode(False)
+    _ticks(runtime, 0.5)
+    bench = runtime.bench
+    assert bench is not None
+    runtime.workout_command("enter_weightless", {})
+    bench.user = users.constant(60.0, start_s=bench.t)
+    assert _ticks(runtime, 40, lambda: _x(runtime) > 800 + workout_module.MOVE_MARGIN_MM + 40), _x(runtime)
+    bench.user = users.nobody()
+    _ticks(runtime, 2)
+    assert runtime.control_mode == "weightless" and runtime.latch is None
+    runtime.workout_command("start_motion", {"weight_kg": 10}, RANGE_PLAN)
+    assert _ticks(runtime, 40, lambda: runtime.control_mode == "start_hold"), (runtime.workout.message(), runtime.latch)
+    assert abs(_x(runtime) - 300) < 15 and runtime.latch is None
 
 
 def test_released_light_bar_goes_down(runtime: HardwareRuntime) -> None:
@@ -207,11 +264,50 @@ def test_dropped_bar_stops_at_the_lower_point(runtime: HardwareRuntime, weight_k
     assert min(xs) > 260 and 280 < xs[-1] < 315, (min(xs), xs[-1])
     assert max(abs(x - xs[-1]) for x in xs[-10:]) < 2  # settled, no ringing on the point
     assert runtime.latch is None
-    # the user lifts again (after F11 «released» → the screen resumes): the load comes back in the range
-    if runtime.control_mode == "paused":
-        runtime.workout_command("resume", {})
+    assert runtime.control_mode == "training"  # no automatic pause in a set
+    # the user lifts again: the load comes back in the range
     bench.user = lifter(weight_kg, 330, 670, start_s=bench.t)
     assert _ticks(runtime, 15, lambda: runtime.control_mode == "training" and runtime.state.motion.load_effective_kg > weight_kg - 0.5), runtime.workout.message()
+
+
+def test_set_from_the_upper_point_counts_reps_on_the_way_back_up(runtime: HardwareRuntime) -> None:
+    """Squat: the bar waits at the upper point (saved with the bar setup); a rep is down and back up."""
+
+    runtime.workout_command("start_motion", {"weight_kg": 20, "target_reps": 5}, RANGE_PLAN | {"start_point": "upper"})
+    assert _ticks(runtime, 40, lambda: runtime.control_mode == "start_hold"), runtime.workout.message()
+    assert abs(_x(runtime) - 700) < 15 and runtime.state.motion.start_point == "upper"
+    bench = runtime.bench
+    assert bench is not None
+    bench.user = lifter(20.0, 330, 670, start_s=bench.t)
+    assert _ticks(runtime, 3, lambda: runtime.control_mode == "training"), runtime.workout.message()
+    assert _ticks(runtime, 30, lambda: runtime.state.motion.repetition_count >= 2), (runtime.state.motion.repetition_count, _x(runtime))
+    assert _x(runtime) > 500  # counted near the top, where a rep from the top ends
+
+
+def test_bar_waits_at_the_upper_point_until_it_is_taken_down(runtime: HardwareRuntime) -> None:
+    runtime.workout_command("start_motion", {"weight_kg": 20, "target_reps": 5}, RANGE_PLAN | {"start_point": "upper"})
+    assert _ticks(runtime, 40, lambda: runtime.control_mode == "start_hold"), runtime.workout.message()
+    bench = runtime.bench
+    assert bench is not None
+    bench.user = users.constant(60.0, start_s=bench.t)  # hands on the bar, pushing up
+    _ticks(runtime, 2)
+    assert runtime.control_mode == "start_hold" and abs(_x(runtime) - 700) < 30, _x(runtime)
+    bench.user = users.nobody()
+    _ticks(runtime, 1)
+    assert runtime.control_mode == "start_hold" and abs(_x(runtime) - 700) < 15, _x(runtime)
+    bench.user = users.constant(-60.0, start_s=bench.t)  # takes it down
+    assert _ticks(runtime, 3, lambda: runtime.control_mode == "training"), (runtime.workout.message(), _x(runtime))
+
+
+def test_bar_lifted_above_the_upper_point_starts_the_set_when_pulled_down(runtime: HardwareRuntime) -> None:
+    runtime.workout_command("start_motion", {"weight_kg": 20, "target_reps": 5}, RANGE_PLAN | {"start_point": "upper"})
+    assert _ticks(runtime, 40, lambda: runtime.control_mode == "start_hold"), runtime.workout.message()
+    bench = runtime.bench
+    assert bench is not None
+    bench.user = users.constant(60.0, start_s=bench.t)
+    _ticks(runtime, 1)
+    bench.user = users.constant(-80.0, start_s=bench.t)  # straight down, no stop at the point
+    assert _ticks(runtime, 3, lambda: runtime.control_mode == "training"), (runtime.workout.message(), _x(runtime))
 
 
 def test_bar_thrown_above_the_upper_point_is_braked(runtime: HardwareRuntime) -> None:

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import type { CoachEvent } from '../model/contracts'
-import { CoachInterpreter, exactRepTarget, type CountMode, type InterpreterOptions, type InterpreterResult } from './coach-interpreter'
+import { CoachInterpreter, exactRepTarget, type CountMode, type InterpreterOptions, type InterpreterResult, type SetTimerInput } from './coach-interpreter'
 import { CUE_SPECS, REQUIRED_LOCAL_CLIPS, cueClipId } from './local-cues'
 
 type Plan = { targetReps?: number; targetMinReps?: number; targetMaxReps?: number; targetSeconds?: number; setType?: string; restSeconds?: number }
@@ -24,6 +24,7 @@ class Harness {
   userId: string | null = 'u1'
   lifecycle: CoachEvent[] = []
   connected: boolean | undefined = undefined
+  timer: SetTimerInput | null = null
   private emitted = 0
 
   constructor(options: InterpreterOptions = {}, session = baseSession()) {
@@ -34,7 +35,7 @@ class Harness {
     this.now += advance
     return this.interpreter.step({ nowMs: this.now, userId: this.userId, session: this.session, hardware: this.hardware,
       hardwareReceivedAtMs: this.receivedAt, emergency: this.emergency, count: this.count, lifecycle: this.lifecycle,
-      sourceConnected: this.connected })
+      sourceConnected: this.connected, timer: this.timer })
   }
 
   hw(mode: string | null, reps: number, extra: { elapsed?: number; patch?: Record<string, unknown> } = {}): InterpreterResult {
@@ -207,6 +208,21 @@ describe('CoachInterpreter machine sets', () => {
     expect(h.reps(7, 7)).toEqual(['count:7'])
   })
 
+  it('keeps counting on polled snapshots while the realtime socket is down', () => {
+    const h = new Harness(); h.connected = false; h.enterSet()
+    const out: string[] = []
+    for (let rep = 1; rep <= 4; rep++) { h.step(200); h.step(200); out.push(...kinds(h.hw('training', rep))) }
+    expect(out).toEqual(['count:1', 'count:2', 'count:3', 'count:4'])
+  })
+
+  it('counts load reps on a fixed bar with a rep plan', () => {
+    const h = new Harness()
+    h.view('exercise-setup'); h.view('exercise-session'); h.hw('moving', 0)
+    expect(kinds(h.hw('fixed_hold', 0))).toEqual(['start'])
+    expect(h.reps(1, 1)).toEqual(['count:1'])
+    expect(kinds(h.hw('fixed_hold', 2))).toEqual(['count:2'])
+  })
+
   it('treats an unchanged snapshot as current while the socket is connected', () => {
     const h = new Harness(); h.connected = true; h.enterSet(); h.reps(1, 1)
     h.step(5000)
@@ -370,6 +386,35 @@ describe('CoachInterpreter non-machine exercises', () => {
     const results = h.enterSet()
     expect(all(results)).toEqual([])
     expect(skipsOf(results)).toContain('T27:no_source')
+  })
+
+  it('timed sets follow the screen clock: start, pause/resume, half, ten left, 3-2-1', () => {
+    const h = new Harness({}, baseSession([exercise('e1', 'timed', [{ targetSeconds: 40 }])]))
+    h.view('exercise-setup'); h.view('exercise-session')
+    expect(h.interpreter.snapshot().phase).toBe('waiting-start')
+    const clock = (elapsedS: number, running = true) => { h.timer = { exerciseId: 'e1', setOrdinal: 1, elapsedS, running }; return kinds(h.step()) }
+    const out = [...clock(0)]
+    for (let s = 1; s <= 12; s++) out.push(...clock(s))
+    out.push(...clock(12.5, false), ...clock(12.5, false), ...clock(12.6))
+    for (let s = 13; s <= 40; s++) out.push(...clock(s))
+    out.push(...clock(40, false))
+    expect(out).toEqual(['start', 'pause', 'resume', 'time-half', 'ten-left', 'countdown:3', 'countdown:2', 'countdown:1'])
+    expect(h.interpreter.snapshot().phase).toBe('active-set')
+  })
+
+  it('a timed clock of another set is ignored', () => {
+    const h = new Harness({}, baseSession([exercise('e1', 'timed', [{ targetSeconds: 40 }, { targetSeconds: 40 }])]))
+    h.view('exercise-setup'); h.view('exercise-session')
+    h.timer = { exerciseId: 'e1', setOrdinal: 2, elapsedS: 1, running: true }
+    expect(kinds(h.step())).toEqual([])
+  })
+
+  it('keeps long builder session IDs within the backend scope limit', () => {
+    const session = { ...baseSession(), id: `backend-builder-workout-${'group-abc-smith-machine-bench-press-'.repeat(6)}`, runId: undefined } as unknown as RuntimeWorkoutSession
+    const h = new Harness({}, session)
+    const [first] = h.enterSet()
+    expect(first.scope!.runId.length).toBeLessThanOrEqual(120)
+    expect(h.step().scope!.runId).toBe(first.scope!.runId)
   })
 
   it('does not repeat an identical skip on every tick', () => {

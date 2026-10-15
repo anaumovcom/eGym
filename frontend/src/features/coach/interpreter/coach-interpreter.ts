@@ -1,6 +1,6 @@
 import type { RuntimeExercisePlan, RuntimeSetPlan, RuntimeView, RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
-import type { CoachEvent, CoachPhase, CoachReason, CoachScope, CoachSettings } from '../model/contracts'
+import { coachRunId, type CoachEvent, type CoachPhase, type CoachReason, type CoachScope, type CoachSettings } from '../model/contracts'
 import { CUE_SPECS, cueClipId, type CueKind } from './local-cues'
 
 export type CountMode = CoachSettings['count']
@@ -10,6 +10,8 @@ export type LocalCue = Readonly<{
   priority: 'safety' | 'ordinary'; scope: CoachScope; atMs: number; deadlineMs: number; value: number | null
 }>
 export type InterpreterSkip = Readonly<{ triggerId: string; reason: InterpreterSkipReason; atMs: number }>
+/** Timed-set clock shown on the exercise screen; `elapsedS` includes the running part. */
+export type SetTimerInput = Readonly<{ exerciseId: string; setOrdinal: number; elapsedS: number; running: boolean }>
 export type InterpreterInput = Readonly<{
   nowMs: number; userId: string | null; session: RuntimeWorkoutSession | null
   hardware: HardwareSnapshot | null; hardwareReceivedAtMs: number | null
@@ -17,6 +19,7 @@ export type InterpreterInput = Readonly<{
   /** Live socket state. The backend broadcasts only on change, so while connected an
    * unchanged snapshot stays current; without it freshness falls back to snapshot age. */
   sourceConnected?: boolean
+  timer?: SetTimerInput | null
 }>
 export type InterpreterOptions = Readonly<{
   freshnessMs?: number; restMarks?: readonly (10 | 5 | 0)[]; allowEmulator?: boolean
@@ -86,6 +89,7 @@ export class CoachInterpreter {
   private skips: InterpreterSkip[] = []
   private lastSafetyCueMs = -Infinity
   private lastSkip = ''
+  private sourceConnected: boolean | undefined = undefined
 
   constructor(options: InterpreterOptions = {}) {
     this.options = { freshnessMs: options.freshnessMs ?? 1000, restMarks: options.restMarks ?? [10, 0],
@@ -97,15 +101,17 @@ export class CoachInterpreter {
     const cues: LocalCue[] = [], skips: InterpreterSkip[] = []
     const now = input.nowMs
     const session = input.session
-    const runId = session ? session.runId ?? session.id : null
+    const runId = session ? coachRunId(session) : null
     const identity = JSON.stringify([input.userId, runId])
     if (identity !== this.identity) {
       this.identity = identity
       this.consumed = new Set(); this.seenLifecycle = new Set(); this.tracks = new Map(); this.pendingSaves = new Map()
       this.painCounts = new Map(); this.painLatched = false; this.restKey = ''; this.restRemaining = null; this.view = null
     }
-    // A disconnect invalidates the last snapshot until a new one arrives after reconnect.
-    if (input.sourceConnected === false) this.hardwareAtMs = null
+    // A disconnect invalidates the last snapshot until a new one arrives. Only the transition does:
+    // while the socket stays down, polled snapshots keep the source fresh by age.
+    if (input.sourceConnected === false && this.sourceConnected === true) this.hardwareAtMs = null
+    this.sourceConnected = input.sourceConnected
     this.acceptHardware(input)
     const hw = this.hardware
     this.fresh = !!hw && this.hardwareAtMs !== null && now >= this.hardwareAtMs &&
@@ -239,12 +245,12 @@ export class CoachInterpreter {
       this.tracks.set(trackKey, track)
     }
     const plan = exercise.plan[session.currentSetIndex] ?? exercise.plan[exercise.plan.length - 1]
+    if (exercise.kind === 'timed') return this.timedPhase(input, session, exercise, plan, track, setKey, gate, emit, consume, skip)
     if (exercise.kind !== 'machine') {
       // Another device's bar counter is never this exercise's progress.
       if (!track.started) {
         track.started = true
-        if (exercise.kind === 'timed') skip('T27', 'no_source')
-        else if (gate) consume('start', setKey, 0)
+        if (gate) consume('start', setKey, 0)
         else if (track.enteredByTransition) emit('start', setKey, 0)
       }
       if (!track.noSourceReported) { track.noSourceReported = true; skip('T14', 'no_source') }
@@ -259,7 +265,9 @@ export class CoachInterpreter {
     }
     const mode = hw.control?.mode ?? hw.motion?.controlMode ?? null
     const active = (ACTIVE_MODES as readonly string[]).includes(mode ?? '')
-    const hold = (HOLD_MODES as readonly string[]).includes(mode ?? '')
+    // A fixed bar with a rep plan counts load reps; only a timed plan makes it a hold.
+    const hold = (HOLD_MODES as readonly string[]).includes(mode ?? '') &&
+      (mode === 'isometric' || (Number.isFinite(plan?.targetSeconds) && plan!.targetSeconds! > 0))
     const paused = mode === 'paused'
     const reps = Number.isInteger(hw.motion?.repetitionCount) && hw.motion.repetitionCount >= 0 ? hw.motion.repetitionCount : null
     if (!active && !paused) track.observedInactive = true
@@ -291,6 +299,49 @@ export class CoachInterpreter {
       }
     }
     if (hold && active) this.holdMarks(input.count, plan, hw.control?.isometricElapsedS, track, setKey, emit, skip)
+    track.lastPhase = phase
+    return phase
+  }
+
+  /** Timed sets follow the screen's clock: start, pause/resume, half, ten left and the last 3-2-1. */
+  private timedPhase(input: InterpreterInput, session: RuntimeWorkoutSession, exercise: RuntimeExercisePlan, plan: RuntimeSetPlan | undefined,
+    track: SetTrack, setKey: readonly unknown[], gate: InterpreterSkipReason | null,
+    emit: (kind: CueKind, keyScope: readonly unknown[], ordinal: number, value?: number | null) => void,
+    consume: (kind: CueKind, keyScope: readonly unknown[], ordinal: number) => void,
+    skip: (triggerId: string, reason: InterpreterSkipReason) => void): CoachPhase | null {
+    const timer = input.timer
+    const own = timer && timer.exerciseId === exercise.id && timer.setOrdinal === session.currentSetIndex + 1 &&
+      Number.isFinite(timer.elapsedS) && timer.elapsedS >= 0 ? timer : null
+    if (!own) {
+      if (!track.noSourceReported) { track.noSourceReported = true; skip('T27', 'no_source') }
+      return gate ? null : track.started ? track.lastPhase : 'waiting-start'
+    }
+    const elapsed = own.elapsedS, target = plan?.targetSeconds
+    if (gate) {
+      // Suppressed opportunities are consumed, never replayed after the gate opens.
+      if (own.running && !track.started) { track.started = true; consume('start', setKey, 0) }
+      track.lastElapsed = elapsed
+      return null
+    }
+    let phase: CoachPhase = track.lastPhase
+    if (own.running) {
+      if (!track.started) {
+        track.started = true
+        if (elapsed < 3) emit('start', setKey, 0); else consume('start', setKey, 0)
+      }
+      if (track.inPause) { track.inPause = false; emit('resume', setKey, track.pauseEpisodes) }
+      this.holdMarks(input.count, plan, elapsed, track, setKey, emit, skip)
+      phase = 'active-set'
+    } else if (track.started) {
+      // The clock stopping at the end is the set finishing, not a pause.
+      const finished = Number.isFinite(target) && elapsed >= target! - 1
+      if (!track.inPause && !finished) {
+        track.inPause = true; track.pauseEpisodes++
+        if (track.pauseEpisodes <= 3) emit('pause', setKey, track.pauseEpisodes)
+      }
+      track.lastElapsed = elapsed
+      phase = finished ? 'active-set' : 'paused-set'
+    } else phase = 'waiting-start'
     track.lastPhase = phase
     return phase
   }

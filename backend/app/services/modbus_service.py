@@ -7,6 +7,7 @@ and pyserial / minimalmodbus is installed it delegates to the real bus.
 """
 from __future__ import annotations
 
+import logging
 import threading
 import time
 from collections import deque
@@ -36,6 +37,8 @@ from app.schemas.modbus import (
     ProfileSaveRequestSchema,
     SerialPortInfoSchema,
 )
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Lichuan A6 simulated register bank (decimal addresses)
@@ -440,6 +443,7 @@ class ModbusService:
                 self._connection_error = str(exc)
                 self._error_count += 1
                 self._log_info("CONNECT_ERR", str(exc))
+                logger.error("Modbus connect to %s failed: %s", params.port, exc)
                 return ModbusConnectionStatusSchema(
                     connected=False,
                     port=params.port,

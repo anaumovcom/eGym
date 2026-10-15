@@ -194,6 +194,9 @@ class Tunables:
 
     friction_gain_up: float = 0.6
     friction_gain_down: float = 0.6
+    # training, the bar going down under a load: the load pulls the bar, so the friction the weightless gain leaves
+    # (kept below 1 so that a free bar stops by itself) only takes the weight off the eccentric phase
+    train_friction_gain_down: float = 0.95
     inertia_gain: float = 0.0
     friction_blend_mm_s: float = 8.0
     weightless_damping_n_per_mm_s: float = 0.3

@@ -139,10 +139,60 @@ describe('CoachNetworkClient', () => {
     const sent = f.socket.events()
     expect(sent.map(item => item.event.kind)).toEqual(['workout_started', 'rep_milestone', 'rest_long_opportunity', 'exercise_ready'])
     expect(sent[0].context).toEqual({ exerciseCount: 2, exerciseName: 'Жим ногами' })
-    expect(sent[1].context).toEqual({ phaseElapsedMs: 0, exerciseName: 'Жим ногами', totalSets: 2 })
+    expect(sent[1].context).toEqual({ phaseElapsedMs: 100, moment: 'half', exerciseName: 'Жим ногами', totalSets: 2, targetReps: 10 })
     expect(sent[2].context).toEqual({ restMs: 90_000, restElapsedMs: 20_000, exerciseName: 'Жим ногами', totalSets: 2 })
     expect(sent[3].context).toEqual({ exerciseName: 'Тяга', exerciseIndex: 2, exerciseCount: 2, totalSets: 1, targetReps: 10 })
     expect(sent[3].event.scope).toMatchObject({ exerciseId: 'e2', setOrdinal: null })
+  })
+
+  it('comments a set at its start, on a partial rep, near the end and on a stall — once each', async () => {
+    const f = new Fixture()
+    await f.connect()
+    const active = { phase: 'active-set' as const, session: session({ view: 'exercise-session' }) }
+    f.tick({ ...active, reps: 0, partialReps: 0 })
+    f.tick({ ...active, reps: 1, partialReps: 0 })
+    f.tick({ ...active, reps: 2, partialReps: 0 })
+    f.tick({ ...active, reps: 2, partialReps: 1 })
+    f.tick({ ...active, reps: 3, partialReps: 2 })
+    f.tick({ ...active, reps: 8, partialReps: 2 })
+    f.tick({ ...active, reps: 9, partialReps: 2 })
+    f.tick({ ...active, nowMs: f.input.nowMs + 9_000, reps: 9, partialReps: 2 })
+    f.tick({ ...active, reps: 9, partialReps: 2 })
+    const sent = f.socket.events().slice(1)
+    expect(sent.map(item => [item.event.kind, item.context?.moment])).toEqual([
+      ['set_activated', 'start'], ['rep_completed', 'partial'], ['last_rep_pending', 'finish'], ['rep_milestone', 'stall']])
+    expect(sent.every(item => item.event.phase === 'active-set')).toBe(true)
+    expect(sent[3].context?.phaseElapsedMs).toBeGreaterThan(9_000)
+    f.tick({ ...active, reps: 1, partialReps: 0, saved: { ...saved, duringSets: false } })
+    expect(f.socket.events()).toHaveLength(sent.length + 1)
+  })
+
+  it('paces range sets by the top of the range without claiming an exact target', async () => {
+    const f = new Fixture()
+    await f.connect()
+    const range = { targetReps: 10, targetMinReps: 8, targetMaxReps: 10, setType: 'warmup', restSeconds: 60, weightLabel: '' }
+    const active = { phase: 'active-set' as const, session: session({ view: 'exercise-session',
+      exercises: [{ id: 'e1', name: 'Жим ногами', kind: 'machine', plan: [range, range] }] }) }
+    for (const reps of [0, 1, 5, 8]) f.tick({ ...active, reps, partialReps: 0 })
+    const sent = f.socket.events().slice(1)
+    expect(sent.map(item => item.context?.moment)).toEqual(['start', 'half', 'finish'])
+    expect(sent.every(item => !('targetReps' in (item.context ?? {})))).toBe(true)
+  })
+
+  it('comments a timed set by its clock: start, half and the final seconds', async () => {
+    const f = new Fixture()
+    await f.connect()
+    const timed = session({ view: 'exercise-session', exercises: [{ id: 'e1', name: 'Шаффл', kind: 'timed', plan: [
+      { targetSeconds: 120, restSeconds: 60, weightLabel: '' }] }] })
+    const clock = (elapsedS: number, running = true) => f.tick({ phase: 'active-set', session: timed, reps: null,
+      timer: { exerciseId: 'e1', setOrdinal: 1, elapsedS, running } })
+    for (const s of [1, 4, 30, 61, 62, 100, 106, 107]) clock(s)
+    clock(110, false)
+    const sent = f.socket.events().slice(1)
+    expect(sent.map(item => [item.event.kind, item.context?.moment, item.event.progressUnit])).toEqual([
+      ['set_activated', 'start', 'seconds'], ['rep_milestone', 'half', 'seconds'], ['last_rep_pending', 'finish', 'seconds']])
+    expect(sent[0].context).toMatchObject({ targetSeconds: 120, phaseElapsedMs: 4000 })
+    expect(sent[0].event.exerciseKind).toBe('timed')
   })
 
   it('forwards persisted lifecycle events with backend refs, never replaying older ones', async () => {

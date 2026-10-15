@@ -1,6 +1,6 @@
 ﻿import { useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
-import { AlertTriangle, CheckCircle2, Dumbbell, Minus, Pause, Play, Plus, RotateCcw, SkipForward, Timer } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Dumbbell, Minus, Pause, Play, Plus, RotateCcw, SkipForward, Timer, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { ExerciseDetails } from '@/entities/exercise/model/types'
@@ -10,8 +10,10 @@ import { hasMovableMachineLoad, supportsFixedBarSetup } from '@/features/runtime
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { formatTimedSeconds, formatTimerClock } from '@/features/runtime/lib/timed-set'
 import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
-import { saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
-import { captureRuntimeLifecycle, coachLifecycle } from '@/features/coach/lib/runtime-observation'
+import { BarStartPointSelector } from '@/features/hardware/ui/bar-start-point-selector'
+import type { BarStartPoint } from '@/features/hardware/model/types'
+import { resetExercisesOnBackend, saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
+import { captureRuntimeLifecycle, coachLifecycle, coachSetTimer } from '@/features/coach/lib/runtime-observation'
 import { coachRepBeep } from '@/features/coach/live/local-cue-player'
 import { getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { useHardwareStore } from '@/stores/hardware-store'
@@ -100,6 +102,10 @@ function getPreferredVideoGender(userId: string | null): ExerciseVideoGender {
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
+}
+
+function formatCentimeters(valueMm: number | null | undefined) {
+  return valueMm != null ? `${(valueMm / 10).toFixed(1)} см` : '—'
 }
 
 function playRepCountedSound() {
@@ -193,6 +199,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const setBackendExerciseSessionId = useRuntimeStore((state) => state.setBackendExerciseSessionId)
   const markExerciseSaved = useRuntimeStore((state) => state.markExerciseSaved)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
+  const restartPreviousExercise = useRuntimeStore((state) => state.restartPreviousExercise)
   const snapshot = useHardwareStore((state) => state.snapshot)
   const currentCalibration = useHardwareStore((state) => state.currentCalibration)
   const hardwareError = useHardwareStore((state) => state.errorMessage)
@@ -213,6 +220,10 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const [jogHolding, setJogHolding] = useState(false)
   const [calibrationDirty, setCalibrationDirty] = useState(false)
   const [skipDialogOpen, setSkipDialogOpen] = useState(false)
+  const [previousDialogOpen, setPreviousDialogOpen] = useState(false)
+  const [restartingPrevious, setRestartingPrevious] = useState(false)
+  const [motorIdleVisible, setMotorIdleVisible] = useState(false)
+  const [startPointSaving, setStartPointSaving] = useState(false)
   // Timed sets: elapsed time is accumulated across pauses; `timerStartedAt` is set while the clock runs.
   const [timerElapsedMs, setTimerElapsedMs] = useState(0)
   const [timerStartedAt, setTimerStartedAt] = useState<number | null>(null)
@@ -248,6 +259,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       : clamp(liveMotion.repetitionCount + repAdjustment, 0, plannedValue)
     : null
   const isTimed = state.kind === 'timed'
+  const partialReps = liveMotion && !isFixedExercise && !isTimed ? liveMotion.partialReps ?? 0 : 0
   const timerElapsedSeconds = Math.floor((timerElapsedMs + (timerStartedAt != null ? Math.max(0, timerNow - timerStartedAt) : 0)) / 1000)
   const timerRunning = timerStartedAt != null
   const factValue = isTimed
@@ -280,7 +292,25 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const showWeightControl = isMachineExercise || actualWeight > 0
   const controlMode = snapshot?.control?.mode
   const motorSetActive = controlMode === 'moving' || controlMode === 'start_hold' || controlMode === 'training' || controlMode === 'paused' || controlMode === 'fixed_hold'
+  // The set screen is shown but the trainer is resting (backend restart, a fault, a restored page): the bar
+  // stays where it is until the set is started again.
+  const motorIdleCandidate = Boolean(
+    activeCalibration && selectedUserId && supportsFixedBarSetup(exercise)
+    && (controlMode === 'idle' || controlMode === 'parked' || controlMode === 'weightless')
+    && !pendingAction && !editingPoint && !restartingPrevious,
+  )
+  const motorIdle = motorIdleCandidate && motorIdleVisible
+  const previousExercise = activeSession.exercises[activeSession.exercises.indexOf(exercise) - 1]
   const sentWeightRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!motorIdleCandidate) {
+      setMotorIdleVisible(false)
+      return
+    }
+    const timeoutId = window.setTimeout(() => setMotorIdleVisible(true), 1500)
+    return () => window.clearTimeout(timeoutId)
+  }, [motorIdleCandidate])
 
   // the motor follows the weight of the set shown here (the plan's per-set weight, the stepper during the set)
   useEffect(() => {
@@ -337,6 +367,13 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     const intervalId = window.setInterval(() => setTimerNow(Date.now()), 250)
     return () => window.clearInterval(intervalId)
   }, [timerStartedAt])
+
+  // The voice coach follows the same clock (start, half, last seconds).
+  const currentSetOrdinal = session.currentSetIndex + 1
+  useEffect(() => {
+    coachSetTimer.publish(isTimed ? { exerciseId: exercise.id, setOrdinal: currentSetOrdinal, elapsedMs: timerElapsedMs, startedAtMs: timerStartedAt } : null)
+  }, [currentSetOrdinal, exercise.id, isTimed, timerElapsedMs, timerStartedAt])
+  useEffect(() => () => coachSetTimer.publish(null), [])
 
   // A timed set finishes by itself when the countdown reaches zero.
   useEffect(() => {
@@ -474,6 +511,101 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       setHardwareError(error instanceof Error ? error.message : 'Не удалось продолжить подход.')
     } finally {
       setCalibrationBusy(false)
+    }
+  }
+
+  async function startMotorForCurrentSet() {
+    if (!motorIdle || !activeCalibration || !selectedUserId || calibrationBusy) return
+    const fixed = activeCalibration.setupType === 'fixed_position'
+    setCalibrationBusy(true)
+    setHardwareError(null)
+    try {
+      await runCommand({
+        action: fixed ? 'start_fixed_position' : 'start_motion',
+        userId: selectedUserId,
+        exerciseSlug: exercise.slug,
+        calibrationRequired: true,
+        rangeConfirmed: !fixed,
+        weightKg: actualWeight,
+        mode: 'machine',
+        targetSet: session.currentSetIndex + 1,
+        targetReps: setPlan.targetMaxReps ?? setPlan.targetReps ?? plannedValue,
+        ...(fixed ? { positionMm: activeCalibration.fixedPositionMm ?? undefined, repCountSource: 'load' } : { startPoint: activeCalibration.startPoint ?? 'lower' }),
+      })
+    } catch (error) {
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить тренажёр.')
+    } finally {
+      setCalibrationBusy(false)
+    }
+  }
+
+  // Saved with the bar setup (the next sets and workouts start there too). While the bar waits for the grip it is
+  // moved to the new point at once; a set in progress is not interrupted — the choice applies from the next set.
+  async function changeStartPoint(next: BarStartPoint) {
+    if (!activeCalibration || activeCalibration.setupType !== 'bar_range' || !selectedUserId || startPointSaving) return
+    setStartPointSaving(true)
+    setHardwareError(null)
+    try {
+      await saveCalibration({
+        userId: selectedUserId,
+        exerciseSlug: exercise.slug,
+        setupType: activeCalibration.setupType,
+        lowerPointMm: activeCalibration.lowerPointMm,
+        upperPointMm: activeCalibration.upperPointMm,
+        fixedPositionMm: null,
+        startPoint: next,
+        zeroPositionMm: activeCalibration.zeroPositionMm,
+        movementRangeConfirmed: activeCalibration.movementRangeConfirmed,
+        calibrationRequired: activeCalibration.calibrationRequired,
+        expiresAt: activeCalibration.expiresAt,
+        note: activeCalibration.note,
+      })
+      if (useHardwareStore.getState().snapshot?.control?.mode === 'start_hold') {
+        await runCommand({
+          action: 'start_motion',
+          userId: selectedUserId,
+          exerciseSlug: exercise.slug,
+          calibrationRequired: true,
+          rangeConfirmed: true,
+          weightKg: actualWeight,
+          mode: 'machine',
+          targetSet: session.currentSetIndex + 1,
+          targetReps: setPlan.targetMaxReps ?? setPlan.targetReps ?? plannedValue,
+          startPoint: next,
+        })
+      }
+    } catch (error) {
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось изменить начальное положение грифа.')
+    } finally {
+      setStartPointSaving(false)
+    }
+  }
+
+  async function handleRestartPreviousExercise() {
+    if (!previousExercise || pendingAction || restartingPrevious) return
+    setRestartingPrevious(true)
+    setSaveError(null)
+    try {
+      if (isMachineExercise && selectedUserId && motorSetActive) {
+        await runCommand({
+          action: 'complete_set',
+          userId: selectedUserId,
+          exerciseSlug: exercise.slug,
+          calibrationRequired: false,
+          rangeConfirmed: true,
+          weightKg: exercise.loadSettings.weight,
+          mode: 'machine',
+        })
+      }
+      // Both exercises start over: the sets already saved for them are dropped on the backend too.
+      const latestSession = useRuntimeStore.getState().session ?? activeSession
+      const staleIds = await resetExercisesOnBackend(latestSession, [previousExercise, exercise], selectedUserId ?? 'alexey')
+      restartPreviousExercise(staleIds)
+      navigate(withSearch('/exercise-setup', location.search))
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : 'Не удалось вернуться к предыдущему упражнению.')
+    } finally {
+      setRestartingPrevious(false)
     }
   }
 
@@ -722,7 +854,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
             </div>
           </div>
 
-          <section className="rt-panel rt-session-center" aria-label="Текущий подход">
+          <section className="rt-panel rt-session-center" data-compact={Boolean(editingPoint || machineHold || motorIdle || partialReps > 0)} aria-label="Текущий подход">
             {isTimed ? (
               <TimedSetClock
                 remainingSeconds={Math.max(0, plannedValue - timerElapsedSeconds)}
@@ -745,7 +877,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
               <div style={{ width: `${clamp(progressPercent, 0, 100)}%` }} />
             </div>
             <div className="rt-session-secondary">
-              {showWeightControl ? (
+              {showWeightControl && !editingPoint ? (
                 <ValueStepper
                   label="Вес"
                   unit="кг"
@@ -763,8 +895,23 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
                 ))}
               </div>
             </div>
+            {motorIdle && activeCalibration ? (
+              <div className="rt-alert" data-tone="warning" role="status" aria-label="Тренажёр не запущен">
+                <AlertTriangle aria-hidden="true" />
+                <div className="min-w-0">
+                  <strong>Тренажёр не запущен · гриф не в стартовой точке</strong>
+                  <p>
+                    {activeCalibration.setupType === 'fixed_position'
+                      ? `Сохранённая высота: ${formatCentimeters(activeCalibration.fixedPositionMm)}.`
+                      : `Сохранённые точки: низ ${formatCentimeters(activeCalibration.lowerPointMm)}, верх ${formatCentimeters(activeCalibration.upperPointMm)}.`}
+                    {' '}Освободите гриф — тренажёр переведёт его в стартовую точку.
+                  </p>
+                </div>
+                <Button disabled={calibrationBusy} iconLeft={<Play aria-hidden="true" />} onClick={() => void startMotorForCurrentSet()}>Запустить подход</Button>
+              </div>
+            ) : null}
             {machineHold ? (
-              <div className="rt-alert mt-4" data-tone="warning" role="status" aria-label="Гриф удерживается">
+              <div className="rt-alert" data-tone="warning" role="status" aria-label="Гриф удерживается">
                 <AlertTriangle aria-hidden="true" />
                 <div className="min-w-0">
                   <strong>{machineHold.label || 'Удержание'} · повторы не засчитываются</strong>
@@ -773,25 +920,48 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
                 <Button disabled={calibrationBusy} onClick={() => void resumeAfterHold()}>Продолжить подход</Button>
               </div>
             ) : null}
-            {canAdjustCalibration || editingPoint ? (
-              <div className="mt-4 rounded-2xl border border-white/12 bg-white/5 p-3" aria-label="Калибровка во время упражнения">
+            {partialReps > 0 && !machineHold && !motorIdle ? (
+              <div className="rt-alert" data-tone="warning" role="status" aria-label="Неполные повторы">
+                <AlertTriangle aria-hidden="true" />
+                <div className="min-w-0">
+                  <strong>Неполных повторов: {partialReps} · не засчитаны</strong>
+                  <p>Гриф не дошёл до границы амплитуды. Проходите движение от нижней до верхней точки.</p>
+                </div>
+              </div>
+            ) : null}
+            {canAdjustCalibration && !editingPoint && activeCalibration?.setupType === 'bar_range' ? (
+              <BarStartPointSelector
+                value={activeCalibration.startPoint ?? 'lower'}
+                disabled={startPointSaving || calibrationBusy || barMoving}
+                hint={controlMode === 'training' ? 'Изменение применится со следующего подхода.' : undefined}
+                onChange={(next) => void changeStartPoint(next)}
+              />
+            ) : null}
+            {(canAdjustCalibration && !motorIdle) || editingPoint ? (
+              <div className="rt-live-calibration" aria-label="Калибровка во время упражнения">
                 {!editingPoint ? (
                   <Button variant="secondary" disabled={calibrationBusy || snapshot?.control?.mode === 'moving'} onClick={() => void beginCalibration()}>Настроить положение грифа</Button>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {activeCalibration?.setupType === 'bar_range' ? (
-                      <div className="flex gap-2" role="group" aria-label="Выбор точки калибровки">
-                        <Button variant={editingPoint === 'lower' ? 'primary' : 'secondary'} disabled={calibrationDirty || calibrationBusy || barMoving} onClick={() => setEditingPoint('lower')}>Нижняя точка</Button>
-                        <Button variant={editingPoint === 'upper' ? 'primary' : 'secondary'} disabled={calibrationDirty || calibrationBusy || barMoving} onClick={() => setEditingPoint('upper')}>Верхняя точка</Button>
-                      </div>
-                    ) : <span className="text-sm text-white/75">Фиксированная высота</span>}
-                    <span className="text-sm text-white/75">Гриф: {snapshot?.motion.barPositionMm != null ? `${(snapshot.motion.barPositionMm / 10).toFixed(1)} см` : '—'}</span>
-                    <HoldToJog userId={selectedUserId} exerciseSlug={exercise.slug} disabled={calibrationBusy || barMoving || snapshot?.control?.mode !== 'paused'}
-                      onHoldingChange={setJogHolding} onMoved={() => setCalibrationDirty(true)} />
-                    <Button disabled={calibrationBusy || jogHolding || barMoving || snapshot?.control?.mode !== 'paused'} onClick={() => void saveLiveCalibration()}>Сохранить положение</Button>
-                    <Button variant="secondary" disabled={calibrationBusy || jogHolding || barMoving || calibrationDirty || snapshot?.control?.mode !== 'paused'} onClick={() => void resumeAfterCalibration()}>Продолжить подход</Button>
-                    <p className="w-full text-xs text-white/55">Освободите гриф перед перемещением. Дождитесь остановки, сохраните новую точку и затем продолжите подход.</p>
-                  </div>
+                  <>
+                    <div className="rt-live-calibration-row">
+                      {activeCalibration?.setupType === 'bar_range' ? (
+                        <div className="rt-live-calibration-row" role="group" aria-label="Выбор точки калибровки">
+                          <Button variant={editingPoint === 'lower' ? 'primary' : 'secondary'} disabled={calibrationDirty || calibrationBusy || barMoving} onClick={() => setEditingPoint('lower')}>Нижняя точка</Button>
+                          <Button variant={editingPoint === 'upper' ? 'primary' : 'secondary'} disabled={calibrationDirty || calibrationBusy || barMoving} onClick={() => setEditingPoint('upper')}>Верхняя точка</Button>
+                        </div>
+                      ) : <span className="text-sm text-white/75">Фиксированная высота</span>}
+                      <span className="rt-live-calibration-position">Гриф: <strong>{formatCentimeters(snapshot?.motion.barPositionMm)}</strong></span>
+                    </div>
+                    <div className="rt-live-calibration-row">
+                      <HoldToJog userId={selectedUserId} exerciseSlug={exercise.slug} disabled={calibrationBusy || barMoving || snapshot?.control?.mode !== 'paused'}
+                        onHoldingChange={setJogHolding} onMoved={() => setCalibrationDirty(true)} />
+                    </div>
+                    <div className="rt-live-calibration-row">
+                      <Button disabled={calibrationBusy || jogHolding || barMoving || snapshot?.control?.mode !== 'paused'} onClick={() => void saveLiveCalibration()}>Сохранить положение</Button>
+                      <Button variant="secondary" disabled={calibrationBusy || jogHolding || barMoving || calibrationDirty || snapshot?.control?.mode !== 'paused'} onClick={() => void resumeAfterCalibration()}>Продолжить подход</Button>
+                    </div>
+                    <p className="text-xs text-white/55">Освободите гриф перед перемещением. Дождитесь остановки, сохраните новую точку и затем продолжите подход.</p>
+                  </>
                 )}
               </div>
             ) : null}
@@ -811,13 +981,20 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         </div>
 
         <div className="rt-actions" role="group" aria-label="Действия с подходом">
-          <Button variant="secondary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy} iconLeft={<SkipForward aria-hidden="true" />} onClick={() => setSkipDialogOpen(true)}>
-            {pendingAction === 'skipped' ? 'Сохраняю…' : 'Пропустить упражнение'}
-          </Button>
+          <div className="rt-actions-group">
+            {previousExercise ? (
+              <Button variant="secondary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy || restartingPrevious} iconLeft={<Undo2 aria-hidden="true" />} onClick={() => setPreviousDialogOpen(true)}>
+                {restartingPrevious ? 'Возвращаюсь…' : 'Предыдущее упражнение'}
+              </Button>
+            ) : null}
+            <Button variant="secondary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy || restartingPrevious} iconLeft={<SkipForward aria-hidden="true" />} onClick={() => setSkipDialogOpen(true)}>
+              {pendingAction === 'skipped' ? 'Сохраняю…' : 'Пропустить упражнение'}
+            </Button>
+          </div>
           <div className="rt-actions-note">
             {state.setWarning ?? state.setNote ?? <>{state.rirLabel ?? '1–3 повтора в запасе'} · после подхода начнётся отдых <strong>{setPlan.restSeconds} с</strong></>}
           </div>
-          <Button className="rt-primary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy} iconLeft={<CheckCircle2 aria-hidden="true" />} onClick={() => void handleFinishSet()}>
+          <Button className="rt-primary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy || restartingPrevious} iconLeft={<CheckCircle2 aria-hidden="true" />} onClick={() => void handleFinishSet()}>
             {pendingAction && pendingAction !== 'skipped' ? 'Сохраняю…' : 'Завершить подход'}
           </Button>
         </div>
@@ -839,6 +1016,30 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
                 }}
               >
                 Пропустить
+              </Button>
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <Dialog.Root open={previousDialogOpen} onOpenChange={setPreviousDialogOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="builder-dialog">
+            <Dialog.Title className="font-display text-3xl font-bold">Вернуться к предыдущему упражнению?</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/70">
+                «{previousExercise?.name}» будет выполнено заново с первого подхода, его прежние подходы удалятся. Текущее упражнение начнётся сначала после него.
+            </Dialog.Description>
+            <div className="builder-dialog-actions">
+              <Dialog.Close asChild><Button variant="secondary">Отмена</Button></Dialog.Close>
+              <Button
+                disabled={pendingAction !== null || restartingPrevious}
+                onClick={() => {
+                  setPreviousDialogOpen(false)
+                  void handleRestartPreviousExercise()
+                }}
+              >
+                Выполнить заново
               </Button>
             </div>
           </SafetyDialogContent>
@@ -1017,8 +1218,12 @@ function resolveExerciseVideoSequence(videos: ExerciseVideoAsset[], preferredVid
 }
 
 function buildMotionRail(liveMotion: HardwareMotionTelemetry | null | undefined, calibration: HardwareCalibration | null): MotionRail {
-  const exerciseLowerValue = liveMotion?.lowerBoundMm ?? calibration?.lowerPointMm ?? 640
-  const exerciseUpperValue = liveMotion?.upperBoundMm ?? calibration?.upperPointMm ?? 1320
+  // Without a planned set the runtime reports 0/0 bounds: the saved calibration points are the real ones then.
+  const liveLower = liveMotion?.lowerBoundMm
+  const liveUpper = liveMotion?.upperBoundMm
+  const liveBoundsValid = liveLower != null && liveUpper != null && liveUpper > liveLower
+  const exerciseLowerValue = (liveBoundsValid ? liveLower : null) ?? calibration?.lowerPointMm ?? 640
+  const exerciseUpperValue = (liveBoundsValid ? liveUpper : null) ?? calibration?.upperPointMm ?? 1320
   const currentValue = liveMotion?.barPositionMm ?? calibration?.zeroPositionMm ?? (exerciseLowerValue + exerciseUpperValue) / 2
   const range = Math.max(1, exerciseUpperValue - exerciseLowerValue)
   return {
@@ -1132,7 +1337,7 @@ async function saveExerciseResultToBackend(exercise: RuntimeWorkoutSession['exer
     trainingDayType: exercise.strengthMode.dayType,
     recommendation: status === 'skipped' ? 'Упражнение пропущено. Можно перейти к следующему упражнению без изменения нагрузки.' : undefined,
     muscles: exercise.muscles.map((name, index) => ({ muscleId: name, name, role: index === 0 ? 'primary' : 'secondary' })),
-    sets: status === 'skipped' || setSaveMode === 'preserve'
+    sets: status === 'skipped' || setSaveMode !== 'replace'
       ? []
       : completedSets.filter(shouldSaveSetResult).map((result) => toBackendSetPayload(exercise, result)),
   })

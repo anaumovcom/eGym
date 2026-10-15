@@ -7,9 +7,9 @@ import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import { localAudioRuntime } from '../audio/local-audio-runtime'
 import { LocalCoachAudioManager, type AudioReason, type LocalAudioSnapshot } from '../audio/local-coach-audio-manager'
 import { peekSharedAudioContext, unlockSharedAudioContext } from '../audio/shared-audio-context'
-import { CoachInterpreter, type InterpreterSnapshot, type LocalCue } from '../interpreter/coach-interpreter'
-import { coachLifecycle, isCoachFoundationEnabled } from '../lib/runtime-observation'
-import type { CoachEvent, CoachScope, CoachVoice } from '../model/contracts'
+import { CoachInterpreter, type InterpreterSnapshot, type LocalCue, type SetTimerInput } from '../interpreter/coach-interpreter'
+import { coachLifecycle, coachSetTimer, isCoachFoundationEnabled } from '../lib/runtime-observation'
+import { coachRunId, type CoachEvent, type CoachScope, type CoachVoice } from '../model/contracts'
 import { effectiveCoachState, type CoachPreferences, type GeneralCoachAudio } from '../model/preferences'
 import { coachRepBeep, playCue, type ClipSource, type CueManager, type RepBeepArbiter } from './local-cue-player'
 import { coachPackClient } from '../audio/pack-client'
@@ -19,7 +19,7 @@ import { CoachNetworkClient, type NetworkSnapshot } from './coach-network-client
 export type LiveInputs = Readonly<{
   userId: string | null; featureEnabled: boolean; hidden: boolean; emergency: boolean
   session: RuntimeWorkoutSession | null; hardware: HardwareSnapshot | null; connected: boolean
-  general: GeneralCoachAudio; saved: CoachPreferences | null
+  general: GeneralCoachAudio; saved: CoachPreferences | null; timer?: SetTimerInput | null
 }>
 export type LiveReason = AudioReason | 'admitted' | 'idle'
 export type LiveRuntimeSnapshot = Readonly<{
@@ -51,15 +51,18 @@ export type LiveRuntimeDependencies = Readonly<{
 const defaults: LiveRuntimeDependencies = {
   read: () => {
     const app = useAppStore.getState(), general = useStage4Store.getState().settingsSaved, hardware = useHardwareStore.getState()
+    const clock = coachSetTimer.get()
+    const timer = clock ? { exerciseId: clock.exerciseId, setOrdinal: clock.setOrdinal, running: clock.startedAtMs !== null,
+      elapsedS: (clock.elapsedMs + (clock.startedAtMs !== null ? Math.max(0, Date.now() - clock.startedAtMs) : 0)) / 1000 } : null
     return { userId: app.selectedUserId, emergency: app.emergencyStopActive, featureEnabled: isCoachFoundationEnabled(),
-      hidden: typeof document !== 'undefined' && document.hidden, session: useRuntimeStore.getState().session,
+      hidden: typeof document !== 'undefined' && document.hidden, session: useRuntimeStore.getState().session, timer,
       hardware: hardware.snapshot, connected: hardware.connectionStatus === 'connected', saved: localAudioRuntime.getSavedPreferences(),
       general: { soundEnabled: general.soundEnabled === true, voiceHintsEnabled: general.voiceHintsEnabled === true,
         volume: Number(String(general.signalVolume).replace('%', '')) / 100 } }
   },
   subscribeInputs: listener => {
     const unsubscribes = [useAppStore.subscribe(listener), useHardwareStore.subscribe(listener), useRuntimeStore.subscribe(listener),
-      useStage4Store.subscribe(listener), localAudioRuntime.subscribe(listener)]
+      useStage4Store.subscribe(listener), localAudioRuntime.subscribe(listener), coachSetTimer.subscribe(listener)]
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', listener)
     return () => { unsubscribes.forEach(item => item()); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', listener) }
   },
@@ -141,7 +144,7 @@ export class CoachLiveRuntime {
       this.removeUnlock(); this.disposeManager('disabled'); this.reason = 'disabled'; this.publish(false); return
     }
     if (inputs.hardware !== this.hardware) { this.hardware = inputs.hardware; this.hardwareAtMs = inputs.hardware ? now : null }
-    const identity = JSON.stringify([inputs.userId, inputs.session?.runId ?? inputs.session?.id ?? null])
+    const identity = JSON.stringify([inputs.userId, inputs.session ? coachRunId(inputs.session) : null])
     if (identity !== this.identity) {
       this.identity = identity
       this.interpreter = new CoachInterpreter({ allowEmulator: this.deps.allowEmulator })
@@ -149,7 +152,7 @@ export class CoachLiveRuntime {
     }
     const lifecycle = this.deps.lifecycle()
     const result = this.interpreter.step({ nowMs: now, userId: inputs.userId, session: inputs.session, hardware: this.hardware,
-      hardwareReceivedAtMs: this.hardwareAtMs, sourceConnected: inputs.connected, emergency: inputs.emergency,
+      hardwareReceivedAtMs: this.hardwareAtMs, sourceConnected: inputs.connected, emergency: inputs.emergency, timer: inputs.timer ?? null,
       count: inputs.saved?.count ?? 'off', lifecycle })
     this.counters.skips += result.skips.length
     const gate = this.gate(inputs)
@@ -164,14 +167,14 @@ export class CoachLiveRuntime {
     if (!result.cues.length && gate) this.reason = gate
     this.deps.network?.tick({ nowMs: now, userId: inputs.userId, saved: inputs.saved, session: inputs.session, featureEnabled: true,
       phase: result.phase, scope: result.scope, latched: result.latched, gate, reps: this.interpreter.snapshot().baseline,
-      lifecycle, refs: this.deps.lifecycleRefs, mixer: () => this.networkMixer() })
+      partialReps: this.hardware?.motion?.partialReps ?? null, timer: inputs.timer ?? null, lifecycle, refs: this.deps.lifecycleRefs, mixer: () => this.networkMixer() })
     if (this.manager) this.deps.network?.observe(this.manager.snapshot())
     this.publish(!gate)
   }
 
   private stopNetwork(inputs: LiveInputs, now: number): void {
     this.deps.network?.tick({ nowMs: now, userId: inputs.userId, saved: inputs.saved, session: inputs.session, featureEnabled: false,
-      phase: 'disabled', scope: null, latched: false, gate: 'disabled', reps: null, lifecycle: [], refs: () => null, mixer: () => null })
+      phase: 'disabled', scope: null, latched: false, gate: 'disabled', reps: null, partialReps: null, lifecycle: [], refs: () => null, mixer: () => null })
   }
 
   /** Network speech joins the same mixer; created lazily like local cues, with the current scope. */

@@ -1,11 +1,11 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { ExerciseSetupScreen } from '@/screens/exercise-setup/exercise-setup-screen'
 import { getExerciseDetails } from '@/mocks/stage2-data'
-import { apiGet } from '@/shared/api/client'
+import { apiGet, apiPost } from '@/shared/api/client'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
@@ -21,6 +21,7 @@ let currentSearch = '?source=catalog&slug=barbell-floor-press&calibration=missin
 vi.mock('@/shared/api/client', async () => ({
   ...await vi.importActual<typeof import('@/shared/api/client')>('@/shared/api/client'),
   apiGet: vi.fn().mockResolvedValue([]),
+  apiPost: vi.fn(),
 }))
 
 vi.mock('@/features/runtime/lib/backend-builder-session', () => ({
@@ -424,5 +425,64 @@ describe('ExerciseSetupScreen', () => {
     await waitFor(() => expect(buildBackendBuilderRuntimeSessionMock).toHaveBeenCalled())
     expect(useRuntimeStore.getState().session).toMatchObject({ id: session.id, backendWorkoutSessionId: 42, currentSetIndex: 1, completedSets: session.completedSets })
     expect(navigateMock).not.toHaveBeenCalled()
+  })
+
+  it('starts the same workout from the first exercise on a new training day', async () => {
+    currentSearch = '?source=builder&programId=back-biceps'
+    const initialSession = useRuntimeStore.getState().session!
+    const first = initialSession.exercises[0]
+    const second = { ...first, id: `${first.id}-2`, order: 2 }
+    const yesterday: RuntimeWorkoutSession = {
+      ...initialSession,
+      exercises: [first, second],
+      source: 'builder', programId: 'back-biceps', dataSource: 'backend', backendWorkoutSessionId: 42,
+      startedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      currentExerciseId: second.id, completedExerciseIds: [first.id],
+      completedSets: { [first.id]: [{ setNumber: 1, plannedValue: 10, actualValue: 10, tempoLabel: 'хорошо' }] },
+    }
+    useRuntimeStore.setState({ session: yesterday, sessionSignature: 'builder::back-biceps::' })
+    buildBackendBuilderRuntimeSessionMock.mockResolvedValue({
+      ...yesterday, startedAt: new Date().toISOString(), currentExerciseId: first.id, completedExerciseIds: [],
+      completedSets: {}, backendWorkoutSessionId: undefined,
+    })
+
+    renderScreen()
+
+    await waitFor(() => expect(useRuntimeStore.getState().session?.currentExerciseId).toBe(first.id))
+    expect(useRuntimeStore.getState().session).toMatchObject({ completedSets: {}, backendWorkoutSessionId: undefined })
+  })
+
+  it('goes back to the previous exercise and does it again instead of returning to its consumed summary', async () => {
+    const user = userEvent.setup()
+    vi.mocked(apiPost).mockResolvedValue({})
+    const session = useRuntimeStore.getState().session!
+    const first = session.exercises[0]
+    const second = { ...first, id: `${first.id}-2`, order: 2 }
+    useRuntimeStore.setState({ session: {
+      ...session,
+      exercises: [first, second],
+      currentExerciseId: second.id,
+      completedSets: { [first.id]: [{ setNumber: 1 } as never] },
+      completedExerciseIds: [first.id],
+      exerciseOutcomes: { [first.id]: 'completed' },
+      backendWorkoutSessionId: 42,
+      backendExerciseSessionIds: { [first.id]: 5 },
+    } })
+    renderScreen()
+
+    await user.click(screen.getByRole('button', { name: 'Предыдущее упражнение' }))
+    const confirm = screen.getByRole('dialog', { name: 'Вернуться к предыдущему упражнению?' })
+    await user.click(within(confirm).getByRole('button', { name: 'Выполнить заново' }))
+
+    await waitFor(() => expect(useRuntimeStore.getState().session?.currentExerciseId).toBe(first.id))
+    expect(apiPost).toHaveBeenCalledWith('/api/runtime/exercises', expect.objectContaining({ exerciseSessionId: 5, sets: [], resetSets: true }))
+    expect(useRuntimeStore.getState().session?.completedSets[first.id]).toBeUndefined()
+    expect(navigateMock).not.toHaveBeenCalledWith(-1)
+  })
+
+  it('keeps a plain back button on the first exercise', () => {
+    renderScreen()
+    expect(screen.getByRole('button', { name: 'Назад' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Предыдущее упражнение' })).not.toBeInTheDocument()
   })
 })

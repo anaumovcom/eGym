@@ -8,11 +8,14 @@ import type { MachineHealth } from '@/entities/machine/model/types'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { StrengthTrainingMode } from '@/entities/strength/model/types'
 import { buildBackendBuilderRuntimeSession } from '@/features/runtime/lib/backend-builder-session'
-import { getRuntimeResumeView, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
+import { getRuntimeResumeView, isSessionInCurrentTrainingDay, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
 import { requiresMachineCalibration, supportsFixedBarSetup } from '@/features/runtime/lib/runtime-exercise'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
+import { resetExercisesOnBackend } from '@/features/runtime/lib/runtime-persistence'
 import { formatTimedSeconds, stepTimedSeconds } from '@/features/runtime/lib/timed-set'
 import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
+import { BarStartPointSelector } from '@/features/hardware/ui/bar-start-point-selector'
+import type { BarStartPoint } from '@/features/hardware/model/types'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
@@ -123,11 +126,17 @@ export function ExerciseSetupScreen() {
   const [capturedUpperPointMm, setCapturedUpperPointMm] = useState<number | null>(null)
   const [capturedFixedPositionMm, setCapturedFixedPositionMm] = useState<number | null>(null)
   const [setupType, setSetupType] = useState<'bar_range' | 'fixed_position'>('bar_range')
+  const [startPoint, setStartPoint] = useState<BarStartPoint>('lower')
+  const [startPointSaving, setStartPointSaving] = useState(false)
   const [loadedSetupKey, setLoadedSetupKey] = useState<string | null>(null)
   const [calibrationOpen, setCalibrationOpen] = useState(false)
   const [modeDialogOpen, setModeDialogOpen] = useState(false)
   const [jogPending, setJogPending] = useState(false)
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
+  const [previousDialogOpen, setPreviousDialogOpen] = useState(false)
+  const [restartingPrevious, setRestartingPrevious] = useState(false)
+  const [previousError, setPreviousError] = useState<string | null>(null)
+  const restartPreviousExercise = useRuntimeStore((state) => state.restartPreviousExercise)
 
   const initOptions = useMemo(() => getRuntimeInitOptions(searchParams), [searchParams])
   const { data: catalogExerciseDetails } = useQuery({
@@ -138,6 +147,8 @@ export function ExerciseSetupScreen() {
   const usesBackendBuilderSession = initOptions.source === 'builder' && Boolean(initOptions.programId)
   const hasMatchingRuntimeBuilderSession = usesBackendBuilderSession
     ? session?.source === 'builder' && session.programId === initOptions.programId && session.dataSource === 'backend' && (!initOptions.runId || session.runId === initOptions.runId)
+      // yesterday's session of the same workout must not be resumed: a new training day starts from the first exercise
+      && isSessionInCurrentTrainingDay(session)
     : true
   const { data: backendBuilderSession, error: backendBuilderSessionError } = useQuery({
     queryKey: ['runtime-builder-session', resolvedUserId, initOptions.programId, initOptions.runId, initOptions.calibrationState],
@@ -266,6 +277,7 @@ export function ExerciseSetupScreen() {
     setCapturedLowerPointMm(null)
     setCapturedUpperPointMm(null)
     setCapturedFixedPositionMm(null)
+    setStartPoint('lower')
     setSetupType(requiresMachineCalibration(exercise) ? 'bar_range' : 'fixed_position')
     setLoadedSetupKey(null)
   }, [exercise?.slug, selectedUserId])
@@ -300,6 +312,7 @@ export function ExerciseSetupScreen() {
     setCapturedLowerPointMm(saved?.lowerPointMm ?? null)
     setCapturedUpperPointMm(saved?.upperPointMm ?? null)
     setCapturedFixedPositionMm(saved?.fixedPositionMm ?? null)
+    setStartPoint(saved?.startPoint ?? 'lower')
     setSetupType(saved?.setupType ?? (requiresMachineCalibration(exercise) ? 'bar_range' : 'fixed_position'))
   }, [currentCalibration, exercise?.slug, loadedSetupKey, selectedUserId])
 
@@ -321,6 +334,7 @@ export function ExerciseSetupScreen() {
   }
 
   const currentExercise = exercise
+  const previousExercise = session.exercises[session.exercises.indexOf(currentExercise) - 1]
   const settings = exercise.loadSettings
   const currentStrengthMode = currentExercise.strengthMode ?? { id: 'basic', title: 'Базовый режим', dayType: null }
   const calibrationRequired = supportsFixedBarSetup(currentExercise)
@@ -428,6 +442,7 @@ export function ExerciseSetupScreen() {
         lowerPointMm: setupType === 'bar_range' ? lowerPointMm : null,
         upperPointMm: setupType === 'bar_range' ? upperPointMm : null,
         fixedPositionMm: setupType === 'fixed_position' ? fixedPositionMm : null,
+        startPoint,
         zeroPositionMm: setupType === 'bar_range' ? Math.round((lowerPointMm! + upperPointMm!) / 2) : fixedPositionMm!,
         movementRangeConfirmed: setupType === 'bar_range',
         calibrationRequired: true,
@@ -451,15 +466,47 @@ export function ExerciseSetupScreen() {
     }
   }
 
+  // A saved bar range keeps its points: only the start point changes, at once (no new capture needed).
+  async function changeStartPoint(next: BarStartPoint) {
+    const previous = startPoint
+    setStartPoint(next)
+    if (!savedCalibration || savedCalibration.setupType !== 'bar_range' || !selectedUserId) return
+    setStartPointSaving(true)
+    try {
+      await saveCalibration({
+        userId: selectedUserId,
+        exerciseSlug: savedCalibration.exerciseSlug,
+        setupType: savedCalibration.setupType,
+        lowerPointMm: savedCalibration.lowerPointMm,
+        upperPointMm: savedCalibration.upperPointMm,
+        fixedPositionMm: null,
+        startPoint: next,
+        zeroPositionMm: savedCalibration.zeroPositionMm,
+        movementRangeConfirmed: savedCalibration.movementRangeConfirmed,
+        calibrationRequired: savedCalibration.calibrationRequired,
+        expiresAt: savedCalibration.expiresAt,
+        note: savedCalibration.note,
+      })
+      setHardwareError(null)
+    } catch (error) {
+      setStartPoint(previous)
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось сохранить начальное положение грифа.')
+    } finally {
+      setStartPointSaving(false)
+    }
+  }
+
   async function handleStartExercise() {
-    if (startBlocked || barMoving) return
+    if (startBlocked || barMoving || startPointSaving) return
     if (calibrationRequired) {
       if (!selectedUserId) {
         setHardwareError('Для запуска тренажёрного упражнения нужно выбрать пользователя.')
         return
       }
       // the motor gets the weight of the set being started (a warm-up is lighter than the working weight)
-      const firstSetWeightKg = currentExercise.plan[0]?.recommendedWeightKg ?? settings.weight
+      const startSetIndex = Math.min(session?.currentSetIndex ?? 0, Math.max(0, currentExercise.plan.length - 1))
+      const startSetPlan = currentExercise.plan[startSetIndex]
+      const firstSetWeightKg = startSetPlan?.recommendedWeightKg ?? settings.weight
 
       try {
         const safetyGate = await checkSafetyGate({
@@ -483,9 +530,9 @@ export function ExerciseSetupScreen() {
           rangeConfirmed: setupType === 'bar_range',
           weightKg: firstSetWeightKg,
           mode: 'machine',
-          targetSet: 1,
-          targetReps: currentExercise.plan[0]?.targetMaxReps ?? currentExercise.plan[0]?.targetReps ?? settings.reps,
-          ...(setupType === 'fixed_position' ? { positionMm: savedCalibration?.fixedPositionMm ?? undefined, repCountSource: 'load' } : {}),
+          targetSet: startSetIndex + 1,
+          targetReps: startSetPlan?.targetMaxReps ?? startSetPlan?.targetReps ?? settings.reps,
+          ...(setupType === 'fixed_position' ? { positionMm: savedCalibration?.fixedPositionMm ?? undefined, repCountSource: 'load' } : { startPoint }),
         })
       } catch (error) {
         setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить тренажёр.')
@@ -495,6 +542,22 @@ export function ExerciseSetupScreen() {
 
     startExercise()
     navigate(withSearch('/exercise-session', location.search))
+  }
+
+  // History back would land on the already consumed summary of the previous exercise; it is done again instead.
+  async function handleRestartPreviousExercise() {
+    if (!previousExercise || restartingPrevious || !session) return
+    setRestartingPrevious(true)
+    setPreviousError(null)
+    try {
+      const staleIds = await resetExercisesOnBackend(session, [previousExercise, currentExercise], resolvedUserId)
+      restartPreviousExercise(staleIds)
+      setPreviousDialogOpen(false)
+    } catch (error) {
+      setPreviousError(error instanceof Error ? error.message : 'Не удалось вернуться к предыдущему упражнению.')
+    } finally {
+      setRestartingPrevious(false)
+    }
   }
 
   const showCalibrationPanel = calibrationRequired && (startBlocked || calibrationOpen)
@@ -515,9 +578,15 @@ export function ExerciseSetupScreen() {
     >
       <div className="rt-screen">
         <header className="rt-header">
-          <Button variant="secondary" iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => navigate(-1)}>
-            Назад
-          </Button>
+          {previousExercise ? (
+            <Button variant="secondary" disabled={restartingPrevious} iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => { setPreviousError(null); setPreviousDialogOpen(true) }}>
+              {restartingPrevious ? 'Возвращаюсь…' : 'Предыдущее упражнение'}
+            </Button>
+          ) : (
+            <Button variant="secondary" iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => navigate(-1)}>
+              Назад
+            </Button>
+          )}
           <div className="rt-title">
             <h1 className="font-display font-bold tracking-[-0.04em] text-white">Настройка упражнения</h1>
             <p>
@@ -638,6 +707,9 @@ export function ExerciseSetupScreen() {
             </div>
 
             <p className="rt-setup-parameters-note">{exercise.kind === 'timed' ? `На время · ${settings.sets} × ${formatTimedSeconds(settings.reps)}` : `${currentStrengthMode.title} · ${settings.mode} · безопасный диапазон ${settings.safeRange[0]}–${settings.safeRange[1]} кг`}</p>
+            {calibrationRequired && setupType === 'bar_range' ? (
+              <BarStartPointSelector value={startPoint} disabled={startPointSaving || barMoving} onChange={(next) => void changeStartPoint(next)} />
+            ) : null}
           </section>
           {showCalibrationPanel ? (
             <section className="rt-calibration" data-saved={Boolean(savedCalibration)} aria-label="Настройка грифа">
@@ -708,7 +780,7 @@ export function ExerciseSetupScreen() {
             Завершить тренировку
           </Button>
           <div className="rt-actions-note">{startBlocked ? 'Сначала сохраните настройку грифа — после этого старт откроется.' : readyNote}</div>
-          <Button className="rt-primary" disabled={startBlocked || barMoving} iconLeft={<Play aria-hidden="true" />} onClick={() => void handleStartExercise()}>
+          <Button className="rt-primary" disabled={startBlocked || barMoving || startPointSaving} iconLeft={<Play aria-hidden="true" />} onClick={() => void handleStartExercise()}>
             {startBlocked ? 'Старт недоступен' : 'Запустить упражнение'}
           </Button>
         </div>
@@ -755,6 +827,25 @@ export function ExerciseSetupScreen() {
                 }}
               >
                 Завершить тренировку
+              </Button>
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      </Dialog.Root>
+
+      <Dialog.Root open={previousDialogOpen} onOpenChange={(open) => { if (!restartingPrevious) setPreviousDialogOpen(open) }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="builder-dialog">
+            <Dialog.Title className="font-display text-3xl font-bold">Вернуться к предыдущему упражнению?</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/70">
+              «{previousExercise?.name}» будет выполнено заново с первого подхода, его прежние подходы удалятся. Текущее упражнение начнётся после него.
+            </Dialog.Description>
+            {previousError ? <p className="mt-3 text-sm text-[#ffb4a7]" role="alert">{previousError}</p> : null}
+            <div className="builder-dialog-actions">
+              <Dialog.Close asChild><Button variant="secondary" disabled={restartingPrevious}>Отмена</Button></Dialog.Close>
+              <Button disabled={restartingPrevious} onClick={() => void handleRestartPreviousExercise()}>
+                {restartingPrevious ? 'Возвращаюсь…' : 'Выполнить заново'}
               </Button>
             </div>
           </SafetyDialogContent>
