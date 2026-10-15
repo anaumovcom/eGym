@@ -2,9 +2,6 @@ __pycache__/
 *.pyc
 *.pyo
 .venv/
-egym.db
-backend/egym_local.db
-backend/egym_test.db
 backend/.mypy_cache/
 backend/.pytest_cache/
 backend/.ruff_cache/
