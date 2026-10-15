@@ -1,1584 +1,426 @@
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [42031]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [19768]
 INFO:     Waiting for application startup.
-Control loop stalled: 589 ms between ticks
+Modbus connect to /dev/ttyUSB0 failed: No module named 'minimalmodbus'
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 51498) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 49863) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 41388) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 41454) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 41456) - "WebSocket /api/coach/runs/5d15272674d6e8e42effd7efe4a7aaa4/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 51282) - "WebSocket /api/coach/runs/5d15272674d6e8e42effd7efe4a7aaa4/live" [accepted]
-INFO:     connection open
-Slow control tick: 410 ms (calibration=None)
-ERROR:    Exception in ASGI application
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlite3.OperationalError: database is locked
-
-The above exception was the direct cause of the following exception:
-
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+INFO:     ('127.0.0.1', 61748) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 54614) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 53573) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 57847) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 64859) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 50575) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 56338) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 55467) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 54577) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 51337) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 50060) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 65262) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 55409) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 54770) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 64610) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        self.scope, self.receive, self.send
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1159, in __call__
-    await super().__call__(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
-    await self.app(scope, receive, _send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 193, in __call__
-    response = await self.dispatch_func(request, call_next)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/backend/app/services/coach/request_guard.py", line 13, in dispatch
-    return await call_next(request)
-           ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 168, in call_next
-    raise app_exc from app_exc.__cause__ or app_exc.__context__
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 144, in coro
-    await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 96, in __call__
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 154, in simple_response
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 680, in app
-    await route.handle(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 276, in handle
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 134, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 120, in app
-    response = await f(request)
-               ^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 674, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
-    return await run_in_threadpool(dependant.call, **values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
-    return await anyio.to_thread.run_sync(func)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/to_thread.py", line 63, in run_sync
-    return await get_async_backend().run_sync_in_worker_thread(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
-    return await future
-           ^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
-    result = context.run(func, *args)
-  File "/home/alex/DEV/eGym/backend/app/api/routes/training.py", line 47, in list_exercises
-    return training_service.get_exercise_catalog(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        session,
-        ^^^^^^^^
-    ...<9 lines>...
-        blacklist=_csv_list(blacklist),
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/backend/app/services/training_service.py", line 284, in get_exercise_catalog
-    summary = self._summary(session, exercise, user_id, favorites, blacklist)
-  File "/home/alex/DEV/eGym/backend/app/services/training_service.py", line 1393, in _summary
-    muscle_cards = self._exercise_muscle_cards(session, user_id, exercise)
-  File "/home/alex/DEV/eGym/backend/app/services/training_service.py", line 1571, in _exercise_muscle_cards
-    snapshots = {item.muscle_id: item for item in self.fatigue_service.list_current_scores(session, user_id)}
-                                                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/backend/app/services/fatigue_service.py", line 158, in list_current_scores
-    self.migrate_legacy_muscle_data(session, user_id, effective_now)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/backend/app/services/fatigue_service.py", line 48, in migrate_legacy_muscle_data
-    canonical_snapshot = self.get_or_create_snapshot(
-        session,
-    ...<3 lines>...
-        recovery_half_life_hours=snapshot.recovery_half_life_hours,
-    )
-  File "/home/alex/DEV/eGym/backend/app/services/fatigue_service.py", line 145, in get_or_create_snapshot
-    session.flush()
-    ~~~~~~~~~~~~~^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 4352, in flush
-    self._flush(objects)
-    ~~~~~~~~~~~^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 4487, in _flush
-    with util.safe_reraise():
-         ~~~~~~~~~~~~~~~~~^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/util/langhelpers.py", line 122, in __exit__
-    raise exc_value.with_traceback(exc_tb)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 4448, in _flush
-    flush_context.execute()
-    ~~~~~~~~~~~~~~~~~~~~~^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/unitofwork.py", line 465, in execute
-    rec.execute(self)
-    ~~~~~~~~~~~^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/unitofwork.py", line 641, in execute
-    util.preloaded.orm_persistence.save_obj(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self.mapper,
-        ^^^^^^^^^^^^
-        uow.states_for_mapper_hierarchy(self.mapper, False, False),
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        uow,
-        ^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/persistence.py", line 86, in save_obj
-    _emit_update_statements(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        base_mapper,
-        ^^^^^^^^^^^^
-    ...<3 lines>...
-        update,
-        ^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/persistence.py", line 913, in _emit_update_statements
-    c = connection.execute(
-        statement, multiparams, execution_options=execution_options
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
-    return meth(
-        self,
-        distilled_parameters,
-        execution_options or NO_OPTIONS,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
-    return connection._execute_clauseelement(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self, distilled_params, execution_options
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
-    ret = self._execute_context(
-        dialect,
-    ...<8 lines>...
-        cache_hit=cache_hit,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
-    return self._exec_single_context(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~^
-        dialect, context, statement, parameters
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
-    self._handle_dbapi_exception(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        e, str_statement, effective_parameters, cursor, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) database is locked
-[SQL: UPDATE muscle_fatigue_snapshots SET fatigue_score=?, calculated_at=? WHERE muscle_fatigue_snapshots.id = ?]
-[parameters: (5.122462978754134e-37, '2026-10-14 18:27:25.069414', 1)]
-(Background on this error at: https://sqlalche.me/e/20/e3q8)
-INFO:     connection closed
-INFO:     ('127.0.0.1', 39402) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [42031]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [109859]
-INFO:     Waiting for application startup.
-Control loop stalled: 604 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 44868) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 44878) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [109859]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [110083]
-INFO:     Waiting for application startup.
-Control loop stalled: 617 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 45106) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 43740) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [110083]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [110327]
-INFO:     Waiting for application startup.
-Control loop stalled: 606 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 43906) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 43914) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     ('127.0.0.1', 48914) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-ERROR:    Exception in ASGI application
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlite3.OperationalError: no such column: exercise_calibrations.start_point
-
-The above exception was the direct cause of the following exception:
-
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        self.scope, self.receive, self.send
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1159, in __call__
-    await super().__call__(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
-    await self.app(scope, receive, _send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 193, in __call__
-    response = await self.dispatch_func(request, call_next)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/backend/app/services/coach/request_guard.py", line 13, in dispatch
-    return await call_next(request)
-           ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 168, in call_next
-    raise app_exc from app_exc.__cause__ or app_exc.__context__
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 144, in coro
-    await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 96, in __call__
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 154, in simple_response
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 680, in app
-    await route.handle(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 276, in handle
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 134, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 120, in app
-    response = await f(request)
-               ^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 674, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
-    return await run_in_threadpool(dependant.call, **values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
-    return await anyio.to_thread.run_sync(func)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/to_thread.py", line 63, in run_sync
-    return await get_async_backend().run_sync_in_worker_thread(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
-    return await future
-           ^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
-    result = context.run(func, *args)
-  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 89, in get_current_calibration
-    calibration = hardware_service.get_current_calibration(session, user_id, exercise_slug)
-  File "/home/alex/DEV/eGym/backend/app/services/hardware_service.py", line 95, in get_current_calibration
-    return session.scalars(statement).first()
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 2480, in scalars
-    return self._execute_internal(
-           ~~~~~~~~~~~~~~~~~~~~~~^
-        statement,
-        ^^^^^^^^^^
-    ...<4 lines>...
-        **kw,
-        ^^^^^
-    ).scalars()
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 2270, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(
-                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self,
-        ^^^^^
-    ...<4 lines>...
-        conn,
-        ^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
-    result = conn.execute(
-        statement, params or {}, execution_options=execution_options
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
-    return meth(
-        self,
-        distilled_parameters,
-        execution_options or NO_OPTIONS,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
-    return connection._execute_clauseelement(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self, distilled_params, execution_options
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
-    ret = self._execute_context(
-        dialect,
-    ...<8 lines>...
-        cache_hit=cache_hit,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
-    return self._exec_single_context(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~^
-        dialect, context, statement, parameters
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
-    self._handle_dbapi_exception(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        e, str_statement, effective_parameters, cursor, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: exercise_calibrations.start_point
-[SQL: SELECT exercise_calibrations.id, exercise_calibrations.user_id, exercise_calibrations.exercise_slug, exercise_calibrations.setup_type, exercise_calibrations.lower_point_mm, exercise_calibrations.upper_point_mm, exercise_calibrations.fixed_position_mm, exercise_calibrations.start_point, exercise_calibrations.zero_position_mm, exercise_calibrations.movement_range_confirmed, exercise_calibrations.calibration_required, exercise_calibrations.is_active, exercise_calibrations.captured_at, exercise_calibrations.expires_at, exercise_calibrations.note, exercise_calibrations.created_at, exercise_calibrations.updated_at 
-FROM exercise_calibrations 
-WHERE exercise_calibrations.user_id = ? AND exercise_calibrations.exercise_slug = ? AND exercise_calibrations.is_active IS 1 ORDER BY exercise_calibrations.captured_at DESC]
-[parameters: ('alexey', 'smith-machine-squat')]
-(Background on this error at: https://sqlalche.me/e/20/e3q8)
-ERROR:    Exception in ASGI application
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+INFO:     connection closed
+INFO:     ('127.0.0.1', 52724) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 58986) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 63161) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 51775) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 51103) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 54121) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 56935) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 56772) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection closed
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 55494) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 53614) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection closed
+INFO:     connection open
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlite3.OperationalError: no such column: exercise_calibrations.start_point
-
-The above exception was the direct cause of the following exception:
-
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        self.scope, self.receive, self.send
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1159, in __call__
-    await super().__call__(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
-    await self.app(scope, receive, _send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 193, in __call__
-    response = await self.dispatch_func(request, call_next)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/backend/app/services/coach/request_guard.py", line 13, in dispatch
-    return await call_next(request)
-           ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 168, in call_next
-    raise app_exc from app_exc.__cause__ or app_exc.__context__
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 144, in coro
-    await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 96, in __call__
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 154, in simple_response
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 680, in app
-    await route.handle(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 276, in handle
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 134, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 120, in app
-    response = await f(request)
-               ^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 674, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
-    return await run_in_threadpool(dependant.call, **values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
-    return await anyio.to_thread.run_sync(func)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/to_thread.py", line 63, in run_sync
-    return await get_async_backend().run_sync_in_worker_thread(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
-    return await future
-           ^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
-    result = context.run(func, *args)
-  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 89, in get_current_calibration
-    calibration = hardware_service.get_current_calibration(session, user_id, exercise_slug)
-  File "/home/alex/DEV/eGym/backend/app/services/hardware_service.py", line 95, in get_current_calibration
-    return session.scalars(statement).first()
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 2480, in scalars
-    return self._execute_internal(
-           ~~~~~~~~~~~~~~~~~~~~~~^
-        statement,
-        ^^^^^^^^^^
-    ...<4 lines>...
-        **kw,
-        ^^^^^
-    ).scalars()
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 2270, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(
-                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self,
-        ^^^^^
-    ...<4 lines>...
-        conn,
-        ^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
-    result = conn.execute(
-        statement, params or {}, execution_options=execution_options
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
-    return meth(
-        self,
-        distilled_parameters,
-        execution_options or NO_OPTIONS,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
-    return connection._execute_clauseelement(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self, distilled_params, execution_options
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
-    ret = self._execute_context(
-        dialect,
-    ...<8 lines>...
-        cache_hit=cache_hit,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
-    return self._exec_single_context(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~^
-        dialect, context, statement, parameters
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
-    self._handle_dbapi_exception(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        e, str_statement, effective_parameters, cursor, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: exercise_calibrations.start_point
-[SQL: SELECT exercise_calibrations.id, exercise_calibrations.user_id, exercise_calibrations.exercise_slug, exercise_calibrations.setup_type, exercise_calibrations.lower_point_mm, exercise_calibrations.upper_point_mm, exercise_calibrations.fixed_position_mm, exercise_calibrations.start_point, exercise_calibrations.zero_position_mm, exercise_calibrations.movement_range_confirmed, exercise_calibrations.calibration_required, exercise_calibrations.is_active, exercise_calibrations.captured_at, exercise_calibrations.expires_at, exercise_calibrations.note, exercise_calibrations.created_at, exercise_calibrations.updated_at 
-FROM exercise_calibrations 
-WHERE exercise_calibrations.user_id = ? AND exercise_calibrations.exercise_slug = ? AND exercise_calibrations.is_active IS 1 ORDER BY exercise_calibrations.captured_at DESC]
-[parameters: ('alexey', 'smith-machine-squat')]
-(Background on this error at: https://sqlalche.me/e/20/e3q8)
-INFO:     ('127.0.0.1', 48976) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 48986) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     ('127.0.0.1', 49000) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-ERROR:    Exception in ASGI application
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlite3.OperationalError: no such column: exercise_calibrations.start_point
-
-The above exception was the direct cause of the following exception:
-
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        self.scope, self.receive, self.send
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1159, in __call__
-    await super().__call__(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
-    await self.app(scope, receive, _send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 193, in __call__
-    response = await self.dispatch_func(request, call_next)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/backend/app/services/coach/request_guard.py", line 13, in dispatch
-    return await call_next(request)
-           ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 168, in call_next
-    raise app_exc from app_exc.__cause__ or app_exc.__context__
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 144, in coro
-    await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 96, in __call__
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 154, in simple_response
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 680, in app
-    await route.handle(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 276, in handle
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 134, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 120, in app
-    response = await f(request)
-               ^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 674, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
-    return await run_in_threadpool(dependant.call, **values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
-    return await anyio.to_thread.run_sync(func)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/to_thread.py", line 63, in run_sync
-    return await get_async_backend().run_sync_in_worker_thread(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
-    return await future
-           ^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
-    result = context.run(func, *args)
-  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 89, in get_current_calibration
-    calibration = hardware_service.get_current_calibration(session, user_id, exercise_slug)
-  File "/home/alex/DEV/eGym/backend/app/services/hardware_service.py", line 95, in get_current_calibration
-    return session.scalars(statement).first()
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 2480, in scalars
-    return self._execute_internal(
-           ~~~~~~~~~~~~~~~~~~~~~~^
-        statement,
-        ^^^^^^^^^^
-    ...<4 lines>...
-        **kw,
-        ^^^^^
-    ).scalars()
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 2270, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(
-                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self,
-        ^^^^^
-    ...<4 lines>...
-        conn,
-        ^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
-    result = conn.execute(
-        statement, params or {}, execution_options=execution_options
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
-    return meth(
-        self,
-        distilled_parameters,
-        execution_options or NO_OPTIONS,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
-    return connection._execute_clauseelement(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self, distilled_params, execution_options
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
-    ret = self._execute_context(
-        dialect,
-    ...<8 lines>...
-        cache_hit=cache_hit,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
-    return self._exec_single_context(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~^
-        dialect, context, statement, parameters
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
-    self._handle_dbapi_exception(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        e, str_statement, effective_parameters, cursor, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: exercise_calibrations.start_point
-[SQL: SELECT exercise_calibrations.id, exercise_calibrations.user_id, exercise_calibrations.exercise_slug, exercise_calibrations.setup_type, exercise_calibrations.lower_point_mm, exercise_calibrations.upper_point_mm, exercise_calibrations.fixed_position_mm, exercise_calibrations.start_point, exercise_calibrations.zero_position_mm, exercise_calibrations.movement_range_confirmed, exercise_calibrations.calibration_required, exercise_calibrations.is_active, exercise_calibrations.captured_at, exercise_calibrations.expires_at, exercise_calibrations.note, exercise_calibrations.created_at, exercise_calibrations.updated_at 
-FROM exercise_calibrations 
-WHERE exercise_calibrations.user_id = ? AND exercise_calibrations.exercise_slug = ? AND exercise_calibrations.is_active IS 1 ORDER BY exercise_calibrations.captured_at DESC]
-[parameters: ('alexey', 'smith-machine-squat')]
-(Background on this error at: https://sqlalche.me/e/20/e3q8)
-ERROR:    Exception in ASGI application
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlite3.OperationalError: no such column: exercise_calibrations.start_point
-
-The above exception was the direct cause of the following exception:
-
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        self.scope, self.receive, self.send
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1159, in __call__
-    await super().__call__(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
-    await self.app(scope, receive, _send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 193, in __call__
-    response = await self.dispatch_func(request, call_next)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/backend/app/services/coach/request_guard.py", line 13, in dispatch
-    return await call_next(request)
-           ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 168, in call_next
-    raise app_exc from app_exc.__cause__ or app_exc.__context__
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 144, in coro
-    await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 96, in __call__
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 154, in simple_response
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 680, in app
-    await route.handle(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 276, in handle
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 134, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 120, in app
-    response = await f(request)
-               ^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 674, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
-    return await run_in_threadpool(dependant.call, **values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
-    return await anyio.to_thread.run_sync(func)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/to_thread.py", line 63, in run_sync
-    return await get_async_backend().run_sync_in_worker_thread(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
-    return await future
-           ^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
-    result = context.run(func, *args)
-  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 89, in get_current_calibration
-    calibration = hardware_service.get_current_calibration(session, user_id, exercise_slug)
-  File "/home/alex/DEV/eGym/backend/app/services/hardware_service.py", line 95, in get_current_calibration
-    return session.scalars(statement).first()
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 2480, in scalars
-    return self._execute_internal(
-           ~~~~~~~~~~~~~~~~~~~~~~^
-        statement,
-        ^^^^^^^^^^
-    ...<4 lines>...
-        **kw,
-        ^^^^^
-    ).scalars()
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 2270, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(
-                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self,
-        ^^^^^
-    ...<4 lines>...
-        conn,
-        ^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
-    result = conn.execute(
-        statement, params or {}, execution_options=execution_options
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
-    return meth(
-        self,
-        distilled_parameters,
-        execution_options or NO_OPTIONS,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
-    return connection._execute_clauseelement(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self, distilled_params, execution_options
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
-    ret = self._execute_context(
-        dialect,
-    ...<8 lines>...
-        cache_hit=cache_hit,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
-    return self._exec_single_context(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~^
-        dialect, context, statement, parameters
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
-    self._handle_dbapi_exception(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        e, str_statement, effective_parameters, cursor, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: exercise_calibrations.start_point
-[SQL: SELECT exercise_calibrations.id, exercise_calibrations.user_id, exercise_calibrations.exercise_slug, exercise_calibrations.setup_type, exercise_calibrations.lower_point_mm, exercise_calibrations.upper_point_mm, exercise_calibrations.fixed_position_mm, exercise_calibrations.start_point, exercise_calibrations.zero_position_mm, exercise_calibrations.movement_range_confirmed, exercise_calibrations.calibration_required, exercise_calibrations.is_active, exercise_calibrations.captured_at, exercise_calibrations.expires_at, exercise_calibrations.note, exercise_calibrations.created_at, exercise_calibrations.updated_at 
-FROM exercise_calibrations 
-WHERE exercise_calibrations.user_id = ? AND exercise_calibrations.exercise_slug = ? AND exercise_calibrations.is_active IS 1 ORDER BY exercise_calibrations.captured_at DESC]
-[parameters: ('alexey', 'smith-machine-squat')]
-(Background on this error at: https://sqlalche.me/e/20/e3q8)
-INFO:     ('127.0.0.1', 49060) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 49068) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 38510) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [110327]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [118131]
-INFO:     Waiting for application startup.
-Control loop stalled: 609 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58080) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 58114) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-ERROR:    Exception in ASGI application
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlite3.OperationalError: no such column: exercise_calibrations.start_point
-
-The above exception was the direct cause of the following exception:
-
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
 Traceback (most recent call last):
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/protocols/http/httptools_impl.py", line 409, in run_asgi
-    result = await app(  # type: ignore[func-returns-value]
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        self.scope, self.receive, self.send
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/uvicorn/middleware/proxy_headers.py", line 60, in __call__
-    return await self.app(scope, receive, send)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/applications.py", line 1159, in __call__
-    await super().__call__(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/applications.py", line 90, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 186, in __call__
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/errors.py", line 164, in __call__
-    await self.app(scope, receive, _send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 193, in __call__
-    response = await self.dispatch_func(request, call_next)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/backend/app/services/coach/request_guard.py", line 13, in dispatch
-    return await call_next(request)
-           ^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 168, in call_next
-    raise app_exc from app_exc.__cause__ or app_exc.__context__
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/base.py", line 144, in coro
-    await self.app(scope, receive_or_disconnect, send_no_error)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 96, in __call__
-    await self.simple_response(scope, receive, send, request_headers=headers)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/cors.py", line 154, in simple_response
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/middleware/exceptions.py", line 63, in __call__
-    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/middleware/asyncexitstack.py", line 18, in __call__
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 660, in __call__
-    await self.middleware_stack(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 680, in app
-    await route.handle(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/routing.py", line 276, in handle
-    await self.app(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 134, in app
-    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 53, in wrapped_app
-    raise exc
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/_exception_handler.py", line 42, in wrapped_app
-    await app(scope, receive, sender)
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 120, in app
-    response = await f(request)
-               ^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 674, in app
-    raw_response = await run_endpoint_function(
-                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    ...<3 lines>...
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/fastapi/routing.py", line 330, in run_endpoint_function
-    return await run_in_threadpool(dependant.call, **values)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/starlette/concurrency.py", line 34, in run_in_threadpool
-    return await anyio.to_thread.run_sync(func)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/to_thread.py", line 63, in run_sync
-    return await get_async_backend().run_sync_in_worker_thread(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        func, args, abandon_on_cancel=abandon_on_cancel, limiter=limiter
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 2518, in run_sync_in_worker_thread
-    return await future
-           ^^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py", line 1002, in run
-    result = context.run(func, *args)
-  File "/home/alex/DEV/eGym/backend/app/api/routes/hardware.py", line 89, in get_current_calibration
-    calibration = hardware_service.get_current_calibration(session, user_id, exercise_slug)
-  File "/home/alex/DEV/eGym/backend/app/services/hardware_service.py", line 95, in get_current_calibration
-    return session.scalars(statement).first()
-           ~~~~~~~~~~~~~~~^^^^^^^^^^^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 2480, in scalars
-    return self._execute_internal(
-           ~~~~~~~~~~~~~~~~~~~~~~^
-        statement,
-        ^^^^^^^^^^
-    ...<4 lines>...
-        **kw,
-        ^^^^^
-    ).scalars()
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/session.py", line 2270, in _execute_internal
-    result: Result[Any] = compile_state_cls.orm_execute_statement(
-                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self,
-        ^^^^^
-    ...<4 lines>...
-        conn,
-        ^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/orm/context.py", line 306, in orm_execute_statement
-    result = conn.execute(
-        statement, params or {}, execution_options=execution_options
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1421, in execute
-    return meth(
-        self,
-        distilled_parameters,
-        execution_options or NO_OPTIONS,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/sql/elements.py", line 526, in _execute_on_connection
-    return connection._execute_clauseelement(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        self, distilled_params, execution_options
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1643, in _execute_clauseelement
-    ret = self._execute_context(
-        dialect,
-    ...<8 lines>...
-        cache_hit=cache_hit,
-    )
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1848, in _execute_context
-    return self._exec_single_context(
-           ~~~~~~~~~~~~~~~~~~~~~~~~~^
-        dialect, context, statement, parameters
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1988, in _exec_single_context
-    self._handle_dbapi_exception(
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
-        e, str_statement, effective_parameters, cursor, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 2365, in _handle_dbapi_exception
-    raise sqlalchemy_exception.with_traceback(exc_info[2]) from e
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/base.py", line 1969, in _exec_single_context
-    self.dialect.do_execute(
-    ~~~~~~~~~~~~~~~~~~~~~~~^
-        cursor, str_statement, effective_parameters, context
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-    )
-    ^
-  File "/home/alex/DEV/eGym/.venv/lib/python3.13/site-packages/sqlalchemy/engine/default.py", line 952, in do_execute
-    cursor.execute(statement, parameters)
-    ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
-sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) no such column: exercise_calibrations.start_point
-[SQL: SELECT exercise_calibrations.id, exercise_calibrations.user_id, exercise_calibrations.exercise_slug, exercise_calibrations.setup_type, exercise_calibrations.lower_point_mm, exercise_calibrations.upper_point_mm, exercise_calibrations.fixed_position_mm, exercise_calibrations.start_point, exercise_calibrations.zero_position_mm, exercise_calibrations.movement_range_confirmed, exercise_calibrations.calibration_required, exercise_calibrations.is_active, exercise_calibrations.captured_at, exercise_calibrations.expires_at, exercise_calibrations.note, exercise_calibrations.created_at, exercise_calibrations.updated_at 
-FROM exercise_calibrations 
-WHERE exercise_calibrations.user_id = ? AND exercise_calibrations.exercise_slug = ? AND exercise_calibrations.is_active IS 1 ORDER BY exercise_calibrations.captured_at DESC]
-[parameters: ('alexey', 'smith-machine-squat')]
-(Background on this error at: https://sqlalche.me/e/20/e3q8)
-INFO:     Shutting down
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
 INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [118131]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [119915]
-INFO:     Waiting for application startup.
-Control loop stalled: 621 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 47492) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 57024) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-INFO:     ('127.0.0.1', 47518) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [119915]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [129585]
-INFO:     Waiting for application startup.
-Control loop stalled: 605 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [129627]
-INFO:     Waiting for application startup.
-Control loop stalled: 592 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 39226) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 39236) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 39308) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 39324) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 40614) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [129627]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [137098]
-INFO:     Waiting for application startup.
-Control loop stalled: 603 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [137121]
-INFO:     Waiting for application startup.
-Control loop stalled: 604 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 34024) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 34030) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [137121]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [137328]
-INFO:     Waiting for application startup.
-Control loop stalled: 602 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 50862) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 50870) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [137328]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [141093]
-INFO:     Waiting for application startup.
-Control loop stalled: 640 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58426) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [141093]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [141213]
-INFO:     Waiting for application startup.
-Control loop stalled: 630 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58666) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 58678) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [141213]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [142377]
-INFO:     Waiting for application startup.
-Control loop stalled: 603 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 46340) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 46356) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [142377]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [142618]
-INFO:     Waiting for application startup.
-Control loop stalled: 640 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 46624) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 46646) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [142618]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [143144]
-INFO:     Waiting for application startup.
-Control loop stalled: 618 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 51648) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 51658) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [143144]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [144041]
-INFO:     Waiting for application startup.
-Control loop stalled: 640 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 58910) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 53662) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [144041]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [150750]
-INFO:     Waiting for application startup.
-Control loop stalled: 607 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 33024) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 59270) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
+INFO:     ('127.0.0.1', 61051) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
 INFO:     connection closed
 INFO:     connection closed
-INFO:     ('127.0.0.1', 59296) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 62224) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
 INFO:     connection closed
-INFO:     ('127.0.0.1', 59392) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 59681) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-INFO:     ('127.0.0.1', 59408) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 45386) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-Slow control tick: 422 ms (calibration=None)
-Hardware event workout_aborted: РџРµСЂРµРјРµС‰РµРЅРёРµ РіСЂРёС„Р° РїСЂРµСЂРІР°РЅРѕ: left: РїРѕР·РёС†РёСЏ 1483 РјРј РІРЅРµ РѕРіРёР±Р°СЋС‰РµР№
-Hardware latch fault: РџРµСЂРµРјРµС‰РµРЅРёРµ РіСЂРёС„Р° РїСЂРµСЂРІР°РЅРѕ: left: РїРѕР·РёС†РёСЏ 1483 РјРј РІРЅРµ РѕРіРёР±Р°СЋС‰РµР№
-Slow control tick: 516 ms (calibration=None)
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [150750]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [175268]
-INFO:     Waiting for application startup.
-Control loop stalled: 587 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 47462) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 47474) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [175268]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [175524]
-INFO:     Waiting for application startup.
-Control loop stalled: 608 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 36154) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [175524]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [175635]
-INFO:     Waiting for application startup.
-Control loop stalled: 630 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 36382) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 36398) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [175635]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [175994]
-INFO:     Waiting for application startup.
-Control loop stalled: 629 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 59496) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 59510) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [175994]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [176122]
-INFO:     Waiting for application startup.
-Control loop stalled: 616 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 59822) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 59824) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [176122]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [180770]
-INFO:     Waiting for application startup.
-Control loop stalled: 618 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 39758) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 39762) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [180770]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [186444]
-INFO:     Waiting for application startup.
-Control loop stalled: 611 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 47016) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 47020) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     ('127.0.0.1', 42248) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 42298) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 42306) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 50414) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [186444]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [188200]
-INFO:     Waiting for application startup.
-Control loop stalled: 631 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 39814) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 39818) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     ('127.0.0.1', 41636) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 41696) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 41702) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     ('127.0.0.1', 43428) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     Shutting down
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [188200]
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [216979]
-INFO:     Waiting for application startup.
-Control loop stalled: 603 ms between ticks
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 36836) - "WebSocket /api/coach/runs/3f0f3e3a67a89e78b84ede85c10aa434/live" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 36856) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [216979]

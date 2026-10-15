@@ -1,12 +1,5 @@
 
-  VITE v7.3.3  ready in 311 ms
+  [32m[1mVITE[22m v7.3.3[39m  [2mready in [0m[1m252[22m[2m[0m ms[22m
 
-  ➜  Local:   http://127.0.0.1:5173/
-9:54:03 PM [vite] (client) hmr update /src/app/styles.css
-9:54:46 PM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-9:56:24 PM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
-9:56:31 PM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
-10:01:08 PM [vite] (client) hmr update /src/app/styles.css, /src/features/hardware/ui/bar-start-point-selector.tsx
-10:01:08 PM [vite] (client) hmr update /src/app/styles.css
-10:01:08 PM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-10:01:08 PM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
