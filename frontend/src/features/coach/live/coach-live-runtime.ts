@@ -14,14 +14,14 @@ import { effectiveCoachState, type CoachPreferences, type GeneralCoachAudio } fr
 import { coachRepBeep, playCue, type ClipSource, type CueManager, type RepBeepArbiter } from './local-cue-player'
 import { coachPackClient } from '../audio/pack-client'
 import type { LifecycleRefs } from '../lib/lifecycle-observer'
-import { CoachNetworkClient, type NetworkSnapshot } from './coach-network-client'
+import { CoachNetworkClient, networkEligible, type NetworkSnapshot } from './coach-network-client'
 
 export type LiveInputs = Readonly<{
   userId: string | null; featureEnabled: boolean; hidden: boolean; emergency: boolean
   session: RuntimeWorkoutSession | null; hardware: HardwareSnapshot | null; connected: boolean
   general: GeneralCoachAudio; saved: CoachPreferences | null; timer?: SetTimerInput | null
 }>
-export type LiveReason = AudioReason | 'admitted' | 'idle'
+export type LiveReason = AudioReason | 'admitted' | 'idle' | 'live_priority' | 'completion_coalesced'
 export type LiveRuntimeSnapshot = Readonly<{
   active: boolean; reason: LiveReason; interpreter: InterpreterSnapshot | null; audio: LocalAudioSnapshot | null
   lastCue: Readonly<{ triggerId: string; kind: string; clipId: string | null; reason: LiveReason }> | null
@@ -163,11 +163,18 @@ export class CoachLiveRuntime {
     if (result.latched) this.manager?.cancelAll('safety')
     else if (gate) this.manager?.cancelAll(gate === 'audio_locked' ? 'audio_locked' : gate)
     if (gate === 'audio_locked' && result.scope) this.armUnlock(); else this.removeUnlock()
-    for (const cue of result.cues) this.play(cue, inputs, gate, now)
-    if (!result.cues.length && gate) this.reason = gate
     this.deps.network?.tick({ nowMs: now, userId: inputs.userId, saved: inputs.saved, session: inputs.session, featureEnabled: true,
       phase: result.phase, scope: result.scope, latched: result.latched, gate, reps: this.interpreter.snapshot().baseline,
       partialReps: this.hardware?.motion?.partialReps ?? null, timer: inputs.timer ?? null, lifecycle, refs: this.deps.lifecycleRefs, mixer: () => this.networkMixer() })
+    // Refresh network eligibility first (including user/run/settings changes), then choose
+    // one completion path. The interpreter still consumes suppressed cues: no late replay.
+    const setCompleted = result.cues.some(cue => cue.kind === 'set-end' || cue.kind === 'set-partial' || cue.kind === 'set-skipped')
+    for (const cue of result.cues) {
+      if (!gate && cue.kind === 'last-set-next' && setCompleted) {
+        this.counters.cues++; this.counters.suppressed++; this.record(cue, 'completion_coalesced')
+      } else this.play(cue, inputs, gate, now)
+    }
+    if (!result.cues.length && gate) this.reason = gate
     if (this.manager) this.deps.network?.observe(this.manager.snapshot())
     this.publish(!gate)
   }
@@ -203,6 +210,7 @@ export class CoachLiveRuntime {
   private play(cue: LocalCue, inputs: LiveInputs, gate: AudioReason | null, now: number): void {
     this.counters.cues++
     if (gate) { this.counters.suppressed++; this.record(cue, gate); return }
+    if (this.liveOwnsCompletion(cue, inputs)) { this.counters.suppressed++; this.record(cue, 'live_priority'); return }
     if (!this.ensureManager(inputs, cue.scope)) { this.counters.suppressed++; this.record(cue, 'audio_locked'); return }
     const manager = this.manager!
     const scope = cue.scope
@@ -217,6 +225,18 @@ export class CoachLiveRuntime {
     } else if (outcome.reason === 'missing_clip') this.counters.missingClip++
     else this.counters.suppressed++
     this.record(cue, outcome.reason)
+  }
+
+  private liveOwnsCompletion(cue: LocalCue, inputs: LiveInputs): boolean {
+    const network = this.deps.network?.getSnapshot(), saved = inputs.saved
+    if (!network || network.state !== 'ready' || !network.voice || !saved || !networkEligible(inputs)) return false
+    switch (cue.kind) {
+      case 'set-end': case 'set-partial': case 'last-set-next': return saved.setFeedback
+      case 'exercise-done': case 'exercise-partial': case 'exercise-skipped': return saved.exerciseSummary
+      case 'workout-done': case 'workout-partial': return saved.workoutSummary
+      // Skipped sets have no live result commentary; counting and safety stay local.
+      default: return false
+    }
   }
 
   private gate(inputs: LiveInputs): AudioReason | null {

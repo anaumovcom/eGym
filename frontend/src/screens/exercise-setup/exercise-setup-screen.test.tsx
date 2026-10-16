@@ -345,7 +345,7 @@ describe('ExerciseSetupScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Сохранить положение' }))
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ userId: 'alexey', exerciseSlug: 'bodyweight-pull-up', setupType: 'fixed_position', fixedPositionMm: 560, lowerPointMm: null, upperPointMm: null })))
     await user.click(screen.getByRole('button', { name: 'Запустить упражнение' }))
-    await waitFor(() => expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'start_fixed_position', positionMm: 560, repCountSource: 'load' })))
+    await waitFor(() => expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'start_fixed_position', positionMm: 560, repCountSource: 'manual' })))
     expect(navigateMock).toHaveBeenCalledWith(`/exercise-session${currentSearch}`)
   })
 

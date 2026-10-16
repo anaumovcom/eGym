@@ -640,6 +640,7 @@ def travel(
     state: Motion | None = None,
     drive_limit: bool | None = None,
     fast_stats: dict[str, Any] | None = None,
+    speed_scale: float = 1.0,
 ) -> Gen:
     """Governed move to ``target_mm`` (bar mean), then a stop in the middle of the window.
 
@@ -649,6 +650,9 @@ def travel(
     Without ``speed_mm_s`` (and ``state``) it is a transit move: a fast move (``_fast``, up to
     ``FAST_UP_MM_S`` / ``FAST_DOWN_MM_S``) if the distance is at least ``FAST_MIN_MM``; a governed move at
     ``TRANSIT_UP_MM_S`` / ``TRANSIT_DOWN_MM_S`` corrects the rest beyond ``FAST_TOLERANCE_MM`` or after a failed fast move.
+    ``speed_scale`` accelerates plain transit only, bounded by the existing fast-move speed ceiling.
+    The final correction after fast transit keeps its precision speed (also after a failed fast move).
+    Braking, acceleration and end-stop bounds remain unchanged; calibration callers default to 1.
     """
 
     drive_limit = state is None if drive_limit is None else drive_limit
@@ -668,12 +672,15 @@ def travel(
         return note or f"{'подъём' if direction > 0 else 'опускание'} на {target_mm:.0f} мм"
 
     if fast:
-        frame = yield from _fast(balance, frame, target_mm, note=label_for(1 if target_mm > start else -1), progress=progress, stats=fast_stats)
+        direction = 1 if target_mm > start else -1
+        top = min(balance.fast_top(direction) * speed_scale, FAST_DRIVE_LIMIT_MM_S - FAST_OVER_TOP_MM_S)
+        frame = yield from _fast(balance, frame, target_mm, note=label_for(direction), progress=progress, stats=fast_stats, top_mm_s=top)
         if abs(target_mm - frame.x_mean) <= FAST_TOLERANCE_MM:
             return frame
     direction = 1 if target_mm > frame.x_mean else -1
     if speed_mm_s is None:
-        speed_mm_s = TRANSIT_UP_MM_S if direction > 0 else TRANSIT_DOWN_MM_S
+        correction_scale = 1.0 if fast else speed_scale
+        speed_mm_s = min((TRANSIT_UP_MM_S if direction > 0 else TRANSIT_DOWN_MM_S) * correction_scale, FAST_DRIVE_LIMIT_MM_S - FAST_OVER_TOP_MM_S)
     label = label_for(direction)
     state = state if state is not None else Motion()
 

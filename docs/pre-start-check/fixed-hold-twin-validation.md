@@ -2,71 +2,106 @@
 
 ## Status: NOT approved for hanging a person
 
-The experimental fixed-force replacement has been **reverted**, not qualified as a fix.
-Only narrow PI antiwindup safeguards remain. This is **not a safe suspension system**.
-No hardware verification, live API calls, drive commands, calibration writes or database writes
-were performed. Soft HOLD / start grip and down/up training laws are unchanged.
+The slow PI integral was replaced by a momentum disturbance observer (DOB). The DOB
+reacts in about 0.17 s, where the integral took about 1 s or longer (Ti ≈ 1.07 s).
+This was validated **only on the twin**. No hardware verification, live API calls,
+drive commands, calibration writes or database writes were performed. Soft HOLD,
+start grip and the down/up training laws are unchanged. This is **not a safe
+suspension system**.
 
-## Controller and limits
+## Root cause
 
-Fixed/isometric again uses the TRUE original HEAD PI: original spring, damping,
-friction compensation, integral gain and clamps. `fixed_integral` is the accumulated
-position-error correction in N, not an actual-torque observer. There is no permanent
-leak, new return-force cap, velocity cap, or observer history. No new tuning knobs.
+The spring stiffness can't be raised: with 60 kg of reflected mass and a 73.5 ms loop
+delay, the hold is already near its stability margin. The original PI integral built
+up the user's force over ≈ 1 s, so the bar sagged by more than 0.5 m before the
+integral caught up. On release the integral then pushed the bar up by more than 0.5 m.
 
-The PI candidate is rejected when it would push the FULL shaped output farther into
-force, slew, soft-position or raw-torque saturation (including asymmetric pull scale).
-Unwinding out of saturation is allowed. Missing, old, duplicate and out-of-order
-sample timestamps freeze integration; a fresh timestamp allows it again. Leaving
-fixed/isometric clears the integral. Existing force/rate envelopes and ESTOP support
-behavior remain in force; none were raised. Plain soft HOLD is unchanged.
+## Controller
 
-The original damping bound is deliberately retained in this fallback. A tested
-candidate using full bus + torque lag, a 150 N/s integral growth bound and velocity
-bleed did not improve sag and release speed across the matrix. Those changes were
-NOT shipped: reducing overshoot alone while increasing peak speed is insufficient.
-H1/C1 calibration is not a certification for holding body weight.
+`fixed_integral` is an estimate of the user's force, computed from the bar's momentum
+(`MotorCore._observe_fixed`):
+
+```
+applied = command(t − loop_delay), filtered through torque_lag   # from command history
+needed  = mean(applied) − gravity − ripple − friction(v) − m·Δv/dt
+bias   += (needed − bias) · (1 − exp(−dt / FIXED_OBSERVER_S))     # τ = 0.17 s
+```
+
+The bias is added to the original spring and damping law. Neither the stiffness nor
+the force envelope was raised.
+
+- **Fresh frames only.** Missing, duplicate, stale and out-of-order timestamps freeze
+  the bias. The first fresh frame only primes the observer.
+- **Saturation.** The bias never grows deeper into the saturation of the full shaped
+  output (force, slew, soft position, raw torque, asymmetric pull); it may only unwind.
+  It is clamped to ±envelope max force. Leaving fixed/isometric clears it.
+- **Still deadband.** When the bar is still (|v| < 1 mm/s) and within
+  `FIXED_STILL_DEADBAND_MM` = 6 mm of the target, the bias is not updated. Without
+  the deadband, static friction caused stick-slip hunting (±7 mm, ~13 s period) at
+  read delay 1.
+- τ = 0.13 s already rings. Slower values of τ sag more and hunt.
+- Using the measured drive torque (PA_1C4) as the observer's force input performed
+  worse in the twin and was rejected.
 
 ## Reproduction and results
 
-Pure TwinBench, x=700 mm, reflected mass 60 kg/side; dt=75 ms,
-command delay=2 ticks, torque lag=48 ms; mechanical coupling=4.5 N/mm,
-read delay=0 and 1 ticks; profile Ku=1.2264 N/mm,
-Tu=0.537 s, loop delay=73.5 ms. Force ramps from t=1 s at -150 N/s
-to -300 N/side, stays until t=9 s, then becomes zero abruptly. Run length 25 s.
+Pure TwinBench setup:
+- x = 700 mm, reflected mass 60 kg/side, dt = 75 ms
+- command delay 2 ticks, torque lag 48 ms, mechanical coupling 4.5 N/mm
+- read delay 0 and 1 ticks
+- profile Ku = 1.2264 N/mm, Tu = 0.537 s, loop delay 73.5 ms
 
-Baseline is the entire original `MotorCore` executed in an in-memory module from
-`git show HEAD:backend/app/motor/core.py`, HEAD at evaluation:
-`bca88b938c721501af9841a2f906faf790c47f4d`. Tests pin that commit so future HEAD
-movement cannot silently redefine the baseline. No working-tree replacement or stash.
+The load ramps from t = 1 s at −150 N/s to −300 N/side, holds until t = 9 s, then drops
+to zero abruptly. Run length is 25 s. The baseline is the original `MotorCore` from
+commit `bca88b938c721501af9841a2f906faf790c47f4d`, run in memory.
 
-| Metric | Original PI, read 0 | Fallback, read 0 | Original PI, read 1 | Fallback, read 1 |
+| Metric | Original PI, read 0 | Observer, read 0 | Original PI, read 1 | Observer, read 1 |
 | --- | ---: | ---: | ---: | ---: |
-| Maximum sag | 532.975 mm | identical | 564.629 mm | identical |
-| Overshoot above target after release | 575.423 mm | identical | 630.118 mm | identical |
-| Peak speed after release | 580.236 mm/s | identical | 698.312 mm/s | identical |
-| Tail oscillation (last 40 samples) | 16.838 mm | identical | 186.905 mm | identical |
-| Final error at 25 s | 56.470 mm | identical | 93.455 mm | identical |
+| Maximum sag | 533 mm | 85.5 mm | 565 mm | 127.7 mm |
+| Overshoot after release | 575 mm | 219 mm | 630 mm | 241.5 mm |
+| Peak speed after release | 580 mm/s | 617 mm/s | 698 mm/s | 635 mm/s |
+| Tail oscillation | 16.8 mm | 0 | 186.9 mm | 0 |
+| Final error at 25 s | 56.5 mm | 5.0 mm | 93.5 mm | 5.7 mm |
 
-These are **bad original dynamics**, preserved rather than misrepresented as fixed.
-The earlier 518/576/603 probe used a different default mass; it is not the mass-60
-matched baseline above. The incoming leaky replacement measured 77.081/83.520/583.944
-at read 0, and 134.534/109.029/638.330 at read 1 (sag/overshoot/speed): smaller travel
-but worse read-0 speed and permanent loaded error. It is NOT the baseline and is removed.
+The release impulse is physical: torque is stored across the bus delay and torque lag.
+The observer does not remove it. At read delay 1 with an asymmetric 300/200 N load,
+peak release speed is 692 mm/s against 591 mm/s for the original, so the tests allow
+up to 1.25× the original.
 
-Tests require exact equality of every force, position and velocity sample against
-the original for all 12 combinations: read 0/1, coupling 4.5/40, load 300/300,
-300/200 and 200/300 N. Continued hanging for 120 s is also compared at read 0/1;
-no claim of settled precision is made. Additional tests exercise full-output
-saturation, allowed unwinding, stale timestamps, soft HOLD isolation, transitions,
-and ESTOP support. An unholdable 1000 N/side overload reaches the lower stop while
-the force remains bounded; this must NOT be described as a successful hold or an
-overspeed fault when no such fault occurred.
+Robustness matrix, all with tail oscillation < 10 mm and final error < 8 mm:
 
-Validation: 450 pure motor tests passed, including workout; a separate HOLD +
-workout run passed 53 tests. Seven API/database cases were excluded from the
-isolated motor run because their `client`/`db_session` fixtures require the parent
-application setup. No claim is made that those integration cases were validated.
+| Case | Sag (mm) |
+| --- | ---: |
+| mass 45 kg | 98 |
+| mass 80 kg | 95 |
+| mass 80 kg, read delay 1 | 133 |
+| stiction +30 N | 108 |
+| command delay 3 ticks | 128 |
+| command delay 1 tick | 75 |
+| Coulomb friction 30/80 N | 86 |
+| position noise 0.3 mm | 86 |
+| load 500/500 N | 116 |
+
+Fast hanging ramps of 1000–3000 N/s still sag 262–269 mm, and 415 mm at read delay 1.
+In these cases the drive is at the 700 N envelope limit, so the sag is a force limit,
+not an observer limit.
+
+Tests in `backend/app/tests/motor/test_fixed_hold.py`:
+- **Observer vs. original PI.** 12 combinations: read delay 0/1, coupling 4.5/40,
+  loads 300/300, 300/200 and 200/300 N. Pass criteria:
+  - sag < 140 mm and < 1/3 of the original
+  - overshoot < 260 mm and < 1/2 of the original
+  - release speed < 1.25× the original
+  - tail oscillation < 10 mm and final error < 8 mm
+- **Continued hanging for 120 s at read delay 0/1.** The settled range must be < 10 mm
+  and the final error < 8 mm.
+- **Plant-mismatch robustness.** Mass, stiction and command-delay variations.
+- **Other cases:**
+  - saturation (no deeper, only unwinding) and stale timestamps
+  - soft HOLD isolation, transitions and ESTOP support
+  - an unholdable overload that stays force-bounded
+
+Validation: 503 pure motor tests passed.
 
 ## Physical limitation and unloaded-first checks
 

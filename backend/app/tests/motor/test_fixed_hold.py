@@ -1,22 +1,20 @@
 """Fixed hold regression bench. Pure twin: no runtime, API, database or drives."""
 
-from dataclasses import replace
-from pathlib import Path
 import subprocess
 import sys
 import types
+from dataclasses import replace
+from pathlib import Path
 
 import pytest
 
 from app.motor.core import MotorCore
 from app.motor.drive.protocol import DriveSample
 from app.motor.profile import MachineProfile, Measured, SafetyEnvelope
-from app.motor.supervisor.modes import Mode
 from app.motor.twin.bench import TwinBench
 from app.motor.twin.loop import run_core
 from app.motor.twin.plant import PlantParams
 from app.motor.units import SIDES
-
 
 ORIGINAL_COMMIT = "bca88b938c721501af9841a2f906faf790c47f4d"
 
@@ -75,8 +73,8 @@ def hanging_run(core_type=MotorCore, *, seconds=25.0, release_s=9.0, loads=(300.
 def hold_metrics(trace, release_s=9.0):
     return {
         "sag_mm": max(700.0 - min(trace.x[side]) for side in SIDES),
-        "overshoot_mm": max(0.0, *(x - 700.0 for side in SIDES for t, x in zip(trace.t, trace.x[side]) if t >= release_s)),
-        "release_speed_mm_s": max(abs(v) for side in SIDES for t, v in zip(trace.t, trace.v[side]) if t >= release_s),
+        "overshoot_mm": max(0.0, *(x - 700.0 for side in SIDES for t, x in zip(trace.t, trace.x[side], strict=False) if t >= release_s)),
+        "release_speed_mm_s": max(abs(v) for side in SIDES for t, v in zip(trace.t, trace.v[side], strict=False) if t >= release_s),
         "tail_osc_mm": max(max(xs[-40:]) - min(xs[-40:]) for xs in trace.x.values()),
         "final_error_mm": max(abs(xs[-1] - 700.0) for xs in trace.x.values()),
     }
@@ -85,32 +83,44 @@ def hold_metrics(trace, release_s=9.0):
 @pytest.mark.parametrize("read_delay", [0, 1])
 @pytest.mark.parametrize("coupling", [4.5, 40.0])
 @pytest.mark.parametrize("loads", [(300, 300), (300, 200), (200, 300)])
-def test_original_pi_trajectory_preserved(original_core, read_delay, coupling, loads):
+def test_observer_reacts_to_hanging_much_faster_than_original_pi(original_core, read_delay, coupling, loads):
     params = replace(PlantParams(), command_delay_ticks=2, torque_lag_s=0.048,
                      coupling_n_per_mm=coupling, read_delay_ticks=read_delay)
     _, _, reference = hanging_run(original_core, params=params, loads=loads)
     core, _, trace = hanging_run(params=params, loads=loads)
-    # No clipping in this matrix: safeguards must preserve every original output.
-    assert trace.force == reference.force
-    assert trace.x == reference.x
-    assert trace.v == reference.v
-    assert trace.mode == reference.mode
+    old, new = hold_metrics(reference), hold_metrics(trace)
     assert core.hold_target == {side: 700.0 for side in SIDES}
-    if loads == (300, 300):
-        expected = (532.975, 575.423, 580.236) if read_delay == 0 else (564.629, 630.118, 698.312)
-        metrics = hold_metrics(reference)
-        assert tuple(metrics[key] for key in ("sag_mm", "overshoot_mm", "release_speed_mm_s")) == pytest.approx(expected, abs=0.002)
+    assert set(trace.mode) == {"fixed"}
+    assert new["sag_mm"] < 140 and new["sag_mm"] < old["sag_mm"] / 3
+    assert new["overshoot_mm"] < 260 and new["overshoot_mm"] < old["overshoot_mm"] / 2
+    # The release impulse is physical (stored torque × delay), not a gain choice: only bounded.
+    assert new["release_speed_mm_s"] < 1.25 * old["release_speed_mm_s"]
+    assert new["tail_osc_mm"] < 10
+    assert new["final_error_mm"] < 8
 
 
 @pytest.mark.parametrize("read_delay", [0, 1])
-def test_continued_load_preserves_original_pi_without_leak(original_core, read_delay):
+def test_continued_load_holds_without_drift_or_hunting(read_delay):
     params = replace(PlantParams(), command_delay_ticks=2, torque_lag_s=0.048,
                      coupling_n_per_mm=4.5, read_delay_ticks=read_delay)
-    _, _, reference = hanging_run(original_core, params=params, seconds=120, release_s=999)
     core, _, trace = hanging_run(params=params, seconds=120, release_s=999)
-    assert trace.force == reference.force
-    assert trace.x == reference.x
     assert core.hold_target == {side: 700.0 for side in SIDES}
+    for xs in trace.x.values():
+        settled = xs[len(xs) // 4:]
+        assert max(settled) - min(settled) < 10
+        assert abs(xs[-1] - 700.0) < 8
+
+
+@pytest.mark.parametrize(("mass", "stiction", "cmd_ticks"), [(45.0, 0.0, 2), (80.0, 0.0, 2), (60.0, 30.0, 2), (60.0, 0.0, 3)])
+def test_observer_robust_to_plant_mismatch(mass, stiction, cmd_ticks):
+    params = replace(PlantParams(), command_delay_ticks=cmd_ticks, torque_lag_s=0.048, coupling_n_per_mm=4.5)
+    side = replace(params.left, mass_kg=mass, stiction_extra_n=stiction)
+    core, _, trace = hanging_run(params=replace(params, left=side, right=side))
+    metrics = hold_metrics(trace)
+    assert metrics["sag_mm"] < 140
+    assert metrics["tail_osc_mm"] < 10
+    assert metrics["final_error_mm"] < 8
+    assert set(trace.mode) == {"fixed"}
 
 
 def test_sustained_overload_is_bounded_not_claimed_holdable():
@@ -165,21 +175,24 @@ def test_full_output_saturation_blocks_integral_growth(limit):
         })
     core = prepared_core(profile=profile, envelope=envelope, target=target)
     core.previous = {side: previous for side in SIDES}
+    # The bias may unwind (the observer sees what the drive really delivers), never push deeper into the limit.
+    deeper = -1.0 if limit in {"raw_pull", "soft_bottom"} else 1.0
     for tick in range(1, 31):
         core.step(samples_at(tick * 0.075, x), tick * 0.075)
-        assert core.fixed_integral == {side: 0.0 for side in SIDES}
+        assert all(deeper * bias <= 1e-6 for bias in core.fixed_integral.values())
 
 
 def test_saturation_allows_unwinding_and_fresh_frames_resume():
     core = prepared_core(envelope=replace(SafetyEnvelope(), max_force_n_per_side=150), target=600)
     core.fixed_integral = {side: 300.0 for side in SIDES}
     core.previous = {side: 150.0 for side in SIDES}
-    core.step(samples_at(0.075, 610), 0.075)
+    core.step(samples_at(0.075, 610), 0.075)  # the first fresh frame only primes the observer
+    core.step(samples_at(0.15, 610), 0.15)
     assert all(0 < bias < 300 for bias in core.fixed_integral.values())
     frozen = dict(core.fixed_integral)
-    core.step(samples_at(0.075, 610), 0.15)
+    core.step(samples_at(0.15, 610), 0.225)
     assert core.fixed_integral == frozen
-    core.step(samples_at(0.225, 610), 0.225)
+    core.step(samples_at(0.3, 610), 0.3)
     assert all(core.fixed_integral[side] < frozen[side] for side in SIDES)
 
 

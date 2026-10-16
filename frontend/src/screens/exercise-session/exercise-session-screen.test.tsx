@@ -217,6 +217,29 @@ describe('ExerciseSessionScreen', () => {
     expect(playExerciseEventSound).toHaveBeenCalledExactlyOnceWith('success')
   })
 
+  it.each([false, true])('keeps fixed-hold reps manual despite telemetry and saves the entered value (full=%s)', async full => {
+    const target = useRuntimeStore.getState().session!.sessionState!.targetValue
+    const entered = full ? target : 3
+    const motion = { repetitionCount: target, barPositionMm: 500, leftPositionMm: 500, rightPositionMm: 500, amplitudePercent: 0, syncDeltaMm: 0 } as HardwareSnapshot['motion']
+    const snapshot = { motion, control: { mode: 'fixed_hold' }, safety: { state: 'enabled' } } as HardwareSnapshot
+    useHardwareStore.setState({ snapshot })
+    renderScreen()
+    const input = screen.getByRole('textbox', { name: 'Повторы' })
+    expect(input).toHaveValue('0')
+    expect(navigateMock).not.toHaveBeenCalled()
+    expect(screen.getByText(/Введите количество повторов вручную/)).toBeInTheDocument()
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: String(entered) } })
+    fireEvent.blur(input)
+    act(() => useHardwareStore.setState({ snapshot: { ...snapshot, motion: { ...motion, repetitionCount: target + 10, barPositionMm: 520 } } }))
+    expect(input).toHaveValue(String(entered))
+    expect(screen.getByRole('progressbar', { name: 'Прогресс подхода' })).toHaveAttribute('aria-valuenow', String(Math.round(entered / target * 100)))
+    expect(navigateMock).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalled())
+    expect(apiPost).toHaveBeenCalledWith('/api/runtime/sets', expect.objectContaining({ reps: entered, actualValue: entered }))
+  })
+
   function enableCoachObservation(lastSet = false) {
     vi.stubEnv('VITE_COACH_ENABLED', 'true')
     const session = useRuntimeStore.getState().session!

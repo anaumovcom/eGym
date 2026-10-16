@@ -213,7 +213,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const setPlan = exercise.plan[session.currentSetIndex] ?? exercise.plan[exercise.plan.length - 1]
   const isFailureSet = (state.setType ?? setPlan.setType) === 'failure'
   const activeCalibration = currentCalibration?.userId === selectedUserId && currentCalibration.exerciseSlug === exercise.slug ? currentCalibration : null
-  const isFixedExercise = activeCalibration?.setupType === 'fixed_position'
+  const isFixedExercise = activeCalibration?.setupType === 'fixed_position' || snapshot?.control?.mode === 'fixed_hold'
   // Setup starts the hardware for every supportsFixedBarSetup exercise, including 0 kg, so live telemetry must follow the same rule.
   const isMachineExercise = supportsFixedBarSetup(exercise) || hasMovableMachineLoad(exercise) || isFixedExercise
   const preferredVideoGender = getPreferredVideoGender(selectedUserId)
@@ -226,7 +226,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const syncDeltaMm = liveMotion ? liveMotion.syncDeltaMm ?? Math.abs(liveMotion.leftPositionMm - liveMotion.rightPositionMm) : null
   const plannedValue = getPlannedValue(state, setPlan)
   const targetText = `${getTargetText(state, setPlan)}${exercise.perSide ? ' на сторону' : ''}`
-  const correctedLiveRepetitionCount = liveMotion
+  const correctedLiveRepetitionCount = liveMotion && !isFixedExercise
     ? isFailureSet
       ? Math.max(0, liveMotion.repetitionCount + repAdjustment)
       : clamp(liveMotion.repetitionCount + repAdjustment, 0, plannedValue)
@@ -245,11 +245,11 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     ? Math.round((timerElapsedSeconds / Math.max(1, plannedValue)) * 100)
     : correctedLiveRepetitionCount != null && liveMotion
       ? Math.round((correctedLiveRepetitionCount / Math.max(1, plannedValue)) * 100)
-      : Math.round((state.currentValue / Math.max(1, plannedValue)) * 100)
+      : Math.round((factValue / Math.max(1, plannedValue)) * 100)
   const liveMetrics = liveMotion
     ? [
         isFixedExercise
-          ? { label: 'Высота фиксации', value: `${Math.round(activeCalibration.fixedPositionMm ?? 0)} мм`, tone: 'good' as const }
+          ? { label: 'Высота фиксации', value: `${Math.round(activeCalibration?.fixedPositionMm ?? liveMotion.barPositionMm)} мм`, tone: 'good' as const }
           : { label: 'Амплитуда', value: `${liveMotion.amplitudePercent}%`, tone: liveMotion.amplitudePercent >= 70 ? 'good' as const : 'warning' as const },
         { label: 'Позиция', value: `${Math.round(liveMotion.barPositionMm)} мм`, tone: 'neutral' as const },
         { label: 'Синхронность', value: `${syncDeltaMm?.toFixed(1) ?? '0.0'} мм`, tone: (syncDeltaMm ?? 0) <= 5 ? 'good' as const : 'warning' as const },
@@ -326,7 +326,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     setCalibrationDirty(false)
     setSaveError(null)
     setPendingAction(null)
-    setActualReps(liveMotion?.repetitionCount ?? state.currentValue)
+    setActualReps(isFixedExercise ? 0 : liveMotion?.repetitionCount ?? state.currentValue)
     setRepAdjustment(0)
     setActualWeight(setPlan.recommendedWeightKg ?? parseWeightLabel(state.weightLabel))
     setTimerElapsedMs(0)
@@ -376,7 +376,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   }
 
   useEffect(() => {
-    if (!liveMotion || state.kind === 'timed' || isFailureSet || autoFinishTriggeredRef.current || pendingAction || editingPoint || calibrationBusy) {
+    if (!liveMotion || isFixedExercise || state.kind === 'timed' || isFailureSet || autoFinishTriggeredRef.current || pendingAction || editingPoint || calibrationBusy) {
       return
     }
 
@@ -384,7 +384,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       autoFinishTriggeredRef.current = true
       void handleAutoCompleteCurrentSet()
     }
-  }, [calibrationBusy, correctedLiveRepetitionCount, editingPoint, isFailureSet, liveMotion, pendingAction, plannedValue, state.kind])
+  }, [calibrationBusy, correctedLiveRepetitionCount, editingPoint, isFailureSet, isFixedExercise, liveMotion, pendingAction, plannedValue, state.kind])
 
   async function beginCalibration() {
     if (!canAdjustCalibration || calibrationBusy) return
@@ -485,7 +485,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         targetSet: session.currentSetIndex + 1,
         loadDirection: activeCalibration.loadDirection ?? 'down',
         targetReps: setPlan.targetMaxReps ?? setPlan.targetReps ?? plannedValue,
-        ...(fixed ? { positionMm: activeCalibration.fixedPositionMm ?? undefined, repCountSource: 'load' } : { startPoint: activeCalibration.startPoint ?? 'lower' }),
+        ...(fixed ? { positionMm: activeCalibration.fixedPositionMm ?? undefined, repCountSource: 'manual' } : { startPoint: activeCalibration.startPoint ?? 'lower' }),
       })
     } catch (error) {
       setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить тренажёр.')
@@ -744,7 +744,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
 
   function changeFactValue(nextValue: number) {
     const bounded = isFailureSet || state.kind === 'timed' ? Math.max(0, nextValue) : clamp(nextValue, 0, plannedValue)
-    if (state.kind !== 'timed' && liveMotion) {
+    if (state.kind !== 'timed' && liveMotion && !isFixedExercise) {
       setRepAdjustment(bounded - liveMotion.repetitionCount)
       return
     }
@@ -772,7 +772,6 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     motorIdle ? 'motor_idle' : null,
     snapshot?.control?.spotterActive ? 'spotter' : null,
     snapshot?.control?.failureDetected ? 'failure_detected' : null,
-    ['warning', 'critical'].includes(snapshot?.control?.syncStatus ?? '') ? `sync_${snapshot?.control?.syncStatus}` : null,
     ...(snapshot?.alerts ?? []),
     ...(snapshot?.drives ?? []).filter(drive => drive.status === 'error' || drive.status === 'warning' || !drive.connected)
       .map(drive => `drive_${drive.side}_${drive.status}_${drive.errorCode ?? ''}`),
@@ -872,6 +871,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
                 onChange={changeFactValue}
               />
             )}
+            {isFixedExercise && !isTimed ? <p className="rt-actions-note">Введите количество повторов вручную и нажмите «Завершить подход».</p> : null}
             <div className="rt-progress" role="progressbar" aria-label="Прогресс подхода" aria-valuemin={0} aria-valuemax={100} aria-valuenow={clamp(progressPercent, 0, 100)}>
               <div style={{ width: `${clamp(progressPercent, 0, 100)}%` }} />
             </div>

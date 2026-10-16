@@ -558,7 +558,7 @@ export function ExerciseSetupScreen() {
           targetSet: startSetIndex + 1,
           loadDirection,
           targetReps: startSetPlan?.targetMaxReps ?? startSetPlan?.targetReps ?? settings.reps,
-          ...(setupType === 'fixed_position' ? { positionMm: savedCalibration?.fixedPositionMm ?? undefined, repCountSource: 'load' } : { startPoint }),
+          ...(setupType === 'fixed_position' ? { positionMm: savedCalibration?.fixedPositionMm ?? undefined, repCountSource: 'manual' } : { startPoint }),
         })
       } catch (error) {
         setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить тренажёр.')

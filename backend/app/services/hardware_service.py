@@ -39,6 +39,7 @@ MOTION_ACTIONS = {
 UNSUPPORTED_MOTION_ACTIONS = {"manual_move", "range_preview", "manual_rep", "align_sides"}
 WEIGHT_ACTIONS = {"start_motion", "start_fixed_position", "resume", "set_load"}  # the load limit holds for each of them
 QUIET_ACTIONS = {"jog_keepalive"}
+START_SYNC_TOLERANCE_MM = 50.0  # the start gate only; the side sync controller levels the bar once motion starts
 
 
 CALIBRATION_EXEMPT_EQUIPMENT = {
@@ -201,7 +202,8 @@ class HardwareService:
             max_load_kg = min(max_load_kg, self._parse_kg(settings.guest_weight_limit))
         motor_enabled = control.get("motorControl") != "disabled"
         position_known = bool(control.get("positionKnown", True))
-        sync_ok = control.get("syncStatus") != "critical" or service_action
+        sync_tolerance_mm = max(START_SYNC_TOLERANCE_MM, envelope.sync_critical_mm)
+        sync_ok = abs(runtime.motion.sync_delta_mm) < sync_tolerance_mm or service_action
         not_faulted = control.get("mode") != "fault"
         not_blocked = runtime.machine.machine_state != MachineState.blocked and not_faulted
         block_reason = str(control.get("faultCode") or runtime.safety.message or "").strip()
@@ -231,7 +233,7 @@ class HardwareService:
             self._check("critical-errors", "Нет критических ошибок", not_blocked, "critical", "Критических ошибок нет" if not_blocked else block_message),
             self._check("motor-control", "Управление двигателями", motor_enabled, "critical", "Управление двигателями включено" if motor_enabled else str(control.get("motorControlMessage") or "Управление двигателями недоступно")),
             self._check("position-known", "Позиция определена", position_known or payload.mode == "homing", "critical", "Нулевая позиция известна" if position_known else "Позиция не определена — выполните homing."),
-            self._check("sync", "Стороны синхронны", sync_ok, "critical", "Рассинхрон в допуске" if sync_ok else f"Критический рассинхрон {runtime.motion.sync_delta_mm:.1f} мм — выровняйте стороны."),
+            self._check("sync", "Стороны синхронны", sync_ok, "critical", "Рассинхрон в допуске" if sync_ok else f"Критический рассинхрон {runtime.motion.sync_delta_mm:.1f} мм (допуск {sync_tolerance_mm:.0f} мм) — выровняйте стороны."),
             self._check("thermal", "Ток и температура в норме", thermal_ok, "critical", "Приводы в тепловой норме" if thermal_ok else "Превышение тока или температуры привода."),
             self._check("physical-panel", "Физическая панель доступна", panel_ok, "critical", "Панель управления готова" if panel_ok else "Панель управления не готова, отключена или сообщает safety fault."),
             self._check("calibration", "Калибровка актуальна", not calibration_required or (calibration is not None and self._is_calibration_actual(calibration)), "critical", "Калибровка найдена" if not calibration_required or calibration is not None else "Для запуска нужна актуальная калибровка."),

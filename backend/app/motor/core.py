@@ -20,6 +20,7 @@ the pull is sent through the N1 scale, and ``set_load`` caps the load at what th
 from __future__ import annotations
 
 import math
+from collections import deque
 from dataclasses import dataclass, field, replace
 from typing import Literal
 
@@ -49,7 +50,15 @@ CUSHION_DECEL_SHARE = 0.35  # the cushion asks for a third of it: room for the d
 CUSHION_BLEND_MM_S = 10.0
 CUSHION_MARGIN_MM = 10.0  # the landing speed is reached this far before the soft limit
 DEFAULT_LANDING_MM_S = 15.0
-FIXED_TI_MIN_S = 1.0
+# fixed / isometric: the user's force is read from the bar's momentum (m·Δv against the modelled drive force, weight and
+# friction over each fresh frame), not integrated slowly from the position error: the bias follows a hanging user
+# within ~FIXED_OBSERVER_S instead of seconds. On a still bar the same balance integrates the spring at k/FIXED_OBSERVER_S.
+# 0.17 s: twin-validated incl. 2× bus delay and ±30 % mass; 0.13 s already rings (limit cycle) at 2× delay + 80 kg,
+# slower ones sag more and hunt (stick-slip) longer.
+FIXED_OBSERVER_S = 0.17
+FIXED_STILL_MM_S = 1.0
+FIXED_STILL_DEADBAND_MM = 6.0  # stick-slip jumps were ~13 mm p-p (2× bus delay twin)
+FIXED_COMMAND_HISTORY = 16
 FIXED_DAMPING_RATIO = 0.7
 # Keep c·delay/m below this share (the damping acts a loop delay late).
 FIXED_DAMPING_DELAY_SHARE = 0.5
@@ -116,6 +125,11 @@ class MotorCore:
         self._hold_caught: dict[Side, bool] = {side: False for side in SIDES}
         self.fixed_integral: dict[Side, float] = {side: 0.0 for side in SIDES}
         self._fixed_sample_t: dict[Side, float | None] = {side: None for side in SIDES}
+        self._fixed_fresh: dict[Side, bool] = {side: False for side in SIDES}
+        # observer state: the last fresh frame (t, v) and the drive force modelled at that time
+        self._fixed_last: dict[Side, tuple[float, float] | None] = {side: None for side in SIDES}
+        self._fixed_applied: dict[Side, float] = {side: 0.0 for side in SIDES}
+        self._commands: dict[Side, deque[tuple[float, float]]] = {side: deque(maxlen=FIXED_COMMAND_HISTORY) for side in SIDES}
         self.load = LoadSetpoint()
         self.load_capped = False
         self.virtual_mass_kg = 0.0
@@ -153,6 +167,7 @@ class MotorCore:
             self._hold_caught = {side: False for side in SIDES}
         if mode != before and (mode in holds or before in {Mode.FIXED, Mode.ISOMETRIC}):
             self.fixed_integral = {side: 0.0 for side in SIDES}
+            self._fixed_last = {side: None for side in SIDES}
         if mode != before:
             self.fall_assist = {side: 0.0 for side in SIDES}
             self.floor_cut = 0.0
@@ -431,6 +446,7 @@ class MotorCore:
                 states[side] = self.observers[side].miss(now)
             if sample is not None and sample.alarm and self.supervisor.mode not in {Mode.FAULT, Mode.ESTOP}:
                 self.command("fault", f"Авария привода {side}: {sample.error}")
+        self._fixed_fresh = fixed_fresh
         if any(state == "fault" for state in comm_states.values()) and self.supervisor.mode not in {Mode.FAULT, Mode.ESTOP}:
             self.command("fault", "Потеря связи с приводом")
         overspeed = rpm_to_mm_s(self.envelope.overspeed_rpm_alarm)
@@ -457,9 +473,11 @@ class MotorCore:
         output = self.supervisor.output
         if output == "zero":
             self.previous = {side: 0.0 for side in SIDES}
+            self._record_commands(now)
             return CoreOutput("zero", dict(self.previous), self.supervisor.mode, states, user_force, phase)
         if output == "support" or (output == "idle" and all(states[side].x_mm < ON_STOPS_MM for side in SIDES)):
             self.previous = {side: self._support_force(side) for side in SIDES}
+            self._record_commands(now)
             return CoreOutput("support", dict(self.previous), self.supervisor.mode, states, user_force, phase)
 
         forces: dict[Side, float] = {}
@@ -471,8 +489,9 @@ class MotorCore:
             state = states[side]
             bias_before = self.fixed_integral[side]
             target = self._law(output, side, state, states[other], blend)
-            # The PI candidate must be judged against the FULL shaped output and the
-            # same envelope used below, including raw torque (asymmetric pull scale).
+            # The bias candidate must be judged against the FULL shaped output and the
+            # same envelope used below, including raw torque (asymmetric pull scale):
+            # the bias may only grow as far as the drive output can follow it.
             if output == "hold" and self.supervisor.mode != Mode.HOLD:
                 shaped = self._shape(output, side, state, target)
                 limited = apply_envelope(self.envelope, SafetyInput(
@@ -484,9 +503,14 @@ class MotorCore:
                 push = self.envelope.max_raw * profile.n_per_raw_value
                 limited = max(-push * profile.pull_scale_value, min(push, limited))
                 delta = self.fixed_integral[side] - bias_before
-                if not fixed_fresh[side] or delta * (shaped - limited) > 1e-9:
+                excess = shaped - limited
+                if not fixed_fresh[side] or (delta * excess > 1e-9 and abs(excess) >= abs(delta)):
                     self.fixed_integral[side] = bias_before
                     target -= delta
+                elif delta * excess > 1e-9:
+                    cut = math.copysign(min(abs(delta), abs(excess)), delta)
+                    self.fixed_integral[side] -= cut
+                    target -= cut
             if output != "calibrate":
                 target = self._shape(output, side, state, target)
             if comm_states[side] == "freeze":
@@ -500,6 +524,7 @@ class MotorCore:
                 stale=comm_states[side] != "ok",
             ))
         self.previous = forces
+        self._record_commands(now)
         return CoreOutput("force", dict(forces), self.supervisor.mode, states, user_force, phase)
 
     def _law(self, output: str, side: Side, state: ObservedState, other: ObservedState, blend: float) -> float:
@@ -543,9 +568,7 @@ class MotorCore:
             limit = float(profile.coulomb_up_n.value) * 2 + 50 if self.supervisor.mode == Mode.HOLD else self.envelope.max_force_n_per_side
             spring = virtual_spring(state.x_mm, state.v_mm_s, target, k, c, limit_n=limit)
             if self.supervisor.mode != Mode.HOLD:
-                period = _value(self.profile.hold_ultimate_period_s, 0.5) or 0.5
-                ti = max(FIXED_TI_MIN_S, 2.0 * period)
-                self.fixed_integral[side] = max(-limit, min(limit, self.fixed_integral[side] + k * (target - state.x_mm) * self._dt / ti))
+                self._observe_fixed(side, state, target, limit)
                 spring += self.fixed_integral[side]
             return weight + friction + spring + sync + speed_guard
         # train
@@ -559,6 +582,60 @@ class MotorCore:
 
     def _loop_delay(self) -> float:
         return (_value(self.profile.loop_delay_s, 0.04) or 0.04) + (_value(self.profile.torque_lag_s, 0.0) or 0.0)
+
+    def _record_commands(self, now: float) -> None:
+        for side in SIDES:
+            self._commands[side].append((now, self.previous[side]))
+
+    def _command_at(self, side: Side, t: float) -> float:
+        """The force command in effect at ``t`` (the last one written by then)."""
+
+        history = self._commands[side]
+        for written, force in reversed(history):
+            if written <= t:
+                return force
+        return history[0][1] if history else self.previous[side]
+
+    def _observe_fixed(self, side: Side, state: ObservedState, target: float, limit: float) -> None:
+        """Fixed / isometric bias = the user's force, read from the bar's momentum over the last fresh frame.
+
+        m·Δv = ∫(F_drive + F_user − W − F_friction)dt, with F_drive modelled from the written commands (bus delay,
+        then the torque lag). A still bar has no friction model: the stiction joins the estimate, so the balance
+        integrates the spring there instead. The bias follows the estimate with ``FIXED_OBSERVER_S``.
+        """
+
+        if not self._fixed_fresh[side]:
+            return
+        t1 = self._fixed_sample_t[side]
+        assert t1 is not None
+        delay = _value(self.profile.loop_delay_s, 0.04) or 0.04
+        lag = _value(self.profile.torque_lag_s, 0.0) or 0.0
+        last = self._fixed_last[side]
+        self._fixed_last[side] = (t1, state.v_mm_s)
+        if last is None:
+            self._fixed_applied[side] = self._command_at(side, t1 - delay)
+            return
+        t0, v0 = last
+        dt = t1 - t0
+        if dt <= 0:
+            return
+        f0 = self._fixed_applied[side]
+        command = self._command_at(side, t1 - delay)
+        f1 = command if lag <= 0 else f0 + (command - f0) * (1.0 - math.exp(-dt / lag))
+        self._fixed_applied[side] = f1
+        still = max(abs(v0), abs(state.v_mm_s)) < FIXED_STILL_MM_S
+        if still and abs(target - state.x_mm) < FIXED_STILL_DEADBAND_MM:
+            return  # stuck close enough: integrating the spring further only breaks it loose (stick-slip hunting)
+        profile = self.profile.side(side)
+        model = self.friction[side]
+        v = (v0 + state.v_mm_s) / 2
+        weight = compensation.gravity(profile, state.x_mm) + model.ripple(state.x_mm)
+        drag = model.force(v, self.tunables.friction_blend_mm_s, x_mm=state.x_mm)
+        momentum = float(profile.moving_mass_kg.value) * (state.v_mm_s - v0) / 1000.0 / dt
+        needed = (f0 + f1) / 2 - weight - drag - momentum  # = −F_user: what the bias must add
+        share = 1.0 - math.exp(-dt / FIXED_OBSERVER_S)
+        bias = self.fixed_integral[side] + (needed - self.fixed_integral[side]) * share
+        self.fixed_integral[side] = max(-limit, min(limit, bias))
 
     def _descent_gain(self, side: Side, load: float) -> float:
         """Friction compensation going down in training: from the weightless gain to ``train_friction_gain_down`` as the
@@ -591,6 +668,8 @@ class MotorCore:
         ``FLOOR_RETURN_MM_S``; the load ramps in again once the bar is lifted back into the range by more than the
         rep hysteresis. Above the upper point a brake stops the bar's momentum within ``RANGE_STOP_MM`` and a light
         spring turns it back down. Moving back into the range is not resisted.
+        With an upward load the bounds are mirrored, but the unloaded return damper is not: pulling down from
+        the upper point must not add an upward kick on top of the load ramp.
         """
 
         x = (states["left"].x_mm + states["right"].x_mm) / 2
@@ -630,7 +709,7 @@ class MotorCore:
         if below > 0:
             spring = min(FLOOR_K_N_PER_MM * below, FLOOR_MAX_N) * max(0.0, min(1.0, (FLOOR_RETURN_MM_S - v) / FLOOR_RETURN_MM_S))
             self.range_force_n = spring + damping * max(-v, 0.0)
-        if self.floor_cut > 0 and v > 0:
+        if not upward and self.floor_cut > 0 and v > 0:
             # without its load a free bar thrown up off the floor would coast high into the range, meet the load there
             # and drop again: the damper stays while the load is out (the user lifting feels it instead of the load)
             self.range_force_n -= damping * self.floor_cut * v

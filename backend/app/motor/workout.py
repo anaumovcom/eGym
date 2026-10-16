@@ -20,7 +20,7 @@ from collections.abc import Callable, Generator
 from dataclasses import dataclass, replace
 from typing import Any, Literal
 
-from app.motor.calibration.procedures.motion import Balance, _governed, hold_still, land, travel
+from app.motor.calibration.procedures.motion import FAST_MIN_MM, Balance, _governed, hold_still, land, travel
 from app.motor.calibration.runner import CalibrationRunner, Command, Frame, ProcedureEnvelope
 from app.motor.core import CoreOutput, MotorCore
 from app.motor.drive.protocol import TorqueDrive
@@ -36,7 +36,8 @@ Gen = Generator[Command, Frame, Any]
 logger = logging.getLogger(__name__)
 
 ABORT_RAW = 100  # the core's overspeed "zero" output: no brake, 0 would drop the bar (R5)
-JOG_SPEED_MM_S = 40.0
+SETUP_SPEED_SCALE = 3.0
+JOG_SPEED_MM_S = 40.0 * SETUP_SPEED_SCALE
 JOG_TIMEOUT_S = 0.6  # no keepalive (every 0.2 s) this long → the jog stops
 JOG_LIMIT_MARGIN_MM = 5.0
 GRIP_FORCE_N = 40.0  # both sides: the user pushes or pulls the held bar
@@ -53,10 +54,6 @@ MOVE_MARGIN_MM = 60.0
 MOVE_START_MM_S = 25.0  # a scripted move starts from a (nearly) still bar…
 SETTLE_MAX_S = 3.0  # …caught by the hold first, at most this long
 UNLOADED_N = 1.0
-FIXED_PRESS_SHARE = 0.5  # fixed position: a rep = the user force rises above this share of the load…
-FIXED_RELEASE_SHARE = 0.25  # …and falls below this one
-FIXED_MIN_FORCE_N = 100.0
-FIXED_DEBOUNCE_S = 0.3
 REST_PARK_S = 900.0  # a weightless rest after a set nobody came back to: the bar goes to the stops
 REST_CATCH_MM_S = 5.0  # the rest starts weightless from a bar (nearly) at rest
 TAKEN_MAX_MM_S = 300.0  # the move to the start aborted by its envelope at a speed below this, in the range: the user took the bar
@@ -75,7 +72,7 @@ class SetPlan:
     start_point: Literal["lower", "upper"] = "lower"
     target_reps: int = 10
     target_set: int = 1
-    fixed_mm: float | None = None  # fixed position: hold here, reps by the user force
+    fixed_mm: float | None = None  # fixed position: hold here, reps entered manually in the UI
     load_direction: LoadDirection = "down"
 
     @property
@@ -111,7 +108,7 @@ def _with_cushions(profile: MachineProfile) -> MachineProfile:
 # ---------------------------------------------------------------- scripted moves
 def _goto(balance: Balance, frame0: Frame, target_mm: float, note: str) -> Gen:
     frame = yield Command(balance.mid(frame0), note=note)
-    yield from travel(balance, frame, target_mm, note=note)
+    yield from travel(balance, frame, target_mm, note=note, speed_scale=SETUP_SPEED_SCALE)
     return {}
 
 
@@ -126,10 +123,13 @@ def _jog(balance: Balance, frame0: Frame, direction: int, active: Callable[[Fram
     frame = yield Command(balance.mid(frame0), note=note)
 
     def done(f: Frame, _extra: dict[Side, float]) -> bool:
-        return not active(f) or direction * (f.x_mean - limit_mm) >= 0
+        return not active(f) or direction * (limit_mm - f.x_mean) <= balance.brake_distance(direction, abs(f.v_mean))
 
     if direction * (limit_mm - frame.x_mean) > 0:
-        frame = yield from _governed(balance, frame, direction, JOG_SPEED_MM_S, done, note=note, progress=lambda _f: None, drive_limit=direction > 0)
+        frame = yield from _governed(
+            balance, frame, direction, JOG_SPEED_MM_S, done, note=note, progress=lambda _f: None,
+            remaining=lambda f: max(0.0, direction * (limit_mm - f.x_mean)), drive_limit=direction > 0,
+        )
     yield from hold_still(balance, frame, note="остановка")
     return {}
 
@@ -144,7 +144,6 @@ class WorkoutController:
         self.runner: CalibrationRunner | None = None
         self.plan: SetPlan | None = None
         self.reps: RepCounter | None = None
-        self.fixed_reps = 0
         self.frame: Frame | None = None
         self.output: CoreOutput | None = None
         self._after: Callable[[], None] | None = None
@@ -156,8 +155,6 @@ class WorkoutController:
         self._grip_since: float | None = None
         self._lifted = False
         self._still_since: float | None = None
-        self._fixed_pressed = False
-        self._fixed_flip_since: float | None = None
         self._t: float | None = None
         self._rest_since: float | None = None
         self._rest_catch = False
@@ -263,7 +260,6 @@ class WorkoutController:
         start = clamp(plan.start_mm, self.envelope.soft_min_mm, self.envelope.soft_max_mm)
         self.plan = plan
         self.reps = RepCounter(plan.lower_mm, plan.upper_mm, self.tunables.reps_full_percent, self.tunables.reps_partial_percent, self.tunables.reps_hysteresis_mm)
-        self.fixed_reps = 0
         self.reason = None
 
         def arrived() -> None:
@@ -443,8 +439,6 @@ class WorkoutController:
                 if self.plan.start_point == "upper":
                     x = self.plan.lower_mm + self.plan.upper_mm - x
                 self.reps.update(x)
-        elif self.mode == "fixed_hold":
-            self._count_fixed()
 
     def _ramp_load(self, dt: float) -> None:
         core = self.core
@@ -509,27 +503,6 @@ class WorkoutController:
         assert core is not None
         core.command("fixed")
         self.mode = "fixed_hold"
-        self._fixed_pressed = False
-        self._fixed_flip_since = None
-
-    def _count_fixed(self) -> None:
-        """A rep = a press held ≥ FIXED_DEBOUNCE_S, then a release held as long (the estimate rings while the bar settles)."""
-
-        target = max(2 * self.target_load_n, FIXED_MIN_FORCE_N)
-        force = abs(self.user_force_n())
-        flip = force <= FIXED_RELEASE_SHARE * target if self._fixed_pressed else force >= FIXED_PRESS_SHARE * target
-        t = self.frame.t if self.frame is not None else 0.0
-        if not flip:
-            self._fixed_flip_since = None
-            return
-        if self._fixed_flip_since is None:
-            self._fixed_flip_since = t
-        if t - self._fixed_flip_since < FIXED_DEBOUNCE_S:
-            return
-        self._fixed_flip_since = None
-        self._fixed_pressed = not self._fixed_pressed
-        if not self._fixed_pressed:
-            self.fixed_reps += 1
 
     # ------------------------------------------------------------ plumbing
     def _require_frame(self) -> Frame:
@@ -600,7 +573,14 @@ class WorkoutController:
         # the bar may start above the soft limit (pushed up by hand in weightless, where nothing stops it):
         # every move goes to a point at or below the limit, so the envelope covers the start height
         top = max([self.envelope.soft_max_mm, *(frame.x(side) for side in SIDES)])
-        envelope = ProcedureEnvelope(min_x_mm=-5.0, max_x_mm=top + MOVE_MARGIN_MM, max_force_n=self.envelope.max_force_n_per_side)
+        # Fast transit carries its own temporary ceiling. Keep its landing/correction envelope unchanged:
+        # this also catches a user taking the bar near the start before it can accelerate past the handover limit.
+        short_start = self.plan is not None and self._after is self._start_arrived and abs(self.plan.start_mm - frame.x_mean) < FAST_MIN_MM
+        speed_limit = JOG_SPEED_MM_S + 100.0 if self._jog is not None or short_start else ProcedureEnvelope().max_speed_mm_s
+        envelope = ProcedureEnvelope(
+            min_x_mm=-5.0, max_x_mm=top + MOVE_MARGIN_MM, max_force_n=self.envelope.max_force_n_per_side,
+            max_speed_mm_s=min(self.envelope.max_speed_mm_s, speed_limit),
+        )
         self.runner = CalibrationRunner(self.drives, envelope=envelope)
         result = self.runner.begin(factory(frame), max_s=MOVE_MAX_S, envelope=envelope)
         if result is not None:  # ended at once
@@ -691,7 +671,7 @@ class WorkoutController:
 
     def repetitions(self) -> tuple[int, int]:
         if self.plan is not None and self.plan.fixed_mm is not None:
-            return self.fixed_reps, 0
+            return 0, 0  # fixed hold has no hardware rep counter; the UI records the manual result
         if self.reps is None:
             return 0, 0
         return self.reps.full, self.reps.partial

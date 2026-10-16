@@ -391,7 +391,7 @@ def test_fixed_position_holds_stiff(runtime: HardwareRuntime) -> None:
         runtime.tick()
         settled.append(_x(runtime))
     assert max(settled) - min(settled) < 5 and abs(settled[-1] - x) < 40  # no ringing on the stiff spring
-    assert runtime.state.motion.repetition_count == 1
+    assert runtime.state.motion.repetition_count == 0  # force/position changes never count fixed-hold reps
 
 
 def test_estop_aborts_the_set_with_slow_lowering(runtime: HardwareRuntime) -> None:

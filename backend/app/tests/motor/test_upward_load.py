@@ -120,7 +120,28 @@ def test_upper_range_cut_ramps_and_rearms_only_inside_hysteresis():
     assert core.floor_cut == cut
     core._update_range(_states(680, -20))
     assert core.floor_cut < cut
-    assert core.range_force_n > 0  # no-load return damper opposes coasting down
+    assert core.range_force_n == 0  # pulling back down must not trigger an upward return damper
+
+
+@pytest.mark.parametrize("x", [680, 695, 700, 705, 720])
+@pytest.mark.parametrize("v", [-10, -30, -80, -200])
+def test_upper_range_guard_does_not_kick_up_when_pulled_back_down(x, v):
+    core = _core(range_guard=True)
+    for _ in range(20):
+        core._update_range(_states(720))  # unload above the upper point
+    assert core.floor_cut > 0
+    core._update_range(_states(x, v))
+    assert core.range_force_n <= 0  # brake / return spring may push down, never kick up
+
+
+def test_downward_load_keeps_lower_range_return_damper():
+    core = _core(range_guard=True)
+    core.set_load(replace(core.load, load_direction="down"))
+    for _ in range(20):
+        core._update_range(_states(280))
+    core._update_range(_states(320, 80))
+    assert core.floor_cut > 0
+    assert core.range_force_n < 0  # the normal load still brakes an unloaded bar coasting up
 
 
 def test_upward_relief_uses_asymmetric_max_speed_and_predicted_acceleration():

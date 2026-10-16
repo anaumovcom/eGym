@@ -1,0 +1,33 @@
+11:42:42 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+11:52:56 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+12:05:02 AM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+12:09:19 AM [vite] http proxy error: /api/coach/usage/today?since=1792184400.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+12:18:16 AM [vite] http proxy error: /api/coach/usage/today?since=1792184400.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+12:18:16 AM [vite] http proxy error: /api/coach/users/alexey/settings
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+12:18:16 AM [vite] http proxy error: /api/coach/usage/today?since=1792184400.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+12:23:19 AM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+12:27:02 AM [vite] http proxy error: /api/coach/usage/today?since=1792184400.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+12:27:02 AM [vite] http proxy error: /api/coach/users/alexey/settings
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+12:27:02 AM [vite] http proxy error: /api/coach/usage/today?since=1792184400.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)

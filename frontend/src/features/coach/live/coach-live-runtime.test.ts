@@ -8,13 +8,22 @@ import { REQUIRED_LOCAL_CLIPS } from '../interpreter/local-cues'
 import type { CoachEvent } from '../model/contracts'
 import { DEFAULT_COACH_PREFERENCES, type CoachPreferences } from '../model/preferences'
 import { CoachLiveRuntime, type LiveInputs, type LiveRuntimeDependencies } from './coach-live-runtime'
-import type { NetworkTick } from './coach-network-client'
+import type { NetworkSnapshot, NetworkTick } from './coach-network-client'
 import { RepBeepArbiter, type ClipSource } from './local-cue-player'
 
 const saved: CoachPreferences = { ...DEFAULT_COACH_PREFERENCES, enabled: true, consentVersion: 1, count: 'every' }
 const exercise = (id: string, sets = 2) => ({ id, kind: 'machine', plan: Array.from({ length: sets }, () => ({ targetReps: 3, restSeconds: 30, weightLabel: '' })) })
 const session = () => ({ id: 's', runId: 'run-1', dataSource: 'backend', view: 'exercise-setup', currentExerciseId: 'e1', currentSetIndex: 0,
   exercises: [exercise('e1'), exercise('e2', 1)], completedSets: {} }) as unknown as RuntimeWorkoutSession
+
+const liveSaved: CoachPreferences = { ...saved, mode: 'hybrid', networkConsentVersion: 1 }
+function networkPort(patch: Partial<NetworkSnapshot> = {}): NonNullable<LiveRuntimeDependencies['network']> {
+  const snapshot: NetworkSnapshot = { state: 'ready', reason: null, mode: 'hybrid', voiceId: 'ash', text: true, voice: true,
+    degraded: false, eventsSent: 0, streams: 0, spoken: 0, failed: 0, decisions: [], reasons: {}, usage: null,
+    lastText: null, firstAudioMs: null, ...patch }
+  return { tick: () => undefined, observe: () => undefined, dispose: () => undefined,
+    subscribe: () => () => undefined, getSnapshot: () => snapshot }
+}
 
 class Fixture {
   readonly clock = new FakeClock()
@@ -54,6 +63,15 @@ class Fixture {
       selectedUserId: 'u1', safety: { state: 'enabled' }, panel: { stopLatched: false }, motion: { repetitionCount: reps, controlMode: mode },
       control: { mode, spotterActive: false, failureDetected: false, faultCode: null } } as unknown as HardwareSnapshot })
   }
+  complete(kind: 'set_stopped' | 'exercise_finalized' | 'workout_finalized', outcome = 'completed') {
+    this.lifecycle.push({ schemaVersion: 1, id: `completion-${this.lifecycle.length}`, kind, phase: 'finalizing-set', source: 'runtime_ack',
+      exerciseKind: 'machine', controlMode: null, progressUnit: 'reps', ordinal: 0, planRevision: 0, contextVersion: 0,
+      createdAtMs: this.clock.now(), startDeadlineMs: this.clock.now() + 20_000, factDependencies: [],
+      scope: { schemaVersion: 1, userId: 'u1', runId: 'run-1', exerciseId: 'e1', setOrdinal: 1, scopeEpoch: 1 },
+      facts: [{ schemaVersion: 1, id: 'result.outcome', value: outcome, unit: 'text', source: 'runtime_ack', confidence: 'confirmed',
+        observedAtMs: 0, validUntilMs: 0, scopeEpoch: 1 }] })
+    this.change({})
+  }
   get started() { return this.managers.reduce((sum, manager) => sum + manager.snapshot().counters.started, 0) }
 }
 
@@ -75,12 +93,67 @@ describe('CoachLiveRuntime', () => {
     for (let left = 29; left >= 0; left--) f.view('rest', { restState: { mode: 'between-sets', totalSeconds: 30, remainingSeconds: left, timerPaused: false } })
     f.clock.advance(2000, f.context)
     const snapshot = f.runtime.getSnapshot()
-    // start, count 1..3, set-end, last-set-next, rest-ten, rest-ready
+    // start, count 1..3, set-end (coalesces last-set-next), rest-ten, rest-ready
     expect(snapshot.counters.cues).toBe(8)
-    expect(snapshot.counters.admitted).toBe(8)
+    expect(snapshot.counters.admitted).toBe(7)
+    expect(snapshot.counters.suppressed).toBe(1)
     expect(snapshot.counters.missingClip).toBe(0)
-    expect(f.started).toBe(8)
+    expect(f.started).toBe(7)
     expect(snapshot.interpreter?.phase).toBe('rest')
+  })
+
+  it.each([
+    ['set_stopped', 'completed', 'set-end'], ['set_stopped', 'partial', 'set-partial'],
+    ['exercise_finalized', 'completed', 'exercise-done'], ['exercise_finalized', 'partial', 'exercise-partial'],
+    ['exercise_finalized', 'skipped', 'exercise-skipped'],
+    ['workout_finalized', 'completed', 'workout-done'], ['workout_finalized', 'partial', 'workout-partial'],
+  ] as const)('gives live sole ownership of %s / %s without replay on disconnect', (event, outcome, kind) => {
+    const f = new Fixture(networkPort()); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
+    f.complete(event, outcome)
+    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind, reason: 'live_priority' })
+    expect(f.runtime.getSnapshot().counters).toMatchObject({ cues: 1, admitted: 0, suppressed: 1 })
+    expect(f.started).toBe(0)
+    f.change({ saved }) // Local mode must not replay the consumed completion.
+    expect(f.runtime.getSnapshot().counters.cues).toBe(1)
+    expect(f.started).toBe(0)
+  })
+
+  it.each([
+    ['offline', { state: 'retrying' }, liveSaved],
+    ['connecting', { state: 'connecting' }, liveSaved],
+    ['no live voice', { voice: false, degraded: true }, liveSaved],
+    ['local mode', {}, saved],
+    ['set feedback disabled', {}, { ...liveSaved, setFeedback: false }],
+  ] as const)('keeps one local set completion with %s', (_label, snapshot, preferences) => {
+    const f = new Fixture(networkPort(snapshot)); fixtures.push(f)
+    f.inputs = { ...f.inputs, saved: preferences }; f.runtime.start(); f.complete('set_stopped')
+    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'set-end', reason: 'admitted' })
+    expect(f.runtime.getSnapshot().counters.admitted).toBe(1)
+  })
+
+  it.each([
+    ['exercise_finalized', { exerciseSummary: false }], ['workout_finalized', { workoutSummary: false }],
+  ] as const)('keeps the local %s when live summary is disabled', (event, tuning) => {
+    const f = new Fixture(networkPort()); fixtures.push(f)
+    f.inputs = { ...f.inputs, saved: { ...liveSaved, ...tuning } }; f.runtime.start(); f.complete(event)
+    expect(f.runtime.getSnapshot().counters.admitted).toBe(1)
+  })
+
+  it('does not replace skipped-set, counting or safety cues with live speech', () => {
+    const f = new Fixture(networkPort()); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
+    f.complete('set_stopped', 'skipped')
+    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'set-skipped', reason: 'admitted' })
+    f.view('exercise-session'); f.hw('training', 0); f.hw('training', 1)
+    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'count', reason: 'admitted' })
+    f.change({ emergency: true })
+    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'safety-stop', reason: 'admitted' })
+  })
+
+  it('suppresses the next-set announcement during live set feedback', () => {
+    const f = new Fixture(networkPort()); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
+    f.view('rest', { restState: { mode: 'between-sets', totalSeconds: 30, remainingSeconds: 30, timerPaused: false } })
+    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'last-set-next', reason: 'live_priority' })
+    expect(f.runtime.getSnapshot().counters.admitted).toBe(0)
   })
 
   it('reports a missing clip and keeps the legacy beep as the fallback', () => {
