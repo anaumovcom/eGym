@@ -10,3 +10,6 @@
 12:23:01 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
 12:27:00 AM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
 12:27:00 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
+1:38:12 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-settings-panel.tsx
+1:38:12 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.tsx, /src/shared/ui/layout/forma-shell.tsx
+1:38:58 AM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.tsx, /src/shared/ui/layout/forma-shell.tsx

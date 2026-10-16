@@ -70,6 +70,7 @@ SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "half": ("Половина подхода уже позади", "set-support", ("motivation", "humor")),
     "finish": ("Идут последние повторения подхода", "set-finish", ("motivation",)),
     "stall": ("В подходе пауза: новое повторение пока не засчитано", "set-stall", ("motivation",)),
+    "support": ("Подход продолжается", "set-advice", ("general-tip",)),
 }
 SET_MOMENT_KINDS = {"set_activated": "start", "rep_completed": "partial", "rep_milestone": "half",
                     "last_rep_pending": "finish"}
@@ -78,6 +79,7 @@ TIMED_SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "start": ("Таймер подхода запущен, работа началась", "set-start", ("motivation", "general-tip")),
     "half": ("Половина времени подхода уже позади", "set-support", ("motivation", "humor")),
     "finish": ("До конца подхода остаются последние секунды", "set-finish", ("motivation",)),
+    "support": ("Работа по таймеру продолжается", "set-advice", ("general-tip",)),
 }
 
 
@@ -348,12 +350,17 @@ class LiveCoach:
             if not s.during_sets:
                 return "disabled"
             moment = SET_MOMENT_KINDS[event.kind]
-            if event.kind == "rep_milestone" and context.get("moment") == "stall":
-                moment = "stall"
+            if event.kind == "rep_milestone" and context.get("moment") in ("stall", "support"):
+                moment = context["moment"]
             moments = TIMED_SET_MOMENTS if unit == "seconds" else SET_MOMENTS
             if moment not in moments:
                 return None
             claim, topic, intents = moments[moment]
+            if moment == "support":
+                slot = min(4, int(phase_elapsed // 15_000))
+                if slot < 1:
+                    return "no_window"
+                topic = f"{topic}:{slot}"
             exact = _count(context, "targetSeconds" if unit == "seconds" else "targetReps", 3600) if moment == "start" else None
             package = plan_package("T21", [
                 named, *progress_facts(scope.set_ordinal, _count(context, "totalSets"), **common)[:1],
@@ -361,7 +368,7 @@ class LiveCoach:
                 AllowedFact("milestone", claim, "confirmed", moment, **common)])
             # Topic stays per set: "half" keeps the historical key so one comment per moment per set.
             return op(candidate("T21", "active", f"{topic}:{set_key}", started=now - phase_elapsed),
-                      "active/support", intents, package)
+                      "active/general-tip" if moment == "support" else "active/support", intents, package)
         if event.kind == "set_persisted":
             if not s.set_feedback:
                 return "disabled"

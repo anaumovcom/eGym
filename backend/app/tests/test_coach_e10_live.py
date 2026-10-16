@@ -266,6 +266,31 @@ def plan(coach, run_id, kind, **kwargs):
                           message.get("context", {}))
 
 
+@pytest.mark.parametrize("timed", [False, True])
+def test_regular_active_advice_has_useful_task_and_bounded_distinct_topics(session_factory, timed):
+    coach, _, run_id = make_coach(session_factory, CoachPreferences(**HYBRID, density="talkative"))
+
+    def advice(elapsed):
+        message = event("rep_milestone", run_id, set_ordinal=1, phase="active-set",
+                        context={"moment": "support", "phaseElapsedMs": elapsed, "exerciseName": "Жим ногами"})
+        message["event"]["exerciseKind"] = "timed" if timed else "machine"
+        message["event"]["progressUnit"] = "seconds" if timed else "reps"
+        with coach.sessions() as db:
+            return coach.plan(db, live.CoachEvent.model_validate(message["event"]), None, message["context"])
+
+    assert advice(14_999) == "no_window"
+    first, second = advice(15_000), advice(30_000)
+    assert first.task == "active/general-tip" and first.intents == ("general-tip",)
+    assert first.candidate.trigger_id == "T21" and first.candidate.phase == "active"
+    assert first.candidate.topic_key != second.candidate.topic_key
+    assert advice(60_000).candidate.topic_key == advice(120_000).candidate.topic_key
+    assert coach.director.admit(first.candidate, coach.now_ms()).ok
+    coach.director.latch_safety(True)
+    assert coach.director.admit(second.candidate, coach.now_ms()).reason == "safety"
+    coach.settings = CoachPreferences(**HYBRID, during_sets=False)
+    assert advice(30_000) == "disabled"
+
+
 def test_history_skips_shorter_last_session_and_summaries_are_rich(db_session):
     _, old_exercise, _ = seed(db_session, days_ago=14, actual=8, planned=8, status="completed")
     add_set(db_session, old_exercise, 2, actual=7, planned=8)

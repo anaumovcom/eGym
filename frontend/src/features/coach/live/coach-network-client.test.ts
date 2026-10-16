@@ -190,9 +190,30 @@ describe('CoachNetworkClient', () => {
     clock(110, false)
     const sent = f.socket.events().slice(1)
     expect(sent.map(item => [item.event.kind, item.context?.moment, item.event.progressUnit])).toEqual([
-      ['set_activated', 'start', 'seconds'], ['rep_milestone', 'half', 'seconds'], ['last_rep_pending', 'finish', 'seconds']])
+      ['set_activated', 'start', 'seconds'], ['rep_milestone', 'support', 'seconds'],
+      ['rep_milestone', 'half', 'seconds'], ['last_rep_pending', 'finish', 'seconds']])
     expect(sent[0].context).toMatchObject({ targetSeconds: 120, phaseElapsedMs: 4000 })
     expect(sent[0].event.exerciseKind).toBe('timed')
+  })
+
+  it('offers bounded regular advice even without a new rep milestone, never during pauses or after opt-out', async () => {
+    const f = new Fixture()
+    await f.connect()
+    const failure = { ...plan(10), setType: 'failure' }
+    const active = { phase: 'active-set' as const, session: session({ view: 'exercise-session',
+      exercises: [{ id: 'e1', name: 'Жим ногами', kind: 'machine', plan: [failure] }] }) }
+    f.tick({ ...active, reps: 1 })
+    const start = f.input.nowMs
+    for (const [elapsed, reps] of [[15_000, 2], [16_000, 3], [30_000, 4], [45_000, 5], [60_000, 6], [75_000, 7]]) {
+      f.tick({ ...active, nowMs: start + elapsed, reps })
+    }
+    const advice = f.socket.events().filter(item => item.context?.moment === 'support')
+    expect(advice.map(item => item.context?.phaseElapsedMs)).toEqual([15_000, 30_000, 45_000, 60_000])
+    expect(advice.every(item => item.event.phase === 'active-set' && !('targetReps' in item.context!))).toBe(true)
+    const count = f.socket.events().length
+    f.tick({ ...active, phase: 'paused-set', nowMs: start + 90_000 })
+    f.tick({ ...active, saved: { ...saved, duringSets: false }, nowMs: start + 105_000 })
+    expect(f.socket.events()).toHaveLength(count)
   })
 
   it('forwards persisted lifecycle events with backend refs, never replaying older ones', async () => {

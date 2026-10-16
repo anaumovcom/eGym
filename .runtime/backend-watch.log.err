@@ -7381,3 +7381,333 @@ INFO:     connection open
 INFO:     ('127.0.0.1', 40438) - "WebSocket /api/coach/runs/83c069dda024cbbc5158db2fd3901f47/live" [accepted]
 INFO:     connection open
 Slow control tick: 427 ms (calibration=None)
+Slow control tick: 392 ms (calibration=None)
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [190897]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [242336]
+INFO:     Waiting for application startup.
+Control loop stalled: 615 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 54596) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 54612) - "WebSocket /api/coach/runs/83c069dda024cbbc5158db2fd3901f47/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [242336]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [243677]
+INFO:     Waiting for application startup.
+Control loop stalled: 621 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 40050) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 40066) - "WebSocket /api/coach/runs/83c069dda024cbbc5158db2fd3901f47/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [243677]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [248945]
+INFO:     Waiting for application startup.
+Control loop stalled: 619 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 48066) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 48070) - "WebSocket /api/coach/runs/83c069dda024cbbc5158db2fd3901f47/live" [accepted]
+INFO:     connection open
+Slow control tick: 410 ms (calibration=None)
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [248945]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [321360]
+INFO:     Waiting for application startup.
+Control loop stalled: 614 ms between ticks
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 53658) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 49976) - "WebSocket /api/coach/runs/83c069dda024cbbc5158db2fd3901f47/live" [accepted]
+INFO:     connection open
+Slow control tick: 397 ms (calibration=None)
+Hardware latch fault: правый: No communication with the instrument (no answer)
+Slow control tick: 1975 ms (calibration=None)
+Control loop stalled: 1981 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2642 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2648 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2644 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2638 ms (calibration=None)
+Control loop stalled: 2644 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2644 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2644 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2638 ms (calibration=None)
+Control loop stalled: 2644 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2644 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2644 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for connections to close. (CTRL+C to force quit)
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+INFO:     Waiting for application shutdown.
+Slow control tick: 2640 ms (calibration=None)
+Shutdown support delivery failed: {'left': 'No communication with the instrument (no answer)', 'right': 'No communication with the instrument (no answer)'}
+Shutdown support delivery failed: {'left': 'No communication with the instrument (no answer)', 'right': 'No communication with the instrument (no answer)'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [321360]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [337299]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 43660) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 43666) - "WebSocket /api/coach/runs/83c069dda024cbbc5158db2fd3901f47/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [337299]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [344443]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 55156) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 55170) - "WebSocket /api/coach/runs/83c069dda024cbbc5158db2fd3901f47/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [344443]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [359586]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Control loop stalled: 512 ms between ticks
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 41016) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 41020) - "WebSocket /api/coach/runs/83c069dda024cbbc5158db2fd3901f47/live" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [359586]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [361631]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Control loop stalled: 504 ms between ticks
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 41054) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open

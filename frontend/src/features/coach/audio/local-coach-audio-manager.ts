@@ -213,7 +213,7 @@ export class LocalCoachAudioManager {
     this.record(reason)
   }
 
-  /** Exact scope cancellation (including set/epoch). Exercise-boundary updates cancel all. */
+  /** Explicit exact-scope cancellation (including already started speech). */
   cancelScope(scope: CoachScope): void {
     if (this.disposed) return
     for (const entry of [...this.entries.values()]) if (sameScope(entry.options.scope, scope)) this.remove(entry, 'cancelled', false)
@@ -224,8 +224,8 @@ export class LocalCoachAudioManager {
     if (this.disposed) return
     const previous = this.scope
     this.scope = Object.freeze({ ...scope })
-    if (previous && !sameExercise(previous, scope)) this.cancelAll('scope_changed')
-    else this.check() // Set/rest/epoch changes preserve started audio, invalidate pending.
+    if (previous && (previous.userId !== scope.userId || previous.runId !== scope.runId)) this.cancelAll('scope_changed')
+    else this.check() // Ordinary workout transitions preserve started speech; pending must still match exactly.
     this.record('scope_changed')
   }
 

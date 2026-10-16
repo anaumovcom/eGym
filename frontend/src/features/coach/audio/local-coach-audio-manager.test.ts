@@ -177,11 +177,13 @@ describe('LocalCoachAudioManager actual-start mixer', () => {
     manager.cancelScope(next)
     expect(manager.snapshot().active).toBe(1)
     manager.updateScope({ ...next, exerciseId: 'other' })
-    expect(manager.snapshot().active).toBe(0)
-    expect(context.sources[0].stop).toHaveBeenCalledOnce()
+    expect(manager.snapshot().active).toBe(1)
+    expect(context.sources[0].stop).not.toHaveBeenCalled()
+    context.sources[0].end()
+    expect(manager.snapshot().counters.finished).toBe(1)
   })
 
-  it.each(['userId', 'runId', 'exerciseId'] as const)('cancels all on %s boundary', field => {
+  it.each(['userId', 'runId'] as const)('cancels all on %s boundary', field => {
     const { play, advance, manager } = setup()
     play('started'); advance(); play('pending', { delayMs: 100 })
     manager.updateScope({ ...scope, [field]: 'changed' })

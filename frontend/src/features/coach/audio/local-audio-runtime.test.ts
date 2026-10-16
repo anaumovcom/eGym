@@ -419,7 +419,7 @@ describe('runtime and hardware admission/cancellation', () => {
     expect(seen.every(snapshot => snapshot.userId === 'user-b' && snapshot.audio === null && !snapshot.preferencesReady)).toBe(true)
   })
 
-  it('same-exercise set transitions preserve started but cancel pending using updateScope; exercise boundaries cancel all', async () => {
+  it('set and exercise transitions preserve started speech but cancel pending using updateScope', async () => {
     const f = ready(), closed = session('workout-summary')
     f.change({ session: closed }); await f.runtime.playPreview('overlap')
     f.clock.advance(20, f.context)
@@ -428,8 +428,8 @@ describe('runtime and hardware admission/cancellation', () => {
     expect(f.runtime.getSnapshot().audio).toMatchObject({ active: 1, pending: 0 })
     expect(f.context.sources[0].stop).not.toHaveBeenCalled()
     f.change({ session: { ...closed, currentSetIndex: 1, currentExerciseId: 'exercise-b' } })
-    expect(f.runtime.getSnapshot().audio?.active).toBe(0)
-    expect(f.context.sources[0].stop).toHaveBeenCalled(); expect(f.createManager).toHaveBeenCalledTimes(1)
+    expect(f.runtime.getSnapshot().audio?.active).toBe(1)
+    expect(f.context.sources[0].stop).not.toHaveBeenCalled(); expect(f.createManager).toHaveBeenCalledTimes(1)
   })
 
   it('disposes subscriptions/sources idempotently without shared-context ownership or automatic resume', async () => {

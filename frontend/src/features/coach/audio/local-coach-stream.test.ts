@@ -138,6 +138,20 @@ describe('streamed network speech in the shared mixer', () => {
     expect(begin('after-mute')).toBe(false)
   })
 
+  it('finishes a started advice stream across exercise changes, but cancels pending speech', () => {
+    const { begin, push, advance, byId, manager, context } = setup()
+    begin('advice'); push('advice', 0, 0.3); advance()
+    begin('pending')
+    manager.updateScope({ ...scope, exerciseId: 'next-exercise', scopeEpoch: 5 })
+    expect(byId('pending')).toBeUndefined()
+    expect(push('advice', 1, 0.3, { final: true })).toBe(true)
+    expect(byId('advice')).toMatchObject({ state: 'started', stream: { final: true } })
+    for (const source of context.sources) expect(source.stop).not.toHaveBeenCalled()
+    for (const source of context.sources) source.end()
+    expect(byId('advice')).toBeUndefined()
+    expect(manager.snapshot().counters).toMatchObject({ finished: 1, cancelled: 1 })
+  })
+
   it('final without audio never starts; reservation honours start deadline', () => {
     const { begin, push, advance, byId, manager, context } = setup()
     begin('empty'); push('empty', 0, 0, { final: true }); advance()

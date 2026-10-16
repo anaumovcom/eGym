@@ -69,8 +69,8 @@ FALL_STATIC_MARGIN = 1.15  # × static friction down, at rest
 FALL_REST_S = 0.2
 FALL_RAMP_N_PER_S = 120.0
 FALL_DROP_N_PER_S = 400.0  # the user lifts: the assist goes at once
-# extra descent friction compensation (train_friction_gain_down) fades out above a rep's speed, down to the base gain
-# at the load-relief onset: a released bar keeps the screw friction as a brake
+# Extra downward-load friction compensation fades out above a rep's speed. With an upward load it follows the
+# continuous load relief instead: a separate early fade made the eccentric effort dip before any speed relief.
 DESCENT_GAIN_FADE_START = 0.4  # × max_descent_mm_s
 # range guard of a set, judged on the bar as a whole (the mean of the sides: per-side decisions near a point give one
 # side its load and not the other, a racking force). Below the lower point the load ramps out, a damper (delay-limited)
@@ -645,9 +645,6 @@ class MotorCore:
         t = self.tunables
         if self.load.load_direction == "up":
             share = max(0.0, min(1.0, load / max(self.friction[side].coulomb_up_n, 1.0))) * self.load_relief[side]
-            start, end = DESCENT_GAIN_FADE_START * self.envelope.max_speed_mm_s, 0.6 * self.envelope.max_speed_mm_s
-            v_ahead = self._bar_v_mm_s + self._bar_a_mm_s2 * self._loop_delay()
-            share *= max(0.0, min(1.0, (end - v_ahead) / (end - start)))
             return t.friction_gain_up + (t.train_friction_gain_down - t.friction_gain_up) * share
         share = max(0.0, min(1.0, load / max(self.friction[side].coulomb_down_n, 1.0))) * self.load_relief[side]
         start, end = DESCENT_GAIN_FADE_START * self.envelope.max_descent_mm_s, 0.6 * self.envelope.max_descent_mm_s
@@ -686,7 +683,23 @@ class MotorCore:
         relief = self.load_relief["left"]
         # judged on the speed a loop delay ahead while the bar speeds up downwards: the relief acts that late
         v_relief = v + min(0.0, a) * self._loop_delay()
-        if v_relief < -descent_onset:
+        if upward:
+            # An ordinary upward return used to trip a full 0.15 s unload at the onset, then keep that cut until
+            # half the onset speed. Reloading accelerated the bar into another cut: a perceptible mid-rep cycle.
+            # Keep the same onset, prediction and rate bounds, but ask only for the relief needed by the excess
+            # speed. The quadratic has zero slope at onset and reaches full relief at the existing speed limit.
+            # No low-speed rearm latch: slowing immediately starts a rate-limited return towards the load.
+            span = max(self.envelope.max_speed_mm_s - descent_onset, 1e-6)
+            excess = max(0.0, min(1.0, (-v_relief - descent_onset) / span))
+            target = 1.0 - excess * excess
+            # The exercise point is not a soft-limit cushion: keep the load up to and including the point.
+            # Only an actual crossing (mean observed bar position, not a predicted landing) starts range relief.
+            # Speed relief above is independent of position and still applies before the point when necessary.
+            if self.load.range_guard and self._bar_x_mm > self.load.upper_mm:
+                target = 0.0  # outside the set: do not keep driving upwards while the range guard catches the bar
+            ramp_s = LOAD_RELIEF_DROP_S if target < relief else LOAD_RELIEF_RECOVER_S
+            relief = rate_limit(relief, target, 1.0 / ramp_s, self._dt)
+        elif v_relief < -descent_onset:
             relief = max(0.0, relief - self._dt / LOAD_RELIEF_DROP_S)
         elif v > -0.5 * descent_onset:
             relief = min(1.0, relief + self._dt / LOAD_RELIEF_RECOVER_S)

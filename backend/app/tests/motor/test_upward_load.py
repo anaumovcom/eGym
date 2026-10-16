@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from app.motor.calibration.runner import Frame
-from app.motor.core import CoreOutput, MotorCore
+from app.motor.core import FLOOR_K_N_PER_MM, FLOOR_MAX_N, RANGE_STOP_MM, CoreOutput, MotorCore
 from app.motor.drive.protocol import DriveSample
 from app.motor.estimation.observer import ObservedState
 from app.motor.estimation.user_force import UserForceEstimate
@@ -95,8 +95,13 @@ def test_released_upward_load_settles_at_upper_bound_on_twin(load):
     core = _core(load=load, range_guard=True)
     bench = TwinBench(PlantParams(), x0_mm=500, initial_raw=100)
     trace = run_core(core, bench, 8)
+    # Stopping now starts AFTER the crossing, not in a predicted landing zone before the exercise point.
+    # Account for a delayed command and the bounded return spring's travel, not the old anticipatory 60 mm.
+    stopping_room = (core.envelope.max_speed_mm_s * (core._loop_delay() + .02)
+                     + RANGE_STOP_MM + FLOOR_MAX_N / FLOOR_K_N_PER_MM)
     for side in SIDES:
-        assert max(trace.x[side]) < 760
+        assert max(trace.x[side]) < core.load.upper_mm + stopping_room
+        assert max(trace.x[side]) < core.envelope.soft_max_mm
         assert 685 < trace.x[side][-1] < 725
         assert max(abs(x - trace.x[side][-1]) for x in trace.x[side][-10:]) < 2
     assert set(trace.mode) == {"training"}
@@ -151,6 +156,10 @@ def test_upward_relief_uses_asymmetric_max_speed_and_predicted_acceleration():
     assert core.load_relief["left"] == 1  # not the downward threshold (60)
     for _ in range(8):
         core._update_range(_states(v=350, a=1000))  # ahead > 360
+    target = 1 - ((350 + 1000 * core._loop_delay() - 360) / 240) ** 2
+    assert core.load_relief == {side: pytest.approx(target) for side in SIDES}
+    for _ in range(8):
+        core._update_range(_states(v=600))
     assert core.load_relief == {side: 0 for side in SIDES}
     core._update_range(_states(v=0))
     assert core.load_relief["left"] == pytest.approx(.04)
@@ -283,7 +292,8 @@ def test_breakaway_and_friction_are_mirrored_without_changing_effort_gain():
     assert core._descent_gain("left", 100) > core.tunables.friction_gain_up
     core._update_range(_states(710))
     assert core._fall_assist("left", _states(710)["left"], 10) == 0
-    core._update_range(_states(500, 500))
+    for _ in range(8):
+        core._update_range(_states(500, core.envelope.max_speed_mm_s))
     assert core._descent_gain("left", 100) == core.tunables.friction_gain_up
 
 

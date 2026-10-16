@@ -51,6 +51,7 @@ const EXERCISE_KINDS = new Set(['machine', 'bodyweight', 'timed', 'stretch', 'gr
 const REST_EXTRA_MIN_ELAPSED_S = 15
 const REST_EXTRA_MIN_LEFT_S = 40
 const SET_STALL_MS = 8_000
+const SET_ADVICE_INTERVAL_MS = 15_000
 const USAGE_EVERY_MS = 15_000
 const PING_EVERY_MS = 20_000
 
@@ -471,17 +472,23 @@ export class CoachNetworkClient {
     if (reps === null) return
     const plan = exercise.plan[session.currentSetIndex], target = repGoal(plan), exact = exactRepTarget(plan)
     const left = target === null ? null : target - reps
+    const elapsed = now - track.startedAt
+    const adviceSlot = Math.min(4, Math.floor(elapsed / SET_ADVICE_INTERVAL_MS))
     const moments: Array<[CoachEventKind, string, boolean]> = [
       ['rep_completed', 'partial', partialRose],
       ['set_activated', 'start', reps >= 1 && reps <= 2 && (left === null || left >= 3)],
       ['last_rep_pending', 'finish', target !== null && target >= 5 && left !== null && left >= 1 && left <= 2],
       ['rep_milestone', 'half', target !== null && target >= 8 && reps >= Math.ceil(target / 2) && left !== null && left >= 3],
       ['rep_milestone', 'stall', reps >= 1 && (left === null || left >= 1) && now - track.repAt >= SET_STALL_MS],
+      // Retry with a new useful opportunity after an early moment lost to cooldown/busy.
+      // The Director still enforces density, topic memory, opt-in and the paid budget.
+      ['rep_milestone', `support-${adviceSlot}`, adviceSlot >= 1 && reps >= 1 && (left === null || left >= 3)],
     ]
     const moment = moments.find(([, name, due]) => due && !this.sentKeys.has(`${name}:${setKey}`))
     if (!moment) return
     this.sentKeys.add(`${moment[1]}:${setKey}`)
-    this.emit(moment[0], scope, input, 'active-set', { phaseElapsedMs: Math.round(now - track.startedAt), moment: moment[1],
+    if (adviceSlot >= 1) this.sentKeys.add(`support-${adviceSlot}:${setKey}`)
+    this.emit(moment[0], scope, input, 'active-set', { phaseElapsedMs: Math.round(elapsed), moment: moment[1].startsWith('support-') ? 'support' : moment[1],
       exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length, ...(exact !== null ? { targetReps: exact } : {}) }, 'reps')
   }
 
@@ -490,15 +497,18 @@ export class CoachNetworkClient {
     const timer = input.timer, target = whole(exercise.plan[session.currentSetIndex]?.targetSeconds)
     if (!timer || !timer.running || !target || timer.exerciseId !== exercise.id || timer.setOrdinal !== scope.setOrdinal) return
     const elapsed = timer.elapsedS, left = target - elapsed
+    const adviceSlot = Math.min(4, Math.floor(elapsed * 1000 / SET_ADVICE_INTERVAL_MS))
     const moments: Array<[CoachEventKind, string, boolean]> = [
       ['set_activated', 'start', elapsed >= 3 && left >= 20],
       ['rep_milestone', 'half', target >= 40 && elapsed >= target / 2 && left >= 15],
       ['last_rep_pending', 'finish', target >= 30 && left <= 15 && left >= 6],
+      ['rep_milestone', `support-${adviceSlot}`, adviceSlot >= 1 && left >= 15],
     ]
     const moment = moments.find(([, name, due]) => due && !this.sentKeys.has(`${name}:${setKey}`))
     if (!moment) return
     this.sentKeys.add(`${moment[1]}:${setKey}`)
-    this.emit(moment[0], scope, input, 'active-set', { phaseElapsedMs: Math.round(elapsed * 1000), moment: moment[1],
+    if (adviceSlot >= 1) this.sentKeys.add(`support-${adviceSlot}:${setKey}`)
+    this.emit(moment[0], scope, input, 'active-set', { phaseElapsedMs: Math.round(elapsed * 1000), moment: moment[1].startsWith('support-') ? 'support' : moment[1],
       exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length, targetSeconds: target }, 'seconds')
   }
 
