@@ -1,7 +1,164 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.models.analytics import MuscleFatigueSnapshot
+from app.models.settings import AppSetting
+from app.models.training import UserExerciseState
+
+
+@pytest.fixture(autouse=True)
+def isolated_training_lifespan(monkeypatch: pytest.MonkeyPatch) -> None:
+    # API requests use the temporary test DB, never local bootstrap or hardware/runtime.
+    @asynccontextmanager
+    async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+        yield
+
+    monkeypatch.setattr("app.main.lifespan", lifespan)
+
+
+@pytest.mark.parametrize("load_type,slug,sets,weight,target", [
+    ("weighted", "barbell-curl", "5×17", 37, 17),
+    ("timed", "forearm-plank", "5×83 сек", 0, 83),
+])
+def test_builder_new_item_editor_uses_saved_group_params(
+    client: TestClient, db_session: Session, load_type: str, slug: str, sets: str, weight: int, target: int,
+) -> None:
+    state = db_session.scalar(select(UserExerciseState).where(
+        UserExerciseState.user_id == "alexey", UserExerciseState.exercise_slug == slug,
+    ))
+    if state is None:
+        state = UserExerciseState(user_id="alexey", exercise_slug=slug)
+        db_session.add(state)
+    state.working_reps = 4
+    state.working_weight = 91
+    state.rest_seconds = 30
+    db_session.commit()
+    groups = [{"id": "custom", "kind": "single", "title": "Custom", "items": [{
+        "id": "new-item", "slug": slug, "name": "Custom exercise", "muscleGroup": "Custom",
+        "sets": sets, "load": f"{weight} кг" if weight else "вес тела", "rest": "135 сек",
+        "loadType": load_type,
+    }]}]
+    # This is the add-to-existing-workout path: there is no selectedExercise editor.
+    assert client.put("/api/builder/plan", json={"userId": "alexey", "groups": groups}).status_code == 200
+    response = client.get("/api/builder", params={"userId": "alexey", "selectedExerciseId": "new-item"})
+    assert response.status_code == 200
+    payload = response.json()
+    params = {"sets": 5, "reps": target, "weight": weight, "restSeconds": 135}
+    if load_type == "timed":
+        params["durationSeconds"] = target
+    assert payload["selectedExercise"]["setParams"] == params
+    assert payload["selectedExercise"]["effectiveSetParams"] == params
+    assert payload["selectedExercise"]["loadType"] == load_type
+    assert payload["groups"][0]["items"][0]["sets"] == sets
+
+
+@pytest.mark.parametrize("change", ["params", "loadType", "strengthMode", "replacement", "sameNameReplacement", "staleSelectedEditor"])
+def test_builder_saved_editor_cannot_override_changed_item(client: TestClient, change: str) -> None:
+    item = {
+        "id": "reused-id", "slug": "machine-pulldown", "name": "Original", "muscleGroup": "Back",
+        "sets": "3×10", "load": "50 кг", "rest": "60 сек", "loadType": "weighted",
+    }
+    groups = [{"id": "custom", "kind": "single", "title": "Custom", "items": [item]}]
+    editor = {
+        "name": "Original", "subtitle": "Back", "setParams": {"sets": 3, "reps": 10, "weight": 50, "restSeconds": 60},
+        "loadType": "weighted", "loadMode": "Обычный вес", "tempo": "Обычный", "note": "Old editor",
+    }
+    assert client.put("/api/builder/plan", json={
+        "userId": "alexey", "groups": groups, "selectedExerciseId": "reused-id", "selectedExercise": editor,
+    }).status_code == 200
+    if change == "params":
+        item.update(sets="5×17", load="37 кг", rest="135 сек")
+    elif change == "loadType":
+        item.update(loadType="timed", sets="5×83 сек", load="вес тела", rest="135 сек")
+    elif change == "strengthMode":
+        item.update(strengthModeId="periodized_day", strengthDayType="heavy")
+    else:
+        item.update(slug="barbell-curl", name="Original" if change == "sameNameReplacement" else "Replacement",
+                    load="50 кг" if change == "sameNameReplacement" else "37 кг")
+    save_payload = {"userId": "alexey", "groups": groups}
+    if change == "staleSelectedEditor":
+        save_payload.update(selectedExerciseId="reused-id", selectedExercise=editor)
+    assert client.put("/api/builder/plan", json=save_payload).status_code == 200
+    response = client.get("/api/builder", params={"userId": "alexey", "selectedExerciseId": "reused-id"})
+    assert response.status_code == 200
+    payload = response.json()
+    saved_item = payload["groups"][0]["items"][0]
+    selected = payload["selectedExercise"]
+    assert selected["name"] == item["name"]
+    assert selected["loadType"] == item["loadType"]
+    assert saved_item["loadType"] == item["loadType"]
+    assert saved_item["load"] == item["load"]
+    assert selected["strengthModeId"] == saved_item["strengthModeId"]
+    assert selected["strengthDayType"] == saved_item["strengthDayType"]
+    assert selected["setParams"]["weight"] == (0 if change == "loadType" else 50 if change in {"strengthMode", "sameNameReplacement"} else 37)
+    assert selected["setParams"]["restSeconds"] == (135 if change in {"params", "loadType"} else 60)
+    if change == "params":
+        assert selected["setParams"]["sets"] == 5
+        assert selected["setParams"]["reps"] == 17
+    if change == "loadType":
+        assert selected["setParams"]["durationSeconds"] == 83
+    assert selected["strengthPlan"] == saved_item["strengthPlan"]
+    assert selected["note"] != "Old editor"
+
+
+@pytest.mark.parametrize("snapshot", ["legacy", "legacyReplacement", "wrongName", "wrongSlug", "wrongMode"])
+def test_builder_reads_only_matching_editor_snapshots(client: TestClient, db_session: Session, snapshot: str) -> None:
+    groups = [{"id": "custom", "kind": "single", "title": "Custom", "items": [{
+        "id": "item", "slug": "machine-pulldown", "name": "Original", "muscleGroup": "Back",
+        "sets": "3×10", "load": "50 кг", "rest": "60 сек", "loadType": "weighted",
+    }]}]
+    editor = {
+        "name": "Original", "subtitle": "Back", "setParams": {"sets": 3, "reps": 10, "weight": 50, "restSeconds": 60},
+        "loadType": "weighted", "loadMode": "Лёгкий режим", "tempo": "Контроль эксцентрики", "note": "Saved note",
+    }
+    assert client.put("/api/builder/plan", json={
+        "userId": "alexey", "programId": "back-biceps", "groups": groups,
+        "selectedExerciseId": "item", "selectedExercise": editor,
+    }).status_code == 200
+    setting = db_session.scalar(select(AppSetting).where(
+        AppSetting.user_id == "alexey", AppSetting.key == "training.builder.plan.back-biceps",
+    ))
+    assert setting is not None
+    value = dict(setting.value)
+    snapshots = dict(value["editors"])
+    stored_editor = dict(snapshots["item"])
+    assert stored_editor.pop("exerciseSlug") == "machine-pulldown"
+    if snapshot == "wrongName":
+        stored_editor["name"] = "Replaced"
+    elif snapshot == "wrongSlug":
+        stored_editor["exerciseSlug"] = "barbell-curl"
+    elif snapshot == "wrongMode":
+        stored_editor["loadType"] = "timed"
+    snapshots["item"] = stored_editor
+    setting.value = {**value, "editors": snapshots}
+    db_session.commit()
+    if snapshot == "legacyReplacement":
+        # Even a legacy editor with an identical name/params belongs to the old slug.
+        replacement_groups = value["groups"]
+        replacement_groups[0]["items"][0]["slug"] = "barbell-curl"
+        assert client.put("/api/builder/plan", json={
+            "userId": "alexey", "programId": "back-biceps", "groups": replacement_groups,
+        }).status_code == 200
+    response = client.get("/api/builder", params={"userId": "alexey", "programId": "back-biceps"})
+    assert response.status_code == 200
+    selected = response.json()["selectedExercise"]
+    assert selected["name"] == "Original"
+    assert selected["loadType"] == "weighted"
+    if snapshot == "legacy":
+        assert selected["setParams"] == editor["setParams"]
+        assert selected["note"] == "Saved note"
+        assert selected["effectiveSetParams"]["weight"] == 36
+    else:
+        assert selected["setParams"]["weight"] == 36
+        assert selected["setParams"]["reps"] == 7
+        assert selected["effectiveSetParams"] == selected["setParams"]
+        assert selected["note"] != "Saved note"
 
 
 def test_exercise_catalog_and_details_use_real_backend(client: TestClient) -> None:

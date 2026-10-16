@@ -11,10 +11,11 @@ import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtim
 import { formatTimedSeconds, formatTimerClock } from '@/features/runtime/lib/timed-set'
 import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
 import { BarStartPointSelector } from '@/features/hardware/ui/bar-start-point-selector'
-import type { BarStartPoint } from '@/features/hardware/model/types'
+import type { BarStartPoint, LoadDirection } from '@/features/hardware/model/types'
+import { LoadDirectionSelector } from '@/features/hardware/ui/load-direction-selector'
 import { resetExercisesOnBackend, saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
 import { captureRuntimeLifecycle, coachLifecycle, coachSetTimer } from '@/features/coach/lib/runtime-observation'
-import { coachRepBeep } from '@/features/coach/live/local-cue-player'
+import { playExerciseEventSound, useExerciseEventSounds } from '@/features/runtime/lib/exercise-event-sounds'
 import { getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { apiGet, apiPost } from '@/shared/api/client'
@@ -108,41 +109,9 @@ function formatCentimeters(valueMm: number | null | undefined) {
   return valueMm != null ? `${(valueMm / 10).toFixed(1)} см` : '—'
 }
 
-function playRepCountedSound() {
-  if (typeof window === 'undefined' || typeof window.AudioContext === 'undefined') {
-    return
-  }
-
-  try {
-    const audioContext = new window.AudioContext()
-    const oscillator = audioContext.createOscillator()
-    const gainNode = audioContext.createGain()
-    const startAt = audioContext.currentTime
-
-    oscillator.type = 'triangle'
-    oscillator.frequency.setValueAtTime(1046.5, startAt)
-    oscillator.frequency.exponentialRampToValueAtTime(1318.5, startAt + 0.12)
-    gainNode.gain.setValueAtTime(0.0001, startAt)
-    gainNode.gain.exponentialRampToValueAtTime(0.18, startAt + 0.02)
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, startAt + 0.22)
-    oscillator.connect(gainNode)
-    gainNode.connect(audioContext.destination)
-
-    if (audioContext.state === 'suspended') {
-      void audioContext.resume()
-    }
-
-    oscillator.start(startAt)
-    oscillator.stop(startAt + 0.22)
-    oscillator.onended = () => {
-      void audioContext.close().catch(() => undefined)
-    }
-  } catch {
-    // Ignore browser audio errors; rep counting must continue without sound.
-  }
-}
-
 export function ExerciseSessionScreen() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
@@ -164,10 +133,15 @@ export function ExerciseSessionScreen() {
       return
     }
 
-    if (session.view === 'exercise-setup' || session.view === 'rest') {
+    if (session.view === 'rest') {
+      navigate(withSearch('/rest', location.search), { replace: true })
+      return
+    }
+
+    if (session.view === 'exercise-setup') {
       startExercise()
     }
-  }, [ensureSession, initOptions, session, startExercise])
+  }, [ensureSession, initOptions, location.search, navigate, session, startExercise])
 
   useEffect(() => {
     if (session?.source === 'catalog' && session.exercises[0]?.slug === initOptions.slug && catalogExerciseDetails?.slug === initOptions.slug) {
@@ -175,7 +149,7 @@ export function ExerciseSessionScreen() {
     }
   }, [catalogExerciseDetails, initOptions.slug, session?.source, session?.exercises[0]?.slug, updateCatalogExerciseMedia])
 
-  if (!session || !session.sessionState) {
+  if (!session || !session.sessionState || session.view === 'rest') {
     return (
       <FormaShell userName={getUserName(selectedUserId)} machine={snapshot?.machine ?? session?.machine ?? fallbackMachine} hideNavigation onStop={() => setEmergencyStopActive(true)}>
         <FormaState tone="loading" title="Готовим подход…" />
@@ -207,7 +181,6 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const loadCurrentCalibration = useHardwareStore((state) => state.loadCurrentCalibration)
   const saveCalibration = useHardwareStore((state) => state.saveCalibration)
   const runCommand = useHardwareStore((state) => state.runCommand)
-  const lastRepCountRef = useRef<number | null>(null)
   const autoFinishTriggeredRef = useRef(false)
   const [actualReps, setActualReps] = useState(0)
   const [repAdjustment, setRepAdjustment] = useState(0)
@@ -252,7 +225,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const canAdjustCalibration = Boolean(activeCalibration && selectedUserId && supportsFixedBarSetup(exercise) && !pendingAction)
   const syncDeltaMm = liveMotion ? liveMotion.syncDeltaMm ?? Math.abs(liveMotion.leftPositionMm - liveMotion.rightPositionMm) : null
   const plannedValue = getPlannedValue(state, setPlan)
-  const targetText = getTargetText(state, setPlan)
+  const targetText = `${getTargetText(state, setPlan)}${exercise.perSide ? ' на сторону' : ''}`
   const correctedLiveRepetitionCount = liveMotion
     ? isFailureSet
       ? Math.max(0, liveMotion.repetitionCount + repAdjustment)
@@ -383,7 +356,6 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     autoFinishTriggeredRef.current = true
     setTimerElapsedMs((current) => current + Math.max(0, Date.now() - timerStartedAt))
     setTimerStartedAt(null)
-    playRepCountedSound()
     void handleRecordFact('completed')
   }, [isTimed, pendingAction, plannedValue, timerElapsedSeconds, timerStartedAt])
 
@@ -402,24 +374,6 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     setTimerElapsedMs(0)
     setTimerStartedAt(null)
   }
-
-  useEffect(() => {
-    if (!liveMotion) {
-      lastRepCountRef.current = null
-      return
-    }
-
-    if (lastRepCountRef.current == null) {
-      lastRepCountRef.current = liveMotion.repetitionCount
-      return
-    }
-
-    if (liveMotion.repetitionCount > lastRepCountRef.current && coachRepBeep.shouldPlayLegacyBeep(liveMotion.repetitionCount)) {
-      playRepCountedSound()
-    }
-
-    lastRepCountRef.current = liveMotion.repetitionCount
-  }, [liveMotion])
 
   useEffect(() => {
     if (!liveMotion || state.kind === 'timed' || isFailureSet || autoFinishTriggeredRef.current || pendingAction || editingPoint || calibrationBusy) {
@@ -529,6 +483,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         weightKg: actualWeight,
         mode: 'machine',
         targetSet: session.currentSetIndex + 1,
+        loadDirection: activeCalibration.loadDirection ?? 'down',
         targetReps: setPlan.targetMaxReps ?? setPlan.targetReps ?? plannedValue,
         ...(fixed ? { positionMm: activeCalibration.fixedPositionMm ?? undefined, repCountSource: 'load' } : { startPoint: activeCalibration.startPoint ?? 'lower' }),
       })
@@ -539,8 +494,22 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     }
   }
 
-  // Saved with the bar setup (the next sets and workouts start there too). While the bar waits for the grip it is
-  // moved to the new point at once; a set in progress is not interrupted — the choice applies from the next set.
+  // Direction is saved for the next set; it never changes an already started plan.
+  async function changeLoadDirection(next: LoadDirection) {
+    if (!activeCalibration || !selectedUserId || startPointSaving || calibrationBusy) return
+    setStartPointSaving(true)
+    setHardwareError(null)
+    try {
+      // Persist the next set's choice only. Never send set_load/start/resume for this selection.
+      await saveCalibration({ ...activeCalibration, loadDirection: next })
+    } catch (error) {
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось сохранить направление нагрузки.')
+    } finally {
+      setStartPointSaving(false)
+    }
+  }
+
+  // The start point may move a bar waiting for grip, but must retain that set's original direction.
   async function changeStartPoint(next: BarStartPoint) {
     if (!activeCalibration || activeCalibration.setupType !== 'bar_range' || !selectedUserId || startPointSaving) return
     setStartPointSaving(true)
@@ -572,6 +541,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
           targetSet: session.currentSetIndex + 1,
           targetReps: setPlan.targetMaxReps ?? setPlan.targetReps ?? plannedValue,
           startPoint: next,
+          loadDirection: useHardwareStore.getState().snapshot?.motion.loadDirection ?? 'down',
         })
       }
     } catch (error) {
@@ -683,6 +653,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         replaceExerciseSummary(summary)
       }
 
+      playExerciseEventSound('success')
       navigate(withSearch(nextView === 'exercise-summary' ? '/exercise-summary' : '/rest', location.search))
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить результат упражнения. Попробуйте ещё раз.')
@@ -747,6 +718,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       if (!isLastSet && currentResult) {
         finishCurrentSet(currentResult)
         const nextView = useRuntimeStore.getState().session?.view
+        if (completionStatus === 'completed') playExerciseEventSound('success')
         navigate(withSearch(nextView === 'exercise-summary' ? '/exercise-summary' : '/rest', location.search))
         return
       }
@@ -762,6 +734,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       finishExerciseWithResults(completedForExercise, resolvedExerciseStatus)
       markExerciseSaved(exercise.id, summary.exerciseSessionId, resolvedExerciseStatus)
       replaceExerciseSummary(summary)
+      if (completionStatus === 'completed') playExerciseEventSound('success')
       navigate(withSearch('/exercise-summary', location.search))
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Не удалось сохранить результат упражнения. Попробуйте ещё раз.')
@@ -789,6 +762,31 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   }
 
   const errorMessage = saveError ?? hardwareError
+  const soundProblems = [
+    saveError, hardwareError,
+    emergencyStopActive || snapshot?.safety.state === 'emergency_stop' ? 'emergency_stop' : null,
+    snapshot?.safety.requiresService ? 'requires_service' : null,
+    snapshot?.control?.faultCode,
+    ['fault', 'estop', 'emergency_stop', 'failure'].includes(controlMode ?? '') ? controlMode : null,
+    machineHold ? 'machine_hold' : null,
+    motorIdle ? 'motor_idle' : null,
+    snapshot?.control?.spotterActive ? 'spotter' : null,
+    snapshot?.control?.failureDetected ? 'failure_detected' : null,
+    ['warning', 'critical'].includes(snapshot?.control?.syncStatus ?? '') ? `sync_${snapshot?.control?.syncStatus}` : null,
+    ...(snapshot?.alerts ?? []),
+    ...(snapshot?.drives ?? []).filter(drive => drive.status === 'error' || drive.status === 'warning' || !drive.connected)
+      .map(drive => `drive_${drive.side}_${drive.status}_${drive.errorCode ?? ''}`),
+  ].filter((problem): problem is string => Boolean(problem))
+  const hasSoundBounds = liveMotion && (
+    (liveMotion.lowerBoundMm != null && liveMotion.upperBoundMm != null && liveMotion.upperBoundMm > liveMotion.lowerBoundMm)
+    || (activeCalibration?.lowerPointMm != null && activeCalibration.upperPointMm != null && activeCalibration.upperPointMm > activeCalibration.lowerPointMm)
+  )
+  useExerciseEventSounds(
+    `${selectedUserId}:${session.runId}:${exercise.id}:${state.setNumber}`,
+    hasSoundBounds && !editingPoint && !pendingAction && !emergencyStopActive && !machineHold ? motionRail?.currentTone ?? null : null,
+    soundProblems,
+    partialReps,
+  )
   const setTypeLabel = getSetTypeLabel(state.setType)
   const factLabel = state.kind === 'timed' ? 'Секунды' : 'Повторы'
   const nextExercise = !state.groupMeta && state.setNumber >= state.totalSets
@@ -814,13 +812,14 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
           <div className="rt-title">
             <h1 className="font-display font-bold tracking-[-0.04em] text-white">{exercise.name}</h1>
             <p>
-              <span>Подход {state.setNumber} из {state.totalSets}</span>
+              <span>Подход {exercise.perSide ? state.roundNumber ?? setPlan.roundNumber : state.setNumber} из {exercise.perSide ? state.totalRounds ?? exercise.plan.length / 2 : state.totalSets}</span>
               {setTypeLabel ? <span>{setTypeLabel}</span> : null}
               <span>Отдых после подхода {setPlan.restSeconds} с</span>
               {nextExercise ? <span>Следующее упражнение: {nextExercise.name}</span> : null}
             </p>
           </div>
           <div className="rt-chips" aria-label="Текущий подход">
+            {exercise.perSide ? <strong className="rt-chip text-xl" data-tone="good">{(state.side ?? setPlan.side) === 'left' ? 'Левая сторона' : 'Правая сторона'}</strong> : null}
             {isTimed
               ? <span className="rt-chip" data-tone="good"><Timer aria-hidden="true" />{taskValue}</span>
               : <span className="rt-chip" data-tone="good"><Dumbbell aria-hidden="true" />{state.weightLabel}</span>}
@@ -928,6 +927,13 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
                   <p>Гриф не дошёл до границы амплитуды. Проходите движение от нижней до верхней точки.</p>
                 </div>
               </div>
+            ) : null}
+            {canAdjustCalibration && !editingPoint ? (
+              <>
+                <p role="status" aria-label="Текущее направление нагрузки">Текущий подход: {liveMotion?.loadDirection === 'up' ? 'Тяга вверх' : 'Нагрузка вниз'}</p>
+                <LoadDirectionSelector value={activeCalibration?.loadDirection ?? 'down'} disabled={startPointSaving || calibrationBusy}
+                  nextSet={motorSetActive} onChange={(next) => void changeLoadDirection(next)} />
+              </>
             ) : null}
             {canAdjustCalibration && !editingPoint && activeCalibration?.setupType === 'bar_range' ? (
               <BarStartPointSelector
@@ -1254,6 +1260,8 @@ function buildCurrentSetResult({ state, setPlan, liveMotion, actualReps, actualW
   const isSkipped = completionStatus === 'skipped'
   return {
     setNumber: state.setNumber,
+    side: setPlan.side ?? state.side,
+    roundNumber: setPlan.roundNumber ?? state.roundNumber,
     plannedValue: getPlannedValue(state, setPlan),
     actualValue,
     completionStatus,
@@ -1303,6 +1311,8 @@ function toBackendSetPayload(exercise: RuntimeWorkoutSession['exercises'][number
       trainingMode: exercise.strengthMode.id,
       trainingDayType: exercise.strengthMode.dayType,
       completionStatus: result.completionStatus,
+      side: result.side,
+      roundNumber: result.roundNumber,
     },
   }
 }
@@ -1319,7 +1329,7 @@ async function saveSetResultToBackend(exerciseSessionId: number, result: Runtime
 }
 
 async function saveExerciseResultToBackend(exercise: RuntimeWorkoutSession['exercises'][number], completedSets: RuntimeSetResult[], userId: string, status: ExercisePersistStatus, workoutSessionId?: number, exerciseSessionId?: number, setSaveMode: ExerciseSetSaveMode = 'replace') {
-  return apiPost<RuntimeExerciseSummaryState>('/api/runtime/exercises', {
+  const summary = await apiPost<RuntimeExerciseSummaryState>('/api/runtime/exercises', {
     exerciseSessionId,
     userId,
     workoutSessionId,
@@ -1333,6 +1343,8 @@ async function saveExerciseResultToBackend(exercise: RuntimeWorkoutSession['exer
     finishedAt: new Date().toISOString(),
     calibrationState: exercise.calibrationState,
     targetSets: exercise.plan.length,
+    perSide: exercise.perSide ?? false,
+    plannedTotal: exercise.plan.reduce((total, plan) => total + (plan.targetSeconds ?? plan.targetMaxReps ?? plan.targetReps ?? 0), 0),
     trainingMode: exercise.strengthMode.id,
     trainingDayType: exercise.strengthMode.dayType,
     recommendation: status === 'skipped' ? 'Упражнение пропущено. Можно перейти к следующему упражнению без изменения нагрузки.' : undefined,
@@ -1341,4 +1353,13 @@ async function saveExerciseResultToBackend(exercise: RuntimeWorkoutSession['exer
       ? []
       : completedSets.filter(shouldSaveSetResult).map((result) => toBackendSetPayload(exercise, result)),
   })
+  // A backend summary replaces the local one; retain side identity even with older responses.
+  return exercise.perSide ? {
+    ...summary,
+    setResults: summary.setResults.map((result) => {
+      const local = completedSets.find((set) => set.setNumber === result.setNumber)
+      const plan = exercise.plan[result.setNumber - 1]
+      return { ...result, side: result.side ?? local?.side ?? plan?.side, roundNumber: result.roundNumber ?? local?.roundNumber ?? plan?.roundNumber }
+    }),
+  } : summary
 }

@@ -15,7 +15,8 @@ import { resetExercisesOnBackend } from '@/features/runtime/lib/runtime-persiste
 import { formatTimedSeconds, stepTimedSeconds } from '@/features/runtime/lib/timed-set'
 import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
 import { BarStartPointSelector } from '@/features/hardware/ui/bar-start-point-selector'
-import type { BarStartPoint } from '@/features/hardware/model/types'
+import type { BarStartPoint, LoadDirection } from '@/features/hardware/model/types'
+import { LoadDirectionSelector } from '@/features/hardware/ui/load-direction-selector'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
@@ -77,7 +78,7 @@ function areBackendBuilderSessionsEquivalent(currentSession: RuntimeWorkoutSessi
       return false
     }
 
-    if (exercise.id !== nextExercise.id || exercise.slug !== nextExercise.slug || exercise.kind !== nextExercise.kind || exercise.plan.length !== nextExercise.plan.length) {
+    if (exercise.id !== nextExercise.id || exercise.slug !== nextExercise.slug || exercise.kind !== nextExercise.kind || Boolean(exercise.perSide) !== Boolean(nextExercise.perSide) || exercise.plan.length !== nextExercise.plan.length) {
       return false
     }
 
@@ -90,6 +91,8 @@ function areBackendBuilderSessionsEquivalent(currentSession: RuntimeWorkoutSessi
         && setPlan.targetSeconds === nextSetPlan.targetSeconds
         && setPlan.recommendedWeightKg === nextSetPlan.recommendedWeightKg
         && setPlan.restSeconds === nextSetPlan.restSeconds
+        && setPlan.side === nextSetPlan.side
+        && setPlan.roundNumber === nextSetPlan.roundNumber
         && (setPlan.setType ?? null) === (nextSetPlan.setType ?? null)
     })
   })
@@ -127,6 +130,7 @@ export function ExerciseSetupScreen() {
   const [capturedFixedPositionMm, setCapturedFixedPositionMm] = useState<number | null>(null)
   const [setupType, setSetupType] = useState<'bar_range' | 'fixed_position'>('bar_range')
   const [startPoint, setStartPoint] = useState<BarStartPoint>('lower')
+  const [loadDirection, setLoadDirection] = useState<LoadDirection>('down')
   const [startPointSaving, setStartPointSaving] = useState(false)
   const [loadedSetupKey, setLoadedSetupKey] = useState<string | null>(null)
   const [calibrationOpen, setCalibrationOpen] = useState(false)
@@ -278,6 +282,7 @@ export function ExerciseSetupScreen() {
     setCapturedUpperPointMm(null)
     setCapturedFixedPositionMm(null)
     setStartPoint('lower')
+    setLoadDirection('down')
     setSetupType(requiresMachineCalibration(exercise) ? 'bar_range' : 'fixed_position')
     setLoadedSetupKey(null)
   }, [exercise?.slug, selectedUserId])
@@ -313,6 +318,7 @@ export function ExerciseSetupScreen() {
     setCapturedUpperPointMm(saved?.upperPointMm ?? null)
     setCapturedFixedPositionMm(saved?.fixedPositionMm ?? null)
     setStartPoint(saved?.startPoint ?? 'lower')
+    setLoadDirection(saved?.loadDirection ?? 'down')
     setSetupType(saved?.setupType ?? (requiresMachineCalibration(exercise) ? 'bar_range' : 'fixed_position'))
   }, [currentCalibration, exercise?.slug, loadedSetupKey, selectedUserId])
 
@@ -443,6 +449,7 @@ export function ExerciseSetupScreen() {
         upperPointMm: setupType === 'bar_range' ? upperPointMm : null,
         fixedPositionMm: setupType === 'fixed_position' ? fixedPositionMm : null,
         startPoint,
+        loadDirection,
         zeroPositionMm: setupType === 'bar_range' ? Math.round((lowerPointMm! + upperPointMm!) / 2) : fixedPositionMm!,
         movementRangeConfirmed: setupType === 'bar_range',
         calibrationRequired: true,
@@ -467,6 +474,23 @@ export function ExerciseSetupScreen() {
   }
 
   // A saved bar range keeps its points: only the start point changes, at once (no new capture needed).
+  async function changeLoadDirection(next: LoadDirection) {
+    if (startPointSaving) return
+    const previous = loadDirection
+    setLoadDirection(next)
+    if (!savedCalibration || !selectedUserId) return
+    setStartPointSaving(true)
+    try {
+      await saveCalibration({ ...savedCalibration, loadDirection: next })
+      setHardwareError(null)
+    } catch (error) {
+      setLoadDirection(previous)
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось сохранить направление нагрузки.')
+    } finally {
+      setStartPointSaving(false)
+    }
+  }
+
   async function changeStartPoint(next: BarStartPoint) {
     const previous = startPoint
     setStartPoint(next)
@@ -481,6 +505,7 @@ export function ExerciseSetupScreen() {
         upperPointMm: savedCalibration.upperPointMm,
         fixedPositionMm: null,
         startPoint: next,
+        loadDirection,
         zeroPositionMm: savedCalibration.zeroPositionMm,
         movementRangeConfirmed: savedCalibration.movementRangeConfirmed,
         calibrationRequired: savedCalibration.calibrationRequired,
@@ -531,6 +556,7 @@ export function ExerciseSetupScreen() {
           weightKg: firstSetWeightKg,
           mode: 'machine',
           targetSet: startSetIndex + 1,
+          loadDirection,
           targetReps: startSetPlan?.targetMaxReps ?? startSetPlan?.targetReps ?? settings.reps,
           ...(setupType === 'fixed_position' ? { positionMm: savedCalibration?.fixedPositionMm ?? undefined, repCountSource: 'load' } : { startPoint }),
         })
@@ -593,6 +619,7 @@ export function ExerciseSetupScreen() {
               <span>{session.workoutTitle}</span>
               <span>Упражнение {exercise.order} из {session.exercises.length}</span>
               <span>{exerciseKindLabels[exercise.kind]}</span>
+              <span>{exercise.perSide ? 'Поочерёдно · на каждую сторону' : 'Обычное выполнение'}</span>
             </p>
           </div>
           <div className="rt-chips" role="group" aria-label="Готовность к старту">
@@ -622,7 +649,7 @@ export function ExerciseSetupScreen() {
                 )}
                 <div className="rt-media-caption" aria-hidden="true">
                   <span>{exercise.muscles.slice(0, 2).join(' · ') || exerciseKindLabels[exercise.kind]}</span>
-                  <span>План: <strong>{settings.sets} × {settings.reps}</strong></span>
+                  <span>План: <strong>{settings.sets} × {settings.reps}{exercise.perSide ? ' на сторону' : ''}</strong></span>
                 </div>
               </div>
             </div>
@@ -707,6 +734,7 @@ export function ExerciseSetupScreen() {
             </div>
 
             <p className="rt-setup-parameters-note">{exercise.kind === 'timed' ? `На время · ${settings.sets} × ${formatTimedSeconds(settings.reps)}` : `${currentStrengthMode.title} · ${settings.mode} · безопасный диапазон ${settings.safeRange[0]}–${settings.safeRange[1]} кг`}</p>
+            {calibrationRequired ? <LoadDirectionSelector value={loadDirection} disabled={startPointSaving || loadedSetupKey !== `${selectedUserId}:${exercise.slug}`} onChange={(next) => void changeLoadDirection(next)} /> : null}
             {calibrationRequired && setupType === 'bar_range' ? (
               <BarStartPointSelector value={startPoint} disabled={startPointSaving || barMoving} onChange={(next) => void changeStartPoint(next)} />
             ) : null}

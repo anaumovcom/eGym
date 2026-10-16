@@ -84,6 +84,8 @@ export async function resetExercisesOnBackend(session: RuntimeWorkoutSession, ex
         finishedAt: new Date().toISOString(),
         calibrationState: exercise.calibrationState,
         targetSets: exercise.plan.length,
+        perSide: exercise.perSide ?? false,
+        plannedTotal: exercise.plan.reduce((total, plan) => total + (plan.targetSeconds ?? plan.targetMaxReps ?? plan.targetReps ?? 0), 0),
         trainingMode: exercise.strengthMode.id,
         trainingDayType: exercise.strengthMode.dayType,
         muscles: exercise.muscles.map((name, index) => ({ muscleId: name, name, role: index === 0 ? 'primary' : 'secondary' })),

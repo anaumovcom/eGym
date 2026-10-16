@@ -14,6 +14,7 @@ import type {
 import type { LoadAdjustmentResponse } from '@/features/runtime/lib/runtime-persistence'
 import { getRuntimeResumeView, isSessionInCurrentTrainingDay } from '@/features/runtime/lib/runtime-day'
 import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exercise'
+import { expandPerSidePlan } from '@/features/runtime/lib/per-side'
 import { buildStrengthPlan, getStrengthModeTitle, normalizeStrengthDayType, normalizeStrengthModeId, toRuntimeSetPlan } from '@/features/strength/lib/strength-plan'
 import { buildExerciseSession, buildExerciseSummary, buildPhotoProgressState, buildRestState, buildWorkoutSummary, createRuntimeSession, rebuildSessionSnapshots, simulateSetResult } from '@/mocks/stage3-data'
 
@@ -130,13 +131,17 @@ function buildNormalizedWorkoutSummary(
   const completedExercises = session.exercises.filter((exercise) => (session.exerciseOutcomes?.[exercise.id] ?? null) === 'completed').length
   const targetExercises = session.exercises.length
   const targetSets = session.exercises.reduce((total, exercise) => total + exercise.plan.length, 0)
-  const completedSets = Object.values(session.completedSets).reduce((total, results) => total + results.length, 0)
-  const totalReps = Object.values(session.completedSets).reduce(
-    (total, results) => total + results.reduce((resultTotal, result) => resultTotal + (result.reps ?? result.actualValue ?? 0), 0),
+  const performed = session.exercises.map((exercise) => ({
+    exercise,
+    results: (session.completedSets[exercise.id] ?? []).filter((result) => result.actualValue > 0 && result.completionStatus !== 'skipped'),
+  }))
+  const completedSets = performed.reduce((total, { results }) => total + results.length, 0)
+  const totalReps = performed.reduce(
+    (total, { exercise, results }) => total + (exercise.kind === 'timed' ? 0 : results.reduce((resultTotal, result) => resultTotal + (result.reps ?? result.actualValue), 0)),
     0,
   )
-  const totalVolume = Object.values(session.completedSets).reduce(
-    (total, results) => total + results.reduce((resultTotal, result) => resultTotal + (result.volumeKg ?? ((result.weightKg ?? 0) * (result.reps ?? result.actualValue ?? 0))), 0),
+  const totalVolume = performed.reduce(
+    (total, { exercise, results }) => total + (exercise.kind === 'timed' ? 0 : results.reduce((resultTotal, result) => resultTotal + (result.volumeKg ?? ((result.weightKg ?? 0) * (result.reps ?? result.actualValue))), 0)),
     0,
   )
 
@@ -146,7 +151,7 @@ function buildNormalizedWorkoutSummary(
     metrics: [
       { label: 'длительность', value: durationValue, hint: summary.outcome === 'aborted' ? 'частично выполнено' : 'итог тренировки' },
       { label: 'упражнений', value: `${completedExercises} / ${targetExercises}`, hint: 'по плану' },
-      { label: 'подходов', value: `${completedSets} / ${targetSets}`, hint: 'засчитано' },
+      { label: session.exercises.some((exercise) => exercise.perSide) ? 'подходов / сторон' : 'подходов', value: `${completedSets} / ${targetSets}`, hint: 'засчитано' },
       { label: 'повторов', value: String(totalReps), hint: 'суммарно' },
       { label: 'объём', value: `${Math.round(totalVolume)} кг`, hint: 'общий объём' },
     ],
@@ -158,22 +163,35 @@ function rebuildExercisePlan(exercise: RuntimeWorkoutSession['exercises'][number
   if (exercise.kind === 'timed') {
     // Timed sets: `reps` holds the seconds per set; the setup steppers reshape the plan directly.
     const settings = exercise.loadSettings
-    return Array.from({ length: Math.max(1, settings.sets) }, (_, index) => ({
+    return expandPerSidePlan(Array.from({ length: Math.max(1, settings.sets) }, (_, index) => ({
       ...(exercise.plan[index] ?? exercise.plan[exercise.plan.length - 1]),
       targetSeconds: Math.max(1, settings.reps),
       weightLabel: 'вес тела',
       restSeconds: settings.restSeconds,
-    }))
+    })), exercise.perSide)
   }
 
   if (exercise.kind === 'group') {
     return exercise.plan
   }
 
+  if (exercise.perSide && exercise.kind === 'bodyweight' && !exercise.plan.some((plan) => plan.setType)) {
+    const settings = exercise.loadSettings
+    return expandPerSidePlan(Array.from({ length: Math.max(1, settings.sets) }, () => ({
+      targetReps: settings.reps,
+      targetMinReps: settings.reps,
+      targetMaxReps: settings.reps,
+      weightLabel: 'вес тела',
+      restSeconds: settings.restSeconds,
+    })), true)
+  }
+
   const strengthMode = exercise.strengthMode ?? { id: 'basic', dayType: null }
-  return buildStrengthPlan(strengthMode.id, strengthMode.dayType, exercise.loadSettings, exercise.kind).map((plan) =>
+  // Per-side builder counts are logical sets, not the legacy mode's default template size.
+  const shape = exercise.perSide ? { sets: exercise.loadSettings.sets } : undefined
+  return expandPerSidePlan(buildStrengthPlan(strengthMode.id, strengthMode.dayType, exercise.loadSettings, exercise.kind, shape).map((plan) =>
     toRuntimeSetPlan(plan, exercise.loadSettings.reps),
-  )
+  ), exercise.perSide)
 }
 
 export const useRuntimeStore = create<RuntimeStore>()(
@@ -407,7 +425,11 @@ export const useRuntimeStore = create<RuntimeStore>()(
       }
 
       const currentExercise = getCurrentExercise(state.session)
-      const result = providedResult ?? simulateSetResult(state.session)
+      const plan = currentExercise.plan[state.session.currentSetIndex]
+      const rawResult = providedResult ?? simulateSetResult(state.session)
+      const result = currentExercise.perSide && plan?.side
+        ? { ...rawResult, setNumber: state.session.currentSetIndex + 1, side: plan.side, roundNumber: plan.roundNumber }
+        : rawResult
       const completedSets = {
         ...state.session.completedSets,
         [currentExercise.id]: [...(state.session.completedSets[currentExercise.id] ?? []), result],

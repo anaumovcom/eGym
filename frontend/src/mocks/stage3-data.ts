@@ -284,6 +284,7 @@ export function buildExerciseSession(session: RuntimeWorkoutSession): RuntimeExe
     kind: exercise.kind,
     setNumber: session.currentSetIndex + 1,
     totalSets: exercise.plan.length,
+    ...(exercise.perSide ? { side: setPlan.side, roundNumber: setPlan.roundNumber, totalRounds: exercise.plan.length / 2 } : {}),
     targetLabel,
     currentValue,
     targetValue,
@@ -359,6 +360,17 @@ export function simulateSetResult(session: RuntimeWorkoutSession): RuntimeSetRes
   const targetMaxReps = plan.targetMaxReps ?? plan.targetReps
   const weightKg = plan.recommendedWeightKg ?? (exercise.kind === 'machine' ? exercise.loadSettings.weight : 0)
 
+  if (exercise.perSide) {
+    return {
+      setNumber, side: plan.side, roundNumber: plan.roundNumber,
+      plannedValue, actualValue: plannedValue, setType: plan.setType,
+      targetMinReps, targetMaxReps, weightKg,
+      ...(exercise.kind === 'timed' ? {} : { reps: plannedValue }),
+      volumeKg: exercise.kind === 'timed' ? 0 : weightKg * plannedValue,
+      tempoLabel: 'стабильно',
+    }
+  }
+
   if (exercise.kind === 'timed') {
     return {
       setNumber,
@@ -430,6 +442,28 @@ export function simulateSetResult(session: RuntimeWorkoutSession): RuntimeSetRes
 export function buildRestState(session: RuntimeWorkoutSession, result: RuntimeSetResult): RuntimeRestState {
   const exercise = getCurrentExercise(session)
   const hasNextSet = session.currentSetIndex < exercise.plan.length - 1
+  const currentPlan = exercise.plan[session.currentSetIndex]
+  const nextPlan = exercise.plan[session.currentSetIndex + 1]
+
+  if (exercise.perSide && currentPlan.side === 'left' && nextPlan?.side === 'right') {
+    return {
+      mode: 'between-sets',
+      title: 'Смените сторону',
+      subtitle: `${exercise.name} · подход ${currentPlan.roundNumber} · левая сторона завершена`,
+      totalSeconds: 0,
+      remainingSeconds: 0,
+      // The existing rest screen auto-starts hardware at zero unless paused.
+      timerPaused: true,
+      completedSet: result,
+      recommendation: 'Перейдите на правую сторону. Продолжите, когда будете готовы.',
+      nextActionLabel: 'Начать правую сторону',
+      nextExercise: {
+        name: `${exercise.name} · правая сторона`,
+        target: exercise.kind === 'timed' ? `${nextPlan.targetSeconds} сек` : formatRuntimeTargetLabel(nextPlan, result.plannedValue),
+        restLabel: 'без отдыха при смене стороны',
+      },
+    }
+  }
 
   if (exercise.kind === 'group') {
     return {
@@ -450,7 +484,9 @@ export function buildRestState(session: RuntimeWorkoutSession, result: RuntimeSe
   return {
     mode: hasNextSet ? 'between-sets' : 'next-exercise',
     title: hasNextSet ? 'Отдых между подходами' : 'Отдых между упражнениями',
-    subtitle: `${exercise.name} · подход ${result.setNumber} из ${exercise.plan.length} завершён`,
+    subtitle: exercise.perSide
+      ? `${exercise.name} · подход ${currentPlan.roundNumber} из ${exercise.plan.length / 2} · правая сторона завершена`
+      : `${exercise.name} · подход ${result.setNumber} из ${exercise.plan.length} завершён`,
     totalSeconds: exercise.plan[session.currentSetIndex].restSeconds,
     remainingSeconds: exercise.plan[session.currentSetIndex].restSeconds,
     timerPaused: false,
@@ -500,11 +536,11 @@ function getSummaryLoadSnapshot(exercise: RuntimeWorkoutSession['exercises'][num
   const workPlan = exercise.plan.filter((item) => item.setType !== 'warmup')
   const relevantPlan = (workPlan.length > 0 ? workPlan : exercise.plan)[0]
   const reps = relevantPlan?.targetMaxReps ?? relevantPlan?.targetReps ?? null
-  const sets = workPlan.length > 0 ? workPlan.length : exercise.plan.length
+  const sets = (workPlan.length > 0 ? workPlan.length : exercise.plan.length) / (exercise.perSide ? 2 : 1)
   const weightKg = exercise.kind === 'machine'
     ? (relevantPlan?.recommendedWeightKg ?? exercise.loadSettings.weight)
     : null
-  const restSeconds = relevantPlan?.restSeconds ?? null
+  const restSeconds = (exercise.perSide ? exercise.plan.find((item) => item.side === 'right' && item.setType === relevantPlan?.setType) : relevantPlan)?.restSeconds ?? null
 
   return {
     loadLabel: formatLoadLabel(weightKg, reps, sets),
@@ -542,7 +578,9 @@ export function buildExerciseSummary(session: RuntimeWorkoutSession, outcome: Ru
           : exercise.kind === 'group'
             ? 'Группа завершена'
             : 'Упражнение завершено',
-    subtitle: outcome === 'skipped' ? `${exercise.name} · пропуск сохранён` : `${exercise.name} · ${results.length} подхода выполнено`,
+    subtitle: outcome === 'skipped' ? `${exercise.name} · пропуск сохранён` : exercise.perSide
+      ? `${exercise.name} · ${formatPerSideCompletion(exercise, results)}`
+      : `${exercise.name} · ${results.length} подхода выполнено`,
     kind: exercise.kind,
     currentLoad: loadSnapshot.loadLabel,
     currentWeightKg: loadSnapshot.weightKg,
@@ -558,7 +596,7 @@ export function buildExerciseSummary(session: RuntimeWorkoutSession, outcome: Ru
     trainingDayType: loadSnapshot.trainingDayType,
     setResults: results,
     totals: {
-      setsCompleted: `${results.length} из ${exercise.plan.length}`,
+      setsCompleted: exercise.perSide ? formatPerSideCompletion(exercise, results) : `${results.length} из ${exercise.plan.length}`,
       repsOrTime: exercise.kind === 'timed' ? `${totalValue} сек` : `${totalValue} повторов`,
       volume: totalVolume,
       bestSet: getLocalBestSetLabel(results),
@@ -566,7 +604,7 @@ export function buildExerciseSummary(session: RuntimeWorkoutSession, outcome: Ru
       tempo: 'стабильный',
     },
     planVsFact: [
-      { label: 'Подходы', plan: `${exercise.plan.length}`, fact: `${results.length}`, delta: `${results.length - exercise.plan.length}` },
+      { label: exercise.perSide ? 'Стороны' : 'Подходы', plan: `${exercise.plan.length}`, fact: `${results.length}`, delta: `${results.length - exercise.plan.length}` },
       { label: exercise.kind === 'timed' ? 'Секунды' : 'Повторы', plan: `${plannedTotal}`, fact: `${totalValue}`, delta: `${totalValue - plannedTotal}` },
       { label: 'Вес', plan: exercise.kind === 'machine' ? `${exercise.loadSettings.weight} кг` : '—', fact: exercise.kind === 'machine' ? `${exercise.loadSettings.weight} кг` : '—', delta: '—' },
     ],
@@ -577,18 +615,25 @@ export function buildExerciseSummary(session: RuntimeWorkoutSession, outcome: Ru
   }
 }
 
+function formatPerSideCompletion(exercise: RuntimeExercisePlan, results: RuntimeSetResult[]) {
+  const completed = new Set(results.filter((result) => result.actualValue > 0 && result.completionStatus !== 'skipped').map((result) => result.setNumber))
+  const pairs = exercise.plan.filter((plan, index) => plan.side === 'right' && completed.has(index + 1) && completed.has(index)).length
+  return `${pairs} из ${exercise.plan.length / 2} пар · ${completed.size} из ${exercise.plan.length} сторон`
+}
+
 function getLocalBestSetLabel(results: RuntimeSetResult[]) {
   if (results.length === 0) {
     return '—'
   }
 
   const best = results.reduce((current, item) => ((item.volumeKg ?? 0) > (current.volumeKg ?? 0) ? item : current), results[0])
+  const label = best.side ? `Подход ${best.roundNumber} · ${best.side === 'left' ? 'левая' : 'правая'} сторона` : `Подход ${best.setNumber}`
   if (best.weightKg && (best.reps ?? best.actualValue)) {
     const reps = best.reps ?? best.actualValue
-    return `Подход ${best.setNumber}: ${best.weightKg} кг × ${reps} = ${Math.round(best.weightKg * reps)} кг`
+    return `${label}: ${best.weightKg} кг × ${reps} = ${Math.round(best.weightKg * reps)} кг`
   }
 
-  return `Подход ${best.setNumber}: ${best.actualValue}`
+  return `${label}: ${best.actualValue}`
 }
 
 function buildLocalStrengthRecommendation(modeId: string, dayType: string | null | undefined, results: RuntimeSetResult[]) {
@@ -701,16 +746,17 @@ function formatWorkoutExerciseResult(exercise: RuntimeWorkoutSession['exercises'
   }
 
   const totalValue = results.reduce((sum, item) => sum + (item.reps ?? item.actualValue), 0)
+  const setLabel = exercise.perSide ? formatPerSideCompletion(exercise, results) : `${results.length} подхода`
   if (exercise.kind === 'timed') {
-    return `${results.length} подхода • ${totalValue} сек`
+    return `${setLabel} • ${totalValue} сек`
   }
 
   const totalVolume = results.reduce((sum, item) => sum + (item.volumeKg ?? ((item.weightKg ?? 0) * (item.reps ?? item.actualValue ?? 0))), 0)
   const valueLabel = `${totalValue} ${totalValue % 10 === 1 && totalValue % 100 !== 11 ? 'повтор' : totalValue % 10 >= 2 && totalValue % 10 <= 4 && (totalValue % 100 < 12 || totalValue % 100 > 14) ? 'повтора' : 'повторов'}`
 
   return exercise.kind === 'machine'
-    ? `${results.length} подхода • ${valueLabel} • ${Math.round(totalVolume)} кг`
-    : `${results.length} подхода • ${valueLabel}`
+    ? `${setLabel} • ${valueLabel} • ${Math.round(totalVolume)} кг`
+    : `${setLabel} • ${valueLabel}`
 }
 
 function buildWorkoutSummaryExercises(session: RuntimeWorkoutSession): RuntimeWorkoutSummaryState['exercises'] {
@@ -755,11 +801,19 @@ function buildWorkoutSummaryExercises(session: RuntimeWorkoutSession): RuntimeWo
 }
 
 export function buildWorkoutSummary(muscleLoad: ReturnType<typeof effectsForWorkout>, outcome: RuntimeWorkoutOutcome, session?: RuntimeWorkoutSession): RuntimeWorkoutSummaryState {
+  const hasSides = session?.exercises.some((exercise) => exercise.perSide)
+  const sideMetrics = session && hasSides ? [
+    { label: 'длительность', value: '—', hint: 'итог тренировки' },
+    { label: 'упражнений', value: `${session.completedExerciseIds.length} / ${session.exercises.length}`, hint: 'по плану' },
+    { label: 'подходов / сторон', value: `${Object.values(session.completedSets).reduce((sum, results) => sum + results.length, 0)} / ${session.exercises.reduce((sum, exercise) => sum + exercise.plan.length, 0)}`, hint: 'стороны считаются отдельно' },
+    { label: 'повторов', value: String(session.exercises.filter((exercise) => exercise.kind !== 'timed').reduce((sum, exercise) => sum + (session.completedSets[exercise.id] ?? []).reduce((total, result) => total + (result.reps ?? result.actualValue), 0), 0)), hint: 'суммарно' },
+    { label: 'объём', value: `${Math.round(Object.values(session.completedSets).flat().reduce((sum, result) => sum + (result.volumeKg ?? ((result.weightKg ?? 0) * (result.reps ?? 0))), 0))} кг`, hint: 'общий объём' },
+  ] : undefined
   return {
     outcome,
     title: outcome === 'aborted' ? 'Тренировка завершена частично' : 'Тренировка завершена',
     subtitle: outcome === 'aborted' ? 'Спина + бицепс · 31 минута · 3 из 5 упражнений выполнено' : 'Спина + бицепс · 47 минут · 5 упражнений выполнено',
-    metrics:
+    metrics: sideMetrics ?? (
       outcome === 'aborted'
         ? [
             { label: 'длительность', value: '31 минута', hint: 'частично выполнено' },
@@ -774,7 +828,7 @@ export function buildWorkoutSummary(muscleLoad: ReturnType<typeof effectsForWork
             { label: 'подходов', value: '18 / 18', hint: 'выполнено' },
             { label: 'повторов', value: '164', hint: 'суммарно' },
             { label: 'объём', value: '6 420 кг', hint: 'общий объём' },
-          ],
+          ]),
     exercises: session ? buildWorkoutSummaryExercises(session) : (
       outcome === 'aborted'
         ? [

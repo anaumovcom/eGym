@@ -69,6 +69,52 @@ function renderScreen() {
 }
 
 describe('ExerciseSetupScreen', () => {
+  it.each(['perSide', 'side', 'roundNumber'] as const)('refreshes backend setup when only %s changes', async (field) => {
+    currentSearch = '?source=builder&programId=back-biceps'
+    const original = useRuntimeStore.getState().session!
+    const exercise = { ...original.exercises[0], perSide: true, plan: original.exercises[0].plan.map((plan) => ({ ...plan, side: 'left' as const, roundNumber: 1 })) }
+    const session: RuntimeWorkoutSession = { ...original, source: 'builder', programId: 'back-biceps', dataSource: 'backend', exercises: [exercise] }
+    const updatedExercise = field === 'perSide'
+      ? { ...exercise, perSide: false }
+      : { ...exercise, plan: exercise.plan.map((plan, index) => index ? plan : { ...plan, ...(field === 'side' ? { side: 'right' as const } : { roundNumber: 2 }) }) }
+    useRuntimeStore.setState({ session })
+    buildBackendBuilderRuntimeSessionMock.mockResolvedValue({ ...session, exercises: [updatedExercise] })
+    renderScreen()
+    await waitFor(() => expect(useRuntimeStore.getState().session!.exercises[0]).toEqual(updatedExercise))
+    expect(screen.getByText(field === 'perSide' ? 'Обычное выполнение' : 'Поочерёдно · на каждую сторону')).toBeInTheDocument()
+    if (field !== 'perSide') expect(screen.getByText(/на сторону/)).toBeInTheDocument()
+    expect(useHardwareStore.getState().runCommand).not.toHaveBeenCalled()
+  })
+
+  it('defaults LOAD down and saves up independently of the start point, then starts with up', async () => {
+    const saved: HardwareCalibration = {
+      id: 90, userId: 'alexey', exerciseSlug: 'barbell-floor-press', setupType: 'bar_range',
+      lowerPointMm: 300, upperPointMm: 900, fixedPositionMm: null, startPoint: 'lower',
+      zeroPositionMm: 600, movementRangeConfirmed: true, calibrationRequired: true,
+      isActive: true, capturedAt: new Date().toISOString(), expiresAt: null,
+    }
+    loadCurrentCalibrationMock.mockImplementation(async () => {
+      useHardwareStore.setState({ currentCalibration: saved })
+      return saved
+    })
+    const save = vi.fn().mockImplementation(async payload => {
+      const updated = { ...saved, ...payload }
+      useHardwareStore.setState({ currentCalibration: updated })
+      return updated
+    })
+    const command = vi.fn().mockResolvedValue({})
+    useHardwareStore.setState({ saveCalibration: save, runCommand: command, checkSafetyGate: vi.fn().mockResolvedValue({ allowed: true }) })
+    renderScreen()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Тяга вверх', exact: true })).toBeEnabled())
+    expect(screen.getByRole('button', { name: 'Нагрузка вниз', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await userEvent.click(screen.getByRole('button', { name: 'Тяга вверх', exact: true }))
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ loadDirection: 'up', startPoint: 'lower', lowerPointMm: 300, upperPointMm: 900 })))
+    expect(screen.getByText(/удобнее начинать у верхней точки/)).toBeInTheDocument()
+    expect(command).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Запустить упражнение' }))
+    expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'start_motion', loadDirection: 'up', startPoint: 'lower' }))
+  })
+
   beforeEach(() => {
     localStorage.clear()
     vi.mocked(apiGet).mockReset().mockResolvedValue([])

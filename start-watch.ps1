@@ -1,6 +1,8 @@
 ﻿param(
   [switch]$Bootstrap,
-  [switch]$BackendWatch
+  [switch]$BackendWatch,
+  [ValidateRange(0, 65535)]
+  [int]$BackendPort = 0
 )
 
 Set-StrictMode -Version Latest
@@ -25,7 +27,18 @@ $backendLogFile = Join-Path $runtimeDir 'backend-watch.log'
 $backendErrorLogFile = "$backendLogFile.err"
 $backendSupervisorLogFile = Join-Path $runtimeDir 'backend-watch-supervisor.log'
 
-$backendUrl = 'http://127.0.0.1:8000'
+$backendPortFile = Join-Path $runtimeDir 'backend-watch.port'
+$previousBackendPort = 8000
+if (Test-Path $backendPortFile) {
+  $storedPort = 0
+  if ([int]::TryParse((Get-Content $backendPortFile -Raw).Trim(), [ref]$storedPort) -and $storedPort -gt 0 -and $storedPort -le 65535) {
+    $previousBackendPort = $storedPort
+  }
+}
+if ($BackendPort -eq 0) {
+  $BackendPort = $previousBackendPort
+}
+$backendUrl = "http://127.0.0.1:$BackendPort"
 $backendHealthUrl = "$backendUrl/api/health"
 $frontendUrl = 'http://127.0.0.1:5173'
 
@@ -87,7 +100,13 @@ function Test-HttpReady {
 }
 
 function Test-BackendReady {
-  return Test-HttpReady -Url $backendHealthUrl
+  try {
+    $health = Invoke-RestMethod -Uri $backendHealthUrl -TimeoutSec 2 -ErrorAction Stop
+    # A different FastAPI project may also expose /api/health on this port.
+    return ($health.status -eq 'ok' -and $health.database -eq 'ok' -and $health.openapiUrl -eq '/api/openapi.json')
+  } catch {
+    return $false
+  }
 }
 
 function Test-FrontendReady {
@@ -181,7 +200,7 @@ function Invoke-BackendWatch {
     '-m', 'uvicorn', 'app.main:app',
     '--app-dir', $backendRoot,
     '--host', '127.0.0.1',
-    '--port', '8000',
+    '--port', "$BackendPort",
     '--timeout-graceful-shutdown', '2'
   )
 
@@ -289,6 +308,15 @@ function Get-PidFromFile {
     return $null
   }
 
+  # PID files can survive reboot or be copied from Linux; Windows reuses IDs.
+  $owner = Get-CimInstance Win32_Process -Filter "ProcessId=$parsedPid" -ErrorAction SilentlyContinue
+  $commandLine = if ($owner) { [string]$owner.CommandLine } else { '' }
+  $expectedPath = if ($PidFile -eq $backendPidFile) { $PSCommandPath } else { $frontendRoot }
+  if ($commandLine.IndexOf($expectedPath, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+    Remove-Item -Path $PidFile -Force -ErrorAction SilentlyContinue
+    return $null
+  }
+
   return $parsedPid
 }
 
@@ -391,6 +419,33 @@ if ($BackendWatch) {
 }
 
 if (-not $Bootstrap) {
+  if (-not (Test-BackendReady)) {
+    $candidatePort = $BackendPort
+    while (Get-NetTCPConnection -State Listen -LocalPort $candidatePort -ErrorAction SilentlyContinue) {
+      $candidatePort++
+      if ($candidatePort -gt [Math]::Min($BackendPort + 20, 65535)) {
+        throw "No free backend port near $BackendPort. Stop the conflicting server or choose -BackendPort."
+      }
+    }
+    if ($candidatePort -ne $BackendPort) {
+      Write-WarnLine "Port $BackendPort is occupied by another server. eGym backend will use $candidatePort."
+      $BackendPort = $candidatePort
+      $backendUrl = "http://127.0.0.1:$BackendPort"
+      $backendHealthUrl = "$backendUrl/api/health"
+    }
+  }
+
+  if ($BackendPort -ne $previousBackendPort) {
+    # Vite must receive the new API URL, even if the old frontend is healthy.
+    foreach ($pidFile in @($frontendPidFile, $backendPidFile)) {
+      $oldProcessId = Get-PidFromFile -PidFile $pidFile
+      if ($oldProcessId) {
+        Stop-ProcessTree -ProcessId $oldProcessId
+        Remove-Item -Path $pidFile -Force -ErrorAction SilentlyContinue
+      }
+    }
+  }
+
   $existingBackendPid = Get-PidFromFile -PidFile $backendPidFile
   $existingFrontendPid = Get-PidFromFile -PidFile $frontendPidFile
 
@@ -409,15 +464,8 @@ if (-not $Bootstrap) {
     Write-WarnLine 'Найдены PID-файлы, но готовность серверов не подтверждена. Запускаю восстановление.'
   }
 
-  $powershellExe = Join-Path $PSHOME 'powershell.exe'
-  $bootstrapArgs = @(
-    '-NoProfile',
-    '-ExecutionPolicy', 'Bypass',
-    '-File', $PSCommandPath,
-    '-Bootstrap'
-  )
-
-  Start-Process -FilePath $powershellExe -ArgumentList $bootstrapArgs -WindowStyle Hidden | Out-Null
+  # Keep bootstrap failures visible; only the actual servers are detached.
+  & $PSCommandPath -Bootstrap -BackendPort $BackendPort
 
   for ($attempt = 0; $attempt -lt 50; $attempt++) {
     $backendPid = Get-PidFromFile -PidFile $backendPidFile
@@ -445,6 +493,17 @@ if (-not (Test-Path $viteBin)) {
   throw "Не найден Vite: $viteBin"
 }
 
+Push-Location $backendRoot
+try {
+  & $pythonExe -c 'import uvicorn; import app.main'
+  if ($LASTEXITCODE -ne 0) {
+    throw "Backend import failed. Install dependencies: & `"$pythonExe`" -m pip install -e `"$backendRoot`""
+  }
+} finally {
+  Pop-Location
+}
+Set-Content -Path $backendPortFile -Value $BackendPort
+
 $frontendCommand = @(
   '/d',
   '/c',
@@ -455,7 +514,8 @@ $backendWatcherCommand = @(
   '-NoProfile',
   '-ExecutionPolicy', 'Bypass',
   '-File', $PSCommandPath,
-  '-BackendWatch'
+  '-BackendWatch',
+  '-BackendPort', "$BackendPort"
 )
 
 $powershellExe = Join-Path $PSHOME 'powershell.exe'

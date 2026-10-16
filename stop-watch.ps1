@@ -47,6 +47,12 @@ function Get-PidFromFile {
     return $null
   }
 
+  $owner = Get-CimInstance Win32_Process -Filter "ProcessId=$parsedPid" -ErrorAction SilentlyContinue
+  $commandLine = if ($owner) { [string]$owner.CommandLine } else { '' }
+  if ($commandLine.IndexOf($projectRoot, [System.StringComparison]::OrdinalIgnoreCase) -lt 0) {
+    return $null
+  }
+
   return $parsedPid
 }
 
@@ -61,7 +67,7 @@ function Get-ProjectProcessIds {
     }
 
     $isFrontend = ($commandLine -match $frontendPattern) -and ($commandLine -match 'vite' -or $commandLine -match 'npm(\.cmd)?\s+run\s+dev')
-    $isBackend = (($commandLine -match $backendPattern) -or ($commandLine -match 'uvicorn' -and $commandLine -match 'app\.main:app' -and $commandLine -match '--port\s+8000'))
+    $isBackend = ($commandLine -match $backendPattern) -and ($commandLine -match 'uvicorn')
 
     return $isFrontend -or $isBackend
   }

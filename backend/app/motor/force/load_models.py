@@ -8,6 +8,7 @@ from typing import Literal
 from app.motor.units import clamp
 
 LoadMode = Literal["constant", "assist_up", "eccentric", "curve", "bodyweight"]
+LoadDirection = Literal["down", "up"]
 Phase = Literal["up", "down", "still"]
 
 
@@ -22,9 +23,13 @@ class LoadSetpoint:
     curve_start: float = 1.0  # curve: multiplier at lower → upper (band/chain > 1 at top)
     curve_end: float = 1.0
     range_guard: bool = False  # a set: below lower the bar returns up to it, above upper its rise is braked
+    load_direction: LoadDirection = "down"  # motor load direction, independent of the start point
 
 
 def phase_multiplier(setpoint: LoadSetpoint, phase: Phase) -> float:
+    # Models follow effort / return, not absolute travel: an upward load is overcome by pulling down.
+    if setpoint.load_direction == "up" and phase != "still":
+        phase = "down" if phase == "up" else "up"
     if setpoint.mode == "assist_up":
         return setpoint.alpha if phase == "up" else 1.0
     if setpoint.mode == "eccentric":

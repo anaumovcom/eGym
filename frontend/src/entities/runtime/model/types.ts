@@ -13,6 +13,10 @@ export type RuntimeCalibrationState = 'saved' | 'missing' | 'not-needed'
 export type RuntimeExerciseOutcome = 'completed' | 'partial' | 'aborted' | 'skipped'
 
 export type RuntimeSetPlan = {
+  /** Unique physical step number; logical paired set is roundNumber. */
+  setNumber?: number
+  side?: 'left' | 'right'
+  roundNumber?: number
   setType?: StrengthSetType
   targetReps?: number
   targetMinReps?: number
@@ -28,6 +32,8 @@ export type RuntimeSetPlan = {
 
 export type RuntimeSetResult = {
   setNumber: number
+  side?: 'left' | 'right'
+  roundNumber?: number
   plannedValue: number
   actualValue: number
   completionStatus?: 'completed' | 'partial' | 'skipped'
@@ -56,6 +62,7 @@ export type RuntimeExercisePlan = {
   name: string
   secondaryName: string
   kind: RuntimeExerciseKind
+  perSide?: boolean
   muscles: string[]
   summary: ExerciseSummary
   details: ExerciseDetails
@@ -105,8 +112,12 @@ export type RuntimePhotoProgressState = {
 export type RuntimeExerciseSessionState = {
   exerciseId: string
   kind: RuntimeExerciseKind
+  /** Physical persistence/progression counters; use roundNumber/totalRounds for side display. */
   setNumber: number
   totalSets: number
+  side?: 'left' | 'right'
+  roundNumber?: number
+  totalRounds?: number
   targetLabel: string
   currentValue: number
   targetValue: number

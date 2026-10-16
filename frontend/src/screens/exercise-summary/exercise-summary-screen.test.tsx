@@ -7,6 +7,18 @@ import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 
 describe('ExerciseSummaryScreen', () => {
+  it('distinguishes both sides of the same logical round in saved details', async () => {
+    useRuntimeStore.getState().initializeSession({ source: 'catalog', slug: 'barbell-floor-press' })
+    useRuntimeStore.getState().finishExerciseWithResults([
+      { setNumber: 1, side: 'left', roundNumber: 1, plannedValue: 10, actualValue: 10, tempoLabel: 'хорошо' },
+      { setNumber: 2, side: 'right', roundNumber: 1, plannedValue: 10, actualValue: 10, tempoLabel: 'хорошо' },
+    ], 'completed')
+    render(<MemoryRouter><ExerciseSummaryScreen /></MemoryRouter>)
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Подробно' }))
+    expect(screen.getByText('Подход 1 · Левая сторона')).toBeInTheDocument()
+    expect(screen.getByText('Подход 1 · Правая сторона')).toBeInTheDocument()
+  })
+
   beforeEach(() => {
     localStorage.clear()
     useAppStore.setState({

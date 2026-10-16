@@ -11,6 +11,11 @@ import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 import type { HardwareCalibration, HardwareSnapshot } from '@/features/hardware/model/types'
 import { coachLifecycle } from '@/features/coach/lib/runtime-observation'
+import { expandPerSidePlan } from '@/features/runtime/lib/per-side'
+import { buildExerciseSession } from '@/mocks/stage3-data'
+import { playExerciseEventSound, useExerciseEventSounds } from '@/features/runtime/lib/exercise-event-sounds'
+
+vi.mock('@/features/runtime/lib/exercise-event-sounds', () => ({ useExerciseEventSounds: vi.fn(), playExerciseEventSound: vi.fn() }))
 
 const navigateMock = vi.fn()
 const runCommandMock = vi.fn().mockResolvedValue({})
@@ -46,7 +51,111 @@ function renderScreen() {
 }
 
 describe('ExerciseSessionScreen', () => {
+  it('redirects a back navigation during side-change rest without restarting or saving the left side again', async () => {
+    const original = useRuntimeStore.getState().session!
+    const exercise = { ...original.exercises[0], perSide: true, plan: expandPerSidePlan(original.exercises[0].plan.slice(0, 1), true) }
+    const session = { ...original, exercises: [exercise], currentSetIndex: 0 }
+    useRuntimeStore.setState({ session: { ...session, sessionState: buildExerciseSession(session) } })
+    const view = renderScreen()
+    fireEvent.click(screen.getByRole('button', { name: 'Увеличить: Повторы' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/rest${currentSearch}`))
+    const resting = useRuntimeStore.getState().session!
+    expect(resting.view).toBe('rest')
+    expect(resting.currentSetIndex).toBe(0)
+    expect(resting.completedSets[exercise.id]).toHaveLength(1)
+    const postCount = vi.mocked(apiPost).mock.calls.length
+    const commandCount = runCommandMock.mock.calls.length
+    view.unmount()
+    navigateMock.mockClear()
+
+    renderScreen()
+
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/rest${currentSearch}`, { replace: true }))
+    expect(useRuntimeStore.getState().session).toBe(resting)
+    expect(screen.queryByRole('button', { name: 'Завершить подход' })).not.toBeInTheDocument()
+    expect(apiPost).toHaveBeenCalledTimes(postCount)
+    expect(runCommandMock).toHaveBeenCalledTimes(commandCount)
+  })
+
+  it.each([false, true])('persists the full plan on creation and finalization (perSide=%s)', async (perSide) => {
+    const original = useRuntimeStore.getState().session!
+    const exercise = { ...original.exercises[0], perSide: perSide ? true : undefined,
+      plan: expandPerSidePlan(original.exercises[0].plan.slice(0, 2), perSide) }
+    const session = { ...original, exercises: [exercise], currentSetIndex: exercise.plan.length - 1 }
+    useRuntimeStore.setState({ session: { ...session, sessionState: buildExerciseSession(session) } })
+    renderScreen()
+    fireEvent.click(screen.getByRole('button', { name: 'Увеличить: Повторы' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-summary${currentSearch}`))
+    const saves = vi.mocked(apiPost).mock.calls.filter(([path]) => path === '/api/runtime/exercises')
+    expect(saves).toHaveLength(2)
+    for (const [, payload] of saves) expect(payload).toMatchObject({
+      perSide, targetSets: exercise.plan.length,
+      plannedTotal: exercise.plan.reduce((sum, plan) => sum + (plan.targetSeconds ?? plan.targetMaxReps ?? plan.targetReps ?? 0), 0),
+    })
+  })
+
+  it.each([0, 1, 2, 3])('shows logical round and persists side before advancing physical step %i', async (index) => {
+    const original = useRuntimeStore.getState().session!
+    const exercise = { ...original.exercises[0], perSide: true, plan: expandPerSidePlan(original.exercises[0].plan.slice(0, 2), true) }
+    const session = { ...original, exercises: [exercise], currentSetIndex: index }
+    useRuntimeStore.setState({ session: { ...session, sessionState: buildExerciseSession(session) } })
+    const side = index % 2 === 0 ? 'left' : 'right'
+    const roundNumber = Math.floor(index / 2) + 1
+    // Simulate an older backend summary without side metadata.
+    const post = vi.mocked(apiPost).getMockImplementation()!
+    vi.mocked(apiPost).mockImplementation(async (path, payload) => {
+      const response = await post(path, payload)
+      return path === '/api/runtime/exercises'
+        ? { ...response as object, setResults: [{ setNumber: index + 1, plannedValue: 10, actualValue: 1, tempoLabel: 'хорошо' }] } as never
+        : response
+    })
+    renderScreen()
+    expect(screen.getByText(`Подход ${roundNumber} из 2`)).toBeInTheDocument()
+    expect(screen.getByText(side === 'left' ? 'Левая сторона' : 'Правая сторона')).toBeInTheDocument()
+    expect(screen.getAllByText(/на сторону/).length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Увеличить: Повторы' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalled())
+    expect(apiPost).toHaveBeenCalledWith('/api/runtime/sets', expect.objectContaining({
+      setNumber: index + 1, machineMetrics: expect.objectContaining({ side, roundNumber }),
+    }))
+    const saved = useRuntimeStore.getState().session!
+    expect(saved.completedSets[exercise.id][0]).toMatchObject({ setNumber: index + 1, side, roundNumber })
+    expect(navigateMock).toHaveBeenCalledWith(`${index === 3 ? '/exercise-summary' : '/rest'}${currentSearch}`)
+    if (index === 3) expect(saved.exerciseSummary!.setResults[0]).toMatchObject({ setNumber: 4, side: 'right', roundNumber: 2 })
+  })
+
+  it.each(['training', 'start_hold', 'paused'])('saves LOAD for next set only in %s and keeps current snapshot direction', async mode => {
+    const saved: HardwareCalibration = {
+      id: 90, userId: 'alexey', exerciseSlug: 'barbell-floor-press', setupType: 'bar_range',
+      lowerPointMm: 300, upperPointMm: 900, fixedPositionMm: null, startPoint: 'lower',
+      zeroPositionMm: 600, movementRangeConfirmed: true, calibrationRequired: true,
+      isActive: true, capturedAt: new Date().toISOString(), expiresAt: null,
+    }
+    const save = vi.fn().mockImplementation(async payload => {
+      const updated = { ...saved, ...payload }
+      useHardwareStore.setState({ currentCalibration: updated })
+      return updated
+    })
+    const snapshot = { control: { mode }, safety: { state: 'enabled' }, motion: {
+      loadDirection: 'down', barPositionMm: 600, leftPositionMm: 600, rightPositionMm: 600,
+      repetitionCount: 0, moving: true, amplitudePercent: 0, syncDeltaMm: 0,
+    } } as HardwareSnapshot
+    useHardwareStore.setState({ snapshot, currentCalibration: saved, saveCalibration: save })
+    renderScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Тяга вверх', exact: true }))
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ loadDirection: 'up', startPoint: 'lower' })))
+    expect(runCommandMock.mock.calls.filter(([command]) => command.action !== 'set_load')).toHaveLength(0)
+    expect(screen.getByRole('status', { name: 'Текущее направление нагрузки' })).toHaveTextContent('Нагрузка вниз')
+    expect(screen.getByText(/только со следующего подхода/)).toBeInTheDocument()
+    expect(useHardwareStore.getState().snapshot).toBe(snapshot)
+  })
+
   beforeEach(() => {
+    vi.mocked(playExerciseEventSound).mockClear()
+    vi.mocked(useExerciseEventSounds).mockClear()
     vi.stubEnv('VITE_COACH_ENABLED', 'false')
     coachLifecycle.clear()
     localStorage.clear()
@@ -68,6 +177,45 @@ describe('ExerciseSessionScreen', () => {
   })
 
   afterEach(() => { vi.unstubAllEnvs(); coachLifecycle.clear() })
+
+  it.each([false, true])('plays success once after a fully completed manual set (last=%s)', async lastSet => {
+    if (lastSet) {
+      const session = useRuntimeStore.getState().session!
+      useRuntimeStore.setState({ session: { ...session, exercises: session.exercises.map(exercise => ({ ...exercise, plan: exercise.plan.slice(0, 1) })) } })
+    }
+    renderScreen()
+    const target = useRuntimeStore.getState().session!.sessionState!.targetValue
+    const input = screen.getByRole('textbox', { name: 'Повторы' })
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: String(target) } })
+    fireEvent.blur(input)
+    fireEvent.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalled())
+    expect(playExerciseEventSound).toHaveBeenCalledExactlyOnceWith('success')
+  })
+
+  it('does not play success when saving a completed set fails', async () => {
+    vi.mocked(apiPost).mockRejectedValue(new Error('Save failed'))
+    renderScreen()
+    const input = screen.getByRole('textbox', { name: 'Повторы' })
+    fireEvent.focus(input)
+    fireEvent.change(input, { target: { value: String(useRuntimeStore.getState().session!.sessionState!.targetValue) } })
+    fireEvent.blur(input)
+    fireEvent.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await screen.findByRole('alert')
+    expect(playExerciseEventSound).not.toHaveBeenCalled()
+  })
+
+  it('plays success after automatic completion from hardware reps', async () => {
+    const target = useRuntimeStore.getState().session!.sessionState!.targetValue
+    const motion = { repetitionCount: 0, barPositionMm: 600, leftPositionMm: 600, rightPositionMm: 600, amplitudePercent: 0, syncDeltaMm: 0 } as HardwareSnapshot['motion']
+    const snapshot = { motion, safety: { state: 'enabled' } } as HardwareSnapshot
+    useHardwareStore.setState({ snapshot })
+    renderScreen()
+    act(() => useHardwareStore.setState({ snapshot: { ...snapshot, motion: { ...motion, repetitionCount: target } } }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalled())
+    expect(playExerciseEventSound).toHaveBeenCalledExactlyOnceWith('success')
+  })
 
   function enableCoachObservation(lastSet = false) {
     vi.stubEnv('VITE_COACH_ENABLED', 'true')
@@ -227,6 +375,28 @@ describe('ExerciseSessionScreen', () => {
     expect(screen.getByText('450 мм')).toBeInTheDocument()
   })
 
+  it('connects endpoint positions and runtime problems to event sounds independently of rep counting', () => {
+    const motion = {
+      barPositionMm: 600, lowerBoundMm: 300, upperBoundMm: 900,
+      leftPositionMm: 600, rightPositionMm: 600, repetitionCount: 0,
+      partialReps: 0, amplitudePercent: 0, syncDeltaMm: 0,
+    } as HardwareSnapshot['motion']
+    const snapshot = { motion, safety: { state: 'enabled' } } as HardwareSnapshot
+    useHardwareStore.setState({ snapshot })
+    renderScreen()
+    expect(vi.mocked(useExerciseEventSounds).mock.lastCall?.[1]).toBe('neutral')
+    act(() => useHardwareStore.setState({ snapshot: { ...snapshot, motion: { ...motion, barPositionMm: 900 } } }))
+    expect(vi.mocked(useExerciseEventSounds).mock.lastCall?.[1]).toBe('upper')
+    act(() => useHardwareStore.setState({ snapshot: { ...snapshot, motion: { ...motion, barPositionMm: 300 } } }))
+    expect(vi.mocked(useExerciseEventSounds).mock.lastCall?.[1]).toBe('lower')
+    act(() => useHardwareStore.setState({ errorMessage: 'Связь потеряна', snapshot: {
+      ...snapshot, alerts: ['Перекос грифа'], control: { mode: 'fault', faultCode: 'sync_error' },
+      motion: { ...motion, partialReps: 1 },
+    } as HardwareSnapshot }))
+    expect(vi.mocked(useExerciseEventSounds).mock.lastCall?.[2]).toEqual(expect.arrayContaining(['Связь потеряна', 'Перекос грифа', 'sync_error', 'fault']))
+    expect(vi.mocked(useExerciseEventSounds).mock.lastCall?.[3]).toBe(1)
+  })
+
   it('shows a machine hold during the set and resumes it', async () => {
     const user = userEvent.setup()
     const motion = {
@@ -289,6 +459,7 @@ describe('ExerciseSessionScreen', () => {
     const completed = useRuntimeStore.getState().session!.completedSets[session.currentExerciseId]
     expect(completed).toHaveLength(1)
     expect(completed[0]).toMatchObject({ actualValue: fact, completionStatus: 'partial' })
+    expect(playExerciseEventSound).not.toHaveBeenCalled()
   })
 
   it('keeps finished sets when the rest of the exercise is skipped', async () => {

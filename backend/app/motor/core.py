@@ -50,9 +50,8 @@ CUSHION_BLEND_MM_S = 10.0
 CUSHION_MARGIN_MM = 10.0  # the landing speed is reached this far before the soft limit
 DEFAULT_LANDING_MM_S = 15.0
 FIXED_TI_MIN_S = 1.0
-# fixed / isometric (spring up to the envelope): damping ratio of the 86 kg bar on the hold spring at least this…
 FIXED_DAMPING_RATIO = 0.7
-# …but c·delay/m below this share (the damping acts a loop delay late)
+# Keep c·delay/m below this share (the damping acts a loop delay late).
 FIXED_DAMPING_DELAY_SHARE = 0.5
 LOAD_RESERVE_SHARE = 0.1  # of the strongest pull: inertia, cushions and the sync act on top of the load
 # a load below the screw's static friction never moves a released bar: after a rest the law breaks it away downwards
@@ -116,6 +115,7 @@ class MotorCore:
         self.hold_target: dict[Side, float | None] = {side: None for side in SIDES}
         self._hold_caught: dict[Side, bool] = {side: False for side in SIDES}
         self.fixed_integral: dict[Side, float] = {side: 0.0 for side in SIDES}
+        self._fixed_sample_t: dict[Side, float | None] = {side: None for side in SIDES}
         self.load = LoadSetpoint()
         self.load_capped = False
         self.virtual_mass_kg = 0.0
@@ -151,7 +151,7 @@ class MotorCore:
             # after the switch must meet the spring, not drag the target along)
             self.hold_target = {side: None for side in SIDES}
             self._hold_caught = {side: False for side in SIDES}
-        if mode in holds and mode != before:
+        if mode != before and (mode in holds or before in {Mode.FIXED, Mode.ISOMETRIC}):
             self.fixed_integral = {side: 0.0 for side in SIDES}
         if mode != before:
             self.fall_assist = {side: 0.0 for side in SIDES}
@@ -167,24 +167,95 @@ class MotorCore:
         self.hold_target = {side: positions[side] for side in SIDES}
         self._hold_caught = {side: True for side in SIDES}
 
-    def load_limit_n(self) -> float:
+    def load_limit_n(self, load_direction: Literal["down", "up"] = "down") -> float:
         """Heaviest load per side the drives can make: bar weight + the strongest pull down, less the friction reserve.
 
         Above the bar weight the motor pulls the bar down; the pull is limited by the envelope and by PA_05E
         (times the N1 pull scale). Lowering adds the friction compensation to the pull, so it is kept in reserve.
+        Upward loads reserve the calibrated positive compensation over the soft travel / upward speed domain,
+        with full training gain and feedback at the push cap; the safety envelope remains the final filter.
         """
 
         limits = []
         for side in SIDES:
             profile = self.profile.side(side)
             weights = [float(w) for _x, w in profile.gravity_map.value]
+            if load_direction == "up":
+                from app.motor.estimation.friction import SPOT_HALF_WIDTH_MM
+                from app.motor.units import SCREW_LEAD_MM
+
+                push = min(self.envelope.max_force_n_per_side, self.envelope.max_raw * profile.n_per_raw_value)
+                model = self.friction[side]
+                low, high = self.envelope.soft_min_mm, self.envelope.soft_max_mm
+                positions = {low, high}
+                positions.update(x for x, _ in profile.gravity_map.value if low <= x <= high)
+                positions.update(x for x, _ in model.track if low <= x <= high)
+                # Without S10, overlapping S8 windows change at their edges, not just at their centres.
+                if not model.track:
+                    for centre, _ in model.spots:
+                        for edge in (centre - SPOT_HALF_WIDTH_MM, centre + SPOT_HALF_WIDTH_MM):
+                            positions.update(x for x in (math.nextafter(edge, -math.inf), edge, math.nextafter(edge, math.inf)) if low <= x <= high)
+                # Ripple is weight-like in _law, and also changes the feedback axial excess.
+                if model.track_gain and model.ripple_n:
+                    first = math.ceil((2 * math.pi * low / SCREW_LEAD_MM + model.ripple_phase_rad - math.pi / 2) / math.pi)
+                    last = math.floor((2 * math.pi * high / SCREW_LEAD_MM + model.ripple_phase_rad - math.pi / 2) / math.pi)
+                    positions.update((math.pi / 2 + k * math.pi - model.ripple_phase_rad) * SCREW_LEAD_MM / (2 * math.pi) for k in range(first, last + 1))
+                ripple_low = min(model.ripple(x) for x in positions)
+                ripple_high = max(model.ripple(x) for x in positions)
+                weight_low = min(profile.weight_n(x) for x in positions) + ripple_low
+                weight_high = max(profile.weight_n(x) for x in positions) + ripple_high
+                # previous is feedback, not the requested nominal load: it can already be at the push cap.
+                axial = max(0.0, push - weight_low)
+                max_speed = max(0.0, self.envelope.max_speed_mm_s)
+                speeds = {0.0, max_speed}
+                if max_speed > 0:
+                    speeds.add(math.nextafter(0.0, math.inf))  # one-sided static/Stribeck limit
+                speeds.update(v for v, _ in model.table_up if 0 <= v <= max_speed)
+                if model.table_up and 0 < model.table_up[0][0] <= max_speed:
+                    speeds.add(math.nextafter(model.table_up[0][0], 0.0))
+                # Below the first F3 knot (or without F3), linear + Stribeck can have an interior maximum.
+                end = min(max_speed, model.table_up[0][0]) if model.table_up else max_speed
+                slope = ((model.table_up[0][1] - model.coulomb_up_n) / max(model.table_up[0][0], 1e-6)
+                         if model.table_up else model.viscous_n_per_mm_s)
+                width = max(model.stribeck_v_mm_s, 1e-6)
+                upper = min(end, width / math.sqrt(2))
+                extra = model.stribeck_extra_n
+                if slope > 0 and extra > 0 and slope < 2 * extra * upper / width**2 * math.exp(-(upper / width)**2):
+                    lower = 0.0
+                    for _ in range(48):
+                        middle = (lower + upper) / 2
+                        if slope > 2 * extra * middle / width**2 * math.exp(-(middle / width)**2):
+                            lower = middle
+                        else:
+                            upper = middle
+                    speeds.add((lower + upper) / 2)
+                # Zero blend bounds the positive smoothed force; breakaway/relief only reduce it.
+                # Both L1/L2 quadrants matter when previous changes sign; negative coefficients peak at zero excess.
+                friction = max(0.0, *(model.force(v, x_mm=x, axial_excess_n=excess, motor_sign=sign)
+                                     for v in speeds for x in positions for excess in (0.0, axial) for sign in (1, -1)))
+                gain = max(0.0, self.tunables.friction_gain_up, self.tunables.train_friction_gain_down)
+                reserve = gain * friction + LOAD_RESERVE_SHARE * push
+                limits.append(push - weight_high - reserve)
+                continue
             pull = min(self.envelope.max_force_n_per_side, self.envelope.max_raw * profile.n_per_raw_value * profile.pull_scale_value)
             reserve = float(profile.coulomb_down_n.value) + LOAD_RESERVE_SHARE * pull
             limits.append(min(weights) + pull - reserve)
         return max(0.0, min(limits))
 
     def set_load(self, setpoint: LoadSetpoint) -> None:
-        limit = self.load_limit_n()
+        if setpoint.load_direction not in ("down", "up"):
+            raise ValueError("Invalid load direction")
+        # Legacy calibration uses signed down-loads to model a hung reference mass (D5).
+        if not math.isfinite(setpoint.load_n) or (setpoint.load_direction == "up" and setpoint.load_n < 0):
+            raise ValueError("Load must be finite; upward load must be nonnegative")
+        limit = self.load_limit_n(setpoint.load_direction)
+        if setpoint.load_direction == "up":
+            # Reserve headroom for the strongest phase / curve point, not just the nominal load.
+            factors = {"assist_up": (setpoint.alpha,), "eccentric": (setpoint.beta,), "curve": (setpoint.curve_start, setpoint.curve_end)}.get(setpoint.mode, ())
+            if any(not math.isfinite(value) or value < 0 for value in factors):
+                raise ValueError("Load multipliers must be finite and nonnegative")
+            peak = max(1.0, *factors) if factors else 1.0
+            limit /= peak
         self.load_capped = setpoint.load_n > limit
         if self.load_capped:  # a set the drives cannot make: the user gets the heaviest honest load, not a saturated one
             setpoint = replace(setpoint, load_n=limit)
@@ -205,10 +276,10 @@ class MotorCore:
         return k, c
 
     def _fixed_damping(self, side: Side, k: float, c: float) -> float:
-        """C1 gains are tuned for the soft hold; at the full envelope the bar mass rings on them (ζ ≈ 0.1)."""
+        """Original PI damping; changing its delay bound needs separate plant validation."""
 
         mass = float(self.profile.side(side).moving_mass_kg.value)
-        wanted = FIXED_DAMPING_RATIO * 2.0 * math.sqrt(max(k, 0.0) * mass / 1000.0)  # N·s/mm
+        wanted = FIXED_DAMPING_RATIO * 2.0 * math.sqrt(max(k, 0.0) * mass / 1000.0)
         delay = _value(self.profile.loop_delay_s, 0.0) or 0.0
         if delay > 0:
             wanted = min(wanted, FIXED_DAMPING_DELAY_SHARE * mass / (1000.0 * delay))
@@ -275,7 +346,10 @@ class MotorCore:
         if not self.release_enabled or self.supervisor.mode != Mode.TRAINING:
             self._released_s = 0.0
             return
-        values = [item.value_n if item.confidence == "moving" else item.high_n for item in user_force.values()]
+        if self.load.load_direction == "up":
+            values = [-item.value_n if item.confidence == "moving" else -item.low_n for item in user_force.values()]
+        else:
+            values = [item.value_n if item.confidence == "moving" else item.high_n for item in user_force.values()]
         if sum(values) / len(values) < self.tunables.release_force_n:
             self._released_s += dt
         else:
@@ -305,7 +379,8 @@ class MotorCore:
                 decel = CUSHION_DECEL_SHARE * (_value(self.profile.brake_decel_down_mm_s2, CUSHION_DECEL_MM_S2) or CUSHION_DECEL_MM_S2)
                 excess = -state.v_mm_s - (landing * landing + 2 * decel * max(distance - ahead - CUSHION_MARGIN_MM, 0.0)) ** 0.5
                 if excess > 0:
-                    brake = mass * decel / 1000 + max(self.load.load_n * self.load_relief[side], 0.0)
+                    load = self.load.load_n * self.load_relief[side] if self.load.load_direction == "down" else 0.0
+                    brake = mass * decel / 1000 + max(load, 0.0)
                     force += brake * min(1.0, excess / CUSHION_BLEND_MM_S) + CUSHION_GAIN_N_PER_MM_S * excess
         top = _value(self.profile.cushion_top_mm)
         if top and state.v_mm_s > 0:
@@ -314,7 +389,10 @@ class MotorCore:
                 decel = CUSHION_DECEL_SHARE * (_value(self.profile.brake_decel_up_mm_s2, CUSHION_DECEL_MM_S2) or CUSHION_DECEL_MM_S2)
                 excess = state.v_mm_s - (landing * landing + 2 * decel * max(distance - ahead - CUSHION_MARGIN_MM, 0.0)) ** 0.5
                 if excess > 0:
-                    force -= mass * decel / 1000 * min(1.0, excess / CUSHION_BLEND_MM_S) + CUSHION_GAIN_N_PER_MM_S * excess
+                    load = 0.0
+                    if self.load.load_direction == "up" and self.supervisor.output == "train":
+                        load = load_force(self.load, state.x_mm, self.phase.blend * self.phase.blend * (3 - 2 * self.phase.blend)) * self.load_relief[side] * (1.0 - self.floor_cut)
+                    force -= (mass * decel / 1000 + load) * min(1.0, excess / CUSHION_BLEND_MM_S) + CUSHION_GAIN_N_PER_MM_S * excess
         return force
 
     def _shape(self, output: str, side: Side, state: ObservedState, force: float) -> float:
@@ -338,9 +416,14 @@ class MotorCore:
         self._dt = dt
         states: dict[Side, ObservedState] = {}
         comm_states = {}
+        fixed_fresh: dict[Side, bool] = {}
         for side in SIDES:
             sample = samples.get(side)
             ok = sample is not None and sample.ok and now - sample.t <= self.envelope.stale_frame_limit_s
+            last_t = self._fixed_sample_t[side]
+            fixed_fresh[side] = bool(ok and sample is not None and (last_t is None or sample.t > last_t))
+            if fixed_fresh[side] and sample is not None:
+                self._fixed_sample_t[side] = sample.t
             comm_states[side] = self.comm[side].update(ok, write_ok)
             if ok and sample is not None:
                 states[side] = self.observers[side].update(sample.position_mm, sample.speed_mm_s, sample.t)
@@ -386,7 +469,24 @@ class MotorCore:
         for side in SIDES:
             other: Side = "right" if side == "left" else "left"
             state = states[side]
+            bias_before = self.fixed_integral[side]
             target = self._law(output, side, state, states[other], blend)
+            # The PI candidate must be judged against the FULL shaped output and the
+            # same envelope used below, including raw torque (asymmetric pull scale).
+            if output == "hold" and self.supervisor.mode != Mode.HOLD:
+                shaped = self._shape(output, side, state, target)
+                limited = apply_envelope(self.envelope, SafetyInput(
+                    shaped, self.previous[side], state.x_mm,
+                    self.profile.side(side).weight_n(state.x_mm), max(dt, 1e-3),
+                    stale=comm_states[side] != "ok",
+                ))
+                profile = self.profile.side(side)
+                push = self.envelope.max_raw * profile.n_per_raw_value
+                limited = max(-push * profile.pull_scale_value, min(push, limited))
+                delta = self.fixed_integral[side] - bias_before
+                if not fixed_fresh[side] or delta * (shaped - limited) > 1e-9:
+                    self.fixed_integral[side] = bias_before
+                    target -= delta
             if output != "calibrate":
                 target = self._shape(output, side, state, target)
             if comm_states[side] == "freeze":
@@ -417,8 +517,12 @@ class MotorCore:
         if output == "train":
             load = load_force(self.load, state.x_mm, blend) * self.load_relief[side] * (1.0 - self.floor_cut)
             gain_down = self._descent_gain(side, load)
+        friction_t = t
+        if output == "train" and self.load.load_direction == "up":
+            friction_t = replace(t, friction_gain_up=self._descent_gain(side, load))
+            gain_down = None
         friction = compensation.friction(
-            model, v_ahead, t, x_mm=state.x_mm, axial_excess_n=axial, motor_sign=motor_sign, gain_down=gain_down,
+            model, v_ahead, friction_t, x_mm=state.x_mm, axial_excess_n=axial, motor_sign=motor_sign, gain_down=gain_down,
         ) * self._breakaway_scale(side)
         sync = self.sync_left_n if side == "left" else -self.sync_left_n
         speed_guard = governor(state.v_mm_s, self.envelope.max_speed_mm_s, self.envelope.max_descent_mm_s)
@@ -436,12 +540,9 @@ class MotorCore:
             k, c = self.hold_gains()
             if self.supervisor.mode != Mode.HOLD:
                 c = self._fixed_damping(side, k, c)
-            # a plain hold yields to a hand (a soft spring); a fixed / isometric position resists up to the envelope
             limit = float(profile.coulomb_up_n.value) * 2 + 50 if self.supervisor.mode == Mode.HOLD else self.envelope.max_force_n_per_side
             spring = virtual_spring(state.x_mm, state.v_mm_s, target, k, c, limit_n=limit)
             if self.supervisor.mode != Mode.HOLD:
-                # fixed / isometric: an integral brings the bar back under a steady push (the spring alone would yield
-                # k·Δx); Ti ≥ 2·Tᵤ (C1) keeps the phase margin of the P-part
                 period = _value(self.profile.hold_ultimate_period_s, 0.5) or 0.5
                 ti = max(FIXED_TI_MIN_S, 2.0 * period)
                 self.fixed_integral[side] = max(-limit, min(limit, self.fixed_integral[side] + k * (target - state.x_mm) * self._dt / ti))
@@ -452,6 +553,8 @@ class MotorCore:
         # livelier, the sides race each other
         inertia = compensation.inertia(float(profile.moving_mass_kg.value), self.virtual_mass_kg, self._bar_a_mm_s2, self.inertia_share(side))
         fall = self._fall_assist(side, state, load)
+        if self.load.load_direction == "up":
+            return weight + friction + inertia + load + fall + self.range_force_n + sync + speed_guard
         return weight + friction + inertia - load - fall + self.range_force_n + sync + speed_guard
 
     def _loop_delay(self) -> float:
@@ -463,6 +566,12 @@ class MotorCore:
         A bar running away downwards (load relief) gets the friction back as a brake."""
 
         t = self.tunables
+        if self.load.load_direction == "up":
+            share = max(0.0, min(1.0, load / max(self.friction[side].coulomb_up_n, 1.0))) * self.load_relief[side]
+            start, end = DESCENT_GAIN_FADE_START * self.envelope.max_speed_mm_s, 0.6 * self.envelope.max_speed_mm_s
+            v_ahead = self._bar_v_mm_s + self._bar_a_mm_s2 * self._loop_delay()
+            share *= max(0.0, min(1.0, (end - v_ahead) / (end - start)))
+            return t.friction_gain_up + (t.train_friction_gain_down - t.friction_gain_up) * share
         share = max(0.0, min(1.0, load / max(self.friction[side].coulomb_down_n, 1.0))) * self.load_relief[side]
         start, end = DESCENT_GAIN_FADE_START * self.envelope.max_descent_mm_s, 0.6 * self.envelope.max_descent_mm_s
         v_ahead = self._bar_v_mm_s + self._bar_a_mm_s2 * self._loop_delay()
@@ -490,7 +599,11 @@ class MotorCore:
         self._bar_x_mm = x
         self._bar_v_mm_s = v
         self._bar_a_mm_s2 = a
-        descent_onset = 0.6 * self.envelope.max_descent_mm_s
+        upward = self.load.load_direction == "up"
+        if upward:
+            # Work in the original downward-load coordinates; preserve physical bar state for inertia / friction.
+            x, v, a = self.load.lower_mm + self.load.upper_mm - x, -v, -a
+        descent_onset = 0.6 * (self.envelope.max_speed_mm_s if upward else self.envelope.max_descent_mm_s)
         relief = self.load_relief["left"]
         # judged on the speed a loop delay ahead while the bar speeds up downwards: the relief acts that late
         v_relief = v + min(0.0, a) * self._loop_delay()
@@ -522,6 +635,8 @@ class MotorCore:
             # and drop again: the damper stays while the load is out (the user lifting feels it instead of the load)
             self.range_force_n -= damping * self.floor_cut * v
         if below > 0:
+            if upward:
+                self.range_force_n = -self.range_force_n
             return
         above = x - self.load.upper_mm
         if above > 0:
@@ -530,6 +645,8 @@ class MotorCore:
                 room = max(RANGE_STOP_MM - above, RANGE_STOP_MIN_MM)
                 brake = min(mass * v_ahead**2 / (2000.0 * room), RANGE_BRAKE_MAX_N) + damping * v
             self.range_force_n = -(min(CEILING_K_N_PER_MM * above, CEILING_MAX_N) + brake)
+        if upward:
+            self.range_force_n = -self.range_force_n
 
     def _fall_assist(self, side: Side, state: ObservedState, load: float) -> float:
         """A light load (below the static friction) left alone must sink like a free weight, not stick.
@@ -541,15 +658,19 @@ class MotorCore:
 
         model = self.friction[side]
         assist = self.fall_assist[side]
-        if load <= 1.0 or (self.load.range_guard and self._bar_x_mm < self.load.lower_mm):
+        upward = self.load.load_direction == "up"
+        velocity = -state.v_mm_s if upward else state.v_mm_s
+        outside = self._bar_x_mm > self.load.upper_mm if upward else self._bar_x_mm < self.load.lower_mm
+        coulomb = model.coulomb_up_n if upward else model.coulomb_down_n
+        if load <= 1.0 or (self.load.range_guard and outside):
             assist = 0.0  # no load: nothing pulls a free bar down; below the set's range the bar goes up
-        elif state.v_mm_s > STILL_MM_S:
+        elif velocity > STILL_MM_S:
             assist = max(0.0, assist - FALL_DROP_N_PER_S * self._dt)
-        elif state.v_mm_s < -STILL_MM_S:
-            residual = (1.0 - self._descent_gain(side, load)) * model.coulomb_down_n * self.load_relief[side]
+        elif velocity < -STILL_MM_S:
+            residual = (1.0 - self._descent_gain(side, load)) * coulomb * self.load_relief[side]
             assist = min(assist, max(0.0, residual))
         else:
-            static = max(0.0, FALL_STATIC_MARGIN * (model.coulomb_down_n + model.stribeck_extra_n) - load)
+            static = max(0.0, FALL_STATIC_MARGIN * (coulomb + model.stribeck_extra_n) - load)
             if self._still_s[side] >= FALL_REST_S:
                 assist = min(static, assist + FALL_RAMP_N_PER_S * self._dt)
             assist = min(assist, static)

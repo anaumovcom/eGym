@@ -32,7 +32,7 @@ function createDefaultSettingsDraft() {
     autoReturnMinutes: '5 минут',
     soundEnabled: true,
     voiceHintsEnabled: true,
-    signalVolume: '70%',
+    signalVolume: '100%',
     wifiMode: 'Wi-Fi',
     networkStatus: 'Подключено',
     guestMode: true,

@@ -1,53 +1,117 @@
-Hardware latch fault: Р»РµРІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ; РїСЂР°РІС‹Р№: Modbus РЅРµ РїРѕРґРєР»СЋС‡С‘РЅ
-INFO:     Started server process [4455]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [556]
 INFO:     Waiting for application startup.
-Control loop stalled: 601 ms between ticks
+Modbus connect to /dev/ttyUSB0 failed: No module named 'minimalmodbus'
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 35336) - "WebSocket /api/coach/runs/a6c46faaf43d10e180af44e62ecc488f/live" [accepted]
+INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 65042) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     ('127.0.0.1', 51914) - "WebSocket /api/hardware/realtime" [accepted]
 INFO:     connection open
-INFO:     ('127.0.0.1', 35340) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-Slow control tick: 446 ms (calibration=None)
-Slow control tick: 446 ms (calibration=None)
-Hardware latch fault: РїСЂР°РІС‹Р№: No communication with the instrument (no answer)
-Slow control tick: 649 ms (calibration=None)
-Control loop stalled: 655 ms between ticks
-Slow control tick: 1317 ms (calibration=None)
-Control loop stalled: 1322 ms between ticks
-Slow control tick: 1318 ms (calibration=None)
-Control loop stalled: 1323 ms between ticks
-Slow control tick: 1318 ms (calibration=None)
-Control loop stalled: 1323 ms between ticks
-Slow control tick: 1318 ms (calibration=None)
-Control loop stalled: 1324 ms between ticks
-Slow control tick: 1318 ms (calibration=None)
-Control loop stalled: 1323 ms between ticks
-Slow control tick: 1317 ms (calibration=None)
-Control loop stalled: 1322 ms between ticks
-Slow control tick: 1318 ms (calibration=None)
-Control loop stalled: 1323 ms between ticks
-Slow control tick: 1317 ms (calibration=None)
-Control loop stalled: 1323 ms between ticks
-Slow control tick: 1318 ms (calibration=None)
-Control loop stalled: 1323 ms between ticks
-Slow control tick: 1318 ms (calibration=None)
-Control loop stalled: 1323 ms between ticks
-Slow control tick: 1318 ms (calibration=None)
-Control loop stalled: 1323 ms between ticks
-Slow control tick: 1317 ms (calibration=None)
-Control loop stalled: 1323 ms between ticks
-Slow control tick: 1316 ms (calibration=None)
-Control loop stalled: 1323 ms between ticks
-INFO:     Shutting down
+INFO:     ('127.0.0.1', 50348) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
 INFO:     connection closed
 INFO:     connection closed
-INFO:     Waiting for background tasks to complete. (CTRL+C to force quit)
-Slow control tick: 1317 ms (calibration=None)
-Control loop stalled: 1322 ms between ticks
-INFO:     Waiting for application shutdown.
-Slow control tick: 1317 ms (calibration=None)
-Shutdown support delivery failed: {'left': 'No communication with the instrument (no answer)', 'right': 'No communication with the instrument (no answer)'}
-Shutdown support delivery failed: {'left': 'No communication with the instrument (no answer)', 'right': 'No communication with the instrument (no answer)'}
-INFO:     Application shutdown complete.
-INFO:     Finished server process [4455]
+INFO:     connection closed
+INFO:     ('127.0.0.1', 61775) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 49766) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 59916) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 51200) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 60082) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 56052) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 60556) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 65104) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 50946) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 55622) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 63280) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 64710) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 50435) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 49774) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 55685) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 63813) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 52847) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 50826) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 58006) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 51625) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+Exception in callback _ProactorBasePipeTransport._call_connection_lost()
+handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
+Traceback (most recent call last):
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
+    self._context.run(self._callback, *self._args)
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
+    self._sock.shutdown(socket.SHUT_RDWR)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+INFO:     connection closed
+INFO:     ('127.0.0.1', 63932) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 63294) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 62717) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 62415) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 51900) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 54437) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 58595) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 63492) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed

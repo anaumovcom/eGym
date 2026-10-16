@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
@@ -168,6 +169,11 @@ class RuntimeService:
             exercise_session.finished_at = payload.finished_at
             exercise_session.calibration_state = payload.calibration_state
             exercise_session.target_sets = payload.target_sets
+            # Finalization by older callers must not erase the original plan.
+            if "per_side" in payload.model_fields_set:
+                exercise_session.per_side = payload.per_side
+            if "planned_total" in payload.model_fields_set:
+                exercise_session.planned_total = payload.planned_total
             exercise_session.training_mode = payload.training_mode
             exercise_session.training_day_type = payload.training_day_type
             exercise_session.recommendation = payload.recommendation
@@ -186,6 +192,8 @@ class RuntimeService:
                 finished_at=payload.finished_at,
                 calibration_state=payload.calibration_state,
                 target_sets=payload.target_sets,
+                per_side=payload.per_side,
+                planned_total=payload.planned_total,
                 training_mode=payload.training_mode,
                 training_day_type=payload.training_day_type,
                 recommendation=payload.recommendation,
@@ -444,10 +452,16 @@ class RuntimeService:
 
     def build_exercise_summary(self, exercise_session: ExerciseSession) -> RuntimeExerciseSummarySchema:
         results = sorted(exercise_session.set_results, key=lambda item: item.set_number)
-        total_value = sum(item.actual_value for item in results)
-        total_volume = sum((item.weight_kg or 0) * (item.reps or item.actual_value or 0) for item in results)
+        sided = self._exercise_is_sided(exercise_session)
+        performed = self._performed_results(results) if sided else results
+        completed, target, sides, target_sides = self._set_counts(exercise_session)
+        sets_label = self._sided_sets_label(exercise_session) if sided else f"{completed} из {target}"
+        total_value = sum(item.actual_value for item in performed)
+        total_volume = sum((item.weight_kg or 0) * (item.reps or item.actual_value or 0) for item in performed)
         amplitude_values = [item.amplitude_percent for item in results if item.amplitude_percent is not None]
-        planned_total = sum(item.planned_value for item in results) or exercise_session.target_sets * 10
+        planned_total = exercise_session.planned_total
+        if planned_total is None:
+            planned_total = sum(item.planned_value for item in results) or exercise_session.target_sets * 10
         outcome = exercise_session.status.value if exercise_session.status in {ExerciseSessionStatus.aborted, ExerciseSessionStatus.partial, ExerciseSessionStatus.skipped} else "completed"
         kind = exercise_session.kind
         return RuntimeExerciseSummarySchema(
@@ -468,11 +482,15 @@ class RuntimeService:
             subtitle=(
                 f"{exercise_session.exercise_name} · пропуск сохранён"
                 if exercise_session.status == ExerciseSessionStatus.skipped
+                else f"{exercise_session.exercise_name} · {sets_label}"
+                if sided
                 else f"{exercise_session.exercise_name} · {len(results)} подхода выполнено"
             ),
             set_results=[
                 RuntimeSetResultSchema(
                     set_number=item.set_number,
+                    side=self._set_side(item),
+                    round_number=self._metric_int(item.machine_metrics, "roundNumber"),
                     planned_value=item.planned_value,
                     actual_value=item.actual_value,
                     set_type=self._metric_str(item.machine_metrics, "setType"),
@@ -494,16 +512,16 @@ class RuntimeService:
                 for item in results
             ],
             totals=RuntimeExerciseTotalsSchema(
-                sets_completed=f"{len(results)} из {max(exercise_session.target_sets, len(results))}",
+                sets_completed=sets_label,
                 reps_or_time=f"{total_value} сек" if kind == RuntimeExerciseKind.timed else f"{total_value} повторов",
                 volume=f"{int(round(total_volume))} кг" if kind == RuntimeExerciseKind.machine else (f"{total_value} сек" if kind == RuntimeExerciseKind.timed else f"{total_value} повторов"),
-                best_set=self._best_set_label(results),
+                best_set=self._best_set_label(performed),
                 average_amplitude=f"{int(round(sum(amplitude_values) / len(amplitude_values)))}%" if amplitude_values else None,
                 tempo="стабильный",
             ),
             plan_vs_fact=[
-                RuntimePlanVsFactSchema(label="Подходы", plan=str(max(exercise_session.target_sets, len(results))), fact=str(len(results)), delta=str(len(results) - max(exercise_session.target_sets, len(results)))),
-                RuntimePlanVsFactSchema(label="Секунды" if kind == RuntimeExerciseKind.timed else "Повторы", plan=str(planned_total), fact=str(total_value), delta=str(total_value - planned_total)),
+                RuntimePlanVsFactSchema(label="Стороны" if sided else "Подходы", plan=str(target_sides), fact=str(sides), delta=str(sides - target_sides)),
+                RuntimePlanVsFactSchema(label="Секунды" if kind == RuntimeExerciseKind.timed else "Повторы", plan=f"{planned_total:g}", fact=str(total_value), delta=f"{total_value - planned_total:g}"),
                 RuntimePlanVsFactSchema(label="Вес", plan=f"{results[0].weight_kg:.1f} кг" if results and results[0].weight_kg else "—", fact=f"{results[-1].weight_kg:.1f} кг" if results and results[-1].weight_kg else "—", delta="—"),
             ],
             recommendation=exercise_session.recommendation or ("Пропуск сохранён. Можно перейти к следующему упражнению без изменения нагрузки." if exercise_session.status == ExerciseSessionStatus.skipped else "Сохраните текущую технику и оцените восстановление перед следующим упражнением."),
@@ -515,8 +533,14 @@ class RuntimeService:
         if workout_session is None:
             raise LookupError("Workout session not found")
         exercises = list(workout_session.exercise_sessions)
-        set_results = [item for exercise in exercises for item in exercise.set_results]
-        total_reps = sum(item.reps or item.actual_value or 0 for item in set_results)
+        set_results = [item for exercise in exercises for item in (
+            self._performed_results(exercise.set_results) if self._exercise_is_sided(exercise) else exercise.set_results
+        )]
+        total_reps = sum(
+            item.reps or item.actual_value or 0
+            for exercise in exercises if exercise.kind != RuntimeExerciseKind.timed
+            for item in (self._performed_results(exercise.set_results) if self._exercise_is_sided(exercise) else exercise.set_results)
+        )
         total_volume = int(round(sum((item.weight_kg or 0) * (item.reps or item.actual_value or 0) for item in set_results)))
         muscle_load = self._build_workout_muscle_load(exercises)
         outcome = workout_session.status.value if workout_session.status != WorkoutSessionStatus.in_progress else "partial"
@@ -525,7 +549,8 @@ class RuntimeService:
         completed_exercises = sum(1 for exercise in exercises if exercise.status == ExerciseSessionStatus.completed)
         target_exercises = max(len(exercises), completed_exercises)
         completed_sets = len(set_results)
-        target_sets = sum(max(exercise.target_sets, len(exercise.set_results)) for exercise in exercises)
+        target_sets = sum(self._set_counts(exercise)[3] for exercise in exercises)
+        sided = any(self._exercise_is_sided(exercise) for exercise in exercises)
         return RuntimeWorkoutSummarySchema(
             workout_session_id=workout_session.id,
             outcome=outcome,
@@ -534,7 +559,7 @@ class RuntimeService:
             metrics=[
                 RuntimeWorkoutMetricSchema(label="длительность", value=f"{max(workout_session.duration_seconds // 60, 1)} минут", hint="итог тренировки"),
                 RuntimeWorkoutMetricSchema(label="упражнений", value=f"{completed_exercises} / {target_exercises}", hint="выполнено без пропусков"),
-                RuntimeWorkoutMetricSchema(label="подходов", value=f"{completed_sets} / {target_sets}", hint="засчитано"),
+                RuntimeWorkoutMetricSchema(label="подходов / сторон" if sided else "подходов", value=f"{completed_sets} / {target_sets}", hint="стороны считаются отдельно" if sided else "засчитано"),
                 RuntimeWorkoutMetricSchema(label="повторов", value=str(total_reps), hint="суммарно"),
                 RuntimeWorkoutMetricSchema(label="объём", value=f"{total_volume} кг", hint="общий объём"),
             ],
@@ -549,7 +574,7 @@ class RuntimeService:
                     current_load=self._format_current_load(exercise),
                     current_weight_kg=self._exercise_current_weight(exercise),
                     current_reps=self._exercise_current_reps(exercise),
-                    current_sets=len(exercise.set_results),
+                    current_sets=self._set_counts(exercise)[0],
                     rest_seconds=self._exercise_rest_seconds(exercise),
                     training_mode=exercise.training_mode,
                     training_day_type=exercise.training_day_type,
@@ -586,14 +611,18 @@ class RuntimeService:
             return "пропущено"
         if not results:
             return "нет данных"
+        sided = self._exercise_is_sided(exercise)
+        if sided:
+            results = self._performed_results(results)
+        sets_label = self._sided_sets_label(exercise) if sided else f"{len(results)} подхода"
         total_reps = sum(item.reps or item.actual_value or 0 for item in results)
         total_volume = int(round(sum((item.weight_kg or 0) * (item.reps or item.actual_value or 0) for item in results)))
         prefix = "частично • " if exercise.status == ExerciseSessionStatus.partial else ""
         if exercise.kind == RuntimeExerciseKind.timed:
-            return f"{prefix}{len(results)} подхода • {total_reps} сек"
+            return f"{prefix}{sets_label} • {total_reps} сек"
         if total_volume > 0:
-            return f"{prefix}{len(results)} подхода • {total_reps} повторов • {total_volume} кг"
-        return f"{prefix}{len(results)} подхода • {total_reps} повторов"
+            return f"{prefix}{sets_label} • {total_reps} повторов • {total_volume} кг"
+        return f"{prefix}{sets_label} • {total_reps} повторов"
 
     def _format_workout_row_status(self, exercise: ExerciseSession) -> str:
         if exercise.status == ExerciseSessionStatus.skipped:
@@ -607,7 +636,8 @@ class RuntimeService:
     def _format_current_load(self, exercise: ExerciseSession) -> str | None:
         weight = self._exercise_current_weight(exercise)
         reps = self._exercise_current_reps(exercise)
-        sets = len(exercise.set_results) or exercise.target_sets
+        completed, target, _, _ = self._set_counts(exercise)
+        sets = completed if self._exercise_is_sided(exercise) else completed or target
         if exercise.kind == RuntimeExerciseKind.timed:
             return f"{sets}×{reps} сек" if reps else None
         if weight and reps:
@@ -682,6 +712,45 @@ class RuntimeService:
         value = metrics.get(key)
         return str(value) if value is not None and value != "" else None
 
+    def _set_side(self, result: SetResult) -> Literal["left", "right"] | None:
+        side = result.machine_metrics.get("side")
+        return side if side in ("left", "right") else None
+
+    def _is_sided(self, results: list[SetResult]) -> bool:
+        return any(self._set_side(item) is not None for item in results)
+
+    def _exercise_is_sided(self, exercise: ExerciseSession) -> bool:
+        # Preserve side-metadata detection for sessions saved before migration 0011.
+        return exercise.per_side or self._is_sided(exercise.set_results)
+
+    def _performed_results(self, results: list[SetResult]) -> list[SetResult]:
+        return [item for item in results if item.machine_metrics.get("completionStatus") != "skipped" and item.actual_value > 0]
+
+    def _logical_set_count(self, results: list[SetResult]) -> int:
+        rounds: dict[int, set[str]] = {}
+        for item in self._performed_results(results):
+            side = self._set_side(item)
+            if side is not None:
+                round_number = self._metric_int(item.machine_metrics, "roundNumber") or (item.set_number + 1) // 2
+                rounds.setdefault(round_number, set()).add(side)
+        return sum(sides == {"left", "right"} for sides in rounds.values())
+
+    def _set_counts(self, exercise: ExerciseSession) -> tuple[int, int, int, int]:
+        """Completed/target logical sets and performed/target physical sides."""
+        results = exercise.set_results
+        target_sides = max(exercise.target_sets, len(results))
+        if not self._exercise_is_sided(exercise):
+            return len(results), target_sides, len(results), target_sides
+        target = max((target_sides + 1) // 2, max(
+            (self._metric_int(item.machine_metrics, "roundNumber") or (item.set_number + 1) // 2 for item in results),
+            default=0,
+        ))
+        return self._logical_set_count(results), target, len(self._performed_results(results)), target * 2
+
+    def _sided_sets_label(self, exercise: ExerciseSession) -> str:
+        completed, target, sides, target_sides = self._set_counts(exercise)
+        return f"{completed} из {target} пар · {sides} из {target_sides} сторон"
+
     def _metric_int(self, metrics: dict[str, object], key: str) -> int | None:
         value = metrics.get(key)
         try:
@@ -694,16 +763,26 @@ class RuntimeService:
             return None
         best = max(results, key=lambda item: (item.weight_kg or 0) * (item.reps or item.actual_value or 0))
         reps = best.reps or best.actual_value or 0
+        side = self._set_side(best)
+        label = f"Подход {best.set_number}"
+        if side is not None:
+            round_number = self._metric_int(best.machine_metrics, "roundNumber") or (best.set_number + 1) // 2
+            label = f"Подход {round_number}, {'левая' if side == 'left' else 'правая'} сторона"
         if best.weight_kg:
             volume = int(round(best.weight_kg * reps))
-            return f"Подход {best.set_number}: {best.weight_kg:g} кг × {reps} = {volume} кг"
-        return f"Подход {best.set_number}: {reps} повторов"
+            return f"{label}: {best.weight_kg:g} кг × {reps} = {volume} кг"
+        return f"{label}: {reps} повторов"
 
     def _build_strength_recommendation(self, exercise_session: ExerciseSession, training_mode: str | None, training_day_type: str | None) -> str:
         results = sorted(exercise_session.set_results, key=lambda item: item.set_number)
         work_results = [item for item in results if item.machine_metrics.get("setType") != "warmup"] or results
         if not work_results:
             return "Сохраните текущую технику и оцените восстановление перед следующим упражнением."
+
+        if self._exercise_is_sided(exercise_session):
+            completed, target, _, _ = self._set_counts(exercise_session)
+            if completed < target:
+                return "Не все пары сторон выполнены. Сохраните текущую нагрузку до выполнения обеих сторон."
 
         pain_or_bad_technique = any(
             bool(item.machine_metrics.get("pain"))
@@ -779,6 +858,9 @@ class RuntimeService:
 
     def _sync_training_state(self, session: Session, exercise_session: ExerciseSession) -> None:
         results = list(exercise_session.set_results)
+        sided = self._exercise_is_sided(exercise_session)
+        if sided:
+            results = self._performed_results(results)
         if not results:
             return
         performed_at = exercise_session.finished_at or results[-1].created_at
@@ -787,6 +869,7 @@ class RuntimeService:
         total_volume = sum((item.weight_kg or 0) * (item.reps or item.actual_value or 0) for item in results)
         working_weight = max((item.weight_kg or 0) for item in work_results)
         average_work_reps = int(round(sum(item.reps or item.actual_value or 0 for item in work_results) / max(len(work_results), 1)))
+        working_sets = self._logical_set_count(work_results) if sided else len(work_results)
         mode_factor = self._strength_weight_factor(exercise_session.training_mode, exercise_session.training_day_type)
         state_statement = select(UserExerciseState).where(
             UserExerciseState.user_id == exercise_session.user_id,
@@ -797,7 +880,7 @@ class RuntimeService:
             state = UserExerciseState(user_id=exercise_session.user_id, exercise_slug=exercise_session.exercise_slug)
             session.add(state)
         state.working_weight = self._round_weight(working_weight / mode_factor) if working_weight > 0 else state.working_weight
-        state.working_sets = len(work_results)
+        state.working_sets = working_sets
         state.working_reps = max(1, total_reps)
         rest_values = [item.rest_duration_seconds for item in results if item.rest_duration_seconds is not None]
         if rest_values:
@@ -809,7 +892,7 @@ class RuntimeService:
             "status": exercise_session.status.value,
             "trainingMode": exercise_session.training_mode,
             "trainingDayType": exercise_session.training_day_type,
-            "sets": len(work_results),
+            "sets": working_sets,
             "repsPerSet": max(1, average_work_reps),
             "totalReps": total_reps,
             "weightKg": working_weight,
@@ -825,7 +908,7 @@ class RuntimeService:
                 performed_at=performed_at,
                 weight_kg=working_weight,
                 reps=total_reps,
-                sets=len(results),
+                sets=self._logical_set_count(results) if sided else len(results),
                 volume_kg=total_volume,
                 rpe=max(item.subjective_effort or 6 for item in results),
                 note=exercise_session.recommendation or "Автосохранение результата",

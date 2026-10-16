@@ -48,6 +48,7 @@ class MotionTelemetrySchema(SchemaModel):
     user_force_kg: float = 0.0
     velocity_mm_per_sec: float = 0.0
     start_point: str = "lower"
+    load_direction: Literal["down", "up"] = "down"
     fixed_position_mm: float | None = None
 
 
@@ -126,6 +127,7 @@ class CalibrationSummarySchema(SchemaModel):
     upper_point_mm: float | None = None
     fixed_position_mm: float | None = None
     start_point: Literal["lower", "upper"] = "lower"
+    load_direction: Literal["down", "up"] = "down"
     zero_position_mm: float
     movement_range_confirmed: bool
     calibration_required: bool
@@ -143,6 +145,7 @@ class CalibrationSaveSchema(SchemaModel):
     upper_point_mm: float | None = None
     fixed_position_mm: float | None = None
     start_point: Literal["lower", "upper"] | None = None  # None: keep the saved one
+    load_direction: Literal["down", "up"] = "down"  # omitted on update: keep the saved direction
     zero_position_mm: float = 0.0
     movement_range_confirmed: bool = True
     calibration_required: bool = True
@@ -207,6 +210,7 @@ class HardwareCommandRequestSchema(SchemaModel):
     # motion-control extensions
     load_mode: str | None = None
     start_point: str | None = None
+    load_direction: Literal["down", "up"] = "down"
     position_mm: float | None = None
     lower_mm: float | None = None
     upper_mm: float | None = None

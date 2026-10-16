@@ -27,7 +27,7 @@ from collections import deque
 from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from threading import RLock
-from typing import Any
+from typing import Any, Literal
 
 from app.core.config import BACKEND_ROOT, get_settings
 from app.models.enums import DriveState, MachineState, SafetyState
@@ -126,6 +126,7 @@ class MotionRuntimeState:
     load_mode: str = "normal_weight"
     user_force_kg: float = 0.0
     start_point: str = "lower"
+    load_direction: Literal["down", "up"] = "down"
     fixed_position_mm: float | None = None
 
 
@@ -545,6 +546,7 @@ class HardwareRuntime:
             motion.lower_bound_mm, motion.upper_bound_mm = plan.lower_mm, plan.upper_mm
             motion.target_reps, motion.target_set, motion.current_set = plan.target_reps, plan.target_set, plan.target_set
             motion.start_point = plan.start_point
+            motion.load_direction = plan.load_direction
             motion.fixed_position_mm = plan.fixed_mm
             motion.load_mode = plan.load_mode
 
@@ -602,6 +604,22 @@ class HardwareRuntime:
                     return self._record_command(action, {"skipped": blocked})
                 raise WorkoutError(blocked)
             workout = self.workout
+            direction = payload.get("load_direction")
+            if (action in {"start_motion", "start_fixed_position", "resume", "set_load", "move_to_start"}
+                    and direction is not None and direction not in {"down", "up"}):
+                raise WorkoutError("Направление нагрузки должно быть down или up")
+            if (workout.active and workout.plan is not None
+                    and not (workout.load_n <= 1.0 and (
+                        workout.mode == "weightless" or (
+                            action in {"start_motion", "start_fixed_position"} and workout.completed_rest
+                        )
+                    ))
+                    and action in {"start_motion", "start_fixed_position", "resume", "set_load", "move_to_start"}):
+                requested = direction
+                if action in {"start_motion", "start_fixed_position"}:
+                    requested = requested or (calibration or {}).get("load_direction", "down")
+                if requested is not None and requested != workout.plan.load_direction:
+                    raise WorkoutError("Направление нагрузки меняется только после завершения подхода")
             if not workout.active:
                 self.abort_hold = False
             if action == "enter_weightless":
@@ -638,6 +656,9 @@ class HardwareRuntime:
                 raise WorkoutError(f"Команда «{action}» пока не поддерживается")
             if workout.active:
                 self._force_write = False
+            if action in {"start_motion", "start_fixed_position", "resume", "set_load", "move_to_start"} and workout.plan is not None:
+                # Capture the accepted plan under the command lock, not a later telemetry snapshot.
+                extra["resolved_load_direction"] = workout.plan.load_direction
             command = self._record_command(action, {key: value for key, value in payload.items() if value is not None} | extra)
             self._sync_state(False)
         self._schedule_broadcast()
@@ -647,8 +668,12 @@ class HardwareRuntime:
         if calibration is None:
             raise WorkoutError("Настройка грифа для упражнения не найдена: выполните настройку упражнения")
         load = per_side_n(float(payload.get("weight_kg") or 0.0))
+        direction = payload.get("load_direction") or calibration.get("load_direction", "down")
+        if direction not in {"down", "up"}:
+            raise WorkoutError("Направление нагрузки должно быть down или up")
         common = {
             "load_n": load,
+            "load_direction": direction,
             "load_mode": load_mode(payload.get("load_mode")),
             "target_reps": int(payload.get("target_reps") or 10),
             "target_set": int(payload.get("target_set") or 1),
@@ -1044,6 +1069,7 @@ class HardwareRuntime:
             "stillMs": int(self.workout.still_s * 1000),
             "holdReason": self.workout.reason,
             "loadTargetKg": motion.load_target_kg,
+            "loadDirection": motion.load_direction,
             "loadEffectiveKg": motion.load_effective_kg,
             "positionMm": motion.bar_position_mm,
             "velocityMmPerSec": motion.velocity_mm_per_sec,

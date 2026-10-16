@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import { DEFAULT_COACH_PREFERENCES as defaults, effectiveCoachState, preferencesValid, type CoachPreferences } from './preferences'
+import { useStage4Store } from '@/stores/stage4-store'
+import { buildSystemSettingsData, defaultStage4DevFlags } from '@/mocks/stage4-data'
 
 const general = { soundEnabled: true, voiceHintsEnabled: true, volume: 0.7 }
 const enabled: CoachPreferences = { ...defaults, enabled: true, consentVersion: 1 }
 describe('Coach preference admission (no providers)', () => {
+  it('defaults signals and inherited coach voice to full volume', () => {
+    expect(useStage4Store.getState().settingsSaved.signalVolume).toBe('100%')
+    expect(buildSystemSettingsData(defaultStage4DevFlags).common.signalVolume).toBe('100%')
+    expect(effectiveCoachState(enabled, { ...general, volume: 1 }, true).volume).toBe(1)
+  })
   it('defaults off and never inherits activation from legacy voice hints', () => {
     expect(effectiveCoachState(defaults, general, true)).toEqual({ audioEnabled: false, textEnabled: false, volume: 0, paidProductionReady: false })
   })

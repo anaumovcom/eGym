@@ -255,7 +255,7 @@ export function ExerciseSummaryScreen() {
                   <div><span>Сет</span><span>Тип</span><span>План</span><span>Факт</span><span>Вес / объём</span><span>Качество</span></div>
                   {summary.setResults.map((result) => (
                     <div key={result.setNumber}>
-                      <strong>#{result.setNumber}</strong>
+                      <strong>{result.side ? `Подход ${result.roundNumber} · ${result.side === 'left' ? 'Левая сторона' : 'Правая сторона'}` : `#${result.setNumber}`}</strong>
                       <span>{getSetTypeLabel(result.setType)}</span>
                       <span>{formatSummaryPlan(result)}</span>
                       <strong>{result.reps ?? result.actualValue}{typeof result.rir === 'number' ? ` • RIR ${result.rir}` : ''}</strong>

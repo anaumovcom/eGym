@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Popover from '@radix-ui/react-popover'
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock3, CloudOff, Dumbbell, Flame, Gauge, ListChecks, LoaderCircle, OctagonAlert, Plus, Repeat2, Replace, Settings2, SlidersHorizontal, Target, Timer, Trash2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
@@ -94,7 +94,6 @@ export function WorkoutBuilderScreen() {
       }
       return apiGet<WorkoutBuilderData>(`/api/builder?${params.toString()}`).then(normalizeBuilderData)
     },
-    placeholderData: keepPreviousData,
   })
   // Same cache entry as the home screen: exercise count, duration and last run for list cards.
   const { data: dashboard } = useQuery({
@@ -124,6 +123,7 @@ export function WorkoutBuilderScreen() {
   const createDialogOpen = searchParams.get('create') === 'new'
   const lastSavedSnapshotRef = useRef<string | null>(null)
   const lastSavePromiseRef = useRef<Promise<void> | null>(null)
+  const saveQueueRef = useRef<Promise<unknown> | null>(null)
   const groupsRef = useRef(groups)
   const editorRef = useRef(editor)
   const workoutTitleRef = useRef(workoutTitle)
@@ -157,11 +157,12 @@ export function WorkoutBuilderScreen() {
       return
     }
 
-    const nextGroups = mergeBuilderGroupsWithLocalStrength(data?.groups ?? [], groupsRef.current)
+    const nextGroups = data.groups
     const selectedItem = nextGroups.flatMap((group) => group.items).find((item) => item.id === data.selectedExerciseId)
     const editorSource = data.selectedExerciseId && data.selectedExercise
       ? {
           ...data.selectedExercise,
+          perSide: selectedItem?.perSide ?? data.selectedExercise.perSide,
           strengthModeId: selectedItem?.strengthModeId ?? data.selectedExercise.strengthModeId,
           strengthDayType: selectedItem?.strengthDayType ?? data.selectedExercise.strengthDayType,
           strengthPlan: selectedItem?.strengthPlan?.length ? selectedItem.strengthPlan : data.selectedExercise.strengthPlan,
@@ -207,6 +208,20 @@ export function WorkoutBuilderScreen() {
   const selectedProgram = data.programs.find((program) => program.id === selectedProgramId)
   const hasPrograms = data.programs.length > 0
 
+  function enqueueBuilderSave(payload: unknown) {
+    const pending = saveQueueRef.current
+      ? saveQueueRef.current.catch(() => undefined).then(() => apiPut('/api/builder/plan', payload))
+      : apiPut('/api/builder/plan', payload)
+    saveQueueRef.current = pending
+    void pending.finally(() => {
+      if (saveQueueRef.current === pending) saveQueueRef.current = null
+    }).catch(() => undefined)
+    return pending.then(() => {
+      void queryClient.invalidateQueries({ queryKey: ['workout-builder', resolvedUserId], refetchType: 'none' })
+      void queryClient.invalidateQueries({ queryKey: ['dashboard', resolvedUserId] })
+    })
+  }
+
   async function persistBuilderPlan(nextGroups: BuilderWorkoutGroup[], nextSelectedExerciseId: string | null, nextEditor: WorkoutBuilderData['selectedExercise'] | null, nextWorkoutTitle: string) {
     if (!data || !selectedProgramId) {
       return
@@ -242,13 +257,13 @@ export function WorkoutBuilderScreen() {
       payload.selectedExercise = nextEditor
     }
 
-    savePromise = apiPut('/api/builder/plan', payload)
+    savePromise = enqueueBuilderSave(payload)
       .then(() => {
-        setSaveStatus('saved')
+        if (lastSavePromiseRef.current === savePromise) setSaveStatus('saved')
       })
       .catch(() => {
-        setSaveStatus('error')
         if (lastSavePromiseRef.current === savePromise) {
+          setSaveStatus('error')
           lastSavedSnapshotRef.current = null
         }
       })
@@ -296,8 +311,11 @@ export function WorkoutBuilderScreen() {
     const currentEditor = editorRef.current
     if (!options?.skipSave && currentEditor) {
       await persistBuilderPlan(groupsRef.current, selectedExerciseId, currentEditor, workoutTitleRef.current)
+      if (lastSavedSnapshotRef.current === null) return
     }
 
+    // Cached editors predate autosaves made while a different item was selected.
+    queryClient.removeQueries({ queryKey: ['workout-builder', resolvedUserId, selectedProgramId, exerciseId], exact: true })
     setSearchParams(
       (current) => {
         const next = new URLSearchParams(current)
@@ -549,6 +567,7 @@ export function WorkoutBuilderScreen() {
   }
 
   function handleSelectProgram(programId: string) {
+    queryClient.removeQueries({ queryKey: ['workout-builder', resolvedUserId, programId], type: 'inactive' })
     setSearchParams((current) => {
       const next = new URLSearchParams(current)
       next.set('programId', programId)
@@ -559,6 +578,8 @@ export function WorkoutBuilderScreen() {
 
   async function handleReplaceExercise(details: ExerciseDetails) {
     const targetExerciseId = replaceTargetExerciseId ?? selectedExerciseId
+    const targetItem = groupsRef.current.flatMap((group) => group.items).find((item) => item.id === targetExerciseId)
+    const perSide = (targetExerciseId === selectedExerciseId ? editorRef.current?.perSide : undefined) ?? targetItem?.perSide ?? false
     const currentNote = editor?.note ?? ''
     const loadType = getBuilderLoadType(details)
     const durationSeconds = getBuilderDuration(details)
@@ -588,6 +609,7 @@ export function WorkoutBuilderScreen() {
                 sets: formatBuilderItemSets(loadType, setCount, effectiveSetParams.reps, effectiveSetParams.durationSeconds),
                 load: formatBuilderItemLoad(loadType, effectiveSetParams.weight),
                 loadType,
+                perSide,
                 rest: `${effectiveSetParams.restSeconds} сек`,
                 previewVideoUrl: details.previewVideoUrl,
                 strengthModeId,
@@ -598,13 +620,7 @@ export function WorkoutBuilderScreen() {
         ),
       }))
 
-    await apiPut('/api/builder/plan', {
-      userId: resolvedUserId,
-      programId: selectedProgramId,
-      workoutName: workoutTitleRef.current,
-      groups: serializeBuilderGroups(nextGroups),
-      selectedExerciseId: targetExerciseId,
-      selectedExercise: {
+    const nextEditor = normalizeBuilderEditor({
         name: details.name,
         subtitle: formatBuilderSubtitle(details),
         setParams: {
@@ -615,38 +631,28 @@ export function WorkoutBuilderScreen() {
           durationSeconds,
         },
         loadType,
+        perSide,
         loadMode: details.loadSettings.mode,
         tempo: details.loadSettings.tempo,
         strengthModeId,
         strengthDayType,
         strengthPlan,
         note: currentNote,
-      },
+      }, nextGroups, targetExerciseId)
+
+    await enqueueBuilderSave({
+      userId: resolvedUserId,
+      programId: selectedProgramId,
+      workoutName: workoutTitleRef.current,
+      groups: serializeBuilderGroups(nextGroups),
+      selectedExerciseId: targetExerciseId,
+      selectedExercise: nextEditor,
     })
 
+    groupsRef.current = nextGroups
     setGroups(nextGroups)
-    setEditor((current) =>
-      current
-        ? {
-            ...current,
-            name: details.name,
-            subtitle: formatBuilderSubtitle(details),
-            setParams: {
-              sets: setCount,
-              reps: details.loadSettings.reps,
-              weight: Math.round(details.loadSettings.weight),
-              restSeconds: details.loadSettings.restSeconds,
-              durationSeconds,
-            },
-            loadType,
-            loadMode: details.loadSettings.mode,
-            tempo: details.loadSettings.tempo,
-            strengthModeId,
-            strengthDayType,
-            strengthPlan,
-          }
-        : current,
-    )
+    editorRef.current = nextEditor
+    setEditor(nextEditor)
     void selectExercise(targetExerciseId, { skipSave: true })
     setReplaceTargetExerciseId(null)
     setReplaceModalOpen(false)
@@ -702,8 +708,7 @@ export function WorkoutBuilderScreen() {
       )
 
     const shouldSelectNewExercise = !selectedExerciseId
-    const nextEditor = shouldSelectNewExercise
-      ? normalizeBuilderEditor(
+    const nextEditor = normalizeBuilderEditor(
           {
             name: details.name,
             subtitle: formatBuilderSubtitle(details),
@@ -725,7 +730,6 @@ export function WorkoutBuilderScreen() {
           nextGroups,
           nextId,
         )
-      : null
 
     const payload: {
       userId: string
@@ -741,12 +745,12 @@ export function WorkoutBuilderScreen() {
       groups: serializeBuilderGroups(nextGroups),
     }
 
-    if (shouldSelectNewExercise && nextEditor) {
+    if (nextEditor) {
       payload.selectedExerciseId = nextId
       payload.selectedExercise = nextEditor
     }
 
-    await apiPut('/api/builder/plan', payload)
+    await enqueueBuilderSave(payload)
 
     groupsRef.current = nextGroups
     setGroups(nextGroups)
@@ -770,7 +774,7 @@ export function WorkoutBuilderScreen() {
     const remainingItems = nextGroups.flatMap((group) => group.items)
     const nextSelectedItem = remainingItems.find((item) => item.id === selectedExerciseId) ?? remainingItems[0]
 
-    await apiPut('/api/builder/plan', {
+    await enqueueBuilderSave({
       userId: resolvedUserId,
       programId: selectedProgramId,
       workoutName: workoutTitleRef.current,
@@ -1009,9 +1013,9 @@ export function WorkoutBuilderScreen() {
                             unit="кг"
                             value={editor.setParams.weight > 0 ? editor.setParams.weight : null}
                             emptyLabel={weightlessSelected ? 'вес тела' : '—'}
-                            onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: Math.max(0, state.setParams.weight + delta) } }))}
-                            onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: Math.max(0, value ?? 0) } }))}
-                            onReset={() => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, weight: 0 } }))}
+                            onChange={(delta) => updateEditor((state) => withBuilderWeight(state, state.setParams.weight + delta))}
+                            onValueCommit={(value) => updateEditor((state) => withBuilderWeight(state, value ?? 0))}
+                            onReset={() => updateEditor((state) => withBuilderWeight(state, 0))}
                             resetLabel="Без веса"
                           />
                         </>
@@ -1023,6 +1027,20 @@ export function WorkoutBuilderScreen() {
                         onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, state.setParams.restSeconds + delta * 15) } }))}
                         onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, value ?? state.setParams.restSeconds) } }))}
                       />
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                      <label className="flex cursor-pointer items-center gap-3 text-white">
+                        <input
+                          type="checkbox"
+                          checked={editor.perSide ?? false}
+                          onChange={(event) => updateEditor((state) => ({ ...state, perSide: event.target.checked }))}
+                          aria-describedby={editor.perSide ? 'builder-per-side-hint' : undefined}
+                          className="h-5 w-5 accent-[#c5f36b]"
+                        />
+                        <span>На каждую сторону</span>
+                      </label>
+                      {editor.perSide ? <p id="builder-per-side-hint" className="mt-2 text-sm text-white/70">{formatBuilderPerSideHint(editor)}</p> : null}
                     </div>
 
                     <ExercisePlanStrengthSets item={selectedExerciseItem.item} plan={editor.strengthPlan} modes={data.strengthModes} />
@@ -1217,11 +1235,18 @@ export function WorkoutBuilderScreen() {
 // Summarise from the set plan (what the session will actually run), not the raw item fields.
 function formatBuilderItemSummary(item: BuilderExerciseItem, planOverride?: StrengthSetPlan[]) {
   const plan = planOverride?.length ? planOverride : item.strengthPlan
+  const perSideLabel = item.perSide ? ' · на каждую сторону' : ''
   if (!plan?.length) {
-    return [item.sets, item.load, item.rest ? `отдых ${item.rest}` : null].filter(Boolean).join(' · ')
+    return [item.sets, item.load, item.rest ? `отдых ${item.rest}` : null].filter(Boolean).join(' · ') + perSideLabel
   }
   const working = plan.find((set) => set.setType !== 'warmup') ?? plan[0]
-  return `${formatSetCountLabel(plan.length)} · ${formatStrengthSetMainLine(working, item)} · отдых ${working.restSeconds} сек`
+  return `${formatSetCountLabel(plan.length)} · ${formatStrengthSetMainLine(working, item)} · отдых ${working.restSeconds} сек${perSideLabel}`
+}
+
+function formatBuilderPerSideHint(editor: BuilderExerciseEditor) {
+  const params = editor.effectiveSetParams ?? editor.setParams
+  const value = editor.loadType === 'timed' ? `${params.durationSeconds ?? 60} сек` : `${params.reps} повторов`
+  return `${value} на левую и ${value} на правую сторону`
 }
 
 function formatBuilderMuscleGroup(details: ExerciseDetails) {
@@ -1264,6 +1289,7 @@ function serializeBuilderGroups(groups: BuilderWorkoutGroup[]) {
       rest: item.rest,
       load: item.load,
       loadType: item.loadType,
+      perSide: item.perSide ?? false,
       strengthModeId: item.strengthModeId,
       strengthDayType: item.strengthDayType ?? null,
       strengthPlan: item.strengthPlan ?? [],
@@ -1273,41 +1299,6 @@ function serializeBuilderGroups(groups: BuilderWorkoutGroup[]) {
 
 function createBuilderSaveSnapshot(userId: string, programId: string, workoutName: string, groups: BuilderWorkoutGroup[], selectedExerciseId: string | null, selectedExercise: WorkoutBuilderData['selectedExercise'] | null) {
   return JSON.stringify({ userId, programId, workoutName, groups: serializeBuilderGroups(groups), selectedExerciseId, selectedExercise })
-}
-
-function mergeBuilderGroupsWithLocalStrength(serverGroups: BuilderWorkoutGroup[], localGroups: BuilderWorkoutGroup[]) {
-  if (localGroups.length === 0) {
-    return serverGroups
-  }
-
-  const localItems = new Map(localGroups.flatMap((group) => group.items.map((item) => [item.id, item] as const)))
-
-  return serverGroups.map((group) => ({
-    ...group,
-    items: group.items.map((item) => {
-      const localItem = localItems.get(item.id)
-      if (!localItem) {
-        return item
-      }
-
-      const localModeId = normalizeStrengthModeId(localItem.strengthModeId)
-      const serverModeId = normalizeStrengthModeId(item.strengthModeId)
-      const localPlan = localItem.strengthPlan ?? []
-      const serverPlan = item.strengthPlan ?? []
-      const localHasChangedStrength = localModeId !== serverModeId || (localPlan.length > 0 && JSON.stringify(localPlan) !== JSON.stringify(serverPlan))
-
-      if (!localHasChangedStrength) {
-        return item
-      }
-
-      return {
-        ...item,
-        strengthModeId: localModeId,
-        strengthDayType: localItem.strengthDayType ?? null,
-        strengthPlan: localPlan,
-      }
-    }),
-  }))
 }
 
 function applyEditorToGroups(groups: BuilderWorkoutGroup[], selectedExerciseId: string, editor: WorkoutBuilderData['selectedExercise']) {
@@ -1327,6 +1318,7 @@ function applyEditorToGroups(groups: BuilderWorkoutGroup[], selectedExerciseId: 
       return {
         ...item,
         loadType,
+        perSide: editor.perSide ?? item.perSide ?? false,
         sets: formatBuilderItemSets(loadType, effectiveSetParams.sets ?? parseBuilderSetCount(item.sets), effectiveSetParams.reps, effectiveSetParams.durationSeconds),
         load: formatBuilderItemLoad(loadType, effectiveSetParams.weight),
         rest: `${effectiveSetParams.restSeconds} сек`,
@@ -1413,6 +1405,15 @@ function inferBuilderLoadTypeFromEditor(editor: BuilderExerciseEditor | null, it
   return editor?.setParams.weight ? 'weighted' : 'bodyweight'
 }
 
+function withBuilderWeight(editor: BuilderExerciseEditor, value: number): BuilderExerciseEditor {
+  const weight = Math.max(0, value)
+  return {
+    ...editor,
+    loadType: weight > 0 ? 'weighted' : 'bodyweight',
+    setParams: { ...editor.setParams, weight },
+  }
+}
+
 function normalizeBuilderEditor(editor: WorkoutBuilderData['selectedExercise'], groups: BuilderWorkoutGroup[], selectedExerciseId: string) {
   const selectedItem = groups.flatMap((group) => group.items).find((item) => item.id === selectedExerciseId)
   const loadType = inferBuilderLoadTypeFromEditor(editor, selectedItem)
@@ -1433,6 +1434,7 @@ function normalizeBuilderEditor(editor: WorkoutBuilderData['selectedExercise'], 
   return {
     ...editor,
     loadType,
+    perSide: editor.perSide ?? selectedItem?.perSide ?? false,
     setParams,
     effectiveSetParams,
     strengthModeId,

@@ -63,6 +63,7 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
   const beginNextStep = useRuntimeStore((state) => state.beginNextStep)
   const adjustRestSeconds = useRuntimeStore((state) => state.adjustRestSeconds)
   const tickRestTimer = useRuntimeStore((state) => state.tickRestTimer)
+  const pauseRestTimer = useRuntimeStore((state) => state.pauseRestTimer)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
   const snapshot = useHardwareStore((state) => state.snapshot)
   const hardwareError = useHardwareStore((state) => state.errorMessage)
@@ -70,6 +71,8 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
   const loadCurrentCalibration = useHardwareStore((state) => state.loadCurrentCalibration)
   const setHardwareError = useHardwareStore((state) => state.setErrorMessage)
   const autoAdvanceTriggeredRef = useRef(false)
+  const beginNextStepPendingRef = useRef(false)
+  const [startingNextStep, setStartingNextStep] = useState(false)
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
 
   useEffect(() => {
@@ -82,6 +85,8 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
   const currentExercise = activeSession.exercises.find((item) => item.id === activeSession.currentExerciseId) ?? activeSession.exercises[0]
   const hasNextSet = activeSession.currentSetIndex < currentExercise.plan.length - 1
   const nextExercisePlan = hasNextSet ? currentExercise : activeSession.exercises[currentExercise.order]
+  const isSideChange = Boolean(currentExercise.perSide && currentExercise.plan[activeSession.currentSetIndex]?.side === 'left')
+  const upcomingPlan = nextExercisePlan?.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]
 
   useEffect(() => {
     autoAdvanceTriggeredRef.current = false
@@ -100,25 +105,45 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
   }, [rest.remainingSeconds, rest.timerPaused, tickRestTimer])
 
   useEffect(() => {
-    if (rest.timerPaused || rest.remainingSeconds > 0 || autoAdvanceTriggeredRef.current) {
+    if (isSideChange || rest.timerPaused || rest.remainingSeconds > 0 || autoAdvanceTriggeredRef.current) {
       return
     }
 
     autoAdvanceTriggeredRef.current = true
-    void handleBeginNextStep()
-  }, [rest.remainingSeconds, rest.timerPaused])
+    void handleBeginNextStep().then((started) => {
+      if (!started) {
+        // No automatic command retry loop: keep the rest screen available for an explicit retry.
+        autoAdvanceTriggeredRef.current = false
+        if (!useRuntimeStore.getState().session?.restState?.timerPaused) {
+          pauseRestTimer()
+        }
+      }
+    })
+  }, [isSideChange, rest.remainingSeconds, rest.timerPaused])
 
   async function handleBeginNextStep() {
+    if (beginNextStepPendingRef.current) return false
+    beginNextStepPendingRef.current = true
+    setStartingNextStep(true)
+    try {
+      return await startNextStep()
+    } finally {
+      beginNextStepPendingRef.current = false
+      setStartingNextStep(false)
+    }
+  }
+
+  async function startNextStep() {
     if (nextExercisePlan && supportsFixedBarSetup(nextExercisePlan)) {
       if (!selectedUserId) {
         setHardwareError('Для запуска упражнения нужно выбрать пользователя.')
-        return
+        return false
       }
       try {
         const setup = await loadCurrentCalibration(selectedUserId, nextExercisePlan.slug)
         if (!setup) {
           setHardwareError('Настройка грифа не найдена. Откройте настройку упражнения.')
-          return
+          return false
         }
         await runCommand({
           action: setup.setupType === 'fixed_position' ? 'start_fixed_position' : 'start_motion',
@@ -129,17 +154,19 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
           weightKg: nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.recommendedWeightKg ?? nextExercisePlan.loadSettings.weight,
           mode: 'machine',
           targetSet: hasNextSet ? activeSession.currentSetIndex + 2 : 1,
+          loadDirection: setup.loadDirection ?? 'down',
           targetReps: nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.targetMaxReps ?? nextExercisePlan.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]?.targetReps ?? nextExercisePlan.loadSettings.reps,
           ...(setup.setupType === 'fixed_position' ? { positionMm: setup.fixedPositionMm ?? undefined, repCountSource: 'load' } : {}),
         })
       } catch (error) {
         setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить тренажёр.')
-        return
+        return false
       }
     }
 
     beginNextStep()
     navigate(withSearch('/exercise-session', location.search))
+    return true
   }
 
   const progressPercent = rest.totalSeconds > 0 ? Math.round(((rest.totalSeconds - rest.remainingSeconds) / rest.totalSeconds) * 100) : 100
@@ -169,7 +196,7 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
           <div className="rt-chips" aria-label="Завершённый подход">
             <span className="rt-chip" data-tone={rest.completedSet.actualValue >= rest.completedSet.plannedValue ? 'good' : 'warning'}>
               <CheckCircle2 aria-hidden="true" />
-              Подход {rest.completedSet.setNumber}: {rest.completedSet.actualValue} из {rest.completedSet.plannedValue}
+              Подход {rest.completedSet.roundNumber ?? rest.completedSet.setNumber}{rest.completedSet.side ? ` · ${rest.completedSet.side === 'left' ? 'Левая сторона' : 'Правая сторона'}` : ''}: {rest.completedSet.actualValue} из {rest.completedSet.plannedValue}
             </span>
           </div>
         </header>
@@ -184,7 +211,9 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
           <div className="rt-rest-next">
             <span>Дальше</span>
             <strong>{nextTitle}</strong>
-            <p>Цель: {nextTarget}{rest.nextExercise?.restLabel ? ` · отдых ${rest.nextExercise.restLabel}` : ''}</p>
+            {nextExercisePlan?.perSide && upcomingPlan?.side ? <strong className="text-xl">Подход {upcomingPlan.roundNumber} из {nextExercisePlan.plan.length / 2} · {upcomingPlan.side === 'left' ? 'Левая сторона' : 'Правая сторона'}</strong> : null}
+            <p>Цель: {nextTarget}{nextExercisePlan?.perSide ? ' на сторону' : ''}{rest.nextExercise?.restLabel ? ` · отдых ${rest.nextExercise.restLabel}` : ''}</p>
+            <p role="note">{rest.recommendation}</p>
           </div>
           <div className="rt-rest-facts">
             <span>План <strong>{rest.completedSet.plannedValue}</strong></span>
@@ -209,8 +238,8 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
           <Button variant="secondary" iconLeft={<Plus aria-hidden="true" />} onClick={() => adjustRestSeconds(30)}>
             +30 сек
           </Button>
-          <Button iconLeft={<SkipForward aria-hidden="true" />} onClick={() => void handleBeginNextStep()}>
-            Пропустить
+          <Button disabled={startingNextStep} iconLeft={<SkipForward aria-hidden="true" />} onClick={() => void handleBeginNextStep()}>
+            {isSideChange ? rest.nextActionLabel : 'Пропустить'}
           </Button>
           <Button variant="secondary" iconLeft={<Square aria-hidden="true" />} onClick={() => setFinishDialogOpen(true)}>
             Завершить тренировку

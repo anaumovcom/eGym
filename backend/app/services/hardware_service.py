@@ -122,6 +122,7 @@ class HardwareService:
                 upper_point_mm=payload.upper_point_mm,
                 fixed_position_mm=payload.fixed_position_mm,
                 start_point=payload.start_point or "lower",
+                load_direction=payload.load_direction,
                 zero_position_mm=payload.zero_position_mm,
                 movement_range_confirmed=payload.movement_range_confirmed,
                 calibration_required=payload.calibration_required,
@@ -138,6 +139,8 @@ class HardwareService:
             calibration.fixed_position_mm = payload.fixed_position_mm
             if payload.start_point is not None:
                 calibration.start_point = payload.start_point
+            if "load_direction" in payload.model_fields_set:
+                calibration.load_direction = payload.load_direction
             calibration.zero_position_mm = payload.zero_position_mm
             calibration.movement_range_confirmed = payload.movement_range_confirmed
             calibration.calibration_required = payload.calibration_required
@@ -257,8 +260,11 @@ class HardwareService:
                     max_load_kg = min(max_load_kg, self._parse_kg(settings.guest_weight_limit))
                 if payload.weight_kg > max_load_kg:
                     raise PermissionError(f"Превышен лимит нагрузки {max_load_kg:.0f} кг.")
+            command_payload = payload.model_dump(exclude_none=True)
+            if "load_direction" not in payload.model_fields_set:
+                command_payload.pop("load_direction", None)
             command = hardware_runtime.workout_command(
-                payload.action, payload.model_dump(exclude_none=True), self._set_calibration(session, payload)
+                payload.action, command_payload, self._set_calibration(session, payload)
             )
             value = command.payload.get("capturedPositionMm")
             captured = float(value) if isinstance(value, int | float) else None
@@ -306,6 +312,12 @@ class HardwareService:
                 command_id=command.id, status=command.status, message=self._message_for_action(payload.action),
                 snapshot=self.get_snapshot(session, payload.user_id),
             )
+        audit_details = payload.model_dump(mode="json", exclude_none=True)
+        if "load_direction" not in payload.model_fields_set:
+            audit_details.pop("load_direction", None)
+        if payload.action in {"start_motion", "start_fixed_position", "resume", "set_load", "move_to_start"}:
+            audit_details["requested_load_direction"] = payload.load_direction if "load_direction" in payload.model_fields_set else None
+            audit_details["resolved_load_direction"] = command.payload.get("resolved_load_direction")
         self.audit_repository.record(
             session,
             actor_user_id=payload.user_id,
@@ -313,7 +325,7 @@ class HardwareService:
             target_type="hardware",
             target_id=str(command.id),
             severity=severity,
-            details={"action": payload.action, **payload.model_dump(mode="json", exclude_none=True)},
+            details={"action": payload.action, **audit_details},
         )
         session.commit()
         snapshot = self.get_snapshot(session, payload.user_id)
@@ -342,6 +354,7 @@ class HardwareService:
                 "upper_point_mm": calibration.upper_point_mm,
                 "fixed_position_mm": calibration.fixed_position_mm,
                 "start_point": calibration.start_point,
+                "load_direction": calibration.load_direction,
             }
         if payload.lower_mm is not None and payload.upper_mm is not None:
             setup |= {"lower_point_mm": payload.lower_mm, "upper_point_mm": payload.upper_mm}
@@ -521,7 +534,7 @@ class HardwareService:
                 "autoReturnMinutes": settings.idle_lock_minutes,
                 "soundEnabled": True,
                 "voiceHintsEnabled": True,
-                "signalVolume": "70%",
+                "signalVolume": "100%",
                 "wifiMode": "Ethernet emulator",
                 "networkStatus": "Подключено",
                 "ssid": "Forma-Emulator",

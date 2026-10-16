@@ -254,6 +254,7 @@ class BuilderExerciseItemSchema(SchemaModel):
     rest: str
     load: str
     load_type: BuilderLoadType | None = None
+    per_side: bool = False
     preview_video_url: str | None = None
     strength_mode_id: str = "basic"
     strength_day_type: str | None = None
@@ -284,6 +285,7 @@ class BuilderExerciseEditorSchema(SchemaModel):
     set_params: dict[str, int]
     effective_set_params: dict[str, int] = Field(default_factory=dict)
     load_type: BuilderLoadType | None = None
+    per_side: bool = False
     load_mode: str
     load_mode_description: str = ""
     tempo: str

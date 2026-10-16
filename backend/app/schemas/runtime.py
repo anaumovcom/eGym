@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Literal
 
+from pydantic import Field
+
 from app.schemas.base import SchemaModel
 
 
@@ -52,6 +54,8 @@ class ExerciseSessionCreateSchema(SchemaModel):
     finished_at: datetime | None = None
     calibration_state: str | None = None
     target_sets: int = 0
+    per_side: bool = False
+    planned_total: float | None = Field(default=None, ge=0, allow_inf_nan=False)
     training_mode: str | None = None
     training_day_type: str | None = None
     recommendation: str | None = None
@@ -80,6 +84,8 @@ class WorkoutSessionCreateSchema(SchemaModel):
 
 class RuntimeSetResultSchema(SchemaModel):
     set_number: int
+    side: Literal["left", "right"] | None = None
+    round_number: int | None = None
     planned_value: int
     actual_value: int
     set_type: str | None = None

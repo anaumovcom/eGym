@@ -40,6 +40,7 @@ export type HardwareMotionTelemetry = {
   userForceKg?: number
   velocityMmPerSec?: number
   startPoint?: string
+  loadDirection?: LoadDirection
   fixedPositionMm?: number | null
 }
 
@@ -60,6 +61,7 @@ export type HardwareControlState = {
   driveTorquePercent?: number
   loadTargetKg: number
   loadEffectiveKg: number
+  loadDirection?: LoadDirection
   components: Record<string, number>
   repetitionCount: number
   partialReps: number
@@ -183,6 +185,8 @@ export type HardwareSnapshot = {
 
 /** Where a set of a bar-range exercise starts: the bar is moved there before the user takes it. */
 export type BarStartPoint = 'lower' | 'upper'
+/** Direction of the applied LOAD, independent of the bar's starting point. */
+export type LoadDirection = 'down' | 'up'
 
 export type HardwareCalibration = {
   id: number
@@ -193,6 +197,7 @@ export type HardwareCalibration = {
   upperPointMm: number | null
   fixedPositionMm: number | null
   startPoint?: BarStartPoint
+  loadDirection?: LoadDirection
   zeroPositionMm: number
   movementRangeConfirmed: boolean
   calibrationRequired: boolean
@@ -247,6 +252,7 @@ export type HardwareCommandRequest = {
   jogId?: string
   serviceMode?: boolean
   loadMode?: string
+  loadDirection?: LoadDirection
   startPoint?: string
   positionMm?: number
   lowerMm?: number
@@ -279,6 +285,7 @@ export type HardwareCalibrationPayload = {
   upperPointMm?: number | null
   fixedPositionMm?: number | null
   startPoint?: BarStartPoint
+  loadDirection?: LoadDirection
   zeroPositionMm: number
   movementRangeConfirmed?: boolean
   calibrationRequired?: boolean

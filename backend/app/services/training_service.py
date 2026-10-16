@@ -695,10 +695,8 @@ class TrainingService:
             selected_item = available_items[0]
 
         if selected_item is not None:
-            exercise = get_imported_exercise(selected_item.slug)
-            settings = self._load_settings(session, user_id, selected_item.slug, exercise)
             selected_item_id = selected_item.id
-            selected_editor = self._builder_editor(session, user_id, selected_program.id, selected_item, settings)
+            selected_editor = self._builder_editor(session, user_id, selected_program.id, selected_item)
         else:
             selected_item_id = ""
             selected_editor = self._empty_builder_editor(self._builder_workout_name(builder_value, selected_program))
@@ -738,18 +736,32 @@ class TrainingService:
         groups = self._sanitize_builder_groups(payload.groups, payload.user_id)
         current_value = self._builder_setting_value(session, payload.user_id, program_id)
         editors = current_value.get("editors") if isinstance(current_value.get("editors"), dict) else {}
+        previous_groups = current_value.get("groups")
+        previous_slugs = {
+            item.get("id"): item.get("slug")
+            for group in (previous_groups if isinstance(previous_groups, list) else []) if isinstance(group, dict)
+            for item in (group.get("items") or []) if isinstance(item, dict)
+        }
+        # IDs survive replacement; group-only edits must invalidate obsolete editor snapshots.
+        editors = {
+            item.id: {**editors[item.id], "exerciseSlug": item.slug}
+            for group in groups for item in group.items
+            if previous_slugs.get(item.id, item.slug) == item.slug
+            and self._saved_builder_editor(item, editors.get(item.id)) is not None
+        }
         workout_name = self._sanitize_builder_workout_name(payload.workout_name, current_value, selected_program)
         if payload.selected_exercise_id and payload.selected_exercise:
             selected_item = next((item for group in groups for item in group.items if item.id == payload.selected_exercise_id), None)
-            if selected_item is not None:
+            if selected_item is not None and payload.selected_exercise.name == selected_item.name:
                 exercise = get_imported_exercise(selected_item.slug)
                 load_type = payload.selected_exercise.load_type or selected_item.load_type or self._builder_load_type(exercise)
                 default_target = self._parse_builder_target_value(selected_item.sets, selected_item.load, self._default_builder_target_value(exercise))
                 editor = self._normalize_builder_editor(payload.selected_exercise, load_type, default_target, self._builder_item_set_count(selected_item, load_type))
                 groups = self._apply_builder_editor_to_groups(groups, payload.selected_exercise_id, editor)
-                editors[str(payload.selected_exercise_id)] = editor.model_dump(mode="json", by_alias=True)
-            else:
-                editors[str(payload.selected_exercise_id)] = payload.selected_exercise.model_dump(mode="json", by_alias=True)
+                editors[str(payload.selected_exercise_id)] = {
+                    **editor.model_dump(mode="json", by_alias=True),
+                    "exerciseSlug": selected_item.slug,
+                }
         self._save_setting(
             session,
             payload.user_id,
@@ -832,6 +844,7 @@ class TrainingService:
                             "affects_fatigue": equipment_affects_fatigue(exercise.equipment),
                             "preview_video_url": self._preview_video_url(exercise, user_id),
                             "load_type": load_type,
+                            "per_side": item.per_side,
                             "sets": self._format_builder_sets(load_type, sets, target_value, duration_seconds),
                             "load": self._format_builder_load(load_type, weight),
                             "rest": f"{rest_seconds} сек",
@@ -864,13 +877,44 @@ class TrainingService:
         value = self._builder_setting_value(session, user_id, program_id).get("selectedExerciseId")
         return value if isinstance(value, str) else None
 
+    def _saved_builder_editor(self, item: BuilderExerciseItemSchema, raw_editor: Any) -> BuilderExerciseEditorSchema | None:
+        if not isinstance(raw_editor, dict):
+            return None
+        # Old snapshots have no slug: retain them only when their name still matches.
+        if raw_editor.get("exerciseSlug", item.slug) != item.slug or raw_editor.get("name") != item.name:
+            return None
+        try:
+            editor = BuilderExerciseEditorSchema.model_validate(raw_editor)
+        except ValidationError:
+            return None
+        exercise = get_imported_exercise(item.slug)
+        load_type = item.load_type or self._builder_load_type(exercise)
+        if editor.load_type is not None and editor.load_type != load_type:
+            return None
+        editor = self._normalize_builder_editor(
+            editor, load_type,
+            self._parse_builder_target_value(item.sets, item.load, self._default_builder_target_value(exercise)),
+            self._builder_item_set_count(item, load_type),
+        )
+        params = editor.effective_set_params
+        # Compare effective values, not raw controls: mode/tempo modifiers apply only once.
+        if (
+            self._format_builder_sets(load_type, params["sets"], params["reps"], params.get("durationSeconds")) != item.sets
+            or self._format_builder_load(load_type, params["weight"]) != item.load
+            or params["restSeconds"] != self._parse_builder_rest(item.rest)
+            or editor.strength_mode_id != item.strength_mode_id
+            or editor.strength_day_type != item.strength_day_type
+            or editor.per_side != item.per_side
+        ):
+            return None
+        return editor
+
     def _builder_editor(
         self,
         session: Session,
         user_id: str,
         program_id: str,
         selected_item: BuilderExerciseItemSchema,
-        settings: ExerciseLoadSettingsSchema,
     ) -> BuilderExerciseEditorSchema:
         exercise = get_imported_exercise(selected_item.slug)
         load_type = selected_item.load_type or self._builder_load_type(exercise)
@@ -878,18 +922,16 @@ class TrainingService:
         default_sets = self._builder_item_set_count(selected_item, load_type)
         value = self._builder_setting_value(session, user_id, program_id).get("editors")
         raw_editor = value.get(selected_item.id) if isinstance(value, dict) else None
-        if isinstance(raw_editor, dict):
-            try:
-                editor = BuilderExerciseEditorSchema.model_validate(raw_editor)
-                return self._normalize_builder_editor(editor, editor.load_type or load_type, default_target, default_sets)
-            except ValidationError:
-                pass
+        saved_editor = self._saved_builder_editor(selected_item, raw_editor)
+        if saved_editor is not None:
+            return saved_editor
 
         state = self._user_state(session, user_id, selected_item.slug)
         set_params = {
-            "reps": state.working_reps if state and state.working_reps is not None else default_target,
-            "weight": int(round(state.working_weight if load_type == "weighted" and state and state.working_weight is not None else self._default_builder_weight(exercise))),
-            "restSeconds": settings.rest_seconds,
+            "sets": default_sets,
+            "reps": default_target,
+            "weight": int(round(self._parse_weight(selected_item.load))) if load_type == "weighted" else 0,
+            "restSeconds": self._parse_builder_rest(selected_item.rest),
         }
         if load_type == "timed":
             set_params["durationSeconds"] = default_target
@@ -898,8 +940,10 @@ class TrainingService:
             subtitle=selected_item.muscle_group,
             set_params=set_params,
             load_type=load_type,
-            load_mode=settings.mode,
-            tempo=settings.tempo,
+            per_side=selected_item.per_side,
+            # Group values already describe the effective plan; global modifiers would apply twice.
+            load_mode="Обычный вес",
+            tempo="Обычный",
             strength_mode_id=selected_item.strength_mode_id,
             strength_day_type=selected_item.strength_day_type,
             strength_plan=selected_item.strength_plan,
@@ -1194,6 +1238,7 @@ class TrainingService:
                     item.model_copy(
                         update={
                             "load_type": load_type,
+                            "per_side": editor.per_side,
                             "sets": self._format_builder_sets(load_type, effective_set_params.get("sets") or self._parse_builder_set_count(item.sets), effective_set_params["reps"], effective_set_params.get("durationSeconds")),
                             "load": self._format_builder_load(load_type, effective_set_params["weight"]),
                             "rest": f"{effective_set_params['restSeconds']} сек",

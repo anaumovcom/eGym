@@ -22,6 +22,7 @@ export type BuilderExerciseItem = {
   rest: string
   load: string
   loadType?: BuilderLoadType
+  perSide?: boolean
   previewVideoUrl?: string
   strengthModeId?: string
   strengthDayType?: string | null
@@ -52,6 +53,7 @@ export type BuilderExerciseEditor = {
   setParams: BuilderSetParams
   effectiveSetParams?: BuilderSetParams
   loadType?: BuilderLoadType
+  perSide?: boolean
   loadMode: string
   loadModeDescription?: string
   tempo: string

@@ -15,6 +15,7 @@ range guard at the lower point); only the user's pause and the runtime latches (
 from __future__ import annotations
 
 import logging
+import math
 from collections.abc import Callable, Generator
 from dataclasses import dataclass, replace
 from typing import Any, Literal
@@ -23,7 +24,7 @@ from app.motor.calibration.procedures.motion import Balance, _governed, hold_sti
 from app.motor.calibration.runner import CalibrationRunner, Command, Frame, ProcedureEnvelope
 from app.motor.core import CoreOutput, MotorCore
 from app.motor.drive.protocol import TorqueDrive
-from app.motor.force.load_models import LoadMode, LoadSetpoint
+from app.motor.force.load_models import LoadDirection, LoadMode, LoadSetpoint
 from app.motor.profile import MachineProfile, Measured, SafetyEnvelope, Tunables
 from app.motor.supervisor.modes import Mode
 from app.motor.supervisor.reps import RepCounter
@@ -75,6 +76,7 @@ class SetPlan:
     target_reps: int = 10
     target_set: int = 1
     fixed_mm: float | None = None  # fixed position: hold here, reps by the user force
+    load_direction: LoadDirection = "down"
 
     @property
     def start_mm(self) -> float:
@@ -184,6 +186,12 @@ class WorkoutController:
         return self._load_n
 
     @property
+    def completed_rest(self) -> bool:
+        """A completed set's rest, including its unloaded moving-bar catch; not a paused set."""
+
+        return self._rest_since is not None and (self.mode == "weightless" or self._rest_catch)
+
+    @property
     def target_load_n(self) -> float:
         return self.plan.load_n if self.plan is not None else 0.0
 
@@ -240,6 +248,16 @@ class WorkoutController:
 
     def start_set(self, plan: SetPlan) -> None:
         self._require_frame()
+        if plan.load_direction not in ("down", "up"):
+            raise WorkoutError("Неизвестное направление нагрузки")
+        if not all(math.isfinite(value) for value in (plan.lower_mm, plan.upper_mm, plan.load_n)) or plan.load_n < 0:
+            raise WorkoutError("Точки и нагрузка должны быть конечными, нагрузка — неотрицательной")
+        if plan.fixed_mm is not None and not math.isfinite(plan.fixed_mm):
+            raise WorkoutError("Точка фиксации должна быть конечной")
+        if plan.start_point not in ("lower", "upper") or plan.load_mode not in ("constant", "assist_up", "eccentric", "curve", "bodyweight"):
+            raise WorkoutError("Неизвестная стартовая точка или режим нагрузки")
+        if self.mode == "training" and self.core is not None and plan.load_direction != self.core.load.load_direction:
+            raise WorkoutError("Перед сменой направления нагрузки поставьте подход на паузу")
         if plan.fixed_mm is None and not plan.lower_mm < plan.upper_mm:
             raise WorkoutError("Нижняя точка амплитуды должна быть ниже верхней: повторите настройку грифа")
         start = clamp(plan.start_mm, self.envelope.soft_min_mm, self.envelope.soft_max_mm)
@@ -444,7 +462,7 @@ class WorkoutController:
     def _set_core_load(self, load_n: float) -> None:
         core = self.core
         assert core is not None and self.plan is not None
-        core.set_load(LoadSetpoint(mode=self.plan.load_mode, load_n=load_n, alpha=self.tunables.assist_alpha, beta=self.tunables.eccentric_beta, lower_mm=self.plan.lower_mm, upper_mm=self.plan.upper_mm, range_guard=True))
+        core.set_load(LoadSetpoint(mode=self.plan.load_mode, load_n=load_n, alpha=self.tunables.assist_alpha, beta=self.tunables.eccentric_beta, lower_mm=self.plan.lower_mm, upper_mm=self.plan.upper_mm, range_guard=True, load_direction=self.plan.load_direction))
         self._load_n = core.load.load_n  # capped by what the drives can make
 
     def _watch_grip(self, frame: Frame) -> None:
@@ -468,19 +486,23 @@ class WorkoutController:
                 gripped = shift > LIFTED_GRIP_MOVE_MM
             else:
                 gripped = self.user_force_n() < -GRIP_FORCE_N or shift > GRIP_MOVE_MM
+        elif self.plan.load_direction == "up":
+            shift = max((-offset for offset in offsets), default=0.0)
+            gripped = self.user_force_n() < -GRIP_FORCE_N or shift > GRIP_MOVE_MM
         else:
             shift = max((abs(offset) for offset in offsets), default=0.0)
             gripped = abs(self.user_force_n()) > GRIP_FORCE_N or shift > GRIP_MOVE_MM
         self._grip_since = (self._grip_since if self._grip_since is not None else frame.t) if gripped else None
         if self._grip_since is not None and frame.t - self._grip_since >= GRIP_S:
             # the hold already resists the user's push: the load starts from it, no jump on the handover
-            pushed = clamp(self.user_force_n() / len(SIDES), 0.0, self.plan.load_n)
+            direction = -1.0 if self.plan.load_direction == "up" else 1.0
+            pushed = clamp(direction * self.user_force_n() / len(SIDES), 0.0, self.plan.load_n)
             core.command("train")
             self.mode = "training"
             self.reason = None
             self._load_n = 0.0
-            if pushed > UNLOADED_N:
-                self._set_core_load(pushed)
+            # Install even a zero-load plan: an unloaded previous set may have had the opposite direction.
+            self._set_core_load(pushed if pushed > UNLOADED_N else 0.0)
 
     def _begin_fixed(self) -> None:
         core = self.core

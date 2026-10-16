@@ -55,6 +55,8 @@ class ExerciseSession(TimestampMixin, Base):
     finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     calibration_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
     target_sets: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    per_side: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    planned_total: Mapped[float | None] = mapped_column(Float, nullable=True)
     training_mode: Mapped[str | None] = mapped_column(String(64), nullable=True)
     training_day_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
     recommendation: Mapped[str | None] = mapped_column(Text, nullable=True)

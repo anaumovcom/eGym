@@ -16,6 +16,7 @@ import type {
 } from '@/entities/runtime/model/types'
 import { buildStrengthPlan, getStrengthModeTitle, normalizeStrengthDayType, normalizeStrengthModeId, toRuntimeSetPlan } from '@/features/strength/lib/strength-plan'
 import { apiGet } from '@/shared/api/client'
+import { expandPerSidePlan } from './per-side'
 
 const defaultPhotoHints: Record<RuntimePhotoView, string> = {
   front: 'Встаньте лицом к камере и совместите силуэт.',
@@ -145,7 +146,7 @@ function buildRuntimeExerciseFromBuilderItem({
     : 'not-needed'
   const muscles = item.muscles?.length ? item.muscles : details.muscles
   const name = item.name || details.name
-  const plan = buildRuntimeSetPlan({ item, loadType, loadSettings, modeId: normalizedModeId, dayType: normalizedDayType })
+  const plan = expandPerSidePlan(buildRuntimeSetPlan({ item, loadType, loadSettings, modeId: normalizedModeId, dayType: normalizedDayType }), item.perSide)
 
   return {
     id: item.id || `${item.slug}-${order}`,
@@ -154,6 +155,7 @@ function buildRuntimeExerciseFromBuilderItem({
     name,
     secondaryName: details.secondaryName,
     kind,
+    perSide: item.perSide,
     muscles,
     summary: {
       ...details,
@@ -236,7 +238,7 @@ function buildRuntimeSetPlan({
     }))
   }
 
-  return buildStrengthPlan(modeId, dayType, loadSettings, 'weighted').map((plan) => toRuntimeSetPlan(plan, loadSettings.reps))
+  return buildStrengthPlan(modeId, dayType, loadSettings, 'weighted', item.perSide ? { sets: loadSettings.sets } : undefined).map((plan) => toRuntimeSetPlan(plan, loadSettings.reps))
 }
 
 function inferBuilderLoadType(item: Pick<BuilderExerciseItem, 'load' | 'sets' | 'loadType'>): BuilderLoadType {
@@ -307,6 +309,8 @@ function parseSeconds(value: string, fallback: number) {
 }
 
 function parseWeight(value: string, fallback: number) {
+  // Older builder saves represent an explicitly cleared weight with a dash.
+  if (value.trim() === '—') return 0
   const match = value.replace(',', '.').match(/\d+(?:\.\d+)?/)
   return Math.max(0, Number(match?.[0] ?? fallback))
 }
@@ -349,11 +353,11 @@ function buildBuilderWorkoutSummary(builderData: WorkoutBuilderData, exercises: 
     metrics: [
       { label: 'длительность', value: builderData.info.duration, hint: 'по плану' },
       { label: 'упражнений', value: `${exercises.length}`, hint: 'из конструктора' },
-      { label: 'подходов', value: `${totalSets}`, hint: 'запланировано' },
+      { label: exercises.some((exercise) => exercise.perSide) ? 'подходов / сторон' : 'подходов', value: `${totalSets}`, hint: 'запланировано' },
     ],
     exercises: exercises.map((exercise) => ({
       name: exercise.name,
-      result: `${exercise.plan.length} подхода`,
+      result: exercise.perSide ? `${exercise.plan.length / 2} пар подходов · ${exercise.plan.length} сторон` : `${exercise.plan.length} подхода`,
       status: 'moved',
     })),
     muscleLoad: buildMuscleLoad(exercises),
