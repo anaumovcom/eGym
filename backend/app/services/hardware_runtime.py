@@ -538,11 +538,12 @@ class HardwareRuntime:
         full, partial = workout.repetitions()
         motion.repetition_count, motion.partial_reps = full, partial
         motion.amplitude_percent = workout.amplitude_percent()
-        motion.load_effective_kg = round(2 * workout.load_n / G, 1) if workout.active else 0.0
+        kg_per_n = 2 / (G * workout.tunables.exercise_load_scale)
+        motion.load_effective_kg = round(workout.load_n * kg_per_n, 1) if workout.active else 0.0
         motion.user_force_kg = round(workout.user_force_n() / G, 1) if workout.active else 0.0
         motion.motion_profile = workout.mode if workout.active else "support"
         if plan is not None:
-            motion.load_target_kg = round(2 * plan.load_n / G, 1)
+            motion.load_target_kg = round(plan.load_n * kg_per_n, 1)
             motion.lower_bound_mm, motion.upper_bound_mm = plan.lower_mm, plan.upper_mm
             motion.target_reps, motion.target_set, motion.current_set = plan.target_reps, plan.target_set, plan.target_set
             motion.start_point = plan.start_point
@@ -667,7 +668,7 @@ class HardwareRuntime:
     def _set_plan(self, action: str, payload: dict[str, Any], calibration: dict[str, Any] | None) -> SetPlan:
         if calibration is None:
             raise WorkoutError("Настройка грифа для упражнения не найдена: выполните настройку упражнения")
-        load = per_side_n(float(payload.get("weight_kg") or 0.0))
+        load = per_side_n(float(payload.get("weight_kg") or 0.0), self.workout.tunables.exercise_load_scale)
         direction = payload.get("load_direction") or calibration.get("load_direction", "down")
         if direction not in {"down", "up"}:
             raise WorkoutError("Направление нагрузки должно быть down или up")

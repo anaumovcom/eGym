@@ -250,7 +250,7 @@ class MotorCore:
                 # Both L1/L2 quadrants matter when previous changes sign; negative coefficients peak at zero excess.
                 friction = max(0.0, *(model.force(v, x_mm=x, axial_excess_n=excess, motor_sign=sign)
                                      for v in speeds for x in positions for excess in (0.0, axial) for sign in (1, -1)))
-                gain = max(0.0, self.tunables.friction_gain_up, self.tunables.train_friction_gain_down)
+                gain = max(0.0, self.tunables.friction_gain_up, self.tunables.train_friction_gain_down, self.tunables.train_friction_gain_resist or 0.0)
                 reserve = gain * friction + LOAD_RESERVE_SHARE * push
                 limits.append(push - weight_high - reserve)
                 continue
@@ -545,8 +545,17 @@ class MotorCore:
             load = load_force(self.load, state.x_mm, blend) * self.load_relief[side] * (1.0 - self.floor_cut)
             gain_down = self._descent_gain(side, load)
         friction_t = t
+        if output == "train" and t.train_friction_gain_resist is not None:
+            # Compensate friction in the effort phase too: otherwise residual screw friction adds to the
+            # concentric load but subtracts from the eccentric one. Preserve weightless behaviour at zero load.
+            base = t.friction_gain_down if self.load.load_direction == "up" else t.friction_gain_up
+            coulomb = model.coulomb_down_n if self.load.load_direction == "up" else model.coulomb_up_n
+            share = max(0.0, min(1.0, load / max(coulomb, 1.0)))
+            resist_gain = base + (t.train_friction_gain_resist - base) * share
+            key = "friction_gain_down" if self.load.load_direction == "up" else "friction_gain_up"
+            friction_t = replace(t, **{key: resist_gain})
         if output == "train" and self.load.load_direction == "up":
-            friction_t = replace(t, friction_gain_up=self._descent_gain(side, load))
+            friction_t = replace(friction_t, friction_gain_up=self._descent_gain(side, load))
             gain_down = None
         friction = compensation.friction(
             model, v_ahead, friction_t, x_mm=state.x_mm, axial_excess_n=axial, motor_sign=motor_sign, gain_down=gain_down,

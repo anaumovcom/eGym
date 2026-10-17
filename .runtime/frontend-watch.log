@@ -2,3 +2,6 @@
   VITE v7.3.3  ready in 475 ms
 
   ➜  Local:   http://127.0.0.1:5173/
+9:58:47 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
+9:58:47 PM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.tsx, /src/shared/ui/layout/forma-shell.tsx
+9:58:47 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx

@@ -1,2 +1,16 @@
 Backend supervisor is watching backend, exercises and exercise_name_translations.csv.
 Backend server started. PID: 988587
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 1456916
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 1457708
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 1458057
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 1458671
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 1464583
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 1472829
+Detected backend file changes. Restarting backend server.
+Backend server started. PID: 1473736

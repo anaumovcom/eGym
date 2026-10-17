@@ -197,6 +197,9 @@ class Tunables:
     # training, the bar going down under a load: the load pulls the bar, so the friction the weightless gain leaves
     # (kept below 1 so that a free bar stops by itself) only takes the weight off the eccentric phase
     train_friction_gain_down: float = 0.95
+    # Exercise-only settings: never alter the identified force scale or unloaded motion.
+    train_friction_gain_resist: float | None = None  # None keeps the calibrated weightless gain
+    exercise_load_scale: float = 1.0
     inertia_gain: float = 0.0
     friction_blend_mm_s: float = 8.0
     weightless_damping_n_per_mm_s: float = 0.3
@@ -224,7 +227,7 @@ class Tunables:
     @staticmethod
     def from_dict(data: dict[str, Any]) -> Tunables:
         known = {f.name for f in fields(Tunables)}
-        return Tunables(**{key: float(value) for key, value in data.items() if key in known})
+        return Tunables(**{key: None if key == "train_friction_gain_resist" and value is None else float(value) for key, value in data.items() if key in known})
 
 
 @dataclass(frozen=True)

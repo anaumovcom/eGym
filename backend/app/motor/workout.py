@@ -93,10 +93,10 @@ def load_mode(label: str | None) -> LoadMode:
     return "constant"
 
 
-def per_side_n(weight_kg: float) -> float:
+def per_side_n(weight_kg: float, scale: float = 1.0) -> float:
     """The bar weight the user wants to feel, split between the two sides (the bar itself is compensated)."""
 
-    return max(0.0, weight_kg) * G / 2
+    return max(0.0, weight_kg) * G * scale / 2
 
 
 def _with_cushions(profile: MachineProfile) -> MachineProfile:
@@ -287,7 +287,7 @@ class WorkoutController:
     def set_load(self, weight_kg: float) -> None:
         if self.plan is None:
             raise WorkoutError("Подход не начат")
-        self.plan = replace(self.plan, load_n=per_side_n(weight_kg))
+        self.plan = replace(self.plan, load_n=per_side_n(weight_kg, self.tunables.exercise_load_scale))
 
     def pause(self) -> None:
         self._require_frame()

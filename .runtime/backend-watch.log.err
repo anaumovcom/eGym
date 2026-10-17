@@ -8635,3 +8635,236 @@ Slow control tick: 2640 ms (calibration=None)
 Control loop stalled: 2645 ms between ticks
 Slow control tick: 2640 ms (calibration=None)
 Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2648 ms between ticks
+Slow control tick: 2655 ms (calibration=None)
+Control loop stalled: 2665 ms between ticks
+Slow control tick: 2650 ms (calibration=None)
+Control loop stalled: 2659 ms between ticks
+Slow control tick: 2647 ms (calibration=None)
+Control loop stalled: 2655 ms between ticks
+Slow control tick: 2647 ms (calibration=None)
+Control loop stalled: 2653 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2648 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2644 ms (calibration=None)
+Control loop stalled: 2651 ms between ticks
+Slow control tick: 2639 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2638 ms (calibration=None)
+Control loop stalled: 2644 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2649 ms between ticks
+Slow control tick: 2638 ms (calibration=None)
+Control loop stalled: 2644 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for connections to close. (CTRL+C to force quit)
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2649 ms between ticks
+INFO:     Waiting for application shutdown.
+Slow control tick: 2638 ms (calibration=None)
+Shutdown support delivery failed: {'left': 'No communication with the instrument (no answer)', 'right': 'No communication with the instrument (no answer)'}
+Shutdown support delivery failed: {'left': 'No communication with the instrument (no answer)', 'right': 'No communication with the instrument (no answer)'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [988587]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [1456916]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Control loop stalled: 608 ms between ticks
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 49332) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 49346) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 56496) - "WebSocket /api/coach/runs/1e33496a12da299fda0e1ba3b63bee7d/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1456916]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [1457708]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Control loop stalled: 560 ms between ticks
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 35362) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 35378) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 35386) - "WebSocket /api/coach/runs/1e33496a12da299fda0e1ba3b63bee7d/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1457708]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [1458057]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Control loop stalled: 580 ms between ticks
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 60810) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 60826) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 60836) - "WebSocket /api/coach/runs/1e33496a12da299fda0e1ba3b63bee7d/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1458057]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [1458671]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Control loop stalled: 574 ms between ticks
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 34678) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 34692) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 34696) - "WebSocket /api/coach/runs/1e33496a12da299fda0e1ba3b63bee7d/live" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 35430) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 35506) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 35540) - "WebSocket /api/coach/runs/1e33496a12da299fda0e1ba3b63bee7d/live" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 35550) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 35572) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 60594) - "WebSocket /api/coach/runs/1e33496a12da299fda0e1ba3b63bee7d/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1458671]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [1464583]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Control loop stalled: 577 ms between ticks
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 43336) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 43344) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 43358) - "WebSocket /api/coach/runs/1e33496a12da299fda0e1ba3b63bee7d/live" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1464583]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [1472829]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Control loop stalled: 652 ms between ticks
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 37144) - "WebSocket /api/coach/runs/1e33496a12da299fda0e1ba3b63bee7d/live" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 37164) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 37178) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     Shutting down
+INFO:     connection closed
+INFO:     connection closed
+INFO:     connection closed
+INFO:     Waiting for application shutdown.
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+Shutdown support delivery failed: {'left': 'Modbus не подключён', 'right': 'Modbus не подключён'}
+INFO:     Application shutdown complete.
+INFO:     Finished server process [1472829]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [1473736]
+INFO:     Waiting for application startup.
+Modbus connect to /dev/ttyUSB0 failed: No communication with the instrument (no answer)
+Control loop stalled: 613 ms between ticks
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 48872) - "WebSocket /api/hardware/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 48878) - "WebSocket /api/coach/runs/1e33496a12da299fda0e1ba3b63bee7d/live" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 48888) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
