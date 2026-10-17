@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { OFFLINE_COUNT_GAIN, playCue } from '../live/local-cue-player'
 import type { CoachAudio, CoachScope } from '../model/contracts'
 import { FakeClock, FakeContext } from './audio-test-fakes'
 import { encodeCoachFrame } from './coach-frames'
@@ -32,6 +33,35 @@ function setup() {
 }
 
 describe('streamed network speech in the shared mixer', () => {
+  it.each([false, true])('keeps count audible but below live speech (count starts first: %s)', countFirst => {
+    const { begin, push, advance, manager, clock, context, byId } = setup()
+    // Use a verified clip, exactly as the runtime does for offline counting.
+    const clip = createTestClipBuffer(context.asAudioContext())
+    const count = () => playCue(manager, { get: () => clip }, {
+      id: 'count', key: 'count', triggerId: 'T14', kind: 'count', clipId: 'count-1',
+      scope, priority: 'ordinary', atMs: clock.now(), deadlineMs: 10_000, value: 1,
+    }, clock.now(), () => true)
+    const live = () => { begin('live'); push('live', 0, 1) }
+    if (countFirst) { count(); advance(); live() } else { live(); advance(); count() }
+    advance(60)
+    expect(byId('count')!.baseGain).toBe(OFFLINE_COUNT_GAIN)
+    expect(byId('count')!.targetGain).toBeCloseTo(countFirst ? 0.26 : 0.4)
+    // Comments stay distinctly louder regardless of which source starts last.
+    expect(byId('live')!.targetGain / byId('count')!.targetGain).toBeGreaterThanOrEqual(1.625)
+    expect(manager.snapshot().counters.started).toBe(2)
+    manager.dispose()
+  })
+
+  it.each([false, true])('records a terminal receipt after started audio (cancelled: %s)', cancelled => {
+    const { begin, push, advance, manager, context } = setup()
+    begin('terminal'); push('terminal', 0, .3, { final: true }); advance()
+    expect(manager.snapshot().utterances[0].state).toBe('started')
+    if (cancelled) manager.cancelStream('terminal', 'mute')
+    for (const source of context.sources) source.end()
+    expect(manager.snapshot().terminal).toEqual([{ id: 'terminal', finished: !cancelled, reason: cancelled ? 'mute' : 'ended' }])
+    expect(manager.snapshot().counters).toMatchObject({ finished: cancelled ? 0 : 1, cancelled: cancelled ? 1 : 0 })
+  })
+
   it('reservation/prebuffer never duck; first observed start is the only start; final ends it', () => {
     const { play, begin, push, advance, byId, manager, context } = setup()
     play('local'); advance()

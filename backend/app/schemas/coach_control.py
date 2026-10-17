@@ -47,6 +47,10 @@ class CoachPreferences(CoachSettings):
     user_gender: Literal["unspecified", "m", "f"] = "unspecified"
     coach_gender: Literal["unspecified", "m", "f"] = "unspecified"
     slang: bool = False
+    # Current conversation consent is independent of analytics history consent.
+    memory_enabled: bool = True
+    # Separate explicit opt-in; process-local enum-only metadata, at most seven days.
+    cross_workout_memory: bool = False
 
     @model_validator(mode="after")
     def validate_consent(self):
@@ -96,6 +100,8 @@ class LiveConfigure(CoachModel):
     type: Literal["configure"]
     run_token: str = Field(min_length=1, max_length=128)
     owner_id: str = Field(min_length=1, max_length=120)
+    # Browser runtime identity, not the paid ledger run in the socket URL.
+    runtime_run_id: str | None = Field(default=None, strict=True, min_length=1, max_length=120)
 
 
 class RunBind(CoachModel):

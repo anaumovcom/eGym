@@ -177,7 +177,15 @@ export function MotorForceReadout() {
 export function ResetBlockButton({ machine }: { machine?: MachineHealth }) {
   const runCommand = useHardwareStore((state) => state.runCommand)
   const setError = useHardwareStore((state) => state.setErrorMessage)
+  const snapshot = useHardwareStore((state) => state.snapshot)
+  const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const [pending, setPending] = useState(false)
+  // A physical panel may confirm clear_stop later via telemetry, after the command returned pending.
+  useEffect(() => {
+    if (snapshot?.safety.state === 'enabled' && snapshot.control?.mode !== 'estop') {
+      setEmergencyStopActive(false)
+    }
+  }, [snapshot?.safety.state, snapshot?.control?.mode, setEmergencyStopActive])
   const blocked = machine?.machineState === 'blocked' || machine?.safety === 'emergency_stop' || machine?.leftDrive === 'error' || machine?.rightDrive === 'error'
   if (!blocked) return null
 
@@ -189,7 +197,15 @@ export function ResetBlockButton({ machine }: { machine?: MachineHealth }) {
       title="Снять СТОП и сбросить ошибку приводов, блокирующую тренажёр"
       onClick={() => {
         setPending(true)
-        void runCommand({ action: 'reset_fault' })
+        const emergencyStop = machine?.safety === 'emergency_stop'
+          || snapshot?.safety.state === 'emergency_stop' || snapshot?.control?.mode === 'estop'
+        // E-stop has a separate guarded clear path; reset_fault intentionally refuses an active STOP.
+        void runCommand({ action: emergencyStop ? 'clear_emergency_stop' : 'reset_fault' })
+          .then((response) => {
+            if (emergencyStop && response.snapshot.safety.state !== 'emergency_stop' && response.snapshot.control?.mode !== 'estop') {
+              setEmergencyStopActive(false)
+            }
+          })
           .catch((error: unknown) => setError(error instanceof Error ? error.message : 'Не удалось сбросить ошибку тренажёра.'))
           .finally(() => setPending(false))
       }}

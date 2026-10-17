@@ -10,6 +10,7 @@ from app.motor.core import (
     LOAD_RELIEF_DROP_S,
     LOAD_RELIEF_RECOVER_S,
     RANGE_STOP_MM,
+    UPWARD_TOP_EXTRA_MM,
     MotorCore,
 )
 from app.motor.estimation.observer import ObservedState
@@ -90,7 +91,7 @@ def test_normal_return_force_keeps_the_same_load_through_the_middle_of_the_range
             assert force - core.profile.left.weight_n(x) - friction == pytest.approx(core.load.load_n)
 
 
-@pytest.mark.parametrize("distance_to_top", [100, 40, 10, 1, .01, 0])
+@pytest.mark.parametrize("distance_to_top", [100, 40, 10, 1, .01, 0, -1, -UPWARD_TOP_EXTRA_MM])
 @pytest.mark.parametrize("v,a", [(100, 0), (350, 0), (400, 100), (600, 1000)])
 def test_upper_range_guard_does_not_change_force_until_actual_crossing(distance_to_top, v, a):
     guarded, reference = _core(), _core()
@@ -114,10 +115,10 @@ def test_upper_range_unloading_and_braking_start_only_after_crossing(v):
     core = _core()
     core.set_load(replace(core.load, range_guard=True))
     core._dt = .067
-    for offset in (-40, -1, 0, .01):
+    for offset in (-40, -1, 0, 1, UPWARD_TOP_EXTRA_MM, UPWARD_TOP_EXTRA_MM + .01):
         states = {side: ObservedState(core.load.upper_mm + offset, v, 0, 0) for side in SIDES}
         core._update_range(states)
-        if offset <= 0:
+        if offset <= UPWARD_TOP_EXTRA_MM:
             assert core.load_relief == {side: 1 for side in SIDES}
             assert core.floor_cut == 0
             assert core.range_force_n == 0
@@ -131,12 +132,56 @@ def test_upper_crossing_is_judged_on_bar_mean_not_a_single_side():
     core = _core()
     core.set_load(replace(core.load, range_guard=True))
     core._dt = .067
-    top = core.load.upper_mm
+    top = core.load.upper_mm + UPWARD_TOP_EXTRA_MM
     core._update_range({"left": ObservedState(top + 2, 200, 0, 0),
                         "right": ObservedState(top - 4, 200, 0, 0)})
     assert core.load_relief == {side: 1 for side in SIDES}
     assert core.floor_cut == 0
     assert core.range_force_n == 0
+
+
+@pytest.mark.parametrize("headroom", [0, 2, 5, 20])
+def test_upward_motor_target_has_five_mm_extra_but_never_extends_soft_travel(headroom):
+    core = _core()
+    calibrated_upper = core.load.upper_mm
+    core.envelope = replace(core.envelope, soft_max_mm=calibrated_upper + headroom)
+    assert core._range_upper_mm() == calibrated_upper + min(5, headroom)
+    assert core.load.upper_mm == calibrated_upper  # rep point and load curve do not move
+    core.set_load(replace(core.load, range_guard=True))
+    core._dt = .02
+    for offset in (min(5, headroom), min(5, headroom) + .01):
+        state = ObservedState(calibrated_upper + offset, 100, 0, 0)
+        core._update_range({side: state for side in SIDES})
+        assert (core.floor_cut > 0) == (offset > min(5, headroom))
+        assert (core.range_force_n < 0) == (offset > min(5, headroom))
+    core.set_load(replace(core.load, load_direction="down"))
+    assert core._range_upper_mm() == calibrated_upper
+
+
+def test_upward_top_offset_does_not_move_the_lower_guard():
+    core = _core()
+    core.set_load(replace(core.load, range_guard=True))
+    core._dt = .02
+    state = ObservedState(core.load.lower_mm, -100, 0, 0)
+    core._update_range({side: state for side in SIDES})
+    assert core.range_force_n == 0
+    state = replace(state, x_mm=core.load.lower_mm - .01)
+    core._update_range({side: state for side in SIDES})
+    assert core.range_force_n > 0
+
+
+def test_upward_static_assist_stays_available_through_the_extra_top_travel():
+    core = _core()
+    core.set_load(replace(core.load, load_n=10, range_guard=True))
+    core._dt = .02
+    core._still_s["left"] = 1
+    for offset in (0, 2, 5):
+        state = ObservedState(core.load.upper_mm + offset, 0, 0, 0)
+        core._update_range({side: state for side in SIDES})
+        assert core._fall_assist("left", state, 10) > 0
+    state = ObservedState(core.load.upper_mm + 5.01, 0, 0, 0)
+    core._update_range({side: state for side in SIDES})
+    assert core._fall_assist("left", state, 10) == 0
 
 
 @pytest.mark.parametrize("v", [420, 450, 490, 560, 630, 700, 800])
@@ -215,7 +260,7 @@ def test_delayed_twin_still_catches_a_released_bar_at_the_upper_point(delay_tick
                      + RANGE_STOP_MM + FLOOR_MAX_N / FLOOR_K_N_PER_MM)
     for side in SIDES:
         assert max(trace.v[side]) < core.envelope.max_speed_mm_s
-        assert max(trace.x[side]) < core.load.upper_mm + stopping_room
+        assert max(trace.x[side]) < core.load.upper_mm + UPWARD_TOP_EXTRA_MM + stopping_room
         assert max(trace.x[side]) < SafetyEnvelope().soft_max_mm
         assert core.load.upper_mm - 15 < trace.x[side][-1] < core.load.upper_mm + 15
         assert max(trace.x[side][-10:]) - min(trace.x[side][-10:]) < 2

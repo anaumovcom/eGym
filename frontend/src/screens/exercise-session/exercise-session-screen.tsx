@@ -118,7 +118,6 @@ export function ExerciseSessionScreen() {
   const session = useRuntimeStore((state) => state.session)
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
   const updateCatalogExerciseMedia = useRuntimeStore((state) => state.updateCatalogExerciseMedia)
-  const startExercise = useRuntimeStore((state) => state.startExercise)
   const snapshot = useHardwareStore((state) => state.snapshot)
   const initOptions = getRuntimeInitOptions(searchParams)
   const { data: catalogExerciseDetails } = useQuery({
@@ -139,9 +138,9 @@ export function ExerciseSessionScreen() {
     }
 
     if (session.view === 'exercise-setup') {
-      startExercise()
+      navigate(withSearch('/exercise-setup', location.search), { replace: true })
     }
-  }, [ensureSession, initOptions, location.search, navigate, session, startExercise])
+  }, [ensureSession, initOptions, location.search, navigate, session])
 
   useEffect(() => {
     if (session?.source === 'catalog' && session.exercises[0]?.slug === initOptions.slug && catalogExerciseDetails?.slug === initOptions.slug) {
@@ -149,7 +148,7 @@ export function ExerciseSessionScreen() {
     }
   }, [catalogExerciseDetails, initOptions.slug, session?.source, session?.exercises[0]?.slug, updateCatalogExerciseMedia])
 
-  if (!session || !session.sessionState || session.view === 'rest') {
+  if (!session || !session.sessionState || session.view !== 'exercise-session') {
     return (
       <FormaShell userName={getUserName(selectedUserId)} machine={snapshot?.machine ?? session?.machine ?? fallbackMachine} hideNavigation onStop={() => setEmergencyStopActive(true)}>
         <FormaState tone="loading" title="Готовим подход…" />
@@ -287,7 +286,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
 
   // the motor follows the weight of the set shown here (the plan's per-set weight, the stepper during the set)
   useEffect(() => {
-    if (!isMachineExercise || !selectedUserId || !motorSetActive || pendingAction || sentWeightRef.current === actualWeight) {
+    if (!isMachineExercise || !selectedUserId || !motorSetActive || pendingAction || restartingPrevious || sentWeightRef.current === actualWeight) {
       return
     }
 
@@ -301,7 +300,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     }, 400)
 
     return () => window.clearTimeout(timeoutId)
-  }, [actualWeight, exercise.slug, isMachineExercise, motorSetActive, pendingAction, runCommand, selectedUserId, setHardwareError])
+  }, [actualWeight, exercise.slug, isMachineExercise, motorSetActive, pendingAction, restartingPrevious, runCommand, selectedUserId, setHardwareError])
 
   useEffect(() => {
     if (!supportsFixedBarSetup(exercise) || !selectedUserId) {
@@ -350,14 +349,14 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
 
   // A timed set finishes by itself when the countdown reaches zero.
   useEffect(() => {
-    if (!isTimed || timerStartedAt == null || timerElapsedSeconds < plannedValue || autoFinishTriggeredRef.current || pendingAction) {
+    if (!isTimed || timerStartedAt == null || timerElapsedSeconds < plannedValue || autoFinishTriggeredRef.current || pendingAction || restartingPrevious || previousDialogOpen || skipDialogOpen) {
       return
     }
     autoFinishTriggeredRef.current = true
     setTimerElapsedMs((current) => current + Math.max(0, Date.now() - timerStartedAt))
     setTimerStartedAt(null)
     void handleRecordFact('completed')
-  }, [isTimed, pendingAction, plannedValue, timerElapsedSeconds, timerStartedAt])
+  }, [isTimed, pendingAction, plannedValue, timerElapsedSeconds, timerStartedAt, restartingPrevious, previousDialogOpen, skipDialogOpen])
 
   function toggleTimer() {
     const now = Date.now()
@@ -376,7 +375,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   }
 
   useEffect(() => {
-    if (!liveMotion || isFixedExercise || state.kind === 'timed' || isFailureSet || autoFinishTriggeredRef.current || pendingAction || editingPoint || calibrationBusy) {
+    if (!liveMotion || isFixedExercise || state.kind === 'timed' || isFailureSet || autoFinishTriggeredRef.current || pendingAction || editingPoint || calibrationBusy || restartingPrevious || previousDialogOpen || skipDialogOpen) {
       return
     }
 
@@ -384,7 +383,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       autoFinishTriggeredRef.current = true
       void handleAutoCompleteCurrentSet()
     }
-  }, [calibrationBusy, correctedLiveRepetitionCount, editingPoint, isFailureSet, isFixedExercise, liveMotion, pendingAction, plannedValue, state.kind])
+  }, [calibrationBusy, correctedLiveRepetitionCount, editingPoint, isFailureSet, isFixedExercise, liveMotion, pendingAction, plannedValue, state.kind, restartingPrevious, previousDialogOpen, skipDialogOpen])
 
   async function beginCalibration() {
     if (!canAdjustCalibration || calibrationBusy) return
@@ -556,7 +555,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     setRestartingPrevious(true)
     setSaveError(null)
     try {
-      if (isMachineExercise && selectedUserId && motorSetActive) {
+      if (selectedUserId && motorSetActive) {
         await runCommand({
           action: 'complete_set',
           userId: selectedUserId,
@@ -582,6 +581,9 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   async function ensureBackendWorkoutSession() {
     const latestSession = useRuntimeStore.getState().session ?? activeSession
     if (latestSession.backendWorkoutSessionId) {
+      // Persist current declared intent before results too: edits invalidate the
+      // immutable baseline instead of silently retaining a stale full-plan claim.
+      await saveWorkoutToBackend(latestSession, selectedUserId ?? 'alexey', 'in_progress')
       return latestSession.backendWorkoutSessionId
     }
 
@@ -610,7 +612,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   }
 
   async function handleAutoCompleteCurrentSet() {
-    if (pendingAction) {
+    if (pendingAction || restartingPrevious) {
       return
     }
 
@@ -641,6 +643,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       const workoutSessionId = await ensureBackendWorkoutSession()
       const exerciseSessionId = await ensureBackendExerciseSession(workoutSessionId)
       const savedSet = await saveSetResultToBackend(exerciseSessionId, result, exercise)
+      if (savedSet) result.backendSetId = savedSet.setId
       if (savedSet) coachLifecycle.publish(coachCapture, 'set_persisted', { ...coachResult, backendSetId: savedSet.setId })
       const summary = isLastSet ? await saveExerciseResultToBackend(exercise, completedForExercise, selectedUserId ?? 'alexey', exerciseStatus, workoutSessionId, exerciseSessionId, 'preserve') : null
       if (summary) coachLifecycle.publish(coachCapture, 'exercise_finalized', { outcome: summary.outcome, backendExerciseId: summary.exerciseSessionId })
@@ -662,7 +665,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   }
 
   async function handleRecordFact(completionStatus: CompletionStatus) {
-    if (pendingAction) {
+    if (pendingAction || restartingPrevious) {
       return
     }
 
@@ -695,7 +698,8 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     const coachResult = { outcome: currentResult?.completionStatus, actualValue: currentResult?.actualValue, progressUnit: state.kind === 'timed' ? 'seconds' as const : 'reps' as const }
 
     try {
-      if (completionStatus !== 'skipped' && isMachineExercise && selectedUserId) {
+      // Skipping discards the result, not the hardware teardown: release fixed hold / unload before leaving.
+      if (isMachineExercise && selectedUserId) {
         await runCommand({
           action: 'complete_set',
           userId: selectedUserId,
@@ -712,6 +716,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       const exerciseSessionId = await ensureBackendExerciseSession(workoutSessionId)
       if (currentResult && shouldSaveSetResult(currentResult)) {
         const savedSet = await saveSetResultToBackend(exerciseSessionId, currentResult, exercise)
+        if (savedSet) currentResult.backendSetId = savedSet.setId
         if (savedSet) coachLifecycle.publish(coachCapture, 'set_persisted', { ...coachResult, backendSetId: savedSet.setId })
       }
 
@@ -1271,8 +1276,8 @@ function buildCurrentSetResult({ state, setPlan, liveMotion, actualReps, actualW
     reps: state.kind === 'timed' ? null : actualValue,
     weightKg,
     rir: isSkipped ? null : isPartial ? 0 : parseRirLabel(state.rirLabel),
-    subjectiveEffort: isSkipped ? null : isPartial ? 8 : state.setType === 'failure' ? 9 : 7,
-    discomfortLevel: 0,
+    subjectiveEffort: null,
+    discomfortLevel: null,
     pain: false,
     techniqueBreakdown: false,
     comment: isSkipped ? 'Пропуск упражнения' : isPartial ? 'Частично выполнено' : null,
@@ -1288,13 +1293,14 @@ function shouldSaveSetResult(result: RuntimeSetResult) {
 }
 
 function toBackendSetPayload(exercise: RuntimeWorkoutSession['exercises'][number], result: RuntimeSetResult) {
+  const open = exercise.plan[result.setNumber - 1]?.setType === 'failure'
   return {
     setNumber: result.setNumber,
-    plannedValue: result.plannedValue,
+    plannedValue: open ? 0 : result.plannedValue,
     actualValue: result.actualValue,
     setType: result.setType,
-    targetMinReps: result.targetMinReps,
-    targetMaxReps: result.targetMaxReps,
+    targetMinReps: open ? null : result.targetMinReps,
+    targetMaxReps: open ? null : result.targetMaxReps,
     reps: result.reps,
     weightKg: result.weightKg,
     tempoLabel: result.tempoLabel,
@@ -1308,6 +1314,8 @@ function toBackendSetPayload(exercise: RuntimeWorkoutSession['exercises'][number
     comment: result.comment,
     syncLabel: result.syncLabel,
     machineMetrics: {
+      ...(exercise.loadSettings.mode === 'Обычный вес' || exercise.loadSettings.mode === 'constant' ? { loadMode: 'constant' } : {}),
+      ...(open ? { targetType: 'open' } : {}),
       trainingMode: exercise.strengthMode.id,
       trainingDayType: exercise.strengthMode.dayType,
       completionStatus: result.completionStatus,

@@ -11,6 +11,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
+from app.core.coach_limits import COACH_VOICE_REASONING_TOKENS
 from app.core.config import get_settings
 from app.models.coach import CoachAttempt, CoachCredential
 from app.schemas.coach import CoachAudio, CoachScope
@@ -224,6 +225,7 @@ async def test_tts_adapter_streams_sse_pcm_frames_with_documented_body():
         assert [c.metadata.sequence for c in frames] == list(range(len(frames)))
         assert "secret" not in repr(adapter) and adapter.last_response_id == "req-1"
         assert adapter.last_usage == ReportedUsage(input_tokens=12, output_tokens=0, audio_input_tokens=0, audio_output_tokens=37)
+        assert adapter.last_connection_class == "not-applicable"
         [c async for c in adapter.stream("Раз.", SCOPE, "g-8", Delivery(), instructions=COUNT_INSTRUCTIONS)]
         assert seen[1][2]["instructions"] == COUNT_INSTRUCTIONS
     with pytest.raises(ValueError):
@@ -327,6 +329,117 @@ class ClosingSocket(FakeSocket):
         raise ConnectionError("closed")
 
 
+async def test_realtime_preconnect_is_frame_free_idempotent_and_actual_send_is_warm():
+    socket = FakeSocket([{"type": "session.created"}, *realtime_events()])
+    entered, release = asyncio.Event(), asyncio.Event()
+    calls = []
+
+    async def connect(url, headers):
+        calls.append((url, headers))
+        entered.set()
+        await release.wait()
+        return socket
+
+    adapter = RealtimeVoiceAdapter(connect, "synthetic-key", model="m", voice="v", keep_alive=True)
+    first = asyncio.create_task(adapter.preconnect())
+    await asyncio.wait_for(entered.wait(), 1)
+    second = asyncio.create_task(adapter.preconnect())
+    release.set()
+    await asyncio.gather(first, second)
+    await adapter.preconnect()
+    assert calls == [("wss://api.openai.com/v1/realtime?model=m", {"Authorization": "Bearer synthetic-key"})]
+    assert adapter.connects == 1 and socket.sent == [] and not socket.closed
+    assert adapter.last_connection_class == "unknown"  # Only actual sends classify a request.
+    frames = [c async for c in adapter.stream("Хорошо идёт.", SCOPE, "g", Delivery())]
+    assert frames[-1].metadata.final and adapter.last_connection_class == "warm"
+    assert adapter.connects == 1 and [frame["type"] for frame in socket.sent] == ["response.create"]
+    assert not socket.closed
+    await adapter.aclose()
+
+
+@pytest.mark.parametrize("failure", ["cancel", "error"])
+async def test_realtime_preconnect_cleans_socket_when_open_is_interrupted(failure):
+    socket = FakeSocket([])
+    entered = asyncio.Event()
+
+    async def connect(url, headers):
+        return socket
+
+    class InterruptedOpen(RealtimeVoiceAdapter):
+        async def _open(self):
+            result = await super()._open()
+            entered.set()
+            if failure == "error":
+                raise OSError("synthetic open failure")
+            await asyncio.Event().wait()
+            return result
+
+    adapter = InterruptedOpen(connect, "k", model="m", voice="v", keep_alive=True)
+    task = asyncio.create_task(adapter.preconnect())
+    await asyncio.wait_for(entered.wait(), 1)
+    if failure == "cancel":
+        task.cancel()
+    with pytest.raises(asyncio.CancelledError if failure == "cancel" else OSError):
+        await task
+    assert task.done() and adapter._socket is None and socket.closed and socket.sent == []
+    assert not adapter._lock.locked()
+
+
+async def test_realtime_preconnect_handshake_cancel_error_and_retry():
+    entered, cancelled = asyncio.Event(), asyncio.Event()
+    socket = FakeSocket([])
+    calls = 0
+
+    async def connect(url, headers):
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            entered.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                cancelled.set()
+        if calls == 2:
+            raise OSError("synthetic handshake failure")
+        return socket
+
+    adapter = RealtimeVoiceAdapter(connect, "k", model="m", voice="v")
+    task = asyncio.create_task(adapter.preconnect())
+    await asyncio.wait_for(entered.wait(), 1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert cancelled.is_set() and adapter._socket is None
+    with pytest.raises(VoiceError, match="provider_connect"):
+        await adapter.preconnect()
+    assert adapter._socket is None
+    await adapter.preconnect()
+    assert adapter.connects == 3 and socket.sent == []
+    await adapter.aclose()
+
+
+async def test_realtime_cancelled_preconnect_waiter_does_not_drop_stream_socket():
+    socket = FakeSocket(realtime_events())
+
+    async def connect(url, headers):
+        return socket
+
+    adapter = RealtimeVoiceAdapter(connect, "k", model="m", voice="v", keep_alive=True)
+    iterator = adapter.stream("Хорошо идёт.", SCOPE, "g", Delivery())
+    await anext(iterator)  # Stream owns the lock and socket.
+    waiter = asyncio.create_task(adapter.preconnect())
+    await asyncio.sleep(0)
+    waiter.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await waiter
+    assert not socket.closed and adapter._socket is socket
+    [c async for c in iterator]
+    assert not socket.closed and adapter.connects == 1
+    await adapter.preconnect()
+    assert len(socket.sent) == 1 and not socket.closed
+    await adapter.aclose()
+
+
 async def test_realtime_keep_alive_reuses_socket_and_sends_reasoning_effort():
     sockets = []
 
@@ -335,9 +448,11 @@ async def test_realtime_keep_alive_reuses_socket_and_sends_reasoning_effort():
         return sockets[-1]
 
     adapter = RealtimeVoiceAdapter(connect, "k", model="m", voice="v", reasoning_effort="minimal", keep_alive=True)
-    for _ in range(2):
+    assert adapter.last_connection_class == "unknown"
+    for expected in ("cold", "warm"):
         frames = [c async for c in adapter.stream("Хорошо идёт.", SCOPE, "g", Delivery())]
         assert frames[-1].metadata.final and adapter.last_transcript == "Хорошо идёт."
+        assert adapter.last_connection_class == expected
     assert adapter.connects == 1 and len(sockets[0].sent) == 2 and not sockets[0].closed
     assert sockets[0].sent[0]["response"]["reasoning"] == {"effort": "minimal"}
     assert "max_output_tokens" not in sockets[0].sent[0]["response"]
@@ -359,16 +474,17 @@ async def test_realtime_keep_alive_drops_socket_on_failure_cancel_and_age():
     adapter = RealtimeVoiceAdapter(connect, "k", model="m", voice="v", keep_alive=True, now_s=lambda: clock[0])
     with pytest.raises(VoiceError, match="provider_incomplete"):
         [c async for c in adapter.stream("Хорошо.", SCOPE, "g", Delivery())]
-    assert sockets[0].closed
+    assert sockets[0].closed and adapter.last_connection_class == "cold"
     iterator = adapter.stream("Хорошо.", SCOPE, "g", Delivery()).__aiter__()
     await iterator.__anext__()
+    assert adapter.last_connection_class == "cold"
     await iterator.aclose()  # consumer cancelled mid-response: the in-flight response must not reach the next call
     assert sockets[1].closed
     [c async for c in adapter.stream("Хорошо.", SCOPE, "g", Delivery())]
-    assert not sockets[2].closed
+    assert not sockets[2].closed and adapter.last_connection_class == "cold"
     clock[0] = RealtimeVoiceAdapter.MAX_SESSION_S
     [c async for c in adapter.stream("Хорошо.", SCOPE, "g", Delivery())]
-    assert sockets[2].closed and adapter.connects == 4
+    assert sockets[2].closed and adapter.connects == 4 and adapter.last_connection_class == "cold"
 
 
 async def test_realtime_keep_alive_reconnects_once_when_idle_socket_was_closed():
@@ -383,6 +499,8 @@ async def test_realtime_keep_alive_reconnects_once_when_idle_socket_was_closed()
     frames = [c async for c in adapter.stream("Хорошо.", SCOPE, "g", Delivery())]
     assert frames[-1].metadata.final and sockets[0].closed and adapter.connects == 2
     assert len(sockets[1].sent) == 1 and not sockets[1].closed
+    assert adapter.last_connection_class == "cold"
+    await adapter.aclose()
 
 
 async def test_realtime_transport_errors_become_voice_errors():
@@ -401,6 +519,59 @@ async def test_realtime_transport_errors_become_voice_errors():
 
     with pytest.raises(VoiceError, match="provider_disconnected"):
         [c async for c in RealtimeVoiceAdapter(dropping, "k", model="m", voice="v").stream("Да.", SCOPE, "g", Delivery())]
+
+
+@pytest.mark.parametrize("unclean", ["error", "cancel", "final-cancel"])
+async def test_realtime_warm_unclean_request_never_warms_next_request(unclean):
+    sockets = []
+
+    async def connect(url, headers):
+        tail = [{"type": "error"}] if unclean == "error" else realtime_events()
+        socket = FakeSocket([*realtime_events(), *tail] if not sockets else realtime_events())
+        sockets.append(socket)
+        return socket
+
+    adapter = RealtimeVoiceAdapter(connect, "k", model="m", voice="v", keep_alive=True)
+    [c async for c in adapter.stream("Да.", SCOPE, "g1", Delivery())]
+    assert adapter.last_connection_class == "cold"
+    if unclean == "error":
+        with pytest.raises(VoiceError, match="provider_error"):
+            [c async for c in adapter.stream("Да.", SCOPE, "g2", Delivery())]
+    else:
+        iterator = adapter.stream("Да.", SCOPE, "g2", Delivery())
+        frame = await anext(iterator)
+        if unclean == "final-cancel":
+            while not frame.metadata.final:
+                frame = await anext(iterator)
+        await iterator.aclose()
+    assert adapter.last_connection_class == "warm" and sockets[0].closed
+    [c async for c in adapter.stream("Да.", SCOPE, "g3", Delivery())]
+    assert adapter.last_connection_class == "cold" and adapter.connects == 2
+    await adapter.aclose()
+
+
+async def test_realtime_classification_resets_before_validation_and_during_reconnect():
+    class RetrySocket(FakeSocket):
+        async def send(self, message):
+            assert adapter.last_connection_class == ("unknown" if self.sent else "cold")
+            if len(self.sent) == 2:
+                raise ConnectionError("idle close")
+            await super().send(message)
+
+    queue = [RetrySocket([*realtime_events(), *realtime_events()]), FakeSocket(realtime_events())]
+
+    async def connect(url, headers):
+        assert adapter.last_connection_class == "cold"
+        return queue.pop(0)
+
+    adapter = RealtimeVoiceAdapter(connect, "k", model="m", voice="v", keep_alive=True)
+    for expected in ("cold", "warm", "cold"):
+        [c async for c in adapter.stream("Да.", SCOPE, "g", Delivery())]
+        assert adapter.last_connection_class == expected
+    with pytest.raises(VoiceError, match="invalid_text"):
+        [c async for c in adapter.stream(" ", SCOPE, "g", Delivery())]
+    assert adapter.last_connection_class == "unknown"
+    await adapter.aclose()
 
 
 def make_run(session_factory):
@@ -432,7 +603,33 @@ async def test_streamer_fake_settles_and_yields_decodable_frames(session_factory
     assert outcome.status == "complete" and outcome.frames == 3 and outcome.bytes == 9600
     assert [d.metadata.sequence for d in decoded] == [0, 1, 2] and decoded[-1].metadata.final
     assert outcome.transcript.mode == "verbatim-input" and outcome.first_audio_ms is not None
+    assert (outcome.connection_class, outcome.model, outcome.source) == ("fake", "fake-voice", "fake")
     assert statuses(session_factory, run_id) == ["settled"]
+
+
+async def test_streamer_mock_realtime_metadata_available_on_first_frame_and_final(session_factory):
+    async def connect(url, headers):
+        return FakeSocket([*realtime_events(), *realtime_events()])
+
+    adapter = RealtimeVoiceAdapter(connect, "k", model="mock-realtime", voice="v", keep_alive=True)
+    adapter.test_only = True  # Scripted transport only; paid dispatch gates remain unchanged.
+    streamer = VoiceStreamer(session_factory, adapter, PRICE)
+    run_id, generation = make_run(session_factory)
+    for index, expected in enumerate(("cold", "warm")):
+        outcome = VoiceOutcome()
+        async for frame in streamer.stream(run_id=run_id, owner="tab-a", generation=generation, opportunity=f"v:{index}",
+                                           text="Хорошо идёт.", scope=SCOPE, generation_id=f"g{index}", outcome=outcome):
+            assert (outcome.connection_class, outcome.model, outcome.source) == (expected, "mock-realtime", "realtime")
+            assert decode_frame(frame).metadata.source == "realtime"
+        assert outcome.status == "complete" and outcome.connection_class == expected
+    await adapter.aclose()
+
+
+async def test_streamer_empty_final_has_no_first_audio_measurement(session_factory):
+    run_id, generation = make_run(session_factory)
+    outcome, frames = await collect(VoiceStreamer(session_factory, FakeVoiceStream(parts=()), PRICE), run_id, generation)
+    assert outcome.status == "complete" and outcome.first_audio_ms is None
+    assert len(frames) == 1 and decode_frame(frames[0]).data == b""
 
 
 async def test_streamer_paid_adapter_is_refused_before_any_network_call(session_factory):
@@ -442,9 +639,53 @@ async def test_streamer_paid_adapter_is_refused_before_any_network_call(session_
         adapter = TtsVoiceAdapter(client, "k", model="fake-voice", voice="v")
         outcome, frames = await collect(VoiceStreamer(session_factory, adapter, PRICE), run_id, generation)
     assert outcome.status == "refused" and outcome.reason == "paid_adapter_unavailable" and not frames and not calls
+    assert (outcome.connection_class, outcome.model, outcome.source) == ("unknown", "fake-voice", "tts")
     assert statuses(session_factory, run_id) == ["cancelled"]
     outcome, _ = await collect(VoiceStreamer(session_factory, FakeVoiceStream(), voice_pricing("realtime")), run_id, generation, "v:2")
     assert outcome.status == "refused" and outcome.reason == "strict_cap_unprovable"
+
+
+async def test_streamer_preconnect_does_not_bypass_paid_reserve_dispatch(session_factory):
+    run_id, generation = make_run(session_factory)
+    socket = FakeSocket([])
+
+    async def connect(url, headers):
+        return socket
+
+    adapter = RealtimeVoiceAdapter(connect, "synthetic-key", model="fake-voice", voice="v", keep_alive=True)
+    streamer = VoiceStreamer(session_factory, adapter, PRICE)
+    await streamer.preconnect()
+    assert socket.sent == [] and statuses(session_factory, run_id) == []
+    outcome, frames = await collect(streamer, run_id, generation)
+    assert outcome.status == "refused" and outcome.reason == "paid_adapter_unavailable"
+    assert not frames and socket.sent == [] and adapter.connects == 1
+    assert statuses(session_factory, run_id) == ["cancelled"]
+    await adapter.aclose()
+
+
+@pytest.mark.parametrize("behavior", ["unsupported", "error", "timeout"])
+async def test_streamer_preconnect_is_optional_bounded_and_best_effort(behavior):
+    entered, cleaned = asyncio.Event(), asyncio.Event()
+
+    class Warmable(FakeVoiceStream):
+        async def preconnect(self):
+            entered.set()
+            try:
+                if behavior == "error":
+                    raise OSError("synthetic failure")
+                await asyncio.Event().wait()
+            finally:
+                cleaned.set()
+
+    def forbidden_sessions():
+        raise AssertionError("preconnect must not access the ledger")
+
+    adapter = FakeVoiceStream() if behavior == "unsupported" else Warmable()
+    streamer = VoiceStreamer(forbidden_sessions, adapter, PRICE, first_audio_timeout_s=0.01)
+    await asyncio.wait_for(streamer.preconnect(), 1)
+    assert entered.is_set() == (behavior != "unsupported")
+    assert cleaned.is_set() == (behavior != "unsupported")
+    assert adapter.calls == []
 
 
 async def test_paid_voice_dispatch_requires_every_operator_gate(session_factory, monkeypatch):
@@ -497,6 +738,12 @@ async def test_streamer_caps_speech_by_text_length(session_factory):
     outcome, _ = await collect(VoiceStreamer(session_factory, ok, PRICE), run_id, generation, "v:cap", text="Да.")
     bounds = voice_bounds("Да.", audio_tokens_per_s=50)
     assert outcome.status == "complete" and ok.max_output_tokens == bounds.output_tokens + bounds.audio_output_tokens
+    assert COACH_VOICE_REASONING_TOKENS == 1536
+    assert bounds.output_tokens == 2 * len("Да.".encode()) + COACH_VOICE_REASONING_TOKENS
+    with session_factory() as db:
+        attempt = db.query(CoachAttempt).filter_by(run_id=run_id, stage="voice").one()
+        assert attempt.bounds["outputTokens"] == bounds.output_tokens
+        assert attempt.bounds["audioOutputTokens"] == bounds.audio_output_tokens
     # "Да." may take ≤ 3.48 s; a 4 s monologue is a preamble/runaway and is cut, leaving the attempt a liability.
     runaway = Recording(parts=(bytes(48_000),) * 4)
     outcome, frames = await collect(VoiceStreamer(session_factory, runaway, PRICE), run_id, generation, "v:run", text="Да.")

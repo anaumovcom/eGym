@@ -21,7 +21,7 @@ function object(value: unknown): JsonObject {
 function preferences(value: unknown): CoachPreferences {
   const raw = object(value)
   const tuning = pickTuning(raw)
-  const p: JsonObject = { ...raw, ...tuning }
+  const p: JsonObject = { memoryEnabled: true, crossWorkoutMemory: false, ...raw, ...tuning }
   if (typeof p.enabled !== 'boolean' || typeof p.historyConsent !== 'boolean' || typeof p.duringSets !== 'boolean' ||
       typeof p.duringRest !== 'boolean' || !['local', 'hybrid', 'text-only'].includes(String(p.mode)) ||
       !['quiet', 'companion', 'talkative'].includes(String(p.density)) || !['every', 'last-three', 'milestones', 'off'].includes(String(p.count)) ||
@@ -35,7 +35,8 @@ function preferences(value: unknown): CoachPreferences {
     style: p.style as CoachPreferences['style'], humor: p.humor as CoachPreferences['humor'],
     humorKinds: [...p.humorKinds as CoachPreferences['humorKinds']], edgyOptIn: p.edgyOptIn as boolean,
     extras: [...p.extras as CoachPreferences['extras']], address: p.address as CoachPreferences['address'],
-    nickname: p.nickname as string, duringSets: p.duringSets, duringRest: p.duringRest, ...tuning }
+    nickname: p.nickname as string, duringSets: p.duringSets, duringRest: p.duringRest,
+    memoryEnabled: p.memoryEnabled as boolean, crossWorkoutMemory: p.crossWorkoutMemory as boolean, ...tuning }
 }
 function session(value: unknown): OperatorSession {
   const s = object(value)
@@ -86,6 +87,10 @@ function userPath(userId: string) {
   return `users/${encodeURIComponent(userId)}/settings`
 }
 export const coachSettingsApi = {
+  forgetMemory: async (userId: string, signal: AbortSignal) => {
+    const path = userPath(userId).replace(/settings$/, 'memory')
+    await request(path, 'DELETE', signal)
+  },
   get: async (userId: string, signal: AbortSignal) => preferences(await request(userPath(userId), 'GET', signal)),
   save: async (userId: string, settings: CoachPreferences, expectedRevision: number, signal: AbortSignal) => {
     if (!preferencesValid(settings)) throw new CoachApiError('request_failed')

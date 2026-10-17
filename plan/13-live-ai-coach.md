@@ -27,6 +27,35 @@ E01–E05 завершены: [контракты/replay E02](13-live-ai-coach-e
 но не повторного вопроса разрешения для каждой попытки внутри согласованного задания.
 E02–E04 добавляют каркас, настройки и контроль расходов; реальные inference requests не выполнялись.
 
+### Актуализация 17.10.2026 — цикл улучшений
+
+Исторические статусы выше описывают проектирование/ранние E-этапы, не текущее
+состояние всего продукта. E-статусы сохраняются в
+[основном трекере](13-live-ai-coach-implementation.md).
+[Цикл U00–U10](13-live-ai-coach-improvement-plan.md): U00–U06 реализованы offline;
+U07.1–U07.5 реализованы/проверены; paid cap до $10 явно разрешён пользователем,
+реальный A/B 14/14 transcript match. U07 ожидает human listening/promotion,
+candidate production disabled. U08–U10 формально не начаты; узкие live
+dedup/support/handshake исправления не заменяют stage acceptance.
+[Последние реальные live-прогоны и бюджет](13-live-ai-coach-live-tuning-2026-10-17.md).
+[Итоговый отчёт и проверки](13-live-ai-coach-u00-u07-progress.md);
+[ранний отчёт U00–U02](13-live-ai-coach-u00-u02-report.md) — исторический evidence.
+
+Исходная identity и capture-time версии сохраняются до PCM/ACK без rebinding
+на текущий scope. Сравнение разрешено только при достаточных известных условиях;
+плановая нагрузка не называется измеренной. Optional migration 0012 не применялась
+к рабочей БД и исключена из startup create_all. Full-plan возможен только после явной
+миграции для новых workouts с неизменным declared-client snapshot до результатов;
+existing/absent-table остаются limited, декларация не доказывает physical telemetry.
+Эти уточнения имеют приоритет над иллюстративными примерами полного результата ниже;
+новые [решения U](13-live-ai-coach-decisions.md) не меняют согласованный latest-start
+микшер, лимит $2/workout или требования безопасности. U03 local-first + fact supplement,
+U04 engineering-reviewed pilot (не medical certification), U05 process-local consent/TTL
+и U06 corpus-tested validator реализованы offline, не являются акустической приёмкой.
+Source prompt 0.12; voice 0.5 / pack style 0.3 неизменны. Candidate 0.1: flag false,
+accepted marker false. В общей sandbox campaign settled $0.201617 + pending $0.002268,
+всего $0.203885 liability; пользовательский $2/workout не повышался.
+
 Это план, а не описание готовой реализации. Изменения кода, платные запросы,
 генерация пакетов и команды оборудованию в рамках подготовки документа не выполняются.
 Численные настройки ниже — стартовые гипотезы для проверки, если явно не отмечены как решение пользователя.

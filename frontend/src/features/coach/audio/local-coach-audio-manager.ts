@@ -1,3 +1,4 @@
+import { removeCoachAudioOwner, setCoachAudible } from '@/shared/lib/audio-priority'
 import type { CoachAudio, CoachReason, CoachScope } from '../model/contracts'
 import { MAX_STREAM_PCM_BYTES, pcmS16ToAudioBuffer } from './coach-frames'
 import { copyNormalizedLocalBuffer, isVerifiedLocalBuffer } from './local-buffers'
@@ -6,9 +7,10 @@ import { getSharedAudioContext } from './shared-audio-context'
 export type LocalAudioSource = 'local' | 'cache'
 export type NetworkAudioSource = 'realtime' | 'tts' | 'fake'
 export type MixerAudioSource = LocalAudioSource | NetworkAudioSource
+export type LocalPlayback = Readonly<{ kind: 'count' | 'cue'; action: 'count' | 'orient' | 'support' | 'result' | 'summary' | 'safety' }>
 export type AudioReason = CoachReason | 'ready' | 'started' | 'ended' | 'cancelled' | 'scope_changed' | 'mute' |
   'expired' | 'stale' | 'audio_locked' | 'unavailable' | 'duplicate' | 'id_capacity' |
-  'queue_full' | 'invalid' | 'watchdog' | 'disposed' | 'volume' | 'context' | 'underrun'
+  'queue_full' | 'queue_preempted' | 'invalid' | 'watchdog' | 'disposed' | 'volume' | 'context' | 'underrun'
 export interface AudioTimerClock {
   now(): number
   setTimeout(callback: () => void, delayMs: number): unknown
@@ -17,11 +19,17 @@ export interface AudioTimerClock {
 export type PlayLocalOptions = Readonly<{
   id: string; scope: CoachScope; source: LocalAudioSource; buffer: AudioBuffer
   startDeadlineMs: number; baseGain: number; delayMs?: number; revalidate: () => boolean
+  /** Completion acknowledgements may replace the oldest entry at the hard capacity,
+   * never serialize the ordinary latest-actual-start mixer. */
+  completion?: boolean
+  localPlayback?: LocalPlayback
 }>
 /** Network utterance reservation. Chunks arrive later via pushStream; a reservation never ducks anything. */
 export type BeginStreamOptions = Readonly<{
   id: string; generationId: string; scope: CoachScope; source: NetworkAudioSource; sampleRate: number
   startDeadlineMs: number; baseGain: number; revalidate: () => boolean; prebufferMs?: number
+  /** Network pending only; keeps the ORIGINAL scope in entries/frames. */
+  allowScopeTransition?: (original: CoachScope, current: CoachScope) => boolean
 }>
 export type AudioTimelineEvent = Readonly<{ atMs: number; reason: AudioReason; startOrdinal: number; source: MixerAudioSource | null }>
 export type StreamSnapshot = Readonly<{ generationId: string; nextSequence: number; bytes: number; final: boolean; gaps: number; inGap: boolean }>
@@ -29,16 +37,21 @@ export type LocalAudioSnapshot = Readonly<{
   pending: number; active: number; audible: number; foreground: string | null; startOrdinal: number
   utterances: readonly Readonly<{ id: string; scope: CoachScope; source: MixerAudioSource; state: 'pending' | 'scheduled' | 'started';
     startOrdinal: number | null; baseGain: number; coefficient: number; gain: number; targetGain: number; scheduledStartTime: number | null
-    stream: StreamSnapshot | null }>[]
+    stream: StreamSnapshot | null; startedAtMs?: number | null; bufferDurationMs?: number | null; localPlayback?: LocalPlayback }>[]
   counters: Readonly<{ enqueued: number; started: number; finished: number; cancelled: number; rejected: number }>
   lastActualSource: MixerAudioSource | null; contextState: AudioContextState | 'unavailable'
   volume: number; muted: boolean; reason: AudioReason; disposed: boolean; timeline: readonly AudioTimelineEvent[]
+  /** Bounded terminal receipts distinguish an ended stream from an interrupted one. */
+  terminal?: readonly Readonly<{ id: string; finished: boolean; reason?: AudioReason }>[]
 }>
 export type LocalAudioManagerOptions = Readonly<{ context?: AudioContext | null; clock?: AudioTimerClock; scope?: CoachScope; volume?: number }>
 type Envelope = { from: number; to: number; start: number; end: number }
 type EntryOptions = Readonly<{
   id: string; scope: CoachScope; source: MixerAudioSource; startDeadlineMs: number; baseGain: number
   delayMs?: number; revalidate: () => boolean
+  completion?: boolean
+  allowScopeTransition?: (original: CoachScope, current: CoachScope) => boolean
+  localPlayback?: LocalPlayback
 }>
 type Stream = {
   generationId: string; sampleRate: number; prebufferSeconds: number; nextSequence: number; bytes: number
@@ -47,8 +60,9 @@ type Stream = {
 }
 type Entry = {
   options: EntryOptions; buffer: AudioBuffer | null; dueMs: number; watchdogMs: number
+  playbackWindows: Map<AudioBufferSourceNode, { start: number; end: number }>
   source: AudioBufferSourceNode | null; gain: GainNode | null; scheduled: number | null
-  ordinal: number | null; coefficient: number; envelope: Envelope; stream: Stream | null
+  ordinal: number | null; startedAtMs: number | null; coefficient: number; envelope: Envelope; stream: Stream | null
 }
 const MAX_PENDING = 16
 const MAX_ACTIVE = 8
@@ -85,9 +99,11 @@ export class LocalCoachAudioManager {
   private readonly context: AudioContext | null
   private readonly clock: AudioTimerClock
   private readonly entries = new Map<string, Entry>()
+  private readonly priorityOwner = Symbol('coach-mixer')
   private readonly seenIds = new Set<string>() // No eviction/replay; a full manager rejects new IDs.
   private readonly listeners = new Set<() => void>()
   private readonly timeline: AudioTimelineEvent[] = []
+  private readonly terminal: Array<Readonly<{ id: string; finished: boolean; reason: AudioReason }>> = []
   private readonly counters = { enqueued: 0, started: 0, finished: 0, cancelled: 0, rejected: 0 }
   private master: GainNode | null = null
   private compressor: DynamicsCompressorNode | null = null
@@ -128,13 +144,18 @@ export class LocalCoachAudioManager {
     if (!this.scope) this.scope = Object.freeze({ ...options.scope })
     const invalid = this.invalidPending(options)
     if (invalid) return this.reject(invalid)
-    if ([...this.entries.values()].filter(entry => entry.ordinal === null).length >= MAX_PENDING) return this.reject('queue_full')
+    const pending = [...this.entries.values()].filter(entry => entry.ordinal === null)
+    if (pending.length >= MAX_PENDING) {
+      if (!options.completion) return this.reject('queue_full')
+      this.remove(pending[0], 'queue_preempted', false)
+    }
     let buffer: AudioBuffer
     try { buffer = copyNormalizedLocalBuffer(context, options.buffer) } catch { return this.reject('invalid') }
     const now = this.clock.now()
     const entry: Entry = { options: Object.freeze({ ...options, buffer, scope: Object.freeze({ ...options.scope }) }), buffer,
       dueMs: now + (options.delayMs ?? 0), watchdogMs: now + WATCHDOG_MS,
-      source: null, gain: null, scheduled: null, ordinal: null, coefficient: 0,
+      playbackWindows: new Map(),
+      source: null, gain: null, scheduled: null, ordinal: null, startedAtMs: null, coefficient: 0,
       envelope: { from: 0, to: 0, start: 0, end: 0 }, stream: null }
     this.entries.set(options.id, entry)
     this.increment('enqueued')
@@ -166,7 +187,8 @@ export class LocalCoachAudioManager {
     if ([...this.entries.values()].filter(entry => entry.ordinal === null).length >= MAX_PENDING) return this.reject('queue_full')
     const now = this.clock.now()
     this.entries.set(options.id, { options: Object.freeze({ ...options, scope: Object.freeze({ ...options.scope }) }), buffer: null,
-      dueMs: now, watchdogMs: now + WATCHDOG_MS, source: null, gain: null, scheduled: null, ordinal: null, coefficient: 0,
+      playbackWindows: new Map(),
+      dueMs: now, watchdogMs: now + WATCHDOG_MS, source: null, gain: null, scheduled: null, ordinal: null, startedAtMs: null, coefficient: 0,
       envelope: { from: 0, to: 0, start: 0, end: 0 },
       stream: { generationId: options.generationId, sampleRate: options.sampleRate, prebufferSeconds: prebuffer / 1000,
         nextSequence: 0, bytes: 0, final: false, queued: [], queuedSeconds: 0, sources: [], endTime: 0,
@@ -225,7 +247,7 @@ export class LocalCoachAudioManager {
     const previous = this.scope
     this.scope = Object.freeze({ ...scope })
     if (previous && (previous.userId !== scope.userId || previous.runId !== scope.runId)) this.cancelAll('scope_changed')
-    else this.check() // Ordinary workout transitions preserve started speech; pending must still match exactly.
+    else this.check(true) // Runtime updates mixer scope just BEFORE the network context tick.
     this.record('scope_changed')
   }
 
@@ -242,6 +264,7 @@ export class LocalCoachAudioManager {
     if (this.disposed) return
     this.disposed = true
     this.cancelAll('disposed')
+    removeCoachAudioOwner(this.priorityOwner)
     this.clearTimer()
     this.context?.removeEventListener('statechange', this.onStateChange)
     this.master?.disconnect(); this.compressor?.disconnect()
@@ -257,18 +280,22 @@ export class LocalCoachAudioManager {
       .reduce<Entry | null>((latest, entry) => !latest || entry.ordinal! > latest.ordinal! ? entry : latest, null)
     return Object.freeze({
       pending: this.entries.size - started.length, active: started.length,
-      audible: this.context?.state === 'running' && !this.muted && this.volume > 0 ? started.filter(entry => envelopeValue(entry.envelope, now) > 0).length : 0,
+      audible: this.audibleCount(),
       foreground: foreground?.options.id ?? null, startOrdinal: this.ordinal,
       utterances: Object.freeze([...this.entries.values()].map(entry => Object.freeze({
         id: entry.options.id, scope: entry.options.scope, source: entry.options.source,
         state: entry.ordinal !== null ? 'started' as const : entry.scheduled !== null ? 'scheduled' as const : 'pending' as const,
         startOrdinal: entry.ordinal, baseGain: entry.options.baseGain, coefficient: entry.coefficient,
+        startedAtMs: entry.startedAtMs,
+        bufferDurationMs: entry.buffer ? entry.buffer.duration * 1000 : null,
+        localPlayback: entry.options.localPlayback,
         gain: envelopeValue(entry.envelope, now), targetGain: entry.envelope.to, scheduledStartTime: entry.scheduled,
         stream: entry.stream ? Object.freeze({ generationId: entry.stream.generationId, nextSequence: entry.stream.nextSequence,
           bytes: entry.stream.bytes, final: entry.stream.final, gaps: entry.stream.gaps, inGap: entry.stream.inGap }) : null,
       }))), counters: Object.freeze({ ...this.counters }), lastActualSource: this.lastActualSource,
       contextState: this.context?.state ?? 'unavailable', volume: this.volume, muted: this.muted,
       reason: this.reason, disposed: this.disposed, timeline: Object.freeze([...this.timeline]),
+      terminal: Object.freeze([...this.terminal]),
     })
   }
 
@@ -282,12 +309,16 @@ export class LocalCoachAudioManager {
 
   private invalidPending(options: EntryOptions): AudioReason | null {
     if (this.clock.now() > options.startDeadlineMs) return 'expired'
-    if (!this.scope || !sameScope(this.scope, options.scope)) return 'stale'
+    if (!this.scope) return 'stale'
+    if (!sameScope(this.scope, options.scope)) {
+      if (!NETWORK_SOURCES.has(options.source) || this.scope.userId !== options.scope.userId || this.scope.runId !== options.scope.runId) return 'stale'
+      try { if (!options.allowScopeTransition?.(options.scope, this.scope)) return 'stale' } catch { return 'stale' }
+    }
     try { if (!options.revalidate()) return 'stale' } catch { return 'stale' }
     return null
   }
 
-  private check(): void {
+  private check(scopeUpdate = false): void {
     this.clearTimer()
     if (this.disposed) return
     const context = this.context
@@ -305,6 +336,9 @@ export class LocalCoachAudioManager {
         this.remove(entry, 'watchdog', false); continue
       }
       if (entry.ordinal !== null) continue // Start deadline/scope callback do not cut off started audio.
+      // Give the synchronous network tick a chance to validate the explicit handoff.
+      // Do not schedule/promote these pending entries using an as-yet old context.
+      if (scopeUpdate && entry.stream && entry.options.allowScopeTransition && this.scope && !sameScope(this.scope, entry.options.scope)) continue
       const invalid = this.invalidPending(entry.options)
       if (invalid || context.state !== 'running' || this.muted || this.volume === 0) {
         this.remove(entry, invalid ?? (this.muted || this.volume === 0 ? 'mute' : 'audio_locked'), false); continue
@@ -319,6 +353,7 @@ export class LocalCoachAudioManager {
     // start times, NOT by reservation/Map order. Equal-time ties stay stable.
     const crossed = [...this.entries.values()]
       .filter(entry => entry.ordinal === null && entry.scheduled !== null && context.currentTime >= entry.scheduled)
+      .filter(entry => !(scopeUpdate && entry.stream && entry.options.allowScopeTransition && this.scope && !sameScope(this.scope, entry.options.scope)))
       .sort((a, b) => a.scheduled! - b.scheduled!)
     for (const entry of crossed) {
       if (!this.entries.has(entry.options.id) || this.disposed || context.state !== 'running') continue
@@ -331,6 +366,7 @@ export class LocalCoachAudioManager {
       const firstStartInvalid = this.invalidPending(entry.options)
       if (firstStartInvalid) { this.remove(entry, firstStartInvalid, false); continue }
       entry.ordinal = ++this.ordinal
+      entry.startedAtMs = this.clock.now()
       if (entry.stream) entry.watchdogMs = this.clock.now() + STREAM_WATCHDOG_MS
       this.lastActualSource = entry.options.source
       this.increment('started'); this.remix(); this.record('started', entry.options.source)
@@ -346,8 +382,10 @@ export class LocalCoachAudioManager {
     const context = this.context!
     const invalid = this.invalidPending(entry.options)
     if (invalid) { this.remove(entry, invalid, false); return }
-    if ([...this.entries.values()].filter(item => item.scheduled !== null).length >= MAX_ACTIVE) {
-      this.remove(entry, 'queue_full', false); return
+    const scheduled = [...this.entries.values()].filter(item => item.scheduled !== null)
+    if (scheduled.length >= MAX_ACTIVE) {
+      if (!entry.options.completion) { this.remove(entry, 'queue_full', false); return }
+      this.remove(scheduled[0], 'queue_preempted', false)
     }
     try {
       this.ensureGraph()
@@ -364,6 +402,7 @@ export class LocalCoachAudioManager {
       // Silence until observed start/revalidation. Reservations never duck anything.
       entry.scheduled = context.currentTime + 0.01
       entry.source.start(entry.scheduled)
+      entry.playbackWindows.set(entry.source, { start: entry.scheduled, end: entry.scheduled + entry.buffer!.duration })
       this.record('ready')
     } catch { this.remove(entry, 'invalid', false) }
   }
@@ -398,10 +437,12 @@ export class LocalCoachAudioManager {
       source.onended = () => {
         if (!this.entries.has(entry.options.id)) return
         stream.sources = stream.sources.filter(item => item !== source)
+        entry.playbackWindows.delete(source)
         source.disconnect()
         this.check()
       }
       source.start(at)
+      entry.playbackWindows.set(source, { start: at, end: at + buffer.duration })
       stream.sources.push(source)
       stream.endTime = at + buffer.duration
     }
@@ -440,6 +481,17 @@ export class LocalCoachAudioManager {
       entry.coefficient = coefficient
       this.ramp(entry, entry.options.baseGain * coefficient)
     }
+    setCoachAudible(this.priorityOwner, this.audibleCount())
+  }
+
+  /** Running, observed sources with positive mixer gain only. In particular, a
+   * stream reservation or an underrun's 250ms mixer grace is NOT audible PCM.
+   * Audio-clock windows also release priority if an ended callback is delayed. */
+  private audibleCount(): number {
+    if (this.disposed || this.muted || this.volume === 0 || this.context?.state !== 'running') return 0
+    const now = this.context.currentTime
+    return [...this.entries.values()].filter(entry => entry.ordinal !== null && envelopeValue(entry.envelope, now) > 0 &&
+      [...entry.playbackWindows.values()].some(window => now >= window.start && now < window.end)).length
   }
 
   private ramp(entry: Entry, target: number): void {
@@ -459,6 +511,8 @@ export class LocalCoachAudioManager {
 
   private remove(entry: Entry, reason: AudioReason, finished: boolean): void {
     if (!this.entries.delete(entry.options.id)) return
+    this.terminal.push(Object.freeze({ id: entry.options.id, finished, reason }))
+    if (this.terminal.length > 200) this.terminal.shift()
     for (const source of [entry.source, ...(entry.stream?.sources ?? [])]) {
       if (!source) continue
       source.onended = null

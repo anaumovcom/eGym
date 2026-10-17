@@ -37,10 +37,12 @@ class RepCounter:
         if self._direction == -1:
             self._trough = min(self._trough, x_mm)
             amplitude = self._peak - max(self._start, self._trough)
-            full_mm = self.full_percent / 100 * self._range_mm
             # a bottom deeper than the next ones must not block counting: the lower bound is enough
             bottom = max(self._start, self.lower_mm) + self.hysteresis_mm
-            if x_mm <= bottom or amplitude >= full_mm:
+            # Range share classifies the rep, but does not finish its return stroke.
+            # In an upper-start set this return is the ascent: wait for the top
+            # (within hysteresis), not merely 85% of the way back to it.
+            if x_mm <= bottom:
                 self._start = self._peak = x_mm
                 self._direction = 0
                 return self._record(amplitude)

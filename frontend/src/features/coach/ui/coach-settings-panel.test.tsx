@@ -43,6 +43,43 @@ afterEach(() => {
   vi.unstubAllGlobals(); vi.unstubAllEnvs()
 })
 describe('new CoachSettingsPanel', () => {
+  it('requires separate cross-workout opt-in and saves memory controls independently of analytics history', async () => {
+    render(<CoachSettingsPanel />); await loaded()
+    const current = screen.getByRole('switch', { name: 'Память текущего разговора' })
+    const cross = screen.getByRole('switch', { name: 'Память между тренировками — отдельное согласие' })
+    expect(current).toBeChecked(); expect(cross).not.toBeChecked()
+    fireEvent.click(cross)
+    expect(cross).toBeChecked()
+    expect(screen.getByLabelText('Учитывать историю тренировок')).not.toBeChecked()
+    fireEvent.click(current)
+    expect(current).not.toBeChecked(); expect(cross).not.toBeChecked()
+    fetchMock.mockResolvedValueOnce(reply({ ...defaults, memoryEnabled: false, revision: 1 }))
+    click('Сохранить настройки тренера'); await screen.findByText(/Настройки тренера сохранены/)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).settings).toMatchObject({
+      memoryEnabled: false, crossWorkoutMemory: false, historyConsent: false,
+    })
+  })
+  it('deletes memory for the selected user without deleting result history', async () => {
+    render(<CoachSettingsPanel />); await loaded()
+    fetchMock.mockResolvedValueOnce(reply({ cleared: 2, persistentMemory: false }))
+    click('Удалить память тренера')
+    await screen.findByText(/Память всех разговоров очищена/)
+    expect(fetchMock.mock.calls[1][0]).toBe('/api/coach/users/actual-A/memory')
+    expect(fetchMock.mock.calls[1][1].method).toBe('DELETE')
+    expect(screen.getByLabelText('Учитывать историю тренировок')).not.toBeChecked()
+  })
+  it('does not publish an old user memory deletion result after a user switch', async () => {
+    render(<CoachSettingsPanel />); await loaded()
+    const pending = deferred<ReturnType<typeof reply>>()
+    fetchMock.mockReturnValueOnce(pending.promise)
+    click('Удалить память тренера')
+    const signal = fetchMock.mock.calls[1][1].signal as AbortSignal
+    act(() => { useAppStore.setState({ selectedUserId: 'actual-B' }) })
+    await loaded()
+    expect(signal.aborted).toBe(true)
+    await act(async () => pending.resolve(reply({ cleared: 1 })))
+    expect(screen.queryByText(/Память всех разговоров очищена/)).not.toBeInTheDocument()
+  })
   it('renders runtime-backed local preview with actual statuses and direct gesture calls', async () => {
     runtime.getSnapshot.mockReturnValue({ ...runtimeSnapshot, reason: 'ready', previewAllowed: true, preferencesReady: true,
       prepared: { entries: 2, bytes: 48000, loading: false } })

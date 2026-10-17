@@ -139,6 +139,8 @@ export function ExerciseSetupScreen() {
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [previousDialogOpen, setPreviousDialogOpen] = useState(false)
   const [restartingPrevious, setRestartingPrevious] = useState(false)
+  const [startingExercise, setStartingExercise] = useState(false)
+  const transitionPending = useRef(false)
   const [previousError, setPreviousError] = useState<string | null>(null)
   const restartPreviousExercise = useRuntimeStore((state) => state.restartPreviousExercise)
 
@@ -165,12 +167,20 @@ export function ExerciseSetupScreen() {
     enabled: usesBackendBuilderSession,
     staleTime: 0,
   })
+  const backendBuilderSnapshot = useRef<{ key: string; session: RuntimeWorkoutSession } | null>(null)
+  const backendBuilderKey = JSON.stringify([resolvedUserId, initOptions.programId, initOptions.runId, initOptions.calibrationState])
+  // Once loaded, compare SERVER snapshots with each other. Local input rebuilds the runtime plan too:
+  // comparing it to the original server plan would immediately discard every committed field edit.
+  const previousBackendBuilderSession = backendBuilderSnapshot.current?.key === backendBuilderKey
+    ? backendBuilderSnapshot.current.session
+    : session
   const isStaleRuntimeBuilderSession = Boolean(
     usesBackendBuilderSession
     && hasMatchingRuntimeBuilderSession
     && session
     && backendBuilderSession
-    && !areBackendBuilderSessionsEquivalent(session, backendBuilderSession),
+    && previousBackendBuilderSession
+    && !areBackendBuilderSessionsEquivalent(previousBackendBuilderSession, backendBuilderSession),
   )
   const shouldInitializeBackendBuilderSession = Boolean(
     usesBackendBuilderSession
@@ -201,12 +211,15 @@ export function ExerciseSetupScreen() {
   }, [catalogExerciseDetails, initOptions.slug, updateCatalogExerciseMedia])
 
   useEffect(() => {
+    if (usesBackendBuilderSession && backendBuilderSession) {
+      backendBuilderSnapshot.current = { key: backendBuilderKey, session: backendBuilderSession }
+    }
     if (!shouldInitializeBackendBuilderSession || !backendBuilderSession) {
       return
     }
 
     initializeBackendSession(backendBuilderSession, initOptions)
-  }, [backendBuilderSession, initOptions, initializeBackendSession, shouldInitializeBackendBuilderSession])
+  }, [backendBuilderKey, backendBuilderSession, initOptions, initializeBackendSession, shouldInitializeBackendBuilderSession, usesBackendBuilderSession])
 
   const exercise = shouldInitializeBackendBuilderSession
     ? undefined
@@ -291,7 +304,7 @@ export function ExerciseSetupScreen() {
   const autoWeightlessKey = useRef<string | null>(null)
   const setupControlMode = snapshot?.control?.mode ?? snapshot?.motion.controlMode
   useEffect(() => {
-    if (!exercise || !selectedUserId || !supportsFixedBarSetup(exercise) || snapshot == null) {
+    if (!exercise || !selectedUserId || !supportsFixedBarSetup(exercise) || snapshot == null || restartingPrevious || startingExercise) {
       return
     }
     const key = `${selectedUserId}:${exercise.slug}`
@@ -306,7 +319,7 @@ export function ExerciseSetupScreen() {
     }
     void runCommand({ action: 'enter_weightless', userId: selectedUserId, exerciseSlug: exercise.slug, mode: 'service' })
       .catch((error: unknown) => setHardwareError(error instanceof Error ? error.message : 'Не удалось включить невесомый гриф.'))
-  }, [exercise, runCommand, selectedUserId, setHardwareError, setupControlMode, snapshot])
+  }, [exercise, runCommand, selectedUserId, setHardwareError, setupControlMode, snapshot, restartingPrevious, startingExercise])
 
   useEffect(() => {
     if (!exercise || !selectedUserId || loadedSetupKey !== `${selectedUserId}:${exercise.slug}`) {
@@ -522,18 +535,19 @@ export function ExerciseSetupScreen() {
   }
 
   async function handleStartExercise() {
-    if (startBlocked || barMoving || startPointSaving) return
-    if (calibrationRequired) {
-      if (!selectedUserId) {
-        setHardwareError('Для запуска тренажёрного упражнения нужно выбрать пользователя.')
-        return
-      }
-      // the motor gets the weight of the set being started (a warm-up is lighter than the working weight)
-      const startSetIndex = Math.min(session?.currentSetIndex ?? 0, Math.max(0, currentExercise.plan.length - 1))
-      const startSetPlan = currentExercise.plan[startSetIndex]
-      const firstSetWeightKg = startSetPlan?.recommendedWeightKg ?? settings.weight
-
-      try {
+    if (startBlocked || barMoving || startPointSaving || transitionPending.current) return
+    transitionPending.current = true
+    setStartingExercise(true)
+    try {
+      if (calibrationRequired) {
+        if (!selectedUserId) {
+          setHardwareError('Для запуска тренажёрного упражнения нужно выбрать пользователя.')
+          return
+        }
+        // the motor gets the weight of the set being started (a warm-up is lighter than the working weight)
+        const startSetIndex = Math.min(session?.currentSetIndex ?? 0, Math.max(0, currentExercise.plan.length - 1))
+        const startSetPlan = currentExercise.plan[startSetIndex]
+        const firstSetWeightKg = startSetPlan?.recommendedWeightKg ?? settings.weight
         const safetyGate = await checkSafetyGate({
           userId: selectedUserId,
           exerciseSlug: currentExercise.slug,
@@ -560,28 +574,36 @@ export function ExerciseSetupScreen() {
           targetReps: startSetPlan?.targetMaxReps ?? startSetPlan?.targetReps ?? settings.reps,
           ...(setupType === 'fixed_position' ? { positionMm: savedCalibration?.fixedPositionMm ?? undefined, repCountSource: 'manual' } : { startPoint }),
         })
-      } catch (error) {
-        setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить тренажёр.')
-        return
       }
-    }
 
-    startExercise()
-    navigate(withSearch('/exercise-session', location.search))
+      startExercise()
+      navigate(withSearch('/exercise-session', location.search))
+    } catch (error) {
+      setHardwareError(error instanceof Error ? error.message : 'Не удалось запустить тренажёр.')
+    } finally {
+      transitionPending.current = false
+      setStartingExercise(false)
+    }
   }
 
   // History back would land on the already consumed summary of the previous exercise; it is done again instead.
   async function handleRestartPreviousExercise() {
-    if (!previousExercise || restartingPrevious || !session) return
+    if (!previousExercise || transitionPending.current || !session) return
+    transitionPending.current = true
     setRestartingPrevious(true)
     setPreviousError(null)
     try {
+      // Setup may still own a jog/hold from calibration or an interrupted start. Stop it before changing exercise.
+      if (selectedUserId && ['moving', 'start_hold', 'training', 'paused', 'fixed_hold'].includes(controlMode ?? '')) {
+        await runCommand({ action: 'complete_set', userId: selectedUserId, exerciseSlug: currentExercise.slug })
+      }
       const staleIds = await resetExercisesOnBackend(session, [previousExercise, currentExercise], resolvedUserId)
       restartPreviousExercise(staleIds)
       setPreviousDialogOpen(false)
     } catch (error) {
       setPreviousError(error instanceof Error ? error.message : 'Не удалось вернуться к предыдущему упражнению.')
     } finally {
+      transitionPending.current = false
       setRestartingPrevious(false)
     }
   }
@@ -605,7 +627,7 @@ export function ExerciseSetupScreen() {
       <div className="rt-screen">
         <header className="rt-header">
           {previousExercise ? (
-            <Button variant="secondary" disabled={restartingPrevious} iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => { setPreviousError(null); setPreviousDialogOpen(true) }}>
+            <Button variant="secondary" disabled={restartingPrevious || startingExercise} iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => { setPreviousError(null); setPreviousDialogOpen(true) }}>
               {restartingPrevious ? 'Возвращаюсь…' : 'Предыдущее упражнение'}
             </Button>
           ) : (
@@ -808,7 +830,7 @@ export function ExerciseSetupScreen() {
             Завершить тренировку
           </Button>
           <div className="rt-actions-note">{startBlocked ? 'Сначала сохраните настройку грифа — после этого старт откроется.' : readyNote}</div>
-          <Button className="rt-primary" disabled={startBlocked || barMoving || startPointSaving} iconLeft={<Play aria-hidden="true" />} onClick={() => void handleStartExercise()}>
+          <Button className="rt-primary" disabled={startBlocked || barMoving || startPointSaving || restartingPrevious || startingExercise} iconLeft={<Play aria-hidden="true" />} onClick={() => void handleStartExercise()}>
             {startBlocked ? 'Старт недоступен' : 'Запустить упражнение'}
           </Button>
         </div>

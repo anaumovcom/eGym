@@ -15,11 +15,13 @@ Outputs (WAV + redacted JSON, no key, no provider bodies) go to backend/coach_pa
 
 import argparse
 import asyncio
+import contextlib
 import json
 import os
 import statistics
 import sys
 import time
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 BACKEND = Path(__file__).resolve().parents[1]
@@ -220,6 +222,7 @@ class RecordingAdapter:
 
     def __init__(self, inner):
         self.inner, self.last_output = inner, None
+        self.test_only = inner.test_only
 
     async def author(self, body):
         result = await self.inner.author(body)
@@ -503,6 +506,29 @@ async def run_live(args) -> int:
     if pipeline.author is None or pipeline.voice is None:
         print(f"Refusing: pipeline unavailable ({pipeline.reason})")
         return 2
+    recorder = RecordingAdapter(pipeline.author.adapter)
+    pipeline.author.adapter = recorder
+    if args.effort:
+        pipeline.author.reasoning_effort = args.effort
+    if args.candidate:
+        # Explicit sandbox-only experiment. Never changes the production acceptance marker.
+        pipeline.voice.adapter.situational_enabled = True
+
+        # Production chooses legacy until listening acceptance; override only the
+        # stream's presentation for this explicitly authorized synthetic pilot.
+        original_stream = pipeline.voice.adapter.stream
+
+        async def candidate_stream(text, scope, gid, delivery, **kwargs):
+            op = coach.active_op
+            meta = coach.line_metadata.get(gid, {})
+            delivery = live.select_delivery(delivery, intent=meta.get("intent"),
+                action=op.candidate.speech_action if op else "support",
+                outcome=op.package.outcome if op and op.package else None, enabled=True,
+                energy=prefs.voice_energy, pace=prefs.voice_pace)
+            async for chunk in original_stream(text, scope, gid, delivery, **kwargs):
+                yield chunk
+
+        pipeline.voice.adapter.stream = candidate_stream
     offset = [0.0]  # Virtual time: real clock + skipped rest/playback, so pacing windows behave like a workout.
     messages: list[dict] = []
     frames: dict[str, bytearray] = {}
@@ -526,19 +552,69 @@ async def run_live(args) -> int:
         ("exercise_finalized", "exercise-summary", None, {"backendExerciseId": exercise_id}, {}),
         ("workout_finalized", "workout-summary", None, {"backendWorkoutId": workout_id}, {}),
     ]
+    if args.live_scenario == "continuity":
+        steps[2:3] = [("rep_milestone", "active-set", 1, None,
+                       {"moment": "support", "phaseElapsedMs": elapsed})
+                      for elapsed in (15_000, 30_000, 65_000)]
+        completions = {"set_persisted": ("set-end", "set_closed"),
+                       "exercise_finalized": ("exercise-done", "exercise_full"),
+                       "workout_finalized": ("workout-done", "workout_closed")}
+        updated = []
+        for kind, phase, ordinal, refs, context in steps:
+            if kind in completions:
+                cue, idea = completions[kind]
+                context = {**context, "localCompletion": {"cueIds": [cue], "acknowledged": [idea]}}
+            updated.append((kind, phase, ordinal, refs, context))
+        steps = updated
     rows, path = [], out_dir(f"live-{args.voice}")
+    first_pcm: dict[str, float] = {}
+    current_started = [0.0]
+    original_send_bytes = coach.send_bytes
+
+    async def timed_send_bytes(data: bytes) -> None:
+        frame = decode_frame(data)
+        if frame.data:
+            first_pcm.setdefault(frame.metadata.generation_id, (time.monotonic() - current_started[0]) * 1000)
+        await original_send_bytes(data)
+
+    coach.send_bytes = timed_send_bytes
+    # Exercise production context/version validation rather than the legacy direct-caller bypass.
+    async def context_at(scope, phase, version):
+        await coach.handle({"type": "context", "scope": scope, "phase": phase,
+                            "planRevision": 1, "contextVersion": version, "blocked": False})
+
+    async def heartbeat():
+        while True:
+            await asyncio.sleep(5)
+            coach.generation = renew(run_id, coach.generation)
+
+    heartbeat_task = asyncio.create_task(heartbeat())
+
     try:
         for index, (kind, phase, set_ordinal, refs, context) in enumerate(steps, 1):
             coach.generation = renew(run_id, coach.generation)  # The socket route renews the lease every 5 s.
             now = time.time() * 1000 + offset[0]
             exercise = None if kind in {"workout_started", "workout_finalized"} else "pilot-ex"
+            # In-set slots retain one real scope; versions may change as in the browser.
+            epoch = 13 if kind == "rep_milestone" else index + 10
+            scope = {"userId": USER, "runId": run_id, "exerciseId": exercise, "setOrdinal": set_ordinal,
+                     "scopeEpoch": epoch}
+            capture_phase = "active-set" if kind == "set_persisted" else phase
+            version = index * 2
+            await context_at(scope, capture_phase, version)
             message = {"type": "event", "event": {
                 "id": f"pilot-{index}", "kind": kind, "phase": phase, "source": "runtime_ack",
-                "scope": {"userId": USER, "runId": run_id, "exerciseId": exercise, "setOrdinal": set_ordinal,
-                          "scopeEpoch": index}, "createdAtMs": now, "startDeadlineMs": now + 20_000},
-                       "context": context, **({"refs": refs} if refs else {})}
+                "scope": scope, "createdAtMs": now, "startDeadlineMs": now + 20_000,
+                "planRevision": 1, "contextVersion": version, "exerciseKind": "machine"},
+                       "context": {"exerciseSlug": "machine-pulldown", "variant": "machine-pulldown",
+                                   "controlMode": "constant", **context}, **({"refs": refs} if refs else {})}
+            message["event"]["phase"] = capture_phase
             before, started = len(messages), time.monotonic()
+            current_started[0] = started
+            recorder.last_output = None
             await coach.handle(message)
+            if kind == "set_persisted":
+                await context_at(scope, "rest", version + 1)
             while coach.task is not None and not coach.task.done():
                 await asyncio.sleep(0.02)
             new = messages[before:]
@@ -548,24 +624,42 @@ async def run_live(args) -> int:
             pcm = bytes(frames.get(start["generationId"], b"")) if start else b""
             audio_ms = round(len(pcm) / 2 / SAMPLE_RATE * 1000)
             if start:
-                await coach.handle({"type": "playback_started", "generationId": start["generationId"], "durationMs": audio_ms})
-                await coach.handle({"type": "playback_completed", "generationId": start["generationId"]})
+                ack = {"generationId": start["generationId"], "identity": start["identity"], "durationMs": audio_ms}
+                if pcm and end and end["status"] == "complete":
+                    await coach.handle({"type": "playback_started", **ack})
+                    await coach.handle({"type": "playback_completed", **ack})
+                else:
+                    await coach.handle({"type": "playback_failed", **ack})
             if pcm:
                 (path / f"{index:02d}-{kind}.wav").write_bytes(pcm_to_wav(pcm))
             row = {"step": index, "event": kind, "trigger": (start or decision or {}).get("triggerId"),
                    "text": start["text"] if start else None, "decision": decision and {k: decision.get(k) for k in ("action", "reason")},
                    "voiceStatus": end and end["status"], "voiceReason": end and end.get("reason"),
                    "firstAudioMs": end and end.get("firstAudioMs"), "audioMs": audio_ms,
+                   "eventToFirstPcmMs": round(first_pcm[start["generationId"]], 1) if start and start["generationId"] in first_pcm else None,
+                   "connectionClass": end and end.get("connectionClass"),
+                   "serverTimings": end and end.get("timingsMs"),
+                   "authorOutput": recorder.last_output,
+                   "transcript": pipeline.voice.adapter.last_transcript if start else None,
                    "totalMs": round((time.monotonic() - started) * 1000)}
             rows.append(row)
             print(f"{index} {kind:22} {row['trigger'] or '-':4} {row['voiceStatus'] or (row['decision'] or {}).get('reason') or '-':12} "
                   f"first {row['firstAudioMs']} ms total {row['totalMs']} ms audio {audio_ms} ms  {row['text'] or ''}")
             offset[0] += audio_ms + 35_000  # Skip ahead: next opportunity arrives after a realistic gap.
     finally:
+        heartbeat_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await heartbeat_task
         await coach.close()
         await pipeline.close()
+        from app.services.coach import ledger
+        with SessionLocal() as db:
+            ledger.cancel_run(db, run_id, close=True)
     snap = snapshot(run_id)
     write_report(path, {"runId": run_id, "capUsd": args.cap_usd, "voice": args.voice, "results": rows,
+                        "candidate": args.candidate, "reasoningEffort": pipeline.author.reasoning_effort,
+                        "scenario": args.live_scenario,
+                        "syntheticPlaybackAcks": True, "browserOrAcousticAcceptance": False,
                         "stats": coach.stats.as_dict(), "ledger": snap})
     print(f"live: spoken {coach.stats.spoken}, requests {snap['requests']}, settled {snap['settledMicros']} µUSD, "
           f"pending {snap['pendingMicros']} µUSD -> {path}")
@@ -588,12 +682,19 @@ def main() -> int:
     parser.add_argument("--include-optional", action="store_true")
     parser.add_argument("--effort", choices=("none", "low", "medium"))
     parser.add_argument("--cold", action="store_true", help="new Realtime socket per utterance (A/B against warm reuse)")
+    parser.add_argument("--candidate", action="store_true", help="sandbox live delivery experiment; never promotes production")
+    parser.add_argument("--live-scenario", choices=("baseline", "continuity"), default="baseline")
     args = parser.parse_args()
     if not args.confirm_paid:
         print("Refusing: paid pilot requires --confirm-paid")
         return 2
-    if float(args.cap_usd) > 2:
-        print("Refusing: pilot cap above $2.00")
+    try:
+        cap = Decimal(args.cap_usd)
+        valid_cap = cap.is_finite() and 0 < cap <= 2 and cap * 1_000_000 == int(cap * 1_000_000)
+    except (InvalidOperation, ValueError, OverflowError):
+        valid_cap = False
+    if not valid_cap:
+        print("Refusing: pilot requires a positive finite cap at most $2.00, in microdollars")
         return 2
     extra = {"COACH_PACK_ADAPTER": args.adapter} if args.kind == "pack" else {}
     prepare_sandbox(extra)

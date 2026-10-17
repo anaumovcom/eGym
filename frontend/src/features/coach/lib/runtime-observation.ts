@@ -2,10 +2,13 @@ import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { coachRunId, type CoachSource } from '../model/contracts'
-import { CoachLifecycleObserver } from './lifecycle-observer'
+import { CoachLifecycleObserver, type LifecycleContext, type LifecycleVersions } from './lifecycle-observer'
 
 export const isCoachFoundationEnabled = () => import.meta.env.VITE_COACH_ENABLED === 'true'
 let scopeEpoch = 0
+let readLifecycleVersions: (current: LifecycleContext) => LifecycleVersions | null = () => null
+/** Registers a coach-only, synchronous read. No workout writes or async capture. */
+export function setLifecycleVersionReader(reader: typeof readLifecycleVersions): void { readLifecycleVersions = reader }
 
 // Read-only subscriptions invalidate captures even for A→B→A during an await.
 useAppStore.subscribe((current, previous) => {
@@ -25,6 +28,7 @@ useRuntimeStore.subscribe((current, previous) => {
 export const coachLifecycle = new CoachLifecycleObserver({
   enabled: isCoachFoundationEnabled,
   clock: { nowMs: () => performance.now() },
+  versions: current => readLifecycleVersions(current),
   current: () => {
     const session = useRuntimeStore.getState().session
     return { userId: useAppStore.getState().selectedUserId, runId: session ? coachRunId(session) : null,

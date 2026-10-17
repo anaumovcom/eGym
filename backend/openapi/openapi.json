@@ -2047,6 +2047,58 @@
         }
       }
     },
+    "/api/runtime/sets/{set_id}/feedback": {
+      "post": {
+        "tags": [
+          "runtime"
+        ],
+        "summary": "Save Set Feedback",
+        "operationId": "save_set_feedback_api_runtime_sets__set_id__feedback_post",
+        "parameters": [
+          {
+            "name": "set_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Set Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SetFeedbackSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetFeedbackSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runtime/sets": {
       "post": {
         "tags": [
@@ -2112,6 +2164,47 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RuntimeExerciseSummarySchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runtime/exercises/reset": {
+      "post": {
+        "tags": [
+          "runtime"
+        ],
+        "summary": "Reset Exercise Sessions",
+        "operationId": "reset_exercise_sessions_api_runtime_exercises_reset_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseSessionsResetRequestSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseSessionsResetResponseSchema"
                 }
               }
             }
@@ -5265,6 +5358,11 @@
             ],
             "title": "Loadtype"
           },
+          "perSide": {
+            "type": "boolean",
+            "title": "Perside",
+            "default": false
+          },
           "loadMode": {
             "type": "string",
             "title": "Loadmode"
@@ -5379,6 +5477,11 @@
               }
             ],
             "title": "Loadtype"
+          },
+          "perSide": {
+            "type": "boolean",
+            "title": "Perside",
+            "default": false
           },
           "previewVideoUrl": {
             "anyOf": [
@@ -5934,6 +6037,15 @@
             ],
             "title": "Startpoint"
           },
+          "loadDirection": {
+            "type": "string",
+            "enum": [
+              "down",
+              "up"
+            ],
+            "title": "Loaddirection",
+            "default": "down"
+          },
           "zeroPositionMm": {
             "type": "number",
             "title": "Zeropositionmm",
@@ -6072,6 +6184,15 @@
             ],
             "title": "Startpoint",
             "default": "lower"
+          },
+          "loadDirection": {
+            "type": "string",
+            "enum": [
+              "down",
+              "up"
+            ],
+            "title": "Loaddirection",
+            "default": "down"
           },
           "zeroPositionMm": {
             "type": "number",
@@ -6226,6 +6347,212 @@
         "additionalProperties": false,
         "type": "object",
         "title": "CoachCapabilities"
+      },
+      "CoachPlanExerciseSchema": {
+        "properties": {
+          "exerciseId": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Exerciseid"
+          },
+          "orderIndex": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Orderindex"
+          },
+          "slug": {
+            "type": "string",
+            "maxLength": 160,
+            "minLength": 1,
+            "title": "Slug"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "machine",
+              "bodyweight",
+              "timed",
+              "stretch",
+              "group"
+            ],
+            "title": "Kind"
+          },
+          "perSide": {
+            "type": "boolean",
+            "title": "Perside",
+            "default": false
+          },
+          "trainingMode": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingmode"
+          },
+          "trainingDayType": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingdaytype"
+          },
+          "sets": {
+            "items": {
+              "$ref": "#/components/schemas/CoachPlanSetSchema"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Sets"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "exerciseId",
+          "orderIndex",
+          "slug",
+          "kind",
+          "sets"
+        ],
+        "title": "CoachPlanExerciseSchema"
+      },
+      "CoachPlanSetSchema": {
+        "properties": {
+          "ordinal": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Ordinal"
+          },
+          "side": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "left",
+                  "right"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          },
+          "roundNumber": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roundnumber"
+          },
+          "setType": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "warmup",
+                  "working"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Settype"
+          },
+          "targetType": {
+            "type": "string",
+            "enum": [
+              "exact",
+              "range",
+              "open",
+              "unknown"
+            ],
+            "title": "Targettype"
+          },
+          "unit": {
+            "type": "string",
+            "enum": [
+              "reps",
+              "seconds"
+            ],
+            "title": "Unit"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 86400.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Minimum"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 86400.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Maximum"
+          },
+          "plannedWeightKg": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 2000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plannedweightkg"
+          },
+          "restSeconds": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 0.0,
+            "title": "Restseconds"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ordinal",
+          "targetType",
+          "unit",
+          "restSeconds"
+        ],
+        "title": "CoachPlanSetSchema"
       },
       "CoachPreferences": {
         "properties": {
@@ -6573,11 +6900,52 @@
             "type": "boolean",
             "title": "Slang",
             "default": false
+          },
+          "memoryEnabled": {
+            "type": "boolean",
+            "title": "Memoryenabled",
+            "default": true
+          },
+          "crossWorkoutMemory": {
+            "type": "boolean",
+            "title": "Crossworkoutmemory",
+            "default": false
           }
         },
         "additionalProperties": false,
         "type": "object",
         "title": "CoachPreferences"
+      },
+      "CoachWorkoutPlanSchema": {
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schemaversion",
+            "default": 1
+          },
+          "origin": {
+            "type": "string",
+            "const": "declared-client-plan",
+            "title": "Origin",
+            "default": "declared-client-plan"
+          },
+          "exercises": {
+            "items": {
+              "$ref": "#/components/schemas/CoachPlanExerciseSchema"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Exercises"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "exercises"
+        ],
+        "title": "CoachWorkoutPlanSchema"
       },
       "CommandSummarySchema": {
         "properties": {
@@ -8275,6 +8643,23 @@
             "title": "Targetsets",
             "default": 0
           },
+          "perSide": {
+            "type": "boolean",
+            "title": "Perside",
+            "default": false
+          },
+          "plannedTotal": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Plannedtotal"
+          },
           "trainingMode": {
             "anyOf": [
               {
@@ -8340,6 +8725,40 @@
           "startedAt"
         ],
         "title": "ExerciseSessionCreateSchema"
+      },
+      "ExerciseSessionsResetRequestSchema": {
+        "properties": {
+          "exercises": {
+            "items": {
+              "$ref": "#/components/schemas/ExerciseSessionCreateSchema"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 1,
+            "title": "Exercises"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exercises"
+        ],
+        "title": "ExerciseSessionsResetRequestSchema"
+      },
+      "ExerciseSessionsResetResponseSchema": {
+        "properties": {
+          "missingExerciseSessionIds": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Missingexercisesessionids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "missingExerciseSessionIds"
+        ],
+        "title": "ExerciseSessionsResetResponseSchema"
       },
       "ExerciseSummarySchema": {
         "properties": {
@@ -8900,6 +9319,15 @@
               }
             ],
             "title": "Startpoint"
+          },
+          "loadDirection": {
+            "type": "string",
+            "enum": [
+              "down",
+              "up"
+            ],
+            "title": "Loaddirection",
+            "default": "down"
           },
           "positionMm": {
             "anyOf": [
@@ -10726,6 +11154,15 @@
             "type": "string",
             "title": "Startpoint",
             "default": "lower"
+          },
+          "loadDirection": {
+            "type": "string",
+            "enum": [
+              "down",
+              "up"
+            ],
+            "title": "Loaddirection",
+            "default": "down"
           },
           "fixedPositionMm": {
             "anyOf": [
@@ -12918,6 +13355,32 @@
             "type": "integer",
             "title": "Setnumber"
           },
+          "side": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "left",
+                  "right"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Side"
+          },
+          "roundNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Roundnumber"
+          },
           "plannedValue": {
             "type": "integer",
             "title": "Plannedvalue"
@@ -13616,6 +14079,48 @@
           "status"
         ],
         "title": "SetFatigueDeltaSchema"
+      },
+      "SetFeedbackSchema": {
+        "properties": {
+          "userId": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Userid"
+          },
+          "subjectiveEffort": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Subjectiveeffort"
+          },
+          "discomfortLevel": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Discomfortlevel"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "userId"
+        ],
+        "title": "SetFeedbackSchema"
       },
       "SetResultCreateSchema": {
         "properties": {
@@ -15063,6 +15568,16 @@
             "type": "array",
             "title": "Exercises",
             "default": []
+          },
+          "coachPlan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CoachWorkoutPlanSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "type": "object",

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Literal
 
 from app.services.coach.memory import CoachMemory
+from app.services.coach.speech_actions import SPEECH_ACTIONS
 from app.services.coach.triggers import TRIGGERS, TriggerSpec
 
 Phase = Literal["setup", "active", "paused", "rest", "summary"]
@@ -58,6 +59,7 @@ class Candidate:
     phase_length_ms: float | None = None
     topic_family: str = ""
     safety: bool = False
+    speech_action: str = ""
 
     @property
     def spec(self) -> TriggerSpec:
@@ -83,6 +85,8 @@ class Director:
         self.group_counts: dict[tuple[str, str], int] = {}
         self.slot_counts: dict[tuple[str, str], int] = {}
         self.audible: list[tuple[float, float]] = []
+        self.audible_ids: dict[str, tuple[float, float]] = {}
+        self.local_audible: list[tuple[float, float]] = []
         self.last_start_ms: float | None = None
         self.last_local_support_ms: float | None = None
         self.safety_latched = False
@@ -100,21 +104,37 @@ class Director:
     def acoustic_ratio(self, candidate: Candidate, now_ms: float) -> float:
         start = max(now_ms - 60_000, candidate.phase_started_ms if candidate.phase_started_ms is not None else now_ms - 60_000)
         denominator = max(now_ms - start, 10_000)
-        heard = sum(max(0.0, min(s + d, now_ms) - max(s, start)) for s, d in self.audible)
+        # Union occupancy: simultaneous voices must not turn one real second into two.
+        intervals = sorted((max(s, start), min(s + d, now_ms))
+                           for s, d in (*self.audible, *self.local_audible) if s + d > start and s < now_ms)
+        heard, end = 0.0, start
+        for left, right in intervals:
+            heard += max(0.0, right - max(left, end))
+            end = max(end, right)
         return heard / denominator
 
     def _playing(self, now_ms: float) -> int:
         return sum(1 for s, d in self.audible if s <= now_ms < s + d)
 
+    def playback_fits(self, c: Candidate, now_ms: float) -> bool:
+        required = c.speech_action in {"result", "summary"}
+        target = self.profile.acoustic_rest if c.phase in {"rest", "summary", "setup"} else self.profile.acoustic_set
+        return ((required or self.acoustic_ratio(c, now_ms) < target)
+                and self._playing(now_ms) < (1 if c.phase == "active" else 2))
+
     def admit(self, c: Candidate, now_ms: float) -> Admission:
         spec = c.spec
         live = spec.live
+        action = SPEECH_ACTIONS.get(c.speech_action)
+        required_result = c.speech_action in {"result", "summary"}
         if self.safety_latched and not c.safety:
             return Admission(False, "safety")
         if c.safety:
             return Admission(True, None, 0, False)
         if now_ms > c.valid_until_ms:
             return Admission(False, "expired")
+        if action and c.phase not in action.phases:
+            return Admission(False, "no_window")
         if spec.max_per_scope is not None and self.trigger_counts.get(
                 (spec.id, self._scope(c, spec.scope)), 0) >= spec.max_per_scope:
             return Admission(False, "duplicate")
@@ -123,9 +143,9 @@ class Director:
                 (spec.group, group_scope), 0) >= 1:
             return Admission(False, "cooldown")
         if live:
-            # A summary closes an exercise/workout right after the last set feedback; the mixer queues it,
-            # so the start gap must not swallow it.
-            if c.phase != "summary" and self.last_start_ms is not None and (
+            # Required persisted feedback is not swallowed by a local count/start gap.
+            # The mixer remains simultaneous latest-actual-start, never a serial queue.
+            if not required_result and c.phase != "summary" and self.last_start_ms is not None and (
                     now_ms - self.last_start_ms < self.profile.min_start_gap_ms * self.gap_scale):
                 return Admission(False, "cooldown")
         elif spec.group == "set-support" and self.last_local_support_ms is not None and (
@@ -141,10 +161,9 @@ class Director:
                 cap = 0
             else:
                 cap = 1
-            if self.slot_counts.get((c.phase, self._phase_key(c)), 0) >= cap:
+            if not required_result and self.slot_counts.get((c.phase, self._phase_key(c)), 0) >= cap:
                 return Admission(False, "density_cap")
-            target = self.profile.acoustic_rest if c.phase in {"rest", "summary", "setup"} else self.profile.acoustic_set
-            if self.acoustic_ratio(c, now_ms) >= target or self._playing(now_ms) >= 2:
+            if not self.playback_fits(c, now_ms):
                 return Admission(False, "density_cap")
             if self.memory.topic_blocked(c.topic_key):
                 return Admission(False, "topic_repeat")
@@ -153,8 +172,12 @@ class Director:
         if remaining < c.duration_hint_ms:
             return Admission(False, "no_window")
         low, high = self.profile.words_set if c.phase == "active" else (12, 25) if c.phase == "setup" else self.profile.words_rest
+        if c.speech_action == "instruct":
+            low, high = 20, 30  # About ten seconds, without lengthening in-set cues.
         fit = int(remaining / 1000 * WORDS_PER_SECOND)
         max_words = min(max(1, round(high * self.words_scale)), fit)
+        if action:
+            max_words = min(max_words, action.max_words, 16 if c.phase == "active" else 60)
         if live and max_words < min(low, 4):
             return Admission(False, "no_window")
         return Admission(True, None, max_words, live)
@@ -170,15 +193,39 @@ class Director:
             slot = (c.phase, self._phase_key(c))
             self.slot_counts[slot] = self.slot_counts.get(slot, 0) + 1
             self.memory.note_attempted(c.topic_key)
+        for counts in (self.trigger_counts, self.group_counts, self.slot_counts):
+            while len(counts) > 1024:
+                counts.pop(next(iter(counts)))
 
-    def note_audible(self, start_ms: float, duration_ms: float, *, content: bool, local_support: bool = False) -> None:
+    def note_audible(self, start_ms: float, duration_ms: float, *, content: bool, local_support: bool = False,
+                     utterance_id: str | None = None) -> None:
         # Count does not consume content slots but its audible time is not content speech either.
         if content:
             self.audible.append((start_ms, duration_ms))
             self.audible = self.audible[-64:]
+            if utterance_id is not None:
+                self.audible_ids[utterance_id] = self.audible[-1]
+                self.audible_ids = dict(list(self.audible_ids.items())[-64:])
             self.last_start_ms = start_ms
         if local_support:
             self.last_local_support_ms = start_ms
+
+    def update_audible(self, utterance_id: str, duration_ms: float) -> None:
+        record = self.audible_ids.get(utterance_id)
+        if record is None:
+            return
+        # Replace, never append: duration updates do not consume attempts/slots.
+        updated = (record[0], duration_ms)
+        self.audible = [updated if item is record else item for item in self.audible]
+        self.audible_ids[utterance_id] = updated
+
+    def note_local_playback(self, start_ms: float, duration_ms: float, *, content: bool) -> None:
+        # Buffer duration is a conservative reservation, not proof of natural completion
+        # or physical output. Count contributes occupancy but never content slots/gap.
+        self.local_audible.append((start_ms, duration_ms))
+        self.local_audible = self.local_audible[-64:]
+        if content:
+            self.note_audible(start_ms, duration_ms, content=True, local_support=True)
 
     def latch_safety(self, latched: bool) -> None:
         self.safety_latched = latched
@@ -201,6 +248,11 @@ class Coalescer:
         if c.safety or c.trigger_id in {"T14", "T30", "T33"}:
             return c
         self.pending.setdefault(self._bucket(c), []).append((now_ms, c))
+        if sum(map(len, self.pending.values())) > 128:
+            bucket = next(iter(self.pending))
+            self.pending[bucket].pop(0)
+            if not self.pending[bucket]:
+                del self.pending[bucket]
         return None
 
     def due(self, now_ms: float) -> tuple[list[Candidate], list[Candidate]]:
@@ -214,7 +266,7 @@ class Coalescer:
             if not alive:
                 continue
             replaced = {r for c in alive for r in c.spec.replaces}
-            ranked = sorted(alive, key=lambda c: (c.trigger_id in replaced, -c.priority, c.created_ms))
+            ranked = sorted(alive, key=lambda c: (c.trigger_id in replaced, -c.priority, -c.created_ms))
             winners.append(ranked[0])
             dropped += ranked[1:]
         return winners, dropped

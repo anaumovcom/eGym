@@ -1,4 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { getCoachAudibleCount, removeCoachAudioOwner, setCoachAudible, subscribeAudioPriority } from '@/shared/lib/audio-priority'
 import type { CoachScope } from '../model/contracts'
 import { FakeClock, FakeContext } from './audio-test-fakes'
 import { LocalCoachAudioManager } from './local-coach-audio-manager'
@@ -7,10 +8,13 @@ import { createTestClipBuffer } from './test-clips'
 import { verifyLocalBuffer } from './local-buffers'
 
 const scope: CoachScope = { schemaVersion: 1, userId: 'u', runId: 'r', exerciseId: 'e', setOrdinal: 1, scopeEpoch: 1 }
+const managers: LocalCoachAudioManager[] = []
+afterEach(() => { for (const manager of managers.splice(0)) manager.dispose() })
 function setup(nativeHold = true) {
   const context = new FakeContext(); context.nativeHold = nativeHold
   const clock = new FakeClock()
   const manager = new LocalCoachAudioManager({ context: context.asAudioContext(), clock, scope })
+  managers.push(manager)
   const buffer = createTestClipBuffer(context.asAudioContext())
   const play = (id: string, extra: Partial<PlayLocalOptions> = {}) => manager.playLocal({ id, scope, buffer,
     source: 'local', baseGain: 1, startDeadlineMs: 10_000, revalidate: () => true, ...extra })
@@ -20,6 +24,66 @@ function setup(nativeHold = true) {
 }
 
 describe('LocalCoachAudioManager actual-start mixer', () => {
+  it('publishes positive actual mixer gain only, including audio-window expiry without onended', () => {
+    const { manager, play, advance, context } = setup()
+    play('a')
+    expect(getCoachAudibleCount()).toBe(0)
+    advance(10) // Observed start, but the ramp is still exactly zero.
+    expect(getCoachAudibleCount()).toBe(0)
+    advance(10)
+    expect(getCoachAudibleCount()).toBe(1)
+    expect(manager.snapshot().audible).toBe(1)
+    expect(context.gains[0].gain.value).toBe(0.5)
+    advance(500)
+    expect(getCoachAudibleCount()).toBe(0)
+    expect(manager.snapshot().audible).toBe(0)
+  })
+
+  it('isolates bus owners and listeners, with no retained idle ownership or duplicate notifications', () => {
+    const a = Symbol(), b = Symbol()
+    const listener = vi.fn()
+    const off = subscribeAudioPriority(listener)
+    const offThrowing = subscribeAudioPriority(() => { throw new Error('observer') })
+    try {
+      expect(getCoachAudibleCount()).toBe(0)
+      setCoachAudible(a, 1); setCoachAudible(a, 1)
+      expect(listener).toHaveBeenCalledTimes(1)
+      setCoachAudible(b, 2)
+      removeCoachAudioOwner(a); removeCoachAudioOwner(a)
+      expect(getCoachAudibleCount()).toBe(2)
+      off()
+      setCoachAudible(b, 0)
+      expect(listener).toHaveBeenCalledTimes(3)
+      expect(getCoachAudibleCount()).toBe(0)
+    } finally { off(); offThrowing(); removeCoachAudioOwner(a); removeCoachAudioOwner(b) }
+  })
+
+  it('admits immediate completion at active capacity with an interrupted receipt, preserving actual-start foreground', () => {
+    const { play, advance, manager } = setup()
+    for (let i = 0; i < 8; i++) play(`old-${i}`)
+    advance(20)
+    expect(manager.snapshot().active).toBe(8)
+    expect(play('ordinary-overflow')).toBe(false)
+    expect(play('completion', { completion: true })).toBe(true)
+    expect(manager.snapshot().terminal).toContainEqual({ id: 'old-0', finished: false, reason: 'queue_preempted' })
+    expect(manager.snapshot().foreground).not.toBe('completion')
+    advance(20)
+    expect(manager.snapshot()).toMatchObject({ active: 8, foreground: 'completion' })
+    expect(manager.snapshot().utterances.find(item => item.id === 'completion')?.coefficient).toBe(1)
+    manager.dispose()
+  })
+
+  it('bounds pending reservations while making room for an immediate completion', () => {
+    const { play, advance, manager } = setup()
+    for (let i = 0; i < 16; i++) expect(play(`pending-${i}`, { delayMs: 1000 })).toBe(true)
+    expect(play('overflow', { delayMs: 1000 })).toBe(false)
+    expect(play('completion', { completion: true })).toBe(true)
+    expect(manager.snapshot().terminal).toContainEqual({ id: 'pending-0', finished: false, reason: 'queue_preempted' })
+    advance(20)
+    expect(manager.snapshot()).toMatchObject({ foreground: 'completion', active: 1, pending: 15 })
+    manager.dispose()
+  })
+
   it.each([true, false])('anchors each ramp at the observed current value/time (native hold=%s)', nativeHold => {
     const { play, advance, context, byId } = setup(nativeHold)
     play('a'); advance(20)

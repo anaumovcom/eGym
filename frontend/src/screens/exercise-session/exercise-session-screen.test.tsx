@@ -5,13 +5,14 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ExerciseSessionScreen } from '@/screens/exercise-session/exercise-session-screen'
 import { getExerciseDetails } from '@/mocks/stage2-data'
-import { ApiError, apiGet, apiPost } from '@/shared/api/client'
+import { apiGet, apiPost } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 import type { HardwareCalibration, HardwareSnapshot } from '@/features/hardware/model/types'
 import { coachLifecycle } from '@/features/coach/lib/runtime-observation'
 import { expandPerSidePlan } from '@/features/runtime/lib/per-side'
+import { saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
 import { buildExerciseSession } from '@/mocks/stage3-data'
 import { playExerciseEventSound, useExerciseEventSounds } from '@/features/runtime/lib/exercise-event-sounds'
 
@@ -79,6 +80,11 @@ describe('ExerciseSessionScreen', () => {
   })
 
   it.each([false, true])('persists the full plan on creation and finalization (perSide=%s)', async (perSide) => {
+    const persistence = await vi.importActual<typeof import('@/features/runtime/lib/runtime-persistence')>('@/features/runtime/lib/runtime-persistence')
+    vi.mocked(saveWorkoutToBackend).mockImplementationOnce(persistence.saveWorkoutToBackend)
+    const post = vi.mocked(apiPost).getMockImplementation()!
+    vi.mocked(apiPost).mockImplementation(async (path, payload) => path === '/api/runtime/workouts'
+      ? { workoutSessionId: 42 } as never : post(path, payload))
     const original = useRuntimeStore.getState().session!
     const exercise = { ...original.exercises[0], perSide: perSide ? true : undefined,
       plan: expandPerSidePlan(original.exercises[0].plan.slice(0, 2), perSide) }
@@ -94,6 +100,33 @@ describe('ExerciseSessionScreen', () => {
       perSide, targetSets: exercise.plan.length,
       plannedTotal: exercise.plan.reduce((sum, plan) => sum + (plan.targetSeconds ?? plan.targetMaxReps ?? plan.targetReps ?? 0), 0),
     })
+    const calls = vi.mocked(apiPost).mock.calls
+    const creation = calls.findIndex(([path]) => path === '/api/runtime/workouts')
+    const firstResult = calls.findIndex(([path]) => path === '/api/runtime/sets')
+    expect(creation).toBeGreaterThanOrEqual(0)
+    expect(creation).toBeLessThan(firstResult)
+    expect(calls[creation][1]).toMatchObject({
+      status: 'in_progress', exercises: [], exerciseSessionIds: [],
+      coachPlan: { origin: 'declared-client-plan', exercises: [{
+        exerciseId: exercise.id, slug: exercise.slug, perSide,
+        sets: exercise.plan.map((set, index) => expect.objectContaining({ ordinal: index + 1, side: set.side ?? null })),
+      }] },
+    })
+  })
+
+  it('saves explicit open intent for a failure set rather than certifying its displayed numeric hint', async () => {
+    const original = useRuntimeStore.getState().session!
+    const exercise = { ...original.exercises[0], plan: [{ ...original.exercises[0].plan[0], setType: 'failure' as const }] }
+    const session = { ...original, exercises: [exercise], currentSetIndex: 0 }
+    useRuntimeStore.setState({ session: { ...session, sessionState: buildExerciseSession(session) } })
+    renderScreen()
+    fireEvent.click(screen.getByRole('button', { name: 'Увеличить: Повторы' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Завершить подход' }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalled())
+    expect(apiPost).toHaveBeenCalledWith('/api/runtime/sets', expect.objectContaining({
+      plannedValue: 0, targetMinReps: null, targetMaxReps: null,
+      machineMetrics: expect.objectContaining({ targetType: 'open' }),
+    }))
   })
 
   it.each([0, 1, 2, 3])('shows logical round and persists side before advancing physical step %i', async (index) => {
@@ -161,10 +194,11 @@ describe('ExerciseSessionScreen', () => {
     localStorage.clear()
     currentSearch = '?source=catalog&slug=barbell-floor-press'
     navigateMock.mockReset()
-    runCommandMock.mockClear()
+    runCommandMock.mockReset().mockResolvedValue({})
     vi.mocked(apiGet).mockReset().mockResolvedValue([])
     vi.mocked(apiPost).mockReset()
     vi.mocked(apiPost).mockImplementation(async (path: string) => {
+      if (path === '/api/runtime/exercises/reset') return { missingExerciseSessionIds: [] } as never
       if (path === '/api/runtime/exercises') return { exerciseSessionId: 7, outcome: 'completed', exerciseId: 'x', title: 'Итог', subtitle: '', setResults: [], totals: { setsCompleted: '1', repsOrTime: '8', volume: '0', tempo: 'хорошо' }, planVsFact: [], recommendation: '', nextStepLabel: '' } as never
       if (path === '/api/runtime/sets') return { setId: 1, exerciseSessionId: 7 } as never
       throw new Error(`Unexpected POST ${path}`)
@@ -192,6 +226,9 @@ describe('ExerciseSessionScreen', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Завершить подход' }))
     await waitFor(() => expect(navigateMock).toHaveBeenCalled())
     expect(playExerciseEventSound).toHaveBeenCalledExactlyOnceWith('success')
+    const payload = vi.mocked(apiPost).mock.calls.find(([path]) => path === '/api/runtime/sets')?.[1]
+    expect(payload).toMatchObject({ subjectiveEffort: null, discomfortLevel: null })
+    if (!lastSet) expect(useRuntimeStore.getState().session?.restState?.completedSet.backendSetId).toBe(1)
   })
 
   it('does not play success when saving a completed set fails', async () => {
@@ -485,6 +522,39 @@ describe('ExerciseSessionScreen', () => {
     expect(playExerciseEventSound).not.toHaveBeenCalled()
   })
 
+  it.each(['fixed_hold', 'training'])('ends the hardware set before saving a skipped exercise in %s', async mode => {
+    const user = userEvent.setup()
+    useHardwareStore.setState({ snapshot: {
+      control: { mode }, safety: { state: 'enabled' },
+      motion: { barPositionMm: 600, leftPositionMm: 600, rightPositionMm: 600, repetitionCount: 0, amplitudePercent: 0 },
+    } as HardwareSnapshot })
+    let finish!: () => void
+    runCommandMock.mockImplementation(command => command.action === 'complete_set'
+      ? new Promise<void>(resolve => { finish = resolve }) : Promise.resolve({}))
+    renderScreen()
+    await user.click(screen.getByRole('button', { name: 'Пропустить упражнение' }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Пропустить упражнение?' })).getByRole('button', { name: 'Пропустить', exact: true }))
+    expect(runCommandMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'complete_set', exerciseSlug: 'barbell-floor-press' }))
+    expect(navigateMock).not.toHaveBeenCalled()
+    expect(apiPost).not.toHaveBeenCalled()
+    await act(async () => finish())
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-summary${currentSearch}`))
+    expect(vi.mocked(apiPost).mock.calls.some(([path]) => path === '/api/runtime/sets')).toBe(false)
+    expect(useRuntimeStore.getState().session!.exerciseOutcomes).toEqual(expect.objectContaining({
+      [useRuntimeStore.getState().session!.currentExerciseId]: 'skipped',
+    }))
+  })
+
+  it('does not leave a skipped exercise when hardware teardown fails', async () => {
+    runCommandMock.mockRejectedValue(new Error('Не удалось завершить аппаратный подход'))
+    renderScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Пропустить упражнение' }))
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Пропустить упражнение?' })).getByRole('button', { name: 'Пропустить', exact: true }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Не удалось завершить аппаратный подход'))
+    expect(navigateMock).not.toHaveBeenCalled()
+    expect(apiPost).not.toHaveBeenCalled()
+  })
+
   it('keeps finished sets when the rest of the exercise is skipped', async () => {
     const user = userEvent.setup()
     renderScreen()
@@ -624,7 +694,7 @@ describe('ExerciseSessionScreen', () => {
     await user.click(within(confirm).getByRole('button', { name: 'Выполнить заново' }))
 
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-setup${currentSearch}`))
-    expect(apiPost).toHaveBeenCalledWith('/api/runtime/exercises', expect.objectContaining({ exerciseSessionId: 5, status: 'in_progress', sets: [], resetSets: true }))
+    expect(apiPost).toHaveBeenCalledWith('/api/runtime/exercises/reset', { exercises: [expect.objectContaining({ exerciseSessionId: 5, status: 'in_progress', sets: [], resetSets: true })] })
     const restarted = useRuntimeStore.getState().session!
     expect(restarted.currentExerciseId).toBe(first.id)
     expect(restarted.currentSetIndex).toBe(0)
@@ -632,9 +702,55 @@ describe('ExerciseSessionScreen', () => {
     expect(restarted.completedExerciseIds).not.toContain(first.id)
   })
 
+  it('does not auto-save repetitions while a previous-exercise reset is in flight', async () => {
+    const original = useRuntimeStore.getState().session!
+    const first = original.exercises[0]
+    const second = { ...first, id: 'second', order: 2 }
+    useRuntimeStore.setState({ session: { ...original, exercises: [first, second], currentExerciseId: second.id,
+      completedExerciseIds: [first.id], backendExerciseSessionIds: { [first.id]: 5 } } })
+    useRuntimeStore.getState().startExercise()
+    const snapshot = { control: { mode: 'training' }, safety: { state: 'enabled' }, motion: {
+      barPositionMm: 600, leftPositionMm: 600, rightPositionMm: 600, repetitionCount: 0, amplitudePercent: 0,
+    } } as HardwareSnapshot
+    useHardwareStore.setState({ snapshot })
+    let reset!: (value: unknown) => void
+    vi.mocked(apiPost).mockImplementation(() => new Promise(resolve => { reset = resolve }))
+    renderScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Предыдущее упражнение' }))
+    // Hitting the rep target while confirming must not save the exercise the user is about to reset.
+    act(() => useHardwareStore.setState({ snapshot: { ...snapshot, motion: { ...snapshot.motion, repetitionCount: 100 } } }))
+    expect(apiPost).not.toHaveBeenCalled()
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Выполнить заново' }))
+    await waitFor(() => expect(apiPost).toHaveBeenCalledTimes(1))
+    act(() => useHardwareStore.setState({ snapshot: { ...snapshot, motion: { ...snapshot.motion, repetitionCount: 101 } } }))
+    expect(apiPost).toHaveBeenCalledTimes(1)
+    expect(runCommandMock.mock.calls.filter(([command]) => command.action === 'complete_set')).toHaveLength(1)
+    await act(async () => reset({ missingExerciseSessionIds: [] }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-setup${currentSearch}`))
+    expect(apiPost).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps both local results and the current exercise when atomic reset fails', async () => {
+    const original = useRuntimeStore.getState().session!
+    const first = original.exercises[0]
+    const second = { ...first, id: 'second', order: 2 }
+    const completedSets = { [first.id]: [{ setNumber: 1 } as never], [second.id]: [{ setNumber: 1 } as never] }
+    useRuntimeStore.setState({ session: { ...original, exercises: [first, second], currentExerciseId: second.id,
+      completedSets, backendExerciseSessionIds: { [first.id]: 5, [second.id]: 6 } } })
+    useRuntimeStore.getState().startExercise()
+    vi.mocked(apiPost).mockRejectedValue(new Error('Сброс не выполнен'))
+    renderScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Предыдущее упражнение' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Выполнить заново' }))
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Сброс не выполнен'))
+    expect(useRuntimeStore.getState().session!.completedSets).toEqual(completedSets)
+    expect(useRuntimeStore.getState().session!.currentExerciseId).toBe(second.id)
+    expect(navigateMock).not.toHaveBeenCalled()
+  })
+
   it('goes back to the previous exercise when its backend record is already gone', async () => {
     const user = userEvent.setup()
-    vi.mocked(apiPost).mockRejectedValue(new ApiError(404, { detail: 'Exercise session not found' }))
+    vi.mocked(apiPost).mockResolvedValue({ missingExerciseSessionIds: [5] })
     const session = useRuntimeStore.getState().session!
     const first = session.exercises[0]
     const second = { ...first, id: `${first.id}-again`, order: 2 }

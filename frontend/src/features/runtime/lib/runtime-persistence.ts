@@ -1,5 +1,5 @@
 import type { RuntimeWorkoutOutcome, RuntimeWorkoutSession, RuntimeWorkoutSummaryState } from '@/entities/runtime/model/types'
-import { ApiError, apiPost } from '@/shared/api/client'
+import { apiPost } from '@/shared/api/client'
 
 export type WorkoutSaveStatus = RuntimeWorkoutOutcome | 'in_progress'
 export type LoadAdjustmentDirection = 'increase' | 'decrease'
@@ -41,6 +41,44 @@ export function resolveWorkoutSaveStatus(session: RuntimeWorkoutSession): Exclud
   return session.workoutSummary.outcome === 'partial' || hasIncompleteExercise ? 'partial' : 'completed'
 }
 
+/** Full declared intent, never reconstructed from completed summaries/results. */
+export function buildCoachWorkoutPlan(session: RuntimeWorkoutSession) {
+  if (!session.exercises.length || session.exercises.length > 100
+    || session.exercises.reduce((sum, e) => sum + e.plan.length, 0) > 2000
+    || session.exercises.some(e => !e.plan.length || e.plan.length > 100)) return null
+  return {
+    schemaVersion: 1,
+    origin: 'declared-client-plan',
+    exercises: session.exercises.map(exercise => ({
+      exerciseId: exercise.id,
+      orderIndex: exercise.order,
+      slug: exercise.slug,
+      kind: exercise.kind,
+      perSide: exercise.perSide ?? false,
+      trainingMode: exercise.strengthMode.id,
+      trainingDayType: exercise.strengthMode.dayType ?? null,
+      sets: exercise.plan.map((set, index) => {
+        const exact = set.targetSeconds ?? set.targetReps
+        const ranged = set.targetMinReps != null && set.targetMaxReps != null && set.targetMinReps !== set.targetMaxReps
+        const open = set.setType === 'failure'
+        const value = exact ?? set.targetMaxReps
+        return {
+          ordinal: set.setNumber ?? index + 1,
+          side: set.side ?? null,
+          roundNumber: set.roundNumber ?? null,
+          setType: set.setType === 'warmup' ? 'warmup' : 'working',
+          targetType: open ? 'open' : ranged ? 'range' : value != null && value > 0 ? 'exact' : 'unknown',
+          unit: exercise.kind === 'timed' || exercise.kind === 'stretch' ? 'seconds' : 'reps',
+          minimum: open ? null : ranged ? set.targetMinReps : value != null && value > 0 ? value : null,
+          maximum: open ? null : ranged ? set.targetMaxReps : value != null && value > 0 ? value : null,
+          plannedWeightKg: set.recommendedWeightKg ?? (exercise.kind === 'machine' ? exercise.loadSettings.weight : 0),
+          restSeconds: set.restSeconds,
+        }
+      }),
+    })),
+  }
+}
+
 export async function saveWorkoutToBackend(session: RuntimeWorkoutSession, userId: string, status: WorkoutSaveStatus) {
   const finishedAt = status === 'in_progress' ? undefined : new Date().toISOString()
   return apiPost<RuntimeWorkoutSummaryState>('/api/runtime/workouts', {
@@ -57,6 +95,7 @@ export async function saveWorkoutToBackend(session: RuntimeWorkoutSession, userI
     discomfort: session.workoutSummary.discomfort,
     exerciseSessionIds: Object.values(session.backendExerciseSessionIds ?? {}),
     exercises: [],
+    coachPlan: buildCoachWorkoutPlan(session),
   })
 }
 
@@ -65,12 +104,10 @@ export async function saveWorkoutToBackend(session: RuntimeWorkoutSession, userI
  * Returns the ids whose backend record is already gone, so the redo creates fresh ones.
  */
 export async function resetExercisesOnBackend(session: RuntimeWorkoutSession, exercises: RuntimeWorkoutSession['exercises'], userId: string) {
-  const staleIds: string[] = []
-  for (const exercise of exercises) {
+  const resets = exercises.flatMap((exercise) => {
     const exerciseSessionId = session.backendExerciseSessionIds?.[exercise.id]
-    if (!exerciseSessionId) continue
-    try {
-      await apiPost('/api/runtime/exercises', {
+    if (!exerciseSessionId) return []
+    return [{
         exerciseSessionId,
         userId,
         workoutSessionId: session.backendWorkoutSessionId,
@@ -81,7 +118,7 @@ export async function resetExercisesOnBackend(session: RuntimeWorkoutSession, ex
         orderIndex: exercise.order,
         status: 'in_progress',
         startedAt: new Date(Date.now() - 90_000).toISOString(),
-        finishedAt: new Date().toISOString(),
+        finishedAt: null,
         calibrationState: exercise.calibrationState,
         targetSets: exercise.plan.length,
         perSide: exercise.perSide ?? false,
@@ -91,14 +128,13 @@ export async function resetExercisesOnBackend(session: RuntimeWorkoutSession, ex
         muscles: exercise.muscles.map((name, index) => ({ muscleId: name, name, role: index === 0 ? 'primary' : 'secondary' })),
         sets: [],
         resetSets: true,
-      })
-    } catch (error) {
-      // the record is already gone: nothing to clear
-      if (!(error instanceof ApiError && error.status === 404)) throw error
-      staleIds.push(exercise.id)
-    }
-  }
-  return staleIds
+    }]
+  })
+  if (!resets.length) return []
+  // Both exercises are reset in one transaction: a failed second reset must not erase the first.
+  const response = await apiPost<{ missingExerciseSessionIds: number[] }>('/api/runtime/exercises/reset', { exercises: resets })
+  return exercises.filter(exercise => response.missingExerciseSessionIds.includes(session.backendExerciseSessionIds?.[exercise.id] ?? -1))
+    .map(exercise => exercise.id)
 }
 
 export async function adjustExerciseLoadOnBackend({

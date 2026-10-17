@@ -9,6 +9,7 @@ import httpx
 import pytest
 from fastapi import HTTPException
 
+from app.core.coach_limits import COACH_MAX_TEXT_OUTPUT_TOKENS, COACH_TEXT_OUTPUT_TOKENS
 from app.core.config import Settings, get_settings
 from app.models.coach import CoachAttempt, CoachCredential
 from app.schemas.coach_control import Pricing, ReportedUsage
@@ -88,14 +89,17 @@ def test_prompts_are_verbatim_copies_of_approved_document():
     assert rows == P2
     assert quotes("### 6.3.1.")[0] == P1_DARK
     hashes = static_hashes()
-    assert hashes["version"] == "coach-prompts-0.7" and len(hashes["p0"]) == 64 and len(hashes) == 5 + len(P2)
+    # U06 explicitly versions the approved P0/P2 action/association refinements.
+    assert hashes["version"] == "coach-prompts-0.14" and len(hashes["p0"]) == 64 and len(hashes) == 5 + len(P2)
 
 
 def test_personality_modules_are_fixed_enum_texts_and_dark_humor_needs_humor():
     base = dict(trigger_id="T36", phase="rest", task="rest/full-feedback", intents=("humor",), topic_key="set-result",
                 max_words=20)
     plain = build_prompt(AuthorRequest(**base))
-    assert plain.instructions == "\n\n".join([P0, P1, P2["rest/full-feedback"]]) and "userName" not in plain.data
+    from app.services.coach.speech_actions import SCENARIO_EXAMPLES
+    assert plain.instructions == "\n\n".join([P0, P1, P2["rest/full-feedback"], SCENARIO_EXAMPLES["result"]])
+    assert "userName" not in plain.data
     rich = build_prompt(AuthorRequest(**base, style="strict", humor="often", humor_kinds=("absurd", "wordplay"),
                                       dark_humor=True, persona="sharp", extras=("trivia",), address="vy",
                                       name_allowed=True, user_name="Лёша"))
@@ -332,6 +336,39 @@ def attempts(session_factory, run_id):
 
 def author(session_factory, adapter, pricing=PRICE, **kw):
     return TextAuthor(session_factory, adapter, pricing, model=pricing.model, timeout_s=kw.pop("timeout_s", 1), **kw)
+
+
+def test_shared_text_headroom_defaults_and_configurable_ceiling(monkeypatch):
+    assert COACH_TEXT_OUTPUT_TOKENS == 2048 and COACH_MAX_TEXT_OUTPUT_TOKENS == 8192
+    assert Settings.model_fields["coach_text_max_output_tokens"].default == COACH_TEXT_OUTPUT_TOKENS
+    monkeypatch.setenv("COACH_TEXT_MAX_OUTPUT_TOKENS", "8192")
+    assert Settings(_env_file=None).coach_text_max_output_tokens == COACH_MAX_TEXT_OUTPUT_TOKENS
+    monkeypatch.setenv("COACH_TEXT_MAX_OUTPUT_TOKENS", "400")
+    assert Settings(_env_file=None).coach_text_max_output_tokens == 400  # Legacy configuration still loads.
+
+
+@pytest.mark.parametrize("task", sorted(P2))
+@pytest.mark.parametrize("configured", [400, 1000, 4096])
+async def test_every_task_reserves_shared_headroom_before_dispatch(session_factory, task, configured):
+    run_id, generation = make_run(session_factory)
+    expected = max(COACH_TEXT_OUTPUT_TOKENS, configured)
+    phase = task.split("/")[0] if "/" in task else "paused" if task == "paused" else "rest"
+    req = AuthorRequest("T21", phase, task, ("motivation",), "token-headroom", 16)
+
+    def script(body):
+        assert body["max_output_tokens"] == expected
+        with session_factory() as db:
+            attempt = db.query(CoachAttempt).filter_by(run_id=run_id, stage="text").one()
+            assert attempt.status == "sent" and attempt.bounds["outputTokens"] == expected
+        return {"action": "silence", "intent": "motivation", "topicKey": req.topic_key,
+                "usedFactIds": [], "silenceReason": "no_useful_content", "text": "",
+                "delivery": {"energy": "calm", "pace": "normal", "emphasis": "none"}}
+
+    fake = FakeTextAuthor(script)
+    result = await author(session_factory, fake, max_output_tokens=configured).author(
+        run_id=run_id, owner="tab-a", generation=generation, opportunity="headroom", request=req)
+    assert result.kind == "silence" and result.reason == "no_useful_content"
+    assert len(fake.calls) == 1 and attempts(session_factory, run_id) == [("settled", 0)]
 
 
 async def test_author_valid_line_settles_usage_and_returns_speech(session_factory):

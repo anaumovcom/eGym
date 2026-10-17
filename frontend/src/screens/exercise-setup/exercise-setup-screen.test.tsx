@@ -59,16 +59,58 @@ function renderScreen() {
     },
   })
 
-  return render(
+  const result = render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[`/exercise-setup${currentSearch}`]}>
         <ExerciseSetupScreen />
       </MemoryRouter>
     </QueryClientProvider>,
   )
+  return { ...result, queryClient }
 }
 
 describe('ExerciseSetupScreen', () => {
+  it('keeps locally edited weight, sets, reps and rest across hardware updates and unchanged backend refetches', async () => {
+    currentSearch = '?source=builder&programId=back-biceps'
+    const original = useRuntimeStore.getState().session!
+    const exercise = original.exercises[0]
+    const session: RuntimeWorkoutSession = { ...original, source: 'builder', programId: 'back-biceps', dataSource: 'backend', exercises: [exercise] }
+    useRuntimeStore.setState({ session })
+    buildBackendBuilderRuntimeSessionMock.mockResolvedValue(session)
+    const { queryClient } = renderScreen()
+    const user = userEvent.setup()
+    await waitFor(() => expect(buildBackendBuilderRuntimeSessionMock).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toBeInTheDocument())
+
+    for (const [label, value] of [['Вес, кг', '37'], ['Подходы', '5'], ['Повторы', '13'], ['Отдых, сек', '75']]) {
+      const input = screen.getByRole('textbox', { name: label })
+      await user.clear(input)
+      await user.type(input, value)
+      await user.tab()
+      await waitFor(() => expect(screen.getByRole('textbox', { name: label })).toHaveValue(value))
+    }
+    act(() => { useHardwareStore.setState({ snapshot: createSnapshot(760) }) })
+    // A structurally identical server snapshot must not overwrite the user's local plan.
+    await act(async () => { await queryClient.refetchQueries({ queryKey: ['runtime-builder-session'] }) })
+    expect(useRuntimeStore.getState().session!.exercises[0].loadSettings).toMatchObject({ weight: 37, sets: 5, reps: 13, restSeconds: 75 })
+    expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('37')
+    expect(screen.getByRole('textbox', { name: 'Подходы' })).toHaveValue('5')
+    expect(useHardwareStore.getState().runCommand).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Увеличить: Вес' }))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('39.5'))
+    await user.click(screen.getByRole('button', { name: 'Уменьшить: Подходы' }))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Подходы' })).toHaveValue('4'))
+
+    // Real server plan edits must still be applied; ignoring every refetch would hide those changes.
+    const changedExercise = { ...exercise, loadSettings: { ...exercise.loadSettings, weight: 50 },
+      plan: exercise.plan.map((set) => ({ ...set, recommendedWeightKg: 50 })) }
+    buildBackendBuilderRuntimeSessionMock.mockResolvedValue({ ...session, exercises: [changedExercise] })
+    await act(async () => { await queryClient.refetchQueries({ queryKey: ['runtime-builder-session'] }) })
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('50'))
+    expect(useRuntimeStore.getState().session!.exercises[0]).toEqual(changedExercise)
+  })
+
   it.each(['perSide', 'side', 'roundNumber'] as const)('refreshes backend setup when only %s changes', async (field) => {
     currentSearch = '?source=builder&programId=back-biceps'
     const original = useRuntimeStore.getState().session!
@@ -118,6 +160,7 @@ describe('ExerciseSetupScreen', () => {
   beforeEach(() => {
     localStorage.clear()
     vi.mocked(apiGet).mockReset().mockResolvedValue([])
+    vi.mocked(apiPost).mockReset().mockResolvedValue({ missingExerciseSessionIds: [] })
     currentSearch = '?source=catalog&slug=barbell-floor-press&calibration=missing'
     navigateMock.mockReset()
     loadCurrentCalibrationMock.mockReset()
@@ -500,7 +543,7 @@ describe('ExerciseSetupScreen', () => {
 
   it('goes back to the previous exercise and does it again instead of returning to its consumed summary', async () => {
     const user = userEvent.setup()
-    vi.mocked(apiPost).mockResolvedValue({})
+    vi.mocked(apiPost).mockResolvedValue({ missingExerciseSessionIds: [] })
     const session = useRuntimeStore.getState().session!
     const first = session.exercises[0]
     const second = { ...first, id: `${first.id}-2`, order: 2 }
@@ -521,9 +564,77 @@ describe('ExerciseSetupScreen', () => {
     await user.click(within(confirm).getByRole('button', { name: 'Выполнить заново' }))
 
     await waitFor(() => expect(useRuntimeStore.getState().session?.currentExerciseId).toBe(first.id))
-    expect(apiPost).toHaveBeenCalledWith('/api/runtime/exercises', expect.objectContaining({ exerciseSessionId: 5, sets: [], resetSets: true }))
+    expect(apiPost).toHaveBeenCalledWith('/api/runtime/exercises/reset', { exercises: [expect.objectContaining({ exerciseSessionId: 5, sets: [], resetSets: true })] })
     expect(useRuntimeStore.getState().session?.completedSets[first.id]).toBeUndefined()
     expect(navigateMock).not.toHaveBeenCalledWith(-1)
+  })
+
+  it.each(['moving', 'fixed_hold'])('stops %s before resetting previous exercise from setup', async mode => {
+    const original = useRuntimeStore.getState().session!
+    const first = original.exercises[0]
+    const second = { ...first, id: 'second', order: 2 }
+    useRuntimeStore.setState({ session: { ...original, exercises: [first, second], currentExerciseId: second.id,
+      backendExerciseSessionIds: { [first.id]: 5 } } })
+    useHardwareStore.setState({ snapshot: { ...createSnapshot(560), control: { mode } } as HardwareSnapshot })
+    let finish!: () => void
+    const run = vi.fn().mockImplementation(() => new Promise<void>(resolve => { finish = resolve }))
+    useHardwareStore.setState({ runCommand: run })
+    vi.mocked(apiPost).mockResolvedValue({ missingExerciseSessionIds: [] })
+    renderScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Предыдущее упражнение' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Выполнить заново' }))
+    expect(run).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ action: 'complete_set' }))
+    expect(apiPost).not.toHaveBeenCalled()
+    expect(useRuntimeStore.getState().session!.currentExerciseId).toBe(second.id)
+    await act(async () => finish())
+    await waitFor(() => expect(useRuntimeStore.getState().session!.currentExerciseId).toBe(first.id))
+  })
+
+  it('blocks duplicate start and previous-exercise actions while the start safety check is pending', async () => {
+    const original = useRuntimeStore.getState().session!
+    const first = original.exercises[0]
+    const second = { ...first, id: 'second', order: 2 }
+    useRuntimeStore.setState({ session: { ...original, exercises: [first, second], currentExerciseId: second.id } })
+    const saved: HardwareCalibration = {
+      id: 90, userId: 'alexey', exerciseSlug: first.slug, setupType: 'bar_range',
+      lowerPointMm: 300, upperPointMm: 900, fixedPositionMm: null, startPoint: 'lower',
+      zeroPositionMm: 560, movementRangeConfirmed: true, calibrationRequired: true,
+      isActive: true, capturedAt: new Date().toISOString(), expiresAt: null,
+    }
+    loadCurrentCalibrationMock.mockImplementation(async () => {
+      useHardwareStore.setState({ currentCalibration: saved })
+      return saved
+    })
+    let checked!: (value: { allowed: boolean }) => void
+    const check = vi.fn().mockImplementation(() => new Promise(resolve => { checked = resolve }))
+    const run = vi.fn().mockResolvedValue({})
+    useHardwareStore.setState({ checkSafetyGate: check, runCommand: run })
+    renderScreen()
+    const start = await screen.findByRole('button', { name: 'Запустить упражнение' })
+    await waitFor(() => expect(start).toBeEnabled())
+    await userEvent.dblClick(start)
+    expect(check).toHaveBeenCalledTimes(1)
+    expect(start).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Предыдущее упражнение' })).toBeDisabled()
+    await act(async () => checked({ allowed: true }))
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-session${currentSearch}`))
+    expect(run).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not erase saved results if stopping the setup motor fails', async () => {
+    const original = useRuntimeStore.getState().session!
+    const first = original.exercises[0]
+    const second = { ...first, id: 'second', order: 2 }
+    useRuntimeStore.setState({ session: { ...original, exercises: [first, second], currentExerciseId: second.id,
+      backendExerciseSessionIds: { [first.id]: 5 } } })
+    useHardwareStore.setState({ snapshot: { ...createSnapshot(560), control: { mode: 'fixed_hold' } } as HardwareSnapshot,
+      runCommand: vi.fn().mockRejectedValue(new Error('Привод не ответил')) })
+    renderScreen()
+    await userEvent.click(screen.getByRole('button', { name: 'Предыдущее упражнение' }))
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Выполнить заново' }))
+    await waitFor(() => expect(screen.getByText('Привод не ответил')).toBeVisible())
+    expect(apiPost).not.toHaveBeenCalled()
+    expect(useRuntimeStore.getState().session!.currentExerciseId).toBe(second.id)
   })
 
   it('keeps a plain back button on the first exercise', () => {

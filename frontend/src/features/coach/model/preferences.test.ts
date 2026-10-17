@@ -6,6 +6,15 @@ import { buildSystemSettingsData, defaultStage4DevFlags } from '@/mocks/stage4-d
 const general = { soundEnabled: true, voiceHintsEnabled: true, volume: 0.7 }
 const enabled: CoachPreferences = { ...defaults, enabled: true, consentVersion: 1 }
 describe('Coach preference admission (no providers)', () => {
+  it('keeps conversation memory and separate cross-workout opt-in independent of history consent', () => {
+    expect(defaults.memoryEnabled).toBe(true)
+    expect(defaults.crossWorkoutMemory).toBe(false)
+    expect(preferencesValid({ ...defaults, memoryEnabled: false, historyConsent: true })).toBe(true)
+    expect(preferencesValid({ ...defaults, crossWorkoutMemory: true, historyConsent: false })).toBe(true)
+  })
+  it.each(['memoryEnabled', 'crossWorkoutMemory'] as const)('requires a real boolean for %s', key => {
+    expect(preferencesValid({ ...defaults, [key]: 'true' } as unknown as CoachPreferences)).toBe(false)
+  })
   it('defaults signals and inherited coach voice to full volume', () => {
     expect(useStage4Store.getState().settingsSaved.signalVolume).toBe('100%')
     expect(buildSystemSettingsData(defaultStage4DevFlags).common.signalVolume).toBe('100%')

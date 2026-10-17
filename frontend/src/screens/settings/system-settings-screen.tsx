@@ -6,7 +6,6 @@ import { useHardwareStore } from '@/stores/hardware-store'
 import { buildSystemSettingsData, settingsTabs } from '@/mocks/stage4-data'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
-import { ServiceAccessGate } from '@/shared/ui/layout/service-access'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { MetricCardGrid, Panel, SectionTitle, TabStrip } from '@/shared/ui/stage4/screen-components'
 import { useStage4Screen } from '@/features/stage4/lib/use-stage4-screen'
@@ -302,7 +301,7 @@ export function SystemSettingsScreen() {
         setEmergencyStopActive(true)
       }}
     >
-      <SectionTitle title="Настройки" description={isServiceTab ? 'Сервисный раздел: приводы, диагностика, калибровки, Modbus и журнал. Только для обслуживания тренажёра.' : 'Пользовательские настройки: обзор, безопасность, общие параметры и AI-тренер. Сервисный раздел открывается отдельно и защищён от случайного входа.'} />
+      <SectionTitle title="Настройки" description={isServiceTab ? 'Сервисный раздел: приводы, диагностика, калибровки, Modbus и журнал. Только для обслуживания тренажёра.' : 'Пользовательские настройки: обзор, безопасность, общие параметры и AI-тренер. Сервисные настройки находятся на отдельной вкладке.'} />
 
       {hardwareError ? (
         <div className="rt-alert" data-tone="danger" role="alert">
@@ -398,7 +397,6 @@ export function SystemSettingsScreen() {
       ) : null}
 
       {isServiceTab ? (
-        <ServiceAccessGate embedded>
           <section aria-label="Сервисный раздел" className="space-y-6">
             <nav aria-label="Сервисные настройки">
               <TabStrip tabs={serviceSettingsTabs} active={tab} onChange={updateTab} />
@@ -593,7 +591,6 @@ export function SystemSettingsScreen() {
       ) : null}
 
           </section>
-        </ServiceAccessGate>
       ) : null}
 
       {tab === 'common' ? (

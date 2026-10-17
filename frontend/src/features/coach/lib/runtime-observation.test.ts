@@ -1,7 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
-import { captureRuntimeLifecycle, coachLifecycle, isCoachFoundationEnabled } from './runtime-observation'
+import type { LifecycleContext } from './lifecycle-observer'
+import { captureRuntimeLifecycle, coachLifecycle, isCoachFoundationEnabled, setLifecycleVersionReader } from './runtime-observation'
 
 describe('runtime read-only observation integration', () => {
   beforeEach(() => {
@@ -14,7 +15,33 @@ describe('runtime read-only observation integration', () => {
     useRuntimeStore.setState({ session: { ...session, dataSource: 'backend' } })
     coachLifecycle.clear()
   })
-  afterEach(() => { vi.unstubAllEnvs(); coachLifecycle.clear() })
+  afterEach(() => { vi.unstubAllEnvs(); coachLifecycle.clear(); setLifecycleVersionReader(() => null) })
+
+  it('reads detached live versions only at capture without mutating the workout', () => {
+    const session = useRuntimeStore.getState().session!
+    const original = JSON.stringify(session)
+    let planRevision = 7
+    const reader = vi.fn((current: LifecycleContext) => ({ phase: 'active-set' as const, planRevision, contextVersion: 8, scope: { schemaVersion: 1 as const,
+      userId: current.userId!, runId: current.runId!, exerciseId: current.exerciseId, setOrdinal: current.setOrdinal, scopeEpoch: 40 } }))
+    setLifecycleVersionReader(reader)
+    const capture = captureRuntimeLifecycle(session, 'fixture-user')!
+    planRevision = 9
+    expect(coachLifecycle.publish(capture, 'set_persisted', { backendSetId: 2 })).toBe(true)
+    const event = coachLifecycle.snapshot()[0]
+    expect(event).toMatchObject({ phase: 'active-set', planRevision: 7, contextVersion: 8, scope: { scopeEpoch: 40 } })
+    expect(Object.isFrozen(capture.versions)).toBe(true)
+    expect(Object.isFrozen(capture.versions!.scope)).toBe(true)
+    expect(reader).toHaveBeenCalledOnce()
+    expect(JSON.stringify(useRuntimeStore.getState().session)).toBe(original)
+  })
+
+  it('keeps missing capture-time versions local-only instead of assigning them at publication', () => {
+    setLifecycleVersionReader(() => null)
+    const capture = captureRuntimeLifecycle(useRuntimeStore.getState().session!, 'fixture-user')!
+    setLifecycleVersionReader(() => { throw new Error('Must not read at publication') })
+    expect(coachLifecycle.publish(capture, 'set_persisted', { backendSetId: 2 })).toBe(true)
+    expect(coachLifecycle.snapshot()[0]).toMatchObject({ planRevision: 0, contextVersion: 0 })
+  })
 
   it('stays off by default even when legacy runtime exists', () => {
     vi.stubEnv('VITE_COACH_ENABLED', '')

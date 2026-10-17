@@ -20,7 +20,8 @@ const liveSaved: CoachPreferences = { ...saved, mode: 'hybrid', networkConsentVe
 function networkPort(patch: Partial<NetworkSnapshot> = {}): NonNullable<LiveRuntimeDependencies['network']> {
   const snapshot: NetworkSnapshot = { state: 'ready', reason: null, mode: 'hybrid', voiceId: 'ash', text: true, voice: true,
     degraded: false, eventsSent: 0, streams: 0, spoken: 0, failed: 0, decisions: [], reasons: {}, usage: null,
-    lastText: null, firstAudioMs: null, ...patch }
+    lastText: null, firstAudioMs: null, firstAudioMsLabel: 'voice-only', latencies: {}, serverTimings: {},
+    telemetry: { classified: 0, missingClassification: 0, pendingClassification: 0, retained: 0 }, ...patch }
   return { tick: () => undefined, observe: () => undefined, dispose: () => undefined,
     subscribe: () => () => undefined, getSnapshot: () => snapshot }
 }
@@ -107,15 +108,16 @@ describe('CoachLiveRuntime', () => {
     ['exercise_finalized', 'completed', 'exercise-done'], ['exercise_finalized', 'partial', 'exercise-partial'],
     ['exercise_finalized', 'skipped', 'exercise-skipped'],
     ['workout_finalized', 'completed', 'workout-done'], ['workout_finalized', 'partial', 'workout-partial'],
-  ] as const)('gives live sole ownership of %s / %s without replay on disconnect', (event, outcome, kind) => {
+  ] as const)('immediately plays local %s / %s even with a ready live voice, without replay', (event, outcome, kind) => {
     const f = new Fixture(networkPort()); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
     f.complete(event, outcome)
-    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind, reason: 'live_priority' })
-    expect(f.runtime.getSnapshot().counters).toMatchObject({ cues: 1, admitted: 0, suppressed: 1 })
-    expect(f.started).toBe(0)
+    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind, reason: 'admitted' })
+    expect(f.runtime.getSnapshot().counters).toMatchObject({ cues: 1, admitted: 1, suppressed: 0 })
+    f.clock.advance(100, f.context)
+    expect(f.started).toBe(1)
     f.change({ saved }) // Local mode must not replay the consumed completion.
     expect(f.runtime.getSnapshot().counters.cues).toBe(1)
-    expect(f.started).toBe(0)
+    expect(f.started).toBe(1)
   })
 
   it.each([
@@ -149,11 +151,11 @@ describe('CoachLiveRuntime', () => {
     expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'safety-stop', reason: 'admitted' })
   })
 
-  it('suppresses the next-set announcement during live set feedback', () => {
+  it('plays the last-set-remaining fact locally even with live feedback ready', () => {
     const f = new Fixture(networkPort()); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
     f.view('rest', { restState: { mode: 'between-sets', totalSeconds: 30, remainingSeconds: 30, timerPaused: false } })
-    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'last-set-next', reason: 'live_priority' })
-    expect(f.runtime.getSnapshot().counters.admitted).toBe(0)
+    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'last-set-next', reason: 'admitted' })
+    expect(f.runtime.getSnapshot().counters.admitted).toBe(1)
   })
 
   it('reports a missing clip and keeps the legacy beep as the fallback', () => {
@@ -165,6 +167,46 @@ describe('CoachLiveRuntime', () => {
     expect(f.runtime.getSnapshot().lastCue).toMatchObject({ clipId: 'count-2', reason: 'missing_clip' })
     expect(f.beep.shouldPlayLegacyBeep(2)).toBe(true)
     expect(f.runtime.getSnapshot().counters.missingClip).toBe(1)
+  })
+
+  it.each(['timeout', 'pipeline_busy', 'validation_failed', 'budget', 'no_useful_content', 'network'])
+  ('never loses or replays local completion when live reports %s', reason => {
+    const f = new Fixture(networkPort({ reason, reasons: { [reason]: 1 } })); fixtures.push(f)
+    f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start(); f.complete('set_stopped')
+    f.clock.advance(100, f.context)
+    expect(f.started).toBe(1)
+    f.change({}); f.change({})
+    expect(f.runtime.getSnapshot().counters).toMatchObject({ cues: 1, admitted: 1 })
+  })
+
+  it.each(['mute', 'missing_clip', 'hidden', 'scope_changed'] as const)
+  ('explains a completion cancellation/failure from %s without later replay', reason => {
+    const f = new Fixture(networkPort()); fixtures.push(f)
+    f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
+    if (reason === 'missing_clip') f.available.delete('set-end')
+    if (reason === 'mute') f.inputs = { ...f.inputs, general: { ...f.inputs.general, soundEnabled: false } }
+    if (reason === 'hidden') f.inputs = { ...f.inputs, hidden: true }
+    f.complete('set_stopped')
+    if (reason === 'scope_changed') {
+      f.change({ userId: 'u2' })
+      expect(f.managers[0].snapshot().terminal?.some(receipt => !receipt.finished)).toBe(true)
+    } else expect(f.runtime.getSnapshot().lastCue?.reason).toBe(reason)
+    const count = f.runtime.getSnapshot().counters.cues
+    f.available.add('set-end')
+    f.change({ hidden: false, general: { ...f.inputs.general, soundEnabled: true } })
+    expect(f.runtime.getSnapshot().counters.cues).toBe(count)
+  })
+
+  it('publishes the exact local catalog meaning before forwarding saved completion, not missing/muted cues', () => {
+    const ticks: NetworkTick[] = []
+    const port = { ...networkPort(), tick: (tick: NetworkTick) => { ticks.push(tick) } }
+    const f = new Fixture(port); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
+    f.complete('set_stopped')
+    const persisted = { ...f.lifecycle[0], kind: 'set_persisted' as const }
+    expect(ticks.at(-1)!.localCompletion?.(persisted)).toEqual({ cueIds: ['set-end'], acknowledged: ['set_closed'] })
+    expect(ticks.at(-1)!.localCompletion?.({ ...persisted, scope: { ...persisted.scope, setOrdinal: 2 } })).toBeNull()
+    f.change({ userId: 'u2' })
+    expect(ticks.at(-1)!.localCompletion?.(persisted)).toBeNull()
   })
 
   it('keeps interpreting while muted and never replays on unmute', () => {

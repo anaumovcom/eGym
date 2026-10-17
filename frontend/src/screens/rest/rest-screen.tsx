@@ -14,6 +14,7 @@ import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { FormaState } from '@/shared/ui/status/forma-state'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
+import { SetFeedback } from './set-feedback'
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
@@ -222,6 +223,8 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
             <span>Темп <strong>{rest.completedSet.tempoLabel}</strong></span>
             {completedAmplitude ? <span>Амплитуда <strong>{completedAmplitude}</strong></span> : null}
           </div>
+          {session.dataSource === 'backend' && selectedUserId && rest.completedSet.backendSetId ?
+            <SetFeedback key={`${session.id}:${selectedUserId}:${rest.completedSet.backendSetId}`} session={session} userId={selectedUserId} /> : null}
           {hardwareError ? (
             <div className="rt-alert" data-tone="danger" role="alert" style={{ width: 'min(100%, 48rem)' }}>
               <AlertTriangle aria-hidden="true" />

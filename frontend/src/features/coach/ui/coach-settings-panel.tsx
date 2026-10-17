@@ -167,6 +167,17 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
     } catch (error) { if (current()) setMessage(coachErrorMessage(error)) }
     finally { if (current()) setSaving(false) }
   }
+  async function forgetMemory() {
+    controller.current?.abort()
+    const abort = new AbortController()
+    controller.current = abort
+    const id = ++sequence.current
+    const current = () => alive.current && isCurrentCoachScope(epoch) && sequence.current === id && !abort.signal.aborted
+    try {
+      await coachSettingsApi.forgetMemory(userId, abort.signal)
+      if (current()) setMessage('Память всех разговоров очищена. История результатов не изменена.')
+    } catch (error) { if (current()) setMessage(coachErrorMessage(error)) }
+  }
   const cloud = draft.mode !== 'local'
   const issues = problems(draft)
   const status = effective.textEnabled ? 'пишет текстом' : effective.audioEnabled ? 'говорит голосом' : 'молчит'
@@ -185,6 +196,9 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
           {cloud && <Toggle label="Согласие на отправку данных тренировки в облачный ИИ" hint="Уходят факты тренировки и настройки характера, включая имя." checked={draft.networkConsentVersion === 1} onChange={checked => { change('networkConsentVersion', checked ? 1 : null); if (!checked) change('mode', 'local') }} />}
           {cloud && <Field label="Лимит на тренировку, $ (до 2)"><input className="rt-input" type="number" min="0.01" max="2" step="0.01" value={draft.budgetUsd} onChange={event => change('budgetUsd', event.target.value)} /></Field>}
           <Toggle label="Учитывать историю тренировок" checked={draft.historyConsent} onChange={checked => change('historyConsent', checked)} />
+          <Toggle label="Память текущего разговора" hint="Последние услышанные реплики и советы этого run, до 24 часов. Отключение при сохранении удаляет память, но не меняет историю результатов." checked={draft.memoryEnabled} onChange={checked => { change('memoryEnabled', checked); if (!checked) change('crossWorkoutMemory', false) }} />
+          <Toggle label="Память между тренировками — отдельное согласие" hint="Только сохранённые предпочтения манеры общения, до 7 дней в памяти сервера. Без текстов разговора и биографии; перезапуск сервера очищает эту память." checked={draft.crossWorkoutMemory} onChange={checked => { change('crossWorkoutMemory', checked); if (checked) change('memoryEnabled', true) }} />
+          <button type="button" className="rt-button" disabled={loading || saving} onClick={() => void forgetMemory()}>Удалить память тренера</button>
         </Group>
         <Group title="Когда говорить">
           <Field label="Плотность общения"><select className="rt-input" value={draft.density} onChange={event => change('density', event.target.value as CoachPreferences['density'])}><option value="quiet">Только главное</option><option value="companion">Обычно</option><option value="talkative">Разговорчиво</option></select></Field>

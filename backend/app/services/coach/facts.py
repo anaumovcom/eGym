@@ -1,5 +1,6 @@
 """Server fact builder: spoken numbers, history comparison policy and validated aggregates only."""
 
+import math
 import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -9,7 +10,7 @@ Gender = Literal["m", "f", "n"]
 ComparisonStatus = Literal["comparable", "limited", "unavailable"]
 HistoryStatus = Literal["available", "limited", "unavailable", "empty_confirmed"]
 
-METRIC_POLICY_VERSION = "metric-policy-0.1"
+METRIC_POLICY_VERSION = "metric-policy-0.2"
 WEIGHT_RESOLUTION_KG = 0.5
 # Raw telemetry labels are never speech facts: units/update timing are not validated.
 FORBIDDEN_METRICS = frozenset({"amplitudePercent", "tempoLabel", "repQuality", "concentricS", "eccentricS"})
@@ -90,12 +91,21 @@ class AllowedFact:
     valid_until_ms: float = float("inf")
     # Source record ("set:12", "exercise:3"): equal values of different sets are different facts for memory.
     ref: str = ""
+    provenance: str = "unspecified"
+    quantity_kind: Literal["declared", "applied", "measured", "derived", "unspecified"] = "unspecified"
+    observed_at_ms: float | None = None
+    sufficiency: Literal["sufficient", "limited", "unknown"] = "unknown"
 
     def __post_init__(self):
         if self.id in FORBIDDEN_METRICS:
             raise ValueError("Unvalidated metric cannot become a speech fact")
         if not self.claim or len(self.claim) > 200:
             raise ValueError("Invalid fact claim")
+        if len(self.provenance) > 120 or len(self.unit) > 32 or len(self.ref) > 200:
+            raise ValueError("Unbounded fact provenance")
+        if self.observed_at_ms is not None and (not math.isfinite(self.observed_at_ms)
+                                               or not 0 <= self.observed_at_ms <= 10**15):
+            raise ValueError("Invalid fact timestamp")
 
 
 def memory_key(fact: AllowedFact) -> str:
@@ -138,10 +148,10 @@ class SetResult:
     user_id: str
     exercise_slug: str
     progress_unit: Literal["reps", "seconds"]
-    set_type: Literal["warmup", "working"]
+    set_type: Literal["warmup", "working"] | None
     ordinal: int
     value: int | None
-    outcome: Literal["completed", "partial", "skipped", "aborted"]
+    outcome: Literal["completed", "partial", "skipped", "aborted", "unknown"]
     confirmed: bool = True
     target: int | None = None
     target_exact: bool = True
@@ -151,6 +161,13 @@ class SetResult:
     calibration_id: str | None = None
     count_method: str | None = None
     target_min: int | None = None
+    exercise_kind: str | None = None
+    # Analytics weight_kg is a declared plan, NOT measured force or applied setting.
+    applied_weight_kg: float | None = None
+    measured_weight_kg: float | None = None
+    observed_at_ms: float | None = None
+    load_profile_id: str | None = None
+    target_open: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,7 +180,24 @@ class Comparison:
 
 
 def _weight_step(value: float | None) -> int | None:
-    return None if value is None else round(value / WEIGHT_RESOLUTION_KG)
+    return (round(value / WEIGHT_RESOLUTION_KG)
+            if type(value) in {int, float} and math.isfinite(value) and 0 < value <= 1000 else None)
+
+
+def _known(value: str | None) -> bool:
+    return isinstance(value, str) and bool(value.strip()) and value.lower() not in {
+        "unknown", "unavailable", "none", "null", "n/a", "not_applicable"}
+
+
+def target_met(result: SetResult) -> bool:
+    """A completion label alone cannot override a missed or unknown target."""
+    if result.target_open:
+        return (result.confirmed and result.outcome == "completed" and type(result.value) is int and result.value > 0
+                and result.target is None and result.target_min is None)
+    minimum = result.target if result.target_exact else result.target_min
+    return (result.confirmed and result.outcome == "completed" and type(result.value) is int
+            and type(minimum) is int and minimum > 0 and result.value >= minimum
+            and (result.target_exact or (type(result.target) is int and result.target >= minimum)))
 
 
 def compare(current: SetResult, previous: SetResult | None, history: HistoryStatus) -> Comparison:
@@ -173,15 +207,45 @@ def compare(current: SetResult, previous: SetResult | None, history: HistoryStat
             current.user_id, current.exercise_slug, current.progress_unit):
         return Comparison("unavailable")
     checks = {
-        "set_type": previous.set_type == current.set_type,
-        "ordinal": previous.ordinal == current.ordinal,
-        "load_mode": previous.load_mode == current.load_mode,
-        "weight": _weight_step(previous.weight_kg) == _weight_step(current.weight_kg) and current.weight_kg is not None,
-        "range": previous.range_id == current.range_id and previous.calibration_id == current.calibration_id,
-        "count_method": previous.count_method == current.count_method,
-        "confirmed": previous.confirmed and current.confirmed and previous.value is not None and current.value is not None,
-        "outcome": previous.outcome == "completed" and current.outcome in {"completed", "partial"},
+        "exercise_kind": current.exercise_kind in {"machine", "bodyweight", "timed", "stretch"}
+                         and previous.exercise_kind == current.exercise_kind,
+        "set_type": current.set_type in {"warmup", "working"} and previous.set_type == current.set_type,
+        "ordinal": current.ordinal > 0 and previous.ordinal == current.ordinal,
+        "load_mode": _known(current.load_mode) and previous.load_mode == current.load_mode,
+        "weight": _weight_step(current.weight_kg) is not None
+                  and _weight_step(previous.weight_kg) == _weight_step(current.weight_kg),
+        "range": _known(current.range_id) and previous.range_id == current.range_id,
+        "calibration": _known(current.calibration_id) and previous.calibration_id == current.calibration_id,
+        "count_method": _known(current.count_method) and previous.count_method == current.count_method,
+        "confirmed": previous.confirmed and current.confirmed
+                 and type(previous.value) is int and 0 <= previous.value < 1_000_000
+                 and type(current.value) is int and 0 <= current.value < 1_000_000,
+        "outcome": previous.outcome == "completed" and current.outcome in {"completed", "partial"}
+               and (previous.target is None or target_met(previous)),
     }
+    if (current.exercise_kind == "machine" and _known(current.load_mode)
+            and current.load_mode == previous.load_mode != "constant"):
+        # Dynamic modes need the same complete settings profile (eccentric ratio,
+        # assistance/speed etc.), not merely the same mode name and base weight.
+        checks["load_profile"] = _known(current.load_profile_id) and previous.load_profile_id == current.load_profile_id
+    if current.exercise_kind in {"bodyweight", "timed", "stretch"}:
+        allowed_modes = {"bodyweight", "unloaded", "external"}
+        if current.exercise_kind == "stretch":
+            allowed_modes.add("stretch")
+        checks["kind_mode"] = current.load_mode in allowed_modes
+        # Non-machine calibration is explicitly inapplicable by policy, not null equality.
+        checks["calibration"] = previous.exercise_kind == current.exercise_kind
+        # Only explicitly unloaded protocols make load inapplicable. Weighted timed
+        # or bodyweight variants still require a known declared weight.
+        if current.load_mode in {"bodyweight", "unloaded", "stretch"}:
+            checks["weight"] = previous.load_mode == current.load_mode and all(
+                weight is None or (type(weight) in {int, float} and weight == 0)
+                for weight in (current.weight_kg, previous.weight_kg))
+    # Optional measured/applied quantities never silently substitute for the plan.
+    for name in ("applied_weight_kg", "measured_weight_kg"):
+        a, b = getattr(current, name), getattr(previous, name)
+        if a is not None or b is not None:
+            checks[name] = _weight_step(a) is not None and _weight_step(a) == _weight_step(b)
     differences = tuple(name for name, ok in checks.items() if not ok)
     if differences or history == "limited":
         return Comparison("limited", previous_set_id=previous.set_id, differences=differences or ("limited_sample",))
@@ -198,36 +262,49 @@ class FactPackage:
     locked_fact_ids: tuple[str, ...] = ()
     history: HistoryStatus = "unavailable"
     notes: tuple[str, ...] = field(default=())
+    source_signature: str = ""
 
 
 def saved_set_facts(current: SetResult, comparison: Comparison, *, scope_epoch: int, valid_until_ms: float,
                     history: HistoryStatus = "unavailable", analysis_opt_in: bool = False, ref: str = "") -> FactPackage:
     if not current.confirmed:
         raise ValueError("Only saved acknowledged results build facts")
-    common = {"scope_epoch": scope_epoch, "valid_until_ms": valid_until_ms, "ref": ref}
-    if current.outcome == "skipped" or not current.value:
+    common = {"scope_epoch": scope_epoch, "valid_until_ms": valid_until_ms, "ref": ref,
+              "provenance": "persisted-result", "observed_at_ms": current.observed_at_ms,
+              "sufficiency": "sufficient"}
+    if current.outcome == "skipped":
         return FactPackage("T38", (AllowedFact("outcome", "Подход пропущен", "confirmed", "skipped", **common),),
                            Comparison("unavailable"), "skipped", history=history)
+    if type(current.value) is not int or not 0 <= current.value < 1_000_000:
+        raise ValueError("Confirmed result value required")
     unit = current.progress_unit
     spoken = spoken_quantity(current.value, unit)
     facts = [AllowedFact("saved-set", f"Выполнено {spoken}", "confirmed", current.value, unit,
                          numbers=(current.value,), **common)]
-    partial = current.outcome != "completed"
-    outcome = "partial" if partial else "full"
-    facts.append(AllowedFact("outcome", "План подхода выполнен частично" if partial else "План подхода выполнен",
-                             "confirmed", outcome, **common))
+    partial = (current.value == 0 or current.outcome in {"partial", "aborted"}
+               or (current.outcome == "completed" and current.target is not None and not target_met(current)))
+    outcome = "partial" if partial else "full" if target_met(current) else "limited"
+    claim = ("План подхода выполнен частично" if partial else "Подход завершён без фиксированной цели"
+             if current.target_open and target_met(current) else "План подхода выполнен"
+             if target_met(current) else "Подход сохранён; фиксированная цель не подтверждена")
+    facts.append(AllowedFact("outcome", claim, "derived-validated", outcome,
+                             **{**common, "quantity_kind": "derived",
+                                "sufficiency": "limited" if outcome == "limited" else "sufficient"}))
     if current.target is not None and (current.target_exact or current.target_min is not None):
         low = current.target if current.target_exact else current.target_min
-        if (target := target_fact(low, current.target, unit, **common)) is not None:
+        if (target := target_fact(low, current.target, unit,
+                      **{**common, "provenance": "persisted-plan", "quantity_kind": "declared"})) is not None:
             facts.append(target)
-    if (weight := weight_fact(current.weight_kg, **common)) is not None:
+    if (weight := weight_fact(current.weight_kg, prefix="Плановый вес", quantity_kind="declared",
+                             **{**common, "provenance": "persisted-plan"})) is not None:
         facts.append(weight)
     trigger, clause, locked = ("T37" if partial else "T36"), None, ()
     if comparison.status == "comparable" and comparison.delta is not None:
         previous = current.value - comparison.delta
         if comparison.delta > 0:
             trigger = "T39"
-            clause = (f"С тем же весом раньше было {spoken_quantity(previous, unit)}, "
+            conditions = "При том же плановом весе" if current.weight_kg is not None else "При тех же условиях"
+            clause = (f"{conditions} раньше было {spoken_quantity(previous, unit)}, "
                       f"сегодня {number_words(current.value, UNIT_FORMS[unit][0])}.")
         elif comparison.delta == 0 and not partial:
             trigger = "T40"

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "candidateVersion": "coach-situational-candidate-0.1",
+  "baselineVersion": "coach-voice-0.5",
+  "packStyleVersion": "coach-pack-style-0.3",
+  "mode": "offline-static-text-only",
+  "cases": [
+    {"id": "count-one", "text": "Один.", "profile": "count", "intent": null, "action": "count", "outcome": null, "localOnly": true},
+    {"id": "count-twelve", "text": "Двенадцать.", "profile": "count", "intent": null, "action": "count", "outcome": null, "localOnly": true},
+    {"id": "support", "text": "Работа идёт, без спешки.", "profile": "support", "intent": "motivation", "action": "support", "outcome": null, "localOnly": false},
+    {"id": "partial-set", "text": "Подход засчитан частично: семь из десяти.", "profile": "partial", "intent": "factual-feedback", "action": "result", "outcome": "partial", "localOnly": false},
+    {"id": "partial-summary", "text": "Тренировка завершена частично. Сделанное засчитано.", "profile": "partial", "intent": "factual-feedback", "action": "summary", "outcome": "limited", "localOnly": false},
+    {"id": "humor", "text": "У отдыха тоже есть рабочее место.", "profile": "playful", "intent": "humor", "action": "playful", "outcome": null, "localOnly": false},
+    {"id": "summary", "text": "Тренировка завершена. Хорошая работа сегодня.", "profile": "result", "intent": "factual-feedback", "action": "summary", "outcome": "full", "localOnly": false},
+    {"id": "exercise-pulldown", "text": "Тяга сверху.", "profile": "support", "intent": "orientation", "action": "orient", "outcome": null, "localOnly": false},
+    {"id": "exercise-leg-press", "text": "Жим ногами.", "profile": "support", "intent": "orientation", "action": "orient", "outcome": null, "localOnly": false},
+    {"id": "safety", "text": "Стоп. Остановись.", "profile": "safety", "intent": null, "action": "safety", "outcome": null, "localOnly": true}
+  ]
+}

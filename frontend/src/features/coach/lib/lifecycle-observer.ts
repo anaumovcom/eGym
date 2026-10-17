@@ -9,7 +9,9 @@ export type LifecycleContext = {
 }
 export type LifecycleCapture = Readonly<{
   scope: CoachScope; exerciseKind: CoachEvent['exerciseKind']; source: CoachSource
+  createdAtMs: number; versions: LifecycleVersions | null
 }>
+export type LifecycleVersions = Readonly<{ scope: CoachScope; phase: CoachEvent['phase']; planRevision: number; contextVersion: number }>
 export type LifecyclePayload = {
   outcome?: CoachOutcome; actualValue?: number; progressUnit?: 'reps' | 'seconds'
   backendSetId?: number; backendExerciseId?: number; backendWorkoutId?: number
@@ -27,10 +29,11 @@ export class CoachLifecycleObserver {
   private sequence = 0
   private userId: string | null = null
   private runId: string | null = null
-  private options: { enabled: () => boolean; current: () => LifecycleContext; clock: CoachClock }
+  private options: { enabled: () => boolean; current: () => LifecycleContext; clock: CoachClock
+    versions?: (current: LifecycleContext) => LifecycleVersions | null }
 
   constructor(
-    options: { enabled: () => boolean; current: () => LifecycleContext; clock: CoachClock },
+    options: CoachLifecycleObserver['options'],
   ) { this.options = options }
 
   capture(exerciseKind: CoachEvent['exerciseKind'], workoutOnly = false, source: CoachSource = 'user_input'): LifecycleCapture | null {
@@ -43,11 +46,17 @@ export class CoachLifecycleObserver {
         this.runId = current.runId
       }
       if (!current.userId || !current.runId || current.mock) return null
+      const createdAtMs = this.options.clock.nowMs()
+      if (!Number.isFinite(createdAtMs) || createdAtMs < 0) return null
+      const versions = this.options.versions?.(current) ?? null
+      // Missing live provenance remains local-only (zero versions). The live
+      // client fails closed; local lifecycle cues must not depend on a socket.
       return Object.freeze({
         scope: Object.freeze({ schemaVersion: 1, userId: current.userId, runId: current.runId,
           exerciseId: workoutOnly ? null : current.exerciseId,
           setOrdinal: workoutOnly ? null : current.setOrdinal, scopeEpoch: current.scopeEpoch }),
-        exerciseKind, source,
+        exerciseKind, source, createdAtMs,
+        versions: versions ? Object.freeze({ ...versions, scope: Object.freeze({ ...versions.scope }) }) : null,
       })
     } catch { this.failures++; return null }
   }
@@ -71,7 +80,7 @@ export class CoachLifecycleObserver {
       const source = kind === 'set_stopped' ? capture.source : 'runtime_ack'
       const add = (id: string, value: number | string, unit: CoachFact['unit']) => facts.push(Object.freeze({
         schemaVersion: 1, id, value, unit, source, confidence: 'confirmed', observedAtMs: now,
-        validUntilMs: now + 20_000, scopeEpoch: scope.scopeEpoch,
+        validUntilMs: now + 20_000, scopeEpoch: capture.versions?.scope.scopeEpoch ?? scope.scopeEpoch,
       }))
       if (payload.actualValue !== undefined) {
         if (!Number.isInteger(payload.actualValue) || payload.actualValue < 0) return false
@@ -80,10 +89,13 @@ export class CoachLifecycleObserver {
       }
       if (payload.outcome) add('result.outcome', payload.outcome, 'text')
       const event: CoachEvent = Object.freeze({
-        schemaVersion: 1, id: `lifecycle-${++this.sequence}`, scope, kind, source,
-        phase: kind.startsWith('set_') ? 'finalizing-set' : kind === 'exercise_finalized' ? 'exercise-summary' : 'workout-summary',
+        schemaVersion: 1, id: `lifecycle-${++this.sequence}`,
+        scope: capture.versions ? Object.freeze({ ...capture.versions.scope,
+          exerciseId: scope.exerciseId, setOrdinal: scope.setOrdinal }) : scope, kind, source,
+        phase: capture.versions?.phase ?? (kind.startsWith('set_') ? 'finalizing-set' : kind === 'exercise_finalized' ? 'exercise-summary' : 'workout-summary'),
         exerciseKind: capture.exerciseKind, controlMode: null, progressUnit: payload.progressUnit ?? null,
-        ordinal: 0, planRevision: 0, contextVersion: 0, createdAtMs: now, startDeadlineMs: now + 20_000,
+        ordinal: 0, planRevision: capture.versions?.planRevision ?? 0, contextVersion: capture.versions?.contextVersion ?? 0,
+        createdAtMs: capture.createdAtMs, startDeadlineMs: capture.createdAtMs + 20_000,
         facts: Object.freeze(facts), factDependencies: Object.freeze(facts.map(fact => fact.id)),
       })
       const key = canonicalCoachKey(event)

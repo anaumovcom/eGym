@@ -5,7 +5,7 @@ from dataclasses import replace
 import pytest
 
 from app.motor.calibration.runner import Frame
-from app.motor.core import FLOOR_K_N_PER_MM, FLOOR_MAX_N, RANGE_STOP_MM, CoreOutput, MotorCore
+from app.motor.core import FLOOR_K_N_PER_MM, FLOOR_MAX_N, RANGE_STOP_MM, UPWARD_TOP_EXTRA_MM, CoreOutput, MotorCore
 from app.motor.drive.protocol import DriveSample
 from app.motor.estimation.observer import ObservedState
 from app.motor.estimation.user_force import UserForceEstimate
@@ -100,7 +100,7 @@ def test_released_upward_load_settles_at_upper_bound_on_twin(load):
     stopping_room = (core.envelope.max_speed_mm_s * (core._loop_delay() + .02)
                      + RANGE_STOP_MM + FLOOR_MAX_N / FLOOR_K_N_PER_MM)
     for side in SIDES:
-        assert max(trace.x[side]) < core.load.upper_mm + stopping_room
+        assert max(trace.x[side]) < core.load.upper_mm + UPWARD_TOP_EXTRA_MM + stopping_room
         assert max(trace.x[side]) < core.envelope.soft_max_mm
         assert 685 < trace.x[side][-1] < 725
         assert max(abs(x - trace.x[side][-1]) for x in trace.x[side][-10:]) < 2

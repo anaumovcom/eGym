@@ -4,11 +4,14 @@ from sqlalchemy.orm import Session
 from app.api.dependencies import get_session
 from app.schemas.runtime import (
     ExerciseSessionCreateSchema,
+    ExerciseSessionsResetRequestSchema,
+    ExerciseSessionsResetResponseSchema,
     LoadAdjustmentRequestSchema,
     LoadAdjustmentResponseSchema,
     RuntimeExerciseSummarySchema,
     RuntimeWorkoutSummarySchema,
     SavedSetResponseSchema,
+    SetFeedbackSchema,
     SetResultSaveSchema,
     WorkoutSessionCreateSchema,
 )
@@ -17,6 +20,18 @@ from app.services.runtime_service import RuntimeService
 router = APIRouter()
 
 runtime_service = RuntimeService()
+
+
+@router.post("/runtime/sets/{set_id}/feedback", response_model=SetFeedbackSchema)
+def save_set_feedback(set_id: int, payload: SetFeedbackSchema,
+                      session: Session = Depends(get_session)) -> SetFeedbackSchema:
+    # Same selected-user ownership contract as runtime deletion; not a new authentication system.
+    try:
+        return runtime_service.save_set_feedback(session, set_id, payload)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail="Set not found") from error
+    except ValueError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.post("/runtime/sets", response_model=SavedSetResponseSchema)
@@ -38,6 +53,19 @@ def save_exercise_session(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
 
 
+@router.post("/runtime/exercises/reset", response_model=ExerciseSessionsResetResponseSchema)
+def reset_exercise_sessions(
+    payload: ExerciseSessionsResetRequestSchema,
+    session: Session = Depends(get_session),
+) -> ExerciseSessionsResetResponseSchema:
+    try:
+        return runtime_service.reset_exercise_sessions(session, payload)
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
+
+
 @router.post("/runtime/workouts", response_model=RuntimeWorkoutSummarySchema)
 def save_workout_session(
     payload: WorkoutSessionCreateSchema,
@@ -47,6 +75,8 @@ def save_workout_session(
         return runtime_service.save_workout_session(session, payload)
     except LookupError as error:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(error)) from error
 
 
 @router.post("/runtime/exercises/load-adjustment", response_model=LoadAdjustmentResponseSchema)

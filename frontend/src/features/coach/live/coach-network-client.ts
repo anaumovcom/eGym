@@ -2,9 +2,12 @@ import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { CoachFrameError, decodeCoachFrame, pcmDurationMs } from '../audio/coach-frames'
 import type { AudioReason, LocalAudioSnapshot, LocalCoachAudioManager, NetworkAudioSource } from '../audio/local-coach-audio-manager'
 import { exactRepTarget, type SetTimerInput } from '../interpreter/coach-interpreter'
-import type { LifecycleRefs } from '../lib/lifecycle-observer'
-import { coachRunId, type CoachEvent, type CoachEventKind, type CoachPhase, type CoachScope } from '../model/contracts'
+import type { LifecycleContext, LifecycleRefs, LifecycleVersions } from '../lib/lifecycle-observer'
+import { coachRunId, type CoachEvent, type CoachEventKind, type CoachPhase, type CoachScope, type CoachSpeechIdentity } from '../model/contracts'
 import { preferencesValid, type CoachPreferences } from '../model/preferences'
+import { matchesIdentity, planSignature, sameRun, sameScope, speechIdentity, speechSurvives, type SpeechContext } from './coach-scope-policy'
+import type { LocalCompletion } from './local-completion'
+import { OPPORTUNITY_STATES, transitionOpportunity, type OpportunityState } from './opportunity'
 
 /** E10 live client: forwards a few semantic events over one WebSocket and plays the
  * backend's tagged PCM through the local mixer. The run token only travels in the
@@ -15,6 +18,7 @@ export type NetworkTick = Readonly<{
   featureEnabled: boolean; phase: CoachPhase; scope: CoachScope | null; latched: boolean; gate: AudioReason | null
   reps: number | null; partialReps?: number | null; timer?: SetTimerInput | null; lifecycle: readonly CoachEvent[]; refs: (eventId: string) => LifecycleRefs | null
   mixer: () => NetworkMixer | null
+  localCompletion?: (event: CoachEvent) => LocalCompletion | null
 }>
 export type NetworkState = 'off' | 'creating' | 'connecting' | 'ready' | 'retrying' | 'refused'
 export type NetworkDecision = Readonly<{ atMs: number; triggerId: string | null; action: string; reason: string | null; text: string | null }>
@@ -24,7 +28,14 @@ export type NetworkSnapshot = Readonly<{
   degraded: boolean; eventsSent: number; streams: number; spoken: number; failed: number
   decisions: readonly NetworkDecision[]; reasons: Readonly<Record<string, number>>; usage: NetworkUsage | null
   lastText: string | null; firstAudioMs: number | null
+  /** firstAudioMs remains the server voice-only metric, NOT end-to-end latency. */
+  firstAudioMsLabel: 'voice-only'; latencies: Readonly<Record<string, LatencySummary>>
+  /** Server receipt-relative monotonic deltas; never added to browser durations. */
+  serverTimings: Readonly<Record<string, LatencySummary>>
+  telemetry: Readonly<{ classified: number; missingClassification: number; pendingClassification: number; retained: number }>
+  opportunities?: Readonly<Record<OpportunityState, number>>
 }>
+export type LatencySummary = Readonly<{ count: number; p50: number; p95: number }>
 export interface SocketLike {
   binaryType: string; readonly readyState: number
   send(data: string): void; close(code?: number): void
@@ -39,9 +50,13 @@ export type NetworkDependencies = Readonly<{
   setTimeout: (callback: () => void, ms: number) => unknown
   clearTimeout: (handle: unknown) => void
   ownerId: () => string
+  nowMs: () => number
 }>
 
-type Stream = { scope: CoachScope; source: NetworkAudioSource; sampleRate: number; bytes: number; final: boolean; started: boolean; mixer: NetworkMixer }
+type Classification = { source: string; voiceModel: string; textModel: string; connection: string }
+type EventTelemetry = { classification: Classification | null; pending: Map<string, number>; measured: Set<string> }
+type SentEvent = { identity: CoachSpeechIdentity; kind: CoachEventKind; context: SpeechContext; valid: boolean; claimed: boolean; summaryRemapped: boolean; confirmedResult: boolean; sentAtMs: number; telemetry: EventTelemetry; state: OpportunityState }
+type Stream = { event: SentEvent; source: NetworkAudioSource; sampleRate: number; bytes: number; final: boolean; started: boolean; lastProgressAckMs?: number; firstPcm: boolean; ended: boolean; mixer: NetworkMixer }
 type Run = { runId: string; token: string }
 const OPEN = 1
 const BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000]
@@ -54,9 +69,37 @@ const SET_STALL_MS = 8_000
 const SET_ADVICE_INTERVAL_MS = 15_000
 const USAGE_EVERY_MS = 15_000
 const PING_EVERY_MS = 20_000
+// Provider PCM can arrive much faster than real-time. Per-frame ACKs can
+// exceed the server's control-message rate limit and tear down audible speech.
+const PLAYBACK_PROGRESS_ACK_MS = 500
+const MAX_TIMING_MS = 86_400_000
+const SERVER_STAGES = ['receive', 'textStart', 'textEnd', 'firstPcm', 'speechEnd', 'ackStart', 'ackEnd', 'ackCancel', 'textDuration'] as const
+// Exact public IDs only: a regex accepting arbitrary model suffixes can leak PII/secrets.
+const PUBLIC_TEXT_MODELS = new Set(['gpt-6-luna', 'gpt-4.1', 'gpt-4.1-mini', 'gpt-4o', 'gpt-4o-mini', 'fake-text'])
+const PUBLIC_VOICE_MODELS: Readonly<Record<string, ReadonlySet<string>>> = {
+  realtime: new Set(['gpt-realtime-2.1-mini', 'gpt-realtime', 'gpt-realtime-mini', 'gpt-4o-realtime-preview', 'gpt-4o-mini-realtime-preview']),
+  tts: new Set(['gpt-4o-mini-tts', 'tts-1', 'tts-1-hd']), fake: new Set(['fake-voice']),
+}
+const CONNECTIONS = new Set(['cold', 'warm', 'unknown', 'not-applicable', 'fake'])
+function summaries(groups: Map<string, number[]>): Readonly<Record<string, LatencySummary>> {
+  return Object.freeze(Object.fromEntries([...groups].map(([key, samples]) => {
+    const sorted = [...samples].sort((a, b) => a - b)
+    return [key, Object.freeze({ count: sorted.length, p50: sorted[Math.ceil(sorted.length * .5) - 1], p95: sorted[Math.ceil(sorted.length * .95) - 1] })]
+  })))
+}
 
 type SessionExercise = RuntimeWorkoutSession['exercises'][number]
 type SetPlan = SessionExercise['plan'][number]
+/** Loaded definition identity only. Never forward guide text or assume a cable/handle variant.
+ * The display label is declared ordinary weight, not measured/applied motor telemetry. */
+export function exerciseIdentity(session: RuntimeWorkoutSession, exercise: SessionExercise): Record<string, string> {
+  if (session.dataSource !== 'backend' || typeof exercise.slug !== 'string'
+    || exercise.details?.slug !== exercise.slug || exercise.summary?.slug !== exercise.slug
+    || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(exercise.slug) || exercise.slug.length > 100) return {}
+  const mode = exercise.loadSettings.mode
+  return { exerciseSlug: exercise.slug, variant: exercise.slug,
+    ...(mode === 'constant' || mode === 'Обычный вес' ? { controlMode: 'constant' } : {}) }
+}
 function whole(value: number | null | undefined): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined
 }
@@ -71,7 +114,7 @@ function exerciseContext(session: RuntimeWorkoutSession, exercise: SessionExerci
   const exact = whole(exactRepTarget(first)) ?? whole(first?.targetSeconds)
   const low = whole(first?.targetMinReps), high = whole(first?.targetMaxReps)
   const weight = first?.recommendedWeightKg
-  return { exerciseName: exercise.name.slice(0, 120), exerciseIndex: session.exercises.indexOf(exercise) + 1,
+  return { ...exerciseIdentity(session, exercise), exerciseName: exercise.name.slice(0, 120), exerciseIndex: session.exercises.indexOf(exercise) + 1,
     exerciseCount: session.exercises.length, totalSets: exercise.plan.length,
     ...(exact ? { targetReps: exact } : low && high ? { targetMin: low, targetMax: high } : {}),
     ...(typeof weight === 'number' && Number.isFinite(weight) && weight > 0 ? { weightKg: weight } : {}) }
@@ -93,6 +136,7 @@ function defaults(): NetworkDependencies {
     clearTimeout: handle => clearTimeout(handle as ReturnType<typeof setTimeout>),
     // getRandomValues also works on plain-HTTP LAN kiosks, unlike randomUUID.
     ownerId: () => `tab-${Array.from(crypto.getRandomValues(new Uint8Array(12)), byte => byte.toString(16).padStart(2, '0')).join('')}`,
+    nowMs: () => performance.now(),
   }
 }
 
@@ -128,7 +172,26 @@ export class CoachNetworkClient {
   private inSet: { key: string; startedAt: number; reps: number | null; repAt: number; partial: number | null } | null = null
   private latched: boolean | null = null
   private streams = new Map<string, Stream>()
+  private localStarted = new Set<string>() // Bounded, fail closed; IDs never leave the browser.
+  // No eviction/replay: capacity fails closed until a new user/run. Invalid entries
+  // remain tombstones so returning to a previous phase or unmuting cannot resurrect them.
+  private registry = new Map<string, SentEvent>()
+  private generations = new Set<string>()
+  private planRevision = 0
+  private contextVersion = 0
+  private planKey: string | null = null
+  private contextKey = ''
+  private context: SpeechContext | null = null
+  private history: Array<{ atMs: number; context: SpeechContext }> = []
+  private clockAnchor = 0
+  private latencySamples = new Map<string, number[]>()
+  private serverSamples = new Map<string, number[]>()
+  // Terminal audio cannot restart; these records are for late metadata only.
+  private terminalStreams = new Map<string, Pick<Stream, 'event' | 'source' | 'ended'>>()
+  private classified = 0
+  private missingClassification = 0
   private counters = { eventsSent: 0, streams: 0, spoken: 0, failed: 0 }
+  private opportunityCounts = Object.fromEntries(OPPORTUNITY_STATES.map(state => [state, 0])) as Record<OpportunityState, number>
   private decisions: NetworkDecision[] = []
   private reasons: Record<string, number> = {}
   private usage: NetworkUsage | null = null
@@ -136,6 +199,7 @@ export class CoachNetworkClient {
   private usageBusy = false
   private pingAt = 0
   private lastText: string | null = null
+  private textEvent: SentEvent | null = null
   private firstAudioMs: number | null = null
   private snap: NetworkSnapshot | null = null
   private readonly listeners = new Set<() => void>()
@@ -147,17 +211,34 @@ export class CoachNetworkClient {
   }
 
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener) } }
+  /** Synchronous capture-time read; rejects an unobserved plan/owner/settings
+   * change instead of stamping the last tick's revision onto new workout data. */
+  captureVersions(current: LifecycleContext, session: RuntimeWorkoutSession | null, saved: CoachPreferences | null): LifecycleVersions | null {
+    const context = this.context, scope = context?.scope
+    if (this.disposed || !this.key || !context || context.blocked || !scope || !session || !saved ||
+      !this.last || !networkEligible({ ...this.last, userId: current.userId, session, saved }) ||
+      this.last.session?.id !== session.id || this.last.session.view !== session.view || this.last.saved?.revision !== saved.revision ||
+      scope.userId !== current.userId || scope.runId !== current.runId || scope.exerciseId !== current.exerciseId ||
+      scope.setOrdinal !== current.setOrdinal || session.currentExerciseId !== scope.exerciseId ||
+      session.currentSetIndex + 1 !== scope.setOrdinal || planSignature(session, saved.mode) !== this.planKey) return null
+    return Object.freeze({ scope, phase: context.phase, planRevision: context.planRevision, contextVersion: context.contextVersion })
+  }
   getSnapshot = (): NetworkSnapshot => this.snap ??= Object.freeze({
     state: this.state, reason: this.reason, mode: this.configured?.mode ?? null, voiceId: this.configured?.voiceId ?? null,
     text: this.configured?.text ?? false, voice: this.configured?.voice ?? false, degraded: this.configured?.degraded ?? false,
     ...this.counters, decisions: Object.freeze([...this.decisions]), reasons: Object.freeze({ ...this.reasons }),
     usage: this.usage, lastText: this.lastText, firstAudioMs: this.firstAudioMs,
+    firstAudioMsLabel: 'voice-only', latencies: summaries(this.latencySamples), serverTimings: summaries(this.serverSamples),
+    opportunities: Object.freeze({ ...this.opportunityCounts }),
+    telemetry: Object.freeze({ classified: this.classified, missingClassification: this.missingClassification,
+      pendingClassification: [...this.registry.values()].filter(event => event.telemetry.pending.size > 0).length, retained: this.terminalStreams.size }),
   })
 
   /** Called on every runtime tick (input change or 250 ms timer). */
   tick(input: NetworkTick): void {
     if (this.disposed) return
     this.last = input
+    this.clockAnchor = this.deps.nowMs()
     if (!networkEligible(input)) { this.stop('off', null); return }
     const saved = input.saved!, session = input.session!
     const key = JSON.stringify([input.userId, coachRunId(session)])
@@ -166,11 +247,19 @@ export class CoachNetworkClient {
       this.key = key
       this.sentKeys = new Set(); this.forwarded = new Set(input.lifecycle.map(event => event.id)); this.latched = null; this.inSet = null
       this.run = this.loadRun(); this.boundWorkout = null; this.attempt = 0; this.refusedRevision = null
+      this.registry.clear(); this.generations.clear(); this.history = []; this.context = null; this.contextKey = ''; this.planKey = null
+      this.localStarted.clear()
     }
+    this.updateContext(input)
     if (this.state === 'refused' && this.refusedRevision !== saved.revision) { this.refusedRevision = null; this.setState('off', null) }
     if (!this.socket && !this.connecting && this.retryHandle === null && this.state !== 'refused') void this.connect()
     if (this.state !== 'ready') { for (const event of input.lifecycle) this.forwarded.add(event.id); return }
     this.maybeBind(session)
+    // Audio may have started between runtime ticks. ACK that start BEFORE the
+    // new context, so the server also preserves it across a parameter edit.
+    const activeMixer = this.streams.values().next().value?.mixer
+    if (activeMixer) this.observe(activeMixer.snapshot())
+    this.sendContext()
     this.events(input, saved, session)
     if (input.nowMs - this.pingAt >= PING_EVERY_MS) { this.pingAt = input.nowMs; this.send({ type: 'ping' }) }
     if (input.nowMs - this.usageAt >= USAGE_EVERY_MS) { this.usageAt = input.nowMs; void this.pollUsage() }
@@ -178,15 +267,40 @@ export class CoachNetworkClient {
 
   /** Mixer observation → playback acknowledgements for session memory and pacing. */
   observe(audio: LocalAudioSnapshot | null): void {
+    for (const item of audio?.utterances ?? []) {
+      if (item.state !== 'started' || !['local', 'cache'].includes(item.source) || this.localStarted.has(item.id)) continue
+      if (this.localStarted.size >= 1024) break
+      this.localStarted.add(item.id) // Do not replay offline observations after reconnect.
+      const duration = item.bufferDurationMs, playback = item.localPlayback
+      if (this.state !== 'ready' || !this.last || this.last.gate || this.last.latched || !this.last.scope ||
+        !sameRun(item.scope, this.last.scope) || !playback || typeof duration !== 'number' ||
+        !Number.isFinite(duration) || duration <= 0 || duration > 60_000) continue
+      this.send({ type: 'localPlayback', kind: playback.kind, action: playback.action, durationMs: duration })
+    }
     for (const [id, stream] of this.streams) {
       const item = audio?.utterances.find(entry => entry.id === id)
       if (item?.state === 'started' && !stream.started) {
+        if (!stream.event.valid) { this.failStream(id, stream); continue }
         stream.started = true
-        this.send({ type: 'playback_started', generationId: id, ...(stream.final ? { durationMs: Math.round(pcmDurationMs(stream.bytes, stream.sampleRate)) } : {}) })
+        stream.lastProgressAckMs = this.now()
+        this.transition(stream.event, 'started')
+        this.measure('eventToPlaybackStart', stream, (item.startedAtMs ?? this.now()) - stream.event.identity.createdAtMs)
+        this.send({ type: 'playback_started', generationId: id, identity: stream.event.identity, ...(stream.final ? { durationMs: Math.round(pcmDurationMs(stream.bytes, stream.sampleRate)) } : {}) })
+        this.changed()
       } else if (!item) {
         this.streams.delete(id)
-        if (stream.started) { this.counters.spoken++; this.send({ type: 'playback_completed', generationId: id }) }
-        else { this.counters.failed++; this.send({ type: 'playback_failed', generationId: id }) }
+        stream.event.valid = false
+        const receipt = audio?.terminal?.find(item => item.id === id)
+        const ended = stream.started && receipt?.finished
+        this.transition(stream.event, ended ? 'completed' : stream.started ? 'interrupted' : this.now() > stream.event.identity.startDeadlineMs ? 'expired' : 'rejected')
+        if (ended) { this.counters.spoken++; this.send({ type: 'playback_completed', generationId: id, identity: stream.event.identity,
+          durationMs: Math.round(pcmDurationMs(stream.bytes, stream.sampleRate)) }) }
+        else { this.counters.failed++
+          this.note(receipt?.reason ?? 'playback_failed', { triggerId: null, action: stream.started ? 'interrupted' : 'rejected', text: null })
+          this.send({ type: 'playback_failed', generationId: id, identity: stream.event.identity,
+          durationMs: Math.round(pcmDurationMs(stream.bytes, stream.sampleRate)) }) }
+        this.measureEvent(ended ? 'eventToCompleted' : 'eventToFailed', stream.event, this.now() - stream.event.identity.createdAtMs)
+        this.retainTerminal(id, stream)
         this.changed()
       }
     }
@@ -249,6 +363,11 @@ export class CoachNetworkClient {
   }
 
   private open(run: Run): void {
+    const input = this.last
+    if (!input?.session) return
+    // Billing ledger IDs and browser runtime IDs are intentionally different.
+    // Capture the binding before onopen, never adopt a later user's session.
+    const runtimeRunId = coachRunId(input.session), key = this.key
     const origin = this.deps.origin()
     const scheme = origin.protocol === 'https:' ? 'wss' : 'ws'
     this.setState('connecting', null)
@@ -256,7 +375,10 @@ export class CoachNetworkClient {
     try { socket = this.deps.socket(`${scheme}://${origin.host}/api/coach/runs/${encodeURIComponent(run.runId)}/live`) } catch { this.retry('socket'); return }
     socket.binaryType = 'arraybuffer'
     this.socket = socket
-    socket.onopen = () => { if (this.socket === socket) socket.send(JSON.stringify({ type: 'configure', runToken: run.token, ownerId: this.owner })) }
+    socket.onopen = () => {
+      if (this.socket === socket && this.key === key)
+        socket.send(JSON.stringify({ type: 'configure', runToken: run.token, ownerId: this.owner, runtimeRunId }))
+    }
     socket.onmessage = message => { if (this.socket === socket) this.receive(message.data) }
     socket.onerror = () => undefined
     socket.onclose = () => {
@@ -273,7 +395,7 @@ export class CoachNetworkClient {
     this.setState('retrying', reason)
     this.retryHandle = this.deps.setTimeout(() => {
       this.retryHandle = null
-      if (!this.disposed && this.last) this.tick(this.last)
+      if (!this.disposed && this.last) this.tick({ ...this.last, nowMs: this.now() })
     }, delay)
   }
 
@@ -289,8 +411,20 @@ export class CoachNetworkClient {
   }
 
   private dropStreams(): void {
-    for (const [id, stream] of this.streams) stream.mixer.cancelStream(id, 'cancelled')
+    if ([...this.streams.values()].some(stream => stream.started))
+      this.note(this.reason ?? 'closed', { triggerId: null, action: 'interrupted', text: null })
+    for (const event of this.registry.values()) {
+      event.valid = false
+      this.transition(event, event.state === 'started' ? 'interrupted' : 'rejected')
+    }
+    this.clearText()
+    this.sentContextKey = ''
+    for (const [id, stream] of [...this.streams]) this.failStream(id, stream)
     this.streams.clear()
+    for (const stream of this.terminalStreams.values()) this.classifyUnknown(stream.event, stream.source)
+    this.terminalStreams.clear()
+    for (const event of this.registry.values()) if (event.telemetry.pending.size) this.classifyUnknown(event)
+    this.changed()
   }
 
   private maybeBind(session: RuntimeWorkoutSession): void {
@@ -328,26 +462,57 @@ export class CoachNetworkClient {
     try { message = object(JSON.parse(data)) } catch { return }
     if (!message) return
     switch (message.type) {
-      case 'configured':
+      case 'configured': {
+        const legacyReason = str(message.degraded, 80)
+        const degraded = message.degraded === true || !!legacyReason
+        const rawReason = str(message.degradedReason, 80) ?? legacyReason
+        const reason = rawReason && ['credential_unavailable', 'voice_unavailable', 'provider_unavailable'].includes(rawReason)
+          ? rawReason : 'degraded'
         this.configured = { mode: str(message.mode, 20), voiceId: str(message.voiceId, 40), text: message.text === true,
-          voice: message.voice === true, degraded: message.degraded === true }
+          voice: message.voice === true, degraded }
         this.attempt = 0
-        this.setState('ready', this.configured.degraded ? 'degraded' : null)
-        if (this.last) this.tick(this.last)
+        this.setState('ready', degraded ? reason : null)
+        if (this.last) this.tick({ ...this.last, nowMs: this.now() })
         break
+      }
       case 'speech_start': this.speechStart(message); break
       case 'speech_end': this.speechEnd(message); break
       case 'decision': {
         const text = message.action === 'text' ? str(message.text, 600) : null
-        if (text) this.lastText = text
+        if (message.action === 'text') {
+          const identity = object(message.identity), id = str(identity?.eventId, 120)
+          const event = id ? this.registry.get(id) : undefined
+          if (!text || !event || event.claimed || !event.valid || this.context?.blocked ||
+            this.now() > event.identity.startDeadlineMs || !matchesIdentity(identity, event.identity) ||
+            (message.eventId !== undefined && message.eventId !== id)) { this.count('stale_text'); break }
+          event.claimed = true
+          this.transition(event, 'ready') // Text display is not audible completion.
+          this.lastText = text; this.textEvent = event
+          this.classifyUnknown(event)
+        }
+        if (message.action === 'silence') {
+          const id = str(message.eventId, 120), event = id ? this.registry.get(id) : undefined
+          if (event) { event.valid = false; this.transition(event, message.reason === 'expired' ? 'expired' : 'rejected') }
+        }
         this.note(str(message.reason, 80), { triggerId: str(message.triggerId, 10), action: str(message.action, 20) ?? 'silence', text })
         break
       }
-      case 'event_rejected': this.note(str(message.reason, 80), { triggerId: null, action: 'rejected', text: null }); break
+      case 'event_rejected': {
+        const id = str(message.eventId, 120), event = id ? this.registry.get(id) : undefined
+        if (event) { event.valid = false; this.transition(event, message.reason === 'expired' ? 'expired' : 'rejected') }
+        this.note(str(message.reason, 80), { triggerId: null, action: 'rejected', text: null }); break
+      }
       case 'error': {
         const reason = str(message.reason, 80) ?? 'error'
-        if (reason === 'run_not_found' || reason === 'run_not_live' || reason === 'run_closed') { this.run = null; this.saveRun(null) }
-        if (reason === 'local_mode' || reason === 'coach_disabled') { this.refusedRevision = this.last?.saved?.revision ?? null; this.setState('refused', reason) }
+        if (reason === 'run_not_found' || reason === 'run_not_live' || reason === 'run_closed') {
+          this.dropStreams(); this.run = null; this.saveRun(null)
+          // Do not accept fresh events/decisions on a server-closed run while
+          // waiting for its transport close callback (which may never arrive).
+          const socket = this.socket; this.socket = null; this.configured = null
+          try { socket?.close(1000) } catch { /* already closed */ }
+          this.retry(reason)
+        }
+        if (reason === 'local_mode' || reason === 'coach_disabled') { this.dropStreams(); this.refusedRevision = this.last?.saved?.revision ?? null; this.setState('refused', reason) }
         else this.reason = reason
         this.count(reason)
         break
@@ -358,22 +523,34 @@ export class CoachNetworkClient {
 
   private speechStart(message: Record<string, unknown>): void {
     const gid = str(message.generationId, 120), source = str(message.source, 20)
-    const sampleRate = num(message.sampleRate), validFor = num(message.validForMs)
+    const sampleRate = num(message.sampleRate)
     const input = this.last
-    if (!gid || !source || !SOURCES.has(source) || !sampleRate || validFor === null || !input) return
+    if (!gid || !source || !SOURCES.has(source) || !sampleRate || !input) return
+    const identity = object(message.identity), eventId = str(identity?.eventId, 120)
+    const event = eventId ? this.registry.get(eventId) : undefined
+    if (!event || !matchesIdentity(identity, event.identity) || (message.eventId !== undefined && message.eventId !== eventId)) {
+      this.count('identity_mismatch'); return
+    }
+    if (this.generations.has(gid) || event.claimed || this.generations.size >= 1024) { this.count('duplicate'); return }
+    this.generations.add(gid); event.claimed = true
+    this.transition(event, 'ready')
     this.counters.streams++
-    const scope = input.scope, mixer = this.quiet(input) ? null : input.mixer()
-    // The server's event scope epoch belongs to an earlier view; the stream adopts the
-    // scope that is current now and is invalidated by the mixer on the next change.
-    if (!scope || !mixer || !mixer.beginStream({ id: gid, generationId: gid, scope, source: source as NetworkAudioSource,
-      sampleRate, startDeadlineMs: input.nowMs + Math.max(0, validFor), baseGain: 1, prebufferMs: 200,
-      revalidate: () => !!this.last && !this.quiet(this.last) && this.last.scope?.scopeEpoch === scope.scopeEpoch })) {
+    const scope = event.identity.scope, mixer = this.context?.blocked ? null : input.mixer()
+    if (!event.valid || this.now() > event.identity.startDeadlineMs || !mixer || !mixer.beginStream({ id: gid, generationId: gid, scope, source: source as NetworkAudioSource,
+      sampleRate, startDeadlineMs: event.identity.startDeadlineMs, baseGain: 1, prebufferMs: 200,
+      revalidate: () => event.valid && !this.context?.blocked,
+      allowScopeTransition: (original, current) => event.valid && sameScope(original, event.identity.scope) &&
+        !!event.context.scope && sameScope(current, event.context.scope) })) {
+      event.valid = false
+      this.transition(event, this.now() > event.identity.startDeadlineMs ? 'expired' : 'rejected')
       this.counters.failed++
+      this.measureEvent('eventToFailed', event, this.now() - event.identity.createdAtMs)
+      this.retainTerminal(gid, { event, source: source as NetworkAudioSource, ended: false })
       this.count(mixer ? mixer.snapshot().reason : input.gate ?? 'unavailable')
-      this.send({ type: 'cancel' }); this.send({ type: 'playback_failed', generationId: gid })
+      this.send({ type: 'cancel' }); this.send({ type: 'playback_failed', generationId: gid, identity: event.identity })
       return
     }
-    this.streams.set(gid, { scope, source: source as NetworkAudioSource, sampleRate, bytes: 0, final: false, started: false, mixer })
+    this.streams.set(gid, { event, source: source as NetworkAudioSource, sampleRate, bytes: 0, final: false, started: false, firstPcm: false, ended: false, mixer })
     this.changed()
   }
 
@@ -382,26 +559,58 @@ export class CoachNetworkClient {
     try { frame = decodeCoachFrame(bytes) } catch (error) { this.count(error instanceof CoachFrameError ? error.message : 'frame'); return }
     const id = frame.metadata.generationId, stream = this.streams.get(id)
     if (!stream) return
-    if (!stream.mixer.pushStream({ ...frame.metadata, scope: stream.scope }, frame.pcm)) {
+    if (!stream.event.valid || !sameScope(frame.metadata.scope, stream.event.identity.scope) || frame.metadata.utteranceId !== id ||
+      !stream.mixer.pushStream(frame.metadata, frame.pcm)) {
       // The mixer may already have reported the removal through observe().
       if (this.streams.delete(id)) {
+        stream.event.valid = false
+        this.transition(stream.event, stream.started ? 'interrupted' : 'rejected')
+        stream.mixer.cancelStream(id, 'stale')
         this.counters.failed++
-        this.send({ type: 'cancel' }); this.send({ type: 'playback_failed', generationId: id })
+        this.measureEvent('eventToFailed', stream.event, this.now() - stream.event.identity.createdAtMs)
+        this.retainTerminal(id, stream)
+        this.send({ type: 'cancel' }); this.send({ type: 'playback_failed', generationId: id, identity: stream.event.identity })
         this.changed()
       }
       return
     }
     stream.bytes += frame.pcm.length
+    if (!stream.firstPcm && frame.pcm.length) {
+      stream.firstPcm = true
+      this.measure('firstAcceptedPcmMs', stream, this.now() - stream.event.identity.createdAtMs)
+    }
     if (frame.metadata.final) stream.final = true
+    if (stream.started && (stream.final || this.now() - (stream.lastProgressAckMs ?? -Infinity) >= PLAYBACK_PROGRESS_ACK_MS)) {
+      stream.lastProgressAckMs = this.now()
+      this.send({ type: 'playback_started', generationId: id,
+        identity: stream.event.identity, durationMs: Math.round(pcmDurationMs(stream.bytes, stream.sampleRate)) })
+    }
   }
 
   private speechEnd(message: Record<string, unknown>): void {
     const gid = str(message.generationId, 120)
+    const active = gid ? this.streams.get(gid) : undefined
+    const stream = active ?? (gid ? this.terminalStreams.get(gid) : undefined)
+    if (!stream || stream.ended) return
+    stream.ended = true
+    const source = typeof message.source === 'string' && SOURCES.has(message.source) && message.source === stream.source ? message.source : 'unknown'
+    const voiceModel = typeof message.voiceModel === 'string' && PUBLIC_VOICE_MODELS[source]?.has(message.voiceModel) ? message.voiceModel : 'unknown'
+    const textModel = typeof message.textModel === 'string' && PUBLIC_TEXT_MODELS.has(message.textModel) ? message.textModel : 'unknown'
+    const connection = typeof message.connectionClass === 'string' && CONNECTIONS.has(message.connectionClass) ? message.connectionClass : 'unknown'
+    this.classify(stream.event, { source, voiceModel, textModel, connection })
+    const timings = object(message.timingsMs)
+    for (const stage of SERVER_STAGES) {
+      const value = num(timings?.[stage])
+      if (value !== null && value >= 0 && value <= MAX_TIMING_MS) this.sample(this.serverSamples, `${stage}:${this.group(stream.event)}`, value)
+    }
+    if (gid) this.terminalStreams.delete(gid)
     const first = num(message.firstAudioMs)
-    if (first !== null) this.firstAudioMs = Math.round(first)
+    if (first !== null && first >= 0 && first <= MAX_TIMING_MS) this.firstAudioMs = Math.round(first)
     if (message.status !== 'complete') this.count(str(message.reason, 80) ?? str(message.status, 40) ?? 'incomplete')
-    const stream = gid ? this.streams.get(gid) : undefined
-    if (gid && stream && message.status !== 'complete' && !stream.final) stream.mixer.cancelStream(gid, 'cancelled')
+    if (gid && active && message.status !== 'complete' && !active.final) {
+      this.note(str(message.reason, 80) ?? 'provider_error', { triggerId: null, action: active.started ? 'interrupted' : 'rejected', text: null })
+      this.failStream(gid, active)
+    }
     this.changed()
   }
 
@@ -409,7 +618,8 @@ export class CoachNetworkClient {
 
   private quiet(input: NetworkTick): boolean {
     // Text-only never needs the mixer, so its permanent `mute` gate is not a reason to stay silent.
-    return input.latched || (input.gate !== null && !(input.saved?.mode === 'text-only' && input.gate === 'mute'))
+    return input.latched || ['disabled', 'paused-set', 'suspended'].includes(input.phase) ||
+      (input.gate !== null && !(input.saved?.mode === 'text-only' && input.gate === 'mute'))
   }
 
   private events(input: NetworkTick, saved: CoachPreferences, session: RuntimeWorkoutSession): void {
@@ -425,7 +635,9 @@ export class CoachNetworkClient {
       if (quiet || !FORWARDED.has(event.kind) || event.scope.userId !== input.userId) continue
       const refs = input.refs(event.id)
       if (!refs) continue
-      this.forward(event, refs, this.restContext(session, event.scope.exerciseId, event.scope.setOrdinal))
+      const localCompletion = input.localCompletion?.(event)
+      this.forward(event, refs, { ...this.restContext(session, event.scope.exerciseId, event.scope.setOrdinal),
+        ...(localCompletion ? { localCompletion } : {}) })
     }
     if (!scope || quiet) return
     const exercise = session.exercises.find(item => item.id === session.currentExerciseId)
@@ -433,8 +645,8 @@ export class CoachNetworkClient {
     if (!this.sentKeys.has('workout')) {
       this.sentKeys.add('workout')
       if (exercise) this.sentKeys.add(`exercise:${exercise.id}`) // The opening already covers the first exercise.
-      if (!progress && (input.phase === 'setup' || input.phase === 'waiting-start')) this.emit('workout_started', { ...scope, setOrdinal: null, exerciseId: null }, input, 'setup',
-        { exerciseCount: session.exercises.length, ...(session.exercises[0] ? { exerciseName: session.exercises[0].name.slice(0, 120) } : {}) })
+      if (!progress && (input.phase === 'setup' || input.phase === 'waiting-start')) this.emit('workout_started', scope, input, input.phase,
+        { exerciseCount: session.exercises.length, ...(exercise ? exerciseContext(session, exercise) : {}) })
       return
     }
     if (!exercise) return
@@ -442,7 +654,7 @@ export class CoachNetworkClient {
     if (!this.sentKeys.has(exerciseKey) && (input.phase === 'setup' || input.phase === 'waiting-start')) {
       this.sentKeys.add(exerciseKey)
       if (!(session.completedSets[exercise.id]?.length)) {
-        this.emit('exercise_ready', { ...scope, setOrdinal: null }, input, 'setup', exerciseContext(session, exercise))
+        this.emit('exercise_ready', scope, input, input.phase, exerciseContext(session, exercise))
         return
       }
     }
@@ -455,7 +667,7 @@ export class CoachNetworkClient {
       const elapsed = rest.totalSeconds - rest.remainingSeconds
       if (elapsed >= REST_EXTRA_MIN_ELAPSED_S && rest.remainingSeconds >= REST_EXTRA_MIN_LEFT_S) {
         this.sentKeys.add(`rest:${setKey}`)
-        this.emit('rest_long_opportunity', scope, input, 'rest', { restMs: rest.totalSeconds * 1000, restElapsedMs: elapsed * 1000,
+        this.emit('rest_long_opportunity', scope, input, 'rest', { ...exerciseIdentity(session, exercise), restMs: rest.totalSeconds * 1000, restElapsedMs: elapsed * 1000,
           exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length, ...nextExercise(session, exercise.id, scope.setOrdinal) })
       }
     }
@@ -488,7 +700,7 @@ export class CoachNetworkClient {
     if (!moment) return
     this.sentKeys.add(`${moment[1]}:${setKey}`)
     if (adviceSlot >= 1) this.sentKeys.add(`support-${adviceSlot}:${setKey}`)
-    this.emit(moment[0], scope, input, 'active-set', { phaseElapsedMs: Math.round(elapsed), moment: moment[1].startsWith('support-') ? 'support' : moment[1],
+    this.emit(moment[0], scope, input, 'active-set', { ...exerciseIdentity(session, exercise), phaseElapsedMs: Math.round(elapsed), moment: moment[1].startsWith('support-') ? 'support' : moment[1],
       exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length, ...(exact !== null ? { targetReps: exact } : {}) }, 'reps')
   }
 
@@ -527,14 +739,42 @@ export class CoachNetworkClient {
     const now = Math.max(0, input.nowMs)
     const event: CoachEvent = { schemaVersion: 1, id: `net-${++this.sequence}`, scope, kind, phase, source: 'runtime_ack',
       exerciseKind: exerciseKind && EXERCISE_KINDS.has(exerciseKind) ? exerciseKind as CoachEvent['exerciseKind'] : null,
-      controlMode: null, progressUnit, ordinal: 0, planRevision: 0, contextVersion: 0, createdAtMs: now, startDeadlineMs: now + 20_000,
+      controlMode: null, progressUnit, ordinal: 0, planRevision: this.planRevision, contextVersion: this.contextVersion, createdAtMs: now, startDeadlineMs: now + 20_000,
       facts: [], factDependencies: [] }
-    this.forward(event, null, context)
+    const setId = kind === 'rest_long_opportunity' ? session.restState?.completedSet?.backendSetId : undefined
+    this.forward(event, setId && Number.isSafeInteger(setId) && setId > 0 ? { backendSetId: setId } : null, context)
   }
 
   private forward(event: CoachEvent, refs: LifecycleRefs | null, context: Record<string, unknown>): void {
+    if (this.registry.has(event.id) || this.registry.size >= 1024 || !this.context) { this.count('event_capacity'); return }
+    const ref = event.kind === 'set_persisted' ? refs?.backendSetId : event.kind === 'exercise_finalized' ? refs?.backendExerciseId :
+      event.kind === 'workout_finalized' ? refs?.backendWorkoutId : undefined
+    const confirmedResult = Number.isInteger(ref) && ref! > 0
+    const captureAllowed = event.kind === 'set_persisted' ? ['active-set', 'finalizing-set'].includes(event.phase) :
+      event.kind === 'exercise_finalized' ? ['active-set', 'finalizing-set', 'exercise-summary'].includes(event.phase) :
+        event.kind !== 'workout_finalized' || event.phase === 'workout-summary'
+    const identity = speechIdentity(event)
+    // Versions are captured before any await, never inferred at publication.
+    // Legacy/local-only zero versions and evicted provenance fail closed.
+    const originIndex = this.history.findIndex(item => item.context.planRevision === event.planRevision &&
+      item.context.contextVersion === event.contextVersion && item.atMs <= event.createdAtMs)
+    const origin = this.history[originIndex]?.context
+    const originMatches = !!origin?.scope && (sameScope(origin.scope, event.scope) ||
+      (event.kind === 'workout_finalized' && event.scope.exerciseId === null && event.scope.setOrdinal === null &&
+        sameRun(origin.scope, event.scope) && origin.scope.scopeEpoch === event.scope.scopeEpoch))
+    const entry: SentEvent = { identity, kind: event.kind, claimed: false, summaryRemapped: false, confirmedResult, sentAtMs: this.now(), valid: !!origin && !!origin.scope &&
+      captureAllowed && (!FORWARDED.has(event.kind) || confirmedResult) && originMatches && !origin.blocked && origin.phase === event.phase && this.now() <= event.startDeadlineMs,
+      // Validation cursor is a browser context, NOT a replacement event/frame scope.
+      context: origin ?? this.context, telemetry: { classification: null, pending: new Map(), measured: new Set() }, state: 'pending' }
+    this.opportunityCounts.pending++
+    if (entry.valid) for (const item of this.history.slice(originIndex)) this.advanceEvent(entry, item.context, false)
+    if (entry.valid) this.advanceEvent(entry, this.context, false)
+    this.registry.set(event.id, entry)
+    if (!entry.valid) { this.transition(entry, this.now() > event.startDeadlineMs ? 'expired' : 'rejected'); this.count('stale_event'); return }
+    this.transition(entry, 'preparing')
     this.counters.eventsSent++
-    this.send({ type: 'event', event, ...(refs ? { refs } : {}), context })
+    this.measureEvent('eventToSend', entry, entry.sentAtMs - event.createdAtMs)
+    this.send({ type: 'event', event, elapsedAtSendMs: Math.min(86_400_000, Math.max(0, entry.sentAtMs - event.createdAtMs)), ...(refs ? { refs } : {}), context })
     this.changed()
   }
 
@@ -545,6 +785,137 @@ export class CoachNetworkClient {
   }
 
   // ---------- diagnostics ----------
+
+  private now(): number { return (this.last?.nowMs ?? 0) + Math.max(0, this.deps.nowMs() - this.clockAnchor) }
+
+  private sentContextKey = ''
+  private sendContext(): void {
+    if (!this.context || this.sentContextKey === this.contextKey) return
+    this.send({ type: 'context', ...this.context })
+    this.sentContextKey = this.contextKey
+  }
+
+  private updateContext(input: NetworkTick): void {
+    const signature = planSignature(input.session!, input.saved!.mode)
+    if (signature !== this.planKey || !this.context) { this.planKey = signature; this.planRevision++ }
+    const blocked = this.quiet(input) || signature === null || !input.scope
+    const key = JSON.stringify([input.scope, input.phase, blocked, input.gate, this.planRevision])
+    if (key !== this.contextKey) {
+      this.contextKey = key
+      this.context = Object.freeze({ scope: input.scope ? Object.freeze({ ...input.scope }) : null,
+        phase: input.phase, blocked, planRevision: this.planRevision, contextVersion: ++this.contextVersion })
+      this.history.push({ atMs: input.nowMs, context: this.context })
+      if (this.history.length > 1024) this.history.shift()
+      for (const event of this.registry.values()) {
+        const stream = [...this.streams.values()].find(item => item.event === event)
+        // Mixer may have crossed its start since the last runtime observation.
+        const started = stream?.started || stream?.mixer.snapshot().utterances.some(item => item.state === 'started' &&
+          !!item.stream && this.streams.get(item.stream.generationId) === stream) || false
+        this.advanceEvent(event, this.context, started)
+      }
+      if (this.textEvent && !this.textEvent.valid) this.clearText()
+      this.changed()
+    }
+    for (const [id, stream] of this.streams) {
+      const started = stream.started || stream.mixer.snapshot().utterances.some(item => item.id === id && item.state === 'started')
+      if (!started && input.nowMs > stream.event.identity.startDeadlineMs) stream.event.valid = false
+      if (!stream.event.valid) this.failStream(id, stream)
+    }
+    for (const event of this.registry.values()) if (!event.claimed && (!event.valid || input.nowMs > event.identity.startDeadlineMs)) {
+      event.valid = false
+      this.transition(event, input.nowMs > event.identity.startDeadlineMs ? 'expired' : 'rejected')
+      if (event.telemetry.pending.size) this.classifyUnknown(event)
+    }
+  }
+
+  private advanceEvent(event: SentEvent, next: SpeechContext, started: boolean): void {
+    if (!event.valid) return
+    const exact = !!event.context.scope && !!next.scope && sameScope(event.context.scope, next.scope) && event.context.phase === next.phase
+    const remap = !exact && event.context.phase === next.phase
+    if (!speechSurvives(event.kind, event.context, next, started, event.confirmedResult) ||
+      (started && this.last?.saved?.mode === 'text-only') || (!started && remap && event.summaryRemapped)) {
+      event.valid = false
+      if (started) {
+        const reason = this.last?.latched ? 'safety' : this.last?.gate ??
+          (next.phase === 'paused-set' ? 'paused-set' : next.planRevision !== event.context.planRevision ? 'plan_changed' :
+            !event.context.scope || !next.scope || !sameRun(event.context.scope, next.scope) ? 'owner_mismatch' : 'scope_changed')
+        this.note(reason, { triggerId: null, action: 'interrupted', text: null })
+      }
+      if (started && event.state === 'ready') this.transition(event, 'started')
+      this.transition(event, started ? 'interrupted' : 'rejected')
+    }
+    else { if (remap && !started) event.summaryRemapped = true; event.context = next }
+  }
+
+  private failStream(id: string, stream: Stream): void {
+    if (!this.streams.delete(id)) return
+    stream.event.valid = false
+    this.transition(stream.event, stream.started ? 'interrupted' : this.now() > stream.event.identity.startDeadlineMs ? 'expired' : 'rejected')
+    stream.mixer.cancelStream(id, 'scope_changed')
+    this.counters.failed++
+    this.measureEvent('eventToFailed', stream.event, this.now() - stream.event.identity.createdAtMs)
+    this.retainTerminal(id, stream)
+    this.send({ type: 'playback_failed', generationId: id, identity: stream.event.identity })
+    this.changed()
+  }
+
+  private measure(metric: string, stream: Stream, value: number): void {
+    this.measureEvent(metric, stream.event, value)
+  }
+
+  private measureEvent(metric: string, event: SentEvent, value: number): void {
+    if (!Number.isFinite(value) || event.telemetry.measured.has(metric)) return
+    event.telemetry.measured.add(metric)
+    value = Math.min(MAX_TIMING_MS, Math.max(0, Math.round(value)))
+    if (event.telemetry.classification) this.sample(this.latencySamples, `${metric}:${this.group(event)}`, value)
+    else event.telemetry.pending.set(metric, value)
+    this.changed()
+  }
+
+  private group(event: SentEvent): string {
+    const c = event.telemetry.classification!
+    return `${event.kind}:${c.source}:voiceModel=${c.voiceModel}:textModel=${c.textModel}:connection=${c.connection}`
+  }
+
+  private sample(groups: Map<string, number[]>, key: string, value: number): void {
+    // Both group cardinality and samples/group are bounded, even across workouts.
+    if (!groups.has(key) && groups.size >= 512) groups.delete(groups.keys().next().value!)
+    const samples = groups.get(key) ?? []
+    samples.push(value)
+    if (samples.length > 128) samples.shift()
+    groups.set(key, samples)
+  }
+
+  private classify(event: SentEvent, classification: Classification): void {
+    if (event.telemetry.classification) return
+    event.telemetry.classification = classification
+    if ([classification.voiceModel, classification.textModel, classification.source, classification.connection].includes('unknown')) this.missingClassification++
+    else this.classified++
+    for (const [metric, value] of event.telemetry.pending) this.sample(this.latencySamples, `${metric}:${this.group(event)}`, value)
+    event.telemetry.pending.clear()
+    this.changed()
+  }
+
+  private classifyUnknown(event: SentEvent, source = 'unknown'): void {
+    this.classify(event, { source, voiceModel: 'unknown', textModel: 'unknown', connection: 'unknown' })
+  }
+
+  private retainTerminal(id: string, stream: Pick<Stream, 'event' | 'source' | 'ended'>): void {
+    if (stream.ended) return
+    this.terminalStreams.set(id, { event: stream.event, source: stream.source, ended: false })
+    if (this.terminalStreams.size > 32) {
+      const oldest = this.terminalStreams.keys().next().value!
+      const evicted = this.terminalStreams.get(oldest)!
+      this.classifyUnknown(evicted.event, evicted.source)
+      this.terminalStreams.delete(oldest)
+    }
+    this.changed()
+  }
+
+  private clearText(): void {
+    this.lastText = null; this.textEvent = null
+    this.decisions = this.decisions.map(item => item.text ? Object.freeze({ ...item, text: null }) : item)
+  }
 
   private note(reason: string | null, decision: Omit<NetworkDecision, 'atMs' | 'reason'>): void {
     if (reason) this.count(reason, false)
@@ -569,12 +940,44 @@ export class CoachNetworkClient {
     this.snap = null
     for (const listener of this.listeners) listener()
   }
+
+  private transition(event: SentEvent, target: OpportunityState): void {
+    const next = transitionOpportunity(event.state, target)
+    if (next !== event.state) { event.state = next; this.opportunityCounts[next]++; this.changed() }
+  }
 }
 
-/** Redacted diagnostics export: reasons, counters and usage only — no texts, IDs or tokens. */
+const REPORT_REASONS = new Set(('ready disabled audio_locked safety hardware_active runtime_session mute hidden no_user preferences_loading ' +
+  'preferences_unavailable no_consent unavailable decode_failed cancelled scope_changed missing_clip admitted idle stale_source mock_source ' +
+  'owner_mismatch expired no_source pipeline_busy provider_unavailable stale_run local_mode coach_disabled run_not_found run_not_live run_closed ' +
+  'budget degraded credential_unavailable voice_unavailable no_useful_content validation_failed closed network run_unavailable run_create_failed invalid_response socket error ' +
+  'queue_full queue_preempted invalid_local_completion provider_timeout provider_error rate_limited plan_changed paused-set ' +
+  'playback_failed scope_changed watchdog stale invalid disposed audio_overrun first_audio_timeout internal_error facts_changed ' +
+  'identity_mismatch duplicate event_capacity stale_event stale_text incomplete complete failed frame sequence_gap invalid_frame').split(' '))
+for (const reason of ('insufficient_facts restricted_content provider_incomplete provider_refusal provider_malformed usage_unsettled ' +
+  'cooldown density_cap topic_repeat no_window facts number claim comparison language length schema injection question shouting name ' +
+  'unreviewed_tip tip_repeat fact_repeat humor_streak diversity context_reordered invalid_context invalid_event invalid_elapsed').split(' ')) REPORT_REASONS.add(reason)
+const reportReason = (value: string | null): string | null => {
+  if (value === null) return null
+  if (REPORT_REASONS.has(value)) return value
+  // Do not hide a known validator reason, but never export arbitrary suffixes.
+  const parts = value.split(':')
+  return parts.length === 2 && parts[0] === 'validation_failed' && REPORT_REASONS.has(parts[1]) ? value : 'other'
+}
+/** Allowlisted diagnostics only — arbitrary server strings never enter the export. */
 export function redactedNetworkReport(snapshot: NetworkSnapshot): string {
-  return JSON.stringify({ schemaVersion: 1, state: snapshot.state, reason: snapshot.reason, mode: snapshot.mode, voiceId: snapshot.voiceId,
+  const reasons: Record<string, number> = {}
+  for (const [reason, count] of Object.entries(snapshot.reasons)) {
+    const key = reportReason(reason)!
+    reasons[key] = (reasons[key] ?? 0) + count
+  }
+  const voiceId = snapshot.voiceId && ['alloy', 'ash', 'ballad', 'coral', 'echo', 'fable', 'nova', 'onyx', 'sage', 'shimmer', 'verse', 'marin', 'cedar', 'fake'].includes(snapshot.voiceId) ? snapshot.voiceId : null
+  const mode = snapshot.mode && ['local', 'hybrid', 'text-only'].includes(snapshot.mode) ? snapshot.mode : null
+  const usage = snapshot.usage ? { ...snapshot.usage,
+    limitKind: ['strict-reservations', 'strict', 'soft', 'daily', 'workout'].includes(snapshot.usage.limitKind) ? snapshot.usage.limitKind : 'unknown' } : null
+  return JSON.stringify({ schemaVersion: 1, state: snapshot.state, reason: reportReason(snapshot.reason), mode, voiceId,
     degraded: snapshot.degraded, eventsSent: snapshot.eventsSent, streams: snapshot.streams, spoken: snapshot.spoken, failed: snapshot.failed,
-    firstAudioMs: snapshot.firstAudioMs, reasons: snapshot.reasons, usage: snapshot.usage,
-    decisions: snapshot.decisions.map(item => ({ triggerId: item.triggerId, action: item.action, reason: item.reason })) }, null, 2)
+    firstAudioMs: snapshot.firstAudioMs, firstAudioMsLabel: snapshot.firstAudioMsLabel, latencies: snapshot.latencies,
+    serverTimings: snapshot.serverTimings, telemetry: snapshot.telemetry, opportunities: snapshot.opportunities, reasons, usage,
+    decisions: snapshot.decisions.map(item => ({ action: ['text', 'silence', 'speak', 'rejected', 'skip', 'cancel', 'local', 'interrupted'].includes(item.action) ? item.action : 'other', reason: reportReason(item.reason) })) }, null, 2)
 }

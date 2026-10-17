@@ -11,6 +11,7 @@ import httpx
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.core.coach_limits import COACH_TEXT_OUTPUT_TOKENS
 from app.core.config import get_settings
 from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, UsageBounds
 from app.services.coach import ledger
@@ -161,32 +162,39 @@ class AuthorOutcome:
     prompt_version: str = PROMPT_VERSION
     prompt_hash: str = ""
     schema_hash: str = ""
+    intent: str | None = None  # Validated chosen intent, never inferred from the trigger.
 
 
 class TextAuthor:
     def __init__(self, sessions: Callable[[], Session], adapter, pricing: Pricing, *, model: str,
-                 max_output_tokens: int = 400, timeout_s: float = 8.0, reasoning_effort: str | None = None,
+                 max_output_tokens: int = COACH_TEXT_OUTPUT_TOKENS, timeout_s: float = 8.0, reasoning_effort: str | None = None,
                  now_ms: Callable[[], float] = lambda: time.time() * 1000):
         if not 0 < timeout_s <= 15:
             raise ValueError("Bounded timeout required")
         self.sessions, self.adapter, self.pricing, self.model = sessions, adapter, pricing, model
-        self.max_output_tokens, self.timeout_s, self.now_ms = max_output_tokens, timeout_s, now_ms
+        self.max_output_tokens = max(COACH_TEXT_OUTPUT_TOKENS, max_output_tokens)
+        self.timeout_s, self.now_ms = timeout_s, now_ms
         self.reasoning_effort = reasoning_effort
 
     async def author(self, *, run_id: str, owner: str, generation: int, opportunity: str, request: AuthorRequest,
                      memory: CoachMemory | None = None, scope_epoch: int = 0, deadline_ms: float | None = None,
                      local_available: bool = False) -> AuthorOutcome:
         built = build_prompt(request)
+        # All phases need room for reasoning + structured JSON, even a short cue.
+        # Reserve the same full cap sent to the provider BEFORE every dispatch.
         body = request_body(self.model, built, self.max_output_tokens, self.reasoning_effort)
         bounds = text_bounds(body, self.max_output_tokens)
         attempts: list[str] = []
+        memory_revision = memory.revision if memory is not None else None
 
         def fallback(reason: str) -> AuthorOutcome:
             return AuthorOutcome("local" if local_available else "silence", reason, attempt_ids=tuple(attempts),
                                  prompt_hash=built.instructions_hash, schema_hash=built.schema_hash)
 
         if memory is not None:
-            memory.note_attempted(request.topic_key)
+            tip = request.coach_context.tip if request.coach_context else None
+            memory.note_attempted(request.topic_key, category=request.category,
+                                  tip_id=tip.tip_id if tip else None, tip_version=tip.version if tip else None)
         for retry in (0, 1):
             attempt_id = None
             try:
@@ -222,6 +230,8 @@ class TextAuthor:
                     return fallback("scope_changed")
             if not facts_current(request, scope_epoch, self.now_ms()):
                 return fallback("scope_changed")
+            if memory is not None and memory.revision != memory_revision:
+                return fallback("scope_changed")  # Deletion/expiry while awaiting must not refill memory.
             if result.output is None:
                 return fallback(result.error or "provider_error")
             verdict = validate(result.output, request, memory)
@@ -229,8 +239,11 @@ class TextAuthor:
                 if verdict.action == "silence":
                     return AuthorOutcome("silence", verdict.reason, attempt_ids=tuple(attempts),
                                          prompt_hash=built.instructions_hash, schema_hash=built.schema_hash)
+                if memory is not None:
+                    memory.note_attempted(request.topic_key, intent=result.output["intent"])
                 return AuthorOutcome("speech", None, verdict.speech, verdict.used_fact_ids, verdict.delivery,
-                                     tuple(attempts), PROMPT_VERSION, built.instructions_hash, built.schema_hash)
+                                     tuple(attempts), PROMPT_VERSION, built.instructions_hash, built.schema_hash,
+                                     intent=result.output["intent"])
             # One calm summary retry with a new reserve and enough time; never a recursive joke hunt.
             time_left = deadline_ms is None or deadline_ms - self.now_ms() >= self.timeout_s * 1000
             if not (request.summary and retry == 0 and time_left):

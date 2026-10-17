@@ -8,13 +8,14 @@ import { localAudioRuntime } from '../audio/local-audio-runtime'
 import { LocalCoachAudioManager, type AudioReason, type LocalAudioSnapshot } from '../audio/local-coach-audio-manager'
 import { peekSharedAudioContext, unlockSharedAudioContext } from '../audio/shared-audio-context'
 import { CoachInterpreter, type InterpreterSnapshot, type LocalCue, type SetTimerInput } from '../interpreter/coach-interpreter'
-import { coachLifecycle, coachSetTimer, isCoachFoundationEnabled } from '../lib/runtime-observation'
+import { coachLifecycle, coachSetTimer, isCoachFoundationEnabled, setLifecycleVersionReader } from '../lib/runtime-observation'
 import { coachRunId, type CoachEvent, type CoachScope, type CoachVoice } from '../model/contracts'
 import { effectiveCoachState, type CoachPreferences, type GeneralCoachAudio } from '../model/preferences'
 import { coachRepBeep, playCue, type ClipSource, type CueManager, type RepBeepArbiter } from './local-cue-player'
 import { coachPackClient } from '../audio/pack-client'
 import type { LifecycleRefs } from '../lib/lifecycle-observer'
-import { CoachNetworkClient, networkEligible, type NetworkSnapshot } from './coach-network-client'
+import { CoachNetworkClient, type NetworkSnapshot } from './coach-network-client'
+import { LocalCompletions } from './local-completion'
 
 export type LiveInputs = Readonly<{
   userId: string | null; featureEnabled: boolean; hidden: boolean; emergency: boolean
@@ -104,6 +105,7 @@ export class CoachLiveRuntime {
   private unlockListener: (() => void) | null = null
   private ticking = false
   private restoredSlot: CoachVoice | null = null
+  private completions = new LocalCompletions()
 
   constructor(dependencies: Partial<LiveRuntimeDependencies> = {}) {
     this.deps = { ...defaults, ...dependencies }
@@ -148,6 +150,7 @@ export class CoachLiveRuntime {
     if (identity !== this.identity) {
       this.identity = identity
       this.interpreter = new CoachInterpreter({ allowEmulator: this.deps.allowEmulator })
+      this.completions.clear()
       this.disposeManager('scope_changed'); this.deps.beep.clear()
     }
     const lifecycle = this.deps.lifecycle()
@@ -163,17 +166,17 @@ export class CoachLiveRuntime {
     if (result.latched) this.manager?.cancelAll('safety')
     else if (gate) this.manager?.cancelAll(gate === 'audio_locked' ? 'audio_locked' : gate)
     if (gate === 'audio_locked' && result.scope) this.armUnlock(); else this.removeUnlock()
-    this.deps.network?.tick({ nowMs: now, userId: inputs.userId, saved: inputs.saved, session: inputs.session, featureEnabled: true,
-      phase: result.phase, scope: result.scope, latched: result.latched, gate, reps: this.interpreter.snapshot().baseline,
-      partialReps: this.hardware?.motion?.partialReps ?? null, timer: inputs.timer ?? null, lifecycle, refs: this.deps.lifecycleRefs, mixer: () => this.networkMixer() })
-    // Refresh network eligibility first (including user/run/settings changes), then choose
-    // one completion path. The interpreter still consumes suppressed cues: no late replay.
+    // Every completion is local-first, independent of readiness, budget or live voice.
     const setCompleted = result.cues.some(cue => cue.kind === 'set-end' || cue.kind === 'set-partial' || cue.kind === 'set-skipped')
     for (const cue of result.cues) {
       if (!gate && cue.kind === 'last-set-next' && setCompleted) {
         this.counters.cues++; this.counters.suppressed++; this.record(cue, 'completion_coalesced')
       } else this.play(cue, inputs, gate, now)
     }
+    this.deps.network?.tick({ nowMs: now, userId: inputs.userId, saved: inputs.saved, session: inputs.session, featureEnabled: true,
+      phase: result.phase, scope: result.scope, latched: result.latched, gate, reps: this.interpreter.snapshot().baseline,
+      partialReps: this.hardware?.motion?.partialReps ?? null, timer: inputs.timer ?? null, lifecycle, refs: this.deps.lifecycleRefs,
+      localCompletion: event => this.completions.forEvent(event), mixer: () => this.networkMixer() })
     if (!result.cues.length && gate) this.reason = gate
     if (this.manager) this.deps.network?.observe(this.manager.snapshot())
     this.publish(!gate)
@@ -210,7 +213,6 @@ export class CoachLiveRuntime {
   private play(cue: LocalCue, inputs: LiveInputs, gate: AudioReason | null, now: number): void {
     this.counters.cues++
     if (gate) { this.counters.suppressed++; this.record(cue, gate); return }
-    if (this.liveOwnsCompletion(cue, inputs)) { this.counters.suppressed++; this.record(cue, 'live_priority'); return }
     if (!this.ensureManager(inputs, cue.scope)) { this.counters.suppressed++; this.record(cue, 'audio_locked'); return }
     const manager = this.manager!
     const scope = cue.scope
@@ -221,22 +223,11 @@ export class CoachLiveRuntime {
     })
     if (outcome.admitted) {
       this.counters.admitted++
+      this.completions.note(cue)
       if (cue.kind === 'count' && cue.value !== null) this.deps.beep.noteVoiceCount(cue.value)
     } else if (outcome.reason === 'missing_clip') this.counters.missingClip++
     else this.counters.suppressed++
     this.record(cue, outcome.reason)
-  }
-
-  private liveOwnsCompletion(cue: LocalCue, inputs: LiveInputs): boolean {
-    const network = this.deps.network?.getSnapshot(), saved = inputs.saved
-    if (!network || network.state !== 'ready' || !network.voice || !saved || !networkEligible(inputs)) return false
-    switch (cue.kind) {
-      case 'set-end': case 'set-partial': case 'last-set-next': return saved.setFeedback
-      case 'exercise-done': case 'exercise-partial': case 'exercise-skipped': return saved.exerciseSummary
-      case 'workout-done': case 'workout-partial': return saved.workoutSummary
-      // Skipped sets have no live result commentary; counting and safety stay local.
-      default: return false
-    }
   }
 
   private gate(inputs: LiveInputs): AudioReason | null {
@@ -292,6 +283,8 @@ export class CoachLiveRuntime {
 }
 
 export const coachNetworkClient = new CoachNetworkClient()
+setLifecycleVersionReader(current => coachNetworkClient.captureVersions(current, useRuntimeStore.getState().session,
+  localAudioRuntime.getSavedPreferences()))
 export const coachLiveRuntime = new CoachLiveRuntime({ network: coachNetworkClient })
 
 /** Idempotent; a no-op unless VITE_COACH_ENABLED=true. */

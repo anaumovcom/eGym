@@ -39,11 +39,13 @@ export type CoachPreferences = CoachSettings & CoachTuning & Readonly<{
   /** Explicit 18+ dark-humor opt-in. */
   edgyOptIn: boolean; extras: readonly CoachExtra[]; address: 'ty' | 'vy'; nickname: string
   duringSets: boolean; duringRest: boolean
+  memoryEnabled: boolean; crossWorkoutMemory: boolean
 }>
 export const DEFAULT_COACH_PREFERENCES: CoachPreferences = Object.freeze<CoachPreferences>({
   ...DEFAULT_COACH_SETTINGS, ...DEFAULT_COACH_TUNING, networkConsentVersion: null, voiceVolume: null,
   style: 'companion', humor: 'light', humorKinds: ['irony', 'self'], edgyOptIn: false, extras: [],
   address: 'ty', nickname: '', duringSets: true, duringRest: true,
+  memoryEnabled: true, crossWorkoutMemory: false,
 })
 
 function tuningValid(p: CoachTuning): boolean {
@@ -64,6 +66,7 @@ function enumList(values: unknown, allowed: readonly string[]): boolean {
 
 export function preferencesValid(p: CoachPreferences): boolean {
   return p.schemaVersion === 1 && (p.consentVersion === null || p.consentVersion === 1) &&
+    typeof p.memoryEnabled === 'boolean' && typeof p.crossWorkoutMemory === 'boolean' &&
     (p.networkConsentVersion === null || p.networkConsentVersion === 1) &&
     (!p.enabled || p.consentVersion === 1) &&
     (p.mode === 'local' || p.networkConsentVersion === 1) &&

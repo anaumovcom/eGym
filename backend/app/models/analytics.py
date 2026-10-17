@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy import Enum as SqlEnum
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.models.base import Base, TimestampMixin
 from app.models.enums import (
@@ -37,6 +37,23 @@ class WorkoutSession(TimestampMixin, Base):
 
     exercise_sessions: Mapped[list["ExerciseSession"]] = relationship(back_populates="workout_session", cascade="all, delete-orphan")
     photos: Mapped[list["ProgressPhoto"]] = relationship(back_populates="workout_session")
+
+
+class OptionalCoachPlanBase(DeclarativeBase):
+    """Explicit migration only: deliberately excluded from startup Base.create_all."""
+
+
+class CoachWorkoutPlan(OptionalCoachPlanBase):
+    __tablename__ = "coach_workout_plans"
+
+    workout_id: Mapped[int] = mapped_column(ForeignKey(WorkoutSession.id, ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), nullable=False)
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    stale: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    captured_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    baseline: Mapped[dict[str, object]] = mapped_column(JSON, nullable=False)
+    current: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
 
 
 class ExerciseSession(TimestampMixin, Base):

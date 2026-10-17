@@ -1,11 +1,13 @@
 """E10 live coach: browser event → server facts → Director → text author → voice → tagged PCM frames.
 
 The browser is never a fact source for results: saved sets and summaries are read from the DB by owner.
-One pipeline per run (paid single-flight); a summary arriving while busy waits in a 1-slot queue.
+One pipeline per run (paid single-flight); completion queue is bounded and priority ordered.
 """
 
 import asyncio
 import contextlib
+import hashlib
+import math
 import secrets
 import time
 from collections import Counter, deque
@@ -21,6 +23,8 @@ from app.core.config import get_settings
 from app.schemas.coach import CoachEvent, CoachScope
 from app.schemas.coach_control import CoachPreferences
 from app.services.coach import history, security
+from app.services.coach.completion import LocalCompletion, additional_package, duplicate_local, useful_addition
+from app.services.coach.context import CoachContext, build_context
 from app.services.coach.director import Candidate, Director
 from app.services.coach.facts import (
     AllowedFact,
@@ -32,15 +36,20 @@ from app.services.coach.facts import (
     target_fact,
     weight_fact,
 )
+from app.services.coach.identity import SpeechContext, WorkState, identity, matches_identity, same_run
 from app.services.coach.luna import LunaTextAdapter, TextAuthor, text_pricing
-from app.services.coach.memory import CoachMemory, Utterance
+from app.services.coach.memory import CoachMemory, CrossWorkoutStore, RunMemoryStore, Utterance
 from app.services.coach.prompts import AuthorRequest
+from app.services.coach.speech_actions import SPEECH_ACTIONS, speech_action
 from app.services.coach.triggers import TRIGGERS
 from app.services.coach.voice import (
     Delivery,
     RealtimeVoiceAdapter,
     VoiceOutcome,
     VoiceStreamer,
+    decode_frame,
+    select_delivery,
+    situational_delivery_enabled,
     voice_pricing,
     websocket_connect,
 )
@@ -50,6 +59,7 @@ SendBytes = Callable[[bytes], Awaitable[None]]
 
 MAX_SEEN = 1024
 MAX_PENDING_ACKS = 32
+MAX_QUEUED = 4
 REST_EXTRA_MIN_MS = 35_000
 SUMMARY_TRIGGERS = {"T55", "T56", "T58", "T59"}
 # Saved-set trigger → P2 task. T38 (skipped) stays a local clip; T41 needs analysis opt-in (not offered).
@@ -60,12 +70,14 @@ RESULT_INTENTS = {"T36": ("factual-feedback", "motivation", "humor"), "T37": ("f
 GAP_SCALE = {"short": 0.7, "normal": 1.0, "long": 1.6}
 WORDS_SCALE = {"short": 0.6, "normal": 1.0, "detailed": 1.25}
 NAME_FACTS = frozenset({"exercise", "next-exercise", "exercise-names"})
+MAX_TELEMETRY_MS = 86_400_000
+SPEECH_TIMING_STAGES = ("receive", "textStart", "textEnd", "firstPcm", "speechEnd", "ackStart", "ackEnd", "ackCancel")
 PROGRESS_FACTS = frozenset({"set-position", "sets-left", "exercise-position", "plan-sets", "planned-sets"})
 # In-set moments (T21 set support): claim, per-set topic, intents. The browser only says which moment it is;
 # the claims are fixed server text, and the Director paces them by the set's real elapsed time.
 SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "start": ("Подход только начался, первые повторения засчитаны", "set-start", ("motivation", "general-tip")),
-    "partial": ("Последнее движение не засчитано: гриф не прошёл всю амплитуду от нижней до верхней точки",
+    "partial": ("Последнее движение не засчитано",
                 "set-range", ("general-tip", "motivation")),
     "half": ("Половина подхода уже позади", "set-support", ("motivation", "humor")),
     "finish": ("Идут последние повторения подхода", "set-finish", ("motivation",)),
@@ -83,6 +95,10 @@ TIMED_SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
 }
 
 
+class _FactsChangedError(Exception):
+    """Internal factual invalidation, not task cancellation or provider failure."""
+
+
 @dataclass(frozen=True)
 class Opportunity:
     event_id: str
@@ -92,9 +108,22 @@ class Opportunity:
     scope: CoachScope
     package: FactPackage | None = None
     exercise_id: str | None = None
+    event: CoachEvent | None = None
+    received_ms: float | None = None
+    deadline_ms: float | None = None  # Server monotonic, NOT the browser's absolute deadline.
+    state: WorkState = field(default_factory=WorkState, compare=False)
+    source_refs: tuple[tuple[str, int], ...] = ()
+    source_context: tuple[tuple[str, object], ...] = ()
+    local_completion: LocalCompletion | None = None
+    coach_context: CoachContext | None = None
 
     @property
     def key(self) -> str:
+        if self.candidate.trigger_id == "T21":
+            # Code-selected topics already include run/exercise/set and the support slot.
+            # Hash to keep the ledger opportunity bounded, including its run prefix;
+            # event IDs must never turn a repeated topic into a new paid attempt.
+            return f"T21:{hashlib.sha256(self.candidate.topic_key.encode()).hexdigest()}"
         return f"{self.candidate.trigger_id}:{self.candidate.semantic_key}"
 
 
@@ -103,13 +132,29 @@ class LiveStats:
     reasons: Counter = field(default_factory=Counter)
     triggers: Counter = field(default_factory=Counter)
     spoken: int = 0
+    opportunities: Counter = field(default_factory=Counter)
     first_audio_ms: deque = field(default_factory=lambda: deque(maxlen=32))
+    latencies: dict[str, deque] = field(default_factory=dict)
+
+    def measure(self, metric: str, op: Opportunity, elapsed: float) -> None:
+        if not math.isfinite(elapsed):
+            return
+        key = f"{metric}:{op.candidate.trigger_id}:{op.state.model}:{op.state.connection}"
+        if key not in self.latencies:
+            if len(self.latencies) >= 256:
+                return
+            self.latencies[key] = deque(maxlen=128)
+        self.latencies[key].append(round(min(MAX_TELEMETRY_MS, max(0, elapsed)), 2))
 
     def as_dict(self) -> dict:
         audio = sorted(self.first_audio_ms)
         return {"spoken": self.spoken, "reasons": dict(self.reasons), "triggers": dict(self.triggers),
+            "opportunities": dict(self.opportunities),
                 "firstAudioMs": {"count": len(audio), "median": audio[len(audio) // 2] if audio else None,
-                                 "max": audio[-1] if audio else None}}
+                     "max": audio[-1] if audio else None}, "firstAudioMsLabel": "voice-only",
+            "latencies": {key: {"count": len(values), "p50": sorted(values)[math.ceil(len(values) * .5) - 1],
+                         "p95": sorted(values)[math.ceil(len(values) * .95) - 1]}
+                      for key, values in self.latencies.items()}}
 
 
 def _bounded_ms(value: object, upper: float) -> float | None:
@@ -156,19 +201,90 @@ def progress_facts(ordinal: int | None, total: int | None, *, next_exercise: str
 class LiveCoach:
     def __init__(self, sessions: Callable[[], Session], *, run_id: str, owner: str, generation: int, user_id: str,
                  settings: CoachPreferences, author: TextAuthor | None, voice: VoiceStreamer | None,
-                 send_json: SendJson, send_bytes: SendBytes, now_ms: Callable[[], float] = lambda: time.time() * 1000):
+                 send_json: SendJson, send_bytes: SendBytes, now_ms: Callable[[], float] = lambda: time.time() * 1000,
+                 monotonic_ms: Callable[[], float] = lambda: time.monotonic() * 1000,
+                 feedback_ttl_ms: float = 300_000, scope_run_id: str | None = None):
         self.sessions, self.run_id, self.owner, self.generation = sessions, run_id, owner, generation
+        # Billing, leases and retained memory use run_id; source identities remain runtime-scoped.
+        self.scope_run_id = run_id if scope_run_id is None else scope_run_id
         self.user_id, self.settings, self.author, self.voice = user_id, settings, author, voice
         self.send_json, self.send_bytes, self.now_ms = send_json, send_bytes, now_ms
-        self.memory = CoachMemory()
+        self.monotonic_ms = monotonic_ms
+        self.feedback_ttl_ms = min(300_000, max(0, feedback_ttl_ms))
+        self.memory = CoachMemory(enabled=settings.memory_enabled)
+        self.cross_preferences: dict[str, str] = {}
+        self.memory_epoch = 0
+        self.line_metadata: dict[str, dict] = {}
         self.director = Director(settings.density, self.memory, gap_scale=GAP_SCALE[settings.pause_gap],
                                  words_scale=WORDS_SCALE[settings.verbosity])
         self.task: asyncio.Task | None = None
-        self.queued: Opportunity | None = None
+        self.queue: list[Opportunity] = []
+        self.opportunities: dict[str, Opportunity] = {}
         self.seen: set[str] = set()
         self.acks: dict[str, tuple[Opportunity, str, tuple[str, ...]]] = {}
+        self.terminal: deque[str] = deque(maxlen=32)
+        self.context: SpeechContext | None = None
+        self.contexts: deque[SpeechContext] = deque(maxlen=1024)
+        self.active_op: Opportunity | None = None
         self.stats = LiveStats()
         self.closed = False
+        self.local_observations: deque[float] = deque(maxlen=128)
+
+    @property
+    def queued(self) -> Opportunity | None:
+        return self.queue[0] if self.queue else None
+
+    def _transition(self, op: Opportunity, target: str) -> None:
+        if op.state.transition(target):
+            self.stats.opportunities[target] += 1
+
+    def _end_state(self, op: Opportunity, reason: str) -> None:
+        self._transition(op, 'interrupted' if op.state.started else 'expired' if reason == 'expired' else 'rejected')
+        if op.state.lifecycle in {'interrupted', 'expired', 'rejected'}:
+            op.state.valid = False
+
+    @staticmethod
+    def _priority(op: Opportunity) -> int:
+        return 3 if op.event and op.event.kind == 'workout_finalized' else 2 if (
+            op.event and op.event.kind == 'exercise_finalized') else 1
+
+    async def _enqueue(self, op: Opportunity) -> None:
+        await self._expire_queue()
+        if len(self.queue) >= MAX_QUEUED:
+            lowest = min(self.queue, key=lambda item: (self._priority(item), -(item.received_ms or 0)))
+            if self._priority(op) <= self._priority(lowest):
+                await self._decision(op.event_id, op.candidate.trigger_id, 'silence', 'queue_full')
+                return
+            self.queue.remove(lowest)
+            await self._decision(lowest.event_id, lowest.candidate.trigger_id, 'silence', 'queue_preempted')
+        self.queue.append(op)
+        self.queue.sort(key=lambda item: (-self._priority(item),
+                 self.memory.topic_blocked(item.candidate.topic_key),
+                 -(item.received_ms or 0), item.deadline_ms or float("inf")))
+
+    async def _expire_queue(self) -> None:
+        for op in list(self.queue):
+            if not self._current(op):
+                self.queue.remove(op)
+                reason = 'expired' if op.deadline_ms is not None and self.monotonic_ms() > op.deadline_ms else 'scope_changed'
+                await self._decision(op.event_id, op.candidate.trigger_id, 'silence', reason)
+
+    async def _drain(self) -> None:
+        await self._expire_queue()
+        while self.queue and not self.closed and (self.task is None or self.task.done()):
+            await self._admit_and_start(self.queue.pop(0))
+
+    def _duration(self, message: dict, op: Opportunity, *, interrupted: bool = False) -> None:
+        if not op.state.started:
+            return
+        duration = _bounded_ms(message.get('durationMs'), 60_000)
+        if interrupted:
+            duration = min(duration if duration is not None else op.state.audible_duration_ms,
+                           max(0, self.monotonic_ms() - op.state.marks['ackStart']))
+        if duration is not None:
+            op.state.audible_duration_ms = duration
+            self.director.update_audible(message['generationId'], duration)
+            self.memory.update_duration(message['generationId'], duration)
 
     # ---------- inbound ----------
 
@@ -176,34 +292,197 @@ class LiveCoach:
         kind = message.get("type")
         if kind == "event":
             await self._event(message)
+        elif kind == "localPlayback":
+            self._local_playback(message)
+        elif kind == "context":
+            await self._context(message)
         elif kind == "playback_started":
             self._started(message)
         elif kind == "playback_completed":
-            gid = message.get("generationId")
-            if isinstance(gid, str) and gid in self.acks:
+            entry = self._ack(message)
+            if entry is not None and entry[0].state.started:
+                gid = message["generationId"]
+                self._duration(message, entry[0])
+                self._transition(entry[0], 'completed')
                 self.memory.note_completed(gid)
+                self._mark(entry[0], "ackEnd")
+                self._finish(gid)
         elif kind == "playback_failed":
-            self._note("playback_failed")
+            entry = self._ack(message, check_current=False)
+            if entry is not None:
+                self._duration(message, entry[0], interrupted=True)
+                self._end_state(entry[0], 'playback_failed')
+                self.memory.note_interrupted(message['generationId'])
+                entry[0].state.valid = False
+                self._mark(entry[0], "ackCancel")
+                self._finish(message["generationId"])
+                self._note("playback_failed")
         elif kind == "cancel":
             await self.cancel("cancelled")
         elif kind == "safety":
             latched = message.get("latched") is True
             self.director.latch_safety(latched)
             if latched:
-                self.queued = None
                 await self.cancel("safety")
         elif kind == "ping":
+            await self._expire_queue()
             await self.send_json({"type": "pong", "stats": self.stats.as_dict()})
         else:
             await self.send_json({"type": "error", "reason": "unknown_message"})
 
+    def _local_playback(self, message: dict) -> None:
+        # Observation only: no fact, identity, free text, or paid generation path.
+        if set(message) != {"type", "kind", "action", "durationMs"} or self.context is None or self.context.blocked:
+            return
+        local_kind, action = message["kind"], message["action"]
+        pairs = {"count": {"count"}, "cue": {"orient", "support", "result", "summary", "safety"}}
+        if not isinstance(local_kind, str) or not isinstance(action, str) or action not in pairs.get(local_kind, set()):
+            return
+        duration = _bounded_ms(message["durationMs"], 60_000)
+        now = self.now_ms()
+        if duration is None or duration <= 0:
+            return
+        if len(self.local_observations) == 128 and now - self.local_observations[0] < 60_000:
+            return
+        self.local_observations.append(now)
+        self.director.note_local_playback(now, duration, content=action not in {"count", "safety"})
+
+    async def _context(self, message: dict) -> None:
+        try:
+            next_context = SpeechContext.model_validate({k: v for k, v in message.items() if k != "type"})
+        except ValidationError:
+            await self._reject(None, "invalid_context")
+            return
+        if next_context.scope is not None and (next_context.scope.user_id != self.user_id
+                                               or next_context.scope.run_id != self.scope_run_id):
+            await self._reject(None, "owner_mismatch")
+            return
+        previous = self.context
+        if previous is not None:
+            if next_context == previous:
+                return  # Idempotent resend, not a new transition.
+            if (next_context.context_version <= previous.context_version
+                    or next_context.plan_revision < previous.plan_revision):
+                await self._reject(None, "context_reordered")
+                return
+        self.context = next_context
+        self.contexts.append(next_context)
+        ops = [entry[0] for entry in self.acks.values()]
+        ops += [op for op in [self.active_op, *self.queue] if op is not None]
+        # One opportunity may be both active and waiting for its playback ACK.
+        unique = {id(op): op for op in ops}
+        for op in unique.values():
+            op.state.advance(op.event.kind if op.event else "", next_context)
+        await self._expire_queue()
+        for gid, (op, _, _) in list(self.acks.items()):
+            if not op.state.valid:
+                self._mark(op, "ackCancel")
+                self._finish(gid)
+        if self.active_op is not None and not self.active_op.state.valid:
+            await self._cancel_task("scope_changed")
+
+    def _event_state(self, event: CoachEvent, *, confirmed_result: bool = False) -> WorkState:
+        state = WorkState(confirmed_result=confirmed_result)
+        if self.context is None:
+            return state  # Legacy direct callers; production sends context before events.
+        origin = next((c for c in self.contexts if c.context_version == event.context_version
+                       and c.plan_revision == event.plan_revision), None)
+        if origin is None or origin.scope is None:
+            state.valid = False
+            return state
+        scope_matches = event.scope == origin.scope or (
+            event.kind == "workout_finalized" and event.scope.exercise_id is None
+            and event.scope.set_ordinal is None and same_run(event.scope, origin.scope)
+            and event.scope.scope_epoch == origin.scope.scope_epoch)
+        capture_phases = {
+            "set_persisted": {"active-set", "finalizing-set"},
+            "exercise_finalized": {"active-set", "finalizing-set", "exercise-summary"},
+            "workout_finalized": {"workout-summary"},
+        }
+        # Keep the authoritative origin as the cursor; workout-only null fields
+        # belong to the event identity, not a fabricated runtime transition.
+        state.valid = (scope_matches and not origin.gated and origin.phase == event.phase
+                       and event.phase in capture_phases.get(event.kind, {event.phase}))
+        state.context = origin
+        for context in self.contexts:
+            if context.context_version >= origin.context_version:
+                state.advance(event.kind, context)
+        return state
+
+    def _current(self, op: Opportunity) -> bool:
+        task = asyncio.current_task()
+        return (not self.closed and op.state.valid and not (task is not None and task.cancelling())
+                and (op.state.started or op.deadline_ms is None or self.monotonic_ms() <= op.deadline_ms))
+
+    def _mark(self, op: Opportunity, stage: str) -> None:
+        if stage in op.state.marks:
+            return
+        now = op.received_ms if stage == "receive" and op.received_ms is not None else self.monotonic_ms()
+        op.state.marks[stage] = now
+        if op.received_ms is not None:
+            self.stats.measure(stage, op, now - op.received_ms)
+        if stage == "textEnd" and "textStart" in op.state.marks:
+            self.stats.measure("textDuration", op, now - op.state.marks["textStart"])
+
+    def _voice_state(self, op: Opportunity, voice: VoiceOutcome) -> None:
+        op.state.connection = voice.connection_class
+        if voice.model != "unknown":
+            op.state.model = f"{str(getattr(self.author, 'model', 'unknown'))[:96]}/{voice.model}"
+
+    def _speech_metadata(self, op: Opportunity, voice: VoiceOutcome) -> dict:
+        # Only bounded durations from this server's monotonic receipt clock cross
+        # the wire. Never serialize arbitrary marks, absolute clocks or provider data.
+        timings = {}
+        if op.received_ms is not None:
+            for stage in SPEECH_TIMING_STAGES:
+                if stage in op.state.marks:
+                    elapsed = op.state.marks[stage] - op.received_ms
+                    if math.isfinite(elapsed):
+                        timings[stage] = round(min(MAX_TELEMETRY_MS, max(0, elapsed)), 2)
+        if "textStart" in op.state.marks and "textEnd" in op.state.marks:
+            elapsed = op.state.marks["textEnd"] - op.state.marks["textStart"]
+            if math.isfinite(elapsed):
+                timings["textDuration"] = round(min(MAX_TELEMETRY_MS, max(0, elapsed)), 2)
+        return {"voiceModel": voice.model, "textModel": str(getattr(self.author, "model", "unknown"))[:96],
+                "source": voice.source, "connectionClass": voice.connection_class, "timingsMs": timings,
+                "firstAudioMs": voice.first_audio_ms}
+
+    def _finish(self, gid: str) -> None:
+        entry = self.acks.pop(gid, None)
+        self.line_metadata.pop(gid, None)
+        if entry is not None and entry[0].state.lifecycle not in {'completed', 'interrupted', 'expired', 'rejected'}:
+            self._end_state(entry[0], 'playback_failed')
+        if entry is not None and entry[0].state.lifecycle == 'interrupted':
+            self._duration({'generationId': gid}, entry[0], interrupted=True)
+            self.memory.note_interrupted(gid)
+        if gid not in self.terminal:
+            self.terminal.append(gid)
+
+    def _ack(self, message: dict, *, check_current: bool = True):
+        gid = message.get("generationId")
+        entry = self.acks.get(gid) if isinstance(gid, str) else None
+        if entry is None:
+            return None
+        op = entry[0]
+        if "identity" in message and (op.event is None or not matches_identity(message["identity"], identity(op.event))):
+            self._note("identity_mismatch")
+            return None
+        if check_current and not self._current(op):
+            self._end_state(op, 'expired' if op.deadline_ms is not None and self.monotonic_ms() > op.deadline_ms else 'scope_changed')
+            op.state.valid = False
+            self._mark(op, "ackCancel")
+            self._finish(gid)
+            return None
+        return entry
+
     async def _event(self, message: dict) -> None:
+        received = self.monotonic_ms()
         try:
             event = CoachEvent.model_validate(message.get("event"))
         except ValidationError:
             await self._reject(None, "invalid_event")
             return
-        if event.scope.user_id != self.user_id:
+        if event.scope.user_id != self.user_id or event.scope.run_id != self.scope_run_id:
             await self._reject(event.id, "owner_mismatch")
             return
         if event.id in self.seen or len(self.seen) >= MAX_SEEN:
@@ -212,10 +491,30 @@ class LiveCoach:
         self.seen.add(event.id)
         if event.kind in {"pain_reported", "safety_changed"}:
             self.director.latch_safety(True)
-            self.queued = None
             await self.cancel("safety")
             return
+        # Browser and server absolute times are unrelated. Only the original interval
+        # and optional browser elapsed-at-send budget cross the clock boundary. Network
+        # transit time is unknowable here; the client rechecks its ORIGINAL deadline.
+        ttl = event.start_deadline_ms - event.created_at_ms
+        elapsed = _bounded_ms(message.get("elapsedAtSendMs", 0), 86_400_000)
+        if elapsed is None:
+            await self._reject(event.id, "invalid_elapsed")
+            return
+        budget = max(0, min(ttl, ttl - elapsed))
+        if budget <= 0:
+            await self._reject(event.id, "expired")
+            return
         context = message.get("context") if isinstance(message.get("context"), dict) else {}
+        local = None
+        if 'localCompletion' in context:
+            try:
+                local = LocalCompletion.model_validate(context['localCompletion'])
+                if not local.applies(event.kind):
+                    raise ValueError('Wrong completion scope')
+            except (ValidationError, ValueError):
+                await self._reject(event.id, 'invalid_local_completion')
+                return
         try:
             with self.sessions() as db:
                 opportunity = self.plan(db, event, message.get("refs"), context)
@@ -227,47 +526,118 @@ class LiveCoach:
         if isinstance(opportunity, str):
             await self._decision(event.id, None, "silence", opportunity)
             return
+        # plan() has verified result refs against persisted rows and their owner.
+        # Only those confirmed opportunities may traverse the result phase table.
+        state = self._event_state(event, confirmed_result=event.kind in {
+            "set_persisted", "exercise_finalized", "workout_finalized"})
+        if not state.valid:
+            await self._reject(event.id, "scope_changed")
+            return
+        opportunity = replace(opportunity, received_ms=received, deadline_ms=received + budget, state=state,
+                              local_completion=local, package=additional_package(opportunity.package, local),
+                              candidate=replace(opportunity.candidate,
+                                                valid_until_ms=min(opportunity.candidate.valid_until_ms,
+                                                                   self.now_ms() + budget)))
+        state.model = str(getattr(self.author, "model", "unknown"))[:96]
+        if self.voice is not None and self.settings.mode != "text-only":
+            capability = getattr(self.voice.adapter, "capability", None)
+            state.model += "/" + str(getattr(capability, "model", "unknown"))[:96]
+        # Classification stays unknown until the actual voice request reports it.
+        self._mark(opportunity, "receive")
+        self.opportunities[event.id] = opportunity
+        self.stats.opportunities['pending'] += 1
         if self.task and not self.task.done():
-            if opportunity.candidate.trigger_id in SUMMARY_TRIGGERS:
-                self.queued = opportunity  # Latest summary only; it is re-admitted when the pipeline frees up.
+            if event.kind in {'set_persisted', 'exercise_finalized', 'workout_finalized'}:
+                await self._enqueue(opportunity)
                 return
             await self._decision(event.id, opportunity.candidate.trigger_id, "silence", "pipeline_busy")
             return
         await self._admit_and_start(opportunity)
 
     async def _admit_and_start(self, op: Opportunity) -> None:
+        if not self._current(op):
+            reason = 'expired' if op.deadline_ms is not None and self.monotonic_ms() > op.deadline_ms else 'scope_changed'
+            await self._decision(op.event_id, op.candidate.trigger_id, "silence", reason)
+            return
+        if op.local_completion and not useful_addition(op.package, tuple(f.id for f in (
+            op.package.facts if op.package else ())), op.local_completion):
+            await self._decision(op.event_id, op.candidate.trigger_id, 'silence', 'no_useful_content')
+            return
+        # A queued callback can race an inbound event after the previous task ends.
+        if self.task is not None and not self.task.done():
+            if op.event and op.event.kind in {'set_persisted', 'exercise_finalized', 'workout_finalized'}:
+                await self._enqueue(op)
+            else:
+                await self._decision(op.event_id, op.candidate.trigger_id, "silence", "pipeline_busy")
+            return
         admission = self.director.admit(op.candidate, self.now_ms())
         if not admission.ok:
             await self._decision(op.event_id, op.candidate.trigger_id, "silence", admission.reason or "no_window")
             return
         self.director.note_admitted(op.candidate)
+        self._transition(op, 'preparing')
         self.stats.triggers[op.candidate.trigger_id] += 1
+        self.active_op = op
         self.task = asyncio.create_task(self._pipeline(op, admission.max_words))
         self.task.add_done_callback(self._after)
 
     def _after(self, task: asyncio.Task) -> None:
-        if self.closed or task.cancelled() or self.queued is None:
+        if self.closed or task is not self.task or not self.queue:
             return
-        op, self.queued = self.queued, None
-        asyncio.get_running_loop().create_task(self._admit_and_start(op))
+        asyncio.get_running_loop().create_task(self._drain())
 
     def _started(self, message: dict) -> None:
         gid, duration = message.get("generationId"), _bounded_ms(message.get("durationMs"), 60_000)
-        entry = self.acks.get(gid) if isinstance(gid, str) else None
+        entry = self._ack(message)
         if entry is None:
             return
         op, text, used_ids = entry
+        if op.state.started:
+            self._duration(message, op)
+            return
+        if op.state.lifecycle != 'ready':
+            return
+        op.state.started = True
+        self._transition(op, 'started')
+        self._mark(op, "ackStart")
         now = self.now_ms()
-        self.director.note_audible(now, duration or 2_500, content=True)
+        op.state.audible_duration_ms = duration if duration is not None else 2_500
+        self.director.note_audible(now, op.state.audible_duration_ms, content=True, utterance_id=gid)
         # Only facts the line actually spoke are "mentioned"; keys are per source record, so the same
         # value in the next set (10 reps again) is a new fact, not a repeat.
         used = {memory_key(f): f.value for f in (op.package.facts if op.package else ()) if f.id in used_ids}
+        metadata = self.line_metadata.get(gid, {})
+        intent = metadata.get("intent")
+        tip = op.coach_context.tip if op.coach_context and "reviewed-tip" in used_ids else None
+        discussed = tuple((f.id, f.ref or "", f.provenance) for f in (
+            op.package.facts if op.package else ()) if f.id in used_ids)
         self.memory.note_started(Utterance(gid, op.candidate.trigger_id, op.candidate.topic_key, text, now,
-                                           duration or 2_500, exercise_id=op.exercise_id,
+                                           op.state.audible_duration_ms, exercise_id=op.exercise_id,
                                            topic_family=op.candidate.topic_family,
-                                           humor="humor" in op.intents and op.candidate.trigger_id == "T46"), used)
+                                           form=intent or "", energy=metadata.get("energy", ""), intent=intent,
+                                           humor=intent == "humor", tip_id=tip.tip_id if tip else None,
+                                           tip_version=tip.version if tip else None, discussed_facts=discussed,
+                                           motif=metadata.get("motif"), callback=metadata.get("callback", False),
+                                           phase_key=op.candidate.semantic_key), used,
+                                 callback=metadata.get("callback", False))
 
     async def cancel(self, reason: str) -> None:
+        ops = [entry[0] for entry in self.acks.values()]
+        ops += [op for op in [self.active_op, *self.queue] if op is not None]
+        for op in {id(op): op for op in ops}.values():
+            self._end_state(op, reason)
+            op.state.valid = False
+            self._mark(op, "ackCancel")
+        for op in list(self.queue):
+            await self._decision(op.event_id, op.candidate.trigger_id, 'silence', reason)
+        self.queue.clear()
+        for gid in list(self.acks):
+            self._duration({'generationId': gid}, self.acks[gid][0], interrupted=True)
+            self.memory.note_interrupted(gid)
+            self._finish(gid)
+        await self._cancel_task(reason)
+
+    async def _cancel_task(self, reason: str) -> None:
         task = self.task
         if task and not task.done():
             task.cancel()
@@ -277,7 +647,6 @@ class LiveCoach:
 
     async def close(self) -> None:
         self.closed = True
-        self.queued = None
         await self.cancel("cancelled")
 
     # ---------- event → opportunity ----------
@@ -300,10 +669,70 @@ class LiveCoach:
                              duration_hint_ms=hint, phase_started_ms=started, phase_length_ms=length,
                              topic_family=TRIGGERS[trigger].family)
 
-        def op(c: Candidate, task: str, intents: tuple[str, ...], package: FactPackage | None = None) -> Opportunity:
-            if self.settings.humor == "off":
+        def op(c: Candidate, task: str, intents: tuple[str, ...], package: FactPackage | None = None) -> Opportunity | str:
+            saved, feedback = None, None
+            set_ref = _ref(refs, "backendSetId")
+            if set_ref and event.kind in {"set_persisted", "rest_long_opportunity"}:
+                saved = history.load_saved_set(db, self.user_id, set_ref, history_consent=False)
+                if saved.current.ordinal != scope.set_ordinal:
+                    return "no_source"
+                feedback = history.explicit_feedback(db, self.user_id, set_ref, now_ms=now,
+                                                     ttl_ms=self.feedback_ttl_ms)
+            cc = build_context(event, context, c.phase, saved=saved, feedback=feedback)
+            if c.phase == "setup" and self.settings.exercise_intro and cc.setup_guidance:
+                task, intents = "setup/technique", ("general-tip",)
+                package = FactPackage(c.trigger_id, tuple(
+                    AllowedFact(key, text, "confirmed", text, scope_epoch=scope.scope_epoch,
+                                valid_until_ms=c.valid_until_ms, provenance="exercise-catalog-instructions",
+                                ref=f"catalog:{cc.exercise_slug}:{key}", sufficiency="limited")
+                    for key, text in cc.setup_guidance), Comparison("unavailable"), "none")
+                # One source-backed explanation replaces the motivational opening.
+                c = replace(c, duration_hint_ms=10_000)
+            if event.kind == "workout_started" and not self.settings.greeting and task != "setup/technique":
+                return "disabled"
+            if cc.tip and self.memory.tip_completed(cc.tip.tip_id, cc.tip.version):
+                cc = replace(cc, tip=None)
+            # Missing or fully explained guidance is not a reason to lose the
+            # support window. Keep the ordinary active safety/claim validator;
+            # strip the tip before constructing facts or author metadata.
+            if task == "active/general-tip" and cc.tip is None:
+                task, intents = "active/support", ("motivation",)
+            if cc.risk:
                 intents = tuple(i for i in intents if i != "humor") or ("motivation",)
-            return Opportunity(event.id, c, task, intents, scope, self._shape(package), scope.exercise_id)
+            if cc.tip and task in {"active/general-tip", "setup/opening", "rest/playful"}:
+                tip_fact = AllowedFact("reviewed-tip", cc.tip.text, "confirmed", cc.tip.tip_id,
+                                       scope_epoch=scope.scope_epoch, valid_until_ms=c.valid_until_ms,
+                                       provenance=cc.tip.source, ref=f"tip:{cc.tip.tip_id}:{cc.tip.version}",
+                                       sufficiency="sufficient")
+                package = replace(package, facts=(*package.facts, tip_fact)) if package else FactPackage(
+                    c.trigger_id, (tip_fact,), Comparison("unavailable"), "none")
+                if task == "rest/playful":
+                    task, intents = "rest/general-tip", ("general-tip",)
+            else:
+                if task != "setup/technique":
+                    intents = tuple(i for i in intents if i != "general-tip") or ("motivation",)
+            if self.settings.humor == "off" or not self.memory.humor_allowed():
+                intents = tuple(i for i in intents if i != "humor") or ("motivation",)
+            if package:
+                locked = [f for f in package.facts if f.id in package.locked_fact_ids]
+                if (not self.settings.say_weight and package.locked_clause and "вес" in package.locked_clause.lower()) or any((not self.settings.say_numbers and f.numbers)
+                       or (not self.settings.say_weight and f.id == "weight")
+                       or (not self.settings.say_exercise_name and f.id in NAME_FACTS)
+                       or (not self.settings.say_set_progress and f.id in PROGRESS_FACTS) for f in locked):
+                    return "restricted_content"
+            source_refs = tuple((key, value) for key in ("backendSetId", "backendExerciseId", "backendWorkoutId")
+                                if (value := _ref(refs, key)) is not None)
+            source_context = tuple((key, context[key]) for key in ("restMs", "restElapsedMs", "nextExerciseName",
+                                    "exerciseSlug", "variant", "controlMode", "moment", "phaseElapsedMs")
+                                   if key in context and isinstance(context[key], int | float | str)
+                                   and len(str(context[key])) <= 120)
+            shaped = self._shape(package)
+            cc = replace(cc, fact_ids=tuple(f.id for f in shaped.facts) if shaped else (),
+                         goal=self.settings.goal, experience=self.settings.experience)
+            action = speech_action(task)
+            c = replace(c, speech_action=action, priority=SPEECH_ACTIONS[action].priority)
+            return Opportunity(event.id, c, task, intents, scope, shaped, scope.exercise_id, event=event,
+                               source_refs=source_refs, source_context=source_context, coach_context=cc)
 
         def plan_package(trigger: str, found: list[AllowedFact | None]) -> FactPackage | None:
             kept = tuple(f for f in found if f is not None)
@@ -311,12 +740,14 @@ class LiveCoach:
 
         s = self.settings
         epoch, valid = scope.scope_epoch, now + 60_000
-        common = {"scope_epoch": epoch, "valid_until_ms": valid, "ref": f"{event.kind}:{set_key}"}
+        common = {"scope_epoch": epoch, "valid_until_ms": valid, "ref": f"{event.kind}:{set_key}",
+              "provenance": "runtime-event-declaration", "quantity_kind": "declared",
+              "sufficiency": "limited"}
         unit = "seconds" if event.exercise_kind in history.TIMED_KINDS else "reps"
         name = _name(context, "exerciseName")
         named = AllowedFact("exercise", f"Упражнение — {name}", "confirmed", name, **common) if name else None
         if event.kind == "workout_started":
-            if not s.greeting:
+            if not s.greeting and not s.exercise_intro:
                 return "disabled"
             count = _count(context, "exerciseCount")
             package = plan_package("T01", [
@@ -343,7 +774,7 @@ class LiveCoach:
                 named, position,
                 AllowedFact("plan-sets", f"По плану {spoken_quantity(sets, 'sets')}", "confirmed", sets, "sets",
                             numbers=(sets,), **common) if sets else None,
-                target, weight_fact(_kg(context, "weightKg"), prefix="Рабочий вес", **common)])
+                target, weight_fact(_kg(context, "weightKg"), prefix="Плановый вес", **common)])
             return op(candidate("T04", "setup", f"exercise-intro:{exercise}", hint=3_000), "setup/opening",
                       ("motivation",), package)
         if event.kind in SET_MOMENT_KINDS and event.phase == "active-set":
@@ -376,17 +807,20 @@ class LiveCoach:
             if set_id is None:
                 return "no_source"
             saved = history.load_saved_set(db, self.user_id, set_id, history_consent=s.history_consent)
+            if saved.current.ordinal != scope.set_ordinal:
+                return "no_source"
             comparison = saved.comparison if s.comparisons and s.say_numbers else Comparison("unavailable")
             package = saved_set_facts(saved.current, comparison, scope_epoch=epoch, valid_until_ms=valid,
                                       history=saved.history, ref=f"set:{set_id}")
             if package.trigger_id not in RESULT_TASKS:
                 return None  # Skipped set: local clip territory.
-            set_common = {**common, "ref": f"set:{set_id}"}
+            set_common = {**common, "ref": f"set:{set_id}", "provenance": "persisted-plan",
+                          "observed_at_ms": saved.current.observed_at_ms, "quantity_kind": "derived"}
             extra = [AllowedFact("exercise", f"Упражнение — {saved.exercise_name}", "confirmed", saved.exercise_name,
                                  **set_common)] if saved.exercise_name else []
             extra += progress_facts(saved.current.ordinal, saved.target_sets or None,
                                     next_exercise=_name(context, "nextExerciseName"), **set_common)
-            package = replace(package, facts=package.facts + tuple(extra))
+            package = replace(package, facts=package.facts + tuple(extra), source_signature=saved.source_signature)
             until = now - rest_elapsed + rest_ms - 3_000 if rest_ms else None
             c = candidate(package.trigger_id, "rest", f"set-result:{set_key}", until=until, hint=4_000,
                           started=now - rest_elapsed, length=rest_ms)
@@ -443,88 +877,256 @@ class LiveCoach:
 
     # ---------- pipeline ----------
 
+    def _sources_current(self, op: Opportunity) -> bool:
+        """Fresh sessions at the two async handoffs, never a DB query per chunk.
+
+        Rebuild the bounded semantic package as well as its persisted-source
+        revision. This catches deleted/updated results, changed plan/conditions,
+        ownership, and newly available or edited comparison history.
+        """
+        if (op.package is None or not op.package.source_signature) and not (
+            op.coach_context and (op.coach_context.tip or op.coach_context.feedback or op.coach_context.setup_guidance)):
+            return True  # Non-persisted declarations are governed by U01 context versions.
+        if op.event is None:
+            return False
+        try:
+            with self.sessions() as db:
+                fresh = self.plan(db, op.event, dict(op.source_refs), dict(op.source_context))
+        except history.HistoryError:
+            fresh = None
+        if not isinstance(fresh, Opportunity) or fresh.package is None:
+            op.state.valid = False
+            return False
+        if replace(fresh.coach_context, fact_ids=()) != replace(op.coach_context, fact_ids=()):
+            op.state.valid = False
+            return False
+        if not op.package or not op.package.source_signature:
+            return True  # Event declarations are versioned by U01; only tip/feedback is revalidated here.
+
+        def semantic(package: FactPackage) -> FactPackage:
+            return replace(package, facts=tuple(replace(f, valid_until_ms=0) for f in package.facts))
+
+        if semantic(additional_package(fresh.package, op.local_completion)) != semantic(op.package):
+            op.state.valid = False
+            return False
+        return True
+
     def _request(self, op: Opportunity, max_words: int) -> AuthorRequest:
         p = op.package
         s = self.settings
-        dark = s.edgy_opt_in and s.humor != "off"
+        # Do not invite the model to choose a fact that the heard-content guard
+        # will inevitably reject (notably the shared milestone in later support slots).
+        summary = op.candidate.trigger_id in SUMMARY_TRIGGERS
+        request_facts = tuple(f for f in p.facts if f.id in p.locked_fact_ids or
+                              self.memory.fact_allowed(memory_key(f), f.value, summary=summary)) if p else ()
+        _RUN_MEMORY.prune()
+        if self.cross_preferences:
+            self.cross_preferences = _CROSS_MEMORY.current(self.user_id)
+        risk = bool(op.coach_context and op.coach_context.risk)
+        dark = s.edgy_opt_in and s.humor != "off" and not risk
+        intents = op.intents
+        if s.humor == "off" or risk or not self.memory.humor_allowed():
+            intents = tuple(i for i in intents if i != "humor") or ("motivation",)
+        motif, callback = None, False
+        if (s.memory_enabled and "callbacks" in s.extras and "humor" in intents and not risk
+                and op.task == "rest/playful" and op.candidate.phase == "rest"):
+            if self.memory.motif is None:
+                motif = "спокойный ритм"
+            elif self.memory.callback_allowed(self.memory.motif, now_ms=self.now_ms(),
+                                              phase_key=op.candidate.semantic_key):
+                motif, callback = self.memory.motif, True
         return AuthorRequest(
-            op.candidate.trigger_id, op.candidate.phase, op.task, op.intents, op.candidate.topic_key, max(1, max_words),
-            p.facts if p else (), p.comparison.status if p else "unavailable", p.history if p else "unavailable",
+            op.candidate.trigger_id, op.candidate.phase, op.task, intents, op.candidate.topic_key, max(1, max_words),
+            request_facts, p.comparison.status if p else "unavailable", p.history if p else "unavailable",
             p.outcome if p and p.outcome != "none" else None, p.locked_clause if p else None,
             p.locked_fact_ids if p else (), recent_topics=tuple(self.memory.recent_topics()),
             recent_openings=tuple(self.memory.recent_openings()),
             summary=op.candidate.trigger_id in SUMMARY_TRIGGERS,
             name_allowed=bool(s.nickname), user_name=s.nickname or None, persona="sharp" if dark else "default",
-            style=s.style, humor=s.humor, humor_kinds=tuple(s.humor_kinds), dark_humor=dark,
-            extras=tuple(s.extras), address=s.address, verbosity=s.verbosity, praise=s.praise, goal=s.goal,
+            style=s.style, humor="off" if risk else s.humor, humor_kinds=() if risk else tuple(s.humor_kinds), dark_humor=dark,
+            extras=() if risk else tuple(s.extras), address=s.address, verbosity=s.verbosity, praise=s.praise, goal=s.goal,
             experience=s.experience, user_gender=s.user_gender, coach_gender=s.coach_gender, slang=s.slang,
-            say_numbers=s.say_numbers)
+            say_numbers=s.say_numbers, local_completion=op.local_completion.acknowledged if op.local_completion else (),
+            coach_context=op.coach_context, say_exercise_name=s.say_exercise_name,
+            recent_heard=self.memory.heard(), discussed_tips=tuple(self.memory.completed_tips)[-32:],
+            cross_workout_preferences=tuple(self.cross_preferences.items()) if s.memory_enabled else (),
+            optional_motif=motif, motif_callback=callback, category=op.candidate.topic_family)
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:
+        warmup = None
         try:
+            # Admission has already succeeded. Overlap only the transport handshake with text;
+            # voice reserve/dispatch and all generation remain in the existing _run path.
+            if self.settings.mode == "hybrid" and self.voice is not None and self.author is not None and self._current(op):
+                warmup = asyncio.create_task(self.voice.preconnect())
             await self._run(op, max_words)
         except asyncio.CancelledError:
+            self._end_state(op, 'cancelled')
             raise
         except Exception:  # A closed socket or provider bug must not leave an unobserved task error.
+            self._end_state(op, 'internal_error')
             self._note("internal_error")
+        finally:
+            if warmup is not None:
+                if not warmup.done():
+                    warmup.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await warmup
+            if op.state.lifecycle in {'pending', 'preparing'}:
+                self._end_state(op, 'expired' if op.deadline_ms is not None and self.monotonic_ms() > op.deadline_ms else 'cancelled')
 
     async def _run(self, op: Opportunity, max_words: int) -> None:
         trigger, gid = op.candidate.trigger_id, secrets.token_hex(12)
         opportunity = f"{self.run_id}:{op.key}"
+        if not self._current(op):
+            return
         if self.author is None:
             await self._decision(op.event_id, trigger, "silence", "provider_unavailable")
             return
-        outcome = await self.author.author(run_id=self.run_id, owner=self.owner, generation=self.generation,
-                                           opportunity=opportunity, request=self._request(op, max_words),
-                                           memory=self.memory, scope_epoch=op.scope.scope_epoch,
-                                           deadline_ms=op.candidate.valid_until_ms)
+        self._mark(op, "textStart")
+        memory_epoch = self.memory_epoch
+        request = self._request(op, max_words)
+        try:
+            outcome = await self.author.author(run_id=self.run_id, owner=self.owner, generation=self.generation,
+                                               opportunity=opportunity, request=request,
+                                               memory=self.memory, scope_epoch=op.scope.scope_epoch,
+                                               deadline_ms=op.candidate.valid_until_ms)
+        finally:
+            self._mark(op, "textEnd")
+        # Some providers swallow CancelledError. Task cancellation and terminal work
+        # invalidation are checked independently of the provider's returned outcome.
+        if not self._current(op) or memory_epoch != self.memory_epoch:
+            self._mark(op, "ackCancel")
+            return
         if outcome.kind != "speech":
             await self._decision(op.event_id, trigger, "silence", outcome.reason or "no_useful_content")
             return
+        if duplicate_local(outcome.text, op.local_completion):
+            await self._decision(op.event_id, trigger, 'silence', 'no_useful_content')
+            return
+        # Local full/closure is not evidence that the persisted plan was met. Keep
+        # partial/limited honesty even when the author chose a numeric highlight.
+        if op.local_completion and op.package and op.package.outcome in {'partial', 'limited'}:
+            honesty = next((f for f in op.package.facts if f.id == 'outcome'), None)
+            if honesty is not None and 'outcome' not in outcome.used_fact_ids:
+                outcome = replace(outcome, text=f'{honesty.claim}. {outcome.text}',
+                                  used_fact_ids=(*outcome.used_fact_ids, 'outcome'))
+        if not useful_addition(op.package, outcome.used_fact_ids, op.local_completion, outcome.text):
+            await self._decision(op.event_id, trigger, 'silence', 'no_useful_content')
+            return
+        if not self._sources_current(op):
+            self._mark(op, "ackCancel")
+            await self._decision(op.event_id, trigger, "silence", "facts_changed")
+            return
+        # A local clip/another playback ACK may start while text is being authored.
+        # Recheck occupancy only, not the already-consumed attempt/slot counters.
+        if not self.director.playback_fits(op.candidate, self.now_ms()):
+            await self._decision(op.event_id, trigger, "silence", "density_cap")
+            return
         valid_for = op.candidate.valid_until_ms - self.now_ms()
+        if op.deadline_ms is not None:
+            valid_for = min(valid_for, op.deadline_ms - self.monotonic_ms())
         if valid_for < 1_000:
             await self._decision(op.event_id, trigger, "silence", "expired")
             return
         if self.voice is None or self.settings.mode == "text-only":
             self.stats.spoken += 1
-            await self._decision(op.event_id, trigger, "text", None, outcome.text)
+            self._transition(op, 'ready')
+            await self._decision(op.event_id, trigger, "text", None, outcome.text, event=op.event)
             return
         try:
             delivery = Delivery(**(outcome.delivery or {}))
         except (TypeError, ValueError):
             delivery = Delivery()
         s = self.settings
-        delivery = Delivery(energy=delivery.energy if s.voice_energy == "auto" else s.voice_energy,
-                            pace=delivery.pace if s.voice_pace == "auto" else s.voice_pace, emphasis=delivery.emphasis)
+        delivery = select_delivery(delivery, intent=outcome.intent, action=op.candidate.speech_action,
+                       outcome=op.package.outcome if op.package else None,
+                       enabled=situational_delivery_enabled(), energy=s.voice_energy, pace=s.voice_pace)
         voice = VoiceOutcome()
-        await self.send_json({"type": "speech_start", "eventId": op.event_id, "triggerId": trigger, "generationId": gid,
-                              "text": outcome.text, "validForMs": round(valid_for), "sampleRate": 24_000,
-                              "source": self.voice.adapter.name})
+        self._transition(op, 'ready')
         self._remember(gid, op, outcome.text, outcome.used_fact_ids)
+        if gid in self.acks:
+            actual_motif = (request.optional_motif if request.optional_motif and outcome.intent == "humor"
+                            and request.optional_motif.casefold() in outcome.text.casefold() else None)
+            self.line_metadata[gid] = {"intent": outcome.intent, "energy": delivery.energy,
+                                       "motif": actual_motif, "callback": bool(actual_motif and request.motif_callback)}
+        checked_first_pcm = False
         try:
+            await self.send_json({"type": "speech_start", "eventId": op.event_id, "triggerId": trigger,
+                                  "generationId": gid, "text": outcome.text, "validForMs": round(valid_for),
+                                  "sampleRate": 24_000, "source": self.voice.adapter.name,
+                                  **({"identity": identity(op.event)} if op.event else {})})
+            if not self._current(op):
+                raise asyncio.CancelledError
             async with contextlib.aclosing(self.voice.stream(
                     run_id=self.run_id, owner=self.owner, generation=self.generation, opportunity=opportunity,
                     text=outcome.text, scope=op.scope, generation_id=gid, outcome=voice, delivery=delivery)) as frames:
                 async for frame in frames:
+                    self._voice_state(op, voice)
+                    if not self._current(op):
+                        raise asyncio.CancelledError
+                    if not checked_first_pcm and decode_frame(frame).data:
+                        checked_first_pcm = True
+                        if not self._sources_current(op):
+                            await self._decision(op.event_id, trigger, "silence", "facts_changed")
+                            raise _FactsChangedError
+                        self._mark(op, "firstPcm")
                     await self.send_bytes(frame)
+            if not self._current(op):
+                raise asyncio.CancelledError
+        except _FactsChangedError:
+            self._voice_state(op, voice)
+            op.state.valid = False
+            self._mark(op, "ackCancel")
+            self._mark(op, "speechEnd")
+            self._finish(gid)
+            await self.send_json({"type": "speech_end", "generationId": gid, "status": "cancelled",
+                                  "reason": "facts_changed", "frames": voice.frames, **self._speech_metadata(op, voice)})
+            return
         except asyncio.CancelledError:
+            self._voice_state(op, voice)
+            op.state.valid = False
+            self._mark(op, "ackCancel")
+            self._mark(op, "speechEnd")
+            self._finish(gid)
             with contextlib.suppress(Exception):
                 await self.send_json({"type": "speech_end", "generationId": gid, "status": "cancelled",
-                                      "reason": "cancelled", "frames": voice.frames})
+                                      "reason": "cancelled", "frames": voice.frames, **self._speech_metadata(op, voice)})
             raise
+        except Exception:
+            self._voice_state(op, voice)
+            op.state.valid = False
+            self._mark(op, "ackCancel")
+            self._mark(op, "speechEnd")
+            self._finish(gid)
+            with contextlib.suppress(Exception):
+                await self.send_json({"type": "speech_end", "generationId": gid, "status": "failed",
+                                      "reason": "internal_error", "frames": voice.frames,
+                                      **self._speech_metadata(op, voice)})
+            raise
+        self._voice_state(op, voice)
         if voice.status == "complete":
             self.stats.spoken += 1
             if voice.first_audio_ms is not None:
                 self.stats.first_audio_ms.append(voice.first_audio_ms)
         else:
+            op.state.valid = False
+            self._mark(op, "ackCancel")
+            self._finish(gid)
             self._note(voice.reason or voice.status)
+        self._mark(op, "speechEnd")
         await self.send_json({"type": "speech_end", "generationId": gid, "status": voice.status,
-                              "reason": voice.reason or None, "frames": voice.frames, "firstAudioMs": voice.first_audio_ms})
+                              "reason": voice.reason or None, "frames": voice.frames, **self._speech_metadata(op, voice)})
 
     def _remember(self, gid: str, op: Opportunity, text: str, used: tuple[str, ...] = ()) -> None:
+        if gid in self.terminal or gid in self.acks or not op.state.valid:
+            return
         self.acks[gid] = (op, text, tuple(used))
         while len(self.acks) > MAX_PENDING_ACKS:
-            self.acks.pop(next(iter(self.acks)))
+            oldest = next(iter(self.acks))
+            self.acks[oldest][0].state.valid = False
+            self._mark(self.acks[oldest][0], "ackCancel")
+            self._finish(oldest)
 
     # ---------- outbound ----------
 
@@ -535,19 +1137,37 @@ class LiveCoach:
         self._note(reason)
         await self.send_json({"type": "event_rejected", "eventId": event_id, "reason": reason})
 
-    async def _decision(self, event_id: str, trigger: str | None, action: str, reason: str | None, text: str = "") -> None:
+    async def _decision(self, event_id: str, trigger: str | None, action: str, reason: str | None, text: str = "", *,
+                        event: CoachEvent | None = None) -> None:
+        op = self.opportunities.get(event_id)
+        if op is not None and action == 'silence':
+            self._end_state(op, reason or 'no_useful_content')
         if reason:
             self._note(reason)
         await self.send_json({"type": "decision", "eventId": event_id, "triggerId": trigger, "action": action,
-                              "reason": reason, **({"text": text} if text else {})})
+                              "reason": reason, **({"text": text} if text else {}),
+                              **({"identity": identity(event)} if event else {})})
 
 
-# ---------- active sockets (session-only memory lives here) ----------
+# ---------- process-local bounded memory; sockets never replay old events ----------
 
 _ACTIVE: set[LiveCoach] = set()
+_RUN_MEMORY = RunMemoryStore()
+_CROSS_MEMORY = CrossWorkoutStore()
 
 
 def register(coach: LiveCoach) -> None:
+    coach.memory, previous_director, coach.seen = _RUN_MEMORY.attach(
+        coach.user_id, coach.run_id, coach.memory, coach.director, coach.seen)
+    coach.director = previous_director
+    coach.director.memory = coach.memory
+    coach.director.set_profile(coach.settings.density)
+    coach.director.gap_scale = GAP_SCALE[coach.settings.pause_gap]
+    coach.director.words_scale = WORDS_SCALE[coach.settings.verbosity]
+    if not coach.settings.memory_enabled:
+        coach.memory.clear()
+    coach.memory.enabled = coach.settings.memory_enabled
+    coach.cross_preferences = _CROSS_MEMORY.exchange(coach.user_id, coach.run_id, coach.settings)
     _ACTIVE.add(coach)
 
 
@@ -556,15 +1176,33 @@ def unregister(coach: LiveCoach) -> None:
 
 
 def forget_user(user_id: str) -> int:
-    """Delete memory: drop remembered phrases/topics/callbacks of every live socket of this user."""
+    """Clear live AND cached runs, including in-flight publication, without resetting safety/pacing."""
+    cached = _RUN_MEMORY.forget(user_id)
+    _CROSS_MEMORY.forget(user_id)
     cleared = 0
     for coach in list(_ACTIVE):
         if coach.user_id == user_id:
-            coach.memory = CoachMemory()
-            coach.director.memory = coach.memory  # Pacing/safety latch stay: they are not personal memory.
-            coach.acks.clear()
+            coach.memory.clear()
+            coach.cross_preferences.clear()
+            coach.memory_epoch += 1
+            for op in [coach.active_op, *coach.queue, *(entry[0] for entry in coach.acks.values())]:
+                if op is not None:
+                    op.state.valid = False
+            coach.queue.clear()
+            for gid in list(coach.acks):
+                coach._finish(gid)
+            _RUN_MEMORY.attach(user_id, coach.run_id, coach.memory, coach.director, coach.seen)
             cleared += 1
-    return cleared
+    return max(cached, cleared)
+
+
+def update_memory_preferences(user_id: str, settings: CoachPreferences) -> None:
+    # Preference changes invalidate old drafts; withdrawal deletes retained data immediately.
+    forget_user(user_id)
+    for coach in list(_ACTIVE):
+        if coach.user_id == user_id:
+            coach.settings = settings
+            coach.memory.enabled = settings.memory_enabled
 
 
 # ---------- provider pipeline (paid only behind operator flags + verified pricing + vault key) ----------
@@ -605,7 +1243,8 @@ async def default_pipeline(sessions: Callable[[], Session], prefs: CoachPreferen
             # Live speech and prepared packs share the Realtime voice timbre (decision D-E08.7).
             adapter = RealtimeVoiceAdapter(websocket_connect, key, model=cfg.coach_voice_realtime_model,
                                            voice=prefs.voice_profile,
-                                           reasoning_effort=cfg.coach_voice_realtime_reasoning_effort, keep_alive=True)
+                                           reasoning_effort=cfg.coach_voice_realtime_reasoning_effort, keep_alive=True,
+                                           situational_enabled=situational_delivery_enabled())
             pipeline.voice = VoiceStreamer(sessions, adapter, voice_price)
             pipeline.closers.insert(0, adapter.aclose)
         else:

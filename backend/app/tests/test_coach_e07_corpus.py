@@ -39,7 +39,7 @@ SEVEN = AllowedFact("saved-set", "Выполнено семь повторени
 PARTIAL = AllowedFact("outcome", "План подхода выполнен частично", "confirmed", "partial")
 COMPARISON = AllowedFact("comparison", "С тем же весом раньше было 9, сегодня 10", "derived-validated", 1, "reps",
                          ("comparison",), (9, 10))
-CLAUSE = "С тем же весом раньше было девять повторений, сегодня десять."
+CLAUSE = "При том же плановом весе раньше было девять повторений, сегодня десять."
 INTENTS = ("factual-feedback", "motivation", "humor")
 
 REQUESTS = {
@@ -231,11 +231,11 @@ def test_corpus_memory_blocks_repeats_and_guards_fact_mentions():
 def current(**changes):
     base = dict(set_id="s2", user_id="alexey", exercise_slug="chest-press", progress_unit="reps", set_type="working",
                 ordinal=1, value=10, outcome="completed", target=10, weight_kg=40.0, load_mode="constant",
-                range_id="r1", calibration_id="c1", count_method="sensor")
+                range_id="r1", calibration_id="c1", count_method="sensor", exercise_kind="machine")
     return SetResult(**{**base, **changes})
 
 
-PREVIOUS = current(set_id="s1", value=9)
+PREVIOUS = current(set_id="s1", value=9, target=9)
 COMPARISONS = [
     ("identical", current(), PREVIOUS, "available", "comparable"),
     ("within-resolution", current(weight_kg=40.2), PREVIOUS, "available", "comparable"),
@@ -270,7 +270,7 @@ def test_corpus_history_comparison_policy(name, cur, prev, history, status):
 FACT_CASES = [
     ("improved", current(), PREVIOUS, "T39", CLAUSE),
     ("equal", current(), current(set_id="s1"), "T40", "Повторили прошлый результат: десять повторений."),
-    ("lower-no-opt-in", current(value=8), PREVIOUS, "T36", None),
+    ("lower-no-opt-in", current(value=8, target=8), PREVIOUS, "T36", None),
     ("partial", current(value=7, outcome="partial"), PREVIOUS, "T37", None),
     ("skipped", current(value=0, outcome="skipped"), PREVIOUS, "T38", None),
     ("limited", current(weight_kg=50), PREVIOUS, "T36", None),

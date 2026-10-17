@@ -71,6 +71,39 @@ def test_rep_counter_full_and_partial() -> None:
     assert (counter.full, counter.partial) == (1, 1)
 
 
+@pytest.mark.parametrize("start_upper", [False, True])
+def test_rep_counter_waits_for_return_to_start_not_full_amplitude_share(start_upper: bool) -> None:
+    counter = RepCounter(lower_mm=500, upper_mm=1000)
+
+    def update(x: float) -> str | None:
+        # The workout mirrors physical positions for an upper-start set.
+        return counter.update(1500 - x if start_upper else x)
+
+    outward = list(range(1000, 499, -10)) if start_upper else list(range(500, 1001, 10))
+    returning = list(range(510, 981, 10)) if start_upper else list(range(990, 519, -10))
+    for x in [*outward, *returning]:
+        assert update(x) is None
+        assert (counter.full, counter.partial) == (0, 0)
+
+    # The endpoint tolerance, not the 85% classification threshold, closes the rep.
+    assert update(990 if start_upper else 510) == "full"
+    assert (counter.full, counter.partial) == (1, 0)
+    for x in [1000 if start_upper else 500] * 5:
+        assert update(x) is None
+    assert counter.events == ["full"]
+
+
+def test_rep_counter_short_return_is_classified_only_after_reversal() -> None:
+    counter = RepCounter(lower_mm=500, upper_mm=1000)
+    for x in [*range(500, 1001, 10), *range(990, 549, -10), 560]:
+        assert counter.update(x) is None
+    # A new outward stroke confirms the shallow return; no duplicate at its top.
+    assert counter.update(570) == "full"
+    for x in range(580, 1001, 10):
+        assert counter.update(x) is None
+    assert counter.events == ["full"]
+
+
 def test_rep_counter_keeps_counting_after_a_deeper_bottom() -> None:
     # rep 4 dips 20 mm below the range; later bottoms stop 5–10 mm above the bound — all reps still count
     counter = RepCounter(lower_mm=500, upper_mm=800)

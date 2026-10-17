@@ -1,14 +1,68 @@
-import { render, screen, within } from '@testing-library/react'
+import { act, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { machineScenarios } from '@/mocks/data'
-import { FormaShell, TopNavigationMenu, TopSystemBar } from '@/shared/ui/layout/forma-shell'
+import { FormaShell, ResetBlockButton, TopNavigationMenu, TopSystemBar } from '@/shared/ui/layout/forma-shell'
 import { Button } from '@/shared/ui/button'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { getSafetyLabel } from '@/shared/lib/machine-status'
+import { useAppStore } from '@/stores/app-store'
+import type { HardwareCommandResponse, HardwareSnapshot } from '@/features/hardware/model/types'
 
-afterEach(() => useHardwareStore.setState({ snapshot: null, connectionStatus: 'idle' }))
+afterEach(() => {
+  vi.restoreAllMocks()
+  useHardwareStore.setState({ snapshot: null, connectionStatus: 'idle', errorMessage: null })
+  useAppStore.setState({ emergencyStopActive: false })
+})
+
+describe('ResetBlockButton', () => {
+  const stopped = { ...machineScenarios.ready, machineState: 'blocked' as const, safety: 'emergency_stop' as const }
+  const snapshot = (stopped: boolean) => ({
+    safety: { state: stopped ? 'emergency_stop' : 'enabled' },
+    control: { mode: stopped ? 'estop' : 'idle' },
+  }) as HardwareSnapshot
+
+  it('clears an emergency through the guarded STOP command, not reset_fault', async () => {
+    useAppStore.setState({ emergencyStopActive: true })
+    useHardwareStore.setState({ snapshot: snapshot(true) })
+    const run = vi.spyOn(useHardwareStore.getState(), 'runCommand').mockResolvedValue({ snapshot: snapshot(false) } as HardwareCommandResponse)
+    render(<ResetBlockButton machine={stopped} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить ошибку' }))
+    expect(run).toHaveBeenCalledExactlyOnceWith({ action: 'clear_emergency_stop' })
+    await waitFor(() => expect(useAppStore.getState().emergencyStopActive).toBe(false))
+  })
+
+  it('waits for panel confirmation before dismissing the emergency overlay', async () => {
+    useAppStore.setState({ emergencyStopActive: true })
+    useHardwareStore.setState({ snapshot: snapshot(true) })
+    const run = vi.spyOn(useHardwareStore.getState(), 'runCommand').mockResolvedValue({ status: 'pending', snapshot: snapshot(true) } as HardwareCommandResponse)
+    render(<ResetBlockButton machine={stopped} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить ошибку' }))
+    expect(run).toHaveBeenCalledExactlyOnceWith({ action: 'clear_emergency_stop' })
+    expect(useAppStore.getState().emergencyStopActive).toBe(true)
+    act(() => useHardwareStore.setState({ snapshot: snapshot(false) }))
+    expect(useAppStore.getState().emergencyStopActive).toBe(false)
+  })
+
+  it('preserves the emergency and displays a refusal when the physical STOP is pressed', async () => {
+    useAppStore.setState({ emergencyStopActive: true })
+    useHardwareStore.setState({ snapshot: snapshot(true) })
+    const run = vi.spyOn(useHardwareStore.getState(), 'runCommand').mockRejectedValue(new Error('Физическая кнопка STOP нажата'))
+    render(<ResetBlockButton machine={stopped} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить ошибку' }))
+    await waitFor(() => expect(useHardwareStore.getState().errorMessage).toBe('Физическая кнопка STOP нажата'))
+    expect(useAppStore.getState().emergencyStopActive).toBe(true)
+    expect(run).toHaveBeenCalledTimes(1)
+  })
+
+  it('still resets ordinary faults without sending clear_stop', async () => {
+    const run = vi.spyOn(useHardwareStore.getState(), 'runCommand').mockResolvedValue({ snapshot: snapshot(false) } as HardwareCommandResponse)
+    render(<ResetBlockButton machine={{ ...machineScenarios.ready, machineState: 'blocked' }} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Сбросить ошибку' }))
+    expect(run).toHaveBeenCalledExactlyOnceWith({ action: 'reset_fault' })
+  })
+})
 
 describe('TV system status', () => {
   it('keeps healthy status visible and discloses details without an action', async () => {

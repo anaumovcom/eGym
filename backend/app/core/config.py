@@ -5,6 +5,8 @@ from typing import Literal
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.coach_limits import COACH_MAX_TEXT_OUTPUT_TOKENS, COACH_TEXT_OUTPUT_TOKENS
+
 BACKEND_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SQLITE_PATH = BACKEND_ROOT / "egym_local.db"
 DEFAULT_OPENAPI_EXPORT_PATH = BACKEND_ROOT / "openapi" / "openapi.json"
@@ -30,12 +32,16 @@ class Settings(BaseSettings):
     coach_text_cached_rate: int = Field(default=10_000, ge=0, alias="COACH_TEXT_CACHED_RATE")
     coach_text_output_rate: int = Field(default=500_000, ge=0, alias="COACH_TEXT_OUTPUT_RATE")
     coach_text_pricing_verified: bool = Field(default=True, alias="COACH_TEXT_PRICING_VERIFIED")
-    coach_text_max_output_tokens: int = Field(default=400, ge=64, le=2000, alias="COACH_TEXT_MAX_OUTPUT_TOKENS")
+    # Accept legacy small values; TextAuthor applies the shared safe minimum.
+    coach_text_max_output_tokens: int = Field(default=COACH_TEXT_OUTPUT_TOKENS, ge=64,
+                                            le=COACH_MAX_TEXT_OUTPUT_TOKENS, alias="COACH_TEXT_MAX_OUTPUT_TOKENS")
     # Documented gpt-6-luna values: none|low|medium(default)|high|xhigh|max. Low keeps rest-phase latency short.
     coach_text_reasoning_effort: Literal["none", "low", "medium"] = Field(default="low", alias="COACH_TEXT_REASONING_EFFORT")
     # E08 voice: paid dispatch on by default (user decision 08.10.2026); same vault/consent/cap gates as text.
     coach_paid_voice_enabled: bool = Field(default=True, alias="COACH_PAID_VOICE_ENABLED")
     coach_voice_pricing_verified: bool = Field(default=True, alias="COACH_VOICE_PRICING_VERIFIED")
+    # Candidate also requires recorded listening acceptance in code; never enables/regenerates packs.
+    coach_situational_delivery_enabled: bool = Field(default=False, alias="COACH_SITUATIONAL_DELIVERY_ENABLED")
     coach_voice_realtime_model: str = Field(default="gpt-realtime-2.1-mini", max_length=80, alias="COACH_VOICE_REALTIME_MODEL")
     # Realtime 2 prompting guide: minimal|low|medium|high|xhigh. Unset by default: the probe of 08.10.2026 showed that
     # "minimal" makes response.done report input_tokens=0 (billing basis unknown) while saving only ~12 reasoning tokens.

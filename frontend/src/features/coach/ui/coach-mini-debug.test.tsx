@@ -9,6 +9,7 @@ import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import type { LocalAudioRuntimeSnapshot } from '../audio/local-audio-runtime'
 import type { LocalAudioSnapshot } from '../audio/local-coach-audio-manager'
+import { coachLiveRuntime } from '../live/coach-live-runtime'
 import { CoachLocalPreview, CoachMiniDebug, CoachNetworkDiagnostics } from './coach-mini-debug'
 
 const mocks = vi.hoisted(() => ({
@@ -37,7 +38,7 @@ const base: LocalAudioRuntimeSnapshot = {
 const audio: LocalAudioSnapshot = {
   pending: 1, active: 2, audible: 2, foreground: 'tone-3', startOrdinal: 3,
   utterances: [{ id: 'tone-3', scope: { schemaVersion: 1, userId: 'actual-A', runId: 'preview', exerciseId: 'test', setOrdinal: null, scopeEpoch: 0 },
-    source: 'local', state: 'started', startOrdinal: 3, baseGain: 1, coefficient: .7, gain: .65, targetGain: .7, scheduledStartTime: 1 }],
+    source: 'local', state: 'started', startOrdinal: 3, baseGain: 1, coefficient: .7, gain: .65, targetGain: .7, scheduledStartTime: 1, stream: null }],
   counters: { enqueued: 4, started: 3, finished: 1, cancelled: 0, rejected: 2 },
   lastActualSource: 'cache', contextState: 'running', volume: .63, muted: false, reason: 'started', disposed: false,
   timeline: Array.from({ length: 40 }, (_, index) => ({ atMs: index, reason: 'started' as const, startOrdinal: index, source: 'local' as const })),
@@ -58,6 +59,19 @@ beforeEach(() => {
 afterEach(() => { cleanup(); useAppStore.setState(initialApp, true); vi.unstubAllGlobals() })
 
 describe('CoachMiniDebug', () => {
+  it('shows the workout mixer rather than the unrelated preview during live speech', () => {
+    const live = coachLiveRuntime.getSnapshot()
+    const read = vi.spyOn(coachLiveRuntime, 'getSnapshot').mockReturnValue({ ...live, audio: { ...audio, lastActualSource: 'realtime' }, reason: 'admitted' })
+    try {
+      render(<CoachMiniDebug />)
+      fireEvent.click(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }))
+      expect(screen.getByText('REALTIME')).toBeInTheDocument()
+      expect(screen.getByText('Старты тренировочного микшера').nextSibling).toHaveTextContent('3')
+      expect(screen.getByText('2 / 2 / 1')).toBeInTheDocument()
+      expect(screen.queryByText(/Только тестовые тоны, не выбранный голос/)).not.toBeInTheDocument()
+    } finally { cleanup(); read.mockRestore() }
+  })
+
   it.each([false, true])('anchors the native portal below the whole header, not the trigger row, compact=%s', hideNavigation => {
     render(<MemoryRouter><FormaShell machine={machineScenarios.ready} userName="Алексей" onStop={vi.fn()} hideNavigation={hideNavigation} /></MemoryRouter>)
     const trigger = screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' })
@@ -241,9 +255,19 @@ describe('CoachLocalPreview', () => {
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
     render(<CoachNetworkDiagnostics snapshot={{ state: 'ready', reason: null, mode: 'hybrid', voiceId: 'ash', text: true, voice: true,
       degraded: false, eventsSent: 3, streams: 1, spoken: 1, failed: 0, firstAudioMs: 640, lastText: 'Отличный подход',
+      firstAudioMsLabel: 'voice-only', latencies: {
+        'eventToPlaybackStart:workout_started:realtime:voiceModel=gpt-realtime-2.1-mini:textModel=gpt-6-luna:connection=warm': { count: 3, p50: 700, p95: 950 },
+        'firstAcceptedPcmMs:workout_started:realtime:voiceModel=gpt-realtime-2.1-mini:textModel=gpt-6-luna:connection=warm': { count: 3, p50: 500, p95: 800 },
+      }, serverTimings: {},
+      telemetry: { classified: 0, missingClassification: 0, pendingClassification: 0, retained: 0 },
       reasons: { pipeline_busy: 1 }, usage: { requests: 2, settledMicros: 12_340, pendingMicros: 0, capMicros: 2_000_000, limitKind: 'strict-reservations' },
       decisions: [{ atMs: 1, triggerId: 'T21', action: 'silence', reason: 'pipeline_busy', text: null }] }} />)
     expect(screen.getByText('$0.0123 / $0.0000 / $2.0000 · 2 запр.')).toBeVisible()
+    expect(screen.getByText('Голос → первый PCM')).toBeVisible()
+    expect(screen.getByText('640 мс (последний)')).toBeVisible()
+    expect(screen.getByText('Событие → старт · workout_started · p95')).toBeVisible()
+    expect(screen.getByText('950 мс · n=3')).toBeVisible()
+    expect(screen.queryByText('800 мс · n=3')).not.toBeInTheDocument()
     expect(screen.getByText(/T21 · silence · Тренер уже говорит/)).toBeVisible()
     fireEvent.click(screen.getByRole('button', { name: 'Скопировать отчёт' }))
     expect(writeText).toHaveBeenCalledOnce()

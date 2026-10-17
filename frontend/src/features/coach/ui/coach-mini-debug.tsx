@@ -2,6 +2,7 @@ import * as Popover from '@radix-ui/react-popover'
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useSafetyDockTarget } from '@/shared/ui/overlays/safety-dialog'
 import { localAudioRuntime, type LocalAudioRuntimeSnapshot } from '../audio/local-audio-runtime'
+import type { LocalAudioSnapshot } from '../audio/local-coach-audio-manager'
 import { coachLiveRuntime, coachNetworkClient, type LiveRuntimeSnapshot } from '../live/coach-live-runtime'
 import { redactedNetworkReport, type NetworkSnapshot } from '../live/coach-network-client'
 import { coachSettingsApi, type DailyUsage } from '../lib/settings-api'
@@ -20,6 +21,9 @@ const reasons: Readonly<Record<string, string>> = {
   pipeline_busy: 'Тренер уже говорит', provider_unavailable: 'Провайдер недоступен', stale_run: 'Настройки изменились, переподключение',
   local_mode: 'Сервер в локальном режиме', coach_disabled: 'Тренер выключен на сервере (COACH_ENABLED)', run_not_found: 'Ledger не найден', budget: 'Лимит бюджета', degraded: 'Только локальные клипы',
   no_useful_content: 'Нечего сказать', validation_failed: 'Текст отклонён проверкой', closed: 'Соединение закрыто', network: 'Сеть недоступна',
+  'paused-set': 'Подход поставлен на паузу', plan_changed: 'План или настройки упражнения изменились',
+  playback_failed: 'Воспроизведение отменено', watchdog: 'Поток аудио перестал поступать',
+  rate_limited: 'Превышена частота сообщений', credential_unavailable: 'Доступ провайдера недоступен', voice_unavailable: 'Live-голос недоступен',
 }
 const reasonLabel = (reason: string) => reasons[reason] ?? reason
 
@@ -79,7 +83,9 @@ export function CoachNetworkDiagnostics({ snapshot }: { snapshot: NetworkSnapsho
       <div><dt>Состояние</dt><dd>{networkStates[snapshot.state]}{snapshot.reason ? ` · ${reasonLabel(snapshot.reason)}` : ''}</dd></div>
       <div><dt>Режим / голос</dt><dd>{snapshot.mode ?? '—'} / {snapshot.voiceId ?? '—'}{snapshot.degraded ? ' · деградация' : ''}</dd></div>
       <div><dt>События / потоки / сказано / сбои</dt><dd>{`${snapshot.eventsSent} / ${snapshot.streams} / ${snapshot.spoken} / ${snapshot.failed}`}</dd></div>
-      <div><dt>Первый звук провайдера</dt><dd>{snapshot.firstAudioMs === null ? '—' : `${snapshot.firstAudioMs} мс`}</dd></div>
+      <div><dt>Голос → первый PCM</dt><dd>{snapshot.firstAudioMs === null ? '—' : `${snapshot.firstAudioMs} мс (последний)`}</dd></div>
+      {Object.entries(snapshot.latencies).filter(([key]) => key.startsWith('eventToPlaybackStart:')).map(([key, metric]) =>
+        <div key={key} title={key}><dt>Событие → старт · {key.split(':')[1]} · p95</dt><dd>{`${metric.p95} мс · n=${metric.count}`}</dd></div>)}
       <div><dt>Расход (settled / pending / cap)</dt><dd>{usage ? `${usd(usage.settledMicros)} / ${usd(usage.pendingMicros)} / ${usd(usage.capMicros)} · ${usage.requests} запр.` : '—'}</dd></div>
       {snapshot.lastText && <div><dt>Последний текст</dt><dd>{snapshot.lastText}</dd></div>}
     </dl>
@@ -110,14 +116,15 @@ export function CoachLiveDiagnostics({ snapshot }: { snapshot: LiveRuntimeSnapsh
 }
 
 /** Only runtime/manager observations; never lifecycle event.source or provider estimates. */
-export function CoachLocalDiagnostics({ snapshot }: { snapshot: LocalAudioRuntimeSnapshot }) {
-  const audio = snapshot.audio
+export function CoachLocalDiagnostics({ snapshot, audio = snapshot.audio, reason = snapshot.reason, live = false }: {
+  snapshot: LocalAudioRuntimeSnapshot; audio?: LocalAudioSnapshot | null; reason?: string; live?: boolean
+}) {
   const foreground = audio?.utterances.find(item => item.id === audio.foreground)?.startOrdinal
   return <div className="coach-local-diagnostics">
-    <p className="coach-local-reason">{reasonLabel(snapshot.reason)} <code>{snapshot.reason}</code></p>
+    <p className="coach-local-reason">{reasonLabel(reason)} <code>{reason}</code></p>
     <dl className="coach-local-metrics">
       <div><dt>Последний фактический источник</dt><dd>{audio?.lastActualSource?.toUpperCase() ?? '—'}</dd></div>
-      <div><dt>Локальные старты</dt><dd>{audio?.counters.started ?? 0}</dd></div>
+      <div><dt>{live ? 'Старты тренировочного микшера' : 'Локальные старты'}</dt><dd>{audio?.counters.started ?? 0}</dd></div>
       <div><dt>Активные / слышимые / ожидающие</dt><dd>{audio ? `${audio.active} / ${audio.audible} / ${audio.pending}` : '—'}</dd></div>
       <div><dt>Передний план · номер старта</dt><dd>{foreground ?? '—'}</dd></div>
       <div><dt>AudioContext</dt><dd>{audio?.contextState ?? 'Не наблюдался'}</dd></div>
@@ -127,8 +134,8 @@ export function CoachLocalDiagnostics({ snapshot }: { snapshot: LocalAudioRuntim
       <div><dt>Enqueued / finished / cancelled / rejected</dt><dd>{audio ? `${audio.counters.enqueued} / ${audio.counters.finished} / ${audio.counters.cancelled} / ${audio.counters.rejected}` : '—'}</dd></div>
       <div><dt>Причина менеджера</dt><dd>{audio?.reason ?? '—'}</dd></div>
     </dl>
-    <p className="coach-local-note">Платная генерация отсутствует в локальном тесте. Usage неизвестен для локальных клипов; расход live-тренера показан в разделе «Сеть».</p>
-    <p className="coach-local-note">Старты наблюдаются по времени AudioContext, не подтверждают звук на устройстве. Только тестовые тоны, не выбранный голос.</p>
+    <p className="coach-local-note">{live ? 'Микшер тренировки: live-речь и локальные фразы. Расход показан в разделе «Сеть».' : 'Платная генерация отсутствует в локальном тесте. Usage неизвестен для локальных клипов; расход live-тренера показан в разделе «Сеть».'}</p>
+    <p className="coach-local-note">{live ? 'Старты наблюдаются по времени AudioContext, не подтверждают звук на устройстве.' : 'Старты наблюдаются по времени AudioContext, не подтверждают звук на устройстве. Только тестовые тоны, не выбранный голос.'}</p>
     {audio && audio.utterances.length > 0 && <section aria-label="Коэффициенты микшера">
       <h4>Коэффициенты микшера</h4>
       <ul>{audio.utterances.map((item, index) => <li key={item.id}>#{item.startOrdinal ?? `ожидание ${index + 1}`} · {item.state} · base {item.baseGain.toFixed(3)} · coef {item.coefficient.toFixed(3)} · gain {item.gain.toFixed(3)} → {item.targetGain.toFixed(3)}</li>)}</ul>
@@ -224,7 +231,7 @@ export function CoachMiniDebug() {
         <Popover.Content className="coach-mini-debug-popover" style={{ maxHeight: Math.min(640, availableHeight) }} aria-label="Локальная диагностика AI-тренера" side="bottom" align="end" sideOffset={8} avoidCollisions={false} updatePositionStrategy="always" onCloseAutoFocus={event => { if (target !== null) event.preventDefault() }}>
         <header><h3>AI · Локальная диагностика</h3><Popover.Close aria-label="Закрыть диагностику AI">×</Popover.Close></header>
         {dailyText && <p className="coach-local-note">{dailyText}</p>}
-        <CoachLocalDiagnostics snapshot={snapshot} />
+        <CoachLocalDiagnostics snapshot={snapshot} audio={live.audio ?? snapshot.audio} reason={live.audio ? live.reason : snapshot.reason} live={!!live.audio} />
         <CoachLiveDiagnostics snapshot={live} />
         {live.network && <CoachNetworkDiagnostics snapshot={live.network} />}
       </Popover.Content>

@@ -80,6 +80,8 @@ DESCENT_GAIN_FADE_START = 0.4  # × max_descent_mm_s
 FLOOR_K_N_PER_MM = 3.0
 FLOOR_MAX_N = 120.0
 FLOOR_RETURN_MM_S = 60.0  # …and fades out above this return speed
+# Upward pulls aim slightly past the calibrated rep point; never extend the machine's soft travel.
+UPWARD_TOP_EXTRA_MM = 5.0
 # above the upper point a brake stops the bar's momentum within RANGE_STOP_MM
 RANGE_STOP_MM = 25.0
 RANGE_STOP_MIN_MM = 5.0
@@ -656,6 +658,13 @@ class MotorCore:
         mass = min(float(self.profile.side(side).moving_mass_kg.value) for side in SIDES)
         return min(RANGE_DAMPING_N_PER_MM_S, FIXED_DAMPING_DELAY_SHARE * mass / (1000.0 * self._loop_delay()))
 
+    def _range_upper_mm(self) -> float:
+        """Motor return point only: calibration, load curves and rep counting keep their original bounds."""
+        upper = self.load.upper_mm
+        if self.load.load_direction == "up":
+            upper += max(0.0, min(UPWARD_TOP_EXTRA_MM, self.envelope.soft_max_mm - upper))
+        return upper
+
     def _update_range(self, states: dict[Side, ObservedState]) -> None:
         """Once per tick, on the bar as a whole: the load relief, the floor cut and the range force of both sides.
 
@@ -666,7 +675,8 @@ class MotorCore:
         rep hysteresis. Above the upper point a brake stops the bar's momentum within ``RANGE_STOP_MM`` and a light
         spring turns it back down. Moving back into the range is not resisted.
         With an upward load the bounds are mirrored, but the unloaded return damper is not: pulling down from
-        the upper point must not add an upward kick on top of the load ramp.
+        the upper point must not add an upward kick on top of the load ramp. Its motor return point is slightly
+        above the calibrated rep point, within the machine's soft travel.
         """
 
         x = (states["left"].x_mm + states["right"].x_mm) / 2
@@ -676,9 +686,10 @@ class MotorCore:
         self._bar_v_mm_s = v
         self._bar_a_mm_s2 = a
         upward = self.load.load_direction == "up"
+        upper = self._range_upper_mm()
         if upward:
             # Work in the original downward-load coordinates; preserve physical bar state for inertia / friction.
-            x, v, a = self.load.lower_mm + self.load.upper_mm - x, -v, -a
+            x, v, a = self.load.lower_mm + upper - x, -v, -a
         descent_onset = 0.6 * (self.envelope.max_speed_mm_s if upward else self.envelope.max_descent_mm_s)
         relief = self.load_relief["left"]
         # judged on the speed a loop delay ahead while the bar speeds up downwards: the relief acts that late
@@ -692,10 +703,10 @@ class MotorCore:
             span = max(self.envelope.max_speed_mm_s - descent_onset, 1e-6)
             excess = max(0.0, min(1.0, (-v_relief - descent_onset) / span))
             target = 1.0 - excess * excess
-            # The exercise point is not a soft-limit cushion: keep the load up to and including the point.
-            # Only an actual crossing (mean observed bar position, not a predicted landing) starts range relief.
+            # Keep the load through the exercise point and its small upward target offset.
+            # Only an actual crossing of the motor target (mean observed position, not prediction) starts relief.
             # Speed relief above is independent of position and still applies before the point when necessary.
-            if self.load.range_guard and self._bar_x_mm > self.load.upper_mm:
+            if self.load.range_guard and self._bar_x_mm > upper:
                 target = 0.0  # outside the set: do not keep driving upwards while the range guard catches the bar
             ramp_s = LOAD_RELIEF_DROP_S if target < relief else LOAD_RELIEF_RECOVER_S
             relief = rate_limit(relief, target, 1.0 / ramp_s, self._dt)
@@ -730,7 +741,7 @@ class MotorCore:
             if upward:
                 self.range_force_n = -self.range_force_n
             return
-        above = x - self.load.upper_mm
+        above = x - upper
         if above > 0:
             brake = 0.0
             if v > 0 and v_ahead > 0:
@@ -752,7 +763,7 @@ class MotorCore:
         assist = self.fall_assist[side]
         upward = self.load.load_direction == "up"
         velocity = -state.v_mm_s if upward else state.v_mm_s
-        outside = self._bar_x_mm > self.load.upper_mm if upward else self._bar_x_mm < self.load.lower_mm
+        outside = self._bar_x_mm > self._range_upper_mm() if upward else self._bar_x_mm < self.load.lower_mm
         coulomb = model.coulomb_up_n if upward else model.coulomb_down_n
         if load <= 1.0 or (self.load.range_guard and outside):
             assist = 0.0  # no load: nothing pulls a free bar down; below the set's range the bar goes up

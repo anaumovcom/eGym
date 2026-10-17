@@ -402,6 +402,7 @@ async def coach_live(websocket: WebSocket, run_id: str, sessions: Callable[[], S
         return
     pipeline = await factory(sessions, prefs)
     coach = live.LiveCoach(sessions, run_id=run_id, owner=config.owner_id, generation=generation, user_id=user_id,
+                           scope_run_id=config.runtime_run_id or run_id,
                            settings=prefs, author=pipeline.author, voice=pipeline.voice,
                            send_json=send_json, send_bytes=send_bytes)
     live.register(coach)
@@ -425,7 +426,8 @@ async def coach_live(websocket: WebSocket, run_id: str, sessions: Callable[[], S
     try:
         await send_json({"type": "configured", "generation": generation, "mode": prefs.mode,
                          "voiceId": prefs.voice_profile, "text": pipeline.author is not None,
-                         "voice": pipeline.voice is not None, "degraded": pipeline.reason})
+                         "voice": pipeline.voice is not None, "degraded": pipeline.reason is not None,
+                         "degradedReason": pipeline.reason})
         window, count = time.monotonic(), 0
         while True:
             message = await websocket.receive()

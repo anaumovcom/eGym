@@ -21,6 +21,8 @@ from app.models.enums import (
 from app.models.training import ExerciseHistoryRecord, UserExerciseState
 from app.schemas.runtime import (
     ExerciseSessionCreateSchema,
+    ExerciseSessionsResetRequestSchema,
+    ExerciseSessionsResetResponseSchema,
     LoadAdjustmentRequestSchema,
     LoadAdjustmentResponseSchema,
     RuntimeExerciseSummarySchema,
@@ -33,10 +35,12 @@ from app.schemas.runtime import (
     RuntimeWorkoutSummarySchema,
     SavedSetResponseSchema,
     SetFatigueDeltaSchema,
+    SetFeedbackSchema,
     SetResultSaveSchema,
     WorkoutSessionCreateSchema,
 )
 from app.services.coach.lifecycle import RuntimeObservationBuffer, runtime_observations
+from app.services.coach.workout_plan import persist_plan
 from app.services.exercise_library import get_imported_exercise
 from app.services.fatigue_service import FatigueService, FatigueUpdate, equipment_affects_fatigue
 
@@ -52,6 +56,31 @@ class RuntimeService:
     def __init__(self, *, coach_observer: RuntimeObservationBuffer | None = None) -> None:
         self.fatigue_service = FatigueService()
         self.coach_observer = coach_observer if coach_observer is not None else runtime_observations
+
+    def save_set_feedback(self, session: Session, set_id: int, payload: SetFeedbackSchema) -> SetFeedbackSchema:
+        from app.services.coach.history import latest_completed_set
+
+        row = session.get(SetResult, set_id)
+        exercise = session.get(ExerciseSession, row.exercise_session_id) if row else None
+        if exercise is None or exercise.user_id != payload.user_id:
+            raise LookupError("Set not found")
+        latest = latest_completed_set(session, exercise)
+        now = datetime.now(UTC)
+        if (latest is None or latest.id != set_id or row.created_at is None
+                or not 0 <= (now - row.created_at.replace(tzinfo=UTC)).total_seconds() <= 300):
+            raise ValueError("Feedback window expired")
+        metrics = dict(row.machine_metrics or {})
+        # Legacy fabricated values are not preserved on first explicit input.
+        prior = metrics.get("explicitFeedbackVersion") == 1
+        row.subjective_effort = payload.subjective_effort if payload.subjective_effort is not None else (
+            row.subjective_effort if prior else None)
+        row.discomfort_level = payload.discomfort_level if payload.discomfort_level is not None else (
+            row.discomfort_level if prior else None)
+        metrics.update(explicitFeedbackVersion=1, explicitFeedbackAtMs=now.timestamp() * 1000)
+        row.machine_metrics = metrics
+        session.commit()
+        return SetFeedbackSchema(user_id=payload.user_id, subjective_effort=row.subjective_effort,
+                                 discomfort_level=row.discomfort_level)
 
     def save_set_result(self, session: Session, payload: SetResultSaveSchema) -> SavedSetResponseSchema:
         exercise_session = session.get(ExerciseSession, payload.exercise_session_id)
@@ -88,6 +117,9 @@ class RuntimeService:
         occurred_at = payload.occurred_at or datetime.now(UTC)
         exercise = get_imported_exercise(exercise_session.exercise_slug)
         machine_metrics = dict(payload.machine_metrics or {})
+        # Only the dedicated explicit-input endpoint can attest to feedback provenance.
+        machine_metrics.pop("explicitFeedbackVersion", None)
+        machine_metrics.pop("explicitFeedbackAtMs", None)
         machine_metrics.update(
             {
                 "setType": payload.set_type,
@@ -143,6 +175,35 @@ class RuntimeService:
                 equipment=exercise.equipment if exercise else None,
             )
         return set_result, updates
+
+    def reset_exercise_sessions(
+        self,
+        session: Session,
+        payload: ExerciseSessionsResetRequestSchema,
+    ) -> ExerciseSessionsResetResponseSchema:
+        try:
+            missing_ids: list[int] = []
+            existing: list[ExerciseSessionCreateSchema] = []
+            # Check every owner before any reset can flush deletions or metadata updates.
+            with session.no_autoflush:
+                for exercise in payload.exercises:
+                    if exercise.exercise_session_id is None:
+                        raise ValueError("Reset requires an exercise session ID")
+                    row = session.get(ExerciseSession, exercise.exercise_session_id)
+                    if row is None:
+                        missing_ids.append(exercise.exercise_session_id)
+                    elif row.user_id != exercise.user_id:
+                        raise LookupError("Exercise session not found")
+                    else:
+                        existing.append(exercise)
+
+            for exercise in existing:
+                self.save_exercise_session(session, exercise, commit=False)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        return ExerciseSessionsResetResponseSchema(missing_exercise_session_ids=missing_ids)
 
     def save_exercise_session(
         self,
@@ -269,6 +330,7 @@ class RuntimeService:
             session.add(workout_session)
             session.flush()
 
+        persist_plan(session, workout_session, payload)
         exercise_session_ids = set(payload.exercise_session_ids)
         nested_exercise_notices: list[dict[str, object]] = []
         for exercise in payload.exercises:

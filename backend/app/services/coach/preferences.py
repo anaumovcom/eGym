@@ -54,4 +54,7 @@ def save_preferences(db: Session, user_id: str, payload: PreferencesSave) -> Coa
     except IntegrityError:
         db.rollback()
         raise HTTPException(409, "revision_conflict") from None
+    from app.services.coach.live import update_memory_preferences
+
+    update_memory_preferences(user_id, saved)
     return saved

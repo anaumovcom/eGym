@@ -433,8 +433,8 @@ class WorkoutController:
         elif self.mode == "training":
             self._ramp_load(dt)
             if self.reps is not None and self.plan is not None:
-                # a set from the upper point (squat, bench press) is the mirror of one from the lower point: a rep is
-                # counted at the far turn either way
+                # Mirror upper-start sets so both directions close a full cycle
+                # only on the return to their starting point.
                 x = frame.x_mean
                 if self.plan.start_point == "upper":
                     x = self.plan.lower_mm + self.plan.upper_mm - x

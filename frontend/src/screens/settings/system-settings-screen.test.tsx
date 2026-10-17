@@ -46,11 +46,6 @@ function renderSettings(initialEntry = '/settings?tab=overview') {
   )
 }
 
-async function confirmAccess(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('checkbox', { name: 'Понимаю риски изменения технических настроек' }))
-  await user.click(screen.getByRole('button', { name: 'Открыть сервисный раздел' }))
-}
-
 function expectNormalTabs() {
   const nav = screen.getByRole('navigation', { name: 'Настройки' })
   expect(within(nav).getAllByRole('button').map((button) => button.textContent)).toEqual(['Обзор', 'Безопасность', 'Общие', 'AI-тренер', 'Сервис'])
@@ -98,14 +93,15 @@ describe('System settings service access', () => {
     else expect(screen.queryByRole('region', { name: 'AI-тренер' })).not.toBeInTheDocument()
   })
 
-  it('replaces technical overview actions with one link to the service gate', async () => {
+  it('opens the service section directly from the overview link', async () => {
     const user = userEvent.setup()
     renderSettings()
     expect(screen.queryByRole('button', { name: 'Запустить диагностику', exact: true })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Открыть журнал', exact: true })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Открыть сервисный раздел' })).toHaveAttribute('href', '/settings?tab=service')
     await user.click(screen.getByRole('link', { name: 'Открыть сервисный раздел' }))
-    expect(screen.getByRole('button', { name: 'Открыть сервисный раздел' })).toBeDisabled()
+    expect(screen.getByRole('region', { name: 'Сервисный раздел' })).toBeVisible()
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(runCommand).not.toHaveBeenCalled()
   })
 
@@ -115,18 +111,13 @@ describe('System settings service access', () => {
     ['calibrations', 'Сохранённые калибровки'],
     ['service', 'Текущие позиции'],
     ['journal', 'Журнал событий'],
-  ])('gates direct %s URLs even when mock service state is unlocked', async (tab, panelText) => {
-    const user = userEvent.setup()
+  ])('opens direct %s URLs without acknowledgement or hardware commands', (tab, panelText) => {
     expect(useHardwareStore.getState().settings?.service.unlocked).toBe(true)
     renderSettings(`/settings?tab=${tab}&unlocked=true&serviceMode=true`)
     expectNormalTabs()
     expect(screen.getAllByRole('main')).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: 'Аварийная остановка', exact: true })).toHaveLength(1)
-    expect(screen.queryByText(panelText)).not.toBeInTheDocument()
-    expect(screen.queryByRole('navigation', { name: 'Сервисные настройки' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Запустить полную диагностику' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Выключить сервисный режим/ })).not.toBeInTheDocument()
-    await confirmAccess(user)
+    expect(screen.queryByRole('checkbox', { name: 'Понимаю риски изменения технических настроек' })).not.toBeInTheDocument()
 
     expect(screen.getAllByText(panelText)[0]).toBeVisible()
     expect(within(screen.getByRole('navigation', { name: 'Сервисные настройки' })).getAllByRole('button').map((button) => button.textContent)).toEqual(['Приводы и ШВП', 'Диагностика', 'Калибровки', 'Сервис', 'Журнал'])
@@ -134,26 +125,25 @@ describe('System settings service access', () => {
     expect(runCommand).not.toHaveBeenCalled()
   })
 
-  it('cancels a direct diagnostic URL to overview without a hardware command', async () => {
+  it('returns from diagnostics to overview without a hardware command', async () => {
     const user = userEvent.setup()
     renderSettings('/settings?tab=diagnostics')
-    await user.click(screen.getByRole('link', { name: 'Отмена — к настройкам' }))
+    await user.click(within(screen.getByRole('navigation', { name: 'Настройки' })).getByRole('button', { name: 'Обзор' }))
     expect(screen.getByTestId('location')).toHaveTextContent('/settings?tab=overview')
     expectNormalTabs()
     expect(screen.queryByRole('button', { name: 'Запустить полную диагностику' })).not.toBeInTheDocument()
     expect(runCommand).not.toHaveBeenCalled()
   })
 
-  it('runs diagnostics only on its separate command button after UI confirmation', async () => {
+  it('runs diagnostics only on its separate command button', async () => {
     const user = userEvent.setup()
     renderSettings('/settings?tab=diagnostics')
-    await confirmAccess(user)
     expect(runCommand).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Запустить полную диагностику' }))
     expect(runCommand).toHaveBeenCalledExactlyOnceWith({ action: 'run_diagnostics', userId: 'alexey' })
   })
 
-  it('keeps acknowledgement independent of live service mode and preserves command parameters', async () => {
+  it('opens independently of live service mode and preserves command parameters', async () => {
     const user = userEvent.setup()
     const snapshot: HardwareSnapshot = {
       eventType: 'snapshot', emittedAt: '2026-09-15T10:00:00Z',
@@ -170,10 +160,8 @@ describe('System settings service access', () => {
       settings: { ...settings, service: { ...settings.service, actions: [{ title: 'Homing', description: 'Возврат в исходное положение' }] } },
     })
     renderSettings('/settings?tab=service')
-    expect(screen.getByRole('button', { name: 'Открыть сервисный раздел' })).toBeDisabled()
-    expect(screen.queryByRole('button', { name: /Выключить сервисный режим/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Выключить сервисный режим/ })).toBeVisible()
     act(() => { useHardwareStore.setState({ snapshot: { ...snapshot, serviceMode: false } }) })
-    await confirmAccess(user)
     expect(runCommand).not.toHaveBeenCalled()
     expect(useHardwareStore.getState().snapshot?.serviceMode).toBe(false)
     await user.click(screen.getByRole('button', { name: /^Homing/ }))
@@ -182,19 +170,17 @@ describe('System settings service access', () => {
     expect(runCommand).toHaveBeenLastCalledWith({ action: 'toggle_service_mode', userId: 'alexey', serviceMode: true })
   })
 
-  it('links the service section to the standalone Modbus page in the main header', async () => {
+  it('links the service section to the standalone Modbus page', async () => {
     const user = userEvent.setup()
     renderSettings('/settings?tab=service')
     expect(loadPorts).not.toHaveBeenCalled()
     expect(loadStatus).not.toHaveBeenCalled()
-    await confirmAccess(user)
     await user.click(within(screen.getByRole('navigation', { name: 'Настройки' })).getByRole('button', { name: 'Обзор' }))
     await user.click(screen.getByRole('link', { name: 'Открыть сервисный раздел' }))
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
 
     const link = within(screen.getByRole('region', { name: 'Сервисный раздел' })).getByRole('link', { name: 'Modbus Debug' })
     expect(link).toHaveAttribute('href', '/modbus')
-    expect(within(screen.getByRole('navigation', { name: 'Основная навигация' })).getByRole('link', { name: 'Modbus' })).toHaveAttribute('href', '/modbus')
     await user.click(link)
     expect(screen.getByRole('heading', { name: /Lichuan A6/ })).toBeVisible()
     expect(screen.getAllByRole('main')).toHaveLength(1)
@@ -211,5 +197,14 @@ describe('System settings service access', () => {
     expect(screen.getByRole('heading', { name: /Lichuan A6/ })).toBeVisible()
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(runCommand).not.toHaveBeenCalled()
+  })
+
+  it('keeps the emergency-stop action and overlay available in service settings', async () => {
+    const user = userEvent.setup()
+    renderSettings('/settings?tab=service')
+    await user.click(screen.getByRole('button', { name: 'Аварийная остановка', exact: true }))
+
+    expect(runCommand).toHaveBeenCalledExactlyOnceWith({ action: 'trigger_emergency_stop', userId: 'alexey' })
+    expect(screen.getByRole('dialog', { name: 'Аварийная остановка активна' })).toBeVisible()
   })
 })

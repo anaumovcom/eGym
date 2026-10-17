@@ -31,6 +31,7 @@ export type RuntimeSetPlan = {
 }
 
 export type RuntimeSetResult = {
+  backendSetId?: number
   setNumber: number
   side?: 'left' | 'right'
   roundNumber?: number

@@ -35,6 +35,12 @@ export type CoachEvent = Readonly<{
   planRevision: number; contextVersion: number; createdAtMs: number; startDeadlineMs: number
   facts: readonly CoachFact[]; factDependencies: readonly string[]
 }>
+/** Immutable browser-source identity. Times are in the browser performance.now domain,
+ * never server wall/monotonic time. Receipt/reconnect must not renew the deadline. */
+export type CoachSpeechIdentity = Readonly<{
+  schemaVersion: 1; eventId: string; scope: CoachScope; planRevision: number; contextVersion: number
+  createdAtMs: number; startDeadlineMs: number; factDependencies: readonly string[]
+}>
 /** Provider voice IDs (mirrors backend COACH_VOICES). One voice is used for live speech and the prepared pack. */
 export const COACH_VOICES = ['ash', 'alloy', 'ballad', 'cedar', 'coral', 'echo', 'marin', 'sage', 'shimmer', 'verse'] as const
 export type CoachVoice = typeof COACH_VOICES[number]

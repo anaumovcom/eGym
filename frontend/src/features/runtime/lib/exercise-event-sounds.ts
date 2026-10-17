@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useStage4Store } from '@/stores/stage4-store'
+import { getCoachAudibleCount, subscribeAudioPriority } from '@/shared/lib/audio-priority'
 
 type ExerciseSound = 'upper' | 'lower' | 'error' | 'success'
 const sources: Record<ExerciseSound, string> = {
@@ -9,16 +10,55 @@ const sources: Record<ExerciseSound, string> = {
   success: '/audio/success.mp3',
 }
 
+// Coach clips/PCM peak at .25 with .5 master headroom: effects must not
+// compete at full scale. Preserve the user's signal-volume multiplier.
+const EFFECT_BASE = 0.12
+const POP_GAIN = 0.3
+const VOICE_DUCK = 0.1
+const EFFECT_LIFETIME_MS = 15_000
+const MAX_EFFECTS = 16
+const activeEffects = new Set<() => void>()
+
+function effectVolume(kind: ExerciseSound): number {
+  const settings = useStage4Store.getState().settingsSaved
+  const volume = Number(String(settings.signalVolume).replace('%', '')) / 100
+  const gain = kind === 'upper' || kind === 'lower' ? POP_GAIN : 1
+  return settings.soundEnabled && Number.isFinite(volume)
+    ? Math.min(1, Math.max(0, volume)) * EFFECT_BASE * gain * (getCoachAudibleCount() > 0 ? VOICE_DUCK : 1) : 0
+}
+
 /** Sound failure must never interrupt the exercise or create another error notification. */
 export function playExerciseEventSound(kind: ExerciseSound) {
-  const settings = useStage4Store.getState().settingsSaved
-  const volume = Math.min(1, Math.max(0, Number(String(settings.signalVolume).replace('%', '')) / 100))
-  if (!settings.soundEnabled || !Number.isFinite(volume) || volume === 0 || typeof Audio === 'undefined') return
+  if (effectVolume(kind) === 0 || typeof Audio === 'undefined') return
+  let cleanup = () => {}
   try {
+    if (activeEffects.size >= MAX_EFFECTS) activeEffects.values().next().value?.()
     const audio = new Audio(sources[kind])
-    audio.volume = volume
-    void audio.play().catch(() => undefined)
+    let closed = false
+    let offPriority = () => {}
+    let offSettings = () => {}
+    let timer: ReturnType<typeof setTimeout> | undefined
+    cleanup = () => {
+      if (closed) return
+      closed = true
+      activeEffects.delete(cleanup)
+      offPriority(); offSettings(); clearTimeout(timer)
+      audio.removeEventListener('ended', cleanup)
+      audio.removeEventListener('error', cleanup)
+      // Also abort a pending play request; never wait for its promise to settle.
+      audio.pause()
+    }
+    const update = () => { audio.volume = effectVolume(kind) }
+    activeEffects.add(cleanup)
+    audio.addEventListener('ended', cleanup)
+    audio.addEventListener('error', cleanup)
+    offPriority = subscribeAudioPriority(update)
+    offSettings = useStage4Store.subscribe(update)
+    timer = setTimeout(cleanup, EFFECT_LIFETIME_MS)
+    update()
+    void audio.play().then(() => { if (closed) audio.pause() }, cleanup)
   } catch {
+    cleanup()
     // Autoplay restrictions and unavailable audio devices are non-fatal.
   }
 }

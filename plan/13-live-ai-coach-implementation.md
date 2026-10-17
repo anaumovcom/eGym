@@ -12,8 +12,33 @@ E10–E12: [отчёт](13-live-ai-coach-e10-e12-live.md). Самостояте�
 Код, браузерная приёмка и ограничения E05: [локальное аудио](13-live-ai-coach-e05-local-audio.md).
 Интерпретатор и локальные cue E06: [отчёт](13-live-ai-coach-e06-interpreter.md).
 
+**Актуализация 17.10.2026 — цикл улучшений U00–U10:**
+[план задач](13-live-ai-coach-improvement-plan.md),
+[отчёт U00–U02](13-live-ai-coach-u00-u02-report.md).
+U00–U06 реализованы и проверены offline, включая persisted declared-client workout-plan
+snapshot и positive full-plan tests U02.4. **U07.5 A/B выполнен** после разрешения
+пользователя до $10: 14/14 transcript match. U07.6/U07.7 ожидают прослушивания;
+candidate production OFF, baseline не изменён. U08–U10 формально не начаты,
+отдельно внесены live dedup/support/transport исправления.
+[Актуальные live-проверки и расходы](13-live-ai-coach-live-tuning-2026-10-17.md).
+Подробные U-чекбоксы ведутся только в плане улучшений; существующие E-статусы,
+счётчик 9/12 и чекбоксы прослушивания здесь не меняются. Старый «следующий шаг»
+выше относится к E-приёмке, не к последовательности активного U-цикла.
+Последний проверенный срез: backend 1015 PASS / 5 skips / 9 warnings, 41.22 s;
+targeted frontend 543 PASS / 24 files, 14.02 s (coach/runtime-persistence/exercise-session/rest).
+Scoped Ruff и git diff --check PASS; Vite 1871 modules / 4.60 s
+PASS с large-chunk warning. TypeScript: 23 existing errors / 7 non-coach files,
+0 changed-file errors; последняя команда failed baseline, type-clean не заявляется.
+Optional migration не применялась: full-plan только для новых declared-snapshot workouts
+после явной миграции; existing/absent-table limited. Source prompt 0.12, legacy voice
+0.5 / pack style 0.3 неизменны; candidate 0.1 default-off/accepted false.
+129 sandbox paid requests: $0.201617 settled + $0.002268 pending, всего $0.203885
+liability из одобренных до $10. Последний live continuity 9/9 voice generation,
+не acoustic acceptance; остаётся пользовательское прослушивание.
+
 Этот файл — единственный рабочий трекер реализации. После каждого завершённого
-пункта обновляем его чекбокс, статус этапа и доказательства проверки.
+пункта E обновляем его чекбокс, статус этапа и доказательства проверки;
+для U он хранит ссылку и активный этап, без дублирования подробного трекера.
 Технические решения и подробности остаются в спецификациях:
 
 - [Обзор и требования](13-live-ai-coach.md).
