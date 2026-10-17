@@ -1,5 +1,6 @@
 import { canonicalCoachKey } from '../model/contracts'
 import type { CoachEvent, CoachFact, CoachOutcome, CoachScope, CoachSource } from '../model/contracts'
+import { coachEventIds } from './event-ids'
 import type { CoachClock } from './ports'
 
 type LifecycleKind = 'set_stopped' | 'set_persisted' | 'exercise_finalized' | 'workout_finalized'
@@ -26,7 +27,7 @@ export class CoachLifecycleObserver {
   // Backend row IDs stay out of the event (no facts/provider); the live client sends them as refs.
   private refMap = new Map<string, LifecycleRefs>()
   private failures = 0
-  private sequence = 0
+  private readonly nextEventId = coachEventIds('lifecycle')
   private userId: string | null = null
   private runId: string | null = null
   private options: { enabled: () => boolean; current: () => LifecycleContext; clock: CoachClock
@@ -89,7 +90,7 @@ export class CoachLifecycleObserver {
       }
       if (payload.outcome) add('result.outcome', payload.outcome, 'text')
       const event: CoachEvent = Object.freeze({
-        schemaVersion: 1, id: `lifecycle-${++this.sequence}`,
+        schemaVersion: 1, id: this.nextEventId(),
         scope: capture.versions ? Object.freeze({ ...capture.versions.scope,
           exerciseId: scope.exerciseId, setOrdinal: scope.setOrdinal }) : scope, kind, source,
         phase: capture.versions?.phase ?? (kind.startsWith('set_') ? 'finalizing-set' : kind === 'exercise_finalized' ? 'exercise-summary' : 'workout-summary'),

@@ -2,6 +2,7 @@ import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { CoachFrameError, decodeCoachFrame, pcmDurationMs } from '../audio/coach-frames'
 import type { AudioReason, LocalAudioSnapshot, LocalCoachAudioManager, NetworkAudioSource } from '../audio/local-coach-audio-manager'
 import { exactRepTarget, type SetTimerInput } from '../interpreter/coach-interpreter'
+import { coachEventIds } from '../lib/event-ids'
 import type { LifecycleContext, LifecycleRefs, LifecycleVersions } from '../lib/lifecycle-observer'
 import { coachRunId, type CoachEvent, type CoachEventKind, type CoachPhase, type CoachScope, type CoachSpeechIdentity } from '../model/contracts'
 import { preferencesValid, type CoachPreferences } from '../model/preferences'
@@ -166,7 +167,7 @@ export class CoachNetworkClient {
   private boundWorkout: number | null = null
   private configured: { mode: string | null; voiceId: string | null; text: boolean; voice: boolean; degraded: boolean } | null = null
   private last: NetworkTick | null = null
-  private sequence = 0
+  private readonly nextEventId = coachEventIds('net')
   private sentKeys = new Set<string>()
   private forwarded = new Set<string>()
   private inSet: { key: string; startedAt: number; reps: number | null; repAt: number; partial: number | null } | null = null
@@ -737,7 +738,7 @@ export class CoachNetworkClient {
     const session = input.session!
     const exerciseKind = session.exercises.find(item => item.id === scope.exerciseId)?.kind
     const now = Math.max(0, input.nowMs)
-    const event: CoachEvent = { schemaVersion: 1, id: `net-${++this.sequence}`, scope, kind, phase, source: 'runtime_ack',
+    const event: CoachEvent = { schemaVersion: 1, id: this.nextEventId(), scope, kind, phase, source: 'runtime_ack',
       exerciseKind: exerciseKind && EXERCISE_KINDS.has(exerciseKind) ? exerciseKind as CoachEvent['exerciseKind'] : null,
       controlMode: null, progressUnit, ordinal: 0, planRevision: this.planRevision, contextVersion: this.contextVersion, createdAtMs: now, startDeadlineMs: now + 20_000,
       facts: [], factDependencies: [] }

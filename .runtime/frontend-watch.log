@@ -1,29 +1,4 @@
 
-  VITE v7.3.3  ready in 865 ms
+  VITE v7.3.3  ready in 475 ms
 
   ➜  Local:   http://127.0.0.1:5173/
-3:11:09 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-3:22:21 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-settings-panel.tsx
-3:22:21 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-3:22:21 PM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.tsx
-3:25:02 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-settings-panel.tsx
-3:25:02 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-3:25:02 PM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.tsx
-3:30:59 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-3:44:20 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-3:54:18 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-4:24:21 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-4:27:48 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-4:31:04 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-4:33:46 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-4:46:28 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-4:46:28 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx
-4:53:54 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-4:53:55 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx
-4:53:55 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-4:54:57 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-4:55:44 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-5:11:23 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-5:11:23 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/exercise-session/exercise-session-screen.tsx
-5:11:23 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-5:11:23 PM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx

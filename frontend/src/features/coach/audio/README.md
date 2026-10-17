@@ -74,6 +74,7 @@ not a measurement of sound at the speaker (a silent clip can still be counted).
 - Native continuous linear AudioParam ramps: 50ms attack / 150ms restoration;
   native `cancelAndHoldAtTime` or interpolated current-envelope fallback.
 - Master `.5 * volume` headroom, then DynamicsCompressor, then destination.
+- Live PCM retains 100% of its source level (no extra attenuation during decoding); shared mixer volume, mute and headroom still apply.
 - Only `onended` after an observed start increments `finished`. Deadlines govern
   **starting only**; started audio may finish after its deadline/set transition.
 - Limits: 16 pending, 8 scheduled/started sources; 60s, 2,880,000 decoded float

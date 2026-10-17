@@ -116,6 +116,51 @@ function frame(gid: string, sequence: number, seconds: number, final: boolean, f
 }
 
 describe('CoachNetworkClient', () => {
+  it.each(['rest_long_opportunity', 'set_persisted'] as const)('does not collide with retained %s IDs after a reload on the same billing run', async kind => {
+    const first = new Fixture(), reloaded = new Fixture()
+    const seen = new Set<string>()
+    try {
+      // A page is reopened during a later rest: same runtime and billing run,
+      // but a genuinely new opportunity, not a replay of the previous set.
+      for (const [index, f] of [first, reloaded].entries()) {
+        if (index) for (const [key, value] of first.storage) f.storage.set(key, value)
+        const restScope = scope({ setOrdinal: index + 1 })
+        f.manager.updateScope(restScope)
+        f.input = { ...f.input, phase: kind === 'set_persisted' ? 'active-set' : 'rest', scope: restScope,
+          session: session({ view: kind === 'set_persisted' ? 'exercise-session' : 'rest', currentSetIndex: index,
+          completedSets: { e1: [{ reps: 10 }] },
+          restState: { totalSeconds: 90, remainingSeconds: kind === 'set_persisted' ? 90 : 70, timerPaused: false } }) }
+        await f.connect()
+        if (kind === 'set_persisted') {
+          const current = { ...restScope, mock: false }
+          const observer = new CoachLifecycleObserver({ enabled: () => true, current: () => current,
+            clock: { nowMs: () => f.clock.now() }, versions: value => f.client.captureVersions(value, f.input.session, saved) })
+          const capture = observer.capture('machine')!
+          expect(capture.versions).not.toBeNull()
+          expect(observer.publish(capture, kind, { backendSetId: index + 10, actualValue: 10 })).toBe(true)
+          const result = observer.snapshot()[0]
+          f.refs[result.id] = observer.refs(result.id)!
+          f.tick({ phase: 'rest', lifecycle: [result] })
+        } else f.tick()
+        const event = f.socket.events().at(-1)!.event
+        expect(event.kind).toBe(kind)
+        expect(seen.has(event.id)).toBe(false)
+        seen.add(event.id)
+        f.speech(`rest-${index}`, event)
+        f.socket.push(frame(`rest-${index}`, 0, .3, true, restScope))
+        f.clock.advance(50, f.context); f.client.observe(f.manager.snapshot())
+        for (const source of f.context.sources) source.end()
+        f.client.observe(f.manager.snapshot())
+        expect(f.client.getSnapshot()).toMatchObject({ spoken: 1, failed: 0 })
+        f.client.dispose()
+      }
+      expect(reloaded.runs).toBe(0)
+      expect(reloaded.socket.url).toBe(first.socket.url)
+    } finally {
+      first.client.dispose(); first.manager.dispose(); reloaded.client.dispose(); reloaded.manager.dispose()
+    }
+  })
+
   it.each(['weight', 'reps'] as const)('keeps started speech and its original identity through a %s edit', async field => {
     const f = new Fixture(); await f.connect()
     const event = f.socket.events().at(-1)!.event
@@ -603,7 +648,7 @@ describe('CoachNetworkClient', () => {
     f.input = { ...f.input, saved: { ...saved, mode: 'text-only' }, gate: 'mute' }
     await f.connect({ mode: 'text-only', voice: false })
     expect(f.socket.events().map(item => item.event.kind)).toEqual(['workout_started'])
-    f.socket.push({ type: 'decision', eventId: 'net-1', identity: speechIdentity(f.socket.events()[0].event), triggerId: 'T01', action: 'text', reason: null, text: 'Начинаем.' })
+    f.socket.push({ type: 'decision', eventId: f.socket.events()[0].event.id, identity: speechIdentity(f.socket.events()[0].event), triggerId: 'T01', action: 'text', reason: null, text: 'Начинаем.' })
     expect(f.client.getSnapshot()).toMatchObject({ lastText: 'Начинаем.', decisions: [{ triggerId: 'T01', action: 'text' }] })
   })
 
@@ -658,7 +703,7 @@ describe('CoachNetworkClient', () => {
     const usage = f.requests.find(item => item.url.endsWith('/usage'))!
     expect((usage.init.headers as Record<string, string>)['X-Coach-Run-Token']).toBe('secret-1')
     expect(await f.client.forgetMemory()).toBe(1)
-    f.socket.push({ type: 'decision', eventId: 'net-1', identity: speechIdentity(f.socket.events()[0].event), triggerId: 'T01', action: 'text', reason: null, text: 'секретный текст' })
+    f.socket.push({ type: 'decision', eventId: f.socket.events()[0].event.id, identity: speechIdentity(f.socket.events()[0].event), triggerId: 'T01', action: 'text', reason: null, text: 'секретный текст' })
     const report = redactedNetworkReport(f.client.getSnapshot())
     expect(report).not.toMatch(/secret|секретный|run-1|u1/)
     expect(JSON.parse(report)).toMatchObject({ state: 'ready', voiceId: 'ash', usage: { requests: 2 } })
@@ -807,7 +852,7 @@ describe('immutable network speech regressions', () => {
 
   it('clears previously accepted text on context invalidation and rejects duplicate decisions', async () => {
     const f = new Fixture(); await f.connect()
-    const decision = { type: 'decision', eventId: 'net-1', identity: speechIdentity(f.socket.events()[0].event), action: 'text', text: 'Fresh' }
+    const decision = { type: 'decision', eventId: f.socket.events()[0].event.id, identity: speechIdentity(f.socket.events()[0].event), action: 'text', text: 'Fresh' }
     f.socket.push(decision); f.socket.push(decision)
     expect(f.client.getSnapshot().lastText).toBe('Fresh')
     expect(f.client.getSnapshot().decisions).toHaveLength(1)

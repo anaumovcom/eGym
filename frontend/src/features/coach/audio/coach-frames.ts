@@ -105,8 +105,8 @@ export class CoachFrameReader {
   finish(): void { if (this.buffer.length) throw new CoachFrameError('truncated') }
 }
 
-/** s16le mono → Float32 AudioBuffer with a fixed -12 dB headroom (same peak budget as local clips). */
-export const STREAM_SCALE = 0.25
+/** Preserve 100% of the live PCM level; volume/headroom belong to the shared mixer. */
+export const STREAM_SCALE = 1
 export function pcmS16ToAudioBuffer(context: BaseAudioContext, pcm: Uint8Array, sampleRate: number): AudioBuffer {
   if (!pcm.length || pcm.length % 2) throw new CoachFrameError('frame_length')
   const view = new DataView(pcm.buffer, pcm.byteOffset, pcm.byteLength)

@@ -45,9 +45,9 @@ describe('streamed network speech in the shared mixer', () => {
     if (countFirst) { count(); advance(); live() } else { live(); advance(); count() }
     advance(60)
     expect(byId('count')!.baseGain).toBe(OFFLINE_COUNT_GAIN)
-    expect(byId('count')!.targetGain).toBeCloseTo(countFirst ? 0.26 : 0.4)
-    // Comments stay distinctly louder regardless of which source starts last.
-    expect(byId('live')!.targetGain / byId('count')!.targetGain).toBeGreaterThanOrEqual(1.625)
+    expect(byId('count')!.targetGain).toBeCloseTo(countFirst ? 0.39 : 0.6)
+    // Live speech remains louder regardless of which source starts last.
+    expect(byId('live')!.targetGain).toBeGreaterThan(byId('count')!.targetGain)
     expect(manager.snapshot().counters.started).toBe(2)
     manager.dispose()
   })

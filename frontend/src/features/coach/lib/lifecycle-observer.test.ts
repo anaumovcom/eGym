@@ -14,6 +14,18 @@ function setup() {
 }
 
 describe('new E02 contracts and read-only lifecycle', () => {
+  it('does not reuse event IDs when an observer is recreated in the same workout', () => {
+    const first = setup(), reloaded = setup()
+    expect(first.observer.publish(first.observer.capture('machine'), 'set_persisted', { backendSetId: 10 })).toBe(true)
+    reloaded.current.setOrdinal = 2
+    expect(reloaded.observer.publish(reloaded.observer.capture('machine'), 'set_persisted', { backendSetId: 11 })).toBe(true)
+    const before = first.observer.snapshot()[0], after = reloaded.observer.snapshot()[0]
+    expect(after.scope.runId).toBe(before.scope.runId)
+    expect(after.id).not.toBe(before.id)
+    expect(after.id.length).toBeLessThanOrEqual(120)
+    expect(reloaded.observer.publish(reloaded.observer.capture('machine'), 'set_persisted', { backendSetId: 11 })).toBe(false)
+  })
+
   it('shares the synthetic wire fixture and keeps defaults off', () => {
     const fixture = JSON.parse(readFileSync('../backend/app/tests/fixtures/coach_e02_replay.json', 'utf8')) as { mode: string; events: CoachEvent[] }
     expect(fixture.mode).toBe('test')

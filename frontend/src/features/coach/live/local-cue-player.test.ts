@@ -15,7 +15,7 @@ describe('local count volume', () => {
     expect(playCue(manager, { get: () => buffer }, cue, 0, () => true).admitted).toBe(true)
     const count = kind === 'count' || kind === 'countdown'
     expect(playLocal).toHaveBeenCalledWith(expect.objectContaining({ baseGain: count ? OFFLINE_COUNT_GAIN : 1 }))
-    expect(OFFLINE_COUNT_GAIN).toBe(0.4)
+    expect(OFFLINE_COUNT_GAIN).toBe(0.6)
     if (count) expect(OFFLINE_COUNT_GAIN).toBeLessThan(0.65) // Background live voice remains louder for a voice/count pair.
     expect(cancelAll).toHaveBeenCalledTimes(kind === 'safety-stop' ? 1 : 0)
   })

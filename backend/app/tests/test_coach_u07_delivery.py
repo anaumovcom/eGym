@@ -18,7 +18,9 @@ CASES = FIXTURE["cases"]
 def test_baseline_defaults_and_separate_candidate_version():
     assert Settings.model_fields["coach_situational_delivery_enabled"].default is False
     assert Delivery().profile == "legacy"
-    assert voice.VOICE_PROMPT_VERSION == FIXTURE["baselineVersion"] == "coach-voice-0.5"
+    assert voice.VOICE_PROMPT_VERSION == "coach-voice-0.6"
+    # Preserve the version used for the historical U07 comparison, not the current live prompt.
+    assert FIXTURE["baselineVersion"] == "coach-voice-0.5"
     assert voice.CANDIDATE_DELIVERY_VERSION == FIXTURE["candidateVersion"]
     from app.services.coach.packs import STYLE_VERSION
     assert STYLE_VERSION == FIXTURE["packStyleVersion"] == "coach-pack-style-0.3"

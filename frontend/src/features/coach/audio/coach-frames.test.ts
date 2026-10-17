@@ -60,11 +60,12 @@ describe('tagged PCM frames', () => {
     expect(() => new CoachFrameReader().push(Uint8Array.from([1, 2, 3, 4, 5, 6, 7, 8]))).toThrow('frame_magic')
   })
 
-  it('converts s16le to float with fixed headroom', () => {
+  it('preserves 100% of the live PCM level without additional attenuation', () => {
     const context = new FakeContext()
-    const buffer = pcmS16ToAudioBuffer(context.asAudioContext(), Uint8Array.from([0, 0x40, 0, 0xc0, 0xff, 0x7f]), 24000)
+    const buffer = pcmS16ToAudioBuffer(context.asAudioContext(), Uint8Array.from([0, 0, 0, 0x40, 0, 0xc0, 0xff, 0x7f, 0, 0x80]), 24000)
     expect(buffer.sampleRate).toBe(24000)
-    expect([...buffer.getChannelData(0)].map(v => v / STREAM_SCALE)).toEqual([0.5, -0.5, 32767 / 32768])
+    expect(STREAM_SCALE).toBe(1)
+    expect([...buffer.getChannelData(0)]).toEqual([0, 0.5, -0.5, 32767 / 32768, -1])
     expect(() => pcmS16ToAudioBuffer(context.asAudioContext(), new Uint8Array(3), 24000)).toThrow('frame_length')
   })
 })

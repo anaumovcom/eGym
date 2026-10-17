@@ -75,7 +75,20 @@ def test_voice_prompts_are_verbatim_from_document_and_hashed():
     with pytest.raises(ValueError):
         Delivery("shout")
     hashes = voice_hashes()
-    assert hashes["version"] == "coach-voice-0.5" and all(len(v) == 64 for k, v in hashes.items() if k != "version")
+    assert hashes["version"] == "coach-voice-0.6" and all(len(v) == 64 for k, v in hashes.items() if k != "version")
+
+
+@pytest.mark.parametrize("instructions", [TTS_TEMPLATE, REALTIME_INSTRUCTIONS])
+def test_voice_delivery_is_native_russian_warm_and_verbatim(instructions):
+    for requirement in ("Говори только по-русски", "носителя из Москвы", "без иностранного акцента",
+                        "тепло, естественно и уверенно", "правильные русские ударения",
+                        "Числа произноси естественно по-русски", "грамматическую форму в контексте",
+                        "естественный ритм русской речи", "короткие смысловые паузы",
+                        "Сохрани выбранный тембр", "не сокращай, не перефразируй",
+                        "без резкого скачка высоты голоса"):
+        assert requirement in instructions
+    assert "Без улыбки в голосе" not in instructions
+    assert "Твёрдая атака" not in instructions
 
 
 def chunk(data: bytes, *, sequence=0, final=False, rate=24_000, **meta) -> AudioChunk:
