@@ -1,3 +1,4 @@
+import { ArrowDown, ArrowUp } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { runHardwareCommand } from '@/features/hardware/api/hardware-api'
 import { Button } from '@/shared/ui/button'
@@ -84,6 +85,8 @@ export function HoldToJog({ userId, exerciseSlug, disabled = false, onMoved, onH
     <div className="flex flex-wrap gap-2" role="group" aria-label="Перемещение грифа при настройке">
       {(['up', 'down'] as const).map((direction) => (
         <Button key={direction} variant="secondary" disabled={(!hold.current && (disabled || busy)) || !userId}
+          aria-label={direction === 'up' ? '↑ Вверх · удерживать' : '↓ Вниз · удерживать'}
+          iconLeft={direction === 'up' ? <ArrowUp aria-hidden="true" /> : <ArrowDown aria-hidden="true" />}
           onPointerDown={(event) => {
             if (event.pointerType === 'mouse' && event.button !== 0) return
             event.currentTarget.setPointerCapture?.(event.pointerId)
@@ -94,7 +97,7 @@ export function HoldToJog({ userId, exerciseSlug, disabled = false, onMoved, onH
             if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); press(direction) }
           }}
           onKeyUp={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); release() } }}
-        >{direction === 'up' ? '↑ Вверх · удерживать' : '↓ Вниз · удерживать'}</Button>
+        >{direction === 'up' ? 'Вверх · удерживать' : 'Вниз · удерживать'}</Button>
       ))}
     </div>
   )

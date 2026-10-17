@@ -99,6 +99,10 @@ class Settings(BaseSettings):
     openapi_export_path: str = Field(default=str(DEFAULT_OPENAPI_EXPORT_PATH), alias="OPENAPI_EXPORT_PATH")
     media_root: str = Field(default=str(DEFAULT_MEDIA_ROOT), alias="MEDIA_ROOT")
     media_url_prefix: str = Field(default="/media", alias="MEDIA_URL_PREFIX")
+    photo_person_model_path: str = Field(
+        default=str(BACKEND_ROOT / "models" / "object_detection_yolox_2022nov.onnx"),
+        alias="PHOTO_PERSON_MODEL_PATH",
+    )
 
     model_config = SettingsConfigDict(
         env_file=(

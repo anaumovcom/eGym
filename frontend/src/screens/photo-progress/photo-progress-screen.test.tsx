@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -40,12 +41,14 @@ describe('PhotoProgressScreen', () => {
     const user = userEvent.setup()
 
     render(
-      <MemoryRouter>
-        <PhotoProgressScreen />
-      </MemoryRouter>,
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <MemoryRouter>
+          <PhotoProgressScreen />
+        </MemoryRouter>
+      </QueryClientProvider>,
     )
 
-    await user.click(screen.getByRole('button', { name: 'Сделать позже' }))
+    await user.click(screen.getByRole('button', { name: 'Продолжить', exact: true }))
 
     expect(navigateMock).toHaveBeenCalledWith('/exercise-setup?source=today&photo=before')
     expect(useRuntimeStore.getState().session?.view).toBe('exercise-setup')

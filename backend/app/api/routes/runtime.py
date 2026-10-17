@@ -6,6 +6,8 @@ from app.schemas.runtime import (
     ExerciseSessionCreateSchema,
     ExerciseSessionsResetRequestSchema,
     ExerciseSessionsResetResponseSchema,
+    ExerciseSettingsSaveSchema,
+    ExerciseSettingsSchema,
     LoadAdjustmentRequestSchema,
     LoadAdjustmentResponseSchema,
     RuntimeExerciseSummarySchema,
@@ -20,6 +22,28 @@ from app.services.runtime_service import RuntimeService
 router = APIRouter()
 
 runtime_service = RuntimeService()
+
+
+@router.get("/runtime/exercises/settings", response_model=ExerciseSettingsSchema | None)
+def get_exercise_settings(
+    user_id: str = Query(..., alias="userId"),
+    exercise_slug: str = Query(..., alias="exerciseSlug"),
+    session: Session = Depends(get_session),
+) -> ExerciseSettingsSchema | None:
+    try:
+        return runtime_service.get_exercise_settings(session, user_id, exercise_slug)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@router.put("/runtime/exercises/settings", response_model=ExerciseSettingsSchema)
+def save_exercise_settings(
+    payload: ExerciseSettingsSaveSchema, session: Session = Depends(get_session),
+) -> ExerciseSettingsSchema:
+    try:
+        return runtime_service.save_exercise_settings(session, payload)
+    except LookupError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 @router.post("/runtime/sets/{set_id}/feedback", response_model=SetFeedbackSchema)

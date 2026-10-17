@@ -2,11 +2,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from sqlalchemy import create_engine, inspect, select, text
 from sqlalchemy.orm import Session
 
+from alembic import command
+from alembic.config import Config
 from app.models.analytics import ExerciseSession
 from app.models.training import ExerciseHistoryRecord, UserExerciseState
 from app.schemas.runtime import (
@@ -56,7 +56,7 @@ def test_metadata_roundtrips_incremental_save_summary_and_state(db_session: Sess
     state = db_session.scalar(select(UserExerciseState).where(UserExerciseState.exercise_slug == "per-side-test"))
     assert state is not None
     assert state.working_sets == 1
-    assert state.working_reps == 20
+    assert state.working_reps == 10  # A target for one set, not the sum of both sides.
     assert state.calibration_payload["lastResult"]["sets"] == 1
     assert state.calibration_payload["lastResult"]["repsPerSet"] == 10
     assert state.calibration_payload["lastResult"]["volumeKg"] == 400
@@ -86,7 +86,7 @@ def test_incomplete_pair_is_not_completed_or_recommended_twice(db_session: Sessi
     assert "увеличить вес" not in saved.summary.recommendation
     db_session.expire_all()
     state = db_session.scalar(select(UserExerciseState).where(UserExerciseState.exercise_slug == "per-side-test"))
-    assert state is not None and state.working_sets == 0
+    assert state is not None and state.working_sets == 1  # Keep the planned round on partial completion.
     assert state.calibration_payload["lastResult"]["sets"] == 0
     assert state.calibration_payload["lastResult"]["repsPerSet"] == 10
     workout = service.save_workout_session(db_session, WorkoutSessionCreateSchema(

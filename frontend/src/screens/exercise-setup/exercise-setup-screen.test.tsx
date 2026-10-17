@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter } from 'react-router-dom'
 import { ExerciseSetupScreen } from '@/screens/exercise-setup/exercise-setup-screen'
 import { getExerciseDetails } from '@/mocks/stage2-data'
-import { apiGet, apiPost } from '@/shared/api/client'
+import { apiGet, apiPost, apiPut } from '@/shared/api/client'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
@@ -22,6 +22,7 @@ vi.mock('@/shared/api/client', async () => ({
   ...await vi.importActual<typeof import('@/shared/api/client')>('@/shared/api/client'),
   apiGet: vi.fn().mockResolvedValue([]),
   apiPost: vi.fn(),
+  apiPut: vi.fn().mockResolvedValue({}),
 }))
 
 vi.mock('@/features/runtime/lib/backend-builder-session', () => ({
@@ -159,7 +160,8 @@ describe('ExerciseSetupScreen', () => {
 
   beforeEach(() => {
     localStorage.clear()
-    vi.mocked(apiGet).mockReset().mockResolvedValue([])
+    vi.mocked(apiGet).mockReset().mockImplementation(async path => path.startsWith('/api/runtime/exercises/settings?') ? null as never : [] as never)
+    vi.mocked(apiPut).mockReset().mockResolvedValue({})
     vi.mocked(apiPost).mockReset().mockResolvedValue({ missingExerciseSessionIds: [] })
     currentSearch = '?source=catalog&slug=barbell-floor-press&calibration=missing'
     navigateMock.mockReset()
@@ -256,19 +258,57 @@ describe('ExerciseSetupScreen', () => {
     expect(screen.getAllByText('76 см').length).toBeGreaterThan(0)
   })
 
-  it('shows the video separately and places the bar setup below the exercise parameters', () => {
+  it('places video, parameters and persistent calibration in independent grid areas', () => {
     const { container } = renderScreen()
     const body = container.querySelector('.rt-setup-body')
     const media = body?.querySelector('.rt-setup-media')
-    const right = body?.querySelector('.rt-setup-right')
     const parameters = screen.getByRole('region', { name: 'Параметры упражнения' })
     const calibration = screen.getByRole('region', { name: 'Настройка грифа' })
 
     expect(media?.querySelector('.rt-media-frame')).toBeInTheDocument()
     expect(media).not.toContainElement(calibration)
-    expect(right).toContainElement(parameters)
-    expect(right).toContainElement(calibration)
+    expect(parameters.parentElement).toBe(body)
+    expect(calibration.parentElement).toBe(body)
+    expect(media?.parentElement).toBe(body)
     expect(parameters.compareDocumentPosition(calibration) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('groups movement and capture separately and keeps save as the final calibration action', () => {
+    renderScreen()
+    const calibration = screen.getByRole('region', { name: 'Настройка грифа', exact: true })
+    const movement = within(calibration).getByRole('group', { name: 'Перемещение грифа при настройке' })
+    const capture = within(calibration).getByRole('group', { name: 'Фиксация положения грифа' })
+    const save = within(calibration).getByRole('button', { name: 'Сохранить амплитуду' })
+    expect(within(movement).getAllByRole('button')).toHaveLength(2)
+    expect(within(capture).getAllByRole('button')).toHaveLength(2)
+    expect(capture).not.toContainElement(save)
+    expect(capture.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect([...calibration.querySelectorAll('button')].at(-1)).toBe(save)
+    for (const button of calibration.querySelectorAll('button')) {
+      expect(button.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
+    }
+  })
+
+  it('shows two distinct video angles in the same vertical media column', async () => {
+    const slug = 'barbell-floor-press'
+    const details = getExerciseDetails(slug)
+    const sideUrl = `/media/exercises/${slug}/male-side.mp4`
+    const frontUrl = `/media/exercises/${slug}/male-front.mp4`
+    vi.mocked(apiGet).mockImplementation(async (path) => path.startsWith(`/api/exercises/${slug}?`)
+      ? { ...details, videos: [
+        { url: `/media/exercises/${slug}/female-front.mp4`, label: 'Женщина · Спереди', gender: 'female', view: 'front' },
+        { url: frontUrl, label: 'Мужчина · Спереди', gender: 'male', view: 'front' },
+        { url: sideUrl, label: 'Мужчина · Сбоку', gender: 'male', view: 'side' },
+        { url: sideUrl, label: 'Дубликат', gender: 'male', view: 'side' },
+      ] }
+      : [])
+
+    const { container } = renderScreen()
+    await waitFor(() => expect([...container.querySelectorAll('.rt-setup-media video source')].map((node) => node.getAttribute('src'))).toEqual([sideUrl, frontUrl]))
+    const media = container.querySelector('.rt-setup-media')
+    expect(media).toHaveAttribute('data-video-count', '2')
+    expect(media?.querySelectorAll(':scope > .rt-media')).toHaveLength(2)
+    expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()
   })
 
   it('shows API video for a catalog exercise missing from mock media and retains session settings', async () => {
@@ -287,11 +327,13 @@ describe('ExerciseSetupScreen', () => {
     const { container } = renderScreen()
 
     await waitFor(() => expect(container.querySelector('video source')?.getAttribute('src')).toBe(videoUrl))
+    expect(container.querySelectorAll('.rt-setup-media video')).toHaveLength(1)
+    expect(container.querySelector('.rt-setup-media')).toHaveAttribute('data-video-count', '1')
     const after = useRuntimeStore.getState().session!
     expect(after.exercises[0].details.videos[0].url).toBe(videoUrl)
     expect(after.exercises[0].summary.previewVideoUrl).toBe(videoUrl)
     expect(after.exercises[0].loadSettings.reps).toBe(15)
-    expect(after.exercises[0].calibrationState).toBe('missing')
+    expect(after.exercises[0].calibrationState).toBe(before.exercises[0].calibrationState)
     expect(after.currentSetIndex).toBe(before.currentSetIndex)
     expect(after.startedAt).toBe(before.startedAt)
   })
@@ -387,6 +429,9 @@ describe('ExerciseSetupScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Зафиксировать высоту грифа' }))
     await user.click(screen.getByRole('button', { name: 'Сохранить положение' }))
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ userId: 'alexey', exerciseSlug: 'bodyweight-pull-up', setupType: 'fixed_position', fixedPositionMm: 560, lowerPointMm: null, upperPointMm: null })))
+    expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Зафиксировать высоту грифа' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Свернуть' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Запустить упражнение' }))
     await waitFor(() => expect(command).toHaveBeenCalledWith(expect.objectContaining({ action: 'start_fixed_position', positionMm: 560, repCountSource: 'manual' })))
     expect(navigateMock).toHaveBeenCalledWith(`/exercise-session${currentSearch}`)
@@ -406,11 +451,14 @@ describe('ExerciseSetupScreen', () => {
     const user = userEvent.setup()
     renderScreen()
     expect(await screen.findByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
-    await user.click(screen.getByRole('button', { name: 'Калибровка: 56 см - 76 см' }))
+    expect(screen.getByText('Калибровка: 56 см - 76 см')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Свернуть' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Фиксированное положение' }))
     expect(screen.getByRole('button', { name: 'Старт недоступен' })).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Сбросить изменения' }))
     expect(screen.getByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
+    expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()
   })
 
   it('loads a previously saved fixed height without capturing points again', async () => {
@@ -425,9 +473,9 @@ describe('ExerciseSetupScreen', () => {
       return saved
     })
     renderScreen()
-    expect(await screen.findByRole('button', { name: 'Фиксация: 148 см' })).toBeInTheDocument()
+    expect(await screen.findByText('Фиксация: 148 см')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Фиксация: 148 см' }))
+    expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()
     expect(screen.getByText('Фиксированная высота')).toBeInTheDocument()
     expect(screen.queryByText('Нижняя точка')).not.toBeInTheDocument()
     const save = vi.fn().mockImplementation(async () => {
@@ -441,6 +489,7 @@ describe('ExerciseSetupScreen', () => {
     await userEvent.setup().click(screen.getByRole('button', { name: 'Сохранить положение' }))
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ setupType: 'fixed_position', fixedPositionMm: 560 })))
     expect(screen.getByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
+    expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()
   })
 
   it('replaces a stale backend builder session with the updated exercise plan', async () => {

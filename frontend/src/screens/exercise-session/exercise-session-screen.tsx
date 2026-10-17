@@ -14,6 +14,7 @@ import { BarStartPointSelector } from '@/features/hardware/ui/bar-start-point-se
 import type { BarStartPoint, LoadDirection } from '@/features/hardware/model/types'
 import { LoadDirectionSelector } from '@/features/hardware/ui/load-direction-selector'
 import { resetExercisesOnBackend, saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
+import { getExerciseSettingsSnapshot, ownsExerciseSettingsSession, useExerciseSettings } from '@/features/runtime/lib/use-exercise-settings'
 import { captureRuntimeLifecycle, coachLifecycle, coachSetTimer } from '@/features/coach/lib/runtime-observation'
 import { playExerciseEventSound, useExerciseEventSounds } from '@/features/runtime/lib/exercise-event-sounds'
 import { getSetTypeLabel } from '@/features/strength/lib/strength-plan'
@@ -156,6 +157,14 @@ export function ExerciseSessionScreen() {
     )
   }
 
+  if (!ownsExerciseSettingsSession(session, selectedUserId)) {
+    return (
+      <FormaShell userName={getUserName(selectedUserId)} machine={snapshot?.machine ?? session.machine} hideNavigation onStop={() => setEmergencyStopActive(true)}>
+        <FormaState tone="error" title="Тренировка другого пользователя" description="Выберите владельца тренировки или начните новую тренировку для этого пользователя." />
+      </FormaShell>
+    )
+  }
+
   return <ExerciseSessionView session={session} state={session.sessionState} />
 }
 
@@ -173,6 +182,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const markExerciseSaved = useRuntimeStore((state) => state.markExerciseSaved)
   const completeWorkout = useRuntimeStore((state) => state.completeWorkout)
   const restartPreviousExercise = useRuntimeStore((state) => state.restartPreviousExercise)
+  const updateExerciseWeight = useRuntimeStore((state) => state.updateExerciseWeight)
   const snapshot = useHardwareStore((state) => state.snapshot)
   const currentCalibration = useHardwareStore((state) => state.currentCalibration)
   const hardwareError = useHardwareStore((state) => state.errorMessage)
@@ -209,6 +219,8 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
 
   const activeSession = session
   const exercise = activeSession.exercises.find((item) => item.id === activeSession.currentExerciseId) ?? activeSession.exercises[0]
+  // Active sets own their plan/counters: this hook is write-only on the session screen.
+  const exerciseSettings = useExerciseSettings({ session, exercise, userId: selectedUserId, hydrate: false })
   const setPlan = exercise.plan[session.currentSetIndex] ?? exercise.plan[exercise.plan.length - 1]
   const isFailureSet = (state.setType ?? setPlan.setType) === 'failure'
   const activeCalibration = currentCalibration?.userId === selectedUserId && currentCalibration.exerciseSlug === exercise.slug ? currentCalibration : null
@@ -262,6 +274,18 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       : state.metrics
   const motionRail = isMachineExercise && !isFixedExercise ? buildMotionRail(liveMotion, activeCalibration) : null
   const showWeightControl = isMachineExercise || actualWeight > 0
+
+  function changeExerciseWeight(weight: number) {
+    if (!exerciseSettings.ready) return
+    const current = useRuntimeStore.getState().session
+    if (current?.id !== session.id || current.currentExerciseId !== exercise.id) return
+    setActualWeight(weight)
+    // This action only updates loadSettings and current/future set plans, never sessionState/counters.
+    updateExerciseWeight(weight)
+    const updated = useRuntimeStore.getState().session?.exercises.find(item => item.id === exercise.id)
+    if (updated) void exerciseSettings.save(getExerciseSettingsSnapshot(updated))
+  }
+
   const controlMode = snapshot?.control?.mode
   const motorSetActive = controlMode === 'moving' || controlMode === 'start_hold' || controlMode === 'training' || controlMode === 'paused' || controlMode === 'fixed_hold'
   // The set screen is shown but the trainer is resting (backend restart, a fault, a restored page): the bar
@@ -473,6 +497,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     setCalibrationBusy(true)
     setHardwareError(null)
     try {
+      if (!await exerciseSettings.flush()) return
       await runCommand({
         action: fixed ? 'start_fixed_position' : 'start_motion',
         userId: selectedUserId,
@@ -529,6 +554,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         note: activeCalibration.note,
       })
       if (useHardwareStore.getState().snapshot?.control?.mode === 'start_hold') {
+        if (!await exerciseSettings.flush()) return
         await runCommand({
           action: 'start_motion',
           userId: selectedUserId,
@@ -886,8 +912,8 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
                   label="Вес"
                   unit="кг"
                   value={actualWeight}
-                  onChange={(delta) => setActualWeight(Math.max(0, actualWeight + delta))}
-                  onValueCommit={(value) => setActualWeight(Math.max(0, value ?? 0))}
+                  onChange={(delta) => changeExerciseWeight(Math.max(0, actualWeight + delta))}
+                  onValueCommit={(value) => changeExerciseWeight(Math.max(0, value ?? 0))}
                 />
               ) : null}
               <div className="rt-metrics" aria-label="Показатели движения">
@@ -984,6 +1010,13 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
                   <p>{errorMessage}</p>
                   <Button variant="secondary" onClick={() => { setSaveError(null); setHardwareError(null) }}>Понятно</Button>
                 </div>
+              </div>
+            ) : null}
+            {exerciseSettings.error ? (
+              <div className="rt-alert" data-tone="danger" role="alert">
+                <AlertTriangle aria-hidden="true" />
+                <div><strong>Не удалось сохранить настройки</strong><p>{exerciseSettings.error}</p></div>
+                <Button variant="secondary" onClick={() => { void exerciseSettings.retry() }}>Повторить</Button>
               </div>
             ) : null}
           </section>

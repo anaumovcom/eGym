@@ -519,8 +519,9 @@ def test_fatigue_reset_zeroes_current_snapshots(client: TestClient, db_session) 
     assert all(item["score"] == 0 for item in after_payload["muscles"])
 
 
-def test_photo_progress_upload_list_and_delete(client: TestClient, tmp_path: Path) -> None:
-    media_service.media_root = tmp_path
+def test_photo_progress_upload_list_and_delete(client: TestClient, tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(media_service, "media_root", tmp_path)
+    monkeypatch.setattr("app.services.photo_crop.detect_person", lambda *_: (30, 10, 90, 170))
     image = Image.new("RGB", (120, 180), color=(240, 240, 240))
     buffer = BytesIO()
     image.save(buffer, format="PNG")
@@ -532,6 +533,7 @@ def test_photo_progress_upload_list_and_delete(client: TestClient, tmp_path: Pat
         files={"file": ("progress.png", buffer.getvalue(), "image/png")},
     )
     assert upload_response.status_code == 200
+    assert upload_response.json()["width"] * 4 == upload_response.json()["height"] * 3
     photo_id = upload_response.json()["id"]
 
     list_response = client.get("/api/photo-progress", params={"userId": "alexey"})

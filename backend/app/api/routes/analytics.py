@@ -10,14 +10,15 @@ from app.schemas.analytics import (
     BodyMeasurementCreateSchema,
     BodyMeasurementListResponseSchema,
     FatigueDataSchema,
+    FatigueHistoryResponseSchema,
     FatigueResetResultSchema,
     FatigueResetSchema,
-    FatigueHistoryResponseSchema,
     ProgressDataSchema,
     ProgressPhotoAssetSchema,
     ProgressPhotoListResponseSchema,
 )
 from app.services.media_service import MediaService
+from app.services.photo_crop import PhotoCropUnavailableError
 from app.services.progress_service import ProgressService
 
 router = APIRouter()
@@ -100,6 +101,8 @@ def upload_progress_photo(
             workout_session_id=workout_session_id,
             note=note,
         )
+    except PhotoCropUnavailableError as error:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(error)) from error
     except ValueError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
 

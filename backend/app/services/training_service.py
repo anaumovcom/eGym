@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime, time, timedelta
 import re
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any, Literal
 
 from pydantic import ValidationError
@@ -12,6 +12,7 @@ from app.models.analytics import ExerciseSession, WorkoutSession
 from app.models.enums import ExerciseSessionStatus, RuntimeExerciseKind, WorkoutSessionStatus
 from app.models.settings import AppSetting
 from app.models.training import ExerciseHistoryRecord, UserExerciseState, UserHiddenWorkoutProgram, WorkoutProgram
+from app.schemas.analytics import MuscleCardSchema
 from app.schemas.exercise import (
     ExerciseCatalogAvailableFiltersSchema,
     ExerciseCatalogResponseSchema,
@@ -33,6 +34,9 @@ from app.schemas.training import (
     BuilderStrengthSetPlanSchema,
     BuilderSummaryCardSchema,
     BuilderWorkoutGroupSchema,
+    CalendarDaySchema,
+    CalendarWorkoutExerciseSchema,
+    CalendarWorkoutSchema,
     ProgramCompatibilitySchema,
     ProgramDetailsActionsSchema,
     ProgramDetailsSchema,
@@ -47,26 +51,22 @@ from app.schemas.training import (
     QuickStartSelectedExerciseSchema,
     QuickStartSelectedExerciseWarningSchema,
     StrengthTrainingModeSchema,
-    TodayWorkoutPlanMutationSchema,
     TodayWorkoutDataSchema,
-    TrainingPlanMutationResultSchema,
+    TodayWorkoutPlanMutationSchema,
     TodayWorkoutWarningSchema,
+    TrainingPlanMutationResultSchema,
     WorkoutBuilderDataSchema,
     WorkoutCalendarDataSchema,
     WorkoutExercisePanelReadinessSchema,
     WorkoutExercisePanelSchema,
     WorkoutExerciseRowSchema,
     WorkoutProgressSchema,
-    CalendarDaySchema,
-    CalendarWorkoutExerciseSchema,
-    CalendarWorkoutSchema,
 )
-from app.schemas.analytics import MuscleCardSchema
 from app.services.exercise_library import ImportedExercise, get_imported_exercise, load_imported_exercises
+from app.services.exercise_settings import remembered_settings
 from app.services.fatigue_service import FatigueService, equipment_affects_fatigue
 from app.services.machine_service import MachineService
 from app.services.muscle_catalog import CANONICAL_MUSCLE_DEFINITIONS
-
 
 RU_MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
 
@@ -1553,14 +1553,17 @@ class TrainingService:
         sets = state.working_sets if state and state.working_sets is not None else 3
         reps = state.working_reps if state and state.working_reps is not None else 10
         rest_seconds = state.rest_seconds if state and state.rest_seconds is not None else 60
+        remembered = remembered_settings(session, state)
+        if remembered is not None:
+            weight, sets, reps, rest_seconds = remembered.weight, remembered.sets, remembered.reps, remembered.rest_seconds
         calibration = state.calibration_status if state and state.calibration_status else ("required" if exercise and exercise.equipment == "Machine" else "recommended")
         return ExerciseLoadSettingsSchema(
             weight=weight,
             sets=sets,
             reps=reps,
             rest_seconds=rest_seconds,
-            mode="Обычный вес" if weight > 0 else "Контроль техники",
-            tempo="Обычный",
+            mode=remembered.mode if remembered else ("Обычный вес" if weight > 0 else "Контроль техники"),
+            tempo=remembered.tempo if remembered else "Обычный",
             recommendation="Можно сохранить рабочий вес и контролировать амплитуду движения.",
             safe_range=(max(0.0, weight - 10.0), weight + 5.0),
             calibration=calibration,

@@ -1,26 +1,27 @@
-import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Camera, ChevronDown } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { ArrowRight, ChevronDown } from 'lucide-react'
 import { useState, type ReactNode } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { ProgressData, Stage4Period } from '@/entities/stage4/model/types'
 import { stage4Periods } from '@/mocks/stage4-data'
-import { apiGet, resolveApiAssetUrl } from '@/shared/api/client'
+import { apiDelete, apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { PhotoCaptureDialog } from '@/shared/ui/photo/photo-capture-dialog'
 import { BarChartCard, LineChartCard, Panel } from '@/shared/ui/stage4/screen-components'
 import { useAppStore } from '@/stores/app-store'
+import { ProgressPhotoGallery, type ProgressPhoto } from './progress-photo-gallery'
 
 type ProgressTab = 'overview' | 'strength' | 'body' | 'photo'
-type PhotoAsset = { id: number; view: 'front' | 'side' | 'back'; takenAt: string; thumbnailUrl: string }
 const tabs: Array<{ id: ProgressTab; label: string }> = [
   { id: 'overview', label: 'Обзор' }, { id: 'strength', label: 'Сила' }, { id: 'body', label: 'Тело' }, { id: 'photo', label: 'Фото' },
 ]
 const fallbackMachine: MachineHealth = { machineState: 'ready', machineLabel: 'Загрузка статуса', leftDrive: 'connected', rightDrive: 'connected', safety: 'enabled', calibration: 'Загрузка...' }
 
 export function ProgressScreen() {
+  const queryClient = useQueryClient()
   const [params, setParams] = useSearchParams()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
   const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
@@ -37,14 +38,23 @@ export function ProgressScreen() {
     queryFn: () => apiGet<ProgressData>(`/api/progress?userId=${encodeURIComponent(userId)}&period=${encodeURIComponent(period)}&exerciseSlug=${encodeURIComponent(exerciseSlug)}`),
     enabled: params.get('tab') !== 'recovery',
   })
-  const { data: photos } = useQuery({
+  const photoQuery = useQuery({
     queryKey: ['progress-photos', userId],
-    queryFn: () => apiGet<{ photos: PhotoAsset[] }>(`/api/photo-progress?userId=${encodeURIComponent(userId)}`),
+    queryFn: () => apiGet<{ photos: ProgressPhoto[] }>(`/api/photo-progress?userId=${encodeURIComponent(userId)}`),
     enabled: tab === 'photo',
   })
 
   function update(patch: Record<string, string | null>) {
     setParams((current) => { const next = new URLSearchParams(current); for (const [key, value] of Object.entries(patch)) { if (value) next.set(key, value); else next.delete(key) } return next })
+  }
+
+  async function deletePhoto(id: number) {
+    await apiDelete(`/api/photo-progress/${id}?confirm=true`)
+    queryClient.setQueryData<{ photos: ProgressPhoto[] }>(['progress-photos', userId], (current) => current ? { photos: current.photos.filter((photo) => photo.id !== id) } : current)
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['progress-photos', userId] }),
+      queryClient.invalidateQueries({ queryKey: ['user-profile-screen', userId] }),
+    ])
   }
 
   if (params.get('tab') === 'recovery') {
@@ -58,11 +68,11 @@ export function ProgressScreen() {
       <section className="progress-center" aria-labelledby="progress-title">
         <header className="progress-heading">
           <div><h1 id="progress-title" className="font-display font-bold text-white">Прогресс</h1><p>Результаты тренировок, изменения тела, фото и восстановление.</p></div>
-          <label className="progress-period"><span>Период</span><select aria-label="Период прогресса" value={period} onChange={(event) => update({ period: event.target.value })}>{stage4Periods.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><ChevronDown aria-hidden="true" /></label>
+          {tab !== 'photo' ? <label className="progress-period"><span>Период</span><select aria-label="Период прогресса" value={period} onChange={(event) => update({ period: event.target.value })}>{stage4Periods.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><ChevronDown aria-hidden="true" /></label> : null}
         </header>
         <nav className="progress-tabs" aria-label="Разделы прогресса">{tabs.map((item) => <button key={item.id} type="button" aria-current={tab === item.id ? 'page' : undefined} onClick={() => update({ tab: item.id === 'overview' ? null : item.id })}>{item.label}</button>)}</nav>
 
-        {error ? <div className="forma-state" role="alert"><p>Не удалось загрузить прогресс.</p><Button onClick={() => void refetch()}>Повторить</Button></div> : isPending || !data ? <div className="forma-state" role="status">Загрузка прогресса…</div> : <ProgressContent data={data} tab={tab} exerciseSlug={exerciseSlug} update={update} photos={photos?.photos ?? []} onPhoto={() => setPhotoOpen(true)} />}
+        {tab === 'photo' ? <ProgressPhotoGallery key={userId} photos={photoQuery.data?.photos ?? []} loading={photoQuery.isPending} error={photoQuery.isError} onRetry={() => void photoQuery.refetch()} onPhoto={() => setPhotoOpen(true)} onDelete={deletePhoto} /> : error ? <div className="forma-state" role="alert"><p>Не удалось загрузить прогресс.</p><Button onClick={() => void refetch()}>Повторить</Button></div> : isPending || !data ? <div className="forma-state" role="status">Загрузка прогресса…</div> : <ProgressContent data={data} tab={tab} exerciseSlug={exerciseSlug} update={update} />}
       </section>
       <PhotoCaptureDialog open={photoOpen} onOpenChange={setPhotoOpen} userId={userId} />
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={setEmergencyStopActive} />
@@ -70,7 +80,7 @@ export function ProgressScreen() {
   )
 }
 
-function ProgressContent({ data, tab, exerciseSlug, update, photos, onPhoto }: { data: ProgressData; tab: ProgressTab; exerciseSlug: string; update: (patch: Record<string, string | null>) => void; photos: PhotoAsset[]; onPhoto: () => void }) {
+function ProgressContent({ data, tab, exerciseSlug, update }: { data: ProgressData; tab: ProgressTab; exerciseSlug: string; update: (patch: Record<string, string | null>) => void }) {
   if (data.emptyState && tab === 'overview') {
     return <div className="progress-empty"><h2>{data.emptyState.title}</h2><p>{data.emptyState.description}</p><Button asChild iconLeft={<ArrowRight aria-hidden="true" />}><Link to="/dashboard">Завершить тренировку</Link></Button></div>
   }
@@ -99,14 +109,7 @@ function ProgressContent({ data, tab, exerciseSlug, update, photos, onPhoto }: {
     </div>
   )
 
-  const latestDate = photos[0]?.takenAt.slice(0, 10)
-  const latest = latestDate ? photos.filter((photo) => photo.takenAt.startsWith(latestDate)).slice(0, 3) : []
-  return (
-    <div className="progress-section">
-      <div className="progress-section-toolbar"><h2>Фото</h2><Button iconLeft={<Camera aria-hidden="true" />} onClick={onPhoto}>Фотофиксация</Button></div>
-      {latest.length ? <div className="progress-photo-summary"><div><h3>Последняя фотофиксация</h3><p>{new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(latest[0].takenAt))}</p><p className="mt-4 text-white/60">Полная галерея и удаление снимков находятся в профиле.</p><Button asChild variant="secondary" className="mt-5"><Link to="/profile?tab=photo">Открыть галерею</Link></Button></div><div className="progress-photo-row">{latest.map((photo) => <img key={photo.id} src={resolveApiAssetUrl(photo.thumbnailUrl) ?? photo.thumbnailUrl} alt={photo.view === 'front' ? 'Спереди' : photo.view === 'side' ? 'Сбоку' : 'Сзади'} />)}</div></div> : <ProgressActionEmpty title="Нет фото прогресса" text="Сделайте первую фотофиксацию, чтобы начать визуальное отслеживание." action={<Button iconLeft={<Camera aria-hidden="true" />} onClick={onPhoto}>Сделать фото</Button>} />}
-    </div>
-  )
+  return null
 }
 
 function ProgressActionEmpty({ title, text, action }: { title: string; text: string; action: ReactNode }) { return <div className="progress-empty"><h2>{title}</h2><p>{text}</p>{action}</div> }

@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { ExerciseSessionScreen } from '@/screens/exercise-session/exercise-session-screen'
 import { getExerciseDetails } from '@/mocks/stage2-data'
-import { apiGet, apiPost } from '@/shared/api/client'
+import { apiGet, apiPost, apiPut } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
@@ -33,6 +33,7 @@ vi.mock('@/shared/api/client', async () => ({
   ...await vi.importActual<typeof import('@/shared/api/client')>('@/shared/api/client'),
   apiGet: vi.fn(),
   apiPost: vi.fn(),
+  apiPut: vi.fn().mockResolvedValue({}),
 }))
 
 vi.mock('@/features/runtime/lib/runtime-persistence', async () => ({
@@ -196,6 +197,7 @@ describe('ExerciseSessionScreen', () => {
     navigateMock.mockReset()
     runCommandMock.mockReset().mockResolvedValue({})
     vi.mocked(apiGet).mockReset().mockResolvedValue([])
+    vi.mocked(apiPut).mockReset().mockResolvedValue({})
     vi.mocked(apiPost).mockReset()
     vi.mocked(apiPost).mockImplementation(async (path: string) => {
       if (path === '/api/runtime/exercises/reset') return { missingExerciseSessionIds: [] } as never

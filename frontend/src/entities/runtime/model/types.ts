@@ -227,6 +227,7 @@ export type RuntimeWorkoutSummaryState = {
 }
 
 export type RuntimeWorkoutSession = {
+  userId?: string
   id: string
   source: RuntimeFlowSource
   programId?: string

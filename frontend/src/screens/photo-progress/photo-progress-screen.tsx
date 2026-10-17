@@ -8,6 +8,7 @@ import { resolveApiAssetUrl } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
+import { captureFrame as captureFrameFromVideo } from '@/shared/ui/photo/photo-capture-dialog'
 import { FilterChip, SectionIntro } from '@/shared/ui/stage2/screen-components'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
@@ -209,43 +210,6 @@ export function PhotoProgressScreen() {
 
   if (!session || !photoState || !currentShot) {
     return null
-  }
-
-  function captureFrameFromVideo(video: HTMLVideoElement | null) {
-    if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
-      return null
-    }
-
-    const width = 1280
-    const height = 720
-    const sourceWidth = video.videoWidth || width
-    const sourceHeight = video.videoHeight || height
-    const sourceAspect = sourceWidth / sourceHeight
-    const targetAspect = width / height
-    let sx = 0
-    let sy = 0
-    let sw = sourceWidth
-    let sh = sourceHeight
-
-    if (sourceAspect > targetAspect) {
-      sw = sourceHeight * targetAspect
-      sx = (sourceWidth - sw) / 2
-    } else if (sourceAspect < targetAspect) {
-      sh = sourceWidth / targetAspect
-      sy = (sourceHeight - sh) / 2
-    }
-
-    const canvas = document.createElement('canvas')
-    canvas.width = width
-    canvas.height = height
-    const context = canvas.getContext('2d')
-
-    if (!context) {
-      return null
-    }
-
-    context.drawImage(video, sx, sy, sw, sh, 0, 0, width, height)
-    return canvas.toDataURL('image/jpeg', 0.92)
   }
 
   function startCountdown(view: RuntimePhotoView) {

@@ -1,7 +1,7 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useQueryClient } from '@tanstack/react-query'
-import { Camera, Check, RefreshCcw, Save, X } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Camera, Check, Images, RefreshCcw, Save, Timer, X } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RuntimePhotoView } from '@/entities/runtime/model/types'
 import { resolveApiAssetUrl } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
@@ -24,6 +24,9 @@ export function PhotoCaptureDialog({ open, onOpenChange, userId, onSaved }: { op
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
+  const [timerSeconds, setTimerSeconds] = useState(5)
+  const [countdown, setCountdown] = useState<number | null>(null)
+  const [seriesIndex, setSeriesIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (!open) {
@@ -34,6 +37,8 @@ export function PhotoCaptureDialog({ open, onOpenChange, userId, onSaved }: { op
       setCameraError(null)
       setSaveError(null)
       setSaving(false)
+      setCountdown(null)
+      setSeriesIndex(null)
       return
     }
 
@@ -67,14 +72,54 @@ export function PhotoCaptureDialog({ open, onOpenChange, userId, onSaved }: { op
     if (open && videoRef.current && streamRef.current) attachStream(videoRef.current, streamRef.current)
   }, [open, view, drafts])
 
-  function capture() {
+  const capture = useCallback(() => {
     const image = captureFrame(videoRef.current)
     if (!image) {
       setCameraError('Камера ещё не готова. Попробуйте снова через несколько секунд.')
-      return
+      return false
     }
     setDrafts((current) => ({ ...current, [view]: image }))
     setCameraError(null)
+    return true
+  }, [view])
+
+  useEffect(() => {
+    if (!open || countdown === null) return
+    const timeout = window.setTimeout(() => {
+      if (countdown > 1) setCountdown(countdown - 1)
+      else {
+        const captured = capture()
+        if (captured && seriesIndex !== null && seriesIndex < views.length - 1) {
+          const nextIndex = seriesIndex + 1
+          setSeriesIndex(nextIndex)
+          setView(views[nextIndex].id)
+          setCountdown(timerSeconds)
+        } else {
+          setCountdown(null)
+          setSeriesIndex(null)
+        }
+      }
+    }, countdown === 0 ? 0 : 1000)
+    return () => window.clearTimeout(timeout)
+  }, [open, countdown, capture, seriesIndex, timerSeconds])
+
+  function cancelCapture() {
+    setCountdown(null)
+    setSeriesIndex(null)
+  }
+
+  function startSeries() {
+    if (saving || countdown !== null || cameraError) return
+    setSaveError(null)
+    setView(views[0].id)
+    setSeriesIndex(0)
+    setCountdown(timerSeconds)
+  }
+
+  function startCapture() {
+    if (saving || countdown !== null || cameraError) return
+    if (timerSeconds === 0) capture()
+    else setCountdown(timerSeconds)
   }
 
   function retake() {
@@ -87,7 +132,7 @@ export function PhotoCaptureDialog({ open, onOpenChange, userId, onSaved }: { op
 
   async function save() {
     const entries = Object.entries(drafts) as Array<[RuntimePhotoView, string]>
-    if (!entries.length || saving) return
+    if (!entries.length || saving || countdown !== null) return
     setSaving(true)
     setSaveError(null)
     try {
@@ -110,25 +155,29 @@ export function PhotoCaptureDialog({ open, onOpenChange, userId, onSaved }: { op
   }
 
   const current = views.find((item) => item.id === view)!
-  const draft = drafts[view]
+  const draft = countdown === null ? drafts[view] : undefined
   const count = Object.keys(drafts).length
 
   return (
-    <Dialog.Root open={open} onOpenChange={(next) => { if (!saving) onOpenChange(next) }}>
+    <Dialog.Root open={open} onOpenChange={(next) => {
+      if (saving) return
+      if (!next) cancelCapture()
+      onOpenChange(next)
+    }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/85 backdrop-blur-sm" />
         <SafetyDialogContent className="photo-capture-panel" aria-busy={saving}>
           <header className="photo-capture-heading">
             <div>
               <Dialog.Title className="font-display text-3xl font-bold text-white">Фотофиксация</Dialog.Title>
-              <Dialog.Description className="mt-1 text-sm text-white/60">Выберите ракурс, сделайте снимок и сохраните готовые кадры. Тренировка не запускается.</Dialog.Description>
+              <Dialog.Description className="mt-1 text-sm text-white/60">Встаньте в полный рост. При сохранении фото обрежется по фигуре в формат 3:4. Тренировка не запускается.</Dialog.Description>
             </div>
             <Dialog.Close asChild><Button variant="secondary" aria-label="Закрыть фотофиксацию" disabled={saving}><X aria-hidden="true" /></Button></Dialog.Close>
           </header>
 
           <div className="photo-capture-views" role="tablist" aria-label="Ракурс фотографии">
             {views.map((item) => (
-              <button key={item.id} type="button" role="tab" aria-selected={view === item.id} onClick={() => setView(item.id)}>
+              <button key={item.id} type="button" role="tab" aria-selected={view === item.id} disabled={countdown !== null || saving} onClick={() => setView(item.id)}>
                 {drafts[item.id] ? <Check aria-hidden="true" /> : <Camera aria-hidden="true" />}{item.label}
               </button>
             ))}
@@ -140,6 +189,12 @@ export function PhotoCaptureDialog({ open, onOpenChange, userId, onSaved }: { op
               {draft ? <img src={draft} alt={`Предпросмотр: ${current.label.toLowerCase()}`} /> : null}
               <div className="photo-capture-guide" aria-hidden="true" />
               {cameraError && !draft ? <p role="alert" className="photo-capture-error">{cameraError}</p> : null}
+              {countdown !== null ? (
+                <div className="photo-capture-countdown" role="timer" aria-live="polite" aria-atomic="true">
+                  {seriesIndex !== null ? <span>Серия · кадр {seriesIndex + 1} из 3 · {current.label}</span> : null}
+                  <span>Снимок через</span><strong>{countdown}</strong><span>{current.hint}</span>
+                </div>
+              ) : null}
             </div>
             <aside className="photo-capture-side">
               <div>
@@ -148,16 +203,30 @@ export function PhotoCaptureDialog({ open, onOpenChange, userId, onSaved }: { op
                 <p className="mt-2 text-white/70">{current.hint}</p>
               </div>
               <div className="photo-capture-progress"><strong>{count}/3</strong><span>ракурсов готово</span></div>
-              {draft
-                ? <Button iconLeft={<RefreshCcw aria-hidden="true" />} onClick={retake}>Переснять</Button>
-                : <Button iconLeft={<Camera aria-hidden="true" />} onClick={capture} disabled={Boolean(cameraError)}>Снять</Button>}
+              <div className="photo-capture-controls">
+                <fieldset className="photo-capture-timer" disabled={countdown !== null || saving}>
+                  <legend><Timer aria-hidden="true" />Таймер съёмки</legend>
+                  <div>
+                    {[0, 3, 5, 10].map((seconds) => (
+                      <button key={seconds} type="button" aria-pressed={timerSeconds === seconds} onClick={() => setTimerSeconds(seconds)}>{seconds === 0 ? 'Без' : `${seconds} с`}</button>
+                    ))}
+                  </div>
+                </fieldset>
+                {countdown !== null
+                  ? <Button variant="secondary" iconLeft={<X aria-hidden="true" />} onClick={cancelCapture}>{seriesIndex !== null ? 'Отменить серию' : 'Отменить снимок'}</Button>
+                  : draft
+                    ? <Button iconLeft={<RefreshCcw aria-hidden="true" />} onClick={retake} disabled={saving}>Переснять</Button>
+                    : <Button iconLeft={<Camera aria-hidden="true" />} onClick={startCapture} disabled={Boolean(cameraError) || saving}>{timerSeconds ? `Снять через ${timerSeconds} с` : 'Снять'}</Button>}
+                  {countdown === null ? <Button variant="secondary" iconLeft={<Images aria-hidden="true" />} onClick={startSeries} disabled={Boolean(cameraError) || saving}>Снять серию</Button> : null}
+              </div>
             </aside>
           </div>
 
-          {saveError ? <p role="alert" className="text-[#ffb4a7]">{saveError}</p> : null}
           <footer className="photo-capture-actions">
             <Dialog.Close asChild><Button variant="secondary" disabled={saving}>Закрыть</Button></Dialog.Close>
-            <Button iconLeft={<Save aria-hidden="true" />} disabled={!count || saving} onClick={() => void save()}>{saving ? 'Сохранение…' : `Сохранить${count > 1 ? ` (${count})` : ''}`}</Button>
+            {!saveError ? <span className="photo-capture-summary" aria-label={`${count} из 3 ракурсов готово`}>{count} из 3</span> : null}
+            {saveError ? <p role="alert" className="text-[#ffb4a7]">{saveError}</p> : null}
+            <Button iconLeft={<Save aria-hidden="true" />} disabled={!count || saving || countdown !== null} onClick={() => void save()}>{saving ? 'Сохранение…' : `Сохранить${count > 1 ? ` (${count})` : ''}`}</Button>
           </footer>
         </SafetyDialogContent>
       </Dialog.Portal>
@@ -177,20 +246,16 @@ function stopStream(stream: MediaStream | null) {
 
 export function captureFrame(video: HTMLVideoElement | null) {
   if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return null
-  const width = 1280
-  const height = 720
-  const sourceWidth = video.videoWidth || width
-  const sourceHeight = video.videoHeight || height
-  const sourceAspect = sourceWidth / sourceHeight
-  const targetAspect = width / height
-  let sx = 0; let sy = 0; let sw = sourceWidth; let sh = sourceHeight
-  if (sourceAspect > targetAspect) { sw = sourceHeight * targetAspect; sx = (sourceWidth - sw) / 2 }
-  else if (sourceAspect < targetAspect) { sh = sourceWidth / targetAspect; sy = (sourceHeight - sh) / 2 }
+  const sourceWidth = video.videoWidth || 1280
+  const sourceHeight = video.videoHeight || 720
+  const scale = Math.min(1, 1920 / Math.max(sourceWidth, sourceHeight))
   const canvas = document.createElement('canvas')
-  canvas.width = width; canvas.height = height
+  canvas.width = Math.max(1, Math.round(sourceWidth * scale))
+  canvas.height = Math.max(1, Math.round(sourceHeight * scale))
   const context = canvas.getContext('2d')
   if (!context) return null
-  context.drawImage(video, sx, sy, sw, sh, 0, 0, width, height)
+  // Keep the whole frame: only the server knows where the person's full body is.
+  context.drawImage(video, 0, 0, sourceWidth, sourceHeight, 0, 0, canvas.width, canvas.height)
   return canvas.toDataURL('image/jpeg', 0.92)
 }
 

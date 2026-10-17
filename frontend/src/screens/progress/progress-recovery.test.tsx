@@ -119,7 +119,7 @@ describe('Progress stage 6', () => {
     expect(document.querySelectorAll('.progress-metrics article')).toHaveLength(0)
   })
 
-  it('does not duplicate the photo gallery and links to its canonical profile tab', async () => {
+  it('shows the photo gallery with three views and retains profile management', async () => {
     const user = userEvent.setup()
     vi.mocked(apiGet).mockImplementation(async <T,>(path: string): Promise<T> => {
       if (path.startsWith('/api/progress?')) return progress as T
@@ -127,8 +127,10 @@ describe('Progress stage 6', () => {
       throw new Error(`Unexpected ${path}`)
     })
     renderScreen('/progress?tab=photo')
-    expect(await screen.findByText('Последняя фотофиксация')).toBeVisible()
-    expect(screen.getByRole('link', { name: 'Открыть галерею' })).toHaveAttribute('href', '/profile?tab=photo')
+    expect(await screen.findByText('Последняя съёмка')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Управление снимками' })).toHaveAttribute('href', '/profile?tab=photo')
+    expect(document.querySelectorAll('.photo-gallery-card')).toHaveLength(3)
+    expect(screen.queryByRole('combobox', { name: 'Период прогресса' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Фотофиксация' })).toBeVisible()
     expect(screen.queryByText('История фотофиксаций')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Фотофиксация' }))

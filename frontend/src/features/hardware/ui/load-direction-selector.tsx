@@ -1,3 +1,4 @@
+import { ArrowDown, ArrowUp } from 'lucide-react'
 import type { LoadDirection } from '@/features/hardware/model/types'
 import { Button } from '@/shared/ui/button'
 
@@ -10,8 +11,9 @@ export function LoadDirectionSelector({ value = 'down', disabled = false, nextSe
       <div className="rt-start-point-options" role="group" aria-label="Направление нагрузки">
         {([{ value: 'down', label: 'Нагрузка вниз' }, { value: 'up', label: 'Тяга вверх' }] as const).map((option) => (
           <Button key={option.value} variant={value === option.value ? 'primary' : 'secondary'}
+            iconLeft={option.value === 'down' ? <ArrowDown aria-hidden="true" /> : <ArrowUp aria-hidden="true" />}
             aria-pressed={value === option.value} disabled={disabled}
-            onClick={() => { if (value !== option.value) onChange(option.value) }}>{option.label}</Button>
+            onClick={() => { if (value !== option.value) onChange(option.value) }}><span>{option.label}</span></Button>
         ))}
       </div>
       <small className="rt-start-point-hint">

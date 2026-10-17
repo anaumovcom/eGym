@@ -1,3 +1,4 @@
+import { ArrowDownToLine, ArrowUpToLine } from 'lucide-react'
 import type { BarStartPoint } from '@/features/hardware/model/types'
 import { Button } from '@/shared/ui/button'
 
@@ -15,8 +16,9 @@ export function BarStartPointSelector({ value, disabled = false, hint, onChange 
       <div className="rt-start-point-options" role="group" aria-label="Начальное положение грифа">
         {options.map((option) => (
           <Button key={option.value} variant={value === option.value ? 'primary' : 'secondary'} aria-pressed={value === option.value}
+            iconLeft={option.value === 'lower' ? <ArrowDownToLine aria-hidden="true" /> : <ArrowUpToLine aria-hidden="true" />}
             disabled={disabled} onClick={() => { if (option.value !== value) onChange(option.value) }}>
-            {option.label}
+            <span>{option.label}</span>
           </Button>
         ))}
       </div>

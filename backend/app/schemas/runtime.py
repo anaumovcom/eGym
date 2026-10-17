@@ -6,6 +6,22 @@ from pydantic import ConfigDict, Field, model_validator
 from app.schemas.base import SchemaModel
 
 
+class ExerciseSettingsSchema(SchemaModel):
+    weight: float = Field(ge=0, le=2000, allow_inf_nan=False)
+    sets: int = Field(ge=1, le=100)
+    reps: int = Field(ge=1, le=86400)
+    rest_seconds: int = Field(ge=0, le=86400)
+    mode: str = "Обычный вес"
+    tempo: str = "Обычный"
+    training_mode: str | None = None
+    training_day_type: str | None = None
+
+
+class ExerciseSettingsSaveSchema(ExerciseSettingsSchema):
+    user_id: str
+    exercise_slug: str
+
+
 class MuscleTargetSchema(SchemaModel):
     muscle_id: str
     name: str

@@ -12,6 +12,8 @@ import type {
   RuntimeWorkoutSession,
 } from '@/entities/runtime/model/types'
 import type { LoadAdjustmentResponse } from '@/features/runtime/lib/runtime-persistence'
+import type { ExerciseSettingsSnapshot } from '@/features/runtime/lib/use-exercise-settings'
+import { useAppStore } from '@/stores/app-store'
 import { getRuntimeResumeView, isSessionInCurrentTrainingDay } from '@/features/runtime/lib/runtime-day'
 import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exercise'
 import { expandPerSidePlan } from '@/features/runtime/lib/per-side'
@@ -35,6 +37,8 @@ type RuntimeStore = {
   continueAfterPhoto: () => void
   updateCalibrationState: (state: RuntimeCalibrationState) => void
   updateLoadSettings: (patch: Partial<RuntimeWorkoutSession['exercises'][number]['loadSettings']>) => void
+  restoreExerciseSettings: (settings: ExerciseSettingsSnapshot) => void
+  updateExerciseWeight: (weight: number) => void
   selectStrengthMode: (modeId: string, dayType?: string | null) => void
   startExercise: () => void
   finishCurrentSet: (result?: RuntimeSetResult) => void
@@ -188,7 +192,7 @@ function rebuildExercisePlan(exercise: RuntimeWorkoutSession['exercises'][number
 
   const strengthMode = exercise.strengthMode ?? { id: 'basic', dayType: null }
   // Per-side builder counts are logical sets, not the legacy mode's default template size.
-  const shape = exercise.perSide ? { sets: exercise.loadSettings.sets } : undefined
+  const shape = { sets: exercise.loadSettings.sets }
   return expandPerSidePlan(buildStrengthPlan(strengthMode.id, strengthMode.dayType, exercise.loadSettings, exercise.kind, shape).map((plan) =>
     toRuntimeSetPlan(plan, exercise.loadSettings.reps),
   ), exercise.perSide)
@@ -202,12 +206,16 @@ export const useRuntimeStore = create<RuntimeStore>()(
   initializeSession: (options) => {
     const session = createRuntimeSession(options)
     const snapshots = rebuildSessionSnapshots(session, 'completed')
-    set({ session: { ...session, ...snapshots }, sessionSignature: buildSignature(options) })
+    set({ session: { ...session, ...snapshots, userId: useAppStore.getState().selectedUserId ?? undefined }, sessionSignature: buildSignature(options) })
   },
   initializeBackendSession: (session, options) => {
-    set({ session: withoutRuntimePhotoStep(session), sessionSignature: buildSignature(options) })
+    set({ session: withoutRuntimePhotoStep({ ...session, userId: useAppStore.getState().selectedUserId ?? undefined }), sessionSignature: buildSignature(options) })
   },
   ensureSession: (options) => {
+    const owner = get().session?.userId
+    if (owner && owner !== useAppStore.getState().selectedUserId) {
+      set({ session: null, sessionSignature: null })
+    }
     if (get().session && !isSessionInCurrentTrainingDay(get().session)) {
       set({ session: null, sessionSignature: null })
     }
@@ -371,7 +379,17 @@ export const useRuntimeStore = create<RuntimeStore>()(
               }
               return {
                 ...nextExercise,
-                plan: rebuildExercisePlan(nextExercise),
+                plan: rebuildExercisePlan(nextExercise).map((plan, index) => {
+                  if (index < state.session!.currentSetIndex) return exercise.plan[index] ?? plan
+                  return {
+                    ...plan,
+                    ...(patch.reps !== undefined ? exercise.kind === 'timed' || exercise.kind === 'stretch'
+                      ? { targetSeconds: loadSettings.reps }
+                      : { targetReps: loadSettings.reps, targetMinReps: loadSettings.reps, targetMaxReps: loadSettings.reps } : {}),
+                    ...(patch.restSeconds !== undefined ? { restSeconds: loadSettings.restSeconds } : {}),
+                    ...(patch.weight !== undefined ? { recommendedWeightKg: loadSettings.weight, weightLabel: `${loadSettings.weight} кг` } : {}),
+                  }
+                }),
               }
             })()
           : exercise,
@@ -380,6 +398,24 @@ export const useRuntimeStore = create<RuntimeStore>()(
       const session = { ...state.session, exercises }
       return { session: { ...session, ...rebuildSessionSnapshots(session, state.session.workoutSummary.outcome) } }
     }),
+  restoreExerciseSettings: (settings) => {
+    const session = get().session
+    if (!session || session.currentSetIndex > 0 || session.completedSets[session.currentExerciseId]?.length) return
+    const modeId = normalizeStrengthModeId(settings.trainingMode)
+    set({ session: { ...session, exercises: session.exercises.map(exercise => exercise.id === session.currentExerciseId
+      ? { ...exercise, strengthMode: { id: modeId, title: getStrengthModeTitle(modeId), dayType: normalizeStrengthDayType(modeId, settings.trainingDayType) } }
+      : exercise) } })
+    const { trainingMode: _mode, trainingDayType: _day, ...loadSettings } = settings
+    get().updateLoadSettings(loadSettings)
+  },
+  updateExerciseWeight: (weight) => set(state => {
+    if (!state.session) return state
+    const session = state.session
+    return { session: { ...session, exercises: session.exercises.map(exercise => exercise.id === session.currentExerciseId
+      ? { ...exercise, loadSettings: { ...exercise.loadSettings, weight }, plan: exercise.plan.map((plan, index) => index < session.currentSetIndex
+        ? plan : { ...plan, recommendedWeightKg: weight, weightLabel: `${weight} кг` }) }
+      : exercise) } }
+  }),
   selectStrengthMode: (modeId, dayType) =>
     set((state) => {
       if (!state.session) {

@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getReturnableExercises, useRuntimeStore } from '@/stores/runtime-store'
+import { useAppStore } from '@/stores/app-store'
 
 describe('runtime store', () => {
   beforeEach(() => {
@@ -150,6 +151,42 @@ describe('runtime store', () => {
     expect(exercise?.calibrationState).toBe('not-needed')
     expect(exercise?.loadSettings.calibration).toBe('unavailable')
     expect(exercise?.movementRangeLabel).toBe('Не требуется')
+  })
+
+  it.each(['basic', 'hypertrophy', 'strength'])('restores exact targets instead of %s template defaults', (trainingMode) => {
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    useRuntimeStore.getState().restoreExerciseSettings({ weight: 27.5, sets: 2, reps: 7, restSeconds: 0,
+      mode: 'Обычный вес', tempo: 'Медленно', trainingMode, trainingDayType: null })
+    const exercise = useRuntimeStore.getState().session!.exercises[0]
+    expect(exercise.loadSettings).toMatchObject({ weight: 27.5, sets: 2, reps: 7, restSeconds: 0, tempo: 'Медленно' })
+    expect(exercise.plan).toHaveLength(2)
+    expect(exercise.plan.every(plan => plan.targetReps === 7 && plan.recommendedWeightKg === 27.5 && plan.restSeconds === 0)).toBe(true)
+  })
+
+  it('carries a live weight change forward without resetting counters or completed plans', () => {
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    useRuntimeStore.getState().startExercise()
+    useRuntimeStore.getState().finishCurrentSet()
+    useRuntimeStore.getState().beginNextStep()
+    const before = useRuntimeStore.getState().session!
+    useRuntimeStore.getState().updateExerciseWeight(0)
+    const after = useRuntimeStore.getState().session!
+    expect(after.sessionState).toBe(before.sessionState)
+    expect(after.completedSets).toBe(before.completedSets)
+    expect(after.currentSetIndex).toBe(before.currentSetIndex)
+    expect(after.exercises[0].plan[0]).toBe(before.exercises[0].plan[0])
+    expect(after.exercises[0].plan.slice(after.currentSetIndex).every(plan => plan.recommendedWeightKg === 0)).toBe(true)
+  })
+
+  it('does not reuse a persisted runtime workout after switching user', () => {
+    useAppStore.setState({ selectedUserId: 'alexey' })
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    const before = useRuntimeStore.getState().session
+    useAppStore.setState({ selectedUserId: 'elena' })
+    useRuntimeStore.getState().ensureSession({ source: 'today' })
+    expect(useRuntimeStore.getState().session).not.toBe(before)
+    expect(useRuntimeStore.getState().session?.userId).toBe('elena')
+    useAppStore.setState({ selectedUserId: null })
   })
 
   it('restarts a stale persisted session after the 03:00 training-day reset', () => {

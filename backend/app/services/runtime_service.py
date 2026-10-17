@@ -19,10 +19,13 @@ from app.models.enums import (
     WorkoutSessionStatus,
 )
 from app.models.training import ExerciseHistoryRecord, UserExerciseState
+from app.models.user import User
 from app.schemas.runtime import (
     ExerciseSessionCreateSchema,
     ExerciseSessionsResetRequestSchema,
     ExerciseSessionsResetResponseSchema,
+    ExerciseSettingsSaveSchema,
+    ExerciseSettingsSchema,
     LoadAdjustmentRequestSchema,
     LoadAdjustmentResponseSchema,
     RuntimeExerciseSummarySchema,
@@ -42,6 +45,7 @@ from app.schemas.runtime import (
 from app.services.coach.lifecycle import RuntimeObservationBuffer, runtime_observations
 from app.services.coach.workout_plan import persist_plan
 from app.services.exercise_library import get_imported_exercise
+from app.services.exercise_settings import remembered_settings
 from app.services.fatigue_service import FatigueService, FatigueUpdate, equipment_affects_fatigue
 
 
@@ -56,6 +60,36 @@ class RuntimeService:
     def __init__(self, *, coach_observer: RuntimeObservationBuffer | None = None) -> None:
         self.fatigue_service = FatigueService()
         self.coach_observer = coach_observer if coach_observer is not None else runtime_observations
+
+    def _validate_settings_owner(self, session: Session, user_id: str, slug: str) -> None:
+        if session.get(User, user_id) is None:
+            raise LookupError("User not found")
+        if get_imported_exercise(slug) is None:
+            raise LookupError("Exercise not found")
+
+    def get_exercise_settings(self, session: Session, user_id: str, slug: str) -> ExerciseSettingsSchema | None:
+        self._validate_settings_owner(session, user_id, slug)
+        return remembered_settings(session, self._user_state(session, user_id, slug))
+
+    def _store_settings(self, state: UserExerciseState, settings: ExerciseSettingsSchema) -> None:
+        state.working_weight = settings.weight
+        state.working_sets = settings.sets
+        state.working_reps = settings.reps
+        state.rest_seconds = settings.rest_seconds
+        state.calibration_payload = {**(state.calibration_payload or {}),
+                                     "lastSettings": settings.model_dump(by_alias=True)}
+
+    def save_exercise_settings(self, session: Session, payload: ExerciseSettingsSaveSchema) -> ExerciseSettingsSchema:
+        self._validate_settings_owner(session, payload.user_id, payload.exercise_slug)
+        state = self._user_state(session, payload.user_id, payload.exercise_slug)
+        if state is None:
+            state = UserExerciseState(user_id=payload.user_id, exercise_slug=payload.exercise_slug)
+            session.add(state)
+        settings = ExerciseSettingsSchema.model_validate(payload.model_dump())
+        self._store_settings(state, settings)
+        state.calibration_payload = {**state.calibration_payload, "lastSettingsSavedAt": datetime.now(UTC).isoformat()}
+        session.commit()
+        return settings
 
     def save_set_feedback(self, session: Session, set_id: int, payload: SetFeedbackSchema) -> SetFeedbackSchema:
         from app.services.coach.history import latest_completed_set
@@ -92,6 +126,11 @@ class RuntimeService:
             exercise_session=exercise_session,
             payload=payload,
         )
+        # This endpoint observes a newly performed set, not a replayed final-session payload.
+        set_result.machine_metrics = {**set_result.machine_metrics,
+                                      "settingsPerformedAt": (payload.occurred_at or datetime.now(UTC)).isoformat()}
+        session.expire(exercise_session, ["set_results"])
+        self._remember_performed_settings(session, exercise_session, [set_result])
         notice = {
             "kind": "set_persisted", "user_id": exercise_session.user_id,
             "workout_session_id": exercise_session.workout_session_id,
@@ -120,6 +159,7 @@ class RuntimeService:
         # Only the dedicated explicit-input endpoint can attest to feedback provenance.
         machine_metrics.pop("explicitFeedbackVersion", None)
         machine_metrics.pop("explicitFeedbackAtMs", None)
+        machine_metrics.pop("settingsPerformedAt", None)
         machine_metrics.update(
             {
                 "setType": payload.set_type,
@@ -377,48 +417,63 @@ class RuntimeService:
             session.add(state)
 
         exercise = get_imported_exercise(payload.exercise_slug)
+        remembered = remembered_settings(session, state)
+        training_mode = payload.training_mode if payload.training_mode is not None else (
+            remembered.training_mode if remembered else None)
+        training_day_type = payload.training_day_type if payload.training_day_type is not None else (
+            remembered.training_day_type if remembered else None)
         direction_sign = 1 if payload.direction == "increase" else -1
-        factor = self._strength_weight_factor(payload.training_mode, payload.training_day_type)
-        current_weight = payload.current_weight_kg if payload.current_weight_kg is not None else state.working_weight
+        factor = self._strength_weight_factor(training_mode, training_day_type)
+        current_weight = payload.current_weight_kg if payload.current_weight_kg is not None else (
+            remembered.weight if remembered else state.working_weight)
         weighted = (payload.kind == RuntimeExerciseKind.machine.value) or (current_weight is not None and current_weight > 0)
         current_sets = max(1, payload.current_sets or state.working_sets or 3)
-        current_reps = max(1, payload.current_reps or state.working_reps or (45 if payload.kind == RuntimeExerciseKind.timed.value else 10))
-        rest_seconds = max(15, payload.rest_seconds or state.rest_seconds or 60)
+        current_reps = max(1, payload.current_reps or (remembered.reps if remembered else state.working_reps) or (
+            45 if payload.kind in {"timed", "stretch"} else 10))
+        rest_seconds = payload.rest_seconds if payload.rest_seconds is not None else (
+            state.rest_seconds if state.rest_seconds is not None else 60)
 
         if weighted:
-            observed_weight = current_weight if current_weight is not None and current_weight > 0 else self._default_working_weight(exercise)
-            base_weight = state.working_weight if state.working_weight is not None and state.working_weight > 0 else observed_weight / factor
-            display_step = self._load_adjustment_weight_step(payload.training_mode, payload.training_day_type)
+            observed_weight = current_weight if current_weight is not None else self._default_working_weight(exercise)
+            base_weight = observed_weight / factor
+            display_step = self._load_adjustment_weight_step(training_mode, training_day_type)
             next_base_weight = max(0.0, self._round_weight(base_weight + direction_sign * (display_step / factor)))
             state.working_weight = next_base_weight
             state.working_sets = current_sets
-            state.working_reps = state.working_reps or current_reps * current_sets
+            state.working_reps = current_reps
             state.rest_seconds = rest_seconds
             next_display_weight = self._round_weight(next_base_weight * factor)
             load_label = f"{next_display_weight:g} кг"
             weight_kg: float | None = next_display_weight
             reps = current_reps
         else:
-            reps_step = self._load_adjustment_reps_step(payload.kind, payload.training_mode)
+            reps_step = self._load_adjustment_reps_step(payload.kind, training_mode)
             next_reps = max(1, current_reps + direction_sign * reps_step)
             state.working_weight = 0
             state.working_sets = current_sets
-            state.working_reps = next_reps * current_sets
+            state.working_reps = next_reps
             state.rest_seconds = rest_seconds
-            load_label = f"{next_reps} сек" if payload.kind == RuntimeExerciseKind.timed.value else f"{next_reps} повторов"
+            load_label = f"{next_reps} сек" if payload.kind in {"timed", "stretch"} else f"{next_reps} повторов"
             weight_kg = None
             reps = next_reps
 
+        self._store_settings(state, ExerciseSettingsSchema(
+            weight=weight_kg if weight_kg is not None else 0, sets=current_sets, reps=reps,
+            rest_seconds=rest_seconds, mode=remembered.mode if remembered else "Обычный вес",
+            tempo=remembered.tempo if remembered else "Обычный",
+            training_mode=training_mode, training_day_type=training_day_type,
+        ))
         metadata = dict(state.calibration_payload or {})
+        metadata["lastSettingsSavedAt"] = datetime.now(UTC).isoformat()
         metadata["lastManualAdjustment"] = {
             "direction": payload.direction,
-            "trainingMode": payload.training_mode,
-            "trainingDayType": payload.training_day_type,
+            "trainingMode": training_mode,
+            "trainingDayType": training_day_type,
             "loadLabel": load_label,
             "adjustedAt": datetime.now(UTC).isoformat(),
         }
         state.calibration_payload = metadata
-        state.notes = self._load_adjustment_note(payload.direction, load_label, payload.training_mode, payload.training_day_type)
+        state.notes = self._load_adjustment_note(payload.direction, load_label, training_mode, training_day_type)
         session.commit()
 
         return LoadAdjustmentResponseSchema(
@@ -430,8 +485,8 @@ class RuntimeService:
             reps=reps,
             sets=state.working_sets,
             rest_seconds=state.rest_seconds,
-            training_mode=payload.training_mode,
-            training_day_type=payload.training_day_type,
+            training_mode=training_mode,
+            training_day_type=training_day_type,
             recommendation=state.notes,
         )
 
@@ -926,13 +981,14 @@ class RuntimeService:
         if not results:
             return
         performed_at = exercise_session.finished_at or results[-1].created_at
-        work_results = [item for item in results if item.machine_metrics.get("setType") != "warmup"] or results
+        work_results = sorted((item for item in self._performed_results(results)
+                       if item.machine_metrics.get("setType") != "warmup"), key=lambda item: item.set_number)
         total_reps = sum(item.reps or item.actual_value or 0 for item in results)
         total_volume = sum((item.weight_kg or 0) * (item.reps or item.actual_value or 0) for item in results)
-        working_weight = max((item.weight_kg or 0) for item in work_results)
+        weights = [item.weight_kg for item in work_results if item.weight_kg is not None]
+        working_weight = weights[-1] if weights else 0
         average_work_reps = int(round(sum(item.reps or item.actual_value or 0 for item in work_results) / max(len(work_results), 1)))
         working_sets = self._logical_set_count(work_results) if sided else len(work_results)
-        mode_factor = self._strength_weight_factor(exercise_session.training_mode, exercise_session.training_day_type)
         state_statement = select(UserExerciseState).where(
             UserExerciseState.user_id == exercise_session.user_id,
             UserExerciseState.exercise_slug == exercise_session.exercise_slug,
@@ -941,15 +997,10 @@ class RuntimeService:
         if state is None:
             state = UserExerciseState(user_id=exercise_session.user_id, exercise_slug=exercise_session.exercise_slug)
             session.add(state)
-        state.working_weight = self._round_weight(working_weight / mode_factor) if working_weight > 0 else state.working_weight
-        state.working_sets = working_sets
-        state.working_reps = max(1, total_reps)
-        rest_values = [item.rest_duration_seconds for item in results if item.rest_duration_seconds is not None]
-        if rest_values:
-            state.rest_seconds = rest_values[-1]
+        self._remember_performed_settings(session, exercise_session, results, state=state)
         state.last_performed_at = performed_at
         metadata = dict(state.calibration_payload or {})
-        metadata["lastResult"] = {
+        last_result = {
             "exerciseSessionId": exercise_session.id,
             "status": exercise_session.status.value,
             "trainingMode": exercise_session.training_mode,
@@ -962,6 +1013,8 @@ class RuntimeService:
             "volumeKg": total_volume,
             "performedAt": performed_at.isoformat() if performed_at else None,
         }
+        if work_results:
+            metadata["lastResult"] = last_result
         state.calibration_payload = metadata
         session.add(
             ExerciseHistoryRecord(
@@ -976,6 +1029,56 @@ class RuntimeService:
                 note=exercise_session.recommendation or "Автосохранение результата",
             )
         )
+
+    def _remember_performed_settings(
+        self, session: Session, exercise: ExerciseSession, results: list[SetResult],
+        *, state: UserExerciseState | None = None,
+    ) -> None:
+        work = sorted((row for row in self._performed_results(results)
+                       if row.machine_metrics.get("setType") != "warmup"), key=lambda row: row.set_number)
+        if not work:
+            return
+        if state is None:
+            state = self._user_state(session, exercise.user_id, exercise.exercise_slug)
+        if state is None:
+            state = UserExerciseState(user_id=exercise.user_id, exercise_slug=exercise.exercise_slug)
+            session.add(state)
+        metadata = dict(state.calibration_payload or {})
+        latest = work[-1]
+        observed_at = latest.machine_metrics.get("settingsPerformedAt") or exercise.started_at.isoformat()
+        observed_time = self.fatigue_service.ensure_utc(datetime.fromisoformat(str(observed_at)))
+        # A finalized old session must not undo a newer setup save/manual adjustment or set.
+        for key in ("lastSettingsSavedAt", "lastSettingsWeightAt"):
+            if metadata.get(key) and observed_time < self.fatigue_service.ensure_utc(datetime.fromisoformat(str(metadata[key]))):
+                return
+        settings = remembered_settings(session, state)
+        # target_sets counts physical steps, including warmup steps; settings count working rounds.
+        all_results = exercise.set_results
+        warmup_count = sum(row.machine_metrics.get("setType") == "warmup" for row in all_results)
+        physical_targets = max(exercise.target_sets, len(all_results)) - warmup_count
+        target_sets = (physical_targets + 1) // 2 if self._exercise_is_sided(exercise) else physical_targets
+        if settings is None:
+            settings = ExerciseSettingsSchema(
+                weight=state.working_weight if state.working_weight is not None and exercise.kind not in {
+                    RuntimeExerciseKind.timed, RuntimeExerciseKind.stretch} else 0,
+                sets=max(1, min(100, target_sets)), reps=max(1, min(86400, latest.planned_value)),
+                rest_seconds=state.rest_seconds if state.rest_seconds is not None else 60,
+                training_mode=exercise.training_mode, training_day_type=exercise.training_day_type,
+                tempo=latest.tempo_label or "Обычный",
+            )
+        changes: dict[str, object] = {}
+        if not metadata.get("lastSettingsSavedAt"):
+            # Inferred snapshots follow the plan, never shortened actual performance.
+            changes["reps"] = max(1, min(86400, latest.planned_value))
+            changes["sets"] = max(1, min(100, target_sets))
+        weighted = [row for row in work if row.weight_kg is not None]
+        if weighted:
+            changes["weight"] = weighted[-1].weight_kg
+        rests = [row.rest_duration_seconds for row in work if row.rest_duration_seconds is not None]
+        if rests:
+            changes["rest_seconds"] = rests[-1]
+        self._store_settings(state, settings.model_copy(update=changes))
+        state.calibration_payload = {**state.calibration_payload, "lastSettingsWeightAt": str(observed_at)}
 
     def _user_state(self, session: Session, user_id: str, slug: str) -> UserExerciseState | None:
         return session.scalars(select(UserExerciseState).where(UserExerciseState.user_id == user_id, UserExerciseState.exercise_slug == slug)).first()
@@ -1013,7 +1116,7 @@ class RuntimeService:
         return 2.5
 
     def _load_adjustment_reps_step(self, kind: str | None, training_mode: str | None) -> int:
-        if kind == RuntimeExerciseKind.timed.value:
+        if kind in {RuntimeExerciseKind.timed.value, RuntimeExerciseKind.stretch.value}:
             return 5
         if training_mode == "strength_circuit":
             return 2
