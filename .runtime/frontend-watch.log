@@ -1,106 +1,80 @@
 
-  VITE v7.3.3  ready in 475 ms
+  VITE v7.3.3  ready in 364 ms
 
   ➜  Local:   http://127.0.0.1:5173/
-9:58:47 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-9:58:47 PM [vite] (client) hmr update /src/app/styles.css, /src/features/coach/ui/coach-mini-debug.tsx, /src/shared/ui/layout/forma-shell.tsx
-9:58:47 PM [vite] (client) hmr update /src/app/styles.css, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx
-1:24:41 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-1:27:43 AM [vite] (client) hmr update /src/app/styles.css
-1:32:37 AM [vite] (client) hmr update /src/app/styles.css
-1:33:07 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/app/styles.css
-1:33:32 AM [vite] (client) hmr update /src/shared/ui/photo/photo-capture-dialog.tsx, /src/app/styles.css
-1:33:32 AM [vite] (client) hmr invalidate /src/shared/ui/photo/photo-capture-dialog.tsx Could not Fast Refresh ("captureFrame" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-1:33:32 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/screens/profile/user-profile-screen.tsx
-1:34:10 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-1:34:14 AM [vite] (client) hmr update /src/app/styles.css
-1:34:59 AM [vite] (client) hmr update /src/app/styles.css
-1:36:22 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/progress/progress-photo-gallery.css
-1:36:44 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-1:37:04 AM [vite] (client) hmr update /src/app/styles.css
-1:37:14 AM [vite] (client) hmr update /src/screens/progress/progress-photo-gallery.tsx, /src/app/styles.css
-1:37:14 AM [vite] (client) hmr invalidate /src/screens/progress/progress-photo-gallery.tsx Could not Fast Refresh ("groupProgressPhotos" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-1:37:14 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx
-1:37:31 AM [vite] (client) hmr update /src/screens/progress/progress-photo-gallery.tsx, /src/app/styles.css
-1:37:31 AM [vite] (client) hmr invalidate /src/screens/progress/progress-photo-gallery.tsx Could not Fast Refresh ("groupProgressPhotos" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-1:37:31 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx
-1:37:52 AM [vite] (client) hmr update /src/app/styles.css
-1:38:46 AM [vite] (client) hmr update /src/app/styles.css
-1:40:33 AM [vite] (client) hmr update /src/app/styles.css
-1:41:16 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-1:41:20 AM [vite] (client) hmr update /src/shared/ui/photo/photo-capture-dialog.tsx, /src/app/styles.css
-1:41:20 AM [vite] (client) hmr update /src/app/styles.css
-1:41:22 AM [vite] (client) hmr invalidate /src/shared/ui/photo/photo-capture-dialog.tsx Could not Fast Refresh ("captureFrame" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-1:41:22 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/screens/profile/user-profile-screen.tsx
-1:41:31 AM [vite] (client) hmr update /src/shared/ui/photo/photo-capture-dialog.tsx, /src/app/styles.css
-1:41:31 AM [vite] (client) hmr invalidate /src/shared/ui/photo/photo-capture-dialog.tsx Could not Fast Refresh ("captureFrame" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-1:41:31 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/screens/profile/user-profile-screen.tsx
-1:41:55 AM [vite] (client) hmr update /src/shared/ui/photo/photo-capture-dialog.tsx, /src/app/styles.css
-1:41:56 AM [vite] (client) hmr invalidate /src/shared/ui/photo/photo-capture-dialog.tsx Could not Fast Refresh ("captureFrame" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-1:41:56 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/screens/profile/user-profile-screen.tsx
-1:42:16 AM [vite] (client) hmr update /src/app/styles.css
-1:42:35 AM [vite] (client) hmr update /src/app/styles.css
-1:43:49 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/app/styles.css
-1:43:49 AM [vite] (client) hmr update /src/screens/progress/progress-photo-gallery.tsx, /src/app/styles.css
-1:43:49 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/progress/progress-photo-gallery.css
-1:44:02 AM [vite] (client) hmr update /src/screens/progress/progress-photo-gallery.tsx, /src/app/styles.css
-1:44:02 AM [vite] (client) hmr invalidate /src/screens/progress/progress-photo-gallery.tsx Could not Fast Refresh ("groupProgressPhotos" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-1:44:02 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx
-1:44:48 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/app/styles.css
-1:44:48 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/progress/progress-photo-gallery.css
-1:44:48 AM [vite] (client) hmr update /src/screens/progress/progress-photo-gallery.tsx, /src/app/styles.css
-1:44:49 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-1:44:59 AM [vite] (client) hmr update /src/app/styles.css
-1:46:18 AM [vite] (client) hmr update /src/app/router.tsx, /src/app/styles.css
-1:48:27 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-1:48:43 AM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
-1:49:44 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-1:49:49 AM [vite] (client) hmr update /src/shared/ui/photo/photo-capture-dialog.tsx, /src/app/styles.css
-1:49:49 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/progress/progress-photo-gallery.css
-1:49:49 AM [vite] (client) hmr update /src/app/styles.css
-1:49:50 AM [vite] (client) hmr invalidate /src/shared/ui/photo/photo-capture-dialog.tsx Could not Fast Refresh ("captureFrame" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-1:49:50 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/screens/profile/user-profile-screen.tsx
-1:49:56 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-1:50:24 AM [vite] (client) hmr update /src/app/styles.css
-1:50:35 AM [vite] (client) hmr update /src/app/styles.css
-1:51:42 AM [vite] (client) hmr update /src/app/styles.css
-1:53:42 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-1:53:57 AM [vite] (client) hmr update /src/features/hardware/ui/load-direction-selector.tsx, /src/app/styles.css
-1:53:57 AM [vite] (client) hmr update /src/features/hardware/ui/bar-start-point-selector.tsx, /src/app/styles.css
-1:53:57 AM [vite] (client) hmr update /src/features/hardware/ui/hold-to-jog.tsx, /src/app/styles.css
-1:54:05 AM [vite] (client) hmr update /src/app/styles.css
-1:54:19 AM [vite] (client) hmr update /src/features/hardware/ui/bar-start-point-selector.tsx, /src/app/styles.css
-1:54:19 AM [vite] (client) hmr update /src/features/hardware/ui/load-direction-selector.tsx, /src/app/styles.css
-1:54:19 AM [vite] (client) hmr update /src/app/styles.css
-1:55:12 AM [vite] (client) hmr update /src/app/styles.css
-1:55:43 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-1:55:44 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx
-2:06:15 AM [vite] (client) hmr update /src/shared/ui/photo/photo-capture-dialog.tsx, /src/app/styles.css
-2:06:15 AM [vite] (client) hmr update /src/app/styles.css
-2:06:15 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/progress/progress-photo-gallery.css
-2:06:15 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/progress/progress-photo-gallery.css
-2:06:15 AM [vite] (client) hmr invalidate /src/shared/ui/photo/photo-capture-dialog.tsx Could not Fast Refresh ("captureFrame" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-2:06:15 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/screens/profile/user-profile-screen.tsx
-2:08:00 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx
-2:08:00 AM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
-2:08:15 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-2:08:15 AM [vite] (client) hmr update /src/features/hardware/ui/load-direction-selector.tsx, /src/app/styles.css
-2:08:15 AM [vite] (client) hmr update /src/features/hardware/ui/bar-start-point-selector.tsx, /src/app/styles.css
-2:08:15 AM [vite] (client) hmr update /src/features/hardware/ui/hold-to-jog.tsx, /src/app/styles.css
-2:08:44 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-2:09:22 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx
-2:09:45 AM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
-2:11:24 AM [vite] (client) hmr update /src/screens/dashboard/dashboard-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/rest/set-feedback.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-settings-panel.tsx, /src/app/styles.css
-2:11:25 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-2:11:25 AM [vite] (client) hmr update /src/app/router.tsx
-2:12:27 AM [vite] (client) hmr update /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/app/styles.css
-2:15:55 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx
-2:15:55 AM [vite] (client) hmr update /src/screens/exercise-session/exercise-session-screen.tsx, /src/app/styles.css
-2:15:55 AM [vite] (client) hmr update /src/screens/dashboard/dashboard-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/rest/set-feedback.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-settings-panel.tsx, /src/app/styles.css
-2:15:56 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-2:15:56 AM [vite] (client) hmr update /src/app/router.tsx
-2:16:34 AM [vite] (client) hmr update /src/app/styles.css
-2:18:54 AM [vite] (client) hmr update /src/app/styles.css
-2:22:42 AM [vite] (client) hmr update /src/shared/ui/photo/photo-capture-dialog.tsx, /src/app/styles.css
-2:22:42 AM [vite] (client) hmr invalidate /src/shared/ui/photo/photo-capture-dialog.tsx Could not Fast Refresh ("captureFrame" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
-2:22:42 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/screens/profile/user-profile-screen.tsx
+3:10:26 AM [vite] (client) hmr update /src/app/providers.tsx, /src/app/styles.css
+3:10:26 AM [vite] (client) hmr update /src/screens/catalog/exercise-catalog-screen.tsx, /src/app/styles.css
+3:10:26 AM [vite] (client) hmr update /src/screens/profile/user-profile-screen.tsx, /src/app/styles.css
+3:10:26 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx
+3:10:26 AM [vite] (client) hmr update /src/app/styles.css
+3:10:27 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:10:27 AM [vite] (client) hmr update /src/app/router.tsx
+3:10:37 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx
+3:10:37 AM [vite] (client) hmr update /src/app/providers.tsx, /src/app/styles.css
+3:10:38 AM [vite] (client) hmr invalidate /src/shared/ui/training/exercise-picker-modal.tsx Could not Fast Refresh ("isRecoveryEquipment" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:10:38 AM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx
+3:13:40 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx
+3:13:41 AM [vite] (client) hmr invalidate /src/shared/ui/training/exercise-picker-modal.tsx Could not Fast Refresh ("isRecoveryEquipment" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:13:41 AM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx
+3:16:12 AM [vite] (client) hmr update /src/app/providers.tsx, /src/app/styles.css
+3:16:12 AM [vite] (client) hmr update /src/screens/catalog/exercise-catalog-screen.tsx, /src/app/styles.css
+3:16:12 AM [vite] (client) hmr update /src/screens/profile/user-profile-screen.tsx, /src/app/styles.css
+3:16:12 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx
+3:16:12 AM [vite] (client) hmr update /src/app/providers.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/profile/user-profile-screen.tsx, /src/shared/ui/training/exercise-picker-modal.tsx, /src/app/styles.css
+3:16:12 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:16:12 AM [vite] (client) hmr update /src/app/router.tsx
+3:16:12 AM [vite] (client) hmr invalidate /src/shared/ui/training/exercise-picker-modal.tsx Could not Fast Refresh ("isRecoveryEquipment" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:16:12 AM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx
+3:18:33 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx
+3:18:33 AM [vite] (client) hmr invalidate /src/shared/ui/training/exercise-picker-modal.tsx Could not Fast Refresh ("isRecoveryEquipment" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:18:33 AM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx
+3:19:13 AM [vite] (client) hmr update /src/screens/catalog/exercise-catalog-screen.tsx, /src/app/styles.css
+3:19:13 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:19:13 AM [vite] (client) hmr update /src/app/router.tsx
+3:20:28 AM [vite] (client) hmr update /src/screens/catalog/exercise-catalog-screen.tsx, /src/app/styles.css
+3:20:28 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:20:28 AM [vite] (client) hmr update /src/app/router.tsx
+3:20:39 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-discovery.tsx
+3:21:18 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/overlays/safety-dialog.tsx
+3:21:18 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx
+3:21:18 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-discovery.css
+3:21:19 AM [vite] (client) hmr invalidate /src/shared/ui/overlays/safety-dialog.tsx Could not Fast Refresh ("useSafetyDockTarget" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:21:19 AM [vite] (client) hmr update /src/screens/dashboard/dashboard-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/calendar/workout-calendar-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/profile/user-profile-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/screens/builder/workout-builder-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/shared/ui/overlays/surface-components.tsx, /src/shared/ui/stage2/screen-components.tsx, /src/screens/progress/progress-photo-gallery.tsx, /src/shared/ui/photo/photo-capture-dialog.tsx, /src/shared/ui/training/exercise-picker-modal.tsx, /src/features/coach/ui/coach-mini-debug.tsx
+3:21:20 AM [vite] (client) hmr invalidate /src/shared/ui/training/exercise-picker-modal.tsx Could not Fast Refresh ("isRecoveryEquipment" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:21:20 AM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx
+3:21:21 AM [vite] (client) hmr invalidate /src/screens/calendar/workout-calendar-screen.tsx Could not Fast Refresh ("formatDayTitle" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:21:21 AM [vite] (client) hmr update /src/app/router.tsx
+3:21:21 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:21:21 AM [vite] (client) hmr update /src/app/router.tsx
+3:21:21 AM [vite] (client) hmr invalidate /src/screens/progress/progress-photo-gallery.tsx Could not Fast Refresh ("groupProgressPhotos" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:21:21 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx
+3:21:21 AM [vite] (client) hmr invalidate /src/shared/ui/photo/photo-capture-dialog.tsx Could not Fast Refresh ("captureFrame" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:21:21 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/screens/profile/user-profile-screen.tsx
+3:22:39 AM [vite] (client) hmr update /src/screens/workout-summary/workout-summary-screen.tsx, /src/app/styles.css
+3:24:13 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/screens/rest/set-feedback.tsx, /src/features/coach/ui/coach-settings-panel.tsx
+3:24:13 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:24:13 AM [vite] (client) hmr update /src/app/router.tsx
+3:24:25 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx, /src/shared/ui/training/exercise-discovery.tsx, /src/screens/catalog/exercise-catalog-screen.tsx
+3:24:25 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-discovery.tsx
+3:24:25 AM [vite] (client) hmr invalidate /src/shared/ui/training/exercise-picker-modal.tsx Could not Fast Refresh ("isRecoveryEquipment" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:24:25 AM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx
+3:24:25 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:24:25 AM [vite] (client) hmr update /src/app/router.tsx
+3:28:12 AM [vite] (client) hmr update /src/screens/catalog/exercise-catalog-screen.tsx, /src/app/styles.css
+3:28:12 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx
+3:28:12 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-picker-modal.tsx, /src/shared/ui/training/exercise-discovery.tsx, /src/screens/catalog/exercise-catalog-screen.tsx
+3:28:12 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-discovery.tsx
+3:28:12 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/training/exercise-discovery.css
+3:28:12 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/overlays/safety-dialog.tsx
+3:28:12 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:28:12 AM [vite] (client) hmr update /src/app/router.tsx
+3:28:12 AM [vite] (client) hmr invalidate /src/shared/ui/training/exercise-picker-modal.tsx Could not Fast Refresh ("isRecoveryEquipment" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:28:12 AM [vite] (client) hmr update /src/screens/builder/workout-builder-screen.tsx
+3:28:26 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/photo/photo-capture-dialog.tsx
+3:28:27 AM [vite] (client) hmr invalidate /src/shared/ui/photo/photo-capture-dialog.tsx Could not Fast Refresh ("captureFrame" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:28:27 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/screens/profile/user-profile-screen.tsx
+3:31:02 AM [vite] (client) hmr update /src/screens/workout-summary/workout-summary-screen.tsx, /src/app/styles.css
+3:35:18 AM [vite] (client) hmr update /src/screens/workout-summary/workout-summary-screen.tsx, /src/app/styles.css
+3:35:18 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/screens/rest/set-feedback.tsx, /src/features/coach/ui/coach-settings-panel.tsx
+3:35:18 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
+3:35:18 AM [vite] (client) hmr update /src/app/router.tsx

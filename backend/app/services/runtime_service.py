@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from math import isfinite
 from typing import Literal
 
 from sqlalchemy import func, or_, select, update
@@ -18,6 +19,7 @@ from app.models.enums import (
     RuntimeFlowSource,
     WorkoutSessionStatus,
 )
+from app.models.profile import UserProfile
 from app.models.training import ExerciseHistoryRecord, UserExerciseState
 from app.models.user import User
 from app.schemas.runtime import (
@@ -675,6 +677,7 @@ class RuntimeService:
             subtitle=f"{workout_session.title} · {max(workout_session.duration_seconds // 60, 1)} минут · {completed_exercises} из {target_exercises} упражнений выполнено",
             metrics=[
                 RuntimeWorkoutMetricSchema(label="длительность", value=f"{max(workout_session.duration_seconds // 60, 1)} минут", hint="итог тренировки"),
+                self._workout_energy_metric(session, workout_session, exercises),
                 RuntimeWorkoutMetricSchema(label="упражнений", value=f"{completed_exercises} / {target_exercises}", hint="выполнено без пропусков"),
                 RuntimeWorkoutMetricSchema(label="подходов / сторон" if sided else "подходов", value=f"{completed_sets} / {target_sets}", hint="стороны считаются отдельно" if sided else "засчитано"),
                 RuntimeWorkoutMetricSchema(label="повторов", value=str(total_reps), hint="суммарно"),
@@ -703,6 +706,40 @@ class RuntimeService:
             next_workout="Через 1–2 дня · Следующая рекомендованная тренировка",
             feeling=(workout_session.feeling or FeelingLevel.normal).value,
             discomfort=(workout_session.discomfort or DiscomfortLevel.none).value,
+        )
+
+    def _workout_energy_metric(
+        self, session: Session, workout: WorkoutSession, exercises: list[ExerciseSession],
+    ) -> RuntimeWorkoutMetricSchema:
+        active_seconds = 0
+        estimated_from_reps = False
+        for exercise in exercises:
+            for result in self._performed_results(exercise.set_results):
+                if exercise.kind in {RuntimeExerciseKind.timed, RuntimeExerciseKind.stretch}:
+                    # Timed actual_value is performed seconds, never the planned target.
+                    active_seconds += result.actual_value
+                elif result.duration_seconds is not None and result.duration_seconds > 0:
+                    active_seconds += result.duration_seconds
+                else:
+                    reps = result.reps if result.reps is not None else result.actual_value
+                    if reps > 0:
+                        # Legacy/current rep-based sets have no measured movement time.
+                        active_seconds += reps * 3
+                        estimated_from_reps = True
+        if active_seconds <= 0:
+            return RuntimeWorkoutMetricSchema(label="энергия", value="0 ккал", hint="нет выполненных подходов")
+        profile = session.get(UserProfile, workout.user_id)
+        weight_kg = float(profile.weight_kg) if profile and profile.weight_kg is not None else None
+        if weight_kg is None or not isfinite(weight_kg) or weight_kg <= 0:
+            return RuntimeWorkoutMetricSchema(label="энергия", value="—", hint="укажите вес тела в профиле")
+        # Conservative MET approximation, not measured mechanical/metabolic work.
+        # Net active energy excludes resting metabolism (1 MET), rest and wall time.
+        kcal = round((3.5 - 1) * 3.5 * weight_kg / 200 * (active_seconds / 60))
+        minutes, seconds = divmod(active_seconds, 60)
+        work_label = f"{minutes} мин {seconds} с работы" if minutes else f"{seconds} с работы"
+        method = "оценка: 3 с/повтор" if estimated_from_reps else "по времени подходов"
+        return RuntimeWorkoutMetricSchema(
+            label="энергия", value=f"≈ {kcal} ккал", hint=f"{work_label} · {method}",
         )
 
     def _build_workout_muscle_load(self, exercises: list[ExerciseSession]) -> list[RuntimeWorkoutMuscleSchema]:

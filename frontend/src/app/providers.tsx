@@ -1,5 +1,6 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-query'
 import { useEffect, type PropsWithChildren } from 'react'
+import { exerciseCatalogOptions } from '@/entities/exercise/model/catalog'
 import { HardwareRealtimeProvider } from '@/features/hardware/lib/hardware-realtime-provider'
 import { ApiError, apiPost } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
@@ -24,10 +25,17 @@ export function AppProviders({ children }: PropsWithChildren) {
   return (
     <QueryClientProvider client={queryClient}>
       <HardwareRealtimeProvider />
+      <ExerciseCatalogPreload />
       <SelectedUserSync />
       {children}
     </QueryClientProvider>
   )
+}
+
+function ExerciseCatalogPreload() {
+  const selectedUserId = useAppStore((state) => state.selectedUserId)
+  useQuery(exerciseCatalogOptions(selectedUserId ?? 'alexey'))
+  return null
 }
 
 function SelectedUserSync() {

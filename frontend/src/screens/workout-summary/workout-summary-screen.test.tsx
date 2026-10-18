@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -67,6 +67,32 @@ describe('WorkoutSummaryScreen', () => {
 
     await user.click(screen.getByRole('button', { name: 'Усталость и восстановление' }))
     expect(navigateMock).toHaveBeenCalledWith('/fatigue')
+  })
+
+  it.each([
+    { value: '≈ 35 ккал', hint: '10 мин 0 с работы · оценка: 3 с/повтор' },
+    { value: '—', hint: 'укажите вес тела в профиле' },
+  ])('shows backend energy in primary cards and explains the estimate ($value)', async (energy) => {
+    const user = userEvent.setup()
+    const summary = useRuntimeStore.getState().session!.workoutSummary
+    vi.mocked(apiPost).mockResolvedValue({
+      ...summary,
+      workoutSessionId: 42,
+      metrics: [summary.metrics[0], { label: 'энергия', ...energy }, ...summary.metrics.slice(1)],
+    })
+    renderScreen()
+
+    const metrics = within(screen.getByRole('list', { name: 'Итоги тренировки' }))
+    await waitFor(() => expect(metrics.getByText(energy.hint)).toBeInTheDocument())
+    expect(metrics.getByText('энергия')).toBeInTheDocument()
+    expect(metrics.getByText(energy.value)).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Подробно' }))
+    expect(screen.getByText(/Энергия — приблизительный активный расход только за выполненную работу/)).toBeInTheDocument()
+    const allMetrics = within(screen.getByRole('list', { name: 'Все показатели тренировки' }))
+    for (const metric of summary.metrics) {
+      expect(allMetrics.getByText(metric.label)).toBeInTheDocument()
+    }
   })
 
   it('resumes remaining sets with backend IDs and results intact after a legacy photo URL', async () => {

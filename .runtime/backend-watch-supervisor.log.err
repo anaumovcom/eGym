@@ -1,1 +1,0 @@
-/home/alex/DEV/eGym/start-watch.sh: line 250: 2064439 Bus error               (core dumped) ( cd "$backend_root"; "$python_exe" -m uvicorn app.main:app --app-dir "$backend_root" --host 127.0.0.1 --port 8000 --timeout-graceful-shutdown 5 ) >> "$backend_log_file" 2>> "$backend_error_log_file"

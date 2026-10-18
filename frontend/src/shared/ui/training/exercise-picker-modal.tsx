@@ -1,14 +1,17 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Check, Dumbbell, SearchX, Star, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import type { ExerciseCatalogResponse, ExerciseDetails, ExerciseSummary } from '@/entities/exercise/model/types'
+import { useExerciseCatalog } from '@/entities/exercise/model/catalog'
+import { emptyCatalogSelection, type CatalogFilterKey } from '@/entities/exercise/model/catalog-filters'
+import type { ExerciseDetails, ExerciseSummary } from '@/entities/exercise/model/types'
 import { apiGet } from '@/shared/api/client'
-import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
-import { ExerciseVideoPlayer, SearchField } from '@/shared/ui/stage2/screen-components'
+import { ExerciseVideoPlayer } from '@/shared/ui/stage2/screen-components'
+import { ExerciseDiscoveryActiveFilters, ExerciseDiscoveryFilters, ExerciseDiscoveryToolbar } from './exercise-discovery'
 import { ValueStepper } from '@/shared/ui/training/value-stepper'
+import { useAppStore } from '@/stores/app-store'
 
 export type ExercisePickerModalProps = {
   open: boolean
@@ -27,14 +30,16 @@ export type ExercisePickerModalProps = {
 
 type StagedSets = { sets: number; reps: number; weight: number; restSeconds: number }
 
-const CHIP_LIMIT = 10
+const PAGE_SIZE = 24
 
 export function ExercisePickerModal({ open, onOpenChange, userId, mode, currentExerciseSlug, currentExerciseName, excludeSlugs, initialSlug, title, description, onSelect }: ExercisePickerModalProps) {
   const [search, setSearch] = useState('')
-  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [pendingSlug, setPendingSlug] = useState<string | null>(null)
-  const [selectedMuscles, setSelectedMuscles] = useState<string[]>([])
-  const [selectedEquipment, setSelectedEquipment] = useState<string[]>([])
+  const [selected, setSelected] = useState(emptyCatalogSelection)
+  const [favoritesOnly, setFavoritesOnly] = useState(false)
+  const favoriteSlugs = useAppStore((state) => state.favoriteExerciseSlugs)
+  const toggleFavorite = useAppStore((state) => state.toggleFavoriteExercise)
   const [initializedFilterSlug, setInitializedFilterSlug] = useState<string | null>(null)
   const [staged, setStaged] = useState<ExerciseDetails | null>(null)
   const [stagedSets, setStagedSets] = useState<StagedSets | null>(null)
@@ -43,15 +48,14 @@ export function ExercisePickerModal({ open, onOpenChange, userId, mode, currentE
 
   useEffect(() => {
     if (!open) {
-      setSearch(''); setDebouncedSearch(''); setPendingSlug(null); setSelectedMuscles([]); setSelectedEquipment([])
+      setSearch(''); setPendingSlug(null); setSelected(emptyCatalogSelection()); setFavoritesOnly(false)
       setInitializedFilterSlug(null); setStaged(null); setStagedSets(null); setSubmitting(false); setError(null)
     }
   }, [open])
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => setDebouncedSearch(search.trim()), 400)
-    return () => window.clearTimeout(timeoutId)
-  }, [search])
+    setVisibleCount(PAGE_SIZE)
+  }, [open, userId, search, selected, favoritesOnly])
 
   const { data: currentExerciseDetails } = useQuery({
     queryKey: ['exercise-picker-current-exercise', userId, currentExerciseSlug],
@@ -61,7 +65,7 @@ export function ExercisePickerModal({ open, onOpenChange, userId, mode, currentE
 
   useEffect(() => {
     if (!open || mode !== 'replace' || !currentExerciseSlug || !currentExerciseDetails || initializedFilterSlug === currentExerciseSlug) return
-    setSelectedMuscles(currentExerciseDetails.muscles)
+    setSelected((value) => ({ ...value, muscles: currentExerciseDetails.muscles }))
     setInitializedFilterSlug(currentExerciseSlug)
   }, [currentExerciseDetails, currentExerciseSlug, initializedFilterSlug, mode, open])
 
@@ -78,34 +82,15 @@ export function ExercisePickerModal({ open, onOpenChange, userId, mode, currentE
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialSlug, open, userId])
 
-  const queryString = useMemo(() => {
-    const params = new URLSearchParams({ userId })
-    if (debouncedSearch) params.set('search', debouncedSearch)
-    if (selectedMuscles.length) params.set('muscles', selectedMuscles.join(','))
-    if (selectedEquipment.length) params.set('equipment', selectedEquipment.join(','))
-    return params.toString()
-  }, [debouncedSearch, selectedEquipment, selectedMuscles, userId])
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['exercise-picker-catalog', userId, debouncedSearch, selectedMuscles.join(','), selectedEquipment.join(',')],
-    queryFn: () => apiGet<ExerciseCatalogResponse>(`/api/exercises?${queryString}`),
-    enabled: open && !staged,
-  })
-
-  const muscleFilters = useMemo(() => {
-    const ordered = [...selectedMuscles, ...(currentExerciseDetails?.muscles ?? []), ...(data?.availableFilters.muscles ?? [])]
-    return ordered.filter((item, index) => ordered.indexOf(item) === index).slice(0, CHIP_LIMIT)
-  }, [currentExerciseDetails?.muscles, data?.availableFilters.muscles, selectedMuscles])
-  const equipmentFilters = useMemo(() => {
-    const ordered = [...selectedEquipment, ...(data?.availableFilters.equipment ?? [])]
-    return ordered.filter((item, index) => ordered.indexOf(item) === index).slice(0, CHIP_LIMIT)
-  }, [data?.availableFilters.equipment, selectedEquipment])
+  const { data, isLoading, isError: catalogError, refetch: reloadCatalog } = useExerciseCatalog(userId, {
+    search, ...selected,
+  }, open && !staged)
 
   const items = useMemo(() => {
     const blocked = new Set(excludeSlugs ?? [])
     if (currentExerciseSlug && mode === 'replace') blocked.add(currentExerciseSlug)
-    return (data?.items ?? []).filter((item) => !blocked.has(item.slug))
-  }, [currentExerciseSlug, data?.items, excludeSlugs, mode])
+    return (data?.items ?? []).filter((item) => !blocked.has(item.slug) && (!favoritesOnly || item.favorite))
+  }, [currentExerciseSlug, data?.items, excludeSlugs, mode, favoritesOnly])
 
   function stage(details: ExerciseDetails) {
     setStaged(details)
@@ -139,7 +124,10 @@ export function ExercisePickerModal({ open, onOpenChange, userId, mode, currentE
     }
   }
 
-  const toggle = (setter: typeof setSelectedMuscles) => (value: string) => setter((current) => (current.includes(value) ? current.filter((item) => item !== value) : [...current, value]))
+  function toggleFilter(key: CatalogFilterKey, value: string) {
+    setSelected((current) => ({ ...current, [key]: current[key].includes(value) ? current[key].filter((item) => item !== value) : [...current[key], value] }))
+  }
+  function clearFilters() { setSelected(emptyCatalogSelection()); setSearch(''); setFavoritesOnly(false) }
   const resolvedTitle = title ?? (mode === 'replace' ? 'Замена упражнения' : 'Добавить упражнение')
   const resolvedDescription = description ?? (mode === 'replace' ? `Вместо «${currentExerciseName ?? 'текущего упражнения'}». Подходы и нагрузка настраиваются на следующем шаге.` : 'Найдите упражнение, затем настройте подходы — и оно появится в тренировке.')
   const confirmLabel = mode === 'replace' ? 'Заменить в тренировке' : 'Добавить в тренировку'
@@ -149,12 +137,14 @@ export function ExercisePickerModal({ open, onOpenChange, userId, mode, currentE
     <Dialog.Root open={open} onOpenChange={(next) => { if (!submitting) onOpenChange(next) }}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-        <SafetyDialogContent className="picker-panel" aria-busy={submitting}>
+        <SafetyDialogContent className="picker-panel" rootClassName="picker-fullscreen-root" aria-busy={submitting}>
           <header className="picker-heading">
             <div className="min-w-0">
+              <div className="discovery-eyebrow"><Dumbbell aria-hidden="true" /> ВАША ТРЕНИРОВКА</div>
               <Dialog.Title className="font-display text-3xl font-bold text-white">{staged ? (mode === 'replace' ? 'Настройте замену' : 'Настройте подходы') : resolvedTitle}</Dialog.Title>
-              <Dialog.Description className="mt-1 text-sm text-white/60">{staged ? `${staged.name} · шаг 2 из 2` : `${resolvedDescription} Шаг 1 из 2.`}</Dialog.Description>
+              <Dialog.Description className="mt-1 text-sm text-white/60">{staged ? staged.name : resolvedDescription}</Dialog.Description>
             </div>
+            <ol className="picker-steps" aria-label="Этапы добавления"><li aria-current={!staged ? 'step' : undefined}><span>{staged ? <Check aria-hidden="true" /> : '1'}</span>Выбор упражнения</li><li aria-current={staged ? 'step' : undefined}><span>2</span>Подходы и нагрузка</li></ol>
             <Dialog.Close asChild><Button variant="secondary" aria-label="Закрыть выбор упражнения" disabled={submitting}><X aria-hidden="true" /></Button></Dialog.Close>
           </header>
 
@@ -177,37 +167,38 @@ export function ExercisePickerModal({ open, onOpenChange, userId, mode, currentE
               </div>
             </div>
           ) : (
-            <>
-              <div className="picker-search">
-                <SearchField value={search} placeholder="Найти упражнение..." onChange={setSearch} />
-                <div className="picker-chips">
-                  {muscleFilters.map((muscle) => <button key={muscle} type="button" aria-pressed={selectedMuscles.includes(muscle)} className={cn('picker-chip', selectedMuscles.includes(muscle) && 'picker-chip-active')} onClick={() => toggle(setSelectedMuscles)(muscle)}>{muscle}</button>)}
-                </div>
-                <div className="picker-chips">
-                  {equipmentFilters.map((equipment) => <button key={equipment} type="button" aria-pressed={selectedEquipment.includes(equipment)} className={cn('picker-chip', selectedEquipment.includes(equipment) && 'picker-chip-active')} onClick={() => toggle(setSelectedEquipment)(equipment)}>{equipment}</button>)}
-                  {selectedMuscles.length || selectedEquipment.length || search ? <button type="button" className="picker-chip" onClick={() => { setSelectedMuscles([]); setSelectedEquipment([]); setSearch('') }}>Сбросить</button> : null}
-                </div>
-              </div>
+            <div className="discovery-layout picker-discovery">
+              <ExerciseDiscoveryFilters selected={selected} available={data?.availableFilters} onToggle={toggleFilter} onClear={clearFilters} />
+              <div className="discovery-content">
+              <ExerciseDiscoveryToolbar search={search} onSearch={setSearch} favoritesOnly={favoritesOnly} onFavoritesChange={() => setFavoritesOnly((value) => !value)} favoriteCount={favoriteSlugs.length} count={items.length} loading={isLoading} />
+              <ExerciseDiscoveryActiveFilters selected={selected} onToggle={toggleFilter} onClear={clearFilters} />
               {error ? <p role="alert" className="mt-3 text-[#ffb4a7]">{error}</p> : null}
               <div className="picker-results" aria-live="polite">
-                {isLoading || (pendingSlug && initialSlug) ? <div className="picker-empty">Загрузка каталога…</div> : items.length ? (
+                {isLoading || (pendingSlug && initialSlug) ? <div className="picker-empty">Загрузка каталога…</div> : catalogError ? (
+                  <div className="picker-empty" role="alert">Не удалось загрузить каталог. <Button variant="secondary" onClick={() => void reloadCatalog()}>Повторить</Button></div>
+                ) : items.length ? (
                   <ul className="picker-list" aria-label="Результаты поиска">
-                    {items.map((item) => (
-                      <li key={item.slug}>
+                    {items.slice(0, visibleCount).map((item) => (
+                      <li key={item.slug} className="picker-result-row">
                         <button type="button" className="picker-item" disabled={pendingSlug !== null} aria-label={`Выбрать ${item.name}`} onClick={() => void handlePick(item)}>
                           <ExercisePickerPreview videoUrl={item.previewVideoUrl} title={item.name} />
                           <span className="picker-item-body">
                             <span className="picker-item-name">{item.name}</span>
-                            <span className="picker-item-meta">{[...item.muscles.slice(0, 2), item.equipment].join(' · ')}</span>
+                            <span className="picker-item-meta">{item.muscles.slice(0, 3).join(' · ')}</span>
+                            <span className="picker-item-tags"><span><Dumbbell aria-hidden="true" />{item.equipment}</span><span>{item.difficultyLabel}</span></span>
                           </span>
-                          <span className="picker-item-action">{pendingSlug === item.slug ? 'Загрузка…' : 'Выбрать'}</span>
+                          <span className="picker-item-action">{pendingSlug === item.slug ? 'Загрузка…' : 'Выбрать'}<ArrowRight aria-hidden="true" /></span>
                         </button>
+                        <button type="button" className="picker-favorite" aria-pressed={item.favorite} aria-label={`${item.favorite ? 'Убрать из избранного' : 'Добавить в избранное'}: ${item.name}`} onClick={() => toggleFavorite(item.slug)}><Star aria-hidden="true" /></button>
                       </li>
                     ))}
+                    {items.length > visibleCount ? <li><Button variant="secondary" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>Показать ещё</Button></li> : null}
                   </ul>
-                ) : <div className="picker-empty">По текущему запросу упражнений не найдено.</div>}
+                ) : <div className="picker-empty"><SearchX aria-hidden="true" /><h2>{favoritesOnly && !favoriteSlugs.length ? 'В избранном пока пусто' : 'По текущему запросу упражнений не найдено.'}</h2><p>{favoritesOnly && !favoriteSlugs.length ? 'Отмечайте упражнения звёздочкой — они появятся здесь.' : 'Попробуйте другое название или уберите часть фильтров.'}</p><Button variant="secondary" onClick={clearFilters}>{favoritesOnly && !favoriteSlugs.length ? 'Все упражнения' : 'Сбросить фильтры'}</Button></div>}
               </div>
-            </>
+              <footer className="picker-browse-footer"><span>Выберите упражнение — затем настройте нагрузку</span><span>Шаг 1 из 2</span></footer>
+              </div>
+            </div>
           )}
         </SafetyDialogContent>
       </Dialog.Portal>

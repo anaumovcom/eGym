@@ -36,6 +36,22 @@ beforeEach(() => {
 afterEach(() => { cleanup(); client.clear() })
 
 describe('Stage 1 discovery transitions', () => {
+  it('renders muscle and equipment filters before the catalog request resolves', async () => {
+    const user = userEvent.setup()
+    vi.mocked(apiGet).mockImplementation(async <T,>(path: string): Promise<T> => {
+      if (path.startsWith('/api/exercises?')) return new Promise<T>(() => {})
+      if (path.startsWith('/api/machine/status')) return machineScenarios.ready as T
+      throw new Error(`Unexpected request ${path}`)
+    })
+    render(<QueryClientProvider client={client}><MemoryRouter><ExerciseCatalogScreen /></MemoryRouter></QueryClientProvider>)
+    expect(screen.getByRole('button', { name: 'Низ спины', exact: true })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Штанга', exact: true })).toBeVisible()
+    await user.click(screen.getByRole('button', { name: 'Штанга', exact: true }))
+    expect(screen.getByRole('button', { name: 'Штанга', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    expect(screen.getByRole('button', { name: 'Убрать фильтр Оборудование: Штанга' })).toBeVisible()
+    expect(vi.mocked(apiGet).mock.calls.filter(([path]) => path.startsWith('/api/exercises?'))).toHaveLength(1)
+  })
+
   it('offers a back-to-top button only after the catalog is scrolled', () => {
     sessionStorage.removeItem('egym-catalog-position')
     render(<QueryClientProvider client={client}><MemoryRouter><ExerciseCatalogScreen /></MemoryRouter></QueryClientProvider>)
@@ -73,7 +89,8 @@ describe('Stage 1 discovery transitions', () => {
     main.scrollTop = 600
 
     await user.click(within(card).getByRole('button', { name: `Добавить в избранное: ${catalog.items[0].name}` }))
-    await vi.waitFor(() => expect(vi.mocked(apiGet).mock.calls.some(([path]) => path.includes(`favorites=${catalog.items[0].slug}`))).toBe(true))
+    expect(within(card).getByRole('button', { name: `Убрать из избранного: ${catalog.items[0].name}` })).toBeInTheDocument()
+    expect(vi.mocked(apiGet).mock.calls.filter(([path]) => path.startsWith('/api/exercises?'))).toHaveLength(1)
     expect(main.scrollTop).toBe(600)
     expect(screen.getByRole('article', { name: catalog.items[0].name })).toBeInTheDocument()
   })

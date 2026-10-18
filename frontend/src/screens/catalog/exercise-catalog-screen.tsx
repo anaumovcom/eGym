@@ -1,29 +1,25 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUp, Search, SlidersHorizontal, Star, X } from 'lucide-react'
+import { ArrowUp, Dumbbell, LibraryBig, SearchX } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { WorkoutBuilderData } from '@/entities/builder/model/types'
-import { difficultyLabel, forceLabel, mechanicLabel } from '@/entities/exercise/lib/labels'
-import type { ExerciseCatalogResponse, ExerciseDetails } from '@/entities/exercise/model/types'
+import { CATALOG_FILTER_KEYS as FILTER_KEYS, catalogFilterLabel, type CatalogFilterKey as FilterKey } from '@/entities/exercise/model/catalog-filters'
+import { useExerciseCatalog } from '@/entities/exercise/model/catalog'
+import type { ExerciseDetails } from '@/entities/exercise/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import { apiGet } from '@/shared/api/client'
-import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-components'
 import { ExerciseDetailsModal, ExercisePreviewCard } from '@/shared/ui/stage2/screen-components'
+import { ExerciseDiscoveryActiveFilters, ExerciseDiscoveryFilters, ExerciseDiscoveryToolbar } from '@/shared/ui/training/exercise-discovery'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 
-type FilterKey = 'muscles' | 'equipment' | 'difficulty' | 'force' | 'mechanic' | 'grips'
-type FilterSection = 'muscles' | 'equipment' | 'all'
-
-const FILTER_KEYS: FilterKey[] = ['muscles', 'equipment', 'difficulty', 'force', 'mechanic', 'grips']
-const FILTER_TITLES: Record<FilterKey, string> = { muscles: 'Мышцы', equipment: 'Оборудование', difficulty: 'Сложность', force: 'Тип усилия', mechanic: 'Механика', grips: 'Хват' }
 const PAGE_SIZE = 24
 const SCROLL_STORAGE_KEY = 'egym-catalog-position'
 
@@ -36,10 +32,7 @@ function parseList(value: string | null) {
 }
 
 export function filterValueLabel(key: FilterKey, value: string) {
-  if (key === 'difficulty') return difficultyLabel(value)
-  if (key === 'force') return forceLabel(value)
-  if (key === 'mechanic') return mechanicLabel(value)
-  return value
+  return catalogFilterLabel(key, value)
 }
 
 export function ExerciseCatalogScreen() {
@@ -58,8 +51,6 @@ export function ExerciseCatalogScreen() {
   const favoritesOnly = searchParams.get('favorites') === '1'
   const resolvedUserId = selectedUserId ?? 'alexey'
   const selected = useMemo(() => Object.fromEntries(FILTER_KEYS.map((key) => [key, parseList(searchParams.get(key))])) as Record<FilterKey, string[]>, [searchParams])
-  const [filterSection, setFilterSection] = useState<FilterSection | null>(null)
-  const filterTriggerRef = useRef<HTMLElement | null>(null)
   const [addSlug, setAddSlug] = useState<string | null>(null)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [showBackToTop, setShowBackToTop] = useState(false)
@@ -76,17 +67,7 @@ export function ExerciseCatalogScreen() {
     return params.toString()
   }, [blacklistedExerciseSlugs, favoriteExerciseSlugs, resolvedUserId, search, selected])
 
-  const { data, isPending, isError, refetch } = useQuery({
-    queryKey: ['exercise-catalog', queryString],
-    queryFn: () => apiGet<ExerciseCatalogResponse>(`/api/exercises?${queryString}`),
-    placeholderData: (previousData, previousQuery) => {
-      const previousParams = new URLSearchParams(String(previousQuery?.queryKey[1] ?? ''))
-      const nextParams = new URLSearchParams(queryString)
-      previousParams.delete('favorites')
-      nextParams.delete('favorites')
-      return previousParams.toString() === nextParams.toString() ? previousData : undefined
-    },
-  })
+  const { data, isPending, isError, refetch } = useExerciseCatalog(resolvedUserId, { ...selected, search })
 
   const { data: machine } = useQuery({
     queryKey: ['catalog-machine', machineScenario],
@@ -199,13 +180,6 @@ export function ExerciseCatalogScreen() {
     updateParams((next) => { if (favoritesOnly) next.delete('favorites'); else next.set('favorites', '1') })
   }
 
-  function openFilters(section: FilterSection, trigger: HTMLElement) {
-    filterTriggerRef.current = trigger
-    setFilterSection(section)
-  }
-
-  const activeFilters = FILTER_KEYS.flatMap((key) => selected[key].map((value) => ({ key, value })))
-  const activeCount = activeFilters.length + (favoritesOnly ? 1 : 0)
   const visibleItems = items.slice(0, visibleCount)
   const machineHealth = machine ?? { machineState: 'ready', machineLabel: 'Загрузка статуса', leftDrive: 'connected', rightDrive: 'connected', safety: 'enabled', calibration: 'Проверка подключения...' } satisfies MachineHealth
 
@@ -214,40 +188,16 @@ export function ExerciseCatalogScreen() {
       {machine?.machineState === 'blocked' ? <BlockingAlert title="Каталог доступен, старт заблокирован" description="Можно смотреть упражнения и собирать план, но запуск тренировок временно недоступен из-за состояния тренажёра." /> : null}
       {machine?.machineState === 'warning' ? <WarningBanner title="Тренажёр требует внимания" description="Каталог и карточка упражнения остаются доступны, но перед стартом понадобится диагностика." /> : null}
 
-      <section className="catalog" aria-labelledby="catalog-title">
-        <header className="catalog-header">
-          <h1 id="catalog-title" className="font-display font-bold text-white">Каталог упражнений</h1>
-          <label className="catalog-search">
-            <Search aria-hidden="true" />
-            <input
-              type="search"
-              value={search}
-              placeholder="Найти упражнение..."
-              aria-label="Поиск упражнения"
-              onChange={(event) => updateParams((next) => { if (event.target.value) next.set('search', event.target.value); else next.delete('search') })}
-            />
-            {search ? <button type="button" aria-label="Очистить поиск" onClick={() => updateParams((next) => next.delete('search'))}><X aria-hidden="true" /></button> : null}
-          </label>
-          <div className="catalog-filter-bar">
-            <Button variant="secondary" aria-haspopup="dialog" aria-pressed={selected.muscles.length > 0} onClick={(event) => openFilters('muscles', event.currentTarget)}>Мышцы{selected.muscles.length ? ` · ${selected.muscles.length}` : ''}</Button>
-            <Button variant="secondary" aria-haspopup="dialog" aria-pressed={selected.equipment.length > 0} onClick={(event) => openFilters('equipment', event.currentTarget)}>Оборудование{selected.equipment.length ? ` · ${selected.equipment.length}` : ''}</Button>
-            <Button variant="secondary" aria-pressed={favoritesOnly} iconLeft={<Star aria-hidden="true" className={cn(favoritesOnly && 'fill-[#f3d18b] text-[#f3d18b]')} />} onClick={toggleFavoritesOnly}>Избранное</Button>
-            <Button variant="secondary" aria-haspopup="dialog" iconLeft={<SlidersHorizontal aria-hidden="true" />} onClick={(event) => openFilters('all', event.currentTarget)}>Все фильтры</Button>
-            <span className="catalog-count" role="status">{isPending ? 'Загрузка…' : `Найдено: ${items.length}`}</span>
-          </div>
-          {activeCount ? (
-            <div className="catalog-active" aria-label="Активные фильтры">
-              {favoritesOnly ? <button type="button" className="catalog-active-chip" onClick={() => updateParams((next) => next.delete('favorites'))}>Только избранное <X aria-hidden="true" /></button> : null}
-              {activeFilters.map(({ key, value }) => (
-                <button key={`${key}-${value}`} type="button" className="catalog-active-chip" aria-label={`Убрать фильтр ${FILTER_TITLES[key]}: ${filterValueLabel(key, value)}`} onClick={() => toggleFilter(key, value)}>
-                  {filterValueLabel(key, value)} <X aria-hidden="true" />
-                </button>
-              ))}
-              <button type="button" className="catalog-active-reset" onClick={clearFilters}>Сбросить всё</button>
-            </div>
-          ) : null}
+      <section className="catalog catalog-discovery" aria-labelledby="catalog-title">
+        <header className="discovery-page-heading">
+          <div><div className="discovery-eyebrow"><LibraryBig aria-hidden="true" /> БИБЛИОТЕКА ДВИЖЕНИЯ</div><h1 id="catalog-title" className="font-display font-bold text-white">Каталог упражнений</h1><p>Найдите своё движение. Изучайте технику и собирайте тренировку под себя.</p></div>
+          <span className="discovery-library-mark" aria-hidden="true"><Dumbbell /></span>
         </header>
-
+        <div className="discovery-layout">
+          <ExerciseDiscoveryFilters selected={selected} available={data?.availableFilters} onToggle={toggleFilter} onClear={clearFilters} />
+          <div className="discovery-content">
+          <ExerciseDiscoveryToolbar search={search} onSearch={(value) => updateParams((next) => { if (value) next.set('search', value); else next.delete('search') })} favoritesOnly={favoritesOnly} onFavoritesChange={toggleFavoritesOnly} favoriteCount={favoriteExerciseSlugs.length} count={items.length} loading={isPending} />
+          <ExerciseDiscoveryActiveFilters selected={selected} onToggle={toggleFilter} onClear={clearFilters} />
         {isError ? (
           <div className="forma-state" role="alert">
             <p>Не удалось загрузить каталог упражнений.</p>
@@ -256,9 +206,10 @@ export function ExerciseCatalogScreen() {
         ) : null}
         {data && !items.length ? (
           <div className="forma-state">
-            <p className="font-display text-3xl font-bold text-white">Ничего не найдено</p>
-            <p>Измените запрос или уберите часть фильтров.</p>
-            <Button variant="secondary" onClick={clearFilters}>Сбросить фильтры</Button>
+            <SearchX aria-hidden="true" />
+            <p className="font-display text-3xl font-bold text-white">{favoritesOnly && !favoriteExerciseSlugs.length ? 'В избранном пока пусто' : 'Ничего не найдено'}</p>
+            <p>{favoritesOnly && !favoriteExerciseSlugs.length ? 'Нажмите на звёздочку в карточке, чтобы сохранить упражнение здесь.' : 'Измените запрос или уберите часть фильтров.'}</p>
+            <Button variant="secondary" onClick={clearFilters}>{favoritesOnly && !favoriteExerciseSlugs.length ? 'Все упражнения' : 'Сбросить фильтры'}</Button>
           </div>
         ) : null}
         <div className="catalog-grid">
@@ -276,6 +227,8 @@ export function ExerciseCatalogScreen() {
             <Button variant="secondary" onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>Показать ещё ({items.length - visibleCount})</Button>
           </div>
         ) : null}
+          </div>
+        </div>
       </section>
 
       {showBackToTop && createPortal(
@@ -284,43 +237,6 @@ export function ExerciseCatalogScreen() {
         </button>,
         document.body,
       )}
-
-      <Dialog.Root open={filterSection !== null} onOpenChange={(open) => { if (!open) setFilterSection(null) }}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="catalog-filters-panel" onCloseAutoFocus={(event) => {
-            event.preventDefault()
-            if (filterTriggerRef.current?.isConnected) filterTriggerRef.current.focus()
-          }}>
-            <div className="catalog-filters-heading">
-              <div>
-                <Dialog.Title className="font-display text-3xl font-bold text-white">{filterSection === 'muscles' ? 'Мышцы' : filterSection === 'equipment' ? 'Оборудование' : 'Все фильтры'}</Dialog.Title>
-                <Dialog.Description className="mt-1 text-sm text-white/60">{isPending ? 'Загрузка…' : `Найдено: ${items.length}`}</Dialog.Description>
-              </div>
-              <Dialog.Close asChild><Button>Готово</Button></Dialog.Close>
-            </div>
-            <div className="catalog-filters-body">
-              {(filterSection === 'all' ? FILTER_KEYS : filterSection ? [filterSection] : []).map((key) => {
-                const options = data?.availableFilters[key] ?? []
-                if (!options.length) return null
-                return (
-                  <section key={key} className="catalog-filter-section" aria-labelledby={`filter-${key}`}>
-                    <h3 id={`filter-${key}`}>{FILTER_TITLES[key]}</h3>
-                    <div className="builder-chips">
-                      {options.map((value) => (
-                        <button key={value} type="button" aria-pressed={selected[key].includes(value)} className={cn('picker-chip', selected[key].includes(value) && 'picker-chip-active')} onClick={() => toggleFilter(key, value)}>
-                          {filterValueLabel(key, value)}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                )
-              })}
-            </div>
-            {activeCount ? <div className="catalog-filters-footer"><Button variant="secondary" onClick={clearFilters}>Сбросить всё</Button></div> : null}
-          </SafetyDialogContent>
-        </Dialog.Portal>
-      </Dialog.Root>
 
       {details ? (
         <ExerciseDetailsModal

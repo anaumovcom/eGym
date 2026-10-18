@@ -14,7 +14,7 @@ export function useSafetyDockTarget() {
   return useSyncExternalStore(subscribe, snapshot, serverSnapshot)
 }
 
-export function SafetyDialogContent({ className, children, onCloseAutoFocus, style, ...props }: ComponentProps<typeof Dialog.Content>) {
+export function SafetyDialogContent({ className, children, onCloseAutoFocus, style, rootClassName, ...props }: ComponentProps<typeof Dialog.Content> & { rootClassName?: string }) {
   const dockRef = useCallback((node: HTMLDivElement | null) => {
     if (!node) return
     targets.push(node)
@@ -30,7 +30,7 @@ export function SafetyDialogContent({ className, children, onCloseAutoFocus, sty
     <Dialog.Content
       {...props}
       style={{ ...style, pointerEvents: 'none' }}
-      className="forma-dialog-root"
+      className={cn('forma-dialog-root', rootClassName)}
       onCloseAutoFocus={(event) => {
         onCloseAutoFocus?.(event)
         if (event.defaultPrevented) return

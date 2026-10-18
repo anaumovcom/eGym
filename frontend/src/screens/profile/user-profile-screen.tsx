@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Camera, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import type { ExerciseCatalogResponse, ExerciseSummary } from '@/entities/exercise/model/types'
+import { exerciseCatalogOptions } from '@/entities/exercise/model/catalog'
+import type { ExerciseSummary } from '@/entities/exercise/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import { apiDelete, apiGet, apiPost, apiPut, resolveApiAssetUrl } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
@@ -58,7 +59,7 @@ export function UserProfileScreen() {
         apiGet<CurrentUser>('/api/users/current'),
         apiGet<{ measurements: Measurement[] }>(`/api/body-measurements?userId=${encodeURIComponent(userId)}`),
         apiGet<{ photos: Photo[] }>(`/api/photo-progress?userId=${encodeURIComponent(userId)}`),
-        apiGet<ExerciseCatalogResponse>(`/api/exercises?userId=${encodeURIComponent(userId)}`),
+        queryClient.fetchQuery(exerciseCatalogOptions(userId)),
       ])
       return {
         user,

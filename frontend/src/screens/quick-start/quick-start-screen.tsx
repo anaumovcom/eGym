@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ArrowRight, CircleAlert, Search as SearchIcon, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import type { ExerciseCatalogResponse } from '@/entities/exercise/model/types'
+import { useExerciseCatalog } from '@/entities/exercise/model/catalog'
 import type { QuickStartData } from '@/entities/quick-start/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import { apiGet } from '@/shared/api/client'
@@ -75,14 +75,7 @@ export function QuickStartScreen() {
   const search = searchParams.get('search') ?? ''
   const [activeTab, setActiveTab] = useState<FilterMode>('recommended')
 
-  const { data: searchResults } = useQuery({
-    queryKey: ['quick-start-search', resolvedUserId, search, favoriteExerciseSlugs.join(','), blacklistedExerciseSlugs.join(',')],
-    queryFn: () =>
-      apiGet<ExerciseCatalogResponse>(
-        `/api/exercises?userId=${encodeURIComponent(resolvedUserId)}&search=${encodeURIComponent(search)}&favorites=${encodeURIComponent(favoriteExerciseSlugs.join(','))}&blacklist=${encodeURIComponent(blacklistedExerciseSlugs.join(','))}`,
-      ),
-    enabled: search.trim().length > 0,
-  })
+  const { data: searchResults } = useExerciseCatalog(resolvedUserId, { search }, search.trim().length > 0)
 
   const [settings, setSettings] = useState(data?.selectedExercise?.settings ?? null)
 

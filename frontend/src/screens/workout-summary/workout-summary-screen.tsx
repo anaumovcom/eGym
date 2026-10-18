@@ -247,6 +247,19 @@ export function WorkoutSummaryScreen() {
             <Dialog.Title className="font-display text-3xl font-bold">Подробно: {summary.title}</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-white/70">Упражнения, нагрузка на следующий раз и усталость мышц по выполненным подходам.</Dialog.Description>
             <div className="rt-details-body">
+              <section aria-label="Показатели тренировки">
+                <h3>Показатели тренировки</h3>
+                <div className="rt-summary-metrics" role="list" aria-label="Все показатели тренировки">
+                  {summary.metrics.map((metric) => (
+                    <article key={metric.label} role="listitem">
+                      <span>{metric.label}</span>
+                      <strong>{metric.value}</strong>
+                      <small>{metric.hint}</small>
+                    </article>
+                  ))}
+                </div>
+                <p className="mt-3 text-sm text-white/60">Энергия — приблизительный активный расход только за выполненную работу. Учитываются сохранённое время подходов и фактические секунды упражнений на время; если время не записано — выполненные повторы из расчёта 3 секунды на повтор. Пропуски, отдых и время вне тренажёра не учитываются. Расчёт по весу тела и условной интенсивности 3,5 MET за вычетом основного обмена (1 MET), без измерения пульса. Рабочий вес и индивидуальный темп напрямую не учитываются; реальный расход может заметно отличаться.</p>
+              </section>
               <section aria-label="Упражнения тренировки">
                 <h3>Упражнения</h3>
                 <div className="rt-summary-list" style={{ overflow: 'visible' }}>

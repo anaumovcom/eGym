@@ -132,6 +132,7 @@ function buildNormalizedWorkoutSummary(
   const durationValue = summary.metrics.find((metric) => metric.label === 'длительность')?.value
     ?? session.workoutSummary.metrics.find((metric) => metric.label === 'длительность')?.value
     ?? '—'
+  const energyMetric = summary.metrics.find((metric) => metric.label === 'энергия')
   const completedExercises = session.exercises.filter((exercise) => (session.exerciseOutcomes?.[exercise.id] ?? null) === 'completed').length
   const targetExercises = session.exercises.length
   const targetSets = session.exercises.reduce((total, exercise) => total + exercise.plan.length, 0)
@@ -154,6 +155,7 @@ function buildNormalizedWorkoutSummary(
     subtitle: `${session.workoutTitle} · ${durationValue} · ${completedExercises} из ${targetExercises} упражнений выполнено`,
     metrics: [
       { label: 'длительность', value: durationValue, hint: summary.outcome === 'aborted' ? 'частично выполнено' : 'итог тренировки' },
+      ...(energyMetric ? [energyMetric] : []),
       { label: 'упражнений', value: `${completedExercises} / ${targetExercises}`, hint: 'по плану' },
       { label: session.exercises.some((exercise) => exercise.perSide) ? 'подходов / сторон' : 'подходов', value: `${completedSets} / ${targetSets}`, hint: 'засчитано' },
       { label: 'повторов', value: String(totalReps), hint: 'суммарно' },
