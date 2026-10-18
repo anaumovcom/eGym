@@ -94,11 +94,12 @@ export function ActionSheet({ title, items }: { title: string; items: string[] }
   )
 }
 
-export function ToastNotification({ title, description }: { title: string; description: string }) {
+export function ToastNotification({ title, description, onDismiss }: { title: string; description: ReactNode; onDismiss?: () => void }) {
   return (
-    <div className="forma-toast fixed right-6 z-50 w-[320px] rounded-2xl border border-[#d6b05f]/25 bg-[#0c1420] p-4 text-white shadow-2xl">
+    <div role="status" aria-live="polite" aria-atomic="true" className="forma-toast fixed right-6 z-50 w-[min(360px,calc(100vw-48px))] rounded-2xl border border-[#d6b05f]/25 bg-[#0c1420] p-4 pr-14 text-white shadow-2xl">
       <div className="font-semibold text-[#f1d391]">{title}</div>
       <div className="mt-1 text-sm text-white/70">{description}</div>
+      {onDismiss ? <button type="button" aria-label="Закрыть уведомление" onClick={onDismiss} className="absolute right-1 top-1 flex min-h-12 min-w-12 items-center justify-center rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#d6b05f]"><X aria-hidden="true" className="h-5 w-5" /></button> : null}
     </div>
   )
 }

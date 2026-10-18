@@ -78,3 +78,43 @@
 3:35:18 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/dashboard/dashboard-screen.tsx, /src/screens/workout-summary/workout-summary-screen.tsx, /src/screens/catalog/exercise-details-screen.tsx, /src/screens/catalog/exercise-catalog-screen.tsx, /src/screens/rest/rest-screen.tsx, /src/screens/exercise-setup/exercise-setup-screen.tsx, /src/screens/exercise-summary/exercise-summary-screen.tsx, /src/screens/exercise-session/exercise-session-screen.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/screens/rest/set-feedback.tsx, /src/features/coach/ui/coach-settings-panel.tsx
 3:35:18 AM [vite] (client) hmr invalidate /src/screens/catalog/exercise-catalog-screen.tsx Could not Fast Refresh ("filterValueLabel" export is incompatible). Learn more at https://github.com/vitejs/vite-plugin-react/tree/main/packages/plugin-react#consistent-components-exports
 3:35:18 AM [vite] (client) hmr update /src/app/router.tsx
+3:45:08 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/app/styles.css
+3:45:08 AM [vite] (client) hmr update /src/app/styles.css
+3:52:02 AM [vite] (client) hmr update /src/app/styles.css, /src/screens/progress/progress-screen.tsx
+3:55:05 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/app/styles.css
+3:55:05 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx
+3:55:05 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx
+3:59:23 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx
+3:59:23 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/overlays/surface-components.tsx
+3:59:23 AM [vite] (client) hmr update /src/app/providers.tsx, /src/app/styles.css
+4:00:32 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx
+4:01:23 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx
+4:01:44 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/scale-realtime-provider.tsx
+4:01:44 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/app/styles.css
+4:03:24 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx
+4:05:05 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx
+4:06:52 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx
+4:12:31 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx, /src/features/scales/scale-realtime-provider.tsx
+4:12:31 AM [vite] (client) hmr update /src/app/router.tsx, /src/app/styles.css
+4:12:31 AM [vite] (client) hmr update /src/app/providers.tsx, /src/app/styles.css
+4:12:31 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx
+4:12:31 AM [vite] (client) hmr invalidate /src/app/providers.tsx Could not Fast Refresh (new export)
+4:12:31 AM [vite] (client) hmr update /src/app/app.tsx
+4:16:43 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/scale-realtime-provider.tsx
+4:19:28 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/stage4/screen-components.tsx
+4:21:25 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/overlays/surface-components.tsx
+4:21:25 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/scale-realtime-provider.tsx
+4:21:25 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx, /src/features/scales/scale-realtime-provider.tsx, /src/features/scales/scale-activity-sync.tsx
+4:23:58 AM [vite] (client) hmr update /src/screens/progress/progress-screen.tsx, /src/app/styles.css
+4:23:58 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx
+4:23:58 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx, /src/features/scales/scale-realtime-provider.tsx, /src/features/scales/scale-activity-sync.tsx
+4:23:58 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/overlays/surface-components.tsx
+4:23:58 AM [vite] (client) hmr update /src/app/providers.tsx, /src/app/styles.css
+4:23:58 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/scale-realtime-provider.tsx
+4:23:58 AM [vite] (client) hmr update /src/features/scales/weight-chart.tsx, /src/app/styles.css
+4:23:58 AM [vite] (client) hmr update /src/app/router.tsx, /src/app/styles.css
+4:23:58 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/scale-activity-sync.tsx
+4:23:58 AM [vite] (client) hmr update /src/app/styles.css, /src/features/scales/body-weight-panel.tsx, /src/features/scales/scale-realtime-provider.tsx, /src/features/scales/scale-activity-sync.tsx
+4:23:58 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/overlays/surface-components.tsx
+4:23:58 AM [vite] (client) hmr update /src/app/providers.tsx, /src/app/styles.css
+4:23:58 AM [vite] (client) hmr update /src/app/styles.css, /src/shared/ui/stage4/screen-components.tsx

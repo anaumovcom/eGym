@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react'
 import { Link, Navigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { ProgressData, Stage4Period } from '@/entities/stage4/model/types'
+import { BodyWeightPanel } from '@/features/scales/body-weight-panel'
 import { stage4Periods } from '@/mocks/stage4-data'
 import { apiDelete, apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
@@ -71,6 +72,7 @@ export function ProgressScreen() {
           {tab !== 'photo' ? <label className="progress-period"><span>Период</span><select aria-label="Период прогресса" value={period} onChange={(event) => update({ period: event.target.value })}>{stage4Periods.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><ChevronDown aria-hidden="true" /></label> : null}
         </header>
         <nav className="progress-tabs" aria-label="Разделы прогресса">{tabs.map((item) => <button key={item.id} type="button" aria-current={tab === item.id ? 'page' : undefined} onClick={() => update({ tab: item.id === 'overview' ? null : item.id })}>{item.label}</button>)}</nav>
+        {tab === 'body' ? <BodyWeightPanel key={userId} userId={userId} userName={userName} /> : null}
 
         {tab === 'photo' ? <ProgressPhotoGallery key={userId} photos={photoQuery.data?.photos ?? []} loading={photoQuery.isPending} error={photoQuery.isError} onRetry={() => void photoQuery.refetch()} onPhoto={() => setPhotoOpen(true)} onDelete={deletePhoto} /> : error ? <div className="forma-state" role="alert"><p>Не удалось загрузить прогресс.</p><Button onClick={() => void refetch()}>Повторить</Button></div> : isPending || !data ? <div className="forma-state" role="status">Загрузка прогресса…</div> : <ProgressContent data={data} tab={tab} exerciseSlug={exerciseSlug} update={update} />}
       </section>
@@ -105,7 +107,8 @@ function ProgressContent({ data, tab, exerciseSlug, update }: { data: ProgressDa
   if (tab === 'body') return (
     <div className="progress-section">
       <div className="progress-section-toolbar"><h2>Изменения тела</h2><Button asChild variant="secondary"><Link to="/profile?tab=measurements">Добавить измерение</Link></Button></div>
-      {data.bodyWeightSeries.length ? <><div className="progress-metrics">{data.bodyCards.slice(0, 4).map((item) => <article key={item.label} data-tone={item.tone}><span>{item.label}</span><strong>{item.value}</strong></article>)}</div><div className="progress-two"><LineChartCard title="Вес" subtitle="По сохранённым измерениям" points={data.bodyWeightSeries} /><Panel title="Объёмы"><div className="progress-ranking">{data.bodyMeasurements.map((item, index) => <div key={item.label}><b>{index + 1}</b><span>{item.label}</span><strong>{item.current} · {item.delta}</strong></div>)}</div></Panel></div></> : <ProgressActionEmpty title="Нет измерений" text="Добавьте вес и объёмы тела — здесь появится динамика." action={<Button asChild><Link to="/profile?tab=measurements">Добавить измерение</Link></Button>} />}
+      <Panel title="Объёмы"><div className="progress-ranking">{data.bodyMeasurements.map((item, index) => <div key={item.label}><b>{index + 1}</b><span>{item.label}</span><strong>{item.current} · {item.delta}</strong></div>)}</div>{!data.bodyMeasurements.length ? <p className="text-white/50">Добавьте объёмы тела в профиле.</p> : null}</Panel>
+      {data.bodyWeightSeries.length ? <details className="rounded-3xl border border-white/10 p-5"><summary className="min-h-12 cursor-pointer text-white/65">Все измерения тела · включая ручные</summary><div className="mt-4"><div className="progress-metrics">{data.bodyCards.slice(0, 4).map(item => <article key={item.label} data-tone={item.tone}><span>{item.label}</span><strong>{item.value}</strong></article>)}</div><LineChartCard title="Вес" subtitle="Все сохранённые измерения, включая ручные" points={data.bodyWeightSeries} /></div></details> : null}
     </div>
   )
 

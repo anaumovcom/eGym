@@ -111,9 +111,9 @@ class ProgressService:
             body_weight_series=self._body_weight_series(measurements),
             body_measurements=self._body_measurement_rows(measurements),
             smart_scale={
-                "connected": bool(measurements),
-                "label": "Умные весы подключены" if measurements else "Нет синхронизации весов",
-                "hint": "Последние данные сохранены в backend." if measurements else "Можно ввести измерения вручную.",
+                "connected": False,
+                "label": "Вес тела · BLE advertising",
+                "hint": "Постоянное соединение с весами не требуется. Статус поиска доступен в разделе веса тела.",
             },
             photo_entries=self._photo_entries(photos),
             photo_stats=self._photo_stats(photos),
@@ -473,6 +473,7 @@ class ProgressService:
         return rows
 
     def _body_cards(self, measurements: list[BodyMeasurement]) -> list[MetricCardSchema]:
+        measurements = [item for item in measurements if item.weight_kg is not None]
         if not measurements:
             return [MetricCardSchema(label="Вес", value="—"), MetricCardSchema(label="Изменение", value="—")]
         last = measurements[-1]
@@ -485,18 +486,21 @@ class ProgressService:
         ]
 
     def _body_weight_series(self, measurements: list[BodyMeasurement]) -> list[ChartPointSchema]:
+        measurements = [item for item in measurements if item.weight_kg is not None]
         return [ChartPointSchema(label=self._as_utc(item.measured_at).strftime("%d.%m"), value=float(item.weight_kg or 0.0), accent=index == len(measurements) - 1) for index, item in enumerate(measurements[-8:])]
 
     def _body_measurement_rows(self, measurements: list[BodyMeasurement]) -> list[ProgressBodyMeasurementRowSchema]:
-        if not measurements:
-            return []
-        first = measurements[0]
-        last = measurements[-1]
-        return [
-            ProgressBodyMeasurementRowSchema(label="Талия", current=f"{float(last.waist_cm or 0):.1f} см", delta=f"{float((last.waist_cm or 0) - (first.waist_cm or 0)):+.1f} см", tone="good" if (last.waist_cm or 0) <= (first.waist_cm or 0) else "warning"),
-            ProgressBodyMeasurementRowSchema(label="Грудь", current=f"{float(last.chest_cm or 0):.1f} см", delta=f"{float((last.chest_cm or 0) - (first.chest_cm or 0)):+.1f} см", tone="neutral"),
-            ProgressBodyMeasurementRowSchema(label="Бёдра", current=f"{float(last.hips_cm or 0):.1f} см", delta=f"{float((last.hips_cm or 0) - (first.hips_cm or 0)):+.1f} см", tone="neutral"),
-        ]
+        rows = []
+        for label, field in (("Талия", "waist_cm"), ("Грудь", "chest_cm"), ("Бёдра", "hips_cm")):
+            values = [float(getattr(item, field)) for item in measurements if getattr(item, field) is not None]
+            if not values:
+                continue
+            delta = values[-1] - values[0]
+            rows.append(ProgressBodyMeasurementRowSchema(
+                label=label, current=f"{values[-1]:.1f} см", delta=f"{delta:+.1f} см",
+                tone=("good" if delta <= 0 else "warning") if field == "waist_cm" else "neutral",
+            ))
+        return rows
 
     def _photo_entries(self, photos: list[ProgressPhoto]) -> list[ProgressPhotoEntrySchema]:
         grouped: dict[date, list[ProgressPhoto]] = defaultdict(list)

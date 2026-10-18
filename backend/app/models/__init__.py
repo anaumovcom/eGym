@@ -11,6 +11,7 @@ from app.models.hardware import ExerciseCalibration, HardwareDiagnosticRecord
 from app.models.machine import DriveStatusSnapshot, MachineStatusSnapshot, SafetyEvent
 from app.models.motor import CalibrationRun, ExerciseFeelProfile, MachineProfileRecord
 from app.models.profile import BodyMeasurement, UserGoal, UserProfile
+from app.models.scale import ScaleReading
 from app.models.settings import AppSetting
 from app.models.training import ExerciseHistoryRecord, UserExerciseState, WorkoutProgram, WorkoutScheduleEntry
 from app.models.user import User
@@ -32,6 +33,7 @@ __all__ = [
     "MuscleFatigueSnapshot",
     "ProgressPhoto",
     "SafetyEvent",
+    "ScaleReading",
     "SetResult",
     "User",
     "UserExerciseState",

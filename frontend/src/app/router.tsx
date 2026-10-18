@@ -20,6 +20,7 @@ import { ModbusDebugScreen } from '@/screens/modbus-debug/modbus-debug-screen'
 import { MotorCalibrationScreen } from '@/screens/motor-calibration/motor-calibration-screen'
 import { useAppStore } from '@/stores/app-store'
 import { SettingsLayout } from '@/shared/ui/layout/service-access'
+import { ScaleActivitySync } from '@/features/scales/scale-activity-sync'
 
 const placeholderTitles = {
   '/settings/legacy': 'Настройки',
@@ -42,6 +43,8 @@ function PhotoProgressRedirect() {
 
 export function AppRoutes() {
   return (
+    <>
+      <ScaleActivitySync />
       <Routes>
         <Route path="/" element={<UserSelectionScreen />} />
         <Route path="/dashboard" element={<ProtectedAppRoute><DashboardScreen /></ProtectedAppRoute>} />
@@ -72,6 +75,7 @@ export function AppRoutes() {
           <Route key={path} path={path} element={<ProtectedAppRoute><PlaceholderScreen title={title} /></ProtectedAppRoute>} />
         ))}
       </Routes>
+    </>
   )
 }
 

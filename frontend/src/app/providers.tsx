@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider, useQuery } from '@tanstack/react-quer
 import { useEffect, type PropsWithChildren } from 'react'
 import { exerciseCatalogOptions } from '@/entities/exercise/model/catalog'
 import { HardwareRealtimeProvider } from '@/features/hardware/lib/hardware-realtime-provider'
+import { ScaleRealtimeProvider } from '@/features/scales/scale-realtime-provider'
 import { ApiError, apiPost } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
 
@@ -25,6 +26,7 @@ export function AppProviders({ children }: PropsWithChildren) {
   return (
     <QueryClientProvider client={queryClient}>
       <HardwareRealtimeProvider />
+      <ScaleRealtimeProvider />
       <ExerciseCatalogPreload />
       <SelectedUserSync />
       {children}
@@ -38,11 +40,11 @@ function ExerciseCatalogPreload() {
   return null
 }
 
-function SelectedUserSync() {
+export function SelectedUserSync() {
   const selectedUserId = useAppStore((state) => state.selectedUserId)
 
   useEffect(() => {
-    if (!selectedUserId || selectedUserId === 'guest') {
+    if (!selectedUserId) {
       return
     }
 

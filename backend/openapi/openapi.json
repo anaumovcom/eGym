@@ -2047,6 +2047,104 @@
         }
       }
     },
+    "/api/runtime/exercises/settings": {
+      "get": {
+        "tags": [
+          "runtime"
+        ],
+        "summary": "Get Exercise Settings",
+        "operationId": "get_exercise_settings_api_runtime_exercises_settings_get",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          },
+          {
+            "name": "exerciseSlug",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Exerciseslug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ExerciseSettingsSchema"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Exercise Settings Api Runtime Exercises Settings Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "runtime"
+        ],
+        "summary": "Save Exercise Settings",
+        "operationId": "save_exercise_settings_api_runtime_exercises_settings_put",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExerciseSettingsSaveSchema"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ExerciseSettingsSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runtime/sets/{set_id}/feedback": {
       "post": {
         "tags": [
@@ -2415,6 +2513,309 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RuntimeWorkoutSummarySchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scales/status": {
+      "get": {
+        "tags": [
+          "scales"
+        ],
+        "summary": "Get Scale Status",
+        "operationId": "get_scale_status_api_scales_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScaleStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scales/settings": {
+      "put": {
+        "tags": [
+          "scales"
+        ],
+        "summary": "Select Scale",
+        "operationId": "select_scale_api_scales_settings_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScaleSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScaleStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scales/scan/start": {
+      "post": {
+        "tags": [
+          "scales"
+        ],
+        "summary": "Start Scanning",
+        "operationId": "start_scanning_api_scales_scan_start_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScaleStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scales/activity": {
+      "put": {
+        "tags": [
+          "scales"
+        ],
+        "summary": "Update Scale Activity",
+        "operationId": "update_scale_activity_api_scales_activity_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ScaleActivity"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScaleStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scales/measurements/{measurement_id}": {
+      "delete": {
+        "tags": [
+          "scales"
+        ],
+        "summary": "Delete Measurement",
+        "operationId": "delete_measurement_api_scales_measurements__measurement_id__delete",
+        "parameters": [
+          {
+            "name": "measurement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Measurement Id"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          },
+          {
+            "name": "confirm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Confirm"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scales/scan/stop": {
+      "post": {
+        "tags": [
+          "scales"
+        ],
+        "summary": "Stop Scanning",
+        "operationId": "stop_scanning_api_scales_scan_stop_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScaleStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scales/measurements/latest": {
+      "get": {
+        "tags": [
+          "scales"
+        ],
+        "summary": "Get Last Measurement",
+        "operationId": "get_last_measurement_api_scales_measurements_latest_get",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ScaleMeasurement"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "title": "Response Get Last Measurement Api Scales Measurements Latest Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/scales/measurements": {
+      "get": {
+        "tags": [
+          "scales"
+        ],
+        "summary": "Get Weight History",
+        "operationId": "get_weight_history_api_scales_measurements_get",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          },
+          {
+            "name": "days",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 3650,
+              "minimum": 1,
+              "default": 30,
+              "title": "Days"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ScaleHistory"
                 }
               }
             }
@@ -8760,6 +9161,152 @@
         ],
         "title": "ExerciseSessionsResetResponseSchema"
       },
+      "ExerciseSettingsSaveSchema": {
+        "properties": {
+          "weight": {
+            "type": "number",
+            "maximum": 2000.0,
+            "minimum": 0.0,
+            "title": "Weight"
+          },
+          "sets": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Sets"
+          },
+          "reps": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 1.0,
+            "title": "Reps"
+          },
+          "restSeconds": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 0.0,
+            "title": "Restseconds"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "default": "Обычный вес"
+          },
+          "tempo": {
+            "type": "string",
+            "title": "Tempo",
+            "default": "Обычный"
+          },
+          "trainingMode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingmode"
+          },
+          "trainingDayType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingdaytype"
+          },
+          "userId": {
+            "type": "string",
+            "title": "Userid"
+          },
+          "exerciseSlug": {
+            "type": "string",
+            "title": "Exerciseslug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weight",
+          "sets",
+          "reps",
+          "restSeconds",
+          "userId",
+          "exerciseSlug"
+        ],
+        "title": "ExerciseSettingsSaveSchema"
+      },
+      "ExerciseSettingsSchema": {
+        "properties": {
+          "weight": {
+            "type": "number",
+            "maximum": 2000.0,
+            "minimum": 0.0,
+            "title": "Weight"
+          },
+          "sets": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Sets"
+          },
+          "reps": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 1.0,
+            "title": "Reps"
+          },
+          "restSeconds": {
+            "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 0.0,
+            "title": "Restseconds"
+          },
+          "mode": {
+            "type": "string",
+            "title": "Mode",
+            "default": "Обычный вес"
+          },
+          "tempo": {
+            "type": "string",
+            "title": "Tempo",
+            "default": "Обычный"
+          },
+          "trainingMode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingmode"
+          },
+          "trainingDayType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingdaytype"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weight",
+          "sets",
+          "reps",
+          "restSeconds"
+        ],
+        "title": "ExerciseSettingsSchema"
+      },
       "ExerciseSummarySchema": {
         "properties": {
           "slug": {
@@ -13986,6 +14533,274 @@
           "fatigue"
         ],
         "title": "SavedSetResponseSchema"
+      },
+      "ScaleActivity": {
+        "properties": {
+          "clientId": {
+            "type": "string",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Clientid"
+          },
+          "sequence": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Sequence"
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "setup",
+              "exercise",
+              "rest"
+            ],
+            "title": "Phase"
+          }
+        },
+        "type": "object",
+        "required": [
+          "clientId",
+          "sequence",
+          "phase"
+        ],
+        "title": "ScaleActivity"
+      },
+      "ScaleDevice": {
+        "properties": {
+          "deviceId": {
+            "type": "string",
+            "title": "Deviceid"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "rssi": {
+            "type": "integer",
+            "title": "Rssi"
+          },
+          "lastSeen": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Lastseen"
+          }
+        },
+        "type": "object",
+        "required": [
+          "deviceId",
+          "name",
+          "rssi",
+          "lastSeen"
+        ],
+        "title": "ScaleDevice"
+      },
+      "ScaleHistory": {
+        "properties": {
+          "measurements": {
+            "items": {
+              "$ref": "#/components/schemas/ScaleMeasurement"
+            },
+            "type": "array",
+            "title": "Measurements"
+          }
+        },
+        "type": "object",
+        "required": [
+          "measurements"
+        ],
+        "title": "ScaleHistory"
+      },
+      "ScaleMeasurement": {
+        "properties": {
+          "id": {
+            "type": "integer",
+            "title": "Id"
+          },
+          "userId": {
+            "type": "string",
+            "title": "Userid"
+          },
+          "weightKg": {
+            "type": "number",
+            "title": "Weightkg"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "stable": {
+            "type": "boolean",
+            "title": "Stable",
+            "default": true
+          },
+          "deviceId": {
+            "type": "string",
+            "title": "Deviceid"
+          },
+          "impedanceOhm": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Impedanceohm"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "userId",
+          "weightKg",
+          "timestamp",
+          "deviceId"
+        ],
+        "title": "ScaleMeasurement"
+      },
+      "ScaleSettings": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          },
+          "deviceId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviceid"
+          }
+        },
+        "type": "object",
+        "title": "ScaleSettings"
+      },
+      "ScaleStatus": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "default": true
+          },
+          "deviceId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviceid"
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused",
+            "default": false
+          },
+          "pauseReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pausereason"
+          },
+          "bluetoothAvailable": {
+            "type": "boolean",
+            "title": "Bluetoothavailable",
+            "default": false
+          },
+          "scanning": {
+            "type": "boolean",
+            "title": "Scanning",
+            "default": false
+          },
+          "scanningMode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scanningmode"
+          },
+          "measuring": {
+            "type": "boolean",
+            "title": "Measuring",
+            "default": false
+          },
+          "lastSeen": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastseen"
+          },
+          "lastMeasurement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ScaleMeasurement"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "devices": {
+            "items": {
+              "$ref": "#/components/schemas/ScaleDevice"
+            },
+            "type": "array",
+            "title": "Devices"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "warning": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Warning"
+          }
+        },
+        "type": "object",
+        "title": "ScaleStatus"
       },
       "SelectUserRequestSchema": {
         "properties": {

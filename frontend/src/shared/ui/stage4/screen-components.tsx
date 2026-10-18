@@ -277,12 +277,12 @@ export function LineChartCard({ title, subtitle, points, summary }: { title: str
               {points.map((point, index) => {
                 const x = (index / Math.max(points.length - 1, 1)) * 100
                 const y = 88 - (point.value / maxValue) * 66
-                return <circle key={point.label} cx={x} cy={y} r={point.accent ? '1.8' : '1.2'} fill={point.accent ? '#f3d18b' : '#d6b05f'} />
+                return <circle key={`${point.label}-${index}`} cx={x} cy={y} r={point.accent ? '1.8' : '1.2'} fill={point.accent ? '#f3d18b' : '#d6b05f'} />
               })}
             </svg>
             <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-white/35">
-              {points.map((point) => (
-                <span key={point.label}>{point.label}</span>
+              {points.map((point, index) => (
+                <span key={`${point.label}-${index}`}>{point.label}</span>
               ))}
             </div>
           </div>

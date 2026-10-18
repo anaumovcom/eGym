@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppRoutes } from '@/app/router'
 import { useAppStore } from '@/stores/app-store'
 
+vi.mock('@/features/scales/scale-activity-sync', () => ({ ScaleActivitySync: () => <div data-testid="scale-activity-sync" /> }))
 vi.mock('@/screens/dashboard/dashboard-screen', () => ({ DashboardScreen: () => <div>Dashboard destination</div> }))
 vi.mock('@/screens/builder/workout-builder-screen', () => ({ WorkoutBuilderScreen: () => <div>Builder destination</div> }))
 vi.mock('@/screens/catalog/exercise-catalog-screen', () => ({ ExerciseCatalogScreen: () => <div>Catalog destination</div> }))
@@ -42,6 +43,7 @@ describe('Stage 1 routes', () => {
 
   it('opens the standalone fatigue page without changing the selected workout', () => {
     renderAt('/fatigue?mode=7d&muscle=chest')
+    expect(screen.getByTestId('scale-activity-sync')).toBeInTheDocument()
     expect(screen.getByText('Fatigue destination')).toBeInTheDocument()
     expect(screen.getByTestId('location').textContent).toBe('/fatigue?mode=7d&muscle=chest')
     expect(useAppStore.getState().selectedProgramId).toBe('my-workout')

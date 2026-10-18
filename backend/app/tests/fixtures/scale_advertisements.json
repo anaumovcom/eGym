@@ -1,0 +1,8 @@
+[
+  {"description": "unstable kg, 70kg", "serviceDataHex": "0200ea070a120c1e0f0000b036"},
+  {"description": "stable kg without impedance", "serviceDataHex": "0220ea070a120c1e0f0000b036"},
+  {"description": "stable repeated advertisement", "serviceDataHex": "0220ea070a120c1e0f0000b036"},
+  {"description": "same occupancy, impedance ready 510ohm", "serviceDataHex": "0222ea070a120c1e0ffe01b036"},
+  {"description": "impedance repeat", "serviceDataHex": "0222ea070a120c1e0ffe01b036"},
+  {"description": "load removed, do not save", "serviceDataHex": "02a2ea070a120c1e0ffe01b036"}
+]

@@ -1015,6 +1015,15 @@ class HardwareRuntime:
         self._schedule_broadcast()
 
     # -------------------------------------------------------------- snapshot
+    def scale_monitoring_block_reason(self) -> str | None:
+        """Read-only guard for optional BLE; no commands, I/O or publications."""
+        with self._lock:
+            if self.calibration is not None and self.calibration.running:
+                return "Калибровка тренажёра"
+            if self.workout.active:
+                return "Настройка или выполнение упражнения"
+            return None
+
     def events_payload(self, limit: int = 100) -> list[dict[str, Any]]:
         return list(self.events)[-limit:]
 

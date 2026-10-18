@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api.dependencies import get_session_factory
 from app.api.router import api_router
 from app.core.config import get_settings
 from app.db.base import Base
@@ -17,6 +18,7 @@ from app.services.coach.request_guard import CoachRequestGuard
 from app.services.exercise_library import EXERCISES_ROOT
 from app.services.hardware_runtime import hardware_runtime
 from app.services.modbus_service import modbus_service
+from app.services.scale_service import ScaleService
 
 
 def bootstrap_local_data() -> None:
@@ -33,7 +35,7 @@ def bootstrap_local_data() -> None:
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     bootstrap_local_data()
     settings = get_settings()
     bundle = load_motor_profile()
@@ -55,7 +57,14 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     try:
         hardware_runtime.reset(profile=bundle.machine, envelope=bundle.envelope, tunables=bundle.tunables)
         await hardware_runtime.start()
-        yield
+        sessions = app.dependency_overrides.get(get_session_factory, get_session_factory)()
+        scale_service = ScaleService(sessions, activity_blocker=hardware_runtime.scale_monitoring_block_reason)
+        app.state.scale_service = scale_service
+        await scale_service.start()
+        try:
+            yield
+        finally:
+            await scale_service.close()
     finally:
         try:
             await hardware_runtime.stop()
