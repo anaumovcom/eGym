@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 
@@ -29,6 +30,26 @@ def test_startup_writes_support_first(modbus_runtime) -> None:
     _runtime, service = modbus_runtime
     assert service.writes[:2] == [(1, 100), (2, 100)]
     assert all(raw != 0 for _slave, raw in service.writes)
+
+
+@pytest.mark.parametrize("calibration_running,workout_active,expected", [
+    (None, False, None),
+    (False, False, None),
+    (True, False, "Калибровка тренажёра"),
+    (None, True, "Настройка или выполнение упражнения"),
+    (False, True, "Настройка или выполнение упражнения"),
+    (True, True, "Калибровка тренажёра"),
+])
+def test_scale_monitoring_guard_is_read_only(modbus_runtime, calibration_running, workout_active, expected) -> None:
+    runtime, service = modbus_runtime
+    runtime.calibration = None if calibration_running is None else SimpleNamespace(running=calibration_running)
+    runtime.workout = SimpleNamespace(active=workout_active)
+    writes = list(service.writes)
+    events = list(runtime.events)
+
+    assert runtime.scale_monitoring_block_reason() == expected
+    assert service.writes == writes
+    assert list(runtime.events) == events
 
 
 def _profile_with_zero(left: int, right: int) -> MachineProfile:

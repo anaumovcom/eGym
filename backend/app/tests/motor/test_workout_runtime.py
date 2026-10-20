@@ -110,6 +110,24 @@ def test_ready_snapshot(runtime: HardwareRuntime) -> None:
     assert control["mode"] == "idle" and runtime.mode == "support"
 
 
+@pytest.mark.parametrize("target_mm, expected_limit", [(40.0, 240.0), (300.0, 140.0)])
+@pytest.mark.parametrize("fixed", [False, True])
+def test_start_move_has_extra_speed_headroom(runtime: HardwareRuntime, target_mm: float, expected_limit: float, fixed: bool) -> None:
+    plan = FIXED_PLAN | {"fixed_position_mm": target_mm} if fixed else RANGE_PLAN | {"lower_point_mm": target_mm}
+    runtime.workout_command("start_motion", {"weight_kg": 10}, plan)
+    runner = runtime.workout.runner
+    assert runner is not None
+    assert runner.envelope.max_speed_mm_s == expected_limit
+
+
+def test_start_move_headroom_respects_machine_speed_envelope(runtime: HardwareRuntime) -> None:
+    runtime.workout.envelope = replace(runtime.workout.envelope, max_speed_mm_s=130.0)
+    runtime.workout_command("start_motion", {"weight_kg": 10}, RANGE_PLAN)
+    runner = runtime.workout.runner
+    assert runner is not None
+    assert runner.envelope.max_speed_mm_s == 130.0
+
+
 def test_set_moves_to_start_waits_for_grip_and_counts_reps(runtime: HardwareRuntime) -> None:
     bench = runtime.bench
     assert bench is not None

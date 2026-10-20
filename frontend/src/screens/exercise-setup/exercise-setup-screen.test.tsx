@@ -12,6 +12,7 @@ import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import type { HardwareCalibration } from '@/features/hardware/model/types'
+import { getBuilderPlanSignature } from '@/features/runtime/lib/builder-plan-signature'
 
 const navigateMock = vi.fn()
 const loadCurrentCalibrationMock = vi.fn<(...args: unknown[]) => Promise<HardwareCalibration | null>>()
@@ -71,14 +72,62 @@ function renderScreen() {
 }
 
 describe('ExerciseSetupScreen', () => {
+  it.each([false, true])('finishes one quick-feet set and keeps the next exercise after setup remount (legacy: %s)', async legacy => {
+    currentSearch = '?source=builder&programId=back-biceps&runId=quick-feet-regression'
+    const original = useRuntimeStore.getState().session!
+    const machineExercise = { ...original.exercises[0], id: 'next-machine', order: 2 }
+    const quickFeet = {
+      ...original.exercises[0], id: 'quick-feet', slug: 'cardio-quick-feet', name: 'Быстрые шаги', order: 1,
+      kind: 'timed' as const, calibrationState: 'not-needed' as const,
+      loadSettings: { ...original.exercises[0].loadSettings, weight: 0, sets: 1, reps: 60, restSeconds: 30 },
+      plan: [{ targetSeconds: 60, restSeconds: 30, weightLabel: 'вес тела' }],
+    }
+    const builder: RuntimeWorkoutSession = {
+      ...original, source: 'builder', programId: 'back-biceps', runId: 'quick-feet-regression', dataSource: 'backend',
+      exercises: [quickFeet, machineExercise], currentExerciseId: quickFeet.id,
+    }
+    if (!legacy) builder.builderPlanSignature = getBuilderPlanSignature(builder)
+    useRuntimeStore.getState().initializeBackendSession(builder, { source: 'builder', programId: 'back-biceps', runId: builder.runId })
+    buildBackendBuilderRuntimeSessionMock.mockResolvedValue(builder)
+    const view = renderScreen()
+    await waitFor(() => expect(useRuntimeStore.getState().session?.view).toBe('exercise-session'))
+    expect(apiGet).not.toHaveBeenCalledWith(expect.stringContaining('/api/runtime/exercises/settings?'))
+
+    act(() => {
+      // Persisted runs and setup edits may add optional runtime-only fields to the plan.
+      useRuntimeStore.getState().updateLoadSettings({ weight: 0 })
+      useRuntimeStore.getState().setBackendWorkoutSessionId(42)
+      useRuntimeStore.getState().setBackendExerciseSessionId(quickFeet.id, 53)
+      useRuntimeStore.getState().finishCurrentSet()
+    })
+    expect(useRuntimeStore.getState().session?.view).toBe('exercise-summary')
+    expect(useRuntimeStore.getState().session?.restState).toBeUndefined()
+    act(() => { useRuntimeStore.getState().continueAfterExerciseSummary() })
+    expect(useRuntimeStore.getState().session?.currentExerciseId).toBe(machineExercise.id)
+    view.unmount()
+    view.queryClient.clear()
+
+    renderScreen()
+    await waitFor(() => expect(buildBackendBuilderRuntimeSessionMock).toHaveBeenCalledTimes(2))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toBeInTheDocument())
+    const session = useRuntimeStore.getState().session!
+    expect(session.currentExerciseId).toBe(machineExercise.id)
+    expect(session.completedExerciseIds).toEqual([quickFeet.id])
+    expect(session.completedSets[quickFeet.id]).toHaveLength(1)
+    expect(session.backendWorkoutSessionId).toBe(42)
+    expect(session.backendExerciseSessionIds?.[quickFeet.id]).toBe(53)
+    expect(useHardwareStore.getState().runCommand).not.toHaveBeenCalled()
+  })
+
   it('keeps locally edited weight, sets, reps and rest across hardware updates and unchanged backend refetches', async () => {
     currentSearch = '?source=builder&programId=back-biceps'
     const original = useRuntimeStore.getState().session!
     const exercise = original.exercises[0]
     const session: RuntimeWorkoutSession = { ...original, source: 'builder', programId: 'back-biceps', dataSource: 'backend', exercises: [exercise] }
+    session.builderPlanSignature = getBuilderPlanSignature(session)
     useRuntimeStore.setState({ session })
     buildBackendBuilderRuntimeSessionMock.mockResolvedValue(session)
-    const { queryClient } = renderScreen()
+    let view = renderScreen()
     const user = userEvent.setup()
     await waitFor(() => expect(buildBackendBuilderRuntimeSessionMock).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toBeInTheDocument())
@@ -92,7 +141,7 @@ describe('ExerciseSetupScreen', () => {
     }
     act(() => { useHardwareStore.setState({ snapshot: createSnapshot(760) }) })
     // A structurally identical server snapshot must not overwrite the user's local plan.
-    await act(async () => { await queryClient.refetchQueries({ queryKey: ['runtime-builder-session'] }) })
+    await act(async () => { await view.queryClient.refetchQueries({ queryKey: ['runtime-builder-session'] }) })
     expect(useRuntimeStore.getState().session!.exercises[0].loadSettings).toMatchObject({ weight: 37, sets: 5, reps: 13, restSeconds: 75 })
     expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('37')
     expect(screen.getByRole('textbox', { name: 'Подходы' })).toHaveValue('5')
@@ -103,11 +152,21 @@ describe('ExerciseSetupScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Уменьшить: Подходы' }))
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Подходы' })).toHaveValue('4'))
 
+    // Leaving setup destroys its ref baseline, but must not discard committed settings on return.
+    view.unmount()
+    view.queryClient.clear()
+    view = renderScreen()
+    await waitFor(() => expect(buildBackendBuilderRuntimeSessionMock).toHaveBeenCalledTimes(3))
+    expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('39.5')
+    expect(screen.getByRole('textbox', { name: 'Подходы' })).toHaveValue('4')
+
     // Real server plan edits must still be applied; ignoring every refetch would hide those changes.
     const changedExercise = { ...exercise, loadSettings: { ...exercise.loadSettings, weight: 50 },
       plan: exercise.plan.map((set) => ({ ...set, recommendedWeightKg: 50 })) }
-    buildBackendBuilderRuntimeSessionMock.mockResolvedValue({ ...session, exercises: [changedExercise] })
-    await act(async () => { await queryClient.refetchQueries({ queryKey: ['runtime-builder-session'] }) })
+    const changedSession = { ...session, exercises: [changedExercise] }
+    changedSession.builderPlanSignature = getBuilderPlanSignature(changedSession)
+    buildBackendBuilderRuntimeSessionMock.mockResolvedValue(changedSession)
+    await act(async () => { await view.queryClient.refetchQueries({ queryKey: ['runtime-builder-session'] }) })
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('50'))
     expect(useRuntimeStore.getState().session!.exercises[0]).toEqual(changedExercise)
   })

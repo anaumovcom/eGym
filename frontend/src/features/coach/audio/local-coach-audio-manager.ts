@@ -470,14 +470,18 @@ export class LocalCoachAudioManager {
     const started = [...this.entries.values()].filter(entry => entry.ordinal !== null)
     // A stream in a long underrun is silent: it must not keep the remaining voices ducked.
     const audible = started.filter(entry => !this.inGap(entry))
-    const latest = Math.max(0, ...audible.map(entry => entry.ordinal!))
+    const speech = audible.filter(entry => entry.options.localPlayback?.kind !== 'count')
+    const latest = Math.max(0, ...speech.map(entry => entry.ordinal!))
     for (const entry of started) {
       const gap = this.inGap(entry)
       if (entry.stream && gap !== entry.stream.inGap) {
         entry.stream.inGap = gap
         if (gap) this.record('underrun', entry.options.source)
       }
-      const coefficient = gap ? 0 : entry.ordinal === latest ? 1 : 0.65 / (audible.length - 1)
+      // Count is a separate fixed-level channel. Its start must neither lower
+      // live voice nor let a later speech start lower the requested 70% count.
+      const coefficient = gap ? 0 : entry.options.localPlayback?.kind === 'count' || entry.ordinal === latest
+        ? 1 : 0.65 / Math.max(1, speech.length - 1)
       entry.coefficient = coefficient
       this.ramp(entry, entry.options.baseGain * coefficient)
     }

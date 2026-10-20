@@ -1,6 +1,9 @@
 import { webcrypto } from 'node:crypto'
 import { describe, expect, it, vi } from 'vitest'
-import { FakeContext } from './audio-test-fakes'
+import { FakeClock, FakeContext } from './audio-test-fakes'
+import { LocalCoachAudioManager } from './local-coach-audio-manager'
+import { playCue } from '../live/local-cue-player'
+import type { CoachScope } from '../model/contracts'
 import { isVerifiedLocalBuffer } from './local-buffers'
 import { CoachPackClient, clipUrl, manifestUrl, parsePackManifest, type PackDependencies } from './pack-client'
 
@@ -94,6 +97,50 @@ describe('E09 prepared pack client', () => {
     expect((await reloaded.restore('ash')).state).toBe('ready')
     expect(reloaded.clipsFor('ash').get('count-1')).not.toBeNull()
     expect((await reloaded.restore('cedar')).slot).toBe('ash') // nothing cached for another voice
+  })
+
+  it.each([true, false])('loads a published pack for enabled workout counting with cache available=%s, then starts the real local mixer', async cacheAvailable => {
+    const f = await fixture(cacheAvailable ? {} : { openCache: async () => null })
+    expect(f.client.clipsFor('ash').get('count-1')).toBeNull()
+    expect(await f.client.restore('ash', { downloadPrepared: true })).toMatchObject({ state: 'ready', prepared: 3 })
+    expect(f.fetch.mock.calls.map(([url]) => url)).toEqual([
+      manifestUrl('ash'), ...f.clips.slice(0, 3).map(clip => clipUrl('ash', f.manifest.packVersion, clip.id)),
+    ])
+    expect(f.fetch.mock.calls.every(([, init]) => !init.method || init.method === 'GET')).toBe(true)
+    const clock = new FakeClock()
+    const scope: CoachScope = { schemaVersion: 1, userId: 'u', runId: 'r', exerciseId: 'e', setOrdinal: 1, scopeEpoch: 1 }
+    const manager = new LocalCoachAudioManager({ context: f.context.asAudioContext(), clock, scope })
+    try {
+      const result = playCue(manager, f.client.clipsFor('ash'), {
+        id: 'count-1', key: 'count-1', kind: 'count', clipId: 'count-1', triggerId: 'T14', scope,
+        priority: 'ordinary', atMs: 0, deadlineMs: 900, value: 1,
+      }, 0, () => true)
+      expect(result.admitted).toBe(true)
+      clock.advance(100, f.context)
+      expect(manager.snapshot().counters.started).toBe(1)
+      expect(manager.snapshot().audible).toBe(1)
+      f.fetch.mockClear()
+      await f.client.restore('ash', { downloadPrepared: true })
+      expect(f.fetch).not.toHaveBeenCalled() // Already pinned; never fetch per repetition.
+    } finally { manager.dispose() }
+  })
+
+  it('never generates or substitutes another voice when the selected published pack is missing', async () => {
+    const f = await fixture()
+    expect(await f.client.restore('cedar', { downloadPrepared: true })).toMatchObject({ state: 'not_prepared', reason: 'no_pack' })
+    expect(f.fetch.mock.calls.map(([url]) => url)).toEqual([manifestUrl('cedar')])
+    expect(f.client.clipsFor('cedar').get('count-1')).toBeNull()
+  })
+
+  it('does not start an automatic download after a concurrent select/delete', async () => {
+    let release!: (cache: Cache | null) => void
+    const f = await fixture({ openCache: () => new Promise(resolve => { release = resolve }) })
+    const pending = f.client.restore('ash', { downloadPrepared: true })
+    f.client.select('cedar')
+    release(null)
+    await pending
+    expect(f.fetch).not.toHaveBeenCalled()
+    expect(f.client.snapshot()).toMatchObject({ slot: 'cedar', state: 'not_prepared' })
   })
 
   it('rejects checksum mismatch, never caches it and reports partial', async () => {

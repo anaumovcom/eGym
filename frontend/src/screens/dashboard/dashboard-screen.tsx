@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Clock3, ListChecks, Play, Plus } from 'lucide-react'
+import { ArrowRight, Clock3, ListChecks, Play, Plus, RotateCcw } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { DashboardBuilderWorkout, DashboardData } from '@/entities/dashboard/model/types'
@@ -15,6 +15,7 @@ import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-components'
 import { useAppStore } from '@/stores/app-store'
+import { useHardwareStore } from '@/stores/hardware-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
 import { HomeRecovery } from '@/screens/dashboard/home-recovery'
 
@@ -95,6 +96,9 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
   const setSelectedProgramId = useAppStore((state) => state.setSelectedProgramId)
   const runtimeSession = useRuntimeStore((state) => state.session)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [restartConfirm, setRestartConfirm] = useState(false)
+  const [restarting, setRestarting] = useState(false)
+  const [restartError, setRestartError] = useState<string | null>(null)
   const selectedWorkout = workouts.find((workout) => workout.id === selectedId)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const confirmingRef = useRef(false)
@@ -116,7 +120,37 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
     }
     const resumed = canResume ? useRuntimeStore.getState().session : null
     const path = resumed ? runtimeViewPath(getRuntimeResumeView(resumed)) : '/exercise-setup'
-    navigate(`${path}?source=builder&programId=${encodeURIComponent(workout.id)}`)
+    const runQuery = resumed?.runId ? `&runId=${encodeURIComponent(resumed.runId)}` : ''
+    navigate(`${path}?source=builder&programId=${encodeURIComponent(workout.id)}${runQuery}`)
+  }
+
+  async function handleRestart(workout: DashboardBuilderWorkout) {
+    if (!workout.exercises.length || confirmingRef.current) return
+    confirmingRef.current = true
+    setRestarting(true)
+    setRestartError(null)
+    try {
+      // Do not discard the runtime while an interrupted set still owns the motor.
+      const hardware = useHardwareStore.getState()
+      const session = useRuntimeStore.getState().session
+      if (['moving', 'start_hold', 'training', 'paused', 'fixed_hold'].includes(hardware.snapshot?.control?.mode ?? '')) {
+        await hardware.runCommand({ action: 'complete_set', userId: selectedUserId })
+      }
+      // A new run must not reuse cached builder data or any saved backend result IDs.
+      // Existing exercise/workout records remain in history; this is not a deletion.
+      if (useRuntimeStore.getState().session !== session) {
+        throw new Error('Тренировка изменилась. Закройте окно и попробуйте ещё раз.')
+      }
+      const runId = crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      useRuntimeStore.getState().resetSession()
+      setSelectedProgramId(workout.id)
+      navigate(`/exercise-setup?source=builder&programId=${encodeURIComponent(workout.id)}&runId=${runId}`)
+    } catch (error) {
+      confirmingRef.current = false
+      setRestartError(error instanceof Error ? error.message : 'Не удалось начать тренировку сначала. Попробуйте ещё раз.')
+    } finally {
+      setRestarting(false)
+    }
   }
 
   return (
@@ -134,6 +168,8 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
               onClick={(event) => {
                 triggerRef.current = event.currentTarget
                 confirmingRef.current = false
+                setRestartConfirm(false)
+                setRestartError(null)
                 setSelectedId(resumableWorkout.id)
               }}
             >
@@ -160,6 +196,8 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
             onClick={(event) => {
               triggerRef.current = event.currentTarget
               confirmingRef.current = false
+              setRestartConfirm(false)
+              setRestartError(null)
               setSelectedId(workout.id)
             }}
           >
@@ -184,7 +222,7 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
       </div>
       <HomeRecovery muscles={muscles} figureGender={selectedUserId === 'elena' ? 'female' : 'male'} />
       </div>
-      <Dialog.Root open={Boolean(selectedWorkout)} onOpenChange={(open) => { if (!open) setSelectedId(null) }}>
+      <Dialog.Root open={Boolean(selectedWorkout)} onOpenChange={(open) => { if (!open && !restarting) setSelectedId(null) }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
           <SafetyDialogContent className="home-confirm-panel" onCloseAutoFocus={(event) => {
@@ -193,17 +231,22 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
             if (triggerRef.current?.isConnected) triggerRef.current.focus()
           }}>
             {selectedWorkout ? <>
-              <Dialog.Title className="font-display text-3xl font-bold text-white">{selectedWorkout.title}</Dialog.Title>
+              <Dialog.Title className="font-display text-3xl font-bold text-white">{restartConfirm ? 'Начать тренировку сначала?' : selectedWorkout.title}</Dialog.Title>
               <Dialog.Description className="mt-3 text-base text-white/60">{shortDuration(selectedWorkout.duration)} · {workoutStatus(selectedWorkout, resumable)}</Dialog.Description>
               <ol className="home-confirm-exercises">
                 {selectedWorkout.exercises.map((exercise, index) => <li key={`${exercise.slug}-${index}`}><span className="text-white/60">{index + 1}.</span> {exercise.name}</li>)}
               </ol>
-              {!selectedWorkout.exercises.length ? <p className="text-sm text-white/60">Добавьте упражнения через «Изменить», прежде чем начинать.</p> : <p className="text-sm text-white/60">{continueAvailable ? 'Продолжение с сохранённого шага.' : serverProgressOnly ? 'Есть сохранённые результаты, но шаг продолжения на этом устройстве недоступен. Будет начата новая сессия с первого упражнения; история сохранится.' : 'Далее — настройка упражнения и проверка безопасности.'}</p>}
-              <div className="home-confirm-actions">
+              {restartConfirm ? <p className="text-sm text-white/60">«{selectedWorkout.title}» начнётся с первого упражнения и первого подхода. Продолжить текущую сессию после этого будет нельзя. Уже сохранённые результаты останутся в истории.</p> : !selectedWorkout.exercises.length ? <p className="text-sm text-white/60">Добавьте упражнения через «Изменить», прежде чем начинать.</p> : <p className="text-sm text-white/60">{continueAvailable ? 'Продолжение с сохранённого шага.' : serverProgressOnly ? 'Есть сохранённые результаты, но шаг продолжения на этом устройстве недоступен. Будет начата новая сессия с первого упражнения; история сохранится.' : 'Далее — настройка упражнения и проверка безопасности.'}</p>}
+              {restartError ? <p role="alert" className="text-sm text-red-400">{restartError}</p> : null}
+              {restartConfirm ? <div className="home-confirm-actions">
+                <Button variant="secondary" disabled={restarting} onClick={() => { setRestartConfirm(false); setRestartError(null) }}>Отмена</Button>
+                <Button disabled={restarting} iconLeft={<RotateCcw aria-hidden="true" />} onClick={() => void handleRestart(selectedWorkout)}>{restarting ? 'Начинаем…' : 'Начать сначала'}</Button>
+              </div> : <div className="home-confirm-actions">
                 <Dialog.Close asChild><Button variant="secondary">Назад</Button></Dialog.Close>
                 <Button disabled={!selectedWorkout.exercises.length} onClick={() => handleConfirm(selectedWorkout)}>{continueAvailable ? 'Продолжить' : 'Начать'}</Button>
+                {continueAvailable ? <Button variant="secondary" iconLeft={<RotateCcw aria-hidden="true" />} onClick={() => setRestartConfirm(true)}>Начать сначала</Button> : null}
                 <Button variant="secondary" onClick={() => navigate(`/builder?programId=${encodeURIComponent(selectedWorkout.id)}`)}>Изменить</Button>
-              </div>
+              </div>}
             </> : null}
           </SafetyDialogContent>
         </Dialog.Portal>

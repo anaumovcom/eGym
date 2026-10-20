@@ -3,6 +3,7 @@ import type { BuilderExerciseItem, WorkoutBuilderData } from '@/entities/builder
 import { createRuntimeSession } from '@/mocks/stage3-data'
 import { apiGet } from '@/shared/api/client'
 import { buildBackendBuilderRuntimeSession } from './backend-builder-session'
+import { getBuilderPlanSignature } from './builder-plan-signature'
 
 vi.mock('@/shared/api/client', () => ({ apiGet: vi.fn() }))
 
@@ -40,6 +41,16 @@ describe('backend builder per-side runtime', () => {
       [45, 'left', 1], [45, 'right', 1], [45, 'left', 2], [45, 'right', 2],
     ])
     expect(session.exercises[0].plan.every((set) => set.targetReps === undefined)).toBe(true)
+  })
+
+  it('keeps one 60-second quick-feet set and an immutable server-plan signature', async () => {
+    const session = await build({ slug: 'cardio-quick-feet', name: 'Быстрые шаги', loadType: 'timed', sets: '1×60 сек', rest: '30 сек', perSide: false })
+    expect(session.exercises[0].loadSettings).toMatchObject({ sets: 1, reps: 60, restSeconds: 30 })
+    expect(session.exercises[0].plan).toEqual([{ targetSeconds: 60, weightLabel: 'вес тела', restSeconds: 30 }])
+    expect(session.builderPlanSignature).toBe(getBuilderPlanSignature(session))
+    const edited = { ...session, exercises: session.exercises.map(exercise => ({ ...exercise, plan: exercise.plan.map(plan => ({ ...plan, recommendedWeightKg: 0 })) })) }
+    expect(getBuilderPlanSignature(edited)).not.toBe(session.builderPlanSignature)
+    expect(edited.builderPlanSignature).toBe(session.builderPlanSignature)
   })
 
   it('expands saved warmup/work/failure plans without adding template warmups', async () => {

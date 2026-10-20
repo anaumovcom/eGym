@@ -200,6 +200,12 @@ class Tunables:
     # Exercise-only settings: never alter the identified force scale or unloaded motion.
     train_friction_gain_resist: float | None = None  # None keeps the calibrated weightless gain
     exercise_load_scale: float = 1.0
+    train_inertia_gain: float | None = None  # explicit workout override; None keeps F1/F2 calibration
+    train_descent_brake_load_ratio: float | None = None  # explicit brake cap / nominal load; None preserves legacy law
+    train_ascent_friction_extrapolation: float = 1.0  # 0 holds the last measured F3 value during loaded ascent
+    train_descent_relief_onset_mm_s: float | None = None  # None retains 60 % of the descent limit
+    train_landing_brake_max_n: float = 0.0  # opt-in anticipatory lower-range brake, per side
+    train_fall_rest_s: float = 0.2  # exercise breakaway delay; legacy FALL_REST_S
     inertia_gain: float = 0.0
     friction_blend_mm_s: float = 8.0
     weightless_damping_n_per_mm_s: float = 0.3
@@ -227,7 +233,8 @@ class Tunables:
     @staticmethod
     def from_dict(data: dict[str, Any]) -> Tunables:
         known = {f.name for f in fields(Tunables)}
-        return Tunables(**{key: None if key == "train_friction_gain_resist" and value is None else float(value) for key, value in data.items() if key in known})
+        nullable = {"train_friction_gain_resist", "train_inertia_gain", "train_descent_brake_load_ratio", "train_descent_relief_onset_mm_s"}
+        return Tunables(**{key: None if key in nullable and value is None else float(value) for key, value in data.items() if key in known})
 
 
 @dataclass(frozen=True)

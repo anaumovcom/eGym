@@ -106,8 +106,10 @@ export function useExerciseSettings({ session, exercise, userId, hydrate = true,
     const current = useRuntimeStore.getState().session
     const active = currentExercise()
     if (!current || !active) return
-    // Resumed sets own their plans. Restoring settings here could truncate completed results/paired sides.
-    if (!hydrate || current.view !== 'exercise-setup' || current.currentSetIndex > 0 || current.completedSets[active.id]?.length) {
+    // Builder targets belong to this workout, not the last use of the same slug in another workout.
+    // Keep setup edits writable, but never hydrate them from global remembered settings.
+    // Resumed sets also own their plans: restoring could truncate completed results/paired sides.
+    if (!hydrate || current.source === 'builder' || current.view !== 'exercise-setup' || current.currentSetIndex > 0 || current.completedSets[active.id]?.length) {
       entry.status = 'ready'
       entry.saved = JSON.stringify(getExerciseSettingsSnapshot(active))
       notify(entry)

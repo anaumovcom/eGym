@@ -64,7 +64,7 @@ describe('exercise event sounds', () => {
     playExerciseEventSound('error')
     playExerciseEventSound('success')
     expect(audio.mock.calls.map(([src]) => src)).toEqual(['/audio/pop-up.mp3', '/audio/pop-down.mp3', '/audio/error-notification.mp3', '/audio/success.mp3'])
-    for (const instance of instances.slice(0, 2)) expect(instance.volume).toBeCloseTo(0.7 * 0.12 * 0.3)
+    for (const instance of instances.slice(0, 2)) expect(instance.volume).toBeCloseTo(0.7 * 0.5)
     for (const instance of instances.slice(2)) expect(instance.volume).toBeCloseTo(0.7 * 0.12)
     expect(contextConstructor).not.toHaveBeenCalled()
     expect(play).toHaveBeenCalledTimes(4)
@@ -85,18 +85,18 @@ describe('exercise event sounds', () => {
     expect(vi.getTimerCount()).toBe(0)
   })
 
-  it.each(['local', 'cache'] as const)('ducks current and future effects only after actual %s start and restores on finish', source => {
+  it.each(['local', 'cache'] as const)('keeps current and future pops at 50% during %s speech', source => {
     const voice = coach()
     playExerciseEventSound('upper')
     voice.start(source)
-    expect(instances[0].volume).toBeCloseTo(0.0252) // Scheduled, not started.
+    expect(instances[0].volume).toBeCloseTo(0.35)
     voice.advance()
     expect(getCoachAudibleCount()).toBe(1)
-    expect(instances[0].volume).toBeCloseTo(0.00252)
+    expect(instances[0].volume).toBeCloseTo(0.35)
     playExerciseEventSound('lower')
-    expect(instances[1].volume).toBeCloseTo(0.00252)
+    expect(instances[1].volume).toBeCloseTo(0.35)
     voice.context.sources[0].end()
-    for (const instance of instances) expect(instance.volume).toBeCloseTo(0.0252)
+    for (const instance of instances) expect(instance.volume).toBeCloseTo(0.35)
   })
 
   it.each(['cancel', 'mute', 'zero', 'dispose', 'suspend'] as const)('releases priority on %s', action => {
@@ -157,24 +157,24 @@ describe('exercise event sounds', () => {
     expect(instances[0].volume).toBeCloseTo(0.084)
   })
 
-  it('retains ducking until every manager owner releases playback', () => {
+  it('keeps pops at 50% regardless of the number of speaking managers', () => {
     const first = coach(), second = coach()
     first.start(); second.start(); first.advance(); second.advance()
     expect(getCoachAudibleCount()).toBe(2)
     playExerciseEventSound('upper')
     first.manager.dispose()
-    expect(instances[0].volume).toBeCloseTo(0.00252)
+    expect(instances[0].volume).toBeCloseTo(0.35)
     second.manager.cancelAll()
-    expect(instances[0].volume).toBeCloseTo(0.0252)
+    expect(instances[0].volume).toBeCloseTo(0.35)
   })
 
   it('updates playing effects with user volume and mute, preserving zero across priority changes', () => {
     const voice = coach()
     playExerciseEventSound('upper')
     useStage4Store.setState({ settingsSaved: { ...savedSettings, soundEnabled: true, signalVolume: '100%' } })
-    expect(instances[0].volume).toBeCloseTo(0.036)
+    expect(instances[0].volume).toBeCloseTo(0.5)
     voice.start(); voice.advance()
-    expect(instances[0].volume).toBeCloseTo(0.0036)
+    expect(instances[0].volume).toBeCloseTo(0.5)
     useStage4Store.setState({ settingsSaved: { ...savedSettings, soundEnabled: true, signalVolume: '0%' } })
     voice.manager.cancelAll()
     expect(instances[0].volume).toBe(0)
@@ -190,9 +190,9 @@ describe('exercise event sounds', () => {
     expect(vi.getTimerCount()).toBe(0)
     const voice = coach()
     voice.start(); voice.advance()
-    expect(instance.volume).toBeCloseTo(0.0252) // No retained priority listener.
+    expect(instance.volume).toBeCloseTo(0.35) // No retained priority listener.
     useStage4Store.setState({ settingsSaved: { ...savedSettings, soundEnabled: false } })
-    expect(instance.volume).toBeCloseTo(0.0252) // No retained store listener.
+    expect(instance.volume).toBeCloseTo(0.35) // No retained store listener.
   })
 
   it('bounds pending play promises and simultaneous effects; late resolution cannot restart expired audio', async () => {

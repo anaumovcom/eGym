@@ -45,7 +45,8 @@ describe('streamed network speech in the shared mixer', () => {
     if (countFirst) { count(); advance(); live() } else { live(); advance(); count() }
     advance(60)
     expect(byId('count')!.baseGain).toBe(OFFLINE_COUNT_GAIN)
-    expect(byId('count')!.targetGain).toBeCloseTo(countFirst ? 0.39 : 0.6)
+    expect(byId('count')!.targetGain).toBeCloseTo(0.7)
+    expect(byId('live')!.targetGain).toBeCloseTo(1)
     // Live speech remains louder regardless of which source starts last.
     expect(byId('live')!.targetGain).toBeGreaterThan(byId('count')!.targetGain)
     expect(manager.snapshot().counters.started).toBe(2)

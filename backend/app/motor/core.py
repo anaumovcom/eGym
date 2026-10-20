@@ -40,6 +40,7 @@ ON_STOPS_MM = 5.0
 HOLD_CATCH_SPEED_MM_S = 5.0
 LOAD_RELIEF_DROP_S = 0.15  # full load → 0 when the bar runs away downwards
 LOAD_RELIEF_RECOVER_S = 0.5
+DESCENT_RELIEF_RECOVER_S = 0.15  # resume the eccentric load before residual friction slows a light bar
 STILL_MM_S = 1.0
 BREAKAWAY_REST_S = 0.5  # F6 softening applies after at least this long at rest
 DITHER_SPEED_MM_S = 2.0  # F9 dither only while (almost) still
@@ -69,9 +70,8 @@ FALL_STATIC_MARGIN = 1.15  # × static friction down, at rest
 FALL_REST_S = 0.2
 FALL_RAMP_N_PER_S = 120.0
 FALL_DROP_N_PER_S = 400.0  # the user lifts: the assist goes at once
-# Extra downward-load friction compensation fades out above a rep's speed. With an upward load it follows the
-# continuous load relief instead: a separate early fade made the eccentric effort dip before any speed relief.
-DESCENT_GAIN_FADE_START = 0.4  # × max_descent_mm_s
+# Fade exercise descent compensation only at near-zero load, not across the screw's whole static-friction force.
+DESCENT_COMP_LOAD_N = 1.0
 # range guard of a set, judged on the bar as a whole (the mean of the sides: per-side decisions near a point give one
 # side its load and not the other, a racking force). Below the lower point the load ramps out, a damper (delay-limited)
 # slows the fall and a soft spring returns the bar up to the point. Its force is small: whatever the law pushes acts a
@@ -143,6 +143,7 @@ class MotorCore:
         self.range_force_n = 0.0  # the range guard's force, the same on both sides
         self._bar_x_mm = 0.0
         self._bar_v_mm_s = 0.0
+        self._descent_previous_v: float | None = None
         self.sync_left_n = 0.0  # the sync force of the left side, the right one gets the opposite
         self._bar_a_mm_s2 = 0.0
         self._dt = 0.0
@@ -173,6 +174,7 @@ class MotorCore:
         if mode != before:
             self.fall_assist = {side: 0.0 for side in SIDES}
             self.floor_cut = 0.0
+            self._descent_previous_v = None
         if event == "reset":
             for monitor in self.comm.values():
                 monitor.reset()
@@ -536,6 +538,12 @@ class MotorCore:
         weight = compensation.gravity(profile, state.x_mm) + model.ripple(state.x_mm)
         # the command acts after the bus delay: friction sign and size for the velocity then (V3)
         v_ahead = state.v_mm_s + state.a_mm_s2 * self.horizon_s
+        if (output == "train" and self.load.load_direction == "down" and self.load.load_n > 0
+                and state.v_mm_s > 0 and v_ahead > 0 and model.table_up):
+            # Do not invent high-speed assistance from F3 measurements taken only at low speeds. This is an
+            # explicit conservative workout option, not a change to the calibrated plant or unloaded law.
+            last_speed = model.table_up[-1][0]
+            v_ahead = min(v_ahead, last_speed) + max(0.0, v_ahead - last_speed) * t.train_ascent_friction_extrapolation
         # screw load beyond the bar weight: friction grows with it (L1/L2); below the weight the preload keeps it.
         # A load heavier than the bar makes the motor pull down: |F| − W again, with the power flow swapped
         axial = max(0.0, abs(self.previous[side]) - weight)
@@ -544,6 +552,21 @@ class MotorCore:
         if output == "train":
             load = load_force(self.load, state.x_mm, blend) * self.load_relief[side] * (1.0 - self.floor_cut)
             gain_down = self._descent_gain(side, load)
+        descent_brake = 0.0
+        if output == "train" and self._separate_descent_brake():
+            # Compensation uses the nominal set force, never the speed-relieved force. Reintroduce the old
+            # friction deficit as an explicit, upward-only brake, capped by the load instead of screw drag.
+            nominal = load_force(self.load, state.x_mm, blend) * (1.0 - self.floor_cut)
+            base = t.friction_gain_down
+            old_share = max(0.0, min(1.0, load / DESCENT_COMP_LOAD_N)) * self.load_relief[side]
+            old_gain = base + (t.train_friction_gain_down - base) * old_share
+            gain_down = base + (t.train_friction_gain_down - base) * max(0.0, min(1.0, nominal / DESCENT_COMP_LOAD_N))
+            drag = model.force(v_ahead, t.friction_blend_mm_s, x_mm=state.x_mm,
+                               axial_excess_n=axial, motor_sign=motor_sign) * self._breakaway_scale(side)
+            previous_brake = max(0.0, -(gain_down - old_gain) * drag)
+            cap = nominal * (1.0 - self.load_relief[side]) * t.train_descent_brake_load_ratio
+            if state.v_mm_s < 0 and v_ahead < 0:
+                descent_brake = min(previous_brake, max(0.0, cap))
         friction_t = t
         if output == "train" and t.train_friction_gain_resist is not None:
             # Compensate friction in the effort phase too: otherwise residual screw friction adds to the
@@ -585,11 +608,33 @@ class MotorCore:
         # train
         # on the bar's acceleration, not the side's: cancelled mass on a skew (delayed, per side) makes it lighter and
         # livelier, the sides race each other
-        inertia = compensation.inertia(float(profile.moving_mass_kg.value), self.virtual_mass_kg, self._bar_a_mm_s2, self.inertia_share(side))
+        inertia_gain = self.inertia_share(side)
+        if t.train_inertia_gain is not None and self.inertia_override is None:
+            # F1/F2 otherwise override inertia_gain, even when it is zero. A workout must be able to turn off
+            # delayed acceleration feedback without deleting identified physics or altering calibration probes.
+            inertia_gain = t.train_inertia_gain
+        inertia = compensation.inertia(float(profile.moving_mass_kg.value), self.virtual_mass_kg, self._bar_a_mm_s2, inertia_gain)
+        if t.train_inertia_gain == 0 and self.inertia_override is None:
+            inertia = 0.0  # also disable virtual-mass addition above the machine's reflected mass
         fall = self._fall_assist(side, state, load)
         if self.load.load_direction == "up":
             return weight + friction + inertia + load + fall + self.range_force_n + sync + speed_guard
-        return weight + friction + inertia - load - fall + self.range_force_n + sync + speed_guard
+        if self._separate_descent_brake() and state.v_mm_s < 0:
+            # Budget ALL speed braking against the load still present, not the nominal set load. Otherwise
+            # relief removes the downward pull while the separate brake AND governor push up: the user must
+            # press down. Keep at least half the remaining downward load in ordinary eccentric motion.
+            # Above 80 % of the descent limit progressively restore the original braking authority; at the
+            # limit it is fully restored. Range/cushion/envelope protection is never included in this budget.
+            braking = descent_brake + max(0.0, speed_guard)
+            emergency = max(0.0, min(1.0, (-state.v_mm_s / self.envelope.max_descent_mm_s - .8) / .2))
+            normal_budget = max(0.0, load) * .5
+            budget = normal_budget + max(0.0, braking - normal_budget) * emergency
+            descent_brake -= max(0.0, braking - budget)
+        return weight + friction + inertia - load - fall + descent_brake + self.range_force_n + sync + speed_guard
+
+    def _separate_descent_brake(self) -> bool:
+        return (self.load.load_direction == "down" and self.tunables.train_friction_gain_resist is not None
+                and self.tunables.train_descent_brake_load_ratio is not None)
 
     def _loop_delay(self) -> float:
         return (_value(self.profile.loop_delay_s, 0.04) or 0.04) + (_value(self.profile.torque_lag_s, 0.0) or 0.0)
@@ -649,18 +694,25 @@ class MotorCore:
         self.fixed_integral[side] = max(-limit, min(limit, bias))
 
     def _descent_gain(self, side: Side, load: float) -> float:
-        """Friction compensation going down in training: from the weightless gain to ``train_friction_gain_down`` as the
-        load grows to the static friction (a bar without a load has nothing pulling it down and must stop by itself).
-        A bar running away downwards (load relief) gets the friction back as a brake."""
+        """Loaded descent compensates friction even for a light set; zero load keeps weightless damping.
+
+        Speed relief restores residual friction as a brake. Do not fade it separately before relief, or even a
+        normal eccentric phase loses its weight. Upward-load feel retains its existing calibration blend.
+        """
 
         t = self.tunables
         if self.load.load_direction == "up":
             share = max(0.0, min(1.0, load / max(self.friction[side].coulomb_up_n, 1.0))) * self.load_relief[side]
             return t.friction_gain_up + (t.train_friction_gain_down - t.friction_gain_up) * share
-        share = max(0.0, min(1.0, load / max(self.friction[side].coulomb_down_n, 1.0))) * self.load_relief[side]
-        start, end = DESCENT_GAIN_FADE_START * self.envelope.max_descent_mm_s, 0.6 * self.envelope.max_descent_mm_s
-        v_ahead = self._bar_v_mm_s + self._bar_a_mm_s2 * self._loop_delay()
-        share *= max(0.0, min(1.0, (end + v_ahead) / (end - start)))
+        if t.train_friction_gain_resist is None:
+            # Calibration probes use the original, conservative unloaded law. Their fitted profiles must not
+            # depend on the exercise-only full-compensation setting, which is explicitly enabled on the machine.
+            share = max(0.0, min(1.0, load / max(self.friction[side].coulomb_down_n, 1.0))) * self.load_relief[side]
+            start, end = .4 * self.envelope.max_descent_mm_s, .6 * self.envelope.max_descent_mm_s
+            v_ahead = self._bar_v_mm_s + self._bar_a_mm_s2 * self._loop_delay()
+            share *= max(0.0, min(1.0, (end + v_ahead) / (end - start)))
+            return t.friction_gain_down + (t.train_friction_gain_down - t.friction_gain_down) * share
+        share = max(0.0, min(1.0, load / DESCENT_COMP_LOAD_N)) * self.load_relief[side]
         return t.friction_gain_down + (t.train_friction_gain_down - t.friction_gain_down) * share
 
     def _range_damping(self) -> float:
@@ -700,29 +752,45 @@ class MotorCore:
             # Work in the original downward-load coordinates; preserve physical bar state for inertia / friction.
             x, v, a = self.load.lower_mm + upper - x, -v, -a
         descent_onset = 0.6 * (self.envelope.max_speed_mm_s if upward else self.envelope.max_descent_mm_s)
+        if self._separate_descent_brake() and self.tunables.train_descent_relief_onset_mm_s is not None:
+            descent_onset = min(self.tunables.train_descent_relief_onset_mm_s, .9 * self.envelope.max_descent_mm_s)
         relief = self.load_relief["left"]
         # judged on the speed a loop delay ahead while the bar speeds up downwards: the relief acts that late
-        v_relief = v + min(0.0, a) * self._loop_delay()
-        if upward:
-            # An ordinary upward return used to trip a full 0.15 s unload at the onset, then keep that cut until
-            # half the onset speed. Reloading accelerated the bar into another cut: a perceptible mid-rep cycle.
-            # Keep the same onset, prediction and rate bounds, but ask only for the relief needed by the excess
-            # speed. The quadratic has zero slope at onset and reaches full relief at the existing speed limit.
-            # No low-speed rearm latch: slowing immediately starts a rate-limited return towards the load.
-            span = max(self.envelope.max_speed_mm_s - descent_onset, 1e-6)
-            excess = max(0.0, min(1.0, (-v_relief - descent_onset) / span))
-            target = 1.0 - excess * excess
-            # Keep the load through the exercise point and its small upward target offset.
-            # Only an actual crossing of the motor target (mean observed position, not prediction) starts relief.
-            # Speed relief above is independent of position and still applies before the point when necessary.
-            if self.load.range_guard and self._bar_x_mm > upper:
-                target = 0.0  # outside the set: do not keep driving upwards while the range guard catches the bar
-            ramp_s = LOAD_RELIEF_DROP_S if target < relief else LOAD_RELIEF_RECOVER_S
-            relief = rate_limit(relief, target, 1.0 / ramp_s, self._dt)
-        elif v_relief < -descent_onset:
-            relief = max(0.0, relief - self._dt / LOAD_RELIEF_DROP_S)
-        elif v > -0.5 * descent_onset:
-            relief = min(1.0, relief + self._dt / LOAD_RELIEF_RECOVER_S)
+        # Downward braking also needs the next frame and the mean unloading-ramp time to take effect.
+        # This is prediction only: constant-speed eccentric motion below onset keeps its full load.
+        prediction = self._loop_delay() + (0.0 if upward else self._dt + LOAD_RELIEF_DROP_S / 2)
+        light_share = 0.0
+        if self._separate_descent_brake():
+            # Only light sets get the later, curved intervention. Heavy loads retain their braking reserve.
+            coulomb = min(max(self.friction[side].coulomb_down_n, 1.0) for side in SIDES)
+            light_share = max(0.0, min(1.0, 2.0 - 2.0 * self.load.load_n / coulomb))
+            previous_v = self._descent_previous_v
+            self._descent_previous_v = v
+            if previous_v is not None and self._dt > 0 and v >= previous_v:
+                # The acceleration filter remembers the fast reversal after the bar already slows down.
+                # Do not project that old downward acceleration into another full-unload interval.
+                a *= 1.0 - light_share if a < 0 else 1.0
+        v_relief = v + min(0.0, a) * prediction
+        # Continuous relief in either load direction: no full-unload latch until half the onset speed.
+        # Keep the onset, prediction, rate bounds and full relief at the existing speed limit.
+        speed_limit = self.envelope.max_speed_mm_s if upward else self.envelope.max_descent_mm_s
+        span = max(speed_limit - descent_onset, 1e-6)
+        excess = max(0.0, min(1.0, (-v_relief - descent_onset) / span))
+        # Descent has the lower speed limit: linear relief retains more braking reserve than the upward curve.
+        reduction = excess * excess if upward else excess * (1.0 - light_share + light_share * excess)
+        target = 1.0 - reduction
+        # Upward motor return target retains its post-crossing unload; downward range cut is handled below.
+        if upward and self.load.range_guard and self._bar_x_mm > upper:
+            target = 0.0
+        recover_s = LOAD_RELIEF_RECOVER_S
+        if not upward and self.tunables.train_friction_gain_resist is not None:
+            # A light eccentric set must recover before residual screw friction eats its entire load.
+            # Heavy sets retain the conservative recovery: a fast reload with bus delay can re-accelerate them.
+            friction = min(max(self.friction[side].coulomb_down_n, 1.0) for side in SIDES)
+            heavy_share = max(0.0, min(1.0, 2 * self.load.load_n / friction - 1))
+            recover_s = DESCENT_RELIEF_RECOVER_S + (LOAD_RELIEF_RECOVER_S - DESCENT_RELIEF_RECOVER_S) * heavy_share
+        ramp_s = LOAD_RELIEF_DROP_S if target < relief else recover_s
+        relief = rate_limit(relief, target, 1.0 / ramp_s, self._dt)
         self.load_relief = {side: relief for side in SIDES}
         self.range_force_n = 0.0
         if not self.load.range_guard:
@@ -736,6 +804,20 @@ class MotorCore:
             self.floor_cut = max(0.0, self.floor_cut - step)  # lifted back into the range: the load ramps in
         mass = sum(float(self.profile.side(side).moving_mass_kg.value) for side in SIDES) / 2
         damping = self._range_damping()
+        if self._separate_descent_brake() and below <= 0 and v < 0 and self.tunables.train_landing_brake_max_n > 0:
+            # Preview only the lower landing, not the whole stroke. Allow for bus/torque delay and one frame.
+            # Already measured deceleration (including the user's hands) reduces the requested motor brake.
+            delay = self._loop_delay() + self._dt
+            speed = max(0.0, -v - max(0.0, a) * delay)
+            room = max(5.0, -below - speed * delay)
+            landing_decel = _value(self.profile.brake_decel_down_mm_s2, CUSHION_DECEL_MM_S2) or CUSHION_DECEL_MM_S2
+            preview = speed * delay + speed * speed / (2 * max(landing_decel, 1.0)) + 10.0
+            share = max(0.0, min(1.0, (preview + below) / max(preview, 1.0)))
+            required = max(0.0, (speed * speed - DEFAULT_LANDING_MM_S**2) / (2 * room) - max(0.0, a))
+            coulomb = min(max(self.friction[side].coulomb_down_n, 1.0) for side in SIDES)
+            light_share = 1.0 if self.load.load_n < coulomb else 0.0
+            # Preserve the heavy-load catch: even a mild preview changes the delayed relief/catch timing there.
+            self.range_force_n += min(self.tunables.train_landing_brake_max_n, mass * required / 1000) * share * light_share
         # the brakes act a loop delay late: sized for the speed by then, gone once the bar will have stopped (a brake
         # still on after the stop throws the bar back)
         v_ahead = v + a * self._loop_delay()
@@ -779,11 +861,16 @@ class MotorCore:
         elif velocity > STILL_MM_S:
             assist = max(0.0, assist - FALL_DROP_N_PER_S * self._dt)
         elif velocity < -STILL_MM_S:
-            residual = (1.0 - self._descent_gain(side, load)) * coulomb * self.load_relief[side]
+            gain = self._descent_gain(side, load)
+            # Friction compensation itself is smoothed near zero speed. Retain the corresponding static help
+            # until it really takes over; removing it at 1 mm/s re-sticks a light bar with a delayed drive.
+            moving_share = abs(smooth_sign(state.v_mm_s, self.tunables.friction_blend_mm_s)) if not upward else 1.0
+            residual = (1.0 - gain * moving_share) * coulomb * self.load_relief[side]
             assist = min(assist, max(0.0, residual))
         else:
             static = max(0.0, FALL_STATIC_MARGIN * (coulomb + model.stribeck_extra_n) - load)
-            if self._still_s[side] >= FALL_REST_S:
+            rest_s = self.tunables.train_fall_rest_s if self._separate_descent_brake() else FALL_REST_S
+            if self._still_s[side] >= rest_s:
                 assist = min(static, assist + FALL_RAMP_N_PER_S * self._dt)
             assist = min(assist, static)
         self.fall_assist[side] = assist

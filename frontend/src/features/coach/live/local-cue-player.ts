@@ -5,8 +5,8 @@ import { COMPLETION_IDEAS } from './local-completion'
 /** Verified, decoded clips by semantic ID (E09 prepared pack). Never fetches. */
 export type ClipSource = Readonly<{ get: (clipId: string) => AudioBuffer | null }>
 export const NO_CLIPS: ClipSource = Object.freeze({ get: () => null })
-// Count uses 60% gain, still below live speech ducked to .65 for a voice/count pair.
-export const OFFLINE_COUNT_GAIN = 0.6
+// Independent channel level: counts never duck live speech or get ducked by it.
+export const OFFLINE_COUNT_GAIN = 0.7
 export type CueManager = Pick<LocalCoachAudioManager, 'playLocal' | 'cancelAll' | 'snapshot'>
 export type CueOutcome = Readonly<{ cue: LocalCue; admitted: boolean; reason: AudioReason | 'admitted' }>
 

@@ -216,6 +216,32 @@ export function ResetBlockButton({ machine }: { machine?: MachineHealth }) {
   )
 }
 
+export function DisableServiceModeButton() {
+  const serviceMode = useHardwareStore(state => state.snapshot?.serviceMode === true)
+  const runCommand = useHardwareStore(state => state.runCommand)
+  const setError = useHardwareStore(state => state.setErrorMessage)
+  const selectedUserId = useAppStore(state => state.selectedUserId)
+  const [pending, setPending] = useState(false)
+  if (!serviceMode) return null
+
+  return <button
+    type="button"
+    className="forma-reset-block inline-flex items-center gap-2 rounded-2xl border border-amber-400/50 px-3 text-sm font-semibold text-amber-200 hover:bg-amber-400/10 disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f4dfb4]"
+    disabled={pending}
+    aria-busy={pending}
+    title="Выйти из сервисного режима без сброса аварий и запуска движения"
+    onClick={() => {
+      setPending(true)
+      void runCommand({ action: 'toggle_service_mode', userId: selectedUserId, serviceMode: false })
+        .catch((error: unknown) => setError(error instanceof Error ? error.message : 'Не удалось отключить сервисный режим.'))
+        .finally(() => setPending(false))
+    }}
+  >
+    <Settings className="h-5 w-5" aria-hidden="true" />
+    <span>Отключить сервисный режим</span>
+  </button>
+}
+
 export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onStop: () => void }) {
   const selectedUserId = useAppStore(state => state.selectedUserId)
   useEffect(() => { void localAudioRuntime.refreshSavedPreferences() }, [selectedUserId])
@@ -235,6 +261,7 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
     <div role="group" className="forma-system-dock" style={{ pointerEvents: 'auto' }} aria-label="Состояние тренажёра и безопасность">
       <CoachMiniDebug />
       <MotorForceReadout />
+      <DisableServiceModeButton />
       <ResetBlockButton machine={machine} />
       <div className="forma-machine-status">
         <Popover.Root open={detailsOpen} onOpenChange={setDetailsOpen}>

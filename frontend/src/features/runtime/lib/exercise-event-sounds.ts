@@ -10,10 +10,10 @@ const sources: Record<ExerciseSound, string> = {
   success: '/audio/success.mp3',
 }
 
-// Coach clips/PCM peak at .25 with .5 master headroom: effects must not
-// compete at full scale. Preserve the user's signal-volume multiplier.
+// Preserve the user's signal-volume multiplier and mute. Endpoint feedback
+// has its own fixed 50% channel, independent of coach/count playback.
 const EFFECT_BASE = 0.12
-const POP_GAIN = 0.3
+const POP_GAIN = 0.5
 const VOICE_DUCK = 0.1
 const EFFECT_LIFETIME_MS = 15_000
 const MAX_EFFECTS = 16
@@ -22,9 +22,11 @@ const activeEffects = new Set<() => void>()
 function effectVolume(kind: ExerciseSound): number {
   const settings = useStage4Store.getState().settingsSaved
   const volume = Number(String(settings.signalVolume).replace('%', '')) / 100
-  const gain = kind === 'upper' || kind === 'lower' ? POP_GAIN : 1
+  const pop = kind === 'upper' || kind === 'lower'
+  const gain = pop ? POP_GAIN : EFFECT_BASE
+  const duck = !pop && getCoachAudibleCount() > 0 ? VOICE_DUCK : 1
   return settings.soundEnabled && Number.isFinite(volume)
-    ? Math.min(1, Math.max(0, volume)) * EFFECT_BASE * gain * (getCoachAudibleCount() > 0 ? VOICE_DUCK : 1) : 0
+    ? Math.min(1, Math.max(0, volume)) * gain * duck : 0
 }
 
 /** Sound failure must never interrupt the exercise or create another error notification. */

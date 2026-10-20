@@ -416,6 +416,99 @@ describe('DashboardView', () => {
     expect(navigateMock).toHaveBeenCalledWith(`/exercise-setup?source=builder&programId=${encodeURIComponent(workoutId)}`)
   })
 
+  function prepareRestart(view: 'rest' | 'workout-summary' = 'rest') {
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    const initial = useRuntimeStore.getState().session!
+    useRuntimeStore.setState({ session: {
+      ...initial,
+      source: 'builder',
+      programId: 'back-biceps',
+      runId: 'previous-run',
+      view,
+      currentExerciseId: initial.exercises[1].id,
+      currentSetIndex: 2,
+      completedExerciseIds: [initial.exercises[0].id],
+      exerciseOutcomes: { [initial.exercises[0].id]: 'completed' },
+      backendWorkoutSessionId: 42,
+      backendExerciseSessionIds: { [initial.exercises[0].id]: 43 },
+      backendWorkoutSaved: view === 'workout-summary',
+    } })
+    const session = useRuntimeStore.getState().session!
+    renderDashboard({ ...dashboardStoryScenarios.default, workouts: [{
+      ...makeWorkout(1), id: 'back-biceps', todayStatus: view === 'workout-summary' ? 'completed' : 'in_progress',
+      exercises: session.exercises.map(({ slug, name }) => ({ slug, name })),
+    }] })
+    return session
+  }
+
+  it.each(['Отмена', 'Escape'])('does not reset any progress when restart is cancelled with %s', async (cancel) => {
+    const user = userEvent.setup()
+    prepareRestart()
+    const expectStoresUnchanged = captureStores()
+    const dialog = await selectWorkout(user, 'Тренировка 1')
+    await user.click(dialog.getByRole('button', { name: 'Начать сначала', exact: true }))
+    const confirmation = within(screen.getByRole('dialog', { name: 'Начать тренировку сначала?' }))
+    expect(confirmation.getByText(/Уже сохранённые результаты останутся в истории/)).toBeVisible()
+    expectStoresUnchanged()
+    if (cancel === 'Escape') await user.keyboard('{Escape}')
+    else await user.click(confirmation.getByRole('button', { name: 'Отмена' }))
+    expectStoresUnchanged()
+    expect(navigateMock).not.toHaveBeenCalled()
+    if (cancel === 'Отмена') expect(screen.getByRole('button', { name: 'Продолжить', exact: true })).toBeEnabled()
+  })
+
+  it.each(['rest', 'workout-summary'] as const)('starts a fresh run from %s only after the second confirmation', async (view) => {
+    const user = userEvent.setup()
+    const previous = prepareRestart(view)
+    const expectStoresUnchanged = captureStores()
+    const dialog = await selectWorkout(user, 'Тренировка 1')
+    await user.click(dialog.getByRole('button', { name: 'Начать сначала', exact: true }))
+    expectStoresUnchanged()
+    expect(navigateMock).not.toHaveBeenCalled()
+    await user.dblClick(screen.getByRole('button', { name: 'Начать сначала', exact: true }))
+    expect(navigateMock).toHaveBeenCalledTimes(1)
+    const url = new URL(navigateMock.mock.calls[0][0], 'http://localhost')
+    expect(url.pathname).toBe('/exercise-setup')
+    expect(url.searchParams.get('source')).toBe('builder')
+    expect(url.searchParams.get('programId')).toBe('back-biceps')
+    expect(url.searchParams.get('runId')).toBeTruthy()
+    expect(url.searchParams.get('runId')).not.toBe(previous.runId)
+    expect(useRuntimeStore.getState().session).toBeNull()
+    expect(useRuntimeStore.getState().sessionSignature).toBeNull()
+    expect(useAppStore.getState().selectedProgramId).toBe('back-biceps')
+    // No API call resets/deletes the previous workout or its exercise records.
+    expect(previous.backendWorkoutSessionId).toBe(42)
+    expect(previous.backendExerciseSessionIds).toEqual({ [previous.exercises[0].id]: 43 })
+  })
+
+  it('preserves the new run id when continuing after returning to the dashboard', async () => {
+    const user = userEvent.setup()
+    const previous = prepareRestart()
+    const dialog = await selectWorkout(user, 'Тренировка 1')
+    await user.click(dialog.getByRole('button', { name: 'Продолжить', exact: true }))
+    expect(navigateMock).toHaveBeenCalledExactlyOnceWith('/rest?source=builder&programId=back-biceps&runId=previous-run')
+    expect(useRuntimeStore.getState().session).toBe(previous)
+  })
+
+  it('stops an active set before resetting and keeps progress intact on failure so restart can be retried', async () => {
+    const user = userEvent.setup()
+    prepareRestart()
+    const expectStoresUnchanged = captureStores()
+    const runCommand = vi.fn().mockRejectedValueOnce(new Error('Не удалось остановить подход')).mockResolvedValueOnce({})
+    useHardwareStore.setState({ snapshot: { control: { mode: 'training' }, safety: { state: 'disabled' } } as NonNullable<ReturnType<typeof useHardwareStore.getState>['snapshot']>, runCommand })
+    const dialog = await selectWorkout(user, 'Тренировка 1')
+    await user.click(dialog.getByRole('button', { name: 'Начать сначала', exact: true }))
+    await user.click(screen.getByRole('button', { name: 'Начать сначала', exact: true }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('Не удалось остановить подход')
+    expectStoresUnchanged()
+    expect(navigateMock).not.toHaveBeenCalled()
+    expect(runCommand).toHaveBeenCalledExactlyOnceWith({ action: 'complete_set', userId: 'alexey' })
+    await user.click(screen.getByRole('button', { name: 'Начать сначала', exact: true }))
+    expect(runCommand).toHaveBeenCalledTimes(2)
+    expect(useRuntimeStore.getState().session).toBeNull()
+    expect(navigateMock).toHaveBeenCalledTimes(1)
+  })
+
   it('launches a nonempty workout only after explicit confirmation, without a photo URL or CTA', async () => {
     const user = userEvent.setup()
     renderDashboard({

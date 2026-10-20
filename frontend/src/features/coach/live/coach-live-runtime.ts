@@ -40,7 +40,7 @@ export type LiveRuntimeDependencies = Readonly<{
   context: () => AudioContext | null
   createManager: (context: AudioContext, scope: CoachScope) => Manager
   clips: () => ClipSource
-  /** Re-pins the voice pack prepared earlier on this device; called once per voice while audio runs. */
+  /** Loads the published voice pack (cache or free GET); once per voice while audio runs. */
   restorePack: (slot: CoachVoice) => void
   beep: RepBeepArbiter
   now: () => number
@@ -73,7 +73,7 @@ const defaults: LiveRuntimeDependencies = {
   context: peekSharedAudioContext,
   createManager: (context, scope) => new LocalCoachAudioManager({ context, scope }),
   clips: () => coachPackClient.clipsFor(localAudioRuntime.getSavedPreferences()?.voiceProfile),
-  restorePack: slot => { void coachPackClient.restore(slot) },
+  restorePack: slot => { void coachPackClient.restore(slot, { downloadPrepared: true }) },
   beep: coachRepBeep,
   now: () => performance.now(),
   setInterval: (callback, ms) => globalThis.setInterval(callback, ms),

@@ -8,6 +8,7 @@ import type { MachineHealth } from '@/entities/machine/model/types'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { StrengthTrainingMode } from '@/entities/strength/model/types'
 import { buildBackendBuilderRuntimeSession } from '@/features/runtime/lib/backend-builder-session'
+import { getBuilderPlanSignature } from '@/features/runtime/lib/builder-plan-signature'
 import { getRuntimeResumeView, isSessionInCurrentTrainingDay, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
 import { requiresMachineCalibration, supportsFixedBarSetup } from '@/features/runtime/lib/runtime-exercise'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
@@ -69,34 +70,8 @@ function formatRange(lowerPointMm?: number | null, upperPointMm?: number | null)
 }
 
 function areBackendBuilderSessionsEquivalent(currentSession: RuntimeWorkoutSession, nextSession: RuntimeWorkoutSession) {
-  if (currentSession.workoutTitle !== nextSession.workoutTitle || currentSession.exercises.length !== nextSession.exercises.length) {
-    return false
-  }
-
-  return currentSession.exercises.every((exercise, index) => {
-    const nextExercise = nextSession.exercises[index]
-    if (!nextExercise) {
-      return false
-    }
-
-    if (exercise.id !== nextExercise.id || exercise.slug !== nextExercise.slug || exercise.kind !== nextExercise.kind || Boolean(exercise.perSide) !== Boolean(nextExercise.perSide) || exercise.plan.length !== nextExercise.plan.length) {
-      return false
-    }
-
-    return exercise.plan.every((setPlan, setIndex) => {
-      const nextSetPlan = nextExercise.plan[setIndex]
-      return Boolean(nextSetPlan)
-        && setPlan.targetReps === nextSetPlan.targetReps
-        && setPlan.targetMinReps === nextSetPlan.targetMinReps
-        && setPlan.targetMaxReps === nextSetPlan.targetMaxReps
-        && setPlan.targetSeconds === nextSetPlan.targetSeconds
-        && setPlan.recommendedWeightKg === nextSetPlan.recommendedWeightKg
-        && setPlan.restSeconds === nextSetPlan.restSeconds
-        && setPlan.side === nextSetPlan.side
-        && setPlan.roundNumber === nextSetPlan.roundNumber
-        && (setPlan.setType ?? null) === (nextSetPlan.setType ?? null)
-    })
-  })
+  return (currentSession.builderPlanSignature ?? getBuilderPlanSignature(currentSession))
+    === (nextSession.builderPlanSignature ?? getBuilderPlanSignature(nextSession))
 }
 
 export function ExerciseSetupScreen() {
@@ -172,9 +147,12 @@ export function ExerciseSetupScreen() {
   const backendBuilderKey = JSON.stringify([resolvedUserId, initOptions.programId, initOptions.runId, initOptions.calibrationState])
   // Once loaded, compare SERVER snapshots with each other. Local input rebuilds the runtime plan too:
   // comparing it to the original server plan would immediately discard every committed field edit.
+  // Older persisted runs lack an immutable signature: do not erase their progress on the first refetch.
+  const hasLegacyProgress = session && !session.builderPlanSignature
+    && (session.completedExerciseIds.length > 0 || Object.values(session.completedSets).some(results => results.length > 0))
   const previousBackendBuilderSession = backendBuilderSnapshot.current?.key === backendBuilderKey
     ? backendBuilderSnapshot.current.session
-    : session
+    : hasLegacyProgress ? backendBuilderSession ?? session : session
   const isStaleRuntimeBuilderSession = Boolean(
     usesBackendBuilderSession
     && hasMatchingRuntimeBuilderSession

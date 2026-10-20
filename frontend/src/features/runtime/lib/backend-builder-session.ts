@@ -17,6 +17,7 @@ import type {
 import { buildStrengthPlan, getStrengthModeTitle, normalizeStrengthDayType, normalizeStrengthModeId, toRuntimeSetPlan } from '@/features/strength/lib/strength-plan'
 import { apiGet } from '@/shared/api/client'
 import { expandPerSidePlan } from './per-side'
+import { getBuilderPlanSignature } from './builder-plan-signature'
 
 const defaultPhotoHints: Record<RuntimePhotoView, string> = {
   front: 'Встаньте лицом к камере и совместите силуэт.',
@@ -81,7 +82,7 @@ export async function buildBackendBuilderRuntimeSession(options: BuilderRuntimeS
     nextExerciseId: allExercises[index + 1]?.id,
   }))
 
-  return {
+  const session: RuntimeWorkoutSession = {
     id: `backend-builder-${options.programId}-${options.runId ?? exercises.map((exercise) => exercise.id).join('-')}`,
     source: 'builder',
     programId: options.programId,
@@ -100,6 +101,7 @@ export async function buildBackendBuilderRuntimeSession(options: BuilderRuntimeS
     completedExerciseIds: [],
     workoutSummary: buildBuilderWorkoutSummary(builderData, exercises),
   }
+  return { ...session, builderPlanSignature: getBuilderPlanSignature(session) }
 }
 
 function buildRuntimeExerciseFromBuilderItem({

@@ -312,6 +312,19 @@ describe('CoachInterpreter sources and safety', () => {
     h.session = { ...h.session, currentExerciseId: 'e2' } as RuntimeWorkoutSession
     expect(all(h.enterSet())).toEqual(['start'])
   })
+
+  it('suspends in service mode and resumes only after explicit fresh safety clearance without replay', () => {
+    const h = new Harness(); h.enterSet(); h.reps(1, 1)
+    const service = { serviceMode: true, safety: { state: 'enabled', requiresService: true } }
+    expect(kinds(h.hw('training', 2, { patch: service }))).toEqual(['safety-stop'])
+    expect(h.interpreter.snapshot()).toMatchObject({ phase: 'suspended', latches: ['requiresService'], fresh: true })
+    h.lifecycle = [lifecycleEvent('service-result', 'set_stopped', h.now, 'completed')]
+    expect(kinds(h.hw('training', 3, { patch: service }))).toEqual([])
+    expect(h.interpreter.snapshot().skips).toEqual(expect.arrayContaining([expect.objectContaining({ triggerId: 'T35', reason: 'safety' })]))
+    expect(kinds(h.hw('training', 4))).toEqual([]) // Fresh explicit false clears it, but does not replay.
+    expect(h.interpreter.snapshot()).toMatchObject({ phase: 'active-set', latches: [] })
+    expect(h.reps(5, 5)).toEqual(['count:5'])
+  })
 })
 
 describe('CoachInterpreter lifecycle and rest', () => {

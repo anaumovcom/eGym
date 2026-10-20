@@ -64,6 +64,25 @@ describe('useExerciseSettings', () => {
     expect(apiPut).not.toHaveBeenCalled()
   })
 
+  it.each(['timed', 'machine'] as const)('preserves explicit builder settings for %s instead of hydrating another workout', async kind => {
+    const planned = { ...exercise(), kind, loadSettings: { ...exercise().loadSettings, sets: 1, reps: 60, restSeconds: 30 } }
+    runtime.session = { ...runtime.session!, source: 'builder', exercises: [planned] }
+    const settings = snapshot()
+    vi.mocked(apiGet).mockResolvedValue({ ...settings, sets: 3, reps: 12, restSeconds: 90, trainingMode: 'hypertrophy' })
+    const view = mount({ debounceMs: 1 })
+    await waitFor(() => expect(view.result.current.ready).toBe(true))
+    expect(await view.result.current.flush()).toBe(true)
+    expect(snapshot()).toEqual(settings)
+    expect(runtime.restoreExerciseSettings).not.toHaveBeenCalled()
+    expect(apiGet).not.toHaveBeenCalled()
+    expect(apiPut).not.toHaveBeenCalled()
+
+    edit(25)
+    view.rerender()
+    await act(async () => { expect(await view.result.current.flush()).toBe(true) })
+    expect(apiPut).toHaveBeenCalledWith('/api/runtime/exercises/settings', expect.objectContaining({ ...settings, userId: 'alexey', weight: 25 }))
+  })
+
   it('blocks failed reads, exposes the error and retries explicitly without fallback', async () => {
     vi.mocked(apiGet).mockRejectedValueOnce(new Error('read unavailable')).mockResolvedValueOnce(null)
     const view = mount()

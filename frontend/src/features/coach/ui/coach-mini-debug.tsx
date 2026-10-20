@@ -17,7 +17,8 @@ const reasons: Readonly<Record<string, string>> = {
   no_consent: 'Нет согласия', unavailable: 'Аудиоконтекст недоступен', decode_failed: 'Ошибка декодирования',
   cancelled: 'Тест остановлен', scope_changed: 'Контекст изменён', missing_clip: 'Фраза не подготовлена',
   admitted: 'Фраза принята', idle: 'Ожидание', stale_source: 'Данные тренажёра устарели', mock_source: 'Не реальный источник',
-  owner_mismatch: 'Тренажёр у другого пользователя', expired: 'Опоздало', no_source: 'Нет источника',
+  owner_mismatch: 'Владелец или контекст тренировки не совпадает', expired: 'Опоздало', no_source: 'Нет источника',
+  requiresService: 'Сервисный режим или аварийная остановка: обычная речь заблокирована',
   pipeline_busy: 'Тренер уже говорит', provider_unavailable: 'Провайдер недоступен', stale_run: 'Настройки изменились, переподключение',
   local_mode: 'Сервер в локальном режиме', coach_disabled: 'Тренер выключен на сервере (COACH_ENABLED)', run_not_found: 'Ledger не найден', budget: 'Лимит бюджета', degraded: 'Только локальные клипы',
   no_useful_content: 'Нечего сказать', validation_failed: 'Текст отклонён проверкой', closed: 'Соединение закрыто', network: 'Сеть недоступна',
@@ -107,7 +108,7 @@ export function CoachLiveDiagnostics({ snapshot }: { snapshot: LiveRuntimeSnapsh
     <dl className="coach-local-metrics">
       <div><dt>Фаза</dt><dd>{interpreter?.phase ?? 'не запущен'}</dd></div>
       <div><dt>Источник свежий</dt><dd>{interpreter ? interpreter.fresh ? 'да' : 'нет' : '—'}</dd></div>
-      <div><dt>Блокировки</dt><dd>{interpreter?.latches.join(', ') || (interpreter?.pain ? 'боль' : '—')}</dd></div>
+      <div><dt>Блокировки</dt><dd>{interpreter?.latches.map(reasonLabel).join(', ') || (interpreter?.pain ? 'боль' : '—')}</dd></div>
       <div><dt>Последняя фраза</dt><dd>{snapshot.lastCue ? `${snapshot.lastCue.triggerId} · ${snapshot.lastCue.clipId ?? '—'} · ${reasonLabel(snapshot.lastCue.reason)}` : '—'}</dd></div>
       <div><dt>Поводы / приняты / нет клипа / подавлены</dt><dd>{`${snapshot.counters.cues} / ${snapshot.counters.admitted} / ${snapshot.counters.missingClip} / ${snapshot.counters.suppressed}`}</dd></div>
     </dl>

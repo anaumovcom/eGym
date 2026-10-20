@@ -51,6 +51,7 @@ ON_STOPS_MM = 15.0
 DEFAULT_CUSHION_MM = 120.0  # F10 not measured: still brake fast motion near the ends of the travel
 MOVE_MAX_S = 120.0
 MOVE_MARGIN_MM = 60.0
+START_MOVE_SPEED_MARGIN_MM_S = 20.0  # extra envelope headroom only for positioning at the set's start
 MOVE_START_MM_S = 25.0  # a scripted move starts from a (nearly) still bar…
 SETTLE_MAX_S = 3.0  # …caught by the hold first, at most this long
 UNLOADED_N = 1.0
@@ -573,10 +574,13 @@ class WorkoutController:
         # the bar may start above the soft limit (pushed up by hand in weightless, where nothing stops it):
         # every move goes to a point at or below the limit, so the envelope covers the start height
         top = max([self.envelope.soft_max_mm, *(frame.x(side) for side in SIDES)])
-        # Fast transit carries its own temporary ceiling. Keep its landing/correction envelope unchanged:
-        # this also catches a user taking the bar near the start before it can accelerate past the handover limit.
-        short_start = self.plan is not None and self._after is self._start_arrived and abs(self.plan.start_mm - frame.x_mean) < FAST_MIN_MM
+        # Fast transit carries its own temporary ceiling. Landing/correction keeps a low envelope:
+        # catch a user taking the bar before it accelerates past the handover limit, with a little positioning headroom.
+        start_move = self.plan is not None and self._after is not None and self._after is self._start_arrived
+        short_start = self.plan is not None and start_move and abs(self.plan.start_mm - frame.x_mean) < FAST_MIN_MM
         speed_limit = JOG_SPEED_MM_S + 100.0 if self._jog is not None or short_start else ProcedureEnvelope().max_speed_mm_s
+        if start_move:
+            speed_limit += START_MOVE_SPEED_MARGIN_MM_S
         envelope = ProcedureEnvelope(
             min_x_mm=-5.0, max_x_mm=top + MOVE_MARGIN_MM, max_force_n=self.envelope.max_force_n_per_side,
             max_speed_mm_s=min(self.envelope.max_speed_mm_s, speed_limit),

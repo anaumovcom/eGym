@@ -65,10 +65,38 @@ describe('ResetBlockButton', () => {
 })
 
 describe('TV system status', () => {
+  it('shows the service exit only while enabled and uses the guarded disable command', async () => {
+    useAppStore.setState({ selectedUserId: 'alexey' })
+    const snapshot = { serviceMode: true, safety: { state: 'enabled' } } as HardwareSnapshot
+    useHardwareStore.setState({ snapshot })
+    let finish!: (value: HardwareCommandResponse) => void
+    const run = vi.spyOn(useHardwareStore.getState(), 'runCommand').mockImplementation(() => new Promise(resolve => { finish = resolve }))
+    render(<TopSystemBar machine={machineScenarios.ready} onStop={vi.fn()} />)
+    const button = screen.getByRole('button', { name: 'Отключить сервисный режим' })
+    await userEvent.click(button)
+    expect(run).toHaveBeenCalledExactlyOnceWith({ action: 'toggle_service_mode', userId: 'alexey', serviceMode: false })
+    expect(button).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Аварийная остановка' })).toBeEnabled()
+    await act(async () => { finish({ snapshot } as HardwareCommandResponse) })
+    expect(button).toBeEnabled() // Wait for actual telemetry, not an optimistic toggle.
+    act(() => useHardwareStore.setState({ snapshot: { ...snapshot, serviceMode: false } }))
+    expect(screen.queryByRole('button', { name: 'Отключить сервисный режим' })).not.toBeInTheDocument()
+  })
+
+  it('keeps service exit available after failure and reports the error', async () => {
+    useHardwareStore.setState({ snapshot: { serviceMode: true, safety: { state: 'enabled' } } as HardwareSnapshot })
+    vi.spyOn(useHardwareStore.getState(), 'runCommand').mockRejectedValue(new Error('Команда отклонена'))
+    render(<TopSystemBar machine={machineScenarios.ready} onStop={vi.fn()} />)
+    await userEvent.click(screen.getByRole('button', { name: 'Отключить сервисный режим' }))
+    await waitFor(() => expect(useHardwareStore.getState().errorMessage).toBe('Команда отклонена'))
+    expect(screen.getByRole('button', { name: 'Отключить сервисный режим' })).toBeEnabled()
+  })
+
   it('keeps healthy status visible and discloses details without an action', async () => {
     const user = userEvent.setup()
     const stop = vi.fn()
     render(<TopSystemBar machine={machineScenarios.ready} onStop={stop} />)
+    expect(screen.queryByRole('button', { name: 'Отключить сервисный режим' })).not.toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent(machineScenarios.ready.machineLabel)
     await user.click(screen.getByRole('button', { name: /Состояние тренажёра:/ }))
     expect(screen.getByText(getSafetyLabel(machineScenarios.ready.safety))).toBeVisible()

@@ -211,14 +211,14 @@ def test_runaway_prediction_still_unloads_and_recovery_does_not_wait_for_210(dt)
     assert relief == 1
 
 
-def test_downward_load_retains_original_fast_fall_protection():
+def test_downward_load_retains_fast_fall_protection_without_rearm_latch():
     core = _core()
     core.set_load(replace(core.load, load_direction="down"))
     for _ in range(10):
-        _update(core, -250)
+        _update(core, -400)
     assert core.load_relief == {side: 0 for side in SIDES}
-    assert _update(core, -150) == 0  # old descent hysteresis unchanged
-    assert _update(core, -100) == pytest.approx(.04)
+    assert _update(core, -150) == pytest.approx(.04)
+    assert _update(core, -100) == pytest.approx(.08)
 
 
 @pytest.mark.parametrize("delay_ticks", [1, 2])
