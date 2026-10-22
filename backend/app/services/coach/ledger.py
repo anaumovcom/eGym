@@ -17,6 +17,24 @@ from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, Usag
 from app.services.coach.preferences import load_preferences
 from app.services.coach.security import digest
 
+MAX_LIVE_RUNS = 64
+RUN_CONNECT_GRACE_SECONDS = 60
+
+
+def check_run_capacity(db: Session, now: float, *, exclude_id: str | None = None) -> None:
+    # "active" is a resumable billing ledger, not a live connection. Keep old
+    # ledgers (including sent liabilities and saved tokens) intact on disconnect.
+    # A new run holds a short slot until its first lease; expired leases free
+    # capacity even if the browser disappeared without explicitly closing it.
+    query = select(func.count()).select_from(CoachLedgerRun).where(
+        CoachLedgerRun.state == "active",
+        (CoachLedgerRun.lease_until > now) | (CoachLedgerRun.created_at > now - RUN_CONNECT_GRACE_SECONDS),
+    )
+    if exclude_id is not None:
+        query = query.where(CoachLedgerRun.id != exclude_id)
+    if db.scalar(query) >= MAX_LIVE_RUNS:
+        raise HTTPException(429, "active_runs_full")
+
 
 def micros(value: str) -> int:
     amount = Decimal(value)
@@ -45,12 +63,12 @@ def create_run(db: Session, user_id: str, ledger: str, cap_usd: str) -> tuple[Co
         cap = micros(cap_usd)
         if ledger == "workout" and cap > micros(prefs.budget_usd):
             raise HTTPException(409, "cap_exceeds_user_budget")
-        if db.scalar(select(func.count()).select_from(CoachLedgerRun).where(CoachLedgerRun.state == "active")) >= 64:
-            raise HTTPException(429, "active_runs_full")
+        now = time.time()
+        check_run_capacity(db, now)
         credential = db.get(CoachCredential, 1)
         token = secrets.token_urlsafe(32)
         row = CoachLedgerRun(id=secrets.token_hex(16), user_id=user_id, access_digest=digest(token), ledger=ledger,
-                             cap_micros=cap, pricing={}, generation=0, created_at=time.time(),
+                             cap_micros=cap, pricing={}, generation=0, created_at=now,
                              credential_version=credential.version if credential else 0)
         db.add(row)
     return row, token
@@ -71,6 +89,9 @@ def lease(db: Session, run_id: str, owner: str, generation: int) -> dict:
             raise HTTPException(409, "stale_run")
         if row.owner != owner and row.lease_until > now:
             raise HTTPException(409, "owner_mismatch")
+        # Resuming a saved ledger must obey the same concurrent limit as a new
+        # connection; exclude itself so heartbeats still work at full capacity.
+        check_run_capacity(db, now, exclude_id=run_id)
         if row.owner != owner or row.lease_until <= now:
             row.generation += 1
             for attempt in db.scalars(select(CoachAttempt).where(CoachAttempt.run_id == run_id)):

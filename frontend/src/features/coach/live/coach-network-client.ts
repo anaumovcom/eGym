@@ -350,7 +350,16 @@ export class CoachNetworkClient {
           headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
           body: JSON.stringify({ schemaVersion: 1, userId: input.userId, ledger: 'workout', capUsd: input.saved.budgetUsd }) })
         if (key !== this.key || this.disposed) return
-        if (!response.ok) { this.retry(response.status === 404 || response.status === 403 ? 'run_unavailable' : 'run_create_failed'); return }
+        if (!response.ok) {
+          let reason = response.status === 404 || response.status === 403 ? 'run_unavailable' : 'run_create_failed'
+          // Never expose arbitrary response details (which may contain private
+          // data). This exact public code distinguishes capacity from networking.
+          if (response.status === 429) {
+            try { if (object(await response.json())?.detail === 'active_runs_full') reason = 'active_runs_full' } catch { /* non-JSON proxy response */ }
+          }
+          if (key === this.key && !this.disposed) this.retry(reason)
+          return
+        }
         const body = object(await response.json())
         const runId = str(body?.runId, 64), token = str(body?.runToken, 128)
         if (key !== this.key || this.disposed) return
@@ -951,7 +960,7 @@ export class CoachNetworkClient {
 const REPORT_REASONS = new Set(('ready disabled audio_locked safety hardware_active runtime_session mute hidden no_user preferences_loading ' +
   'preferences_unavailable no_consent unavailable decode_failed cancelled scope_changed missing_clip admitted idle stale_source mock_source ' +
   'owner_mismatch expired no_source pipeline_busy provider_unavailable stale_run local_mode coach_disabled run_not_found run_not_live run_closed ' +
-  'budget degraded credential_unavailable voice_unavailable no_useful_content validation_failed closed network run_unavailable run_create_failed invalid_response socket error ' +
+  'budget degraded credential_unavailable voice_unavailable no_useful_content validation_failed closed network run_unavailable run_create_failed active_runs_full invalid_response socket error ' +
   'queue_full queue_preempted invalid_local_completion provider_timeout provider_error rate_limited plan_changed paused-set ' +
   'playback_failed scope_changed watchdog stale invalid disposed audio_overrun first_audio_timeout internal_error facts_changed ' +
   'identity_mismatch duplicate event_capacity stale_event stale_text incomplete complete failed frame sequence_gap invalid_frame').split(' '))

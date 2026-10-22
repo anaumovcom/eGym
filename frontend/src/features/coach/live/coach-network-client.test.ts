@@ -116,6 +116,31 @@ function frame(gid: string, sequence: number, seconds: number, final: boolean, f
 }
 
 describe('CoachNetworkClient', () => {
+  it.each([
+    [JSON.stringify({ detail: 'active_runs_full' }), 'active_runs_full'],
+    [JSON.stringify({ detail: 'private-sentinel' }), 'run_create_failed'],
+    ['<html>private-sentinel</html>', 'run_create_failed'],
+  ])('reports only allowlisted capacity errors and retries creation (%s)', async (body, reason) => {
+    const f = new Fixture(), timers: Array<() => void> = [], sockets: FakeSocket[] = []
+    const request = vi.fn().mockResolvedValueOnce(new Response(body, { status: 429 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ runId: 'billing-retry', runToken: 'secret-retry' })))
+    const client = new CoachNetworkClient({ fetch: request, storage: null,
+      socket: url => { const socket = new FakeSocket(url); sockets.push(socket); return socket },
+      setTimeout: callback => { timers.push(callback); return timers.length }, clearTimeout: () => undefined,
+      origin: () => ({ protocol: 'http:', host: 'localhost:5173' }), nowMs: () => f.clock.now(), ownerId: () => 'tab-retry' })
+    try {
+      client.tick(f.input)
+      await vi.waitFor(() => expect(client.getSnapshot()).toMatchObject({ state: 'retrying', reason }))
+      expect(redactedNetworkReport(client.getSnapshot())).toContain(reason)
+      expect(redactedNetworkReport(client.getSnapshot())).not.toContain('private-sentinel')
+      expect(sockets).toHaveLength(0)
+      timers.shift()!()
+      await vi.waitFor(() => expect(sockets).toHaveLength(1))
+      expect(request).toHaveBeenCalledTimes(2)
+      expect(client.getSnapshot().state).toBe('connecting')
+    } finally { client.dispose(); f.client.dispose(); f.manager.dispose() }
+  })
+
   it.each(['rest_long_opportunity', 'set_persisted'] as const)('does not collide with retained %s IDs after a reload on the same billing run', async kind => {
     const first = new Fixture(), reloaded = new Fixture()
     const seen = new Set<string>()

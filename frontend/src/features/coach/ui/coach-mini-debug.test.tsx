@@ -253,7 +253,7 @@ describe('CoachLocalPreview', () => {
   it('network diagnostics show ledger usage and decisions and copy a redacted report', async () => {
     const writeText = vi.fn(async () => undefined)
     Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true })
-    render(<CoachNetworkDiagnostics snapshot={{ state: 'ready', reason: null, mode: 'hybrid', voiceId: 'ash', text: true, voice: true,
+    render(<CoachNetworkDiagnostics snapshot={{ state: 'retrying', reason: 'active_runs_full', mode: 'hybrid', voiceId: 'ash', text: true, voice: true,
       degraded: false, eventsSent: 3, streams: 1, spoken: 1, failed: 0, firstAudioMs: 640, lastText: 'Отличный подход',
       firstAudioMsLabel: 'voice-only', latencies: {
         'eventToPlaybackStart:workout_started:realtime:voiceModel=gpt-realtime-2.1-mini:textModel=gpt-6-luna:connection=warm': { count: 3, p50: 700, p95: 950 },
@@ -263,6 +263,7 @@ describe('CoachLocalPreview', () => {
       reasons: { pipeline_busy: 1 }, usage: { requests: 2, settledMicros: 12_340, pendingMicros: 0, capMicros: 2_000_000, limitKind: 'strict-reservations' },
       decisions: [{ atMs: 1, triggerId: 'T21', action: 'silence', reason: 'pipeline_busy', text: null }] }} />)
     expect(screen.getByText('$0.0123 / $0.0000 / $2.0000 · 2 запр.')).toBeVisible()
+    expect(screen.getByText('Переподключение · Заняты все подключения тренера; повторяем попытку')).toBeVisible()
     expect(screen.getByText('Голос → первый PCM')).toBeVisible()
     expect(screen.getByText('640 мс (последний)')).toBeVisible()
     expect(screen.getByText('Событие → старт · workout_started · p95')).toBeVisible()

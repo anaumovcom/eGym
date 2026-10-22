@@ -68,6 +68,96 @@ def make_run(db, cap="2.00"):
     return run_id, generation, token
 
 
+def fill_run_slots(db, *, created_at, lease_until=0, count=64):
+    for index in range(count):
+        db.add(CoachLedgerRun(id=f"slot-{index}", user_id="alexey", access_digest="synthetic",
+                              ledger="test", cap_micros=2_000_000, created_at=created_at,
+                              owner="tab-old" if lease_until else None, lease_until=lease_until))
+    db.commit()
+
+
+def test_dormant_runs_do_not_exhaust_capacity_or_erase_budget(db_session, monkeypatch):
+    now = 2_000_000_000.0
+    monkeypatch.setattr(ledger.time, "time", lambda: now)
+    run_id, generation, token = make_run(db_session)
+    attempt = ledger.reserve(db_session, run_id, "tab-a", generation, "event", "voice", PRICE, BOUNDS)
+    ledger.dispatch(db_session, attempt, "tab-a", test_only=True)
+    before = ledger.snapshot(db_session, run_id)
+    db_session.rollback()
+    fill_run_slots(db_session, created_at=now - 3600, lease_until=now - 3500)
+    now += 3600
+    row, _ = ledger.create_run(db_session, "alexey", "workout", "2.00")
+    assert row.state == "active"
+    # Reusing the same saved token must preserve every liability, not grant a fresh cap.
+    assert ledger.get_run(db_session, run_id, token).state == "active"
+    assert ledger.snapshot(db_session, run_id) == before
+    db_session.rollback()
+    renewed = ledger.lease(db_session, run_id, "tab-reloaded", generation)
+    assert renewed["generation"] == generation + 1
+    after = ledger.snapshot(db_session, run_id)
+    assert after["pendingMicros"] == before["pendingMicros"] > 0
+    assert after["requests"] == before["requests"] == 1
+    assert after["attempts"][0]["status"] == "unsettled"
+
+
+def test_unclaimed_run_slots_expire_without_closing_ledger(db_session, monkeypatch):
+    now = 2_000_000_000.0
+    monkeypatch.setattr(ledger.time, "time", lambda: now)
+    fill_run_slots(db_session, created_at=now)
+    with pytest.raises(HTTPException, match="active_runs_full"):
+        ledger.create_run(db_session, "alexey", "workout", "2.00")
+    now += 61
+    row, _ = ledger.create_run(db_session, "alexey", "workout", "2.00")
+    assert row.state == "active"
+    assert db_session.scalar(select(func.count()).select_from(CoachLedgerRun).where(CoachLedgerRun.state == "active")) == 65
+
+
+def test_live_leases_still_limit_creation_and_dormant_reactivation(db_session, monkeypatch):
+    now = 2_000_000_000.0
+    monkeypatch.setattr(ledger.time, "time", lambda: now)
+    row, _ = ledger.create_run(db_session, "alexey", "test", "2.00")
+    dormant_id = row.id
+    db_session.rollback()
+    now += 3600
+    fill_run_slots(db_session, created_at=now - 3600, lease_until=now + 15)
+    with pytest.raises(HTTPException, match="active_runs_full"):
+        ledger.create_run(db_session, "alexey", "workout", "2.00")
+    with pytest.raises(HTTPException, match="active_runs_full"):
+        ledger.lease(db_session, dormant_id, "tab-new", 0)
+    # A heartbeat is not an additional connection and remains possible at capacity.
+    assert ledger.lease(db_session, "slot-0", "tab-old", 0)["leaseUntil"] == now + 15
+    now += 16
+    assert ledger.lease(db_session, dormant_id, "tab-new", 0)["generation"] == 1
+
+
+def test_create_run_http_recovers_from_64_abandoned_ledgers(client, session_factory):
+    with session_factory() as db:
+        fill_run_slots(db, created_at=ledger.time.time() - 3600)
+    client.base_url = "http://localhost"
+    response = client.post("/api/coach/runs", headers=ORIGIN,
+                           json={"schemaVersion": 1, "userId": "alexey", "ledger": "workout", "capUsd": "2.00"})
+    assert response.status_code == 200, response.text
+    assert response.json()["state"] == "active"
+    assert response.json()["requests"] == 0
+
+
+def test_concurrent_create_serializes_last_live_slot(session_factory):
+    with session_factory() as db:
+        fill_run_slots(db, created_at=ledger.time.time(), count=63)
+
+    def worker():
+        with session_factory() as db:
+            try:
+                ledger.create_run(db, "alexey", "test", "2.00")
+                return "created"
+            except HTTPException as exc:
+                assert exc.status_code == 429
+                return exc.detail
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        assert sorted(pool.map(lambda _: worker(), range(2))) == ["active_runs_full", "created"]
+
+
 def test_preferences_persist_cas_isolate_and_legacy_off(db_session):
     saved = save_preferences(db_session, "alexey", PreferencesSave(expected_revision=0, settings=CoachPreferences(enabled=True, consent_version=1)))
     assert saved.revision == 1 and load_preferences(db_session, "alexey").enabled
