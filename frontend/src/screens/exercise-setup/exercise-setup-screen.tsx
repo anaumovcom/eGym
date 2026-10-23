@@ -15,6 +15,8 @@ import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtim
 import { resetExercisesOnBackend } from '@/features/runtime/lib/runtime-persistence'
 import { ownsExerciseSettingsSession, useExerciseSettings } from '@/features/runtime/lib/use-exercise-settings'
 import { formatTimedSeconds, stepTimedSeconds } from '@/features/runtime/lib/timed-set'
+import { describeWorkoutSet } from '@/features/runtime/lib/workout-progress'
+import { WorkoutNavigator } from '@/features/runtime/ui/workout-navigator'
 import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
 import { BarStartPointSelector } from '@/features/hardware/ui/bar-start-point-selector'
 import type { BarStartPoint, LoadDirection } from '@/features/hardware/model/types'
@@ -623,7 +625,7 @@ export function ExerciseSetupScreen() {
 
   const readyNote = (
     <>
-      Готово к старту: <strong>{settings.sets} × {settings.reps}</strong> · вес {exercise.plan[0]?.recommendedWeightKg ?? settings.weight} кг · отдых {settings.restSeconds} с
+      Готово к старту: <strong>{settings.sets} × {settings.reps}</strong> · вес {exercise.plan[session.currentSetIndex]?.recommendedWeightKg ?? exercise.plan[0]?.recommendedWeightKg ?? settings.weight} кг · отдых {settings.restSeconds} с
     </>
   )
 
@@ -638,20 +640,24 @@ export function ExerciseSetupScreen() {
     >
       <div className="rt-screen rt-setup-screen">
         <header className="rt-header">
-          {previousExercise ? (
-            <Button variant="secondary" disabled={restartingPrevious || startingExercise} iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => { setPreviousError(null); setPreviousDialogOpen(true) }}>
-              {restartingPrevious ? 'Возвращаюсь…' : 'Предыдущее упражнение'}
-            </Button>
-          ) : (
-            <Button variant="secondary" iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => navigate(-1)}>
-              Назад
-            </Button>
-          )}
+          <div className="rt-header-nav">
+            {previousExercise ? (
+              <Button variant="secondary" disabled={restartingPrevious || startingExercise} iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => { setPreviousError(null); setPreviousDialogOpen(true) }}>
+                {restartingPrevious ? 'Возвращаюсь…' : 'Предыдущее упражнение'}
+              </Button>
+            ) : (
+              <Button variant="secondary" iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => navigate(-1)}>
+                Назад
+              </Button>
+            )}
+            {session.exercises.length > 1 ? <WorkoutNavigator session={session} disabled={restartingPrevious || startingExercise} /> : null}
+          </div>
           <div className="rt-title">
             <h1 className="font-display font-bold tracking-[-0.04em] text-white">Настройка упражнения</h1>
             <p>
               <span>{session.workoutTitle}</span>
               <span>Упражнение {exercise.order} из {session.exercises.length}</span>
+              {session.currentSetIndex > 0 ? <span>Начало с: {describeWorkoutSet(exercise, session.currentSetIndex)}</span> : null}
               <span>{exerciseKindLabels[exercise.kind]}</span>
               <span>{exercise.perSide ? 'Поочерёдно · на каждую сторону' : 'Обычное выполнение'}</span>
             </p>

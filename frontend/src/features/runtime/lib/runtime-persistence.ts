@@ -1,4 +1,4 @@
-import type { RuntimeWorkoutOutcome, RuntimeWorkoutSession, RuntimeWorkoutSummaryState } from '@/entities/runtime/model/types'
+import type { RuntimeSetResult, RuntimeWorkoutOutcome, RuntimeWorkoutSession, RuntimeWorkoutSummaryState } from '@/entities/runtime/model/types'
 import { apiPost } from '@/shared/api/client'
 
 export type WorkoutSaveStatus = RuntimeWorkoutOutcome | 'in_progress'
@@ -99,6 +99,72 @@ export async function saveWorkoutToBackend(session: RuntimeWorkoutSession, userI
   })
 }
 
+type RuntimeExercise = RuntimeWorkoutSession['exercises'][number]
+
+export function shouldSaveSetResult(result: RuntimeSetResult) {
+  return result.completionStatus !== 'skipped' && Math.max(result.actualValue, result.reps ?? 0) > 0
+}
+
+export function toBackendSetPayload(exercise: RuntimeExercise, result: RuntimeSetResult) {
+  const open = exercise.plan[result.setNumber - 1]?.setType === 'failure'
+  return {
+    setNumber: result.setNumber,
+    plannedValue: open ? 0 : result.plannedValue,
+    actualValue: result.actualValue,
+    setType: result.setType,
+    targetMinReps: open ? null : result.targetMinReps,
+    targetMaxReps: open ? null : result.targetMaxReps,
+    reps: result.reps,
+    weightKg: result.weightKg,
+    tempoLabel: result.tempoLabel,
+    amplitudePercent: result.amplitudePercent,
+    restDurationSeconds: exercise.plan[result.setNumber - 1]?.restSeconds,
+    rir: result.rir,
+    subjectiveEffort: result.subjectiveEffort,
+    discomfortLevel: result.discomfortLevel,
+    pain: result.pain,
+    techniqueBreakdown: result.techniqueBreakdown,
+    comment: result.comment,
+    syncLabel: result.syncLabel,
+    machineMetrics: {
+      ...(exercise.loadSettings.mode === 'Обычный вес' || exercise.loadSettings.mode === 'constant' ? { loadMode: 'constant' } : {}),
+      ...(open ? { targetType: 'open' } : {}),
+      trainingMode: exercise.strengthMode.id,
+      trainingDayType: exercise.strengthMode.dayType,
+      // Warm-up/pyramid sets lift a share of it: the exercise profile remembers the working weight.
+      workingWeightKg: exercise.loadSettings.weight,
+      completionStatus: result.completionStatus,
+      side: result.side,
+      roundNumber: result.roundNumber,
+    },
+  }
+}
+
+function buildExerciseResetPayload(session: RuntimeWorkoutSession, exercise: RuntimeExercise, exerciseSessionId: number, userId: string) {
+  return {
+    exerciseSessionId,
+    userId,
+    workoutSessionId: session.backendWorkoutSessionId,
+    exerciseSlug: exercise.slug,
+    exerciseName: exercise.name,
+    exerciseSecondaryName: exercise.secondaryName,
+    kind: exercise.kind,
+    orderIndex: exercise.order,
+    status: 'in_progress',
+    startedAt: new Date(Date.now() - 90_000).toISOString(),
+    finishedAt: null,
+    calibrationState: exercise.calibrationState,
+    targetSets: exercise.plan.length,
+    perSide: exercise.perSide ?? false,
+    plannedTotal: exercise.plan.reduce((total, plan) => total + (plan.targetSeconds ?? plan.targetMaxReps ?? plan.targetReps ?? 0), 0),
+    trainingMode: exercise.strengthMode.id,
+    trainingDayType: exercise.strengthMode.dayType,
+    muscles: exercise.muscles.map((name, index) => ({ muscleId: name, name, role: index === 0 ? 'primary' : 'secondary' })),
+    sets: [] as ReturnType<typeof toBackendSetPayload>[],
+    resetSets: true,
+  }
+}
+
 /**
  * Drops the saved sets of the given exercises before they are done again.
  * Returns the ids whose backend record is already gone, so the redo creates fresh ones.
@@ -106,35 +172,31 @@ export async function saveWorkoutToBackend(session: RuntimeWorkoutSession, userI
 export async function resetExercisesOnBackend(session: RuntimeWorkoutSession, exercises: RuntimeWorkoutSession['exercises'], userId: string) {
   const resets = exercises.flatMap((exercise) => {
     const exerciseSessionId = session.backendExerciseSessionIds?.[exercise.id]
-    if (!exerciseSessionId) return []
-    return [{
-        exerciseSessionId,
-        userId,
-        workoutSessionId: session.backendWorkoutSessionId,
-        exerciseSlug: exercise.slug,
-        exerciseName: exercise.name,
-        exerciseSecondaryName: exercise.secondaryName,
-        kind: exercise.kind,
-        orderIndex: exercise.order,
-        status: 'in_progress',
-        startedAt: new Date(Date.now() - 90_000).toISOString(),
-        finishedAt: null,
-        calibrationState: exercise.calibrationState,
-        targetSets: exercise.plan.length,
-        perSide: exercise.perSide ?? false,
-        plannedTotal: exercise.plan.reduce((total, plan) => total + (plan.targetSeconds ?? plan.targetMaxReps ?? plan.targetReps ?? 0), 0),
-        trainingMode: exercise.strengthMode.id,
-        trainingDayType: exercise.strengthMode.dayType,
-        muscles: exercise.muscles.map((name, index) => ({ muscleId: name, name, role: index === 0 ? 'primary' : 'secondary' })),
-        sets: [],
-        resetSets: true,
-    }]
+    return exerciseSessionId ? [buildExerciseResetPayload(session, exercise, exerciseSessionId, userId)] : []
   })
   if (!resets.length) return []
   // Both exercises are reset in one transaction: a failed second reset must not erase the first.
   const response = await apiPost<{ missingExerciseSessionIds: number[] }>('/api/runtime/exercises/reset', { exercises: resets })
   return exercises.filter(exercise => response.missingExerciseSessionIds.includes(session.backendExerciseSessionIds?.[exercise.id] ?? -1))
     .map(exercise => exercise.id)
+}
+
+/**
+ * Keeps only the first `keepSets` saved sets of an exercise that is done again from a later set.
+ * Returns the ids whose backend record is already gone, like resetExercisesOnBackend.
+ */
+export async function truncateExerciseOnBackend(session: RuntimeWorkoutSession, exercise: RuntimeExercise, keepSets: number, userId: string) {
+  const results = session.completedSets[exercise.id] ?? []
+  const exerciseSessionId = session.backendExerciseSessionIds?.[exercise.id]
+  if (!exerciseSessionId || results.length <= keepSets) return []
+  if (keepSets <= 0) return resetExercisesOnBackend(session, [exercise], userId)
+
+  // One request clears the sets and writes the kept ones back, so a failure never leaves a half-truncated exercise.
+  await apiPost('/api/runtime/exercises', {
+    ...buildExerciseResetPayload(session, exercise, exerciseSessionId, userId),
+    sets: results.slice(0, keepSets).filter(shouldSaveSetResult).map((result) => toBackendSetPayload(exercise, result)),
+  })
+  return []
 }
 
 export async function adjustExerciseLoadOnBackend({

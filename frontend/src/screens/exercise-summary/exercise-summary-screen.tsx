@@ -6,6 +6,7 @@ import type { MachineHealth } from '@/entities/machine/model/types'
 import { adjustExerciseLoadOnBackend } from '@/features/runtime/lib/runtime-persistence'
 import { getRuntimeResumeView, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
+import { WorkoutNavigator } from '@/features/runtime/ui/workout-navigator'
 import { getBestSetLabel, getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -130,6 +131,7 @@ export function ExerciseSummaryScreen() {
         <header className="rt-header">
           <div className="rt-chips" style={{ justifyContent: 'flex-start' }} aria-label="Место в тренировке">
             {currentExercise ? <span className="rt-chip">Упражнение {currentExercise.order} из {session.exercises.length}</span> : null}
+            {session.exercises.length > 1 ? <WorkoutNavigator session={session} disabled={pendingAdjustment !== null} /> : null}
           </div>
           <div className="rt-title">
             <h1 className="font-display font-bold tracking-[-0.04em] text-white">{summary.title}</h1>

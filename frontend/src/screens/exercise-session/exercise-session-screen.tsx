@@ -13,7 +13,8 @@ import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
 import { BarStartPointSelector } from '@/features/hardware/ui/bar-start-point-selector'
 import type { BarStartPoint, LoadDirection } from '@/features/hardware/model/types'
 import { LoadDirectionSelector } from '@/features/hardware/ui/load-direction-selector'
-import { resetExercisesOnBackend, saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
+import { resetExercisesOnBackend, saveWorkoutToBackend, shouldSaveSetResult, toBackendSetPayload } from '@/features/runtime/lib/runtime-persistence'
+import { WorkoutNavigator } from '@/features/runtime/ui/workout-navigator'
 import { getExerciseSettingsSnapshot, ownsExerciseSettingsSession, useExerciseSettings } from '@/features/runtime/lib/use-exercise-settings'
 import { captureRuntimeLifecycle, coachLifecycle, coachSetTimer } from '@/features/coach/lib/runtime-observation'
 import { playExerciseEventSound, useExerciseEventSounds } from '@/features/runtime/lib/exercise-event-sounds'
@@ -819,6 +820,9 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   )
   const setTypeLabel = getSetTypeLabel(state.setType)
   const factLabel = state.kind === 'timed' ? 'Секунды' : 'Повторы'
+  // The plan is offered only before the set really starts: no running motor, timer or counted reps.
+  const navigatorAvailable = activeSession.exercises.length > 1 && !motorSetActive && !timerRunning && timerElapsedSeconds === 0
+    && !(liveMotion?.repetitionCount) && !pendingAction && !editingPoint && !calibrationBusy && !restartingPrevious
   const nextExercise = !state.groupMeta && state.setNumber >= state.totalSets
     ? activeSession.exercises[activeSession.exercises.indexOf(exercise) + 1]
     : undefined
@@ -838,6 +842,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
           <div className="rt-chips" style={{ justifyContent: 'flex-start' }} aria-label="Место в тренировке">
             <span className="rt-chip">Упражнение {exercise.order} из {session.exercises.length}</span>
             <span className="rt-chip">{exercise.strengthMode.title}</span>
+            {navigatorAvailable ? <WorkoutNavigator session={activeSession} /> : null}
           </div>
           <div className="rt-title">
             <h1 className="font-display font-bold tracking-[-0.04em] text-white">{exercise.name}</h1>
@@ -1318,45 +1323,6 @@ function buildCurrentSetResult({ state, setPlan, liveMotion, actualReps, actualW
     amplitudePercent: liveMotion?.amplitudePercent,
     tempoLabel: isSkipped ? 'пропуск' : isPartial ? 'частично' : 'хорошо',
     syncLabel: liveMotion ? `${(liveMotion.syncDeltaMm ?? Math.abs(liveMotion.leftPositionMm - liveMotion.rightPositionMm)).toFixed(1)} мм` : undefined,
-  }
-}
-
-function shouldSaveSetResult(result: RuntimeSetResult) {
-  return result.completionStatus !== 'skipped' && Math.max(result.actualValue, result.reps ?? 0) > 0
-}
-
-function toBackendSetPayload(exercise: RuntimeWorkoutSession['exercises'][number], result: RuntimeSetResult) {
-  const open = exercise.plan[result.setNumber - 1]?.setType === 'failure'
-  return {
-    setNumber: result.setNumber,
-    plannedValue: open ? 0 : result.plannedValue,
-    actualValue: result.actualValue,
-    setType: result.setType,
-    targetMinReps: open ? null : result.targetMinReps,
-    targetMaxReps: open ? null : result.targetMaxReps,
-    reps: result.reps,
-    weightKg: result.weightKg,
-    tempoLabel: result.tempoLabel,
-    amplitudePercent: result.amplitudePercent,
-    restDurationSeconds: exercise.plan[result.setNumber - 1]?.restSeconds,
-    rir: result.rir,
-    subjectiveEffort: result.subjectiveEffort,
-    discomfortLevel: result.discomfortLevel,
-    pain: result.pain,
-    techniqueBreakdown: result.techniqueBreakdown,
-    comment: result.comment,
-    syncLabel: result.syncLabel,
-    machineMetrics: {
-      ...(exercise.loadSettings.mode === 'Обычный вес' || exercise.loadSettings.mode === 'constant' ? { loadMode: 'constant' } : {}),
-      ...(open ? { targetType: 'open' } : {}),
-      trainingMode: exercise.strengthMode.id,
-      trainingDayType: exercise.strengthMode.dayType,
-      // Warm-up/pyramid sets lift a share of it: the exercise profile remembers the working weight.
-      workingWeightKg: exercise.loadSettings.weight,
-      completionStatus: result.completionStatus,
-      side: result.side,
-      roundNumber: result.roundNumber,
-    },
   }
 }
 

@@ -6,6 +6,7 @@ import type { MachineHealth } from '@/entities/machine/model/types'
 import type { RuntimeRestState, RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { supportsFixedBarSetup } from '@/features/runtime/lib/runtime-exercise'
+import { WorkoutNavigator } from '@/features/runtime/ui/workout-navigator'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -75,6 +76,7 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
   const beginNextStepPendingRef = useRef(false)
   const [startingNextStep, setStartingNextStep] = useState(false)
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
+  const [navigatorOpen, setNavigatorOpen] = useState(false)
 
   useEffect(() => {
     if (snapshot?.safety.state === 'emergency_stop') {
@@ -106,7 +108,8 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
   }, [rest.remainingSeconds, rest.timerPaused, tickRestTimer])
 
   useEffect(() => {
-    if (isSideChange || rest.timerPaused || rest.remainingSeconds > 0 || autoAdvanceTriggeredRef.current) {
+    // While the workout plan is open the user is choosing where to go: the set does not start by itself.
+    if (isSideChange || rest.timerPaused || rest.remainingSeconds > 0 || autoAdvanceTriggeredRef.current || navigatorOpen) {
       return
     }
 
@@ -120,7 +123,7 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
         }
       }
     })
-  }, [isSideChange, rest.remainingSeconds, rest.timerPaused])
+  }, [isSideChange, navigatorOpen, rest.remainingSeconds, rest.timerPaused])
 
   async function handleBeginNextStep() {
     if (beginNextStepPendingRef.current) return false
@@ -189,6 +192,7 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
         <header className="rt-header">
           <div className="rt-chips" style={{ justifyContent: 'flex-start' }} aria-label="Место в тренировке">
             <span className="rt-chip">Упражнение {currentExercise.order} из {activeSession.exercises.length}</span>
+            {activeSession.exercises.length > 1 ? <WorkoutNavigator session={activeSession} disabled={startingNextStep} onOpenChange={setNavigatorOpen} /> : null}
           </div>
           <div className="rt-title">
             <h1 className="font-display font-bold tracking-[-0.04em] text-white">{rest.title}</h1>

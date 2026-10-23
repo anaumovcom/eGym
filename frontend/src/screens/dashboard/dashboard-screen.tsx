@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { DashboardBuilderWorkout, DashboardData } from '@/entities/dashboard/model/types'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { getRuntimeResumeView, isSessionInCurrentTrainingDay, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
+import { getWorkoutResumeSummary } from '@/features/runtime/lib/workout-progress'
 import { apiGet } from '@/shared/api/client'
 import { exerciseCountLabel, shortDuration } from '@/shared/lib/ru-format'
 import { workoutBadge } from '@/entities/dashboard/lib/workout-badge'
@@ -16,7 +17,7 @@ import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-components'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
-import { useRuntimeStore } from '@/stores/runtime-store'
+import { getNextPendingExercise, useRuntimeStore } from '@/stores/runtime-store'
 import { HomeRecovery } from '@/screens/dashboard/home-recovery'
 
 export type DashboardViewProps = {
@@ -33,6 +34,36 @@ function canResumeWorkout(session: RuntimeWorkoutSession | null, workout: Dashbo
     && isSessionInCurrentTrainingDay(session)
     && session.exercises.length === workout.exercises.length
     && session.exercises.every((exercise, index) => exercise.slug === workout.exercises[index].slug))
+}
+
+/** A run that was left before its summary: the home indicator continues it from the saved step. */
+function isUnfinishedWorkout(session: RuntimeWorkoutSession | null, workout: DashboardBuilderWorkout, userId: string | null) {
+  return Boolean(session
+    && session.view !== 'workout-summary'
+    && (!session.userId || session.userId === userId)
+    && canResumeWorkout(session, workout))
+}
+
+function UnfinishedWorkoutIndicator({ session, workout, onContinue }: { session: RuntimeWorkoutSession; workout: DashboardBuilderWorkout; onContinue: () => void }) {
+  const summary = getWorkoutResumeSummary(session)
+  const nextLabel = summary.nextLabel ?? getNextPendingExercise(session)?.name ?? null
+  const percent = summary.totalSets > 0 ? Math.round((summary.doneSets / summary.totalSets) * 100) : 0
+  return (
+    <button type="button" className="home-resume" onClick={onContinue} aria-label={`Продолжить незавершённую тренировку «${workout.title}»${nextLabel ? `: дальше ${nextLabel}` : ''}`}>
+      <span className="home-resume-icon" aria-hidden="true"><Play /></span>
+      <span className="home-resume-body">
+        <span className="home-resume-eyebrow">Незавершённая тренировка</span>
+        <strong className="home-resume-title">{workout.title}</strong>
+        <span className="home-resume-meta">
+          <span>Упражнений {summary.doneExercises} из {summary.totalExercises}</span>
+          <span>Подходов {summary.doneSets} из {summary.totalSets}</span>
+          {nextLabel ? <span>Дальше: <b>{nextLabel}</b></span> : null}
+        </span>
+        <span className="home-resume-progress" aria-hidden="true"><span style={{ width: `${percent}%` }} /></span>
+      </span>
+      <span className="home-resume-action">Продолжить <ArrowRight aria-hidden="true" /></span>
+    </button>
+  )
 }
 
 function workoutStatus(workout: DashboardBuilderWorkout, resumable: boolean) {
@@ -105,7 +136,7 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
   const resumable = selectedWorkout ? canResumeWorkout(runtimeSession, selectedWorkout) : false
   const continueAvailable = resumable
   const serverProgressOnly = !resumable && (selectedWorkout?.todayStatus === 'in_progress' || selectedWorkout?.resumeAvailable === true)
-  const resumableWorkout = workouts.find((workout) => canResumeWorkout(runtimeSession, workout))
+  const unfinishedWorkout = workouts.find((workout) => isUnfinishedWorkout(runtimeSession, workout, selectedUserId))
 
   function handleConfirm(workout: DashboardBuilderWorkout) {
     if (!workout.exercises.length || confirmingRef.current) return
@@ -161,24 +192,16 @@ function DashboardWorkoutsSection({ workouts, muscles }: { workouts: DashboardBu
           {workouts.length ? <p>Нажмите на карточку, чтобы посмотреть упражнения и начать</p> : null}
         </div>
         <div className="home-heading-actions">
-          {resumableWorkout ? (
-            <Button
-              iconLeft={<Play aria-hidden="true" />}
-              aria-haspopup="dialog"
-              onClick={(event) => {
-                triggerRef.current = event.currentTarget
-                confirmingRef.current = false
-                setRestartConfirm(false)
-                setRestartError(null)
-                setSelectedId(resumableWorkout.id)
-              }}
-            >
-              Продолжить «{resumableWorkout.title}»
-            </Button>
-          ) : null}
           <Button variant="secondary" iconLeft={<Plus aria-hidden="true" />} onClick={() => navigate('/builder?create=new')}>Новая тренировка</Button>
         </div>
       </header>
+      {unfinishedWorkout && runtimeSession ? (
+        <UnfinishedWorkoutIndicator
+          session={runtimeSession}
+          workout={unfinishedWorkout}
+          onContinue={() => handleConfirm(unfinishedWorkout)}
+        />
+      ) : null}
       {workouts.length === 0 ? <p className="text-center text-white/60">Тренировки не найдены. Создайте первую и добавьте упражнения.</p> : null}
       <div className="home-workouts-layout">
       <div className="home-workout-grid" data-count={workouts.length}>

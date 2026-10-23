@@ -603,3 +603,65 @@ describe('DashboardScreen', () => {
     expectStoresUnchanged()
   })
 })
+
+describe('unfinished workout indicator', () => {
+  const workoutId = 'back-biceps'
+  const data = {
+    ...dashboardStoryScenarios.default,
+    workouts: [{
+      id: workoutId,
+      title: 'Спина + бицепс',
+      duration: '45 минут',
+      exercises: [{ slug: 'machine-pulldown', name: 'Тяга сверху' }, { slug: 'machine-seated-cable-row', name: 'Тяга к поясу' }],
+    }],
+  }
+
+  function startBuilderRun(view?: 'workout-summary') {
+    useRuntimeStore.getState().initializeSession({ source: 'today' })
+    const initial = useRuntimeStore.getState().session!
+    useRuntimeStore.setState({
+      session: {
+        ...initial,
+        source: 'builder',
+        programId: workoutId,
+        runId: 'run-1',
+        startedAt: new Date().toISOString(),
+        exercises: initial.exercises.slice(0, 2).map((exercise, index) => ({ ...exercise, ...data.workouts[0].exercises[index] })),
+      },
+    })
+    // One set is done: the workout rests before the second set of the first exercise.
+    useRuntimeStore.getState().finishCurrentSet()
+    if (view) useRuntimeStore.getState().completeWorkout('partial')
+  }
+
+  it('shows the progress of an unfinished run and continues it from the saved step in one tap', async () => {
+    const user = userEvent.setup()
+    startBuilderRun()
+    const session = useRuntimeStore.getState().session!
+    renderDashboard(data)
+
+    const indicator = screen.getByRole('button', { name: /^Продолжить незавершённую тренировку «Спина \+ бицепс»: дальше Тяга сверху · подход 2$/ })
+    expect(indicator).toHaveTextContent('Незавершённая тренировка')
+    expect(indicator).toHaveTextContent(`Подходов 1 из ${session.exercises.reduce((total, exercise) => total + exercise.plan.length, 0)}`)
+
+    await user.click(indicator)
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(useAppStore.getState().selectedProgramId).toBe(workoutId)
+    expect(useRuntimeStore.getState().session).toBe(session)
+    expect(navigateMock).toHaveBeenCalledTimes(1)
+    expect(navigateMock).toHaveBeenCalledWith(`/rest?source=builder&programId=${workoutId}&runId=run-1`)
+  })
+
+  it('is hidden once the run reached its summary or belongs to another user', () => {
+    startBuilderRun('workout-summary')
+    renderDashboard(data)
+    expect(screen.queryByRole('button', { name: /^Продолжить незавершённую тренировку/ })).not.toBeInTheDocument()
+    cleanup()
+
+    startBuilderRun()
+    useRuntimeStore.setState({ session: { ...useRuntimeStore.getState().session!, userId: 'elena' } })
+    renderDashboard(data)
+    expect(screen.queryByRole('button', { name: /^Продолжить незавершённую тренировку/ })).not.toBeInTheDocument()
+  })
+})

@@ -79,3 +79,38 @@ Traceback (most recent call last):
     self._sock.shutdown(socket.SHUT_RDWR)
     ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
 ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 59201) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 53267) - "WebSocket /api/scales/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 52852) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 53846) - "WebSocket /api/scales/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 53243) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 55041) - "WebSocket /api/scales/realtime" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 55180) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 61730) - "WebSocket /api/scales/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 60335) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 53790) - "WebSocket /api/scales/realtime" [accepted]
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 57664) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 55290) - "WebSocket /api/scales/realtime" [accepted]
+INFO:     connection open

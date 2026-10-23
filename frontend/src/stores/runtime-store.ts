@@ -18,6 +18,7 @@ import { getRuntimeResumeView, isSessionInCurrentTrainingDay } from '@/features/
 import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exercise'
 import { getBuilderExerciseSignature } from '@/features/runtime/lib/builder-plan-signature'
 import { expandPerSidePlan } from '@/features/runtime/lib/per-side'
+import { canJumpToWorkoutStep } from '@/features/runtime/lib/workout-progress'
 import { buildStrengthPlan, getStrengthModeTitle, normalizeStrengthDayType, normalizeStrengthModeId, toRuntimeSetPlan } from '@/features/strength/lib/strength-plan'
 import { buildExerciseSession, buildExerciseSummary, buildPhotoProgressState, buildRestState, buildWorkoutSummary, createRuntimeSession, rebuildSessionSnapshots, simulateSetResult } from '@/mocks/stage3-data'
 
@@ -56,6 +57,8 @@ type RuntimeStore = {
   applyLoadAdjustment: (exerciseSlug: string, adjustment: LoadAdjustmentResponse) => void
   resumeWorkoutExercise: (exerciseId: string) => RuntimeWorkoutSession['view'] | null
   restartPreviousExercise: (staleBackendExerciseIds?: string[]) => RuntimeWorkoutSession['exercises'][number] | null
+  /** Opens any exercise at its next set, or redoes a done set (later results of that exercise are dropped). */
+  jumpToWorkoutStep: (exerciseId: string, setIndex: number, staleBackendExerciseIds?: string[]) => boolean
   setBackendWorkoutSessionId: (workoutSessionId: number) => void
   setBackendExerciseSessionId: (exerciseId: string, exerciseSessionId: number) => void
   markExerciseSaved: (exerciseId: string, exerciseSessionId: number | undefined, outcome: RuntimeExerciseOutcome) => void
@@ -847,6 +850,52 @@ export const useRuntimeStore = create<RuntimeStore>()(
     }
     set({ session: { ...nextSession, ...rebuildSessionSnapshots(nextSession, 'partial') } })
     return previousExercise
+  },
+  jumpToWorkoutStep: (exerciseId, setIndex, staleBackendExerciseIds = []) => {
+    const session = get().session
+    if (!session || !canJumpToWorkoutStep(session, exerciseId, setIndex)) {
+      return false
+    }
+
+    const currentExercise = getCurrentExercise(session)
+    const completedSets = { ...session.completedSets }
+    const exerciseOutcomes = { ...(session.exerciseOutcomes ?? {}) }
+    let completedExerciseIds = session.completedExerciseIds
+    // An exercise left between its sets stays unfinished and is offered again like a skipped one.
+    if (currentExercise.id !== exerciseId && !completedExerciseIds.includes(currentExercise.id) && completedSets[currentExercise.id]?.length) {
+      completedExerciseIds = [...completedExerciseIds, currentExercise.id]
+      exerciseOutcomes[currentExercise.id] = 'partial'
+    }
+
+    // The target is done from `setIndex` on: its later results are dropped (the backend was trimmed before).
+    if (setIndex === 0) {
+      delete completedSets[exerciseId]
+    } else if ((completedSets[exerciseId]?.length ?? 0) > setIndex) {
+      completedSets[exerciseId] = completedSets[exerciseId].slice(0, setIndex)
+    }
+    delete exerciseOutcomes[exerciseId]
+    completedExerciseIds = completedExerciseIds.filter((id) => id !== exerciseId)
+    const backendExerciseSessionIds = { ...(session.backendExerciseSessionIds ?? {}) }
+    for (const id of staleBackendExerciseIds) {
+      delete backendExerciseSessionIds[id]
+    }
+
+    const nextSession: RuntimeWorkoutSession = {
+      ...session,
+      currentExerciseId: exerciseId,
+      currentSetIndex: setIndex,
+      completedSets,
+      completedExerciseIds,
+      exerciseOutcomes,
+      backendExerciseSessionIds,
+      exerciseSummary: undefined,
+      restState: undefined,
+      // Setup starts the trainer for the chosen set (and passes straight on for exercises without the bar).
+      view: 'exercise-setup',
+      backendWorkoutSaved: false,
+    }
+    set({ session: { ...nextSession, ...rebuildSessionSnapshots(nextSession, 'partial') } })
+    return true
   },
   setBackendWorkoutSessionId: (workoutSessionId) =>
     set((state) => (state.session ? { session: { ...state.session, backendWorkoutSessionId: workoutSessionId } } : state)),
