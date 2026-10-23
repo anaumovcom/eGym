@@ -8,7 +8,7 @@ import type { MachineHealth } from '@/entities/machine/model/types'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { StrengthTrainingMode } from '@/entities/strength/model/types'
 import { buildBackendBuilderRuntimeSession } from '@/features/runtime/lib/backend-builder-session'
-import { getBuilderPlanSignature } from '@/features/runtime/lib/builder-plan-signature'
+import { getStoredBuilderPlanSignature } from '@/features/runtime/lib/builder-plan-signature'
 import { getRuntimeResumeView, isSessionInCurrentTrainingDay, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
 import { requiresMachineCalibration, supportsFixedBarSetup } from '@/features/runtime/lib/runtime-exercise'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
@@ -69,9 +69,9 @@ function formatRange(lowerPointMm?: number | null, upperPointMm?: number | null)
   return `${formatMillimeters(lowerPointMm)} - ${formatMillimeters(upperPointMm)}`
 }
 
+// Same workout structure: the run keeps its progress; changed loads are refreshed per exercise.
 function areBackendBuilderSessionsEquivalent(currentSession: RuntimeWorkoutSession, nextSession: RuntimeWorkoutSession) {
-  return (currentSession.builderPlanSignature ?? getBuilderPlanSignature(currentSession))
-    === (nextSession.builderPlanSignature ?? getBuilderPlanSignature(nextSession))
+  return getStoredBuilderPlanSignature(currentSession) === getStoredBuilderPlanSignature(nextSession)
 }
 
 export function ExerciseSetupScreen() {
@@ -86,6 +86,7 @@ export function ExerciseSetupScreen() {
   const ensureSession = useRuntimeStore((state) => state.ensureSession)
   const updateCatalogExerciseMedia = useRuntimeStore((state) => state.updateCatalogExerciseMedia)
   const initializeBackendSession = useRuntimeStore((state) => state.initializeBackendSession)
+  const refreshBuilderExercises = useRuntimeStore((state) => state.refreshBuilderExercises)
   const updateCalibrationState = useRuntimeStore((state) => state.updateCalibrationState)
   const updateLoadSettings = useRuntimeStore((state) => state.updateLoadSettings)
   const selectStrengthMode = useRuntimeStore((state) => state.selectStrengthMode)
@@ -199,6 +200,14 @@ export function ExerciseSetupScreen() {
 
     initializeBackendSession(backendBuilderSession, initOptions)
   }, [backendBuilderKey, backendBuilderSession, initOptions, initializeBackendSession, shouldInitializeBackendBuilderSession, usesBackendBuilderSession])
+
+  useEffect(() => {
+    if (!usesBackendBuilderSession || !backendBuilderSession || shouldInitializeBackendBuilderSession || !hasMatchingRuntimeBuilderSession) {
+      return
+    }
+
+    refreshBuilderExercises(backendBuilderSession)
+  }, [backendBuilderSession, hasMatchingRuntimeBuilderSession, refreshBuilderExercises, shouldInitializeBackendBuilderSession, usesBackendBuilderSession])
 
   const exercise = shouldInitializeBackendBuilderSession
     ? undefined

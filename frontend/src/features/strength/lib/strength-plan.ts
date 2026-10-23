@@ -49,7 +49,8 @@ function formatWeight(weight: number, factor: number, kind?: RuntimeExerciseKind
     return { label: 'вес тела', value: 0 }
   }
 
-  const value = Math.max(0, Math.round(weight * factor))
+  // The working weight stays exact (e.g. 47.5 kg); scaled warm-up/pyramid weights round to whole kilograms.
+  const value = factor === 1 ? Math.max(0, weight) : Math.max(0, Math.round(weight * factor))
   return { label: `${value} кг`, value }
 }
 

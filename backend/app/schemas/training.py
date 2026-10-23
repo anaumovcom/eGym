@@ -282,8 +282,9 @@ class BuilderWorkoutGroupSchema(SchemaModel):
 class BuilderExerciseEditorSchema(SchemaModel):
     name: str
     subtitle: str
-    set_params: dict[str, int]
-    effective_set_params: dict[str, int] = Field(default_factory=dict)
+    # Weight may be fractional (e.g. 47.5 kg), all other values are whole numbers.
+    set_params: dict[str, int | float]
+    effective_set_params: dict[str, int | float] = Field(default_factory=dict)
     load_type: BuilderLoadType | None = None
     per_side: bool = False
     load_mode: str

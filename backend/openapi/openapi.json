@@ -5731,14 +5731,28 @@
           },
           "setParams": {
             "additionalProperties": {
-              "type": "integer"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
             },
             "type": "object",
             "title": "Setparams"
           },
           "effectiveSetParams": {
             "additionalProperties": {
-              "type": "integer"
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "number"
+                }
+              ]
             },
             "type": "object",
             "title": "Effectivesetparams"
@@ -8935,6 +8949,49 @@
           "calibration": {
             "type": "string",
             "title": "Calibration"
+          },
+          "configured": {
+            "type": "boolean",
+            "title": "Configured",
+            "default": false
+          },
+          "trainingMode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingmode"
+          },
+          "trainingDayType": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trainingdaytype"
+          },
+          "perSide": {
+            "type": "boolean",
+            "title": "Perside",
+            "default": false
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
           }
         },
         "type": "object",

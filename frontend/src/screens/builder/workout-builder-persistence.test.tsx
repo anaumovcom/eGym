@@ -187,6 +187,39 @@ afterEach(() => {
 })
 
 describe('builder plan persistence regressions', () => {
+  it('changes every entry of the same exercise together (one exercise, one set of settings)', async () => {
+    const program = programs.get(programId)!
+    const first = program.data.groups[0].items[0]
+    program.data.groups[0].items.push({ ...structuredClone(first), id: 'pulldown-again', name: 'Тяга сверху — добивка' })
+    renderBuilder()
+    await screen.findByRole('heading', { name: 'Тяга сверху', exact: true })
+    await commitValue('Вес', 52)
+    await commitValue('Подходы', 5)
+    await saved()
+    const items = writes.at(-1)!.groups[0].items
+    const edited = items.find((item) => item.id === firstId)!
+    expect(edited).toMatchObject({ load: '52 кг', sets: '5×10' })
+    expect(items.find((item) => item.id === 'pulldown-again')).toMatchObject({ load: edited.load, sets: edited.sets, rest: edited.rest, strengthPlan: edited.strengthPlan })
+    expect(items.find((item) => item.id === secondId)!.load).toBe('60 кг')
+    expect(screen.getByRole('button', { name: 'Выбрать упражнение Тяга сверху — добивка', exact: true })).toHaveTextContent('52 кг')
+  })
+
+  it('keeps an exact working weight such as 42.5 kg when other settings change', async () => {
+    const program = programs.get(programId)!
+    const editor = program.editors.get(firstId)!
+    editor.setParams.weight = 42.5
+    program.data.groups[0].items[0].load = '42.5 кг'
+    renderBuilder()
+    await screen.findByRole('heading', { name: 'Тяга сверху', exact: true })
+    expect(stage().getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('42.5')
+    await commitValue('Повторы', 8)
+    await saved()
+    expect(writes.at(-1)!.selectedExercise).toMatchObject({ setParams: { weight: 42.5, reps: 8 }, effectiveSetParams: { weight: 42.5 } })
+    const item = writes.at(-1)!.groups[0].items[0]
+    expect(item.load).toBe('42.5 кг')
+    expect(item.strengthPlan!.filter((set) => set.setType === 'work').every((set) => set.recommendedWeightLabel === '42.5 кг')).toBe(true)
+  })
+
   it('saves no weight as bodyweight, restores it and allows adding weight again', async () => {
     const user = userEvent.setup()
     renderBuilder()

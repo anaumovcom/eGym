@@ -233,8 +233,10 @@ export type RuntimeWorkoutSession = {
   programId?: string
   runId?: string
   dataSource?: 'backend' | 'mock'
-  /** Original builder plan, kept unchanged when runtime settings are edited. */
+  /** Original builder plan structure, kept unchanged when runtime settings are edited. */
   builderPlanSignature?: string
+  /** Last server load of each exercise (see getBuilderExerciseSignature). */
+  builderExerciseSignatures?: Record<string, string>
   startedAt?: string
   backendWorkoutSessionId?: number
   backendWorkoutSaved?: boolean

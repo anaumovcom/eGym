@@ -13,6 +13,7 @@ from app.main import create_app
 from app.models.training import ExerciseHistoryRecord, UserExerciseState
 from app.models.user import User
 from app.services.runtime_service import RuntimeService
+from app.services.training_service import TrainingService
 
 PATH = "/api/runtime/exercises/settings"
 SLUG = "barbell-curl"
@@ -25,6 +26,14 @@ def isolated_lifespan(monkeypatch: pytest.MonkeyPatch) -> None:
         yield
 
     monkeypatch.setattr("app.main.lifespan", lifespan)
+
+
+@pytest.fixture(autouse=True)
+def no_builder_workouts(db_session: Session) -> None:
+    # These tests cover exercises outside "Мои тренировки"; workout exercises take their settings
+    # from the workout profiles instead (see test_exercise_profiles.py).
+    for program in TrainingService()._programs(db_session, "alexey"):
+        TrainingService().delete_program(db_session, program_id=program.id, user_id="alexey")
 
 
 def settings(**changes: object) -> dict:
@@ -198,9 +207,9 @@ def test_explicit_snapshot_stale_finalization_and_warmup(client: TestClient) -> 
     assert read(client) == expected
     save_exercise(client, sets=[result(setType="warmup", weightKg=100, restDurationSeconds=10)])
     assert read(client) == expected
-    # Fresh working performance changes only weight/rest, not explicit reps/sets/mode/tempo.
+    # Fresh working performance changes only the weight: plan rest is derived from the settings.
     save_exercise(client, sets=[result(weightKg=0, restDurationSeconds=0)])
-    assert read(client) == {**expected, "weight": 0, "restSeconds": 0}
+    assert read(client) == {**expected, "weight": 0}
 
 
 def test_midexercise_weight_no_history_and_final_replay(client: TestClient, db_session: Session) -> None:

@@ -104,11 +104,15 @@ def test_builder_saved_editor_cannot_override_changed_item(client: TestClient, c
     if change == "loadType":
         assert selected["setParams"]["durationSeconds"] == 83
     assert selected["strengthPlan"] == saved_item["strengthPlan"]
-    assert selected["note"] != "Old editor"
+    # The note belongs to the exercise profile: kept for the same exercise, not carried to a replacement.
+    if change in {"params", "loadType", "strengthMode"}:
+        assert selected["note"] == "Old editor"
+    else:
+        assert selected["note"] != "Old editor"
 
 
 @pytest.mark.parametrize("snapshot", ["legacy", "legacyReplacement", "wrongName", "wrongSlug", "wrongMode"])
-def test_builder_reads_only_matching_editor_snapshots(client: TestClient, db_session: Session, snapshot: str) -> None:
+def test_legacy_editor_snapshot_seeds_profile_only_when_it_matches(client: TestClient, db_session: Session, snapshot: str) -> None:
     groups = [{"id": "custom", "kind": "single", "title": "Custom", "items": [{
         "id": "item", "slug": "machine-pulldown", "name": "Original", "muscleGroup": "Back",
         "sets": "3×10", "load": "50 кг", "rest": "60 сек", "loadType": "weighted",
@@ -137,6 +141,9 @@ def test_builder_reads_only_matching_editor_snapshots(client: TestClient, db_ses
         stored_editor["loadType"] = "timed"
     snapshots["item"] = stored_editor
     setting.value = {**value, "editors": snapshots}
+    # Pre-profile data: the exercise only has this workout's legacy editor snapshot.
+    for row in db_session.scalars(select(UserExerciseState).where(UserExerciseState.user_id == "alexey")):
+        row.calibration_payload = {key: val for key, val in (row.calibration_payload or {}).items() if key != "profile"}
     db_session.commit()
     if snapshot == "legacyReplacement":
         # Even a legacy editor with an identical name/params belongs to the old slug.
@@ -683,8 +690,8 @@ def test_builder_set_count_shapes_strength_plan(client: TestClient) -> None:
                     "title": "Блок",
                     "items": [
                         {"id": "row-1", "slug": "machine-pulldown", "name": "Тяга сверху", "muscleGroup": "Спина", "sets": "4×10", "rest": "60 сек", "load": "45 кг"},
-                        {"id": "bike-1", "slug": "machine-pulldown", "name": "Кардио", "muscleGroup": "Спина", "sets": "1×10", "rest": "60 сек", "load": "вес тела"},
-                        {"id": "pull-1", "slug": "machine-pulldown", "name": "Подтягивания", "muscleGroup": "Спина", "sets": "4×5", "rest": "60 сек", "load": "вес тела", "loadType": "bodyweight"},
+                        {"id": "bike-1", "slug": "machine-seated-cable-row", "name": "Кардио", "muscleGroup": "Спина", "sets": "1×10", "rest": "60 сек", "load": "вес тела"},
+                        {"id": "pull-1", "slug": "underhand-pulldown", "name": "Подтягивания", "muscleGroup": "Спина", "sets": "4×5", "rest": "60 сек", "load": "вес тела", "loadType": "bodyweight"},
                     ],
                 }
             ],

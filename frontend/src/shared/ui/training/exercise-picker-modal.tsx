@@ -94,7 +94,7 @@ export function ExercisePickerModal({ open, onOpenChange, userId, mode, currentE
 
   function stage(details: ExerciseDetails) {
     setStaged(details)
-    setStagedSets({ sets: details.loadSettings.sets, reps: details.loadSettings.reps, weight: Math.round(details.loadSettings.weight), restSeconds: details.loadSettings.restSeconds })
+    setStagedSets({ sets: details.loadSettings.sets, reps: details.loadSettings.reps, weight: Math.max(0, details.loadSettings.weight), restSeconds: details.loadSettings.restSeconds })
     setError(null)
   }
 

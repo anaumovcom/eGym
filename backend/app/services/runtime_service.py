@@ -47,8 +47,9 @@ from app.schemas.runtime import (
 from app.services.coach.lifecycle import RuntimeObservationBuffer, runtime_observations
 from app.services.coach.workout_plan import persist_plan
 from app.services.exercise_library import get_imported_exercise
-from app.services.exercise_settings import remembered_settings
+from app.services.exercise_settings import merge_settings, read_profile, remembered_settings, store_profile
 from app.services.fatigue_service import FatigueService, FatigueUpdate, equipment_affects_fatigue
+from app.services.training_service import TrainingService
 
 
 @dataclass
@@ -61,6 +62,7 @@ class ExerciseSaveResult:
 class RuntimeService:
     def __init__(self, *, coach_observer: RuntimeObservationBuffer | None = None) -> None:
         self.fatigue_service = FatigueService()
+        self.training_service = TrainingService()
         self.coach_observer = coach_observer if coach_observer is not None else runtime_observations
 
     def _validate_settings_owner(self, session: Session, user_id: str, slug: str) -> None:
@@ -71,15 +73,20 @@ class RuntimeService:
 
     def get_exercise_settings(self, session: Session, user_id: str, slug: str) -> ExerciseSettingsSchema | None:
         self._validate_settings_owner(session, user_id, slug)
+        self.training_service.ensure_exercise_profiles(session, user_id)
         return remembered_settings(session, self._user_state(session, user_id, slug))
 
-    def _store_settings(self, state: UserExerciseState, settings: ExerciseSettingsSchema) -> None:
-        state.working_weight = settings.weight
-        state.working_sets = settings.sets
-        state.working_reps = settings.reps
-        state.rest_seconds = settings.rest_seconds
-        state.calibration_payload = {**(state.calibration_payload or {}),
-                                     "lastSettings": settings.model_dump(by_alias=True)}
+    def _ensure_profile(self, session: Session, state: UserExerciseState) -> None:
+        """Seed profiles from "Мои тренировки" before the first runtime write, so it edits them."""
+        if read_profile(state) is None:
+            # A new state must be visible to the migration instead of being created a second time.
+            session.flush()
+            self.training_service.ensure_exercise_profiles(session, state.user_id, commit=False)
+
+    def _store_settings(self, session: Session, state: UserExerciseState, settings: ExerciseSettingsSchema) -> None:
+        # The exercise profile is shared by every workout: runtime edits change it everywhere.
+        self._ensure_profile(session, state)
+        store_profile(state, merge_settings(read_profile(state), settings, get_imported_exercise(state.exercise_slug)))
 
     def save_exercise_settings(self, session: Session, payload: ExerciseSettingsSaveSchema) -> ExerciseSettingsSchema:
         self._validate_settings_owner(session, payload.user_id, payload.exercise_slug)
@@ -88,7 +95,7 @@ class RuntimeService:
             state = UserExerciseState(user_id=payload.user_id, exercise_slug=payload.exercise_slug)
             session.add(state)
         settings = ExerciseSettingsSchema.model_validate(payload.model_dump())
-        self._store_settings(state, settings)
+        self._store_settings(session, state, settings)
         state.calibration_payload = {**state.calibration_payload, "lastSettingsSavedAt": datetime.now(UTC).isoformat()}
         session.commit()
         return settings
@@ -419,6 +426,7 @@ class RuntimeService:
             session.add(state)
 
         exercise = get_imported_exercise(payload.exercise_slug)
+        self._ensure_profile(session, state)
         remembered = remembered_settings(session, state)
         training_mode = payload.training_mode if payload.training_mode is not None else (
             remembered.training_mode if remembered else None)
@@ -447,6 +455,8 @@ class RuntimeService:
             next_display_weight = self._round_weight(next_base_weight * factor)
             load_label = f"{next_display_weight:g} кг"
             weight_kg: float | None = next_display_weight
+            # Plans scale the working weight by the mode factor themselves: remember the base weight.
+            settings_weight = next_base_weight
             reps = current_reps
         else:
             reps_step = self._load_adjustment_reps_step(payload.kind, training_mode)
@@ -457,10 +467,11 @@ class RuntimeService:
             state.rest_seconds = rest_seconds
             load_label = f"{next_reps} сек" if payload.kind in {"timed", "stretch"} else f"{next_reps} повторов"
             weight_kg = None
+            settings_weight = 0
             reps = next_reps
 
-        self._store_settings(state, ExerciseSettingsSchema(
-            weight=weight_kg if weight_kg is not None else 0, sets=current_sets, reps=reps,
+        self._store_settings(session, state, ExerciseSettingsSchema(
+            weight=settings_weight, sets=current_sets, reps=reps,
             rest_seconds=rest_seconds, mode=remembered.mode if remembered else "Обычный вес",
             tempo=remembered.tempo if remembered else "Обычный",
             training_mode=training_mode, training_day_type=training_day_type,
@@ -1088,6 +1099,16 @@ class RuntimeService:
         for key in ("lastSettingsSavedAt", "lastSettingsWeightAt"):
             if metadata.get(key) and observed_time < self.fatigue_service.ensure_utc(datetime.fromisoformat(str(metadata[key]))):
                 return
+        weighted = [row for row in work if row.weight_kg is not None]
+        self._ensure_profile(session, state)
+        if read_profile(state) is not None:
+            # Load targets, rest and sets come from the profile (workouts derive their plans from it);
+            # feeding plan-derived values back would drift it. Only the performed working weight is kept.
+            if weighted:
+                settings = remembered_settings(session, state)
+                self._store_settings(session, state, settings.model_copy(update={"weight": self._working_weight(weighted[-1])}))
+            state.calibration_payload = {**state.calibration_payload, "lastSettingsWeightAt": str(observed_at)}
+            return
         settings = remembered_settings(session, state)
         # target_sets counts physical steps, including warmup steps; settings count working rounds.
         all_results = exercise.set_results
@@ -1108,14 +1129,20 @@ class RuntimeService:
             # Inferred snapshots follow the plan, never shortened actual performance.
             changes["reps"] = max(1, min(86400, latest.planned_value))
             changes["sets"] = max(1, min(100, target_sets))
-        weighted = [row for row in work if row.weight_kg is not None]
         if weighted:
-            changes["weight"] = weighted[-1].weight_kg
+            changes["weight"] = self._working_weight(weighted[-1])
         rests = [row.rest_duration_seconds for row in work if row.rest_duration_seconds is not None]
         if rests:
             changes["rest_seconds"] = rests[-1]
-        self._store_settings(state, settings.model_copy(update=changes))
+        self._store_settings(session, state, settings.model_copy(update=changes))
         state.calibration_payload = {**state.calibration_payload, "lastSettingsWeightAt": str(observed_at)}
+
+    def _working_weight(self, row: SetResult) -> float:
+        # A set's weight can be a scaled share of the working weight (warm-up, pyramid, light day).
+        working = row.machine_metrics.get("workingWeightKg")
+        if isinstance(working, int | float) and not isinstance(working, bool) and isfinite(working) and 0 <= working <= 2000:
+            return float(working)
+        return float(row.weight_kg or 0)
 
     def _user_state(self, session: Session, user_id: str, slug: str) -> UserExerciseState | None:
         return session.scalars(select(UserExerciseState).where(UserExerciseState.user_id == user_id, UserExerciseState.exercise_slug == slug)).first()

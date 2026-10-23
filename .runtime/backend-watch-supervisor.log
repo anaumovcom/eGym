@@ -1,12 +1,8 @@
-Backend supervisor is watching backend, exercises and exercise_name_translations.csv.
-Backend server started. PID: 3993
-Detected backend file changes. Restarting backend server.
-Backend server started. PID: 65420
-Detected backend file changes. Restarting backend server.
-Backend server started. PID: 66352
-Detected backend file changes. Restarting backend server.
-Backend server started. PID: 67428
-Detected backend file changes. Restarting backend server.
-Backend server started. PID: 71124
-Detected backend file changes. Restarting backend server.
-Backend server started. PID: 82331
+Backend supervisor следит за backend, exercises и exercise_name_translations.csv.
+Backend server запущен. PID: 22260
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\exercise.py, D:\eGym\backend\app\schemas\runtime.py, D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\exercise_settings.py, D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_builder_per_side.py, D:\eGym\backend\app\tests\test_exercise_profiles.py, D:\eGym\backend\app\tests\test_exercise_settings.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20064
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\exercise.py, D:\eGym\backend\app\schemas\runtime.py, D:\eGym\backend\app\schemas\training.py, D:\eGym\backend\app\services\exercise_settings.py, D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_builder_per_side.py, D:\eGym\backend\app\tests\test_exercise_settings.py, D:\eGym\backend\app\tests\test_stage9_training_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27824

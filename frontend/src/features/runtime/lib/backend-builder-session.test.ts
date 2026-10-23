@@ -3,7 +3,7 @@ import type { BuilderExerciseItem, WorkoutBuilderData } from '@/entities/builder
 import { createRuntimeSession } from '@/mocks/stage3-data'
 import { apiGet } from '@/shared/api/client'
 import { buildBackendBuilderRuntimeSession } from './backend-builder-session'
-import { getBuilderPlanSignature } from './builder-plan-signature'
+import { getBuilderExerciseSignature, getBuilderPlanSignature } from './builder-plan-signature'
 
 vi.mock('@/shared/api/client', () => ({ apiGet: vi.fn() }))
 
@@ -48,8 +48,13 @@ describe('backend builder per-side runtime', () => {
     expect(session.exercises[0].loadSettings).toMatchObject({ sets: 1, reps: 60, restSeconds: 30 })
     expect(session.exercises[0].plan).toEqual([{ targetSeconds: 60, weightLabel: 'вес тела', restSeconds: 30 }])
     expect(session.builderPlanSignature).toBe(getBuilderPlanSignature(session))
-    const edited = { ...session, exercises: session.exercises.map(exercise => ({ ...exercise, plan: exercise.plan.map(plan => ({ ...plan, recommendedWeightKg: 0 })) })) }
-    expect(getBuilderPlanSignature(edited)).not.toBe(session.builderPlanSignature)
+    expect(session.builderExerciseSignatures).toEqual({ [session.exercises[0].id]: getBuilderExerciseSignature(session.exercises[0]) })
+    // Loads come from the shared exercise profiles: they change the exercise signature, not the plan identity.
+    const edited = { ...session, exercises: session.exercises.map(exercise => ({ ...exercise, plan: exercise.plan.map(plan => ({ ...plan, recommendedWeightKg: 5 })) })) }
+    expect(getBuilderPlanSignature(edited)).toBe(session.builderPlanSignature)
+    expect(getBuilderExerciseSignature(edited.exercises[0])).not.toBe(session.builderExerciseSignatures?.[session.exercises[0].id])
+    const replaced = { ...session, exercises: session.exercises.map(exercise => ({ ...exercise, slug: 'other-exercise' })) }
+    expect(getBuilderPlanSignature(replaced)).not.toBe(session.builderPlanSignature)
     expect(edited.builderPlanSignature).toBe(session.builderPlanSignature)
   })
 

@@ -579,17 +579,20 @@ export function WorkoutBuilderScreen() {
   async function handleReplaceExercise(details: ExerciseDetails) {
     const targetExerciseId = replaceTargetExerciseId ?? selectedExerciseId
     const targetItem = groupsRef.current.flatMap((group) => group.items).find((item) => item.id === targetExerciseId)
-    const perSide = (targetExerciseId === selectedExerciseId ? editorRef.current?.perSide : undefined) ?? targetItem?.perSide ?? false
-    const currentNote = editor?.note ?? ''
+    // An already configured exercise brings its own settings (shared by every workout); a new one
+    // inherits the replaced exercise's mode, set count, side split and note.
+    const profile = details.loadSettings.configured ? details.loadSettings : null
+    const perSide = profile ? Boolean(profile.perSide) : (targetExerciseId === selectedExerciseId ? editorRef.current?.perSide : undefined) ?? targetItem?.perSide ?? false
+    const currentNote = profile ? profile.note ?? '' : editor?.note ?? ''
     const loadType = getBuilderLoadType(details)
     const durationSeconds = getBuilderDuration(details)
-    const strengthModeId = normalizeStrengthModeId(editor?.strengthModeId)
-    const strengthDayType = normalizeStrengthDayType(strengthModeId, editor?.strengthDayType)
-    const setCount = editor?.setParams.sets ?? details.loadSettings.sets
+    const strengthModeId = normalizeStrengthModeId(profile ? profile.trainingMode : editor?.strengthModeId)
+    const strengthDayType = normalizeStrengthDayType(strengthModeId, profile ? profile.trainingDayType : editor?.strengthDayType)
+    const setCount = profile ? details.loadSettings.sets : editor?.setParams.sets ?? details.loadSettings.sets
     const setParams = {
       sets: setCount,
       reps: details.loadSettings.reps,
-      weight: Math.round(details.loadSettings.weight),
+      weight: Math.max(0, details.loadSettings.weight),
       restSeconds: details.loadSettings.restSeconds,
       ...(durationSeconds ? { durationSeconds } : {}),
     }
@@ -626,7 +629,7 @@ export function WorkoutBuilderScreen() {
         setParams: {
           sets: setCount,
           reps: details.loadSettings.reps,
-          weight: Math.round(details.loadSettings.weight),
+          weight: Math.max(0, details.loadSettings.weight),
           restSeconds: details.loadSettings.restSeconds,
           durationSeconds,
         },
@@ -668,15 +671,20 @@ export function WorkoutBuilderScreen() {
     const loadType = getBuilderLoadType(details)
     const durationSeconds = getBuilderDuration(details)
     const setCount = details.loadSettings.sets
+    // An exercise already used in another workout keeps its settings there and here.
+    const profile = details.loadSettings.configured ? details.loadSettings : null
+    const strengthModeId = normalizeStrengthModeId(profile?.trainingMode)
+    const strengthDayType = normalizeStrengthDayType(strengthModeId, profile?.trainingDayType)
+    const perSide = Boolean(profile?.perSide)
     const setParams = {
       sets: setCount,
       reps: details.loadSettings.reps,
-      weight: Math.round(details.loadSettings.weight),
+      weight: Math.max(0, details.loadSettings.weight),
       restSeconds: details.loadSettings.restSeconds,
       ...(durationSeconds ? { durationSeconds } : {}),
     }
     const effectiveSetParams = getEffectiveBuilderSetParams(loadType, setParams, details.loadSettings.mode, details.loadSettings.tempo)
-    const strengthPlan = buildStrengthPlan('basic', null, effectiveSetParams, loadType, { sets: setCount, durationSeconds: effectiveSetParams.durationSeconds })
+    const strengthPlan = buildStrengthPlan(strengthModeId, strengthDayType, effectiveSetParams, loadType, { sets: setCount, durationSeconds: effectiveSetParams.durationSeconds })
     const nextItem = {
       id: nextId,
       slug: details.slug,
@@ -688,9 +696,10 @@ export function WorkoutBuilderScreen() {
       rest: `${effectiveSetParams.restSeconds} сек`,
       load: formatBuilderItemLoad(loadType, effectiveSetParams.weight),
       loadType,
+      perSide,
       previewVideoUrl: details.previewVideoUrl,
-      strengthModeId: 'basic',
-      strengthDayType: null,
+      strengthModeId,
+      strengthDayType,
       strengthPlan,
     } satisfies BuilderExerciseItem
 
@@ -715,17 +724,18 @@ export function WorkoutBuilderScreen() {
             setParams: {
               sets: setCount,
               reps: details.loadSettings.reps,
-              weight: Math.round(details.loadSettings.weight),
+              weight: Math.max(0, details.loadSettings.weight),
               restSeconds: details.loadSettings.restSeconds,
               durationSeconds,
             },
             loadType,
+            perSide,
             loadMode: details.loadSettings.mode,
             tempo: details.loadSettings.tempo,
-            strengthModeId: 'basic',
-            strengthDayType: null,
+            strengthModeId,
+            strengthDayType,
             strengthPlan,
-            note: '',
+            note: profile?.note ?? '',
           },
           nextGroups,
           nextId,
@@ -1301,11 +1311,13 @@ function createBuilderSaveSnapshot(userId: string, programId: string, workoutNam
   return JSON.stringify({ userId, programId, workoutName, groups: serializeBuilderGroups(groups), selectedExerciseId, selectedExercise })
 }
 
+// An exercise has one set of load settings for every workout, so every entry of it changes together.
 function applyEditorToGroups(groups: BuilderWorkoutGroup[], selectedExerciseId: string, editor: WorkoutBuilderData['selectedExercise']) {
+  const selectedSlug = groups.flatMap((group) => group.items).find((item) => item.id === selectedExerciseId)?.slug
   return groups.map((group) => ({
     ...group,
     items: group.items.map((item) => {
-      if (item.id !== selectedExerciseId) {
+      if (item.id !== selectedExerciseId && (!selectedSlug || item.slug !== selectedSlug)) {
         return item
       }
 
@@ -1492,11 +1504,16 @@ function getEffectiveBuilderSetParams(loadType: BuilderLoadType, setParams: Buil
     ...(typeof setParams.sets === 'number' ? { sets: Math.max(1, Math.round(setParams.sets)) } : {}),
     reps: Math.max(1, Math.round(setParams.reps * loadModeRule.repsFactor * tempoRule.repsFactor)),
     weight: loadType === 'weighted'
-      ? Math.max(0, Math.round(setParams.weight * loadModeRule.weightFactor * tempoRule.weightFactor))
+      ? scaleBuilderWeight(setParams.weight, loadModeRule.weightFactor * tempoRule.weightFactor)
       : Math.max(0, setParams.weight),
     restSeconds: Math.max(15, setParams.restSeconds + loadModeRule.restDelta + tempoRule.restDelta),
     durationSeconds,
   }
+}
+
+// Mirrors the backend: the exact working weight (e.g. 47.5 kg) unless a modifier scales it.
+function scaleBuilderWeight(weight: number, factor: number) {
+  return factor === 1 ? Math.max(0, weight) : Math.max(0, Math.round(weight * factor))
 }
 
 function formatBuilderWeight(weight: number) {

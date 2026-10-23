@@ -22,6 +22,26 @@ class ExerciseSettingsSaveSchema(ExerciseSettingsSchema):
     exercise_slug: str
 
 
+class ExerciseProfileSchema(SchemaModel):
+    """One user's load settings for one exercise, shared by every workout that contains it.
+
+    Values are raw builder controls; load mode and tempo modifiers are applied on top of them.
+    """
+
+    load_type: Literal["weighted", "bodyweight", "timed"]
+    sets: int = Field(ge=1, le=100)
+    reps: int = Field(ge=1, le=86400)
+    weight: float = Field(ge=0, le=2000, allow_inf_nan=False)
+    rest_seconds: int = Field(ge=0, le=86400)
+    duration_seconds: int | None = Field(default=None, ge=1, le=86400)
+    load_mode: str = "Обычный вес"
+    tempo: str = "Обычный"
+    strength_mode_id: str | None = None
+    strength_day_type: str | None = None
+    per_side: bool = False
+    note: str = ""
+
+
 class MuscleTargetSchema(SchemaModel):
     muscle_id: str
     name: str

@@ -12,6 +12,7 @@ from app.models.analytics import ExerciseSession, WorkoutSession
 from app.models.enums import ExerciseSessionStatus, RuntimeExerciseKind, WorkoutSessionStatus
 from app.models.settings import AppSetting
 from app.models.training import ExerciseHistoryRecord, UserExerciseState, UserHiddenWorkoutProgram, WorkoutProgram
+from app.models.user import User
 from app.schemas.analytics import MuscleCardSchema
 from app.schemas.exercise import (
     ExerciseCatalogAvailableFiltersSchema,
@@ -26,6 +27,7 @@ from app.schemas.exercise import (
     ExerciseVideoAssetSchema,
 )
 from app.schemas.machine import MachineHealthSchema
+from app.schemas.runtime import ExerciseProfileSchema
 from app.schemas.training import (
     BuilderExerciseEditorSchema,
     BuilderExerciseItemSchema,
@@ -63,7 +65,19 @@ from app.schemas.training import (
     WorkoutProgressSchema,
 )
 from app.services.exercise_library import ImportedExercise, get_imported_exercise, load_imported_exercises
-from app.services.exercise_settings import remembered_settings
+from app.services.exercise_settings import (
+    builder_load_type,
+    effective_set_params,
+    last_performed_working_weight,
+    load_mode_rule,
+    profile_from_effective,
+    profile_set_params,
+    read_profile,
+    remembered_settings,
+    scale_weight,
+    store_profile,
+    tempo_rule,
+)
 from app.services.fatigue_service import FatigueService, equipment_affects_fatigue
 from app.services.machine_service import MachineService
 from app.services.muscle_catalog import CANONICAL_MUSCLE_DEFINITIONS
@@ -76,20 +90,11 @@ FEATURED = {
     "today": ["machine-pulldown", "machine-seated-cable-row", "barbell-curl", "underhand-pulldown", "forearm-plank"],
 }
 
-BUILDER_LOAD_MODE_RULES = {
-    "Обычный вес": {"weight_factor": 1.0, "reps_factor": 1.0, "duration_factor": 1.0, "rest_delta": 0, "description": "Без корректировок: в план попадают заданные вес, повторы, длительность и отдых."},
-    "Контроль техники": {"weight_factor": 0.9, "reps_factor": 0.9, "duration_factor": 0.9, "rest_delta": 15, "description": "Для техники план снижает вес и целевые повторы/секунды на 10%, а отдых увеличивает на 15 сек."},
-    "Лёгкий режим": {"weight_factor": 0.8, "reps_factor": 0.8, "duration_factor": 0.8, "rest_delta": 15, "description": "Для разгрузки план снижает вес и целевые повторы/секунды на 20%, а отдых увеличивает на 15 сек."},
-}
-
-BUILDER_TEMPO_RULES = {
-    "Обычный": {"weight_factor": 1.0, "reps_factor": 1.0, "duration_factor": 1.0, "rest_delta": 0, "description": "Без корректировок темпа: параметры остаются такими, как заданы выше."},
-    "Плавный": {"weight_factor": 1.0, "reps_factor": 1.0, "duration_factor": 1.1, "rest_delta": 15, "description": "Плавный темп добавляет 15 сек отдыха; если задана длительность, цель по времени увеличивается на 10%."},
-    "Контроль эксцентрики": {"weight_factor": 0.9, "reps_factor": 0.9, "duration_factor": 1.15, "rest_delta": 30, "description": "Контроль эксцентрики снижает вес и повторы на 10%, увеличивает заданную длительность на 15% и добавляет 30 сек отдыха."},
-}
-
 TODAY_PLAN_SETTING_KEY = "training.today.plan"
 BUILDER_PLAN_SETTING_KEY = "training.builder.plan"
+# session.info marker: this user's builder items already have exercise profiles in this DB session.
+PROFILES_READY_KEY = "training.exercise_profiles_ready"
+DEFAULT_BUILDER_NOTE = "Следить за техникой и не терять контроль в нижней точке."
 
 STRENGTH_TRAINING_MODES = [
     {
@@ -733,38 +738,48 @@ class TrainingService:
         if selected_program is None:
             return TrainingPlanMutationResultSchema(status="saved")
 
-        groups = self._sanitize_builder_groups(payload.groups, payload.user_id)
-        current_value = self._builder_setting_value(session, payload.user_id, program_id)
-        editors = current_value.get("editors") if isinstance(current_value.get("editors"), dict) else {}
-        previous_groups = current_value.get("groups")
-        previous_slugs = {
-            item.get("id"): item.get("slug")
-            for group in (previous_groups if isinstance(previous_groups, list) else []) if isinstance(group, dict)
-            for item in (group.get("items") or []) if isinstance(item, dict)
-        }
-        # IDs survive replacement; group-only edits must invalidate obsolete editor snapshots.
-        editors = {
-            item.id: {**editors[item.id], "exerciseSlug": item.slug}
-            for group in groups for item in group.items
-            if previous_slugs.get(item.id, item.slug) == item.slug
-            and self._saved_builder_editor(item, editors.get(item.id)) is not None
-        }
+        user_id = payload.user_id
+        # Legacy plans become profiles first, so this save edits the same profiles every workout reads.
+        self.ensure_exercise_profiles(session, user_id)
+        groups = self._sanitize_builder_groups(payload.groups, user_id)
+        current_value = self._builder_setting_value(session, user_id, program_id)
+        previous_items = {item.id: item for group in self._stored_builder_groups(session, user_id, selected_program) for item in group.items}
+        raw_editors = current_value.get("editors") if isinstance(current_value.get("editors"), dict) else {}
+        items = [item for group in groups for item in group.items]
+        states = self._user_states(session, user_id, {item.slug for item in items})
         workout_name = self._sanitize_builder_workout_name(payload.workout_name, current_value, selected_program)
-        if payload.selected_exercise_id and payload.selected_exercise:
-            selected_item = next((item for group in groups for item in group.items if item.id == payload.selected_exercise_id), None)
-            if selected_item is not None and payload.selected_exercise.name == selected_item.name:
-                exercise = get_imported_exercise(selected_item.slug)
-                load_type = payload.selected_exercise.load_type or selected_item.load_type or self._builder_load_type(exercise)
-                default_target = self._parse_builder_target_value(selected_item.sets, selected_item.load, self._default_builder_target_value(exercise))
-                editor = self._normalize_builder_editor(payload.selected_exercise, load_type, default_target, self._builder_item_set_count(selected_item, load_type))
-                groups = self._apply_builder_editor_to_groups(groups, payload.selected_exercise_id, editor)
-                editors[str(payload.selected_exercise_id)] = {
-                    **editor.model_dump(mode="json", by_alias=True),
-                    "exerciseSlug": selected_item.slug,
-                }
+        edited_slugs: set[str] = set()
+        editors: dict[str, Any] = {}
+
+        selected_item = next((item for item in items if item.id == payload.selected_exercise_id), None) if payload.selected_exercise_id else None
+        if selected_item is not None and payload.selected_exercise and payload.selected_exercise.name == selected_item.name:
+            exercise = get_imported_exercise(selected_item.slug)
+            load_type = payload.selected_exercise.load_type or selected_item.load_type or self._builder_load_type(exercise)
+            default_target = self._parse_builder_target_value(selected_item.sets, selected_item.load, self._default_builder_target_value(exercise))
+            editor = self._normalize_builder_editor(payload.selected_exercise, load_type, default_target, self._builder_item_set_count(selected_item, load_type))
+            snapshot = {**editor.model_dump(mode="json", by_alias=True), "exerciseSlug": selected_item.slug}
+            # An editor identical to the one saved last time is a re-send, not an edit: it must not
+            # undo a change made to the same exercise from another workout or the runtime.
+            if raw_editors.get(selected_item.id) != snapshot:
+                self._store_user_profile(session, user_id, selected_item.slug, self._editor_profile(editor), states)
+            editors[selected_item.id] = snapshot
+            edited_slugs.add(selected_item.slug)
+
+        for item in items:
+            if item.slug in edited_slugs:
+                continue
+            previous = previous_items.get(item.id)
+            if previous is not None and previous.slug == item.slug and self._item_load_signature(previous) == self._item_load_signature(item):
+                continue
+            # Added, replaced or re-configured through the group payload: these values are explicit input.
+            profile = self._item_profile(item, read_profile(states.get(item.slug)))
+            self._store_user_profile(session, user_id, item.slug, profile, states)
+            edited_slugs.add(item.slug)
+
+        groups = self._apply_exercise_profiles(session, user_id, groups, states)
         self._save_setting(
             session,
-            payload.user_id,
+            user_id,
             self._builder_setting_key(program_id),
             {
                 "workoutName": workout_name,
@@ -792,6 +807,12 @@ class TrainingService:
         return sanitized or list(FEATURED["today"])
 
     def _builder_groups(self, session: Session, user_id: str, program: WorkoutProgram) -> list[BuilderWorkoutGroupSchema]:
+        """Workout structure from the plan, load settings from the shared exercise profiles."""
+        self.ensure_exercise_profiles(session, user_id)
+        groups = self._stored_builder_groups(session, user_id, program)
+        return self._apply_exercise_profiles(session, user_id, groups)
+
+    def _stored_builder_groups(self, session: Session, user_id: str, program: WorkoutProgram) -> list[BuilderWorkoutGroupSchema]:
         value = self._builder_setting_value(session, user_id, program.id)
         if value:
             raw_groups = value.get("groups")
@@ -805,6 +826,151 @@ class TrainingService:
                     return groups
 
         return self._sanitize_builder_groups(self._program_builder_groups(program), user_id)
+
+    def _user_states(self, session: Session, user_id: str, slugs: set[str] | None = None) -> dict[str, UserExerciseState]:
+        statement = select(UserExerciseState).where(UserExerciseState.user_id == user_id)
+        if slugs is not None:
+            if not slugs:
+                return {}
+            statement = statement.where(UserExerciseState.exercise_slug.in_(slugs))
+        return {row.exercise_slug: row for row in session.scalars(statement)}
+
+    def _store_user_profile(
+        self, session: Session, user_id: str, slug: str, profile: ExerciseProfileSchema, states: dict[str, UserExerciseState],
+    ) -> None:
+        state = states.get(slug)
+        if state is None:
+            state = UserExerciseState(user_id=user_id, exercise_slug=slug)
+            session.add(state)
+            states[slug] = state
+        store_profile(state, profile)
+
+    def ensure_exercise_profiles(self, session: Session, user_id: str, *, commit: bool = True) -> None:
+        """One-time migration of per-workout load values into shared exercise profiles.
+
+        The first workout in "Мои тренировки" order that contains an exercise defines its profile;
+        the weight actually performed last time is kept on top of it. Runtime writes call this
+        before their first profile write (``commit=False``: their own transaction commits it).
+        """
+        ready = session.info.setdefault(PROFILES_READY_KEY, set())
+        if user_id in ready:
+            return
+        if session.get(User, user_id) is None:
+            return
+        states = self._user_states(session, user_id)
+        seeded = False
+        for program in self._programs(session, user_id):
+            value = self._builder_setting_value(session, user_id, program.id)
+            editors = value.get("editors") if isinstance(value.get("editors"), dict) else {}
+            for group in self._stored_builder_groups(session, user_id, program):
+                for item in group.items:
+                    seeded = self._seed_exercise_profile(session, user_id, item, states, editors) or seeded
+        if seeded:
+            session.commit() if commit else session.flush()
+        ready.add(user_id)
+
+    def _seed_exercise_profile(
+        self, session: Session, user_id: str, item: BuilderExerciseItemSchema,
+        states: dict[str, UserExerciseState], editors: dict[str, Any] | None = None,
+    ) -> bool:
+        state = states.get(item.slug)
+        if read_profile(state) is not None:
+            return False
+        editor = self._saved_builder_editor(item, (editors or {}).get(item.id))
+        profile = self._editor_profile(editor) if editor is not None else self._item_profile(item, None)
+        performed = last_performed_working_weight(session, user_id, item.slug) if profile.load_type == "weighted" else None
+        if performed is not None:
+            profile = profile_from_effective(profile, weight=performed)
+        self._store_user_profile(session, user_id, item.slug, profile, states)
+        return True
+
+    def _apply_exercise_profiles(
+        self, session: Session, user_id: str, groups: list[BuilderWorkoutGroupSchema],
+        states: dict[str, UserExerciseState] | None = None,
+    ) -> list[BuilderWorkoutGroupSchema]:
+        items = [item for group in groups for item in group.items]
+        if states is None:
+            states = self._user_states(session, user_id, {item.slug for item in items})
+        if session.get(User, user_id) is not None:
+            # Exercises added after the migration (e.g. a new custom program) get a profile on first read.
+            seeded = False
+            for item in items:
+                seeded = self._seed_exercise_profile(session, user_id, item, states) or seeded
+            if seeded:
+                session.commit()
+        return [
+            group.model_copy(update={"items": [
+                self._profile_item(item, profile) if (profile := read_profile(states.get(item.slug))) is not None else item
+                for item in group.items
+            ]})
+            for group in groups
+        ]
+
+    def _profile_item(self, item: BuilderExerciseItemSchema, profile: ExerciseProfileSchema) -> BuilderExerciseItemSchema:
+        load_type = profile.load_type
+        params = effective_set_params(load_type, profile_set_params(profile), profile.load_mode, profile.tempo)
+        strength_mode_id = self._normalize_strength_mode_id(profile.strength_mode_id)
+        strength_day_type = self._normalize_strength_day_type(strength_mode_id, profile.strength_day_type)
+        return item.model_copy(update={
+            "load_type": load_type,
+            "per_side": profile.per_side,
+            "sets": self._format_builder_sets(load_type, int(params["sets"]), int(params["reps"]), params.get("durationSeconds")),
+            "load": self._format_builder_load(load_type, float(params["weight"])),
+            "rest": f"{params['restSeconds']} сек",
+            "strength_mode_id": strength_mode_id,
+            "strength_day_type": strength_day_type,
+            "strength_plan": self._builder_strength_plan(strength_mode_id, strength_day_type, load_type, params),
+        })
+
+    def _editor_profile(self, editor: BuilderExerciseEditorSchema) -> ExerciseProfileSchema:
+        params = editor.set_params
+        load_type = editor.load_type or "weighted"
+        return ExerciseProfileSchema(
+            load_type=load_type,
+            sets=int(params.get("sets") or 1),
+            reps=int(params.get("reps") or 1),
+            weight=float(params.get("weight") or 0),
+            rest_seconds=int(params.get("restSeconds") or 60),
+            duration_seconds=int(params["durationSeconds"]) if load_type == "timed" and params.get("durationSeconds") else None,
+            load_mode=editor.load_mode,
+            tempo=editor.tempo,
+            strength_mode_id=editor.strength_mode_id,
+            strength_day_type=editor.strength_day_type,
+            per_side=editor.per_side,
+            note=editor.note,
+        )
+
+    def _item_profile(self, item: BuilderExerciseItemSchema, base: ExerciseProfileSchema | None) -> ExerciseProfileSchema:
+        """Profile from an item's effective plan values, keeping the base profile's modifiers."""
+        exercise = get_imported_exercise(item.slug)
+        load_type = item.load_type or self._builder_load_type(exercise)
+        sets = self._builder_item_set_count(item, load_type)
+        target = self._parse_builder_target_value(item.sets, item.load, self._default_builder_target_value(exercise))
+        duration = self._parse_builder_duration(item.sets) if load_type == "timed" else None
+        reps = duration or target
+        weight = self._parse_weight(item.load) if load_type == "weighted" else 0.0
+        rest = self._parse_builder_rest(item.rest)
+        identity = {
+            "load_type": load_type,
+            "strength_mode_id": item.strength_mode_id,
+            "strength_day_type": item.strength_day_type,
+            "per_side": item.per_side,
+        }
+        if base is None:
+            return ExerciseProfileSchema(
+                **identity, sets=sets, reps=reps, weight=weight, rest_seconds=rest,
+                duration_seconds=reps if load_type == "timed" else None,
+            )
+        base = base.model_copy(update={
+            **identity,
+            **({} if load_type == "timed" else {"duration_seconds": None}),
+            # The item explicitly says "вес тела": no external weight.
+            **({} if load_type == "weighted" else {"weight": 0}),
+        })
+        return profile_from_effective(base, weight=weight, reps=reps, sets=sets, rest_seconds=rest)
+
+    def _item_load_signature(self, item: BuilderExerciseItemSchema) -> tuple[object, ...]:
+        return (item.load_type, item.sets, item.load, item.rest, item.strength_mode_id, item.strength_day_type, item.per_side)
 
     def _sanitize_builder_groups(self, groups: list[BuilderWorkoutGroupSchema], user_id: str = "alexey") -> list[BuilderWorkoutGroupSchema]:
         sanitized: list[BuilderWorkoutGroupSchema] = []
@@ -831,7 +997,7 @@ class TrainingService:
                     {
                         "sets": sets,
                         "reps": target_value,
-                        "weight": int(round(weight)),
+                        "weight": weight,
                         "restSeconds": rest_seconds,
                         **({"durationSeconds": duration_seconds} if duration_seconds is not None else {}),
                     },
@@ -920,17 +1086,28 @@ class TrainingService:
         load_type = selected_item.load_type or self._builder_load_type(exercise)
         default_target = self._parse_builder_target_value(selected_item.sets, selected_item.load, self._default_builder_target_value(exercise))
         default_sets = self._builder_item_set_count(selected_item, load_type)
-        value = self._builder_setting_value(session, user_id, program_id).get("editors")
-        raw_editor = value.get(selected_item.id) if isinstance(value, dict) else None
-        saved_editor = self._saved_builder_editor(selected_item, raw_editor)
-        if saved_editor is not None:
-            return saved_editor
-
         state = self._user_state(session, user_id, selected_item.slug)
-        set_params = {
+        profile = read_profile(state)
+        if profile is not None:
+            # The exercise profile is shared: every workout edits the same settings of this exercise.
+            editor = BuilderExerciseEditorSchema(
+                name=selected_item.name,
+                subtitle=selected_item.muscle_group,
+                set_params=profile_set_params(profile),
+                load_type=profile.load_type,
+                per_side=profile.per_side,
+                load_mode=profile.load_mode,
+                tempo=profile.tempo,
+                strength_mode_id=self._normalize_strength_mode_id(profile.strength_mode_id),
+                strength_day_type=profile.strength_day_type,
+                note=profile.note or DEFAULT_BUILDER_NOTE,
+            )
+            return self._normalize_builder_editor(editor, profile.load_type, default_target, profile.sets)
+
+        set_params: dict[str, int | float] = {
             "sets": default_sets,
             "reps": default_target,
-            "weight": int(round(self._parse_weight(selected_item.load))) if load_type == "weighted" else 0,
+            "weight": self._parse_weight(selected_item.load) if load_type == "weighted" else 0,
             "restSeconds": self._parse_builder_rest(selected_item.rest),
         }
         if load_type == "timed":
@@ -947,7 +1124,7 @@ class TrainingService:
             strength_mode_id=selected_item.strength_mode_id,
             strength_day_type=selected_item.strength_day_type,
             strength_plan=selected_item.strength_plan,
-            note=state.notes if state and state.notes else "Следить за техникой и не терять контроль в нижней точке.",
+            note=DEFAULT_BUILDER_NOTE,
         )
         return self._normalize_builder_editor(editor, load_type, default_target, default_sets)
 
@@ -1064,7 +1241,7 @@ class TrainingService:
         normalized_set_params = {
             "sets": self._coerce_builder_int(set_params.get("sets"), default_sets, 1),
             "reps": self._coerce_builder_int(set_params.get("reps"), default_target, 1),
-            "weight": self._coerce_builder_int(set_params.get("weight"), 0, 0),
+            "weight": self._coerce_builder_weight(set_params.get("weight")),
             "restSeconds": self._coerce_builder_int(set_params.get("restSeconds"), 60, 15),
         }
         duration_seconds = self._coerce_builder_optional_int(set_params.get("durationSeconds"), 1)
@@ -1144,12 +1321,12 @@ class TrainingService:
     def _builder_strength_template(self, mode_id: str, day_type: str | None, load_type: str, set_params: dict[str, int], use_target_reps: bool) -> list[BuilderStrengthSetPlanSchema]:
         reps = max(1, int(set_params.get("reps", 10)))
         rest_seconds = max(15, int(set_params.get("restSeconds", 90)))
-        weight = max(0, int(set_params.get("weight", 0)))
+        weight = max(0.0, float(set_params.get("weight", 0)))
 
         def weight_label(factor: float) -> str:
             if load_type != "weighted" or weight <= 0:
                 return "вес тела"
-            return f"{max(0, round(weight * factor)):g} кг"
+            return f"{scale_weight(weight, factor):g} кг"
 
         def target_range(min_reps: int, max_reps: int | None = None) -> str:
             return f"{min_reps}–{max_reps}" if max_reps and max_reps != min_reps else str(min_reps)
@@ -1220,57 +1397,30 @@ class TrainingService:
         ]
 
     def _apply_builder_editor_to_groups(self, groups: list[BuilderWorkoutGroupSchema], selected_exercise_id: str, editor: BuilderExerciseEditorSchema) -> list[BuilderWorkoutGroupSchema]:
-        updated_groups: list[BuilderWorkoutGroupSchema] = []
-        for group in groups:
-            updated_items = []
-            for item in group.items:
-                if item.id != selected_exercise_id:
-                    updated_items.append(item)
-                    continue
+        profile = self._editor_profile(editor)
+        return [
+            group.model_copy(update={"items": [self._profile_item(item, profile) if item.id == selected_exercise_id else item for item in group.items]})
+            for group in groups
+        ]
 
-                exercise = get_imported_exercise(item.slug)
-                load_type = editor.load_type or self._builder_load_type(exercise)
-                effective_set_params = editor.effective_set_params or self._builder_effective_set_params(load_type, editor.set_params, editor.load_mode, editor.tempo)
-                strength_mode_id = self._normalize_strength_mode_id(editor.strength_mode_id)
-                strength_day_type = self._normalize_strength_day_type(strength_mode_id, editor.strength_day_type)
-                strength_plan = self._builder_strength_plan(strength_mode_id, strength_day_type, load_type, effective_set_params)
-                updated_items.append(
-                    item.model_copy(
-                        update={
-                            "load_type": load_type,
-                            "per_side": editor.per_side,
-                            "sets": self._format_builder_sets(load_type, effective_set_params.get("sets") or self._parse_builder_set_count(item.sets), effective_set_params["reps"], effective_set_params.get("durationSeconds")),
-                            "load": self._format_builder_load(load_type, effective_set_params["weight"]),
-                            "rest": f"{effective_set_params['restSeconds']} сек",
-                            "strength_mode_id": strength_mode_id,
-                            "strength_day_type": strength_day_type,
-                            "strength_plan": strength_plan,
-                        }
-                    )
-                )
-            updated_groups.append(group.model_copy(update={"items": updated_items}))
-        return updated_groups
-
-    def _builder_effective_set_params(self, load_type: str, set_params: dict[str, int], load_mode: str, tempo: str) -> dict[str, int]:
-        load_mode_rule = self._builder_load_mode_rule(load_mode)
-        tempo_rule = self._builder_tempo_rule(tempo)
-        result = {
-            "reps": max(1, int(round(set_params.get("reps", 1) * load_mode_rule["reps_factor"] * tempo_rule["reps_factor"]))),
-            "weight": max(0, int(round(set_params.get("weight", 0) * load_mode_rule["weight_factor"] * tempo_rule["weight_factor"]))) if load_type == "weighted" else max(0, int(set_params.get("weight", 0))),
-            "restSeconds": max(15, int(set_params.get("restSeconds", 60)) + int(load_mode_rule["rest_delta"]) + int(tempo_rule["rest_delta"])),
-        }
-        duration_seconds = set_params.get("durationSeconds")
-        if duration_seconds is not None:
-            result["durationSeconds"] = max(1, int(round(duration_seconds * load_mode_rule["duration_factor"] * tempo_rule["duration_factor"])))
-        if set_params.get("sets") is not None:
-            result["sets"] = max(1, int(set_params["sets"]))
-        return result
+    def _builder_effective_set_params(self, load_type: str, set_params: dict[str, int | float], load_mode: str, tempo: str) -> dict[str, int | float]:
+        return effective_set_params(load_type, set_params, load_mode, tempo)
 
     def _builder_load_mode_rule(self, load_mode: str) -> dict[str, float | int | str]:
-        return BUILDER_LOAD_MODE_RULES.get(load_mode, BUILDER_LOAD_MODE_RULES["Обычный вес"])
+        return load_mode_rule(load_mode)
 
     def _builder_tempo_rule(self, tempo: str) -> dict[str, float | int | str]:
-        return BUILDER_TEMPO_RULES.get(tempo, BUILDER_TEMPO_RULES["Обычный"])
+        return tempo_rule(tempo)
+
+    def _coerce_builder_weight(self, value: Any) -> int | float:
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError):
+            return 0
+        if parsed != parsed or parsed in {float("inf"), float("-inf")}:
+            return 0
+        weight = max(0.0, min(2000.0, round(parsed * 2) / 2))
+        return int(weight) if weight.is_integer() else weight
 
     def _coerce_builder_int(self, value: Any, default: int, minimum: int) -> int:
         try:
@@ -1350,11 +1500,7 @@ class TrainingService:
         ]
 
     def _builder_load_type(self, exercise: ImportedExercise | None) -> str:
-        if exercise and exercise.force == "Static":
-            return "timed"
-        if exercise and exercise.equipment in {"Bodyweight", "Stretches", "Recovery"}:
-            return "bodyweight"
-        return "weighted"
+        return builder_load_type(exercise)
 
     def _default_builder_weight(self, exercise: ImportedExercise | None) -> float:
         if self._builder_load_type(exercise) != "weighted":
@@ -1547,16 +1693,37 @@ class TrainingService:
         return ExerciseCompatibilitySchema(tone=tone, title=title, description=description, affected_muscles=muscle_cards)
 
     def _load_settings(self, session: Session, user_id: str, slug: str, exercise: ImportedExercise | None) -> ExerciseLoadSettingsSchema:
+        self.ensure_exercise_profiles(session, user_id)
         state = self._user_state(session, user_id, slug)
         base_weight = 45.0 if exercise and exercise.equipment == "Machine" else (40.0 if exercise and exercise.equipment == "Barbell" else 20.0)
         weight = state.working_weight if state and state.working_weight is not None else base_weight
         sets = state.working_sets if state and state.working_sets is not None else 3
         reps = state.working_reps if state and state.working_reps is not None else 10
         rest_seconds = state.rest_seconds if state and state.rest_seconds is not None else 60
+        calibration = state.calibration_status if state and state.calibration_status else ("required" if exercise and exercise.equipment == "Machine" else "recommended")
+        profile = read_profile(state)
+        if profile is not None:
+            # Raw profile controls, like the builder editor; the mode/tempo modifiers apply on top.
+            weight = profile.weight if profile.load_type == "weighted" else 0.0
+            return ExerciseLoadSettingsSchema(
+                weight=weight,
+                sets=profile.sets,
+                reps=(profile.duration_seconds or profile.reps) if profile.load_type == "timed" else profile.reps,
+                rest_seconds=profile.rest_seconds,
+                mode=profile.load_mode,
+                tempo=profile.tempo,
+                recommendation="Можно сохранить рабочий вес и контролировать амплитуду движения.",
+                safe_range=(max(0.0, weight - 10.0), weight + 5.0),
+                calibration=calibration,
+                configured=True,
+                training_mode=profile.strength_mode_id,
+                training_day_type=profile.strength_day_type,
+                per_side=profile.per_side,
+                note=profile.note or None,
+            )
         remembered = remembered_settings(session, state)
         if remembered is not None:
             weight, sets, reps, rest_seconds = remembered.weight, remembered.sets, remembered.reps, remembered.rest_seconds
-        calibration = state.calibration_status if state and state.calibration_status else ("required" if exercise and exercise.equipment == "Machine" else "recommended")
         return ExerciseLoadSettingsSchema(
             weight=weight,
             sets=sets,
@@ -1567,6 +1734,8 @@ class TrainingService:
             recommendation="Можно сохранить рабочий вес и контролировать амплитуду движения.",
             safe_range=(max(0.0, weight - 10.0), weight + 5.0),
             calibration=calibration,
+            training_mode=remembered.training_mode if remembered else None,
+            training_day_type=remembered.training_day_type if remembered else None,
         )
 
     def _history_rows(self, session: Session, user_id: str, slug: str) -> list[ExerciseHistoryEntrySchema]:

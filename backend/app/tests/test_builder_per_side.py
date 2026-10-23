@@ -80,10 +80,11 @@ def test_group_flag_survives_sanitizer_storage_and_default_editor(
 
 
 @pytest.mark.parametrize("per_side", [None, False, True])
-def test_editor_flag_updates_only_selected_item_and_roundtrips(
+def test_editor_flag_updates_every_item_of_the_exercise_and_roundtrips(
     client: TestClient, db_session: Session, per_side: bool | None,
 ) -> None:
     plan = builder_plan(per_side is not True)
+    # The same exercise twice in one workout: both entries share one exercise profile.
     sibling = {**plan["groups"][0]["items"][0], "id": "sibling", "perSide": True}
     plan["groups"][0]["items"].append(sibling)
     plan["selectedExercise"] = builder_editor(per_side)
@@ -91,47 +92,60 @@ def test_editor_flag_updates_only_selected_item_and_roundtrips(
     payload = read_builder(client)
     expected = per_side is True
     assert payload["groups"][0]["items"][0]["perSide"] is expected
-    assert payload["groups"][0]["items"][1]["perSide"] is True
+    assert payload["groups"][0]["items"][1]["perSide"] is expected
     assert payload["selectedExercise"]["perSide"] is expected
     assert payload["selectedExercise"]["note"] == "Saved per-side editor"
     stored = stored_plan(db_session).value
     assert stored["groups"][0]["items"][0]["perSide"] is expected
     assert stored["editors"]["item"]["perSide"] is expected
-    # Saving groups alone must retain a matching snapshot, including its flag/note.
+    # Saving groups alone must retain the exercise settings, including its flag/note.
     plan["groups"] = payload["groups"]
     del plan["selectedExercise"]
     assert client.put("/api/builder/plan", json=plan).status_code == 200
     assert read_builder(client)["selectedExercise"]["note"] == "Saved per-side editor"
+    assert read_builder(client)["selectedExercise"]["perSide"] is expected
 
 
 @pytest.mark.parametrize("old_flag", [False, True])
-@pytest.mark.parametrize("group_only_save", [False, True])
-def test_changed_group_flag_invalidates_editor_snapshot(
-    client: TestClient, db_session: Session, old_flag: bool, group_only_save: bool,
+def test_group_flag_change_updates_exercise_profile(
+    client: TestClient, db_session: Session, old_flag: bool,
+) -> None:
+    plan = builder_plan(old_flag)
+    plan["selectedExercise"] = builder_editor(old_flag)
+    assert client.put("/api/builder/plan", json=plan).status_code == 200
+    del plan["selectedExercise"]
+    plan["groups"][0]["items"][0]["perSide"] = not old_flag
+    assert client.put("/api/builder/plan", json=plan).status_code == 200
+    payload = read_builder(client)
+    assert payload["groups"][0]["items"][0]["perSide"] is not old_flag
+    assert payload["selectedExercise"]["perSide"] is not old_flag
+    # Only the flag changed: the rest of the exercise settings stay.
+    assert payload["selectedExercise"]["note"] == "Saved per-side editor"
+    assert payload["selectedExercise"]["setParams"] == {"sets": 3, "reps": 10, "weight": 50, "restSeconds": 60}
+
+
+@pytest.mark.parametrize("old_flag", [False, True])
+def test_stored_group_values_never_override_exercise_profile(
+    client: TestClient, db_session: Session, old_flag: bool,
 ) -> None:
     plan = builder_plan(old_flag)
     plan["selectedExercise"] = builder_editor(old_flag)
     assert client.put("/api/builder/plan", json=plan).status_code == 200
     setting = stored_plan(db_session)
-    if group_only_save:
-        del plan["selectedExercise"]
-        plan["groups"][0]["items"][0]["perSide"] = not old_flag
-        assert client.put("/api/builder/plan", json=plan).status_code == 200
-        assert "item" not in stored_plan(db_session).value["editors"]
-    else:
-        # Emulate an existing JSON snapshot inconsistent with its group item.
-        value = setting.value
-        setting.value = {
-            **value,
-            "groups": [{**value["groups"][0], "items": [
-                {**value["groups"][0]["items"][0], "perSide": not old_flag},
-            ]}],
-        }
-        db_session.commit()
+    # Emulate an existing JSON snapshot inconsistent with the exercise profile.
+    value = setting.value
+    setting.value = {
+        **value,
+        "groups": [{**value["groups"][0], "items": [
+            {**value["groups"][0]["items"][0], "perSide": not old_flag, "sets": "5×5", "load": "90 кг"},
+        ]}],
+    }
+    db_session.commit()
     payload = read_builder(client)
-    assert payload["groups"][0]["items"][0]["perSide"] is not old_flag
-    assert payload["selectedExercise"]["perSide"] is not old_flag
-    assert payload["selectedExercise"]["note"] != "Saved per-side editor"
+    item = payload["groups"][0]["items"][0]
+    assert (item["perSide"], item["sets"], item["load"]) == (old_flag, "3×10", "50 кг")
+    assert payload["selectedExercise"]["perSide"] is old_flag
+    assert payload["selectedExercise"]["note"] == "Saved per-side editor"
 
 
 def test_legacy_json_without_flag_defaults_to_false(

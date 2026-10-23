@@ -66,6 +66,12 @@ export type ExerciseLoadSettings = {
   recommendation: string
   safeRange: [number, number]
   calibration: ExerciseCalibrationStatus
+  /** The exercise has a profile in "Мои тренировки": the settings below are shared by every workout. */
+  configured?: boolean
+  trainingMode?: string | null
+  trainingDayType?: string | null
+  perSide?: boolean
+  note?: string | null
 }
 
 export type ExerciseSummary = {

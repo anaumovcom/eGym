@@ -16,6 +16,7 @@ import type { ExerciseSettingsSnapshot } from '@/features/runtime/lib/use-exerci
 import { useAppStore } from '@/stores/app-store'
 import { getRuntimeResumeView, isSessionInCurrentTrainingDay } from '@/features/runtime/lib/runtime-day'
 import { requiresMachineCalibration } from '@/features/runtime/lib/runtime-exercise'
+import { getBuilderExerciseSignature } from '@/features/runtime/lib/builder-plan-signature'
 import { expandPerSidePlan } from '@/features/runtime/lib/per-side'
 import { buildStrengthPlan, getStrengthModeTitle, normalizeStrengthDayType, normalizeStrengthModeId, toRuntimeSetPlan } from '@/features/strength/lib/strength-plan'
 import { buildExerciseSession, buildExerciseSummary, buildPhotoProgressState, buildRestState, buildWorkoutSummary, createRuntimeSession, rebuildSessionSnapshots, simulateSetResult } from '@/mocks/stage3-data'
@@ -27,6 +28,8 @@ type RuntimeStore = {
   sessionSignature: string | null
   initializeSession: (options: RuntimeSessionInitOptions) => void
   initializeBackendSession: (session: RuntimeWorkoutSession, options: RuntimeSessionInitOptions) => void
+  /** Same workout structure from the server: take its new loads for exercises that have not started. */
+  refreshBuilderExercises: (serverSession: RuntimeWorkoutSession) => void
   ensureSession: (options: RuntimeSessionInitOptions) => void
   updateCatalogExerciseMedia: (details: ExerciseDetails) => void
   setView: (view: RuntimeWorkoutSession['view']) => void
@@ -213,6 +216,56 @@ export const useRuntimeStore = create<RuntimeStore>()(
   initializeBackendSession: (session, options) => {
     set({ session: withoutRuntimePhotoStep({ ...session, userId: useAppStore.getState().selectedUserId ?? undefined }), sessionSignature: buildSignature(options) })
   },
+  refreshBuilderExercises: (serverSession) =>
+    set((state) => {
+      const session = state.session
+      if (!session || session.source !== 'builder') {
+        return state
+      }
+
+      // Loads of one exercise are shared by every workout: a new weight, a load adjustment or an edit in
+      // "Мои тренировки" reaches this run. Only server changes count (local setup edits are newer), and
+      // only exercises that have not started: performed sets and an active set keep their own plan.
+      const known = session.builderExerciseSignatures ?? {}
+      const signatures = { ...known }
+      let changed = false
+      const exercises = session.exercises.map((exercise) => {
+        const next = serverSession.exercises.find((item) => item.id === exercise.id)
+        if (!next || next.slug !== exercise.slug) {
+          return exercise
+        }
+
+        const serverSignature = serverSession.builderExerciseSignatures?.[next.id] ?? getBuilderExerciseSignature(next)
+        if (serverSignature === (known[exercise.id] ?? getBuilderExerciseSignature(exercise))) {
+          return exercise
+        }
+
+        const started = session.completedExerciseIds.includes(exercise.id)
+          || Boolean(session.completedSets[exercise.id]?.length)
+          || (exercise.id === session.currentExerciseId && (session.view !== 'exercise-setup' || session.currentSetIndex > 0))
+        if (started) {
+          return exercise
+        }
+
+        changed = true
+        signatures[exercise.id] = serverSignature
+        // Calibration is device state of this run, not part of the workout plan.
+        return {
+          ...next,
+          calibrationState: exercise.calibrationState,
+          movementRangeLabel: exercise.movementRangeLabel,
+          movementRangeSaved: exercise.movementRangeSaved,
+          loadSettings: { ...next.loadSettings, calibration: exercise.loadSettings.calibration },
+        }
+      })
+
+      if (!changed) {
+        return state
+      }
+
+      const nextSession = { ...session, exercises, builderExerciseSignatures: signatures }
+      return { session: { ...nextSession, ...rebuildSessionSnapshots(nextSession, session.workoutSummary.outcome) } }
+    }),
   ensureSession: (options) => {
     const owner = get().session?.userId
     if (owner && owner !== useAppStore.getState().selectedUserId) {

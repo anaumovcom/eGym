@@ -1351,6 +1351,8 @@ function toBackendSetPayload(exercise: RuntimeWorkoutSession['exercises'][number
       ...(open ? { targetType: 'open' } : {}),
       trainingMode: exercise.strengthMode.id,
       trainingDayType: exercise.strengthMode.dayType,
+      // Warm-up/pyramid sets lift a share of it: the exercise profile remembers the working weight.
+      workingWeightKg: exercise.loadSettings.weight,
       completionStatus: result.completionStatus,
       side: result.side,
       roundNumber: result.roundNumber,

@@ -52,6 +52,12 @@ class ExerciseLoadSettingsSchema(SchemaModel):
     recommendation: str
     safe_range: tuple[float, float]
     calibration: str
+    # Shared exercise profile ("Мои тренировки"): present once the exercise has been configured.
+    configured: bool = False
+    training_mode: str | None = None
+    training_day_type: str | None = None
+    per_side: bool = False
+    note: str | None = None
 
 
 class ExerciseSummarySchema(SchemaModel):
