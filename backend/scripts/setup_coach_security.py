@@ -1,5 +1,6 @@
 """Explicit local setup; secrets entered in terminal, never command arguments or source."""
 
+import argparse
 import getpass
 import hashlib
 import os
@@ -10,12 +11,24 @@ from cryptography.fernet import Fernet
 
 
 def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--allow-short-password",
+        action="store_true",
+        help="Allow passwords of at least 4 characters instead of 12 (less secure).",
+    )
+    args = parser.parse_args()
+    minimum_length = 4 if args.allow_short_password else 12
+    if args.allow_short_password:
+        print("Warning: short operator passwords are easier to guess.")
     root = Path.home() / ".local/share/egym/coach-security"
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     if root.is_symlink() or root.stat().st_mode & 0o077:
         raise SystemExit("Private directory permissions required (0700)")
-    password = getpass.getpass("New Coach operator password (at least 12 characters): ")
-    if len(password) < 12 or password != getpass.getpass("Confirm operator password: "):
+    password = getpass.getpass(f"New Coach operator password (at least {minimum_length} characters): ")
+    if not minimum_length <= len(password) <= 256:
+        raise SystemExit(f"Password must contain {minimum_length} to 256 characters")
+    if password != getpass.getpass("Confirm operator password: "):
         raise SystemExit("Password mismatch or too short")
     salt = secrets.token_hex(16)
     encoded = f"scrypt${salt}$" + hashlib.scrypt(password.encode(), salt=bytes.fromhex(salt), n=16384, r=8, p=1).hex()

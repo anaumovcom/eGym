@@ -381,7 +381,7 @@ class PcmFramer:
         if self.finished:
             raise VoiceError("stream_finished")
         self.total += len(data)
-        if self.total > MAX_STREAM_BYTES or pcm_duration_ms(self.total, self.sample_rate) > MAX_STREAM_MS:
+        if self.total > MAX_STREAM_BYTES:
             raise VoiceError("pcm_bound")
         self._pending.extend(data)
         out = []
@@ -916,8 +916,6 @@ class VoiceStreamer:
                     outcome.first_audio_ms = round((self.now_s() - started) * 1000, 1)
                 outcome.frames += 1
                 outcome.bytes += chunk.metadata.byte_length
-                if pcm_duration_ms(outcome.bytes, chunk.metadata.sample_rate) > max_ms:
-                    raise VoiceError("audio_overrun")  # more speech than the text can need: preamble/runaway
                 yield encode_frame(chunk)
             usage = self.adapter.last_usage
             with self.sessions() as db:

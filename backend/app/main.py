@@ -15,6 +15,7 @@ from app.db.session import SessionLocal, engine
 from app.motor.store import ProfileBundle, load_active
 from app.schemas.modbus import ModbusConnectionParamsSchema
 from app.services.coach.request_guard import CoachRequestGuard
+from app.services.coach.schema import ensure_job_failure_counter
 from app.services.exercise_library import EXERCISES_ROOT
 from app.services.hardware_runtime import hardware_runtime
 from app.services.modbus_service import modbus_service
@@ -28,6 +29,8 @@ def bootstrap_local_data() -> None:
         return
 
     Base.metadata.create_all(bind=engine)
+    with engine.begin() as connection:
+        ensure_job_failure_counter(connection)
     with SessionLocal() as session:
         seed_dev_data(session)
         seed_stage7_data(session)

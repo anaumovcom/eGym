@@ -6,7 +6,16 @@ import json
 import time
 from collections.abc import Callable
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, WebSocket, WebSocketDisconnect
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    HTTPException,
+    Request,
+    Response,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
 from sqlalchemy import delete, update
@@ -28,11 +37,12 @@ from app.schemas.coach_control import (
     LiveConfigure,
     OperatorLogin,
     PackJobCreate,
+    PackPrepare,
     PreferencesSave,
     RunBind,
     RunCreate,
 )
-from app.services.coach import ledger, live, packs, security
+from app.services.coach import ledger, live, pack_generation, packs, security
 from app.services.coach.preferences import load_preferences, save_preferences
 
 router = APIRouter()
@@ -284,17 +294,61 @@ def pack_store() -> packs.PackStore:
     return packs.PackStore(get_settings().coach_pack_root)
 
 
+def get_pack_provider() -> pack_generation.ProviderFactory:
+    return pack_generation.provider
+
+
+@router.post("/coach/packs/{slot}/prepare")
+async def prepare_pack(slot: str, payload: PackPrepare, request: Request, background: BackgroundTasks,
+                       db: Session = Depends(get_session), sessions: Callable[[], Session] = Depends(get_session_factory),
+                       factory: pack_generation.ProviderFactory = Depends(get_pack_provider)):
+    security.authorize(db, request)
+    prefs = load_preferences(db, payload.user_id)
+    if ledger.micros(payload.cap_usd) > min(2_000_000, ledger.micros(prefs.budget_usd)):
+        raise HTTPException(409, "cap_exceeds_user_budget")
+    db.rollback()
+    store, model = pack_store(), packs.pack_model(slot)
+    current = packs.plan(store, slot, model)
+    # Counts 1..30 and all lifecycle/safety cues are required; optional counts can be added separately.
+    items = [row["clipId"] for row in current["clips"] if row["required"] and row["status"] != "ready"]
+    if not items:
+        store.publish(slot, packs.provider_voice(slot), model)
+        return {"state": "completed"}
+    if slot in pack_generation.active_slots or len(pack_generation.active_slots) >= 2:
+        raise HTTPException(409, "pack_generation_busy")
+    pack_generation.require_job_schema(sessions)
+    selected = factory(sessions, slot)  # Validate paid switches, verified prices and vault keys before creating a run.
+    run_id = None
+    try:
+        run, token = ledger.create_run(db, payload.user_id, "pack", payload.cap_usd)
+        run_id = run.id
+        db.rollback()
+        owner = f"pack-{run_id}"
+        generation = ledger.lease(db, run_id, owner, 0)["generation"]
+        job_id = ledger.submit_job(db, run_id, "prepare", current["planFingerprint"], items)
+        ledger.job_state(db, job_id, "queued")
+        pack_generation.active_slots.add(slot)
+        background.add_task(pack_generation.generate, sessions, selected, store, slot, run_id, job_id, owner, generation)
+        return {"state": "queued", "runId": run_id, "runToken": token, "jobId": job_id, "total": len(items)}
+    except BaseException:
+        await selected.close()
+        if run_id:
+            db.rollback()
+            ledger.cancel_run(db, run_id, close=True)
+        raise
+
+
 @router.get("/coach/packs/{slot}/plan")
 def pack_plan(slot: str, request: Request, response: Response):
     security.safe_request(request, mutation=False)
     response.headers["Cache-Control"] = "no-store"
-    return packs.plan(pack_store(), slot, packs.pack_model())
+    return packs.plan(pack_store(), slot, packs.pack_model(slot))
 
 
 @router.get("/coach/packs/{slot}/manifest")
 def pack_manifest(slot: str, response: Response):
     manifest = pack_store().manifest(slot)
-    if manifest is None:
+    if manifest is None or manifest.get("model") != packs.pack_model(slot) or manifest.get("voice") != packs.provider_voice(slot):
         raise HTTPException(404, "pack_not_prepared")
     response.headers["Cache-Control"] = "no-store"
     return manifest
@@ -322,7 +376,7 @@ def pack_clip(slot: str, pack_version: str, clip_id: str):
 def pack_job_submit(slot: str, payload: PackJobCreate, request: Request, db: Session = Depends(get_session)):
     security.authorize(db, request)
     run_access(request, db, payload.run_id)
-    current = packs.plan(pack_store(), slot, packs.pack_model())
+    current = packs.plan(pack_store(), slot, packs.pack_model(slot))
     if not current["voiceSelected"]:
         raise HTTPException(409, "voice_not_selected")
     if payload.plan_fingerprint != current["planFingerprint"]:

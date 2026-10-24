@@ -9,6 +9,17 @@ beforeEach(() => { fetchMock.mockReset(); vi.stubGlobal('fetch', fetchMock) })
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 const reply = (value: unknown) => ({ ok: true, status: 200, json: async () => value })
 describe('Coach-only safe fetch', () => {
+  it('defaults legacy assistant context and preserves Cyrillic context across save/load', async () => {
+    const { assistantContext: _context, ...older } = defaults
+    fetchMock.mockResolvedValueOnce(reply(older))
+    expect((await api.get('u', signal())).assistantContext).toBe('')
+    const settings = { ...defaults, assistantContext: 'Тренировка в прямом эфире: поддержка спортсмена.' }
+    fetchMock.mockResolvedValueOnce(reply({ ...settings, revision: 1 }))
+    expect((await api.save('u', settings, 0, signal())).assistantContext).toBe(settings.assistantContext)
+    fetchMock.mockResolvedValueOnce(reply({ ...defaults, assistantContext: 'я'.repeat(501) }))
+    await expect(api.get('u', signal())).rejects.toMatchObject({ code: 'invalid_response' })
+  })
+
   it.each(['not_checked', 'auth_ok_models_not_verified', 'auth_failed', 'provider_unavailable'])('accepts real server credential status %s', async lastCheckStatus => {
     fetchMock.mockResolvedValue(reply({ ...credential, lastCheckStatus }))
     expect((await api.credentials(signal())).lastCheckStatus).toBe(lastCheckStatus)

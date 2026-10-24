@@ -82,17 +82,14 @@ def test_verify_wav_accepts_clean_and_rejects_bad_audio():
     check = verify_wav(tone())
     assert check.sample_rate == 24_000 and 390 <= check.duration_ms <= 410 and -20 < check.rms_dbfs < -10
     for data, reason in [
-        (tone(amplitude=1.0), "wav_clipping"),
-        (tone(amplitude=0.001), "wav_silent"),
-        (tone(amplitude=0.01), "wav_loudness"),
-        (tone(seconds=0.05), "wav_duration"),
-        (tone(lead=0.8), "wav_edge_silence"),
         (b"RIFF" + b"\0" * 60, "wav_format"),
     ]:
         with pytest.raises(PackError, match=reason):
             verify_wav(data)
-    with pytest.raises(PackError, match="wav_duration"):
-        verify_wav(tone(seconds=2.0), max_seconds=1.5)
+    assert verify_wav(tone(seconds=2.0)).duration_ms == 2000
+    assert verify_wav(tone(seconds=7.0)).duration_ms == 7000
+    for data in [tone(amplitude=1), tone(amplitude=0), tone(amplitude=0.001), tone(amplitude=0.01), tone(lead=0.8)]:
+        assert verify_wav(data).sha256
     stereo = bytearray(tone())
     stereo[22] = 2  # channel count in the RIFF header
     with pytest.raises(PackError):
@@ -111,6 +108,35 @@ def test_plan_dry_run_without_prices(pack_env):
         packs.plan(pack_env, "robot", "fake-tts")
 
 
+def test_pack_selection_uses_model_and_character_voice(pack_env):
+    cfg = get_settings()
+    assert packs.provider_voice("tts-cedar") == "cedar"
+    assert packs.pack_model("tts-cedar") == cfg.coach_voice_tts_model
+    assert packs.pack_model("cedar") == cfg.coach_voice_realtime_model
+    assert packs.provider_voice("fish-streamer") == "0a690dbeb3984a9f88cd39353880775f"
+    assert packs.provider_voice("fish-classic") == (cfg.coach_voice_fish_reference_id or "default")
+    voice = "a" * 32
+    slot = f"fish-{voice}"
+    assert packs.provider_voice(slot) == voice
+    assert packs.pack_model(slot) == cfg.coach_voice_fish_model
+    plan = packs.plan(pack_env, slot, packs.pack_model(slot))
+    assert plan["voice"] == voice and plan["required"]["generated"] == 0
+    assert pack_env.manifest(slot) is None
+    for invalid in ["fish-../x", "tts-unknown", "fish-unknown", "../ash"]:
+        with pytest.raises(HTTPException):
+            pack_env.manifest(invalid)
+
+
+@pytest.mark.asyncio
+async def test_fish_pack_publishes_in_character_slot_without_replacing_openai(session_factory, pack_env):
+    _, _, _, manifest = await run_job(session_factory, required_ids(), FakePackVoice(), pack_env, slot="fish-streamer")
+    assert manifest["slot"] == "fish-streamer"
+    assert manifest["voice"] == packs.provider_voice("fish-streamer")
+    assert pack_env.manifest("fish-streamer") == manifest
+    assert pack_env.manifest("ash") is None
+    assert pack_env.manifest("fish-classic") is None
+
+
 async def run_job(factory, items, adapter, store, *, key="pack-1", slot="ash"):
     with factory() as db:
         run_id, generation, _ = make_run(db, cap="5.00")
@@ -118,6 +144,45 @@ async def run_job(factory, items, adapter, store, *, key="pack-1", slot="ash"):
         ledger.job_state(db, job_id, "queued")
     runner = PackJobRunner(factory, adapter, PRICE, store, slot=slot, model="fake-tts")
     return run_id, job_id, runner, await runner.run(job_id, "tab-a", generation)
+
+
+@pytest.mark.asyncio
+async def test_pack_failure_logs_clip_stage_and_audio_metadata(session_factory, pack_env, caplog):
+    caplog.set_level("INFO", logger="uvicorn.error.coach_packs")
+    class Malformed(FakePackVoice):
+        async def synthesize(self, *args, **kwargs):
+            return dataclasses.replace(await super().synthesize(*args, **kwargs), pcm=b"x")
+
+    with pytest.raises(PackError, match="pcm_length"):
+        await run_job(session_factory, ["count-4"], Malformed(), pack_env)
+    assert "pack_job_start" in caplog.text
+    assert "pack_clip_audio" in caplog.text
+    assert "pcm_bytes=1" in caplog.text
+    assert "max_ms=" not in caplog.text
+    assert "clip=count-4" in caplog.text
+    assert "stage=verify_audio" in caplog.text
+    assert "reason=pcm_length" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_long_count_clip_is_saved_instead_of_stopping_job(session_factory, pack_env):
+    _, _, _, _ = await run_job(session_factory, ["count-4"], FakePackVoice(seconds=1.715), pack_env)
+    spec = CATALOG["count-4"]
+    check = pack_env.read_artifact(spec, packs.fingerprint(spec, "ash", "fake-tts"))
+    assert check is not None and check.duration_ms == pytest.approx(1715, abs=1)
+
+
+@pytest.mark.asyncio
+async def test_pack_logs_never_echo_provider_exception_secrets(session_factory, pack_env, caplog):
+    class SecretFailure(FakePackVoice):
+        async def synthesize(self, *args, **kwargs):
+            raise HTTPException(503, "Bearer synthetic-secret-key; provider response body")
+
+    with pytest.raises(HTTPException):
+        await run_job(session_factory, ["count-4"], SecretFailure(), pack_env)
+    assert "stage=synthesize" in caplog.text and "reason=internal_error" in caplog.text
+    assert "synthetic-secret-key" not in caplog.text
+    assert "provider response body" not in caplog.text
 
 
 @pytest.mark.asyncio
@@ -160,13 +225,15 @@ async def test_failure_pauses_never_publishes_partial_and_no_blind_regeneration(
 
 
 @pytest.mark.asyncio
-async def test_rejected_audio_is_paid_but_not_stored(session_factory, pack_env):
-    with pytest.raises(PackError, match="wav_clipping"):
-        await run_job(session_factory, ["set-start"], FakePackVoice(amplitude=1.0), pack_env)
+async def test_loud_audio_is_paid_and_stored_unchanged(session_factory, pack_env):
+    await run_job(session_factory, ["set-start"], FakePackVoice(amplitude=1.0), pack_env)
     with session_factory() as db:
         attempt = db.scalar(select(CoachAttempt))
         assert attempt.status == "settled" and attempt.cost_micros > 0
-    assert packs.plan(pack_env, "ash", "fake-tts")["required"]["generated"] == 0
+    spec = CATALOG["set-start"]
+    saved = pack_env.artifact_path(packs.fingerprint(spec, "ash", "fake-tts")).read_bytes()
+    expected = await FakePackVoice(amplitude=1.0).synthesize(spec.text, "ash", "i")
+    assert wave_pcm(saved) == expected.pcm
 
 
 @pytest.mark.asyncio
@@ -216,21 +283,20 @@ def test_onset_ratio_flags_a_high_first_syllable():
 
 
 @pytest.mark.asyncio
-async def test_high_onset_take_is_retried_and_lowest_kept(session_factory, pack_env):
+async def test_high_onset_is_saved_unchanged_without_paid_retry(session_factory, pack_env):
     spec = CATALOG["set-start"]
     fp = packs.fingerprint(spec, "ash", "fake-tts")
     retried = Takes([210, 118])
     await run_job(session_factory, ["set-start"], retried, pack_env)
-    assert len(retried.calls) == 2
-    assert packs.onset_ratio(wave_pcm(pack_env.artifact_path(fp).read_bytes())) < packs.MAX_ONSET_RATIO
+    assert len(retried.calls) == 1
+    assert wave_pcm(pack_env.artifact_path(fp).read_bytes()) == glide(210, 120)
     with session_factory() as db:
-        assert db.scalar(select(func.count()).select_from(CoachAttempt).where(CoachAttempt.status == "settled")) == 2
-    # Every take high: bounded at MAX_TAKES, the lowest one is published.
+        assert db.scalar(select(func.count()).select_from(CoachAttempt).where(CoachAttempt.status == "settled")) == 1
     pack_env.artifact_path(fp).unlink()
     capped = Takes([240, 180, 210])
     await run_job(session_factory, ["set-start"], capped, pack_env, key="pack-2")
-    assert len(capped.calls) == packs.MAX_TAKES
-    assert packs.onset_ratio(wave_pcm(pack_env.artifact_path(fp).read_bytes())) == pytest.approx(1.5, abs=0.1)
+    assert len(capped.calls) == 1
+    assert wave_pcm(pack_env.artifact_path(fp).read_bytes()) == glide(240, 120)
 
 
 def wave_pcm(data: bytes) -> bytes:
@@ -282,14 +348,14 @@ class ScriptedSpeaker:
 
 
 @pytest.mark.asyncio
-async def test_provider_pack_voice_trims_edges_and_gates_on_transcript():
+async def test_provider_pack_voice_preserves_edges_and_reports_transcript():
     good = ProviderPackVoice(ScriptedSpeaker("Пять секунд."))
     audio = await good.synthesize("Пять секунд.", "ash", COUNT_INSTRUCTIONS, max_output_tokens=900)
     assert good.adapter.max_output_tokens == 900
     assert audio.verified and audio.response_id == "resp-1" and good.adapter.calls == [("Пять секунд.", COUNT_INSTRUCTIONS)]
-    assert len(audio.pcm) < 2 * 24_000 * 0.7  # 0.5 s lead/tail silence cut to short pads
+    assert len(audio.pcm) == 2 * 24_000 * 1.4  # Provider silence is preserved.
     check = verify_wav(pcm_to_wav(audio.pcm))
-    assert check.duration_ms < 700
+    assert check.duration_ms == 1400
     assert ReportedUsage.model_validate(audio.usage).audio_input_tokens == 160
     bad = await ProviderPackVoice(ScriptedSpeaker("Шесть секунд.")).synthesize("Пять секунд.", "ash", "i")
     assert not bad.verified
@@ -303,18 +369,27 @@ async def test_provider_pack_voice_trims_edges_and_gates_on_transcript():
 
 
 @pytest.mark.asyncio
-async def test_transcript_mismatch_is_paid_but_not_stored(session_factory, pack_env):
+async def test_provider_pack_accepts_fish_verbatim_adapter():
+    adapter = ScriptedSpeaker(None)
+    adapter.name = "fish"
+    voice = packs.provider_voice("fish-streamer")
+    adapter.capability = VoiceCapability("fish", "m", (voice,), verbatim_input=True)
+    audio = await ProviderPackVoice(adapter).synthesize("Пять секунд.", voice, COUNT_INSTRUCTIONS)
+    assert audio.verified and audio.pcm
+
+
+@pytest.mark.asyncio
+async def test_transcript_mismatch_is_paid_and_stored(session_factory, pack_env):
     class Mismatch(FakePackVoice):
         async def synthesize(self, text, voice, instructions, **kw):
             audio = await super().synthesize(text, voice, instructions, **kw)
             return dataclasses.replace(audio, verified=False)
 
-    with pytest.raises(PackError, match="transcript_mismatch"):
-        await run_job(session_factory, ["set-start"], Mismatch(), pack_env)
+    await run_job(session_factory, ["set-start"], Mismatch(), pack_env)
     with session_factory() as db:
         attempt = db.scalar(select(CoachAttempt))
         assert attempt.status == "settled" and attempt.cost_micros > 0
-    assert packs.plan(pack_env, "ash", "fake-tts")["required"]["generated"] == 0
+    assert packs.plan(pack_env, "ash", "fake-tts")["required"]["generated"] == 1
 
 
 @pytest.mark.asyncio
@@ -341,6 +416,30 @@ async def test_pack_routes_serve_whitelisted_clips(client, session_factory, pack
         assert client.get(path).status_code == 404, path
     plan = client.get("/api/coach/packs/ash/plan")
     assert plan.status_code == 200 and plan.json()["required"]["generated"] == plan.json()["required"]["total"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("use_alias", [True, False])
+async def test_fish_alias_and_explicit_id_share_existing_pack(client, session_factory, pack_env, use_alias):
+    client.base_url = "http://localhost"
+    alias = "fish-streamer"
+    explicit = f"fish-{packs.provider_voice(alias)}"
+    source, target = (explicit, alias) if use_alias else (alias, explicit)
+    model = packs.pack_model(source)
+    audio = await FakePackVoice().synthesize("x", "v", "i")
+    wav = pcm_to_wav(audio.pcm, audio.sample_rate)
+    for spec in CATALOG.values():
+        if spec.required:
+            pack_env.save_artifact(spec, packs.fingerprint(spec, packs.provider_voice(source), model), wav)
+    published = pack_env.publish(source, packs.provider_voice(source), model)
+    response = client.get(f"/api/coach/packs/{target}/manifest")
+    assert response.status_code == 200
+    manifest = response.json()
+    assert manifest["slot"] == target and manifest["packVersion"] == published["packVersion"]
+    clip = client.get(f"/api/coach/packs/{target}/{manifest['packVersion']}/clips/count-1")
+    assert clip.status_code == 200
+    assert verify_wav(clip.content).sha256 == manifest["clips"]["count-1"]["sha256"]
+    assert client.get("/api/coach/packs/fish-" + "b" * 32 + "/manifest").status_code == 404
 
 
 def test_pack_job_api_validates_plan_and_never_dispatches(client, secured, pack_env, monkeypatch):  # noqa: F811

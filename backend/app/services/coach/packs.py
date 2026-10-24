@@ -9,6 +9,7 @@ import asyncio
 import contextlib
 import io
 import json
+import logging
 import math
 import os
 import re
@@ -32,6 +33,7 @@ from app.schemas.coach import COACH_VOICES, CoachScope
 from app.schemas.coach_control import Pricing, ReportedUsage, UsageBounds
 from app.services.coach import ledger
 from app.services.coach.facts import number_words
+from app.services.coach.personas import PERSONAS, persona
 from app.services.coach.voice import (
     AUDIO_INPUT_ALLOWANCE,
     COUNT_INSTRUCTIONS,
@@ -53,7 +55,7 @@ SLOTS = COACH_VOICES
 Group = Literal["count", "countdown", "lifecycle", "time", "outcome", "rest", "safety"]
 REQUIRED_COUNT = 30
 MAX_COUNT = 100
-MAX_CLIP_SECONDS = 6.0
+MAX_CLIP_BYTES = 2_880_000  # Resource guard, not a phrase-duration requirement.
 PEAK_LIMIT = 0.99  # Above this the clip is treated as clipped.
 LOUDNESS_DBFS = (-35.0, -10.0)  # RMS window over the non-silent part.
 SILENCE_DBFS = -50.0
@@ -64,6 +66,20 @@ MAX_ONSET_RATIO = 1.15
 MAX_TAKES = 3
 PACK_VERSION_RE = re.compile(r"^[a-f0-9]{16}$")
 FINGERPRINT_RE = re.compile(r"^[a-f0-9]{64}$")
+logger = logging.getLogger("uvicorn.error.coach_packs")
+
+
+def safe_error_reason(error: BaseException) -> str:
+    """Log internal codes only, never exception text, provider bodies, SQL or credentials."""
+    value = error.detail if isinstance(error, HTTPException) else getattr(error, "reason", None)
+    allowed = {"pcm_length", "wav_size", "wav_format", "wav_length", "wav_duration", "wav_silent",
+               "wav_edge_silence", "wav_clipping", "wav_loudness", "fingerprint", "voice_mismatch",
+               "usage_unavailable", "unknown_clip", "lease_lost", "transcript_mismatch", "takes_exhausted",
+               "provider_failed", "provider_malformed", "budget", "operator_budget", "paid_adapter_unavailable",
+               "provider_circuit", "stale_run", "stale_attempt", "pipeline_busy", "strict_cap_unprovable"}
+    if isinstance(value, str) and (value in allowed or re.fullmatch(r"http-[1-5][0-9]{2}", value)):
+        return value
+    return "cancelled" if isinstance(error, asyncio.CancelledError) else "timeout" if isinstance(error, TimeoutError) else "internal_error"
 
 
 class PackError(Exception):
@@ -78,7 +94,7 @@ class ClipSpec:
     text: str
     group: Group
     required: bool
-    max_seconds: float = 3.0
+    max_seconds: float = 3.0  # Generation token-budget estimate only; never an audio acceptance limit.
     # Safety texts are released only after a human listened (approval of the catalog version).
     needs_approval: bool = False
 
@@ -124,14 +140,29 @@ APPROVED_SAFETY_CATALOG: str | None = CATALOG_VERSION
 
 
 def provider_voice(slot: str) -> str:
-    if slot not in SLOTS:
-        raise HTTPException(404, "pack_not_found")
-    return slot
+    if slot in SLOTS:
+        return slot
+    if slot.startswith("tts-") and slot[4:] in SLOTS:
+        return slot[4:]
+    if slot.startswith("fish-"):
+        voice = slot[5:]
+        if re.fullmatch(r"[a-f0-9]{32}", voice):
+            return voice
+        if voice in PERSONAS:
+            return persona(voice).fish_voice_id or get_settings().coach_voice_fish_reference_id or "default"
+    raise HTTPException(404, "pack_not_found")
 
 
-def pack_model() -> str:
+def pack_kind(slot: str) -> str:
+    provider_voice(slot)  # Validate before using a slot in a filesystem path.
+    return "fish" if slot.startswith("fish-") else "tts" if slot.startswith("tts-") else "realtime"
+
+
+def pack_model(slot: str | None = None) -> str:
     cfg = get_settings()
-    return cfg.coach_voice_realtime_model if cfg.coach_pack_adapter == "realtime" else cfg.coach_voice_tts_model
+    kind = pack_kind(slot) if slot is not None else cfg.coach_pack_adapter
+    return {"realtime": cfg.coach_voice_realtime_model, "tts": cfg.coach_voice_tts_model,
+            "fish": cfg.coach_voice_fish_model}[kind]
 
 
 def clip_instructions(spec: ClipSpec) -> str:
@@ -176,9 +207,9 @@ class WavCheck:
     rms_dbfs: float
 
 
-def verify_wav(data: bytes, max_seconds: float = MAX_CLIP_SECONDS) -> WavCheck:
+def verify_wav(data: bytes) -> WavCheck:
     """Duration comes from decoded samples, not header claims (streaming sentinel headers are rejected)."""
-    if not 44 <= len(data) <= 44 + 2 * 48_000 * MAX_CLIP_SECONDS + 1024:
+    if not 44 <= len(data) <= MAX_CLIP_BYTES:
         raise PackError("wav_size")
     try:
         with wave.open(io.BytesIO(data), "rb") as reader:
@@ -196,21 +227,11 @@ def verify_wav(data: bytes, max_seconds: float = MAX_CLIP_SECONDS) -> WavCheck:
     if sys.byteorder == "big":
         samples.byteswap()
     duration = len(samples) / rate
-    if not 0.1 <= duration <= max_seconds:
-        raise PackError("wav_duration")
     threshold = 32768 * 10 ** (SILENCE_DBFS / 20)
     loud = [index for index, value in enumerate(samples) if abs(value) > threshold]
-    if not loud:
-        raise PackError("wav_silent")
-    if loud[0] / rate > MAX_EDGE_SILENCE_S or (len(samples) - 1 - loud[-1]) / rate > MAX_EDGE_SILENCE_S:
-        raise PackError("wav_edge_silence")
     peak = max(abs(value) for value in samples) / 32768
-    if peak >= PEAK_LIMIT:
-        raise PackError("wav_clipping")
-    body = samples[loud[0]:loud[-1] + 1]
+    body = samples[loud[0]:loud[-1] + 1] if loud else samples
     rms = math.sqrt(sum(value * value for value in body) / len(body)) / 32768
-    if not LOUDNESS_DBFS[0] <= _dbfs(rms) <= LOUDNESS_DBFS[1]:
-        raise PackError("wav_loudness")
     return WavCheck(sha256(data).hexdigest(), len(data), round(duration * 1000, 3), rate, round(_dbfs(peak), 2), round(_dbfs(rms), 2))
 
 
@@ -282,26 +303,39 @@ class PackStore:
         path = self.artifact_path(fp)
         if not path.is_file():
             return None
-        return verify_wav(path.read_bytes(), spec.max_seconds)
+        return verify_wav(path.read_bytes())
 
     def save_artifact(self, spec: ClipSpec, fp: str, data: bytes) -> WavCheck:
-        check = verify_wav(data, spec.max_seconds)  # Verify before publish; a bad file never becomes an artifact.
+        check = verify_wav(data)  # Verify before publish; a bad file never becomes an artifact.
         _atomic_write(self.artifact_path(fp), data)
         return check
 
     def manifest(self, slot: str, version: str | None = None) -> dict | None:
-        if slot not in SLOTS:
-            raise HTTPException(404, "pack_not_found")
-        base = self.root / "packs" / slot
-        if version is None:
-            pointer = base / "current.json"
-            if not pointer.is_file():
-                return None
-            version = json.loads(pointer.read_text())["packVersion"]
-        if not PACK_VERSION_RE.match(str(version)):
-            return None
-        path = base / f"{version}.json"
-        return json.loads(path.read_text()) if path.is_file() else None
+        voice = provider_voice(slot)
+        candidates = [slot]
+        if slot.startswith("fish-"):
+            if re.fullmatch(r"[a-f0-9]{32}", voice):
+                candidates.append(f"fish-{voice}")
+            candidates.extend(f"fish-{name}" for name in PERSONAS if provider_voice(f"fish-{name}") == voice)
+        for candidate in dict.fromkeys(candidates):
+            base = self.root / "packs" / candidate
+            selected_version = version
+            if selected_version is None:
+                pointer = base / "current.json"
+                if not pointer.is_file():
+                    continue
+                selected_version = json.loads(pointer.read_text())["packVersion"]
+            if not PACK_VERSION_RE.match(str(selected_version)):
+                continue
+            path = base / f"{selected_version}.json"
+            if not path.is_file():
+                continue
+            manifest = json.loads(path.read_text())
+            if candidate != slot and (manifest.get("voice") != voice or manifest.get("model") != pack_model(slot)):
+                continue
+            # Alias and explicit ID identify the same voice, but clients pin the requested slot.
+            return {**manifest, "slot": slot}
+        return None
 
     def publish(self, slot: str, voice: str, model: str) -> dict | None:
         """Publishes only a complete, verified pack; a partial result never replaces the current pointer."""
@@ -380,7 +414,7 @@ class PackAudio:
     sample_rate: int
     usage: dict
     response_id: str
-    # False when a generative speaker's transcript does not match the clip text: paid, but never saved.
+    # Transcript match is diagnostic only; returned audio is saved unchanged.
     verified: bool = True
 
 
@@ -412,13 +446,13 @@ def trim_edges(pcm: bytes, sample_rate: int = SAMPLE_RATE, keep_s: float = 0.08)
 class ProviderPackVoice:
     """Wraps a real streaming adapter (TTS or Realtime) for one-off clip synthesis.
 
-    Realtime is a generative speaker: its transcript must match the clip text before the artifact is saved.
+    Provider PCM is preserved verbatim, including leading and trailing silence.
     """
 
     test_only = False
 
     def __init__(self, adapter: VoiceAdapter):
-        if adapter.test_only or adapter.name not in {"tts", "realtime"}:
+        if adapter.test_only or adapter.name not in {"tts", "realtime", "fish"}:
             raise ValueError("Provider adapter required")
         self.adapter, self.name = adapter, adapter.name
         self.last_transcript: str | None = None
@@ -438,7 +472,7 @@ class ProviderPackVoice:
         if self.adapter.capability.transcript:
             self.last_transcript = self.adapter.last_transcript
             verified = verify_transcript(text, self.adapter.last_transcript).status == "match"
-        return PackAudio(trim_edges(b"".join(parts)), SAMPLE_RATE, usage.model_dump(by_alias=True),
+        return PackAudio(b"".join(parts), SAMPLE_RATE, usage.model_dump(by_alias=True),
                          self.adapter.last_response_id, verified)
 
 
@@ -489,6 +523,9 @@ class PackJobRunner:
             raise HTTPException(409, "pipeline_busy")
         self.tasks[job_id] = asyncio.current_task()
         attempt_id = None
+        item, take, stage = None, None, "load_job"
+        started = time.monotonic()
+        logger.info("pack_job_start job=%s slot=%s model=%s", job_id, self.slot, self.model)
         try:
             with self.sessions() as db:
                 job = db.get(CoachJob, job_id)
@@ -498,6 +535,7 @@ class PackJobRunner:
                     raise HTTPException(409, "provider_circuit")
                 items, done, run_id = job.items[:], set(job.completed), job.run_id
             for item in items:
+                stage = "read_artifact"
                 spec = CATALOG.get(item)
                 if spec is None:
                     raise PackError("unknown_clip")
@@ -511,6 +549,7 @@ class PackJobRunner:
                 if existing is None:
                     best: tuple[float, bytes, int] | None = None
                     for take in range(MAX_TAKES):
+                        stage = "reserve_dispatch"
                         with self.sessions() as db:
                             if db.get(CoachJob, job_id, populate_existing=True).state != "queued":
                                 return None
@@ -526,15 +565,20 @@ class PackJobRunner:
                                     raise
                                 continue  # resumed job: this take was already paid (and lost); try the next one
                             ledger.dispatch(db, attempt_id, owner, test_only=self.adapter.test_only, adapter=f"pack-{self.adapter.name}")
+                        stage = "synthesize"
+                        logger.info("pack_clip_start job=%s clip=%s take=%s attempt=%s", job_id, item, take + 1, attempt_id)
                         audio = await asyncio.wait_for(self.adapter.synthesize(
                             spec.text, self.voice, clip_instructions(spec),
                             max_output_tokens=bounds.output_tokens + bounds.audio_output_tokens), self.timeout_s)
                         usage = ReportedUsage.model_validate(audio.usage)
+                        stage = "verify_audio"
+                        logger.info("pack_clip_audio job=%s clip=%s take=%s pcm_bytes=%s sample_rate=%s duration_ms=%.1f verified=%s",
+                                    job_id, item, take + 1, len(audio.pcm), audio.sample_rate,
+                                    len(audio.pcm) / (2 * audio.sample_rate) * 1000 if audio.sample_rate else 0,
+                                    audio.verified)
                         try:
-                            if not audio.verified:
-                                raise PackError("transcript_mismatch")
                             wav = pcm_to_wav(audio.pcm, audio.sample_rate)
-                            verify_wav(wav, spec.max_seconds)
+                            verify_wav(wav)
                         finally:
                             # Paid even when verification rejects the audio; the cost is always recorded.
                             with self.sessions() as db:
@@ -543,25 +587,33 @@ class PackJobRunner:
                         with self.sessions() as db:
                             if db.get(CoachAttempt, settled_id).status != "settled" or ledger.get_run(db, run_id).generation != generation:
                                 return None
-                        ratio = await asyncio.to_thread(onset_ratio, audio.pcm, audio.sample_rate)
-                        score = ratio if ratio is not None else 1.0
-                        if best is None or score < best[0]:
-                            best = (score, wav, take)
-                        if score <= MAX_ONSET_RATIO:
-                            break  # a high first syllable is retried; otherwise the lowest-onset take wins
+                        best = (0.0, wav, take)
+                        break  # Save the first returned audio; never regenerate for acoustic quality.
                     if best is None:
                         raise PackError("takes_exhausted")
+                    stage = "save_artifact"
                     self.store.save_artifact(spec, fp, best[1])
+                else:
+                    logger.info("pack_clip_cached job=%s clip=%s", job_id, item)
+                stage = "complete_clip"
                 if not self._complete(job_id, item):
                     return None
+                logger.info("pack_clip_complete job=%s clip=%s", job_id, item)
             with self.sessions() as db:
                 job = db.get(CoachJob, job_id, populate_existing=True)
                 if job.state != "queued":
                     return None
                 job.state = "completed"
                 db.commit()
-            return self.store.publish(self.slot, self.voice, self.model)
-        except (Exception, asyncio.CancelledError):
+            stage = "publish"
+            manifest = self.store.publish(self.slot, self.voice, self.model)
+            logger.info("pack_job_complete job=%s slot=%s published=%s elapsed_s=%.2f",
+                        job_id, self.slot, manifest is not None, time.monotonic() - started)
+            return manifest
+        except (Exception, asyncio.CancelledError) as error:
+            logger.error("pack_job_failed job=%s slot=%s clip=%s take=%s stage=%s attempt=%s reason=%s error_type=%s elapsed_s=%.2f",
+                         job_id, self.slot, item, take + 1 if take is not None else None, stage, attempt_id,
+                         safe_error_reason(error), type(error).__name__, time.monotonic() - started)
             if attempt_id:
                 with self.sessions() as db:
                     ledger.mark_unsettled(db, attempt_id)

@@ -963,6 +963,56 @@
         }
       }
     },
+    "/api/coach/packs/{slot}/prepare": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Prepare Pack",
+        "operationId": "prepare_pack_api_coach_packs__slot__prepare_post",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slot"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackPrepare"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/coach/packs/{slot}/plan": {
       "get": {
         "tags": [
@@ -7353,6 +7403,12 @@
             "title": "Nickname",
             "default": ""
           },
+          "assistantContext": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Assistantcontext",
+            "default": ""
+          },
           "duringSets": {
             "type": "boolean",
             "title": "Duringsets",
@@ -12258,6 +12314,40 @@
           "clipIds"
         ],
         "title": "PackJobCreate"
+      },
+      "PackPrepare": {
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schemaversion",
+            "default": 1
+          },
+          "userId": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Userid"
+          },
+          "capUsd": {
+            "type": "string",
+            "pattern": "^(?:[01](?:\\.\\d{1,4})?|2(?:\\.0{1,4})?)$",
+            "title": "Capusd"
+          },
+          "confirmPaid": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirmpaid"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "userId",
+          "capUsd",
+          "confirmPaid"
+        ],
+        "title": "PackPrepare"
       },
       "PanelStatusSchema": {
         "properties": {

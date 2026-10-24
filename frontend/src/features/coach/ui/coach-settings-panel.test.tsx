@@ -43,6 +43,19 @@ afterEach(() => {
   vi.unstubAllGlobals(); vi.unstubAllEnvs()
 })
 describe('new CoachSettingsPanel', () => {
+  it('edits, saves and reloads the assistant context for the selected user', async () => {
+    render(<CoachSettingsPanel />); await loaded()
+    const context = 'Идёт трансляция тренировки на стриме, тренер комментирует и подбадривает спортсмена.'
+    expect(screen.getByLabelText('Контекст помощника')).toHaveValue('')
+    expect(screen.getByLabelText('Контекст помощника')).toHaveAttribute('maxlength', '500')
+    change('Контекст помощника', context)
+    fetchMock.mockResolvedValueOnce(reply({ ...defaults, assistantContext: context, revision: 1 }))
+    click('Сохранить настройки тренера'); await screen.findByText(/Настройки тренера сохранены/)
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body).settings.assistantContext).toBe(context)
+    expect(screen.getByLabelText('Контекст помощника')).toHaveValue(context)
+    expect(runtime.setSavedCoachPreferences).toHaveBeenLastCalledWith('actual-A', expect.objectContaining({ assistantContext: context }))
+  })
+
   it('requires separate cross-workout opt-in and saves memory controls independently of analytics history', async () => {
     render(<CoachSettingsPanel />); await loaded()
     const current = screen.getByRole('switch', { name: 'Память текущего разговора' })
@@ -204,7 +217,8 @@ describe('new CoachSettingsPanel', () => {
     expect(screen.queryByLabelText('Голос Fish Audio')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Голос тренера')).toBeInTheDocument()
     change('Голосовая модель', 'fish-drama-3')
-    expect(screen.getByLabelText('Голос готовых фраз')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Голос готовых фраз')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Голос тренера')).not.toBeInTheDocument()
     change('Голос Fish Audio', 'not-a-voice')
     expect(screen.getByRole('alert')).toHaveTextContent('ID голоса Fish Audio')
     expect(screen.getByRole('button', { name: 'Сохранить настройки тренера' })).toBeDisabled()

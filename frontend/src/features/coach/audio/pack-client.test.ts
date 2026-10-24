@@ -5,7 +5,21 @@ import { LocalCoachAudioManager } from './local-coach-audio-manager'
 import { playCue } from '../live/local-cue-player'
 import type { CoachScope } from '../model/contracts'
 import { isVerifiedLocalBuffer } from './local-buffers'
-import { CoachPackClient, clipUrl, manifestUrl, parsePackManifest, type PackDependencies } from './pack-client'
+import { DEFAULT_COACH_PREFERENCES } from '../model/preferences'
+import { CoachPackClient, coachPackSlot, isPackSlot, clipUrl, manifestUrl, parsePackManifest, type PackDependencies } from './pack-client'
+
+it('keys prepared phrases by model and character voice without OpenAI substitution', () => {
+  const prefs = DEFAULT_COACH_PREFERENCES
+  expect(coachPackSlot(null)).toBeNull()
+  expect(coachPackSlot(prefs)).toBe('fish-streamer')
+  expect(coachPackSlot({ ...prefs, persona: 'classic' })).toBe('fish-classic')
+  expect(coachPackSlot({ ...prefs, fishVoiceId: 'a'.repeat(32) })).toBe(`fish-${'a'.repeat(32)}`)
+  expect(coachPackSlot({ ...prefs, fishVoiceId: 'invalid' })).toBeNull()
+  expect(coachPackSlot({ ...prefs, voiceModel: 'openai-realtime' })).toBe('ash')
+  expect(coachPackSlot({ ...prefs, voiceModel: 'openai-tts' })).toBe('tts-ash')
+  for (const slot of ['tts-ash', 'fish-streamer', 'fish-classic', `fish-${'a'.repeat(32)}`]) expect(isPackSlot(slot)).toBe(true)
+  for (const slot of ['tts-invalid', 'fish-../x', '../ash', 'fish-unknown']) expect(isPackSlot(slot)).toBe(false)
+})
 
 const RATE = 8000
 function wav(samples: number, amplitude = 0.2): Uint8Array<ArrayBuffer> {
@@ -59,6 +73,16 @@ async function fixture(overrides: Partial<PackDependencies> = {}) {
 }
 
 describe('E09 prepared pack client', () => {
+  it('downloads and decodes phrases longer than the former six-second limit', async () => {
+    const f = await fixture()
+    const bytes = wav(RATE * 7)
+    f.manifest.clips['count-1'] = { fingerprint: 'a'.repeat(64), sha256: await sha(bytes), bytes: bytes.byteLength,
+      durationMs: 7000, sampleRate: RATE, required: true, approved: true }
+    f.routes.set(clipUrl('ash', f.manifest.packVersion, 'count-1'), () => new Response(bytes.slice()))
+    expect((await f.client.prepare('ash')).state).toBe('ready')
+    expect(f.client.clipsFor('ash').get('count-1')?.duration).toBe(7)
+  })
+
   it('downloads, verifies, caches and pins approved clips of the selected voice only', async () => {
     const f = await fixture()
     const listener = vi.fn(); f.client.subscribe(listener)

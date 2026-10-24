@@ -65,15 +65,17 @@ AB_TEXTS = VOICE_TEXTS + (
 )
 
 
-def read_api_key() -> str:
-    if os.environ.get("OPENAI_API_KEY"):
-        return os.environ["OPENAI_API_KEY"].strip()
+def read_api_key(provider: str = "openai") -> str:
+    names = {"FISH_API_KEY"} if provider == "fish" else {"OPENAPI_KEY", "OPENAI_API_KEY"}
+    for name in sorted(names):
+        if os.environ.get(name):
+            return os.environ[name].strip()
     env = BACKEND / ".env.local"
     for line in env.read_text().splitlines() if env.is_file() else []:
         name, _, value = line.partition("=")
-        if name.strip() in {"OPENAPI_KEY", "OPENAI_API_KEY"} and value.strip():
+        if name.strip() in names and value.strip():
             return value.strip().strip("'\"")
-    raise SystemExit("Refusing: no API key in OPENAI_API_KEY or backend/.env.local")
+    raise SystemExit(f"Refusing: no {provider} API key in environment or backend/.env.local")
 
 
 def prepare_sandbox(extra_env: dict[str, str]) -> Path:
@@ -100,7 +102,7 @@ def prepare_sandbox(extra_env: dict[str, str]) -> Path:
     return state
 
 
-def bootstrap() -> str:
+def bootstrap(provider: str = "openai") -> str:
     """Creates sandbox tables, a pilot user and stores the key in the sandbox vault; returns the key via the vault."""
     from cryptography.fernet import Fernet
 
@@ -114,13 +116,14 @@ def bootstrap() -> str:
 
     assert "egym-coach-pilot" in get_settings().database_url or os.environ.get("COACH_PILOT_STATE")
     Base.metadata.create_all(bind=engine)
-    key = read_api_key()
+    key = read_api_key(provider)
     fernet = Fernet(Path(get_settings().coach_master_key_file).read_bytes())
     with SessionLocal() as db:
         if db.get(User, USER) is None:
             db.add(User(id=USER, name="Pilot", role=AccessRole.service, readiness_percent=0, last_workout="",
                         today_focus="", week_progress="", accent=UserAccent.gold))
-        row = db.get(CoachCredential, 1)
+        credential_id = security.CREDENTIAL_IDS[provider]
+        row = db.get(CoachCredential, credential_id)
         current = None
         if row and row.ciphertext:
             try:
@@ -129,11 +132,11 @@ def bootstrap() -> str:
                 current = None
         if current != key:
             if row is None:
-                row = CoachCredential(id=1, version=0)
+                row = CoachCredential(id=credential_id, version=0)
                 db.add(row)
             row.ciphertext, row.version, row.disabled = fernet.encrypt(key.encode()).decode(), (row.version or 0) + 1, False
         db.commit()
-        vault_key, _ = security.read_credential(db)
+        vault_key, _ = security.read_credential(db, provider)
     del key
     return vault_key
 
@@ -273,9 +276,12 @@ async def run_text(args) -> int:
 
 def make_adapter(kind: str, voice: str, key: str, client, *, keep_alive: bool = True):
     from app.core.config import get_settings
-    from app.services.coach.voice import RealtimeVoiceAdapter, TtsVoiceAdapter, websocket_connect
+    from app.services.coach.voice import FishVoiceAdapter, RealtimeVoiceAdapter, TtsVoiceAdapter, websocket_connect
 
     cfg = get_settings()
+    if kind == "fish":
+        return FishVoiceAdapter(client, key, model=cfg.coach_voice_fish_model,
+                                reference_id="" if voice == "default" else voice)
     if kind == "realtime":
         return RealtimeVoiceAdapter(websocket_connect, key, model=cfg.coach_voice_realtime_model, voice=voice,
                                     reasoning_effort=cfg.coach_voice_realtime_reasoning_effort, keep_alive=keep_alive)
@@ -404,15 +410,20 @@ async def run_pack(args) -> int:
     from app.services.coach.packs import CATALOG, PackError, PackJobRunner, PackStore, ProviderPackVoice
     from app.services.coach.voice import SAMPLE_RATE, voice_pricing
 
-    key = bootstrap()
+    key = bootstrap()  # The ledger also pins the OpenAI operator credential for voice-only runs.
+    if args.adapter == "fish":
+        key = bootstrap("fish")
     cfg = get_settings()
-    model = cfg.coach_voice_realtime_model if args.adapter == "realtime" else cfg.coach_voice_tts_model
+    slot = (f"fish-{args.fish_voice_id or args.persona}" if args.adapter == "fish" else
+            f"tts-{args.voice}" if args.adapter == "tts" else args.voice)
+    selected_voice = packs.provider_voice(slot)
+    model = packs.pack_model(slot)
     store = PackStore(cfg.coach_pack_root)
     budget = ledger.micros(args.cap_usd)
     spent, rounds, failures = 0, [], []
     async with httpx.AsyncClient(timeout=30, follow_redirects=False, trust_env=False) as client:
         for round_index in range(args.rounds):
-            plan = packs.plan(store, args.voice, model)
+            plan = packs.plan(store, slot, model)
             wanted = {spec.id for spec in CATALOG.values() if spec.required or args.include_optional}
             items = [clip for clip in plan["missing"] + plan["corrupt"] if clip in wanted]
             if not items:
@@ -425,9 +436,9 @@ async def run_pack(args) -> int:
             with SessionLocal() as db:
                 job_id = ledger.submit_job(db, run_id, f"pilot-{round_index}-{time.time_ns()}", plan["planFingerprint"], items)
                 ledger.job_state(db, job_id, "queued")
-            adapter = make_adapter(args.adapter, args.voice, key, client)
+            adapter = make_adapter(args.adapter, selected_voice, key, client)
             voice = ProviderPackVoice(adapter)
-            runner = PackJobRunner(SessionLocal, voice, voice_pricing(args.adapter), store, slot=args.voice, model=model)
+            runner = PackJobRunner(SessionLocal, voice, voice_pricing(args.adapter), store, slot=slot, model=model)
             print(f"pack round {round_index + 1}: {len(items)} clips")
             try:
                 await runner.run(job_id, OWNER, generation)
@@ -440,10 +451,10 @@ async def run_pack(args) -> int:
             spent += snap["settledMicros"] + snap["pendingMicros"]
             rounds.append({"runId": run_id, "items": len(items), "requests": snap["requests"],
                            "settledMicros": snap["settledMicros"], "pendingMicros": snap["pendingMicros"]})
-    final = packs.plan(store, args.voice, model)
-    manifest = store.manifest(args.voice)
-    path = out_dir(f"pack-{args.voice}")
-    if manifest and manifest["model"] == model and manifest["voice"] == args.voice:
+    final = packs.plan(store, slot, model)
+    manifest = store.manifest(slot)
+    path = out_dir(f"pack-{slot}")
+    if manifest and manifest["model"] == model and manifest["voice"] == selected_voice:
         gap = bytes(int(0.4 * SAMPLE_RATE) * 2)
         listen = [f"count-{n}" for n in range(1, 11)] + ["countdown-3", "countdown-2", "countdown-1", "set-start",
                                                          "rep-three-left", "set-end", "rest-ten", "safety-stop", "pain-stop", "workout-done"]
@@ -455,7 +466,7 @@ async def run_pack(args) -> int:
         from app.services.coach.packs import pcm_to_wav
 
         (path / f"listen-{args.voice}.wav").write_bytes(pcm_to_wav(gap.join(parts)))
-    write_report(path, {"slot": args.voice, "voice": args.voice, "adapter": args.adapter, "model": model, "capUsd": args.cap_usd,
+    write_report(path, {"slot": slot, "voice": selected_voice, "adapter": args.adapter, "model": model, "capUsd": args.cap_usd,
                         "spentMicros": spent, "rounds": rounds, "failures": failures,
                         "required": final["required"], "optional": final["optional"],
                         "manifest": {k: manifest[k] for k in ("packVersion", "complete", "voice", "model")} if manifest else None,
@@ -677,7 +688,9 @@ def main() -> int:
     parser.add_argument("--adapters", default="realtime,tts")
     parser.add_argument("--texts", type=int, default=30)
     parser.add_argument("--voice", choices=COACH_VOICES, default=DEFAULT_COACH_VOICE)
-    parser.add_argument("--adapter", choices=("realtime", "tts"), default="realtime")
+    parser.add_argument("--adapter", choices=("realtime", "tts", "fish"), default="realtime")
+    parser.add_argument("--fish-voice-id", default="", help="Fish library voice ID for pack generation")
+    parser.add_argument("--persona", choices=("streamer", "classic"), default="streamer")
     parser.add_argument("--rounds", type=int, default=3)
     parser.add_argument("--include-optional", action="store_true")
     parser.add_argument("--effort", choices=("none", "low", "medium"))
@@ -696,7 +709,9 @@ def main() -> int:
     if not valid_cap:
         print("Refusing: pilot requires a positive finite cap at most $2.00, in microdollars")
         return 2
-    extra = {"COACH_PACK_ADAPTER": args.adapter} if args.kind == "pack" else {}
+    if args.adapter == "fish" and args.kind != "pack":
+        parser.error("--adapter fish is supported for pack generation only")
+    extra = {"COACH_PACK_ADAPTER": args.adapter} if args.kind == "pack" and args.adapter != "fish" else {}
     prepare_sandbox(extra)
     return asyncio.run({"text": run_text, "voice": run_voice, "ab": run_ab, "pack": run_pack, "live": run_live}[args.kind](args))
 

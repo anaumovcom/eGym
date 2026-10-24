@@ -1,5 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { AlertTriangle, CheckCircle2, Plus, SkipForward, Square } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Check, CheckCircle2, Pause, Play, Plus, Repeat2, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
@@ -90,13 +90,14 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
   const nextExercisePlan = hasNextSet ? currentExercise : activeSession.exercises[currentExercise.order]
   const isSideChange = Boolean(currentExercise.perSide && currentExercise.plan[activeSession.currentSetIndex]?.side === 'left')
   const upcomingPlan = nextExercisePlan?.plan[hasNextSet ? activeSession.currentSetIndex + 1 : 0]
+  const interactionBlocked = finishDialogOpen || emergencyStopActive || snapshot?.safety.state === 'emergency_stop' || navigatorOpen
 
   useEffect(() => {
     autoAdvanceTriggeredRef.current = false
   }, [activeSession.currentExerciseId, activeSession.currentSetIndex, rest.mode])
 
   useEffect(() => {
-    if (rest.timerPaused || rest.remainingSeconds <= 0) {
+    if (rest.timerPaused || rest.remainingSeconds <= 0 || interactionBlocked || startingNextStep) {
       return
     }
 
@@ -105,11 +106,11 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
     }, 1000)
 
     return () => window.clearTimeout(timeoutId)
-  }, [rest.remainingSeconds, rest.timerPaused, tickRestTimer])
+  }, [interactionBlocked, rest.remainingSeconds, rest.timerPaused, startingNextStep, tickRestTimer])
 
   useEffect(() => {
     // While the workout plan is open the user is choosing where to go: the set does not start by itself.
-    if (isSideChange || rest.timerPaused || rest.remainingSeconds > 0 || autoAdvanceTriggeredRef.current || navigatorOpen) {
+    if (isSideChange || rest.timerPaused || rest.remainingSeconds > 0 || autoAdvanceTriggeredRef.current || interactionBlocked) {
       return
     }
 
@@ -123,10 +124,10 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
         }
       }
     })
-  }, [isSideChange, navigatorOpen, rest.remainingSeconds, rest.timerPaused])
+  }, [isSideChange, interactionBlocked, rest.remainingSeconds, rest.timerPaused])
 
   async function handleBeginNextStep() {
-    if (beginNextStepPendingRef.current) return false
+    if (beginNextStepPendingRef.current || interactionBlocked) return false
     beginNextStepPendingRef.current = true
     setStartingNextStep(true)
     try {
@@ -173,10 +174,20 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
     return true
   }
 
-  const progressPercent = rest.totalSeconds > 0 ? Math.round(((rest.totalSeconds - rest.remainingSeconds) / rest.totalSeconds) * 100) : 100
-  const nextTitle = rest.nextExercise?.name ?? (hasNextSet ? `${currentExercise.name} · подход ${activeSession.currentSetIndex + 2} из ${currentExercise.plan.length}` : 'Следующий подход')
-  const nextTarget = rest.nextExercise?.target ?? 'повторить текущую нагрузку'
-  const completedAmplitude = snapshot?.motion ? `${snapshot.motion.amplitudePercent}%` : rest.completedSet.amplitudePercent ? `${rest.completedSet.amplitudePercent}%` : null
+  const progressPercent = rest.totalSeconds > 0 ? Math.min(100, Math.max(0, Math.round(((rest.totalSeconds - rest.remainingSeconds) / rest.totalSeconds) * 100))) : 100
+  const nextTitle = rest.nextExercise?.name ?? nextExercisePlan?.name ?? 'Следующий подход'
+  const nextTarget = upcomingPlan?.targetSeconds != null ? `${upcomingPlan.targetSeconds} сек` : rest.nextExercise?.target ?? 'повторить текущую нагрузку'
+  // Rest telemetry describes the idle machine, not the completed set.
+  const completedAmplitude = rest.completedSet.amplitudePercent != null ? `${rest.completedSet.amplitudePercent}%` : null
+  const nextWeight = upcomingPlan?.recommendedWeightKg ?? nextExercisePlan?.loadSettings.weight
+  const resultUnit = currentExercise.kind === 'timed' || currentExercise.kind === 'stretch' ? 'сек' : 'повт.'
+  const completedCount = Object.values(session.completedSets).flat().filter((set) => set.completionStatus !== 'skipped').length
+  const totalCount = session.exercises.reduce((sum, exercise) => sum + exercise.plan.length, 0)
+  const nextSetLabel = nextExercisePlan?.perSide && upcomingPlan?.side
+    ? `Подход ${upcomingPlan.roundNumber} из ${nextExercisePlan.plan.length / 2} · ${upcomingPlan.side === 'left' ? 'Левая сторона' : 'Правая сторона'}`
+    : `Подход ${hasNextSet ? activeSession.currentSetIndex + 2 : 1} из ${nextExercisePlan?.plan.length ?? 1}`
+  const startLabel = startingNextStep ? 'Запускаем…' : isSideChange ? rest.nextActionLabel : hasNextSet ? 'Начать подход сейчас' : 'Начать упражнение'
+  const timerStatus = startingNextStep ? 'Подготовка тренажёра' : isSideChange ? 'Без отсчёта' : interactionBlocked || rest.timerPaused ? 'Таймер на паузе' : 'До следующего подхода'
 
   return (
     <FormaShell
@@ -189,69 +200,94 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
       }}
     >
       <div className="rt-screen rt-rest">
-        <header className="rt-header">
-          <div className="rt-chips" style={{ justifyContent: 'flex-start' }} aria-label="Место в тренировке">
-            <span className="rt-chip">Упражнение {currentExercise.order} из {activeSession.exercises.length}</span>
-            {activeSession.exercises.length > 1 ? <WorkoutNavigator session={activeSession} disabled={startingNextStep} onOpenChange={setNavigatorOpen} /> : null}
-          </div>
+        <header className="rt-rest-header">
           <div className="rt-title">
             <h1 className="font-display font-bold tracking-[-0.04em] text-white">{rest.title}</h1>
-            <p><span>{rest.subtitle}</span></p>
+            <p>{currentExercise.name}</p>
           </div>
-          <div className="rt-chips" aria-label="Завершённый подход">
-            <span className="rt-chip" data-tone={rest.completedSet.actualValue >= rest.completedSet.plannedValue ? 'good' : 'warning'}>
-              <CheckCircle2 aria-hidden="true" />
-              Подход {rest.completedSet.roundNumber ?? rest.completedSet.setNumber}{rest.completedSet.side ? ` · ${rest.completedSet.side === 'left' ? 'Левая сторона' : 'Правая сторона'}` : ''}: {rest.completedSet.actualValue} из {rest.completedSet.plannedValue}
-            </span>
+          <div className="rt-rest-workout" aria-label="Место в тренировке">
+            <span>Упражнение {currentExercise.order} из {activeSession.exercises.length} · Выполнено {completedCount} из {totalCount} подходов{currentExercise.perSide ? ' по сторонам' : ''}</span>
+            <div className="rt-chips">
+              {activeSession.exercises.length > 1 ? <WorkoutNavigator session={activeSession} disabled={startingNextStep} onOpenChange={setNavigatorOpen} /> : null}
+              <Button variant="ghost" disabled={startingNextStep} iconLeft={<Square aria-hidden="true" />} onClick={() => setFinishDialogOpen(true)}>
+                Завершить тренировку
+              </Button>
+            </div>
           </div>
         </header>
 
-        <section className="rt-rest-center" aria-label="Таймер отдыха">
-          <div className="rt-rest-timer" role="timer" aria-live="off" aria-label={`Осталось ${rest.remainingSeconds} секунд`}>
-            {formatTimer(rest.remainingSeconds)}
-          </div>
-          <div className="rt-progress rt-rest-progress" role="progressbar" aria-label="Прогресс отдыха" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
-            <div style={{ width: `${progressPercent}%` }} />
-          </div>
-          <div className="rt-rest-next">
-            <span>Дальше</span>
-            <strong>{nextTitle}</strong>
-            {nextExercisePlan?.perSide && upcomingPlan?.side ? <strong className="text-xl">Подход {upcomingPlan.roundNumber} из {nextExercisePlan.plan.length / 2} · {upcomingPlan.side === 'left' ? 'Левая сторона' : 'Правая сторона'}</strong> : null}
-            <p>Цель: {nextTarget}{nextExercisePlan?.perSide ? ' на сторону' : ''}{rest.nextExercise?.restLabel ? ` · отдых ${rest.nextExercise.restLabel}` : ''}</p>
-            <p role="note">{rest.recommendation}</p>
-          </div>
-          <div className="rt-rest-facts">
-            <span>План <strong>{rest.completedSet.plannedValue}</strong></span>
-            <span>Факт <strong>{rest.completedSet.actualValue}</strong></span>
-            {rest.completedSet.weightKg ? <span>Вес <strong>{rest.completedSet.weightKg} кг</strong></span> : null}
-            <span>Темп <strong>{rest.completedSet.tempoLabel}</strong></span>
-            {completedAmplitude ? <span>Амплитуда <strong>{completedAmplitude}</strong></span> : null}
-          </div>
-          {session.dataSource === 'backend' && selectedUserId && rest.completedSet.backendSetId ?
-            <SetFeedback key={`${session.id}:${selectedUserId}:${rest.completedSet.backendSetId}`} session={session} userId={selectedUserId} /> : null}
-          {hardwareError ? (
-            <div className="rt-alert" data-tone="danger" role="alert" style={{ width: 'min(100%, 48rem)' }}>
-              <AlertTriangle aria-hidden="true" />
-              <div>
-                <strong>Ошибка тренажёра</strong>
-                <p>{hardwareError}</p>
+        <div className="rt-rest-body">
+          <section className="rt-rest-center" aria-label="Таймер отдыха" data-paused={rest.timerPaused || interactionBlocked}>
+            <div className="rt-rest-dial" data-side-change={isSideChange}>
+              {!isSideChange ? <svg className="rt-rest-ring" viewBox="0 0 240 240" role="progressbar" aria-label="Прогресс отдыха" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progressPercent}>
+                <circle className="rt-rest-ring-track" cx="120" cy="120" r="110" />
+                <circle className="rt-rest-ring-value" cx="120" cy="120" r="110" pathLength="100" strokeDasharray="100" strokeDashoffset={100 - progressPercent} />
+              </svg> : null}
+              <div className="rt-rest-dial-content">
+                {isSideChange ? <Repeat2 className="rt-rest-side-icon" aria-hidden="true" /> : null}
+                <span className="rt-rest-eyebrow" role="status">{timerStatus}</span>
+                {isSideChange ? <strong className="rt-rest-side-title">Правая сторона</strong> : <div className="rt-rest-timer" role="timer" aria-live="off" aria-label={`Осталось ${rest.remainingSeconds} секунд`}>
+                  {formatTimer(rest.remainingSeconds)}
+                </div>}
+                <span className="rt-rest-dial-caption">{isSideChange ? 'Продолжите, когда будете готовы' : `Отдых · ${rest.totalSeconds} сек`}</span>
               </div>
-              <span />
             </div>
-          ) : null}
-        </section>
+            <p className="rt-rest-start-hint">{isSideChange ? 'Автозапуска нет. Смените сторону и нажмите кнопку начала.' : rest.timerPaused || interactionBlocked ? 'Отсчёт остановлен. Продолжите таймер или начните подход вручную.' : 'После отсчёта подход начнётся автоматически. Подготовьтесь к нагрузке.'}</p>
+            {!isSideChange ? <div className="rt-rest-timer-controls">
+              <Button variant="secondary" disabled={startingNextStep} iconLeft={rest.timerPaused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />} onClick={pauseRestTimer}>
+                {rest.timerPaused ? 'Продолжить таймер' : 'Пауза таймера'}
+              </Button>
+              <Button variant="secondary" disabled={startingNextStep} iconLeft={<Plus aria-hidden="true" />} onClick={() => adjustRestSeconds(30)}>+30 сек</Button>
+            </div> : null}
+          </section>
 
-        <div className="rt-rest-actions" role="group" aria-label="Действия во время отдыха">
-          <Button variant="secondary" iconLeft={<Plus aria-hidden="true" />} onClick={() => adjustRestSeconds(30)}>
-            +30 сек
-          </Button>
-          <Button disabled={startingNextStep} iconLeft={<SkipForward aria-hidden="true" />} onClick={() => void handleBeginNextStep()}>
-            {isSideChange ? rest.nextActionLabel : 'Пропустить'}
-          </Button>
-          <Button variant="secondary" iconLeft={<Square aria-hidden="true" />} onClick={() => setFinishDialogOpen(true)}>
-            Завершить тренировку
-          </Button>
+          <div className="rt-rest-details">
+            <section className="rt-rest-next" aria-label="Следующее действие">
+              <span className="rt-rest-eyebrow">{isSideChange ? 'Смена стороны' : hasNextSet ? 'Следующий подход' : 'Следующее упражнение'}</span>
+              <h2>{nextTitle}</h2>
+              <p className="rt-rest-set-label">{nextSetLabel}{upcomingPlan?.setType === 'warmup' ? ' · Разминка' : ''}</p>
+              <div className="rt-rest-target">
+                <div><span>Цель</span><strong>{nextTarget}</strong></div>
+                {nextExercisePlan?.kind === 'machine' && nextWeight != null ? <div><span>Нагрузка</span><strong>{nextWeight} кг</strong></div> : null}
+              </div>
+              <div className="rt-rest-set-track" aria-label="Подходы текущего упражнения">
+                {currentExercise.plan.map((plan, index) => {
+                  const done = (session.completedSets[currentExercise.id] ?? []).some((set) => set.setNumber === index + 1 && set.completionStatus !== 'skipped')
+                  const next = hasNextSet && index === activeSession.currentSetIndex + 1
+                  return <span key={index} data-done={done} data-next={next} aria-label={`${plan.roundNumber ? `Подход ${plan.roundNumber} · ${plan.side === 'left' ? 'левая' : 'правая'} сторона` : `Подход ${index + 1}`}: ${done ? 'выполнен' : next ? 'следующий' : 'впереди'}`}>
+                    {done ? <Check aria-hidden="true" /> : index + 1}
+                  </span>
+                })}
+              </div>
+              <p className="rt-rest-recommendation" role="note">{rest.recommendation}</p>
+            </section>
+
+            <section className="rt-rest-result" aria-label="Завершённый подход">
+              <h2><CheckCircle2 aria-hidden="true" />Подход {rest.completedSet.roundNumber ?? rest.completedSet.setNumber} завершён{rest.completedSet.side ? ` · ${rest.completedSet.side === 'left' ? 'левая' : 'правая'} сторона` : ''}</h2>
+              <dl className="rt-rest-facts">
+                <div><dt>Результат</dt><dd>{rest.completedSet.actualValue} <small>/ {rest.completedSet.plannedValue} {resultUnit}</small></dd></div>
+                {rest.completedSet.weightKg != null && rest.completedSet.weightKg > 0 ? <div><dt>Нагрузка</dt><dd>{rest.completedSet.weightKg} <small>кг</small></dd></div> : null}
+                {completedAmplitude ? <div><dt>Амплитуда</dt><dd>{completedAmplitude}</dd></div> : null}
+                <div><dt>Темп</dt><dd>{rest.completedSet.tempoLabel}</dd></div>
+              </dl>
+            </section>
+            {session.dataSource === 'backend' && selectedUserId && rest.completedSet.backendSetId ?
+              <SetFeedback key={`${session.id}:${selectedUserId}:${rest.completedSet.backendSetId}`} session={session} userId={selectedUserId} /> : null}
+            {hardwareError ? (
+              <div className="rt-alert" data-tone="danger" role="alert">
+                <AlertTriangle aria-hidden="true" />
+                <div><strong>Не удалось начать подход</strong><p>{hardwareError}</p><p>После устранения причины нажмите кнопку начала, чтобы повторить.</p></div>
+              </div>
+            ) : null}
+          </div>
         </div>
+
+        <footer className="rt-rest-actions" role="group" aria-label="Действия во время отдыха">
+          <p>{isSideChange ? 'Сначала удобно расположитесь на другой стороне.' : 'Нужно больше времени? Добавьте 30 секунд или поставьте таймер на паузу.'}</p>
+          <Button disabled={startingNextStep || interactionBlocked} onClick={() => void handleBeginNextStep()}>
+            {startLabel}<ArrowRight aria-hidden="true" />
+          </Button>
+        </footer>
       </div>
 
       <Dialog.Root open={finishDialogOpen} onOpenChange={setFinishDialogOpen}>

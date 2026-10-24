@@ -41,6 +41,8 @@ describe('RestScreen', () => {
       expect(screen.getByText('Подход 1 из 2 · Правая сторона')).toBeInTheDocument()
       expect(screen.getByRole('note')).toHaveTextContent('Перейдите на правую сторону')
       expect(screen.queryByRole('button', { name: 'Пропустить' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('timer')).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: '+30 сек' })).not.toBeInTheDocument()
       await act(async () => { vi.advanceTimersByTime(120_000) })
       act(() => useRuntimeStore.getState().pauseRestTimer())
       await act(async () => { vi.advanceTimersByTime(120_000) })
@@ -73,19 +75,22 @@ describe('RestScreen', () => {
     useRuntimeStore.getState().pauseRestTimer()
   })
 
-  it('shows a large timer, the next task and exactly three actions', () => {
+  it('shows the countdown, next set, load and clearly named actions', () => {
     renderScreen()
 
     const rest = useRuntimeStore.getState().session!.restState!
     expect(screen.getByRole('timer')).toHaveAccessibleName(`Осталось ${rest.remainingSeconds} секунд`)
     expect(screen.getByRole('region', { name: 'Таймер отдыха' })).toBeInTheDocument()
-    expect(screen.getByText('Дальше')).toBeInTheDocument()
+    expect(screen.getByRole('region', { name: 'Следующее действие' })).toHaveTextContent('Подход 2 из')
+    expect(screen.getByRole('region', { name: 'Следующее действие' })).toHaveTextContent('Нагрузка')
+    expect(screen.getByRole('progressbar', { name: 'Прогресс отдыха' })).toBeInTheDocument()
+    expect(screen.getByText('Таймер на паузе')).toHaveAttribute('role', 'status')
     const actions = screen.getByRole('group', { name: 'Действия во время отдыха' })
-    expect(actions.querySelectorAll('button')).toHaveLength(3)
+    expect(actions.querySelectorAll('button')).toHaveLength(1)
     expect(screen.getByRole('button', { name: '+30 сек' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Пропустить' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Начать подход сейчас' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Завершить тренировку' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Пауза|Уменьшить отдых/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Продолжить таймер' })).toBeInTheDocument()
     expect(screen.queryByRole('navigation', { name: 'Основная навигация' })).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'Аварийная остановка', exact: true })).toHaveLength(1)
   })
@@ -98,7 +103,7 @@ describe('RestScreen', () => {
     await user.click(screen.getByRole('button', { name: '+30 сек' }))
     expect(useRuntimeStore.getState().session!.restState!.remainingSeconds).toBe(before + 30)
 
-    await user.click(screen.getByRole('button', { name: 'Пропустить' }))
+    await user.click(screen.getByRole('button', { name: 'Начать подход сейчас' }))
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-session${currentSearch}`))
     expect(useRuntimeStore.getState().session!.view).toBe('exercise-session')
     expect(runCommandMock).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ action: 'start_motion', exerciseSlug: 'barbell-floor-press', targetSet: 2, loadDirection: 'down' }))
@@ -160,7 +165,7 @@ describe('RestScreen', () => {
     useRuntimeStore.setState({ session: { ...session, restState: { ...session.restState!, remainingSeconds: 0, timerPaused: false } } })
     renderScreen()
     await waitFor(() => expect(useRuntimeStore.getState().session!.restState!.timerPaused).toBe(true))
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Пропустить' }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Начать подход сейчас' }))
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-session${currentSearch}`))
     expect(runCommandMock).toHaveBeenCalledTimes(2)
   })
@@ -168,7 +173,7 @@ describe('RestScreen', () => {
   it('reuses a fixed position for the next set', async () => {
     useHardwareStore.setState({ loadCurrentCalibration: vi.fn().mockResolvedValue({ setupType: 'fixed_position', fixedPositionMm: 1480 }) })
     renderScreen()
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Пропустить' }))
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Начать подход сейчас' }))
     await waitFor(() => expect(runCommandMock).toHaveBeenCalledWith(expect.objectContaining({ action: 'start_fixed_position', positionMm: 1480, targetSet: 2 })))
   })
 
@@ -179,5 +184,67 @@ describe('RestScreen', () => {
     })
     renderScreen()
     expect(screen.getByText('Загружаем отдых…').closest('[role="status"]')).not.toBeNull()
+  })
+
+  it('pauses and resumes the countdown with an explicit automatic-start warning', async () => {
+    vi.useFakeTimers()
+    try {
+      renderScreen()
+      const before = useRuntimeStore.getState().session!.restState!.remainingSeconds
+      await act(async () => { vi.advanceTimersByTime(2000) })
+      expect(useRuntimeStore.getState().session!.restState!.remainingSeconds).toBe(before)
+      fireEvent.click(screen.getByRole('button', { name: 'Продолжить таймер' }))
+      expect(screen.getByText(/После отсчёта подход начнётся автоматически/)).toBeInTheDocument()
+      await act(async () => { vi.advanceTimersByTime(1000) })
+      expect(useRuntimeStore.getState().session!.restState!.remainingSeconds).toBe(before - 1)
+      fireEvent.click(screen.getByRole('button', { name: 'Пауза таймера' }))
+      await act(async () => { vi.advanceTimersByTime(3000) })
+      expect(useRuntimeStore.getState().session!.restState!.remainingSeconds).toBe(before - 1)
+      expect(runCommandMock).not.toHaveBeenCalled()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('suspends the countdown and automatic start while finishing is being confirmed', async () => {
+    vi.useFakeTimers()
+    try {
+      const session = useRuntimeStore.getState().session!
+      useRuntimeStore.setState({ session: { ...session, restState: { ...session.restState!, remainingSeconds: 1, timerPaused: false } } })
+      renderScreen()
+      fireEvent.click(screen.getByRole('button', { name: 'Завершить тренировку' }))
+      await act(async () => { vi.advanceTimersByTime(5000) })
+      expect(useRuntimeStore.getState().session!.restState!.remainingSeconds).toBe(1)
+      expect(runCommandMock).not.toHaveBeenCalled()
+      // Even a zero delivered by another update must not start hardware behind the dialog.
+      act(() => {
+        const current = useRuntimeStore.getState().session!
+        useRuntimeStore.setState({ session: { ...current, restState: { ...current.restState!, remainingSeconds: 0 } } })
+      })
+      expect(runCommandMock).not.toHaveBeenCalled()
+      expect(navigateMock).not.toHaveBeenCalled()
+    } finally { vi.useRealTimers() }
+  })
+
+  it('never starts a set behind an emergency-stop overlay', async () => {
+    const session = useRuntimeStore.getState().session!
+    useAppStore.setState({ emergencyStopActive: true })
+    useRuntimeStore.setState({ session: { ...session, restState: { ...session.restState!, remainingSeconds: 0, timerPaused: false } } })
+    renderScreen()
+    await act(async () => {})
+    expect(runCommandMock).not.toHaveBeenCalled()
+    expect(navigateMock).not.toHaveBeenCalled()
+  })
+
+  it('shows timed result units and preserves a measured zero amplitude', () => {
+    const session = useRuntimeStore.getState().session!
+    useRuntimeStore.setState({ session: { ...session,
+      exercises: session.exercises.map(exercise => ({ ...exercise, kind: 'timed', plan: exercise.plan.map(plan => ({ ...plan, targetSeconds: 45 })) })),
+      restState: { ...session.restState!, completedSet: { ...session.restState!.completedSet, amplitudePercent: 0 } },
+    } })
+    renderScreen()
+    const result = screen.getByRole('region', { name: 'Завершённый подход' })
+    expect(result).toHaveTextContent('сек')
+    expect(result).toHaveTextContent('0%')
+    expect(screen.getByRole('region', { name: 'Следующее действие' })).toHaveTextContent('45 сек')
+    expect(screen.getByRole('region', { name: 'Следующее действие' })).not.toHaveTextContent('Нагрузка')
   })
 })

@@ -954,7 +954,7 @@ class LiveCoach:
             recent_heard=self.memory.heard(), discussed_tips=tuple(self.memory.completed_tips)[-32:],
             cross_workout_preferences=tuple(self.cross_preferences.items()) if s.memory_enabled else (),
             optional_motif=motif, motif_callback=callback, category=op.candidate.topic_family,
-            character=s.persona, profanity=s.profanity and not risk,
+            character=s.persona, profanity=s.profanity and not risk, assistant_context=s.assistant_context,
             voice_markup=self.voice is not None and s.mode == "hybrid" and getattr(self.voice.adapter, "emotive", False))
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:

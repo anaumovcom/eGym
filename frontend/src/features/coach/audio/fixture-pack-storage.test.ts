@@ -138,23 +138,24 @@ describe('whitelisted synthetic local pack', () => {
   })
 })
 
-describe('local copied normalization', () => {
-  it('attenuates stereo peaks to .25 without amplification, mutation or channel skew', () => {
+describe('local unchanged copies', () => {
+  it('preserves stereo peaks without attenuation, amplification, mutation or channel skew', () => {
     const context = new FakeContext(); const raw = context.createBuffer(2, 2000, 8000)
     raw.getChannelData(0).fill(1); raw.getChannelData(1).fill(-0.5)
     const copy = verifyLocalBuffer(context.asAudioContext(), raw)
-    expect(copy.getChannelData(0)[0]).toBe(0.25)
-    expect(copy.getChannelData(1)[0]).toBe(-0.125)
+    expect(copy.getChannelData(0)[0]).toBe(1)
+    expect(copy.getChannelData(1)[0]).toBe(-0.5)
     expect(raw.getChannelData(0)[0]).toBe(1)
     raw.getChannelData(0).fill(0.1); raw.getChannelData(1).fill(0)
     expect(copyNormalizedLocalBuffer(context.asAudioContext(), raw).getChannelData(0)[0]).toBeCloseTo(0.1)
   })
 
-  it('accepts exact limits and rejects 60s+, bytes+, nonfinite, invalid samples/rates/channels', () => {
+  it('accepts long audio within memory limits and rejects bytes+, nonfinite, invalid samples/rates/channels', () => {
     const context = new FakeContext()
     expect(verifyLocalBuffer(context.asAudioContext(), context.createBuffer(1, 480000, 8000)).duration).toBe(60)
+    expect(verifyLocalBuffer(context.asAudioContext(), context.createBuffer(1, 720000, 8000)).duration).toBe(90)
     expect(verifyLocalBuffer(context.asAudioContext(), context.createBuffer(1, 720000, 12000)).length * 4).toBe(2880000)
-    for (const raw of [context.createBuffer(1, 480001, 8000), context.createBuffer(1, 720001, 12001),
+    for (const raw of [context.createBuffer(1, 720001, 12001),
       context.createBuffer(3, 2000, 8000), context.createBuffer(1, 0, 8000), context.createBuffer(1, 2000, 1000)]) {
       expect(() => verifyLocalBuffer(context.asAudioContext(), raw)).toThrow('invalid_local_buffer')
     }

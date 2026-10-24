@@ -294,7 +294,7 @@ describe('LocalCoachAudioManager actual-start mixer', () => {
     expect(JSON.stringify(snapshot)).not.toContain('speechText')
   })
 
-  it('rejects unverified/nonfinite/oversized buffers; owns attenuated copies', () => {
+  it('rejects unverified/nonfinite/oversized buffers; owns unchanged copies', () => {
     const { play, advance, buffer, context, manager } = setup()
     expect(play('raw', { buffer: context.createBuffer(1, 20, 8000) })).toBe(false)
     buffer.getChannelData(0)[0] = Number.NaN
@@ -304,8 +304,8 @@ describe('LocalCoachAudioManager actual-start mixer', () => {
     buffer.getChannelData(0).fill(0)
     advance()
     expect(context.sources[0].buffer).not.toBe(buffer)
-    expect(Math.max(...context.sources[0].buffer!.getChannelData(0))).toBe(0.25)
-    expect(() => verifyLocalBuffer(context.asAudioContext(), context.createBuffer(1, 480001, 8000))).toThrow()
+    expect(Math.max(...context.sources[0].buffer!.getChannelData(0))).toBe(1)
+    expect(verifyLocalBuffer(context.asAudioContext(), context.createBuffer(1, 480001, 8000)).duration).toBeGreaterThan(60)
     expect(() => verifyLocalBuffer(context.asAudioContext(), context.createBuffer(2, 400000, 8000))).toThrow()
     manager.dispose()
   })

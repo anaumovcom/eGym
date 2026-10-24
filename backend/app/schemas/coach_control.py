@@ -25,6 +25,8 @@ class CoachPreferences(CoachSettings):
     address: Literal["ty", "vy"] = "ty"
     # Letters separated by single spaces/hyphens only: it is sent to the model as data, never as instructions.
     nickname: str = Field(default="", max_length=24, pattern=r"^(?:[^\W\d_]+(?:[ -][^\W\d_]+)*)?$")
+    # Situational context is user data, never a replacement for system instructions or workout facts.
+    assistant_context: str = Field(default="", max_length=500)
     during_sets: bool = True
     during_rest: bool = True
     # Voice delivery: "auto" keeps the author's per-line choice.
@@ -141,6 +143,12 @@ class PackJobCreate(CoachModel):
     idempotency_key: str = Field(min_length=1, max_length=120)
     plan_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
     clip_ids: tuple[str, ...] = Field(min_length=1, max_length=256)
+
+
+class PackPrepare(CoachModel):
+    user_id: str = Field(min_length=1, max_length=120)
+    cap_usd: str = Field(pattern=r"^(?:[01](?:\.\d{1,4})?|2(?:\.0{1,4})?)$")
+    confirm_paid: Literal[True]
 
 
 class Pricing(CoachModel):

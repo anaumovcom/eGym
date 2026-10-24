@@ -9,10 +9,10 @@ import { LocalCoachAudioManager, type AudioReason, type LocalAudioSnapshot } fro
 import { peekSharedAudioContext, unlockSharedAudioContext } from '../audio/shared-audio-context'
 import { CoachInterpreter, type InterpreterSnapshot, type LocalCue, type SetTimerInput } from '../interpreter/coach-interpreter'
 import { coachLifecycle, coachSetTimer, isCoachFoundationEnabled, setLifecycleVersionReader } from '../lib/runtime-observation'
-import { coachRunId, type CoachEvent, type CoachScope, type CoachVoice } from '../model/contracts'
+import { coachRunId, type CoachEvent, type CoachScope } from '../model/contracts'
 import { effectiveCoachState, type CoachPreferences, type GeneralCoachAudio } from '../model/preferences'
 import { coachRepBeep, playCue, type ClipSource, type CueManager, type RepBeepArbiter } from './local-cue-player'
-import { coachPackClient } from '../audio/pack-client'
+import { coachPackClient, coachPackSlot, type PackSlot } from '../audio/pack-client'
 import type { LifecycleRefs } from '../lib/lifecycle-observer'
 import { CoachNetworkClient, type NetworkSnapshot } from './coach-network-client'
 import { LocalCompletions } from './local-completion'
@@ -41,7 +41,7 @@ export type LiveRuntimeDependencies = Readonly<{
   createManager: (context: AudioContext, scope: CoachScope) => Manager
   clips: () => ClipSource
   /** Loads the published voice pack (cache or free GET); once per voice while audio runs. */
-  restorePack: (slot: CoachVoice) => void
+  restorePack: (slot: PackSlot) => void
   beep: RepBeepArbiter
   now: () => number
   setInterval: (callback: () => void, ms: number) => unknown
@@ -72,7 +72,7 @@ const defaults: LiveRuntimeDependencies = {
   network: null,
   context: peekSharedAudioContext,
   createManager: (context, scope) => new LocalCoachAudioManager({ context, scope }),
-  clips: () => coachPackClient.clipsFor(localAudioRuntime.getSavedPreferences()?.voiceProfile),
+  clips: () => coachPackClient.clipsFor(coachPackSlot(localAudioRuntime.getSavedPreferences())),
   restorePack: slot => { void coachPackClient.restore(slot, { downloadPrepared: true }) },
   beep: coachRepBeep,
   now: () => performance.now(),
@@ -104,7 +104,7 @@ export class CoachLiveRuntime {
   private snapshotValue: LiveRuntimeSnapshot
   private unlockListener: (() => void) | null = null
   private ticking = false
-  private restoredSlot: CoachVoice | null = null
+  private restoredSlot: PackSlot | null = null
   private completions = new LocalCompletions()
 
   constructor(dependencies: Partial<LiveRuntimeDependencies> = {}) {
@@ -159,7 +159,7 @@ export class CoachLiveRuntime {
       count: inputs.saved?.count ?? 'off', lifecycle })
     this.counters.skips += result.skips.length
     const gate = this.gate(inputs)
-    const slot = inputs.saved?.voiceProfile ?? null
+    const slot = coachPackSlot(inputs.saved)
     // Decoding needs the running (user-unlocked) context; the cues below find no clips until it finishes.
     if (!gate && slot && slot !== this.restoredSlot) { this.restoredSlot = slot; this.deps.restorePack(slot) }
     if (result.scope) this.manager?.updateScope(result.scope)

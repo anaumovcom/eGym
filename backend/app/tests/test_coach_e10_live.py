@@ -543,6 +543,28 @@ async def test_context_facts_and_content_switches(session_factory):
     assert request.say_numbers is False and [f.id for f in request.facts] == ["milestone"]
 
 
+def test_assistant_context_persists_per_user_and_reaches_live_author(session_factory):
+    from pydantic import ValidationError
+
+    from app.services.coach.preferences import load_preferences
+    from app.services.coach.prompts import build_prompt
+
+    context = "Идёт трансляция тренировки на стриме, тренер комментирует и подбадривает спортсмена."
+    with session_factory() as db:
+        assert load_preferences(db, "alexey").assistant_context == ""
+        saved = save_preferences(db, "alexey", PreferencesSave(expected_revision=0,
+                                 settings=CoachPreferences(**HYBRID, assistant_context=context)))
+        loaded = load_preferences(db, "alexey")
+        assert loaded.assistant_context == context and loaded.revision == saved.revision == 1
+    coach, _, run_id = make_coach(session_factory, loaded)
+    request = coach._request(plan(coach, run_id, "workout_started"), 20)
+    assert request.assistant_context == context
+    assert context in build_prompt(request).data
+    assert context not in build_prompt(request).instructions
+    with pytest.raises(ValidationError):
+        CoachPreferences(assistant_context="я" * 501)
+
+
 def test_in_set_moments_get_own_topics_and_follow_real_set_time(session_factory):
     coach, _, run_id = make_coach(session_factory)
     context = {"exerciseName": "Жим в Смите", "totalSets": 3, "targetReps": 10, "phaseElapsedMs": 40_000}

@@ -1,13 +1,28 @@
 import { COACH_VOICES, type CoachVoice } from '../model/contracts'
+import type { CoachPreferences } from '../model/preferences'
 import { verifyLocalBuffer, localBufferBytes } from './local-buffers'
 import { MAX_DECODED_CACHE_BYTES } from './fixture-pack-storage'
 import { getSharedAudioContext } from './shared-audio-context'
 
 /** E09 prepared voice pack: verified download → CacheStorage → decode → pinned in-memory clips.
  * Never generates audio, never substitutes another voice, never fetches during a cue. */
-/** One pack per provider voice: the slot IS the voice ID (same timbre as live speech). */
-export type PackSlot = CoachVoice
+/** Legacy OpenAI Realtime slots plus model-qualified TTS and Fish character/library slots. */
+export type PackSlot = CoachVoice | `tts-${CoachVoice}` | `fish-${string}`
 export const PACK_SLOTS: readonly PackSlot[] = COACH_VOICES
+export function isPackSlot(value: unknown): value is PackSlot {
+  return typeof value === 'string' && (COACH_VOICES.includes(value as CoachVoice) ||
+    (value.startsWith('tts-') && COACH_VOICES.includes(value.slice(4) as CoachVoice)) ||
+    /^fish-(?:[a-f0-9]{32}|streamer|classic)$/.test(value))
+}
+/** Model and effective character voice, shared by preparation and workout playback. */
+export function coachPackSlot(prefs: CoachPreferences | null): PackSlot | null {
+  if (!prefs) return null
+  if (prefs.voiceModel === 'fish-drama-3') {
+    const slot = `fish-${prefs.fishVoiceId || prefs.persona}`
+    return isPackSlot(slot) ? slot : null
+  }
+  return prefs.voiceModel === 'openai-tts' ? `tts-${prefs.voiceProfile}` : prefs.voiceProfile
+}
 export type PackState = 'not_prepared' | 'downloading' | 'decoding' | 'ready' | 'partial' | 'failed' | 'offline'
 export type PackReason = 'no_pack' | 'unavailable' | 'invalid_manifest' | 'checksum' | 'decode' | 'quota' | 'no_audio' | 'cancelled' | null
 export type PackSnapshot = Readonly<{
@@ -25,7 +40,7 @@ const HEX64 = /^[a-f0-9]{64}$/
 const VERSION = /^[a-f0-9]{16}$/
 const CLIP_ID = /^[a-z0-9-]{1,40}$/
 const MAX_CLIPS = 256
-const MAX_CLIP_BYTES = 600_000
+const MAX_CLIP_BYTES = 2_880_000
 const DURATION_TOLERANCE_S = 0.02
 
 export type PackDependencies = Readonly<{
@@ -62,7 +77,7 @@ export function parsePackManifest(value: unknown, slot: PackSlot): PackManifest 
     const c = (raw ?? {}) as Record<string, unknown>
     if (!CLIP_ID.test(id) || typeof c.fingerprint !== 'string' || !HEX64.test(c.fingerprint) || typeof c.sha256 !== 'string' || !HEX64.test(c.sha256) ||
         !Number.isInteger(c.bytes) || (c.bytes as number) < 44 || (c.bytes as number) > MAX_CLIP_BYTES ||
-        typeof c.durationMs !== 'number' || !(c.durationMs > 0 && c.durationMs <= 6000) ||
+        typeof c.durationMs !== 'number' || !Number.isFinite(c.durationMs) || c.durationMs <= 0 ||
         !Number.isInteger(c.sampleRate) || (c.sampleRate as number) < 8000 || (c.sampleRate as number) > 48000 ||
         typeof c.required !== 'boolean' || typeof c.approved !== 'boolean') fail()
     // Pick known fields only.
@@ -128,7 +143,7 @@ export class CoachPackClient {
    * download an already published pack if the browser cache is empty/evicted.
    * This is GET-only: never creates a pack or dispatches paid generation. */
   async restore(slot: PackSlot, options: Readonly<{ downloadPrepared?: boolean }> = {}): Promise<PackSnapshot> {
-    if (!PACK_SLOTS.includes(slot) || (this.value.slot === slot && this.value.state !== 'not_prepared')) return this.value
+    if (!isPackSlot(slot) || (this.value.slot === slot && this.value.state !== 'not_prepared')) return this.value
     const epoch = this.epoch
     let cache: Cache | null = null
     try { cache = await this.deps.openCache() } catch { cache = null }
@@ -139,7 +154,7 @@ export class CoachPackClient {
   }
 
   async prepare(slot: PackSlot): Promise<PackSnapshot> {
-    if (!PACK_SLOTS.includes(slot)) throw new Error('invalid_slot')
+    if (!isPackSlot(slot)) throw new Error('invalid_slot')
     const epoch = ++this.epoch
     const live = () => epoch === this.epoch
     const base = CoachPackClient.empty(slot)

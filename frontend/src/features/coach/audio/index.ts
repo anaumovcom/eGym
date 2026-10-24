@@ -11,4 +11,4 @@ export { FixturePackStorage, LocalClipPreparer, LOCAL_FIXTURE_CATALOG, MAX_DECOD
 export type { LocalFixtureStorage } from './fixture-pack-storage'
 export { createTestClipBuffer, createTestClipWav } from './test-clips'
 export type { TestClipId } from './test-clips'
-export { MAX_LOCAL_BUFFER_BYTES, MAX_LOCAL_DURATION_SECONDS } from './local-buffers'
+export { MAX_LOCAL_BUFFER_BYTES } from './local-buffers'

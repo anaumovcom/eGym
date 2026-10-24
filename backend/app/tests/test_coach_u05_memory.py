@@ -314,6 +314,70 @@ async def test_failed_or_unstarted_draft_never_enters_heard_memory(session_facto
     assert not coach.memory.completed
 
 
+@pytest.mark.parametrize("terminal", ["unstarted", "started", "interrupted", "completed"])
+async def test_next_author_request_contains_only_playback_acknowledged_history(session_factory, terminal):
+    fake = FakeTextAuthor(echo())
+    coach, sink, run = make_coach(session_factory, fake_text=fake)
+    try:
+        await coach.handle(event("workout_started", run))
+        await settle(coach)
+        first = sink.of("speech_start")[0]
+        gid = first["generationId"]
+        assert json.loads(fake.calls[0]["input"][0]["content"])["recentHeard"] == []
+        if terminal != "unstarted":
+            await coach.handle({"type": "playback_started", "generationId": gid})
+        if terminal in {"unstarted", "interrupted", "completed"}:
+            await coach.handle({"type": "playback_completed" if terminal == "completed" else "playback_failed",
+                                "generationId": gid})
+
+        # Exercise a second actual author dispatch, not just build_prompt() in isolation.
+        fake.script = echo("Пауза тоже часть работы.")
+        op = plan(coach, run, "rest_long_opportunity", exercise="ex-2", set_ordinal=1,
+                  phase="rest", context={"restMs": 120_000})
+        coach.active_op = op
+        op.state.transition("preparing")
+        await coach._run(op, 20)
+        assert len(fake.calls) == 2
+        data = json.loads(fake.calls[-1]["input"][0]["content"])
+        assert len(sink.of("speech_start")) == 2, sink.json
+        if terminal == "unstarted":
+            assert data["recentHeard"] == data["recentTopics"] == data["recentOpenings"] == []
+        else:
+            assert data["recentHeard"] == [{
+                "text": first["text"], "intent": "motivation", "category": "intro",
+                "status": terminal, "fullTextHeard": terminal == "completed",
+                "tipId": None, "tipVersion": None, "facts": [],
+            }]
+            assert data["recentTopics"] == coach.memory.recent_topics()
+            assert data["recentOpenings"] == ["поехали спокойно"]
+    finally:
+        await coach.close()
+
+
+@pytest.mark.parametrize("text", ["Поехали, спокойно и собранно.", "Поехали спокойно, без суеты."])
+async def test_next_author_rejects_exact_phrase_or_recent_opening_before_voice(session_factory, text):
+    fake = FakeTextAuthor(echo())
+    coach, sink, run = make_coach(session_factory, fake_text=fake)
+    try:
+        await coach.handle(event("workout_started", run))
+        await settle(coach)
+        gid = sink.of("speech_start")[0]["generationId"]
+        await coach.handle({"type": "playback_started", "generationId": gid})
+        await coach.handle({"type": "playback_completed", "generationId": gid})
+        fake.script = echo(text)
+        op = plan(coach, run, "rest_long_opportunity", set_ordinal=1,
+                  phase="rest", context={"restMs": 120_000})
+        coach.active_op = op
+        op.state.transition("preparing")
+        frames_before = len(sink.bytes)
+        await coach._run(op, 20)
+        assert len(fake.calls) == 2
+        assert sink.of("decision")[-1]["reason"] == "validation_failed:topic_repeat"
+        assert len(sink.of("speech_start")) == 1 and len(sink.bytes) == frames_before
+    finally:
+        await coach.close()
+
+
 @pytest.mark.parametrize("history", [False, True])
 async def test_optout_no_heard_storage_or_prompt_but_keeps_pacing(session_factory, history):
     prefs = CoachPreferences(**HYBRID, history_consent=history, memory_enabled=False, cross_workout_memory=True)

@@ -45,14 +45,14 @@ export type CoachPreferences = CoachSettings & CoachTuning & Readonly<{
   style: CoachStyle; humor: typeof COACH_HUMOR_LEVELS[number]; humorKinds: readonly CoachHumorKind[]
   /** Explicit 18+ dark-humor opt-in. */
   edgyOptIn: boolean; extras: readonly CoachExtra[]; address: 'ty' | 'vy'; nickname: string
-  duringSets: boolean; duringRest: boolean
+  duringSets: boolean; duringRest: boolean; assistantContext: string
   memoryEnabled: boolean; crossWorkoutMemory: boolean
 }>
 export const DEFAULT_COACH_PREFERENCES: CoachPreferences = Object.freeze<CoachPreferences>({
   ...DEFAULT_COACH_SETTINGS, ...DEFAULT_COACH_TUNING, networkConsentVersion: null, voiceVolume: null, fishVoiceId: '',
   // Default roast set (user decision 24.10.2026): streamer character, swearing, teasing, dark humor.
   style: 'companion', humor: 'often', humorKinds: ['roast', 'irony', 'absurd'], edgyOptIn: true, extras: [],
-  address: 'ty', nickname: '', duringSets: true, duringRest: true,
+  address: 'ty', nickname: '', duringSets: true, duringRest: true, assistantContext: '',
   memoryEnabled: true, crossWorkoutMemory: false,
 })
 
@@ -82,6 +82,7 @@ export function preferencesValid(p: CoachPreferences): boolean {
     Number(p.budgetUsd) > 0 && Number(p.budgetUsd) <= 2 &&
     (p.voiceVolume === null || (Number.isFinite(p.voiceVolume) && p.voiceVolume >= 0 && p.voiceVolume <= 1)) &&
     typeof p.fishVoiceId === 'string' && FISH_VOICE_ID.test(p.fishVoiceId) &&
+    typeof p.assistantContext === 'string' && p.assistantContext.length <= 500 &&
     Number.isSafeInteger(p.revision) && p.revision >= 0 && typeof p.edgyOptIn === 'boolean' &&
     COACH_STYLES.includes(p.style) && COACH_HUMOR_LEVELS.includes(p.humor) &&
     enumList(p.humorKinds, COACH_HUMOR_KINDS) && enumList(p.extras, COACH_EXTRAS) &&

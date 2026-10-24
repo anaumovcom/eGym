@@ -148,6 +148,14 @@ def test_pcm_framer_reframes_carries_odd_bytes_and_bounds_stream():
         big.push(b"\x00\x00")
 
 
+def test_pcm_framer_preserves_audio_over_sixty_seconds_within_byte_limit():
+    framer = PcmFramer("u", "g", SCOPE, "tts", sample_rate=8000)
+    pcm = bytes(2 * 8000 * 90)
+    frames = framer.push(pcm) + [framer.finish()]
+    assert b"".join(frame.data for frame in frames) == pcm
+    assert sum(frame.metadata.duration_ms for frame in frames) == pytest.approx(90_000)
+
+
 def test_transcript_verification_is_post_factum_and_number_strict():
     ok = verify_transcript("Десять повторений записали, ровная работа.", "десять повторений записали ровная работа")
     assert ok.status == "match" and ok.numbers_match and ok.mode == "post-factum-transcript"
@@ -739,7 +747,7 @@ async def test_paid_voice_dispatch_requires_every_operator_gate(session_factory,
         get_settings.cache_clear()
 
 
-async def test_streamer_caps_speech_by_text_length(session_factory):
+async def test_streamer_budgets_by_text_length_without_truncating_returned_audio(session_factory):
     class Recording(FakeVoiceStream):
         async def stream(self, text, scope, generation_id, delivery, *, instructions=None, max_output_tokens=None):
             self.max_output_tokens = max_output_tokens
@@ -757,11 +765,12 @@ async def test_streamer_caps_speech_by_text_length(session_factory):
         attempt = db.query(CoachAttempt).filter_by(run_id=run_id, stage="voice").one()
         assert attempt.bounds["outputTokens"] == bounds.output_tokens
         assert attempt.bounds["audioOutputTokens"] == bounds.audio_output_tokens
-    # "Да." may take ≤ 3.48 s; a 4 s monologue is a preamble/runaway and is cut, leaving the attempt a liability.
+    # Returned audio can exceed the text-duration estimate without being cut.
     runaway = Recording(parts=(bytes(48_000),) * 4)
     outcome, frames = await collect(VoiceStreamer(session_factory, runaway, PRICE), run_id, generation, "v:run", text="Да.")
-    assert outcome.status == "failed" and outcome.reason == "audio_overrun" and len(frames) < 40
-    assert statuses(session_factory, run_id)[-1] == "unsettled"
+    assert outcome.status == "complete" and len(frames) == 41
+    assert outcome.bytes == 4 * 48_000
+    assert statuses(session_factory, run_id)[-1] == "settled"
 
 
 async def test_streamer_scope_change_mid_stream_cancels_and_leaves_liability(session_factory):

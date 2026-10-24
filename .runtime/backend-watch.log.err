@@ -1,11 +1,99 @@
-Hardware latch fault: �����: Modbus �� ���������; ������: Modbus �� ���������
-INFO:     Started server process [27000]
+Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
+INFO:     Started server process [3334]
 INFO:     Waiting for application startup.
-Modbus connect to /dev/ttyUSB0 failed: No module named 'minimalmodbus'
-Hardware latch fault: �����: Modbus �� ���������; ������: Modbus �� ���������
+Control loop stalled: 793 ms between ticks
 INFO:     Application startup complete.
-INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 50932) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
+INFO:     ('127.0.0.1', 41842) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-INFO:     ('127.0.0.1', 51822) - "WebSocket /api/scales/realtime" [accepted]
+INFO:     ('127.0.0.1', 41932) - "WebSocket /api/scales/realtime" [accepted]
 INFO:     connection open
+INFO:     ('127.0.0.1', 41934) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     connection open
+INFO:     ('127.0.0.1', 41946) - "WebSocket /api/scales/realtime" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     connection closed
+INFO:     ('127.0.0.1', 42004) - "WebSocket /api/coach/runs/799443a027adf7a01da2d9c445405308/live" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 36656) - "WebSocket /api/coach/runs/84a69baf1d34212795e00f83d14c7a1c/live" [accepted]
+INFO:     connection open
+INFO:     connection closed
+INFO:     ('127.0.0.1', 32904) - "WebSocket /api/coach/runs/7172a844e0efbadb1ba15c8191a782b2/live" [accepted]
+INFO:     connection open
+Slow control tick: 408 ms (calibration=None)
+Slow control tick: 411 ms (calibration=None)
+Slow control tick: 408 ms (calibration=None)
+Slow control tick: 397 ms (calibration=None)
+Slow control tick: 397 ms (calibration=None)
+Slow control tick: 397 ms (calibration=None)
+Slow control tick: 414 ms (calibration=None)
+Hardware event workout_aborted: Перемещение грифа прервано: превышено время процедуры
+Hardware latch fault: Перемещение грифа прервано: превышено время процедуры
+Slow control tick: 410 ms (calibration=None)
+Slow control tick: 715 ms (calibration=None)
+Control loop stalled: 720 ms between ticks
+Slow control tick: 715 ms (calibration=None)
+Control loop stalled: 720 ms between ticks
+Slow control tick: 407 ms (calibration=None)
+Slow control tick: 1978 ms (calibration=None)
+Control loop stalled: 1983 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 1713 ms (calibration=None)
+Control loop stalled: 1718 ms between ticks
+Slow control tick: 582 ms (calibration=None)
+INFO:     connection closed
+INFO:     ('127.0.0.1', 59168) - "WebSocket /api/coach/runs/697eaef3797c46f67d3d91fb8f5e4501/live" [accepted]
+INFO:     connection open
+Hardware latch fault: левый: No communication with the instrument (no answer); правый: No communication with the instrument (no answer)
+Hardware event workout_aborted: Упражнение прервано: левый: No communication with the instrument (no answer); правый: No communication with the instrument (no answer)
+Slow control tick: 3944 ms (calibration=None)
+Control loop stalled: 3949 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2642 ms (calibration=None)
+Control loop stalled: 2647 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2641 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2645 ms between ticks
+Slow control tick: 2640 ms (calibration=None)
+Control loop stalled: 2646 ms between ticks

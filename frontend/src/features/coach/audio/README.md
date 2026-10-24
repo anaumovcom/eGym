@@ -92,8 +92,8 @@ not a measurement of sound at the speaker (a silent clip can still be counted).
   `clear(): void`, `snapshot(): Readonly<{entries, bytes, inFlight}>`.
 - `prepare()` verifies a fixed whitelist and **encoded SHA256 before decode**;
   validates decoded duration/channels/rate (resampling uses the context rate),
-  rejects nonfinite samples, normalizes copied peaks to at most .25 without
-  amplification. It coalesces decoding and uses a private decoded LRU capped
+  rejects nonfinite samples and copies audio without amplitude normalization
+  or a phrase-duration limit. It coalesces decoding and uses a private decoded LRU capped
   at 32MiB. Every caller gets a verified copy; cache data never escapes.
 - `createTestClipWav(id: TestClipId): Uint8Array<ArrayBuffer>` and
   `createTestClipBuffer(context: BaseAudioContext, id?: TestClipId): AudioBuffer`
@@ -102,7 +102,7 @@ not a measurement of sound at the speaker (a silent clip can still be counted).
 - `LOCAL_FIXTURE_CATALOG`: deeply immutable metadata with IDs, explicit TEST
   labels, encoded sizes, durations, rates, channels, fixed SHA256 hashes.
 - Constants: `MAX_DECODED_CACHE_BYTES` (32MiB), `MAX_LOCAL_BUFFER_BYTES`
-  (2,880,000), `MAX_LOCAL_DURATION_SECONDS` (60).
+  (2,880,000).
 - Public types: `AudioReason`, `AudioTimerClock`, `AudioTimelineEvent`,
   `LocalAudioSource`, `LocalAudioSnapshot`, `LocalAudioManagerOptions`,
   `PlayLocalOptions`, `LocalFixtureStorage`, `TestClipId`.

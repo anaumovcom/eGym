@@ -243,9 +243,14 @@ describe('CoachLiveRuntime', () => {
     f.view('exercise-setup')
     expect(f.restored).toEqual([]) // decoding waits for the user-unlocked context
     f.context.setState('running'); f.view('exercise-session'); f.hw('training', 0)
-    expect(f.restored).toEqual([saved.voiceProfile])
+    expect(f.restored).toEqual(['fish-streamer'])
     f.change({ saved: { ...saved, voiceProfile: 'cedar' } })
-    expect(f.restored).toEqual([saved.voiceProfile, 'cedar'])
+    expect(f.restored).toEqual(['fish-streamer']) // OpenAI voice does not override the Fish character.
+    f.change({ saved: { ...saved, persona: 'classic' } })
+    f.change({ saved: { ...saved, fishVoiceId: 'a'.repeat(32) } })
+    f.change({ saved: { ...saved, voiceModel: 'openai-tts', voiceProfile: 'cedar' } })
+    f.change({ saved: { ...saved, voiceModel: 'openai-realtime', voiceProfile: 'cedar' } })
+    expect(f.restored).toEqual(['fish-streamer', 'fish-classic', `fish-${'a'.repeat(32)}`, 'tts-cedar', 'cedar'])
   })
 
   it('emergency cancels ordinary speech and plays the safety cue', () => {
