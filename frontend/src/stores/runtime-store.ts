@@ -445,7 +445,8 @@ export const useRuntimeStore = create<RuntimeStore>()(
                       ? { targetSeconds: loadSettings.reps }
                       : { targetReps: loadSettings.reps, targetMinReps: loadSettings.reps, targetMaxReps: loadSettings.reps } : {}),
                     ...(patch.restSeconds !== undefined ? { restSeconds: loadSettings.restSeconds } : {}),
-                    ...(patch.weight !== undefined ? { recommendedWeightKg: loadSettings.weight, weightLabel: `${loadSettings.weight} кг` } : {}),
+                    // Warm-ups keep the lighter weight the rebuilt plan gives them; the field is the working weight.
+                    ...(patch.weight !== undefined && plan.setType !== 'warmup' ? { recommendedWeightKg: loadSettings.weight, weightLabel: `${loadSettings.weight} кг` } : {}),
                   }
                 }),
               }

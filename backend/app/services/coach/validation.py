@@ -5,7 +5,16 @@ from dataclasses import dataclass
 
 from app.services.coach.facts import memory_key
 from app.services.coach.memory import CoachMemory, words
-from app.services.coach.prompts import EMPHASIS, ENERGY, PACE, SILENCE_REASONS, AuthorRequest
+from app.services.coach.prompts import (
+    EMPHASIS,
+    ENERGY,
+    PACE,
+    SILENCE_REASONS,
+    VOICE_DIRECTION_CHARS,
+    VOICE_SOUNDS,
+    VOICE_STRESS,
+    AuthorRequest,
+)
 from app.services.coach.speech_actions import SPEECH_ACTIONS, speech_action
 
 MAX_CHARS = 400
@@ -44,7 +53,10 @@ _CLAIMS: tuple[tuple[str, re.Pattern], ...] = tuple((c, re.compile(p)) for c, p 
     ("push", r"добав\w* (вес|нагрузк|килограмм|блин)|(еще|ещё) (один|одно|одну|пару|парочку|несколько|раз|повтор|подход)"
              r"|сверх плана|терп|через боль|не останавливайся|не ленись|до упора|любой ценой|через не могу|без права на паузу"),
     ("spotter", r"подстрах|страхую|я (помогаю|держу|давлю)|помогу поднять"),
-    ("insult", r"пропадал|ленил|лентя|уснул|слабак|слабач|слабеньк|неудачник|никчем|размазн|позор|тряпк"),
+    # Friendly-roast vocabulary: allowed only when the user enabled roasting (AuthorRequest.roast).
+    ("insult", r"пропадал|ленил|лентя|уснул|слабак|слабач|слабеньк|размазн|позор|тряпк"),
+    # Never allowed, roast or not: worth as a person and body shaming.
+    ("degrade", r"неудачник|никчем|ничтожеств|жиртрест|жирдя|толстя|толстух|пузат|дрищ|урод"),
     ("first", r"впервые|перв\w* (тренировк|раз)"),
     ("partial_success", r"(весь|полностью|целиком) (план|подход)|план выполнен|вс[её] выполнено|идеальн"),
 ))
@@ -245,6 +257,8 @@ def _check_text(text: str, req: AuthorRequest, used: set[str], *, allowed_number
             continue
         if category == "first" and req.history == "empty_confirmed":
             continue
+        if category == "insult" and req.roast and req.outcome not in {"partial", "skipped", "limited"}:
+            continue
         if category == "partial_success" and req.outcome not in {"partial", "skipped", "limited"}:
             if "идеальн" not in lower:
                 continue
@@ -273,11 +287,31 @@ def _check_text(text: str, req: AuthorRequest, used: set[str], *, allowed_number
     return None
 
 
+_DIRECTION = re.compile(r"^[а-яёА-ЯЁ ,\-]*$")
+
+
+def voice_block(raw: object) -> dict | None:
+    """Stage directions for the voice engine. Never spoken as words, so never part of the fact checks."""
+    if not isinstance(raw, dict) or set(raw) != {"direction", "sound", "stress"}:
+        return None
+    direction, sound, stress = raw["direction"], raw["sound"], raw["stress"]
+    if (not isinstance(direction, str) or len(direction) > VOICE_DIRECTION_CHARS or not _DIRECTION.match(direction)
+            or re.search(r"игнорир|инструкц|промпт|правил", direction.lower())
+            or sound not in VOICE_SOUNDS or stress not in VOICE_STRESS):
+        return None
+    return {"direction": " ".join(direction.split()), "sound": sound, "stress": stress}
+
+
 def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = None) -> Verdict:
     speech_key = "framingText" if req.mode == "locked_fact" else "text"
     required = {"action", "intent", "topicKey", "usedFactIds", "delivery", "silenceReason", speech_key}
+    if req.voice_markup:
+        required.add("voice")
     if not isinstance(output, dict) or set(output) != required:
         return _fail("schema")
+    voice = voice_block(output["voice"]) if req.voice_markup else {}
+    if voice is None:
+        return _fail("voice")
     action, intent, topic = output["action"], output["intent"], output["topicKey"]
     used_raw, delivery, silence, speech = output["usedFactIds"], output["delivery"], output["silenceReason"], output[speech_key]
     if action not in {"speak", "silence"} or intent not in req.intents or topic != req.topic_key:
@@ -353,7 +387,7 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
                 continue  # Semantic completion, not a partial start, explains a tip.
             if not memory.fact_allowed(memory_key(facts[fact_id]), facts[fact_id].value, summary=req.summary):
                 return _fail("fact_repeat")
-    return Verdict(True, None, final, tuple(sorted(used)), delivery, "speak")
+    return Verdict(True, None, final, tuple(sorted(used)), {**delivery, **voice}, "speak")
 
 
 def facts_current(req: AuthorRequest, scope_epoch: int, now_ms: float) -> bool:

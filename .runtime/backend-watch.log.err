@@ -1,116 +1,11 @@
 Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
-INFO:     Started server process [13144]
+INFO:     Started server process [27000]
 INFO:     Waiting for application startup.
 Modbus connect to /dev/ttyUSB0 failed: No module named 'minimalmodbus'
 Hardware latch fault: левый: Modbus не подключён; правый: Modbus не подключён
 INFO:     Application startup complete.
 INFO:     Uvicorn running on http://127.0.0.1:8001 (Press CTRL+C to quit)
-INFO:     ('127.0.0.1', 50656) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
+INFO:     ('127.0.0.1', 50932) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
 INFO:     connection open
-INFO:     ('127.0.0.1', 54477) - "WebSocket /api/scales/realtime" [accepted]
-INFO:     connection open
-Exception in callback _ProactorBasePipeTransport._call_connection_lost()
-handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
-Traceback (most recent call last):
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
-    self._sock.shutdown(socket.SHUT_RDWR)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
-Exception in callback _ProactorBasePipeTransport._call_connection_lost()
-handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
-Traceback (most recent call last):
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
-    self._sock.shutdown(socket.SHUT_RDWR)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
-Exception in callback _ProactorBasePipeTransport._call_connection_lost()
-handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
-Traceback (most recent call last):
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
-    self._sock.shutdown(socket.SHUT_RDWR)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
-Exception in callback _ProactorBasePipeTransport._call_connection_lost()
-handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
-Traceback (most recent call last):
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
-    self._sock.shutdown(socket.SHUT_RDWR)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
-Exception in callback _ProactorBasePipeTransport._call_connection_lost()
-handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
-Traceback (most recent call last):
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
-    self._sock.shutdown(socket.SHUT_RDWR)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
-Exception in callback _ProactorBasePipeTransport._call_connection_lost()
-handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
-Traceback (most recent call last):
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
-    self._sock.shutdown(socket.SHUT_RDWR)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
-Exception in callback _ProactorBasePipeTransport._call_connection_lost()
-handle: <Handle _ProactorBasePipeTransport._call_connection_lost()>
-Traceback (most recent call last):
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\events.py", line 89, in _run
-    self._context.run(self._callback, *self._args)
-    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\Users\alex\AppData\Local\Programs\Python\Python313\Lib\asyncio\proactor_events.py", line 165, in _call_connection_lost
-    self._sock.shutdown(socket.SHUT_RDWR)
-    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
-ConnectionResetError: [WinError 10054] Удаленный хост принудительно разорвал существующее подключение
-INFO:     connection closed
-INFO:     connection closed
-INFO:     ('127.0.0.1', 59201) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 53267) - "WebSocket /api/scales/realtime" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     ('127.0.0.1', 52852) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 53846) - "WebSocket /api/scales/realtime" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     ('127.0.0.1', 53243) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 55041) - "WebSocket /api/scales/realtime" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 55180) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     ('127.0.0.1', 61730) - "WebSocket /api/scales/realtime" [accepted]
-INFO:     connection open
-INFO:     connection closed
-INFO:     connection closed
-INFO:     ('127.0.0.1', 60335) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 53790) - "WebSocket /api/scales/realtime" [accepted]
-INFO:     connection closed
-INFO:     connection closed
-INFO:     ('127.0.0.1', 57664) - "WebSocket /api/hardware/realtime?userId=alexey" [accepted]
-INFO:     connection open
-INFO:     ('127.0.0.1', 55290) - "WebSocket /api/scales/realtime" [accepted]
+INFO:     ('127.0.0.1', 51822) - "WebSocket /api/scales/realtime" [accepted]
 INFO:     connection open

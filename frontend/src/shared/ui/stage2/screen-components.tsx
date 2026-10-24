@@ -7,6 +7,7 @@ import type { ProgramDetails, ProgramSummary } from '@/entities/program/model/ty
 import type { WorkoutExerciseRow as WorkoutExerciseRowData } from '@/entities/workout/model/types'
 import { resolveApiAssetUrl } from '@/shared/api/client'
 import { cn } from '@/shared/lib/cn'
+import { SECONDS_STEP, WEIGHT_STEP_KG } from '@/shared/lib/value-steps'
 import { Button } from '@/shared/ui/button'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { resolveSvgIdsForBodyMapLabel, svgIdsByView, type BodyMapView } from '@/shared/ui/stage4/fatigue-muscle-map'
@@ -129,6 +130,9 @@ function applyCompactHighlightStyle(element: SVGElement, tone: CompactMapTone | 
   element.style.opacity = hasTone ? '0.92' : '0.26'
   element.style.filter = hasTone ? 'drop-shadow(0 0 10px rgba(214,176,95,0.16))' : 'none'
   element.style.transition = 'none'
+  // Lets a map's stylesheet animate only the highlighted muscles.
+  if (tone) element.setAttribute('data-map-tone', tone)
+  else element.removeAttribute('data-map-tone')
 }
 
 export function SectionIntro({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description: string; actions?: ReactNode }) {
@@ -532,10 +536,10 @@ export function LoadSettingsControl({ settings, onAdjustWeight, onAdjustSets, on
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StepperControl label="Вес" value={`${settings.weight}`} suffix="кг" onDecrease={onAdjustWeight ? () => onAdjustWeight(-2.5) : undefined} onIncrease={onAdjustWeight ? () => onAdjustWeight(2.5) : undefined} />
+        <StepperControl label="Вес" value={`${settings.weight}`} suffix="кг" onDecrease={onAdjustWeight ? () => onAdjustWeight(-WEIGHT_STEP_KG) : undefined} onIncrease={onAdjustWeight ? () => onAdjustWeight(WEIGHT_STEP_KG) : undefined} />
         <StepperControl label="Подходы" value={`${settings.sets}`} onDecrease={onAdjustSets ? () => onAdjustSets(-1) : undefined} onIncrease={onAdjustSets ? () => onAdjustSets(1) : undefined} />
         <StepperControl label="Повторы" value={`${settings.reps}`} onDecrease={onAdjustReps ? () => onAdjustReps(-1) : undefined} onIncrease={onAdjustReps ? () => onAdjustReps(1) : undefined} />
-        <StepperControl label="Отдых" value={`${settings.restSeconds}`} suffix="сек" onDecrease={onAdjustRest ? () => onAdjustRest(-15) : undefined} onIncrease={onAdjustRest ? () => onAdjustRest(15) : undefined} />
+        <StepperControl label="Отдых" value={`${settings.restSeconds}`} suffix="сек" onDecrease={onAdjustRest ? () => onAdjustRest(-SECONDS_STEP) : undefined} onIncrease={onAdjustRest ? () => onAdjustRest(SECONDS_STEP) : undefined} />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_auto] xl:items-end">

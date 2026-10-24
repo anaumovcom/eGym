@@ -24,7 +24,7 @@ const reasons: Readonly<Record<string, string>> = {
   no_useful_content: 'Нечего сказать', validation_failed: 'Текст отклонён проверкой', closed: 'Соединение закрыто', network: 'Сеть недоступна',
   'paused-set': 'Подход поставлен на паузу', plan_changed: 'План или настройки упражнения изменились',
   playback_failed: 'Воспроизведение отменено', watchdog: 'Поток аудио перестал поступать',
-  rate_limited: 'Превышена частота сообщений', credential_unavailable: 'Доступ провайдера недоступен', voice_unavailable: 'Live-голос недоступен',
+  rate_limited: 'Превышена частота сообщений', credential_unavailable: 'Доступ провайдера недоступен', voice_unavailable: 'Live-голос недоступен', voice_fallback: 'Нет ключа Fish Audio — говорит голос OpenAI',
   active_runs_full: 'Заняты все подключения тренера; повторяем попытку', run_create_failed: 'Не удалось создать сессию тренера',
 }
 const reasonLabel = (reason: string) => reasons[reason] ?? reason

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
-import { AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowUpFromLine, CheckCircle2, Feather, Flag, LockKeyhole, MoveVertical, Play, RotateCcw, Save, SlidersHorizontal, Trash2, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Flag, LockKeyhole, MoveVertical, Play, RotateCcw, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { ExerciseDetails } from '@/entities/exercise/model/types'
@@ -14,10 +14,12 @@ import { requiresMachineCalibration, supportsFixedBarSetup } from '@/features/ru
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { resetExercisesOnBackend } from '@/features/runtime/lib/runtime-persistence'
 import { ownsExerciseSettingsSession, useExerciseSettings } from '@/features/runtime/lib/use-exercise-settings'
-import { formatTimedSeconds, stepTimedSeconds } from '@/features/runtime/lib/timed-set'
+import { formatTimedSeconds } from '@/features/runtime/lib/timed-set'
+import { stepDurationSeconds, stepRestSeconds, stepWeightKg } from '@/shared/lib/value-steps'
 import { describeWorkoutSet } from '@/features/runtime/lib/workout-progress'
+import { SetPlanTrack } from '@/features/runtime/ui/set-plan-track'
 import { WorkoutNavigator } from '@/features/runtime/ui/workout-navigator'
-import { HoldToJog } from '@/features/hardware/ui/hold-to-jog'
+import { BarPointControls } from '@/screens/exercise-setup/bar-point-controls'
 import { BarStartPointSelector } from '@/features/hardware/ui/bar-start-point-selector'
 import type { BarStartPoint, LoadDirection } from '@/features/hardware/model/types'
 import { LoadDirectionSelector } from '@/features/hardware/ui/load-direction-selector'
@@ -38,14 +40,6 @@ function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
 }
 
-const exerciseKindLabels: Record<RuntimeWorkoutSession['exercises'][number]['kind'], string> = {
-  machine: 'Тренажёр',
-  bodyweight: 'Своим весом',
-  timed: 'На время',
-  stretch: 'Растяжка',
-  group: 'Группа / суперсет',
-}
-
 const fallbackMachine: MachineHealth = {
   machineState: 'ready',
   machineLabel: 'Тренажёр готов',
@@ -53,22 +47,6 @@ const fallbackMachine: MachineHealth = {
   rightDrive: 'connected',
   safety: 'enabled',
   calibration: 'Калибровка: перед упражнением',
-}
-
-function formatMillimeters(value?: number | null) {
-  if (value == null) {
-    return '—'
-  }
-
-  return `${(value / 10).toFixed(1).replace('.0', '').replace('.', ',')} см`
-}
-
-function formatRange(lowerPointMm?: number | null, upperPointMm?: number | null) {
-  if (lowerPointMm == null || upperPointMm == null || upperPointMm <= lowerPointMm) {
-    return 'Не зафиксирован'
-  }
-
-  return `${formatMillimeters(lowerPointMm)} - ${formatMillimeters(upperPointMm)}`
 }
 
 // Same workout structure: the run keeps its progress; changed loads are refreshed per exercise.
@@ -114,6 +92,7 @@ export function ExerciseSetupScreen() {
   const [loadedSetupKey, setLoadedSetupKey] = useState<string | null>(null)
   const [modeDialogOpen, setModeDialogOpen] = useState(false)
   const [jogPending, setJogPending] = useState(false)
+  const [calibrationSaving, setCalibrationSaving] = useState(false)
   const [finishDialogOpen, setFinishDialogOpen] = useState(false)
   const [previousDialogOpen, setPreviousDialogOpen] = useState(false)
   const [restartingPrevious, setRestartingPrevious] = useState(false)
@@ -383,10 +362,6 @@ export function ExerciseSetupScreen() {
   const lowerPointMm = capturedLowerPointMm ?? null
   const upperPointMm = capturedUpperPointMm ?? null
   const fixedPositionMm = capturedFixedPositionMm
-  const hasCompleteCalibrationRange = lowerPointMm != null && upperPointMm != null && upperPointMm > lowerPointMm
-  const calibrationRangeLabel = savedCalibration?.setupType === 'fixed_position'
-    ? `Фиксация: ${formatMillimeters(savedCalibration.fixedPositionMm)}`
-    : formatRange(savedCalibration?.lowerPointMm, savedCalibration?.upperPointMm)
 
   function resetCalibrationDraft() {
     if (savedCalibration) {
@@ -402,8 +377,28 @@ export function ExerciseSetupScreen() {
     setCapturedFixedPositionMm(null)
   }
 
+  // Remembering a point saves the setup at once when it is complete: both range points, or the fixed height.
+  function applyCapturedPoint(point: 'lower' | 'upper' | 'fixed', positionMm: number) {
+    const draft = {
+      lower: point === 'lower' ? positionMm : lowerPointMm,
+      upper: point === 'upper' ? positionMm : upperPointMm,
+      fixed: point === 'fixed' ? positionMm : fixedPositionMm,
+    }
+    if (point === 'lower') setCapturedLowerPointMm(positionMm)
+    else if (point === 'upper') setCapturedUpperPointMm(positionMm)
+    else setCapturedFixedPositionMm(positionMm)
+
+    if (point === 'fixed') return void persistCalibration('fixed_position', draft)
+    if (draft.lower == null || draft.upper == null) return
+    if (draft.upper <= draft.lower) {
+      setHardwareError('Верхняя точка должна быть выше нижней. Переместите гриф и запомните точку ещё раз.')
+      return
+    }
+    void persistCalibration('bar_range', draft)
+  }
+
   function captureCalibrationPoint(point: 'lower' | 'upper' | 'fixed') {
-    if (barMoving) return
+    if (barMoving || calibrationSaving) return
     if (livePositionMm == null) {
       setHardwareError('Нет данных о положении грифа. Проверьте подключение тренажёра и повторите попытку.')
       return
@@ -414,23 +409,22 @@ export function ExerciseSetupScreen() {
     if (weightlessActive) {
       // the controller validates stillness and records the point with the drives compensated
       void runCommand({ action: 'capture_point', which: point, userId: selectedUserId })
-        .then((response) => {
-          const captured = response.capturedPositionMm ?? livePositionMm
-          if (point === 'lower') setCapturedLowerPointMm(captured)
-          else if (point === 'upper') setCapturedUpperPointMm(captured)
-          else setCapturedFixedPositionMm(captured)
-        })
+        .then((response) => applyCapturedPoint(point, response.capturedPositionMm ?? livePositionMm))
         .catch((error: unknown) => setHardwareError(error instanceof Error ? error.message : 'Не удалось зафиксировать точку.'))
       return
     }
 
-    if (point === 'lower') {
-      setCapturedLowerPointMm(livePositionMm)
-      return
-    }
+    applyCapturedPoint(point, livePositionMm)
+  }
 
-    if (point === 'upper') setCapturedUpperPointMm(livePositionMm)
-    else setCapturedFixedPositionMm(livePositionMm)
+  // Switching the setup type reuses a complete draft of that type, so a known setup is not captured again.
+  function selectSetupType(next: 'bar_range' | 'fixed_position') {
+    setSetupType(next)
+    if (next === savedCalibration?.setupType) return
+    const draft = { lower: lowerPointMm, upper: upperPointMm, fixed: fixedPositionMm }
+    if (next === 'fixed_position' ? draft.fixed != null : draft.lower != null && draft.upper != null && draft.upper > draft.lower) {
+      void persistCalibration(next, draft)
+    }
   }
 
   async function toggleWeightless() {
@@ -446,40 +440,33 @@ export function ExerciseSetupScreen() {
     }
   }
 
-  async function handleCalibrationSave() {
+  async function persistCalibration(type: 'bar_range' | 'fixed_position', points: { lower: number | null; upper: number | null; fixed: number | null }) {
     if (!selectedUserId) {
       setHardwareError('Сначала выберите пользователя перед сохранением калибровки.')
       return
     }
 
-    if (setupType === 'bar_range' && !hasCompleteCalibrationRange) {
-      setHardwareError('Сначала зафиксируйте нижнюю и верхнюю точку амплитуды.')
-      return
-    }
-
-    if (setupType === 'fixed_position' && fixedPositionMm == null) {
-      setHardwareError('Сначала зафиксируйте высоту грифа.')
-      return
-    }
-
+    setCalibrationSaving(true)
     try {
       await saveCalibration({
         userId: selectedUserId,
         exerciseSlug: currentExercise.slug,
-        setupType,
-        lowerPointMm: setupType === 'bar_range' ? lowerPointMm : null,
-        upperPointMm: setupType === 'bar_range' ? upperPointMm : null,
-        fixedPositionMm: setupType === 'fixed_position' ? fixedPositionMm : null,
+        setupType: type,
+        lowerPointMm: type === 'bar_range' ? points.lower : null,
+        upperPointMm: type === 'bar_range' ? points.upper : null,
+        fixedPositionMm: type === 'fixed_position' ? points.fixed : null,
         startPoint,
         loadDirection,
-        zeroPositionMm: setupType === 'bar_range' ? Math.round((lowerPointMm! + upperPointMm!) / 2) : fixedPositionMm!,
-        movementRangeConfirmed: setupType === 'bar_range',
+        zeroPositionMm: type === 'bar_range' ? Math.round((points.lower! + points.upper!) / 2) : points.fixed!,
+        movementRangeConfirmed: type === 'bar_range',
         calibrationRequired: true,
       })
       setHardwareError(null)
       updateCalibrationState('saved')
     } catch (error) {
       setHardwareError(error instanceof Error ? error.message : 'Не удалось сохранить настройку грифа.')
+    } finally {
+      setCalibrationSaving(false)
     }
   }
 
@@ -623,9 +610,16 @@ export function ExerciseSetupScreen() {
     }
   }
 
+  const startSetPlan = exercise.plan[session.currentSetIndex] ?? exercise.plan[0]
+  const startWeightKg = startSetPlan?.recommendedWeightKg ?? settings.weight
+  // A warm-up starts lighter than the working weight in the field: say so instead of showing two different numbers.
   const readyNote = (
     <>
-      Готово к старту: <strong>{settings.sets} × {settings.reps}</strong> · вес {exercise.plan[session.currentSetIndex]?.recommendedWeightKg ?? exercise.plan[0]?.recommendedWeightKg ?? settings.weight} кг · отдых {settings.restSeconds} с
+      Готово к старту: <strong>{settings.sets} × {exercise.kind === 'timed' ? formatTimedSeconds(settings.reps) : settings.reps}{exercise.perSide ? ' на сторону' : ''}</strong>
+      {exercise.kind === 'timed' || !startSetPlan ? null : startSetPlan.setType === 'warmup' && startWeightKg !== settings.weight
+        ? <> · разминка <strong>{startWeightKg} кг</strong>, рабочий <strong>{settings.weight} кг</strong></>
+        : <> · вес <strong>{startWeightKg} кг</strong></>}
+      {' '}· отдых {settings.restSeconds} с
     </>
   )
 
@@ -658,35 +652,28 @@ export function ExerciseSetupScreen() {
               <span>{session.workoutTitle}</span>
               <span>Упражнение {exercise.order} из {session.exercises.length}</span>
               {session.currentSetIndex > 0 ? <span>Начало с: {describeWorkoutSet(exercise, session.currentSetIndex)}</span> : null}
-              <span>{exerciseKindLabels[exercise.kind]}</span>
-              <span>{exercise.perSide ? 'Поочерёдно · на каждую сторону' : 'Обычное выполнение'}</span>
+              {exercise.perSide ? <span>Поочерёдно · на каждую сторону</span> : null}
             </p>
           </div>
           <div className="rt-chips" role="group" aria-label="Готовность к старту">
-            {calibrationRequired ? (
-              savedCalibration ? (
-                <span className="rt-chip" data-tone={startBlocked ? 'warning' : 'good'}>
-                  {startBlocked ? <AlertTriangle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
-                  {startBlocked ? 'Есть несохранённые изменения' : savedCalibration.setupType === 'fixed_position' ? calibrationRangeLabel : `Калибровка: ${calibrationRangeLabel}`}
-                </span>
-              ) : (
-                <span className="rt-chip" data-tone="warning"><AlertTriangle aria-hidden="true" />Нужна настройка грифа</span>
-              )
-            ) : (
-              <span className="rt-chip" data-tone="good"><CheckCircle2 aria-hidden="true" />Калибровка не нужна</span>
-            )}
+            {/* Only problems are raised here; a saved setup is already shown in step 02. */}
+            {calibrationRequired && (!savedCalibration || startBlocked) ? (
+              <span className="rt-chip" data-tone="warning">
+                <AlertTriangle aria-hidden="true" />
+                {savedCalibration ? 'Есть несохранённые изменения' : 'Нужна настройка грифа'}
+              </span>
+            ) : null}
           </div>
         </header>
 
         <div className="rt-body rt-setup-body rt-setup-right" role="region" aria-label="Настройки упражнения">
           <div className="rt-setup-media" data-video-count={setupVideos.length}>
-            {setupVideos.length ? setupVideos.map((video, index) => (
+            {setupVideos.length ? setupVideos.map((video) => (
               <div className="rt-media" key={video.url}>
                 <div className="rt-media-frame">
                   <ExerciseVideoPlayer videoUrl={video.url} videoLabel={video.label} wrapperClassName="rounded-[var(--ui-radius)] border border-white/8" />
                   <div className="rt-media-caption" aria-hidden="true">
                     <span>{video.label}</span>
-                    {index === 0 ? <span>План: <strong>{settings.sets} × {settings.reps}{exercise.perSide ? ' на сторону' : ''}</strong></span> : null}
                   </div>
                 </div>
               </div>
@@ -735,15 +722,6 @@ export function ExerciseSetupScreen() {
 
             {!exerciseSettings.ready && !exerciseSettings.error ? <p role="status">Загружаем настройки упражнения…</p> : null}
 
-            {snapshot?.control?.motorControl === 'disabled' ? (
-              <div className="rt-alert" data-tone="warning" role="status">
-                <AlertTriangle aria-hidden="true" />
-                <div>
-                  <strong>Управление двигателями отключено</strong>
-                  <p>{String(snapshot.control.motorControlMessage ?? 'Управление двигателями недоступно.')}</p>
-                </div>
-              </div>
-            ) : null}
 
             <fieldset className="rt-steppers" disabled={!exerciseSettings.ready}>
               {exercise.kind !== 'timed' ? (
@@ -751,7 +729,8 @@ export function ExerciseSetupScreen() {
                   label="Вес"
                   unit="кг"
                   value={settings.weight}
-                  onChange={(delta) => updateLoadSettings({ weight: Math.max(0, settings.weight + delta * 2.5) })}
+                  onChange={(delta) => updateLoadSettings({ weight: stepWeightKg(settings.weight, delta) })}
+                  decimals={1}
                   onValueCommit={(value) => updateLoadSettings({ weight: Math.max(0, value ?? 0) })}
                 />
               ) : null}
@@ -766,7 +745,7 @@ export function ExerciseSetupScreen() {
                   label="Длительность"
                   unit="сек"
                   value={settings.reps}
-                  onChange={(delta) => updateLoadSettings({ reps: stepTimedSeconds(settings.reps, delta) })}
+                  onChange={(delta) => updateLoadSettings({ reps: stepDurationSeconds(settings.reps, delta) })}
                   onValueCommit={(value) => updateLoadSettings({ reps: Math.max(5, value ?? settings.reps) })}
                 />
               ) : (
@@ -781,12 +760,18 @@ export function ExerciseSetupScreen() {
                 label="Отдых"
                 unit="сек"
                 value={settings.restSeconds}
-                onChange={(delta) => updateLoadSettings({ restSeconds: Math.max(15, settings.restSeconds + delta * 15) })}
+                onChange={(delta) => updateLoadSettings({ restSeconds: stepRestSeconds(settings.restSeconds, delta) })}
                 onValueCommit={(value) => updateLoadSettings({ restSeconds: Math.max(15, value ?? 15) })}
               />
             </fieldset>
 
-            <p className="rt-setup-parameters-note">{exercise.kind === 'timed' ? `На время · ${settings.sets} × ${formatTimedSeconds(settings.reps)}` : `${currentStrengthMode.title} · ${settings.mode} · безопасный диапазон ${settings.safeRange[0]}–${settings.safeRange[1]} кг`}</p>
+            <p className="rt-setup-parameters-note">{exercise.kind === 'timed' ? `На время · ${settings.sets} × ${formatTimedSeconds(settings.reps)}` : `${currentStrengthMode.title} · ${settings.mode} · безопасный диапазон ${settings.safeRange[0]}–${settings.safeRange[1]} кг`}{exercise.perSide ? ' · повторы на сторону' : ''}</p>
+            {exercise.plan.length ? (
+              <div className="rt-setup-plan">
+                <span className="rt-setup-plan-title">План подходов</span>
+                <SetPlanTrack exercise={exercise} currentIndex={session.currentSetIndex} results={session.completedSets[exercise.id]} />
+              </div>
+            ) : null}
             {calibrationRequired ? (
               <div className="rt-setup-position">
                 <LoadDirectionSelector value={loadDirection} disabled={startPointSaving || loadedSetupKey !== `${selectedUserId}:${exercise.slug}`} onChange={(next) => void changeLoadDirection(next)} />
@@ -802,63 +787,37 @@ export function ExerciseSetupScreen() {
                 <div>
                   <span className="rt-setup-eyebrow">02 · Положение грифа</span>
                   <h3>{savedCalibration ? 'Настройка грифа сохранена' : 'Настройка грифа'}</h3>
-                  <p>
-                    {savedCalibration && !startBlocked
-                      ? 'Настройка готова. Можно начать или изменить положение грифа.'
-                      : setupType === 'fixed_position'
-                      ? 'Выставьте высоту грифа и сохраните положение.'
-                      : hasCompleteCalibrationRange
-                        ? 'Точки зафиксированы — сохраните амплитуду.'
-                        : 'Выставьте гриф и зафиксируйте нижнюю и верхнюю точки.'}
-                  </p>
+                  {calibrationSaving ? <p role="status">Сохраняю настройку…</p> : savedCalibration && !startBlocked ? null : <p>
+                    {setupType === 'fixed_position'
+                      ? 'Выставьте высоту грифа и запомните её — настройка сохранится сама.'
+                      : lowerPointMm != null || upperPointMm != null
+                        ? `Запомните ${lowerPointMm == null ? 'нижнюю' : 'верхнюю'} точку — амплитуда сохранится сама.`
+                        : 'Выставьте гриф и запомните верхнюю и нижнюю точки — настройка сохранится сама.'}
+                  </p>}
                 </div>
                 <div className="rt-calibration-links">
-                  <Button variant="ghost" aria-label="Сбросить изменения" iconLeft={<RotateCcw aria-hidden="true" />} onClick={resetCalibrationDraft}>Сбросить</Button>
-                  {savedCalibration ? <Button className="rt-calibration-delete" variant="ghost" aria-label="Удалить настройку" iconLeft={<Trash2 aria-hidden="true" />} onClick={() => void handleCalibrationDelete()}>Удалить</Button> : null}
+                  {startBlocked && (lowerPointMm != null || upperPointMm != null || fixedPositionMm != null) ? (
+                    <Button variant="ghost" className="rt-icon-button" aria-label="Сбросить изменения" title="Сбросить изменения" onClick={resetCalibrationDraft}><RotateCcw aria-hidden="true" /></Button>
+                  ) : null}
+                  {savedCalibration ? <Button className="rt-calibration-delete rt-icon-button" variant="ghost" aria-label="Удалить настройку" title="Удалить настройку" onClick={() => void handleCalibrationDelete()}><Trash2 aria-hidden="true" /></Button> : null}
                 </div>
               </header>
+              <span className="rt-field-label" aria-hidden="true">Тип настройки</span>
               <div className="rt-calibration-actions rt-calibration-mode" role="group" aria-label="Тип настройки грифа">
-                <Button variant={setupType === 'bar_range' ? 'primary' : 'secondary'} iconLeft={<MoveVertical aria-hidden="true" />} aria-pressed={setupType === 'bar_range'} onClick={() => setSetupType('bar_range')}>Амплитуда движения</Button>
-                <Button variant={setupType === 'fixed_position' ? 'primary' : 'secondary'} iconLeft={<LockKeyhole aria-hidden="true" />} aria-pressed={setupType === 'fixed_position'} onClick={() => setSetupType('fixed_position')}>Фиксированное положение</Button>
+                <Button variant={setupType === 'bar_range' ? 'primary' : 'secondary'} iconLeft={<MoveVertical aria-hidden="true" />} aria-pressed={setupType === 'bar_range'} onClick={() => selectSetupType('bar_range')}>Амплитуда движения</Button>
+                <Button variant={setupType === 'fixed_position' ? 'primary' : 'secondary'} iconLeft={<LockKeyhole aria-hidden="true" />} aria-pressed={setupType === 'fixed_position'} onClick={() => selectSetupType('fixed_position')}>Фиксированное положение</Button>
               </div>
-              <dl className="rt-calibration-values" data-mode={setupType}>
-                <div><dt>Текущая позиция</dt><dd>{formatMillimeters(livePositionMm)}</dd><small>Гриф сейчас</small></div>
-                {setupType === 'bar_range' ? (
-                  <>
-                    <div><dt>Нижняя точка</dt><dd>{formatMillimeters(lowerPointMm)}</dd><small>{lowerPointMm == null ? 'Опустите гриф и нажмите «Запомнить низ»' : 'Зафиксирована'}</small></div>
-                    <div><dt>Верхняя точка</dt><dd>{formatMillimeters(upperPointMm)}</dd><small>{upperPointMm == null ? 'Поднимите гриф и нажмите «Запомнить верх»' : 'Зафиксирована'}</small></div>
-                  </>
-                ) : (
-                  <div><dt>Фиксированная высота</dt><dd>{formatMillimeters(fixedPositionMm)}</dd><small>Гриф удерживается на этой высоте</small></div>
-                )}
-              </dl>
-              <div className="rt-calibration-actions rt-calibration-controls" role="group" aria-label="Перемещение и фиксация грифа" data-mode={setupType}>
-                <Button variant={weightlessActive ? 'primary' : 'secondary'} iconLeft={<Feather aria-hidden="true" />} aria-pressed={weightlessActive} disabled={barMoving} onClick={() => void toggleWeightless()}>
-                  {weightlessActive ? 'Невесомый гриф: вкл — удержать' : 'Невесомый гриф'}
-                </Button>
-                <HoldToJog userId={selectedUserId} exerciseSlug={currentExercise.slug}
-                  disabled={(barMoving && !weightlessActive) || livePositionMm == null} onHoldingChange={setJogPending} />
-                <div className="rt-calibration-capture" role="group" aria-label="Фиксация положения грифа">
-                {setupType === 'bar_range' ? (
-                  <>
-                    <Button variant="secondary" iconLeft={<ArrowDownToLine aria-hidden="true" />} aria-label="Зафиксировать нижнюю точку" disabled={barMoving || (weightlessActive && !barStill)} onClick={() => captureCalibrationPoint('lower')}>Запомнить низ</Button>
-                    <Button variant="secondary" iconLeft={<ArrowUpFromLine aria-hidden="true" />} aria-label="Зафиксировать верхнюю точку" disabled={barMoving || (weightlessActive && !barStill)} onClick={() => captureCalibrationPoint('upper')}>Запомнить верх</Button>
-                  </>
-                ) : (
-                  <Button variant="secondary" iconLeft={<LockKeyhole aria-hidden="true" />} disabled={barMoving || (weightlessActive && !barStill)} onClick={() => captureCalibrationPoint('fixed')}>Зафиксировать высоту грифа</Button>
-                )}
-                </div>
-              </div>
-              <p className="rt-calibration-hint" data-active={weightlessActive}>
-                {weightlessActive
-                  ? <>Гриф скомпенсирован — переместите его руками в нужную точку и отпустите. {barStill ? 'Гриф неподвижен — можно фиксировать точку.' : 'Дождитесь остановки грифа.'}</>
-                  : barMoving
-                    ? 'Гриф движется — дождитесь остановки.'
-                    : 'Включите «Невесомый гриф», чтобы двигать гриф руками.'}
-              </p>
-              <Button className="rt-calibration-save" iconLeft={<Save aria-hidden="true" />} disabled={setupType === 'bar_range' ? !hasCompleteCalibrationRange : fixedPositionMm == null} onClick={() => void handleCalibrationSave()}>
-                {setupType === 'bar_range' ? 'Сохранить амплитуду' : 'Сохранить положение'}
-              </Button>
+              <BarPointControls setupType={setupType} userId={selectedUserId} exerciseSlug={currentExercise.slug}
+                livePositionMm={livePositionMm} lowerPointMm={lowerPointMm} upperPointMm={upperPointMm} fixedPositionMm={fixedPositionMm}
+                barMoving={barMoving || calibrationSaving} barStill={barStill} weightlessActive={weightlessActive}
+                onToggleWeightless={() => void toggleWeightless()} onCapture={captureCalibrationPoint} onHoldingChange={setJogPending} />
+              {weightlessActive || barMoving ? (
+                <p className="rt-calibration-hint" data-active="true" role="status">
+                  {weightlessActive
+                    ? <>Гриф скомпенсирован — переместите его руками и отпустите. {barStill ? 'Гриф неподвижен — можно запоминать точку.' : 'Дождитесь остановки грифа.'}</>
+                    : 'Гриф движется — дождитесь остановки.'}
+                </p>
+              ) : null}
             </section>
           ) : null}
         </div>
@@ -867,7 +826,7 @@ export function ExerciseSetupScreen() {
           <Button variant="secondary" iconLeft={<Flag aria-hidden="true" />} onClick={() => setFinishDialogOpen(true)}>
             Завершить тренировку
           </Button>
-          <div className="rt-actions-note">{startBlocked ? 'Сначала сохраните настройку грифа — после этого старт откроется.' : readyNote}</div>
+          <div className="rt-actions-note">{startBlocked ? 'Запомните точки грифа — настройка сохранится, и старт откроется.' : readyNote}</div>
           <Button className="rt-primary" disabled={startBlocked || barMoving || startPointSaving || restartingPrevious || startingExercise} iconLeft={<Play aria-hidden="true" />} onClick={() => void handleStartExercise()}>
             {startBlocked ? 'Старт недоступен' : 'Запустить упражнение'}
           </Button>

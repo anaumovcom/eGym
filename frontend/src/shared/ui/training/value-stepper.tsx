@@ -12,11 +12,13 @@ export type ValueStepperProps = {
   onReset?: () => void
   resetLabel?: string
   readOnly?: boolean
+  /** Digits kept when a typed value is committed (weight: 1 for 47,5 kg). */
+  decimals?: number
   className?: string
 }
 
 /** Large TV-friendly "− value +" control: big targets, centred value, explicit unit. */
-export function ValueStepper({ label, value, unit, emptyLabel = '—', onChange, onValueCommit, onReset, resetLabel = 'Убрать', readOnly = false, className }: ValueStepperProps) {
+export function ValueStepper({ label, value, unit, emptyLabel = '—', onChange, onValueCommit, onReset, resetLabel = 'Убрать', readOnly = false, decimals = 0, className }: ValueStepperProps) {
   const [draft, setDraft] = useState(value === null ? '' : String(value))
   const isEmpty = value === null
 
@@ -39,13 +41,14 @@ export function ValueStepper({ label, value, unit, emptyLabel = '—', onChange,
       setDraft(value === null ? '' : String(value))
       return
     }
-    onValueCommit(Math.round(parsed))
+    const factor = 10 ** decimals
+    onValueCommit(Math.round(parsed * factor) / factor)
   }
 
   return (
     <div className={cn('value-stepper', className)} data-empty={isEmpty} role="group" aria-label={label}>
       <div className="value-stepper-heading">
-        <span>{label}</span>
+        <span>{label}{unit ? <span className="value-stepper-heading-unit" aria-hidden="true">, {unit}</span> : null}</span>
         {onReset && !isEmpty ? <button type="button" className="value-stepper-reset" onClick={onReset}>{resetLabel}</button> : null}
       </div>
       <div className="value-stepper-row">

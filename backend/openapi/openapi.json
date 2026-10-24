@@ -219,12 +219,38 @@
         ],
         "summary": "Get Credential",
         "operationId": "get_credential_api_coach_credentials_get",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "openai",
+                "fish"
+              ],
+              "type": "string",
+              "default": "openai",
+              "title": "Provider"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -236,15 +262,31 @@
         ],
         "summary": "Put Credential",
         "operationId": "put_credential_api_coach_credentials_put",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "openai",
+                "fish"
+              ],
+              "type": "string",
+              "default": "openai",
+              "title": "Provider"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CredentialSave"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -273,15 +315,31 @@
         ],
         "summary": "Delete Credential",
         "operationId": "delete_credential_api_coach_credentials_delete",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "openai",
+                "fish"
+              ],
+              "type": "string",
+              "default": "openai",
+              "title": "Provider"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CredentialDelete"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -312,12 +370,38 @@
         ],
         "summary": "Check Credential",
         "operationId": "check_credential_api_coach_credentials_check_post",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "openai",
+                "fish"
+              ],
+              "type": "string",
+              "default": "openai",
+              "title": "Provider"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
               }
             }
           }
@@ -3252,6 +3336,60 @@
         }
       }
     },
+    "/api/body-measurements/{measurement_id}": {
+      "delete": {
+        "tags": [
+          "analytics"
+        ],
+        "summary": "Delete Body Measurement",
+        "operationId": "delete_body_measurement_api_body_measurements__measurement_id__delete",
+        "parameters": [
+          {
+            "name": "measurement_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Measurement Id"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          },
+          {
+            "name": "confirm",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Confirm"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/achievements": {
       "get": {
         "tags": [
@@ -3828,6 +3966,47 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ProgramMutationResultSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/programs/order": {
+      "put": {
+        "tags": [
+          "training"
+        ],
+        "summary": "Save Program Order",
+        "operationId": "save_program_order_api_programs_order_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ProgramOrderMutationSchema"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProgramOrderResultSchema"
                 }
               }
             }
@@ -7096,6 +7275,20 @@
             "title": "Style",
             "default": "companion"
           },
+          "persona": {
+            "type": "string",
+            "enum": [
+              "streamer",
+              "classic"
+            ],
+            "title": "Persona",
+            "default": "streamer"
+          },
+          "profanity": {
+            "type": "boolean",
+            "title": "Profanity",
+            "default": true
+          },
           "humor": {
             "type": "string",
             "enum": [
@@ -7104,7 +7297,7 @@
               "often"
             ],
             "title": "Humor",
-            "default": "light"
+            "default": "often"
           },
           "humorKinds": {
             "items": {
@@ -7113,20 +7306,22 @@
                 "irony",
                 "absurd",
                 "wordplay",
-                "self"
+                "self",
+                "roast"
               ]
             },
             "type": "array",
             "title": "Humorkinds",
             "default": [
+              "roast",
               "irony",
-              "self"
+              "absurd"
             ]
           },
           "edgyOptIn": {
             "type": "boolean",
             "title": "Edgyoptin",
-            "default": false
+            "default": true
           },
           "extras": {
             "items": {
@@ -7188,6 +7383,32 @@
             ],
             "title": "Voicepace",
             "default": "auto"
+          },
+          "voiceModel": {
+            "type": "string",
+            "enum": [
+              "openai-realtime",
+              "openai-tts",
+              "fish-drama-3"
+            ],
+            "title": "Voicemodel",
+            "default": "fish-drama-3"
+          },
+          "fishVoiceId": {
+            "type": "string",
+            "pattern": "^([a-f0-9]{32})?$",
+            "title": "Fishvoiceid",
+            "default": ""
+          },
+          "voiceEmotion": {
+            "type": "string",
+            "enum": [
+              "off",
+              "subtle",
+              "expressive"
+            ],
+            "title": "Voiceemotion",
+            "default": "expressive"
           },
           "pauseGap": {
             "type": "string",
@@ -7596,6 +7817,11 @@
             "type": "integer",
             "title": "Progresspercent",
             "default": 0
+          },
+          "planLabel": {
+            "type": "string",
+            "title": "Planlabel",
+            "default": ""
           }
         },
         "type": "object",
@@ -7625,6 +7851,18 @@
           "duration": {
             "type": "string",
             "title": "Duration"
+          },
+          "totalSets": {
+            "type": "integer",
+            "title": "Totalsets",
+            "default": 0
+          },
+          "muscleLoad": {
+            "items": {
+              "$ref": "#/components/schemas/DashboardWorkoutMuscleLoadSchema"
+            },
+            "type": "array",
+            "title": "Muscleload"
           },
           "lastPerformedAt": {
             "anyOf": [
@@ -7917,6 +8155,54 @@
           "planned"
         ],
         "title": "DashboardWorkoutExerciseSchema"
+      },
+      "DashboardWorkoutMuscleLoadSchema": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "primary",
+              "secondary"
+            ],
+            "title": "Role"
+          },
+          "addedScore": {
+            "type": "integer",
+            "title": "Addedscore"
+          },
+          "currentScore": {
+            "type": "integer",
+            "title": "Currentscore"
+          },
+          "projectedScore": {
+            "type": "integer",
+            "title": "Projectedscore"
+          },
+          "currentStatus": {
+            "type": "string",
+            "title": "Currentstatus"
+          },
+          "projectedStatus": {
+            "type": "string",
+            "title": "Projectedstatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "name",
+          "role",
+          "addedScore",
+          "currentScore",
+          "projectedScore",
+          "currentStatus",
+          "projectedStatus"
+        ],
+        "title": "DashboardWorkoutMuscleLoadSchema",
+        "description": "Fatigue the whole planned workout is expected to add to one muscle."
       },
       "DashboardWorkoutSchema": {
         "properties": {
@@ -12793,6 +13079,44 @@
         ],
         "title": "ProgramMutationSchema"
       },
+      "ProgramOrderMutationSchema": {
+        "properties": {
+          "userId": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Userid"
+          },
+          "programIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Programids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "userId",
+          "programIds"
+        ],
+        "title": "ProgramOrderMutationSchema"
+      },
+      "ProgramOrderResultSchema": {
+        "properties": {
+          "programIds": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Programids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "programIds"
+        ],
+        "title": "ProgramOrderResultSchema"
+      },
       "ProgramSummarySchema": {
         "properties": {
           "id": {
@@ -12865,6 +13189,79 @@
           "recommendedToday"
         ],
         "title": "ProgramSummarySchema"
+      },
+      "ProgressActivityDaySchema": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "level": {
+            "type": "integer",
+            "title": "Level"
+          },
+          "sets": {
+            "type": "integer",
+            "title": "Sets"
+          },
+          "volumeKg": {
+            "type": "number",
+            "title": "Volumekg"
+          },
+          "future": {
+            "type": "boolean",
+            "title": "Future",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "level",
+          "sets",
+          "volumeKg"
+        ],
+        "title": "ProgressActivityDaySchema"
+      },
+      "ProgressActivitySchema": {
+        "properties": {
+          "weeks": {
+            "items": {
+              "items": {
+                "$ref": "#/components/schemas/ProgressActivityDaySchema"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Weeks"
+          },
+          "activeDays": {
+            "type": "integer",
+            "title": "Activedays"
+          },
+          "streakWeeks": {
+            "type": "integer",
+            "title": "Streakweeks"
+          },
+          "daysSinceLast": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dayssincelast"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weeks",
+          "activeDays",
+          "streakWeeks"
+        ],
+        "title": "ProgressActivitySchema"
       },
       "ProgressBodyMeasurementRowSchema": {
         "properties": {
@@ -13092,6 +13489,16 @@
             "type": "string",
             "title": "Photorecommendation"
           },
+          "insights": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProgressInsightsSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "emptyState": {
             "anyOf": [
               {
@@ -13262,6 +13669,99 @@
         ],
         "title": "ProgressExerciseHistoryRowSchema"
       },
+      "ProgressExerciseInsightSchema": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "sessionsInPeriod": {
+            "type": "integer",
+            "title": "Sessionsinperiod"
+          },
+          "lastDate": {
+            "type": "string",
+            "title": "Lastdate"
+          },
+          "bestE1rm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beste1Rm"
+          },
+          "bestWeight": {
+            "type": "number",
+            "title": "Bestweight"
+          },
+          "bestVolume": {
+            "type": "number",
+            "title": "Bestvolume"
+          },
+          "bestReps": {
+            "type": "integer",
+            "title": "Bestreps"
+          },
+          "trendPct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Trendpct"
+          },
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/ProgressExerciseSessionSchema"
+            },
+            "type": "array",
+            "title": "Sessions"
+          },
+          "nextTarget": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProgressNextTargetSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "kind",
+          "unit",
+          "sessionsInPeriod",
+          "lastDate",
+          "bestWeight",
+          "bestVolume",
+          "bestReps",
+          "sessions"
+        ],
+        "title": "ProgressExerciseInsightSchema"
+      },
       "ProgressExerciseOptionSchema": {
         "properties": {
           "slug": {
@@ -13279,6 +13779,345 @@
           "name"
         ],
         "title": "ProgressExerciseOptionSchema"
+      },
+      "ProgressExerciseSessionSchema": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "weightKg": {
+            "type": "number",
+            "title": "Weightkg"
+          },
+          "sets": {
+            "type": "integer",
+            "title": "Sets"
+          },
+          "reps": {
+            "type": "integer",
+            "title": "Reps"
+          },
+          "repsPerSet": {
+            "type": "integer",
+            "title": "Repsperset"
+          },
+          "volumeKg": {
+            "type": "number",
+            "title": "Volumekg"
+          },
+          "rpe": {
+            "type": "integer",
+            "title": "Rpe"
+          },
+          "e1rm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "E1Rm"
+          },
+          "isPr": {
+            "type": "boolean",
+            "title": "Ispr",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "weightKg",
+          "sets",
+          "reps",
+          "repsPerSet",
+          "volumeKg",
+          "rpe"
+        ],
+        "title": "ProgressExerciseSessionSchema"
+      },
+      "ProgressInsightSchema": {
+        "properties": {
+          "tone": {
+            "type": "string",
+            "title": "Tone"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "href": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Href"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tone",
+          "title",
+          "text"
+        ],
+        "title": "ProgressInsightSchema"
+      },
+      "ProgressInsightsSchema": {
+        "properties": {
+          "periodStart": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Periodstart"
+          },
+          "previousLabel": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previouslabel"
+          },
+          "kpis": {
+            "items": {
+              "$ref": "#/components/schemas/ProgressKpiSchema"
+            },
+            "type": "array",
+            "title": "Kpis"
+          },
+          "activity": {
+            "$ref": "#/components/schemas/ProgressActivitySchema"
+          },
+          "timeline": {
+            "$ref": "#/components/schemas/ProgressTimelineSchema"
+          },
+          "records": {
+            "items": {
+              "$ref": "#/components/schemas/ProgressRecordSchema"
+            },
+            "type": "array",
+            "title": "Records"
+          },
+          "recordCount": {
+            "type": "integer",
+            "title": "Recordcount"
+          },
+          "movers": {
+            "items": {
+              "$ref": "#/components/schemas/ProgressMoverSchema"
+            },
+            "type": "array",
+            "title": "Movers"
+          },
+          "muscleBalance": {
+            "items": {
+              "$ref": "#/components/schemas/ProgressMuscleShareSchema"
+            },
+            "type": "array",
+            "title": "Musclebalance"
+          },
+          "insights": {
+            "items": {
+              "$ref": "#/components/schemas/ProgressInsightSchema"
+            },
+            "type": "array",
+            "title": "Insights"
+          },
+          "exercises": {
+            "items": {
+              "$ref": "#/components/schemas/ProgressExerciseInsightSchema"
+            },
+            "type": "array",
+            "title": "Exercises"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kpis",
+          "activity",
+          "timeline",
+          "records",
+          "recordCount",
+          "movers",
+          "muscleBalance",
+          "insights",
+          "exercises"
+        ],
+        "title": "ProgressInsightsSchema"
+      },
+      "ProgressKpiSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "previous": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous"
+          },
+          "deltaPct": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deltapct"
+          },
+          "spark": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Spark"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "label",
+          "value",
+          "unit",
+          "spark"
+        ],
+        "title": "ProgressKpiSchema"
+      },
+      "ProgressMoverSchema": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "fromValue": {
+            "type": "number",
+            "title": "Fromvalue"
+          },
+          "toValue": {
+            "type": "number",
+            "title": "Tovalue"
+          },
+          "deltaPct": {
+            "type": "number",
+            "title": "Deltapct"
+          },
+          "series": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "Series"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "name",
+          "fromValue",
+          "toValue",
+          "deltaPct",
+          "series"
+        ],
+        "title": "ProgressMoverSchema"
+      },
+      "ProgressMuscleShareSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "sets": {
+            "type": "integer",
+            "title": "Sets"
+          },
+          "share": {
+            "type": "number",
+            "title": "Share"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "sets",
+          "share"
+        ],
+        "title": "ProgressMuscleShareSchema"
+      },
+      "ProgressNextTargetSchema": {
+        "properties": {
+          "weightKg": {
+            "type": "number",
+            "title": "Weightkg"
+          },
+          "sets": {
+            "type": "integer",
+            "title": "Sets"
+          },
+          "repsPerSet": {
+            "type": "integer",
+            "title": "Repsperset"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "type": "object",
+        "required": [
+          "weightKg",
+          "sets",
+          "repsPerSet",
+          "note"
+        ],
+        "title": "ProgressNextTargetSchema"
       },
       "ProgressPhotoAssetSchema": {
         "properties": {
@@ -13414,6 +14253,103 @@
           "label"
         ],
         "title": "ProgressPhotoViewSchema"
+      },
+      "ProgressRecordSchema": {
+        "properties": {
+          "exerciseSlug": {
+            "type": "string",
+            "title": "Exerciseslug"
+          },
+          "exerciseName": {
+            "type": "string",
+            "title": "Exercisename"
+          },
+          "date": {
+            "type": "string",
+            "title": "Date"
+          },
+          "e1rm": {
+            "type": "number",
+            "title": "E1Rm"
+          },
+          "previous": {
+            "type": "number",
+            "title": "Previous"
+          },
+          "weightKg": {
+            "type": "number",
+            "title": "Weightkg"
+          },
+          "repsPerSet": {
+            "type": "integer",
+            "title": "Repsperset"
+          }
+        },
+        "type": "object",
+        "required": [
+          "exerciseSlug",
+          "exerciseName",
+          "date",
+          "e1rm",
+          "previous",
+          "weightKg",
+          "repsPerSet"
+        ],
+        "title": "ProgressRecordSchema"
+      },
+      "ProgressTimelinePointSchema": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "title": "Start"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "volumeKg": {
+            "type": "number",
+            "title": "Volumekg"
+          },
+          "sets": {
+            "type": "integer",
+            "title": "Sets"
+          },
+          "days": {
+            "type": "integer",
+            "title": "Days"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start",
+          "label",
+          "volumeKg",
+          "sets",
+          "days"
+        ],
+        "title": "ProgressTimelinePointSchema"
+      },
+      "ProgressTimelineSchema": {
+        "properties": {
+          "granularity": {
+            "type": "string",
+            "title": "Granularity"
+          },
+          "points": {
+            "items": {
+              "$ref": "#/components/schemas/ProgressTimelinePointSchema"
+            },
+            "type": "array",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "granularity",
+          "points"
+        ],
+        "title": "ProgressTimelineSchema"
       },
       "QuickStartDataSchema": {
         "properties": {

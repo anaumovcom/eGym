@@ -16,10 +16,13 @@ export function LoadDirectionSelector({ value = 'down', disabled = false, nextSe
             onClick={() => { if (value !== option.value) onChange(option.value) }}><span>{option.label}</span></Button>
         ))}
       </div>
-      <small className="rt-start-point-hint">
-        {value === 'up' ? 'Тяга вверх: удобнее начинать у верхней точки. Начальное положение выбирается отдельно.' : 'Нагрузка направлена вниз (обычный режим).'}
-        {nextSet ? ' Изменение применится только со следующего подхода.' : ''}
-      </small>
+      {/* The usual "down" needs no explanation; only the unusual choice and deferred changes do. */}
+      {value === 'up' || nextSet ? (
+        <small className="rt-start-point-hint">
+          {value === 'up' ? 'Тяга вверх: удобнее начинать у верхней точки. Начальное положение выбирается отдельно.' : ''}
+          {nextSet ? ' Изменение применится только со следующего подхода.' : ''}
+        </small>
+      ) : null}
     </div>
   )
 }

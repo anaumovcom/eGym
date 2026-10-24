@@ -39,12 +39,15 @@ from app.services.coach.facts import (
 from app.services.coach.identity import SpeechContext, WorkState, identity, matches_identity, same_run
 from app.services.coach.luna import LunaTextAdapter, TextAuthor, text_pricing
 from app.services.coach.memory import CoachMemory, CrossWorkoutStore, RunMemoryStore, Utterance
+from app.services.coach.personas import persona
 from app.services.coach.prompts import AuthorRequest
 from app.services.coach.speech_actions import SPEECH_ACTIONS, speech_action
 from app.services.coach.triggers import TRIGGERS
 from app.services.coach.voice import (
     Delivery,
+    FishVoiceAdapter,
     RealtimeVoiceAdapter,
+    TtsVoiceAdapter,
     VoiceOutcome,
     VoiceStreamer,
     decode_frame,
@@ -950,7 +953,9 @@ class LiveCoach:
             coach_context=op.coach_context, say_exercise_name=s.say_exercise_name,
             recent_heard=self.memory.heard(), discussed_tips=tuple(self.memory.completed_tips)[-32:],
             cross_workout_preferences=tuple(self.cross_preferences.items()) if s.memory_enabled else (),
-            optional_motif=motif, motif_callback=callback, category=op.candidate.topic_family)
+            optional_motif=motif, motif_callback=callback, category=op.candidate.topic_family,
+            character=s.persona, profanity=s.profanity and not risk,
+            voice_markup=self.voice is not None and s.mode == "hybrid" and getattr(self.voice.adapter, "emotive", False))
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:
         warmup = None
@@ -1039,9 +1044,11 @@ class LiveCoach:
         except (TypeError, ValueError):
             delivery = Delivery()
         s = self.settings
+        # Emotive adapters (Fish drama-3) colour speech by profile through markup, not by a generative prompt.
         delivery = select_delivery(delivery, intent=outcome.intent, action=op.candidate.speech_action,
                        outcome=op.package.outcome if op.package else None,
-                       enabled=situational_delivery_enabled(), energy=s.voice_energy, pace=s.voice_pace)
+                       enabled=situational_delivery_enabled() or getattr(self.voice.adapter, "emotive", False),
+                       energy=s.voice_energy, pace=s.voice_pace)
         voice = VoiceOutcome()
         self._transition(op, 'ready')
         self._remember(gid, op, outcome.text, outcome.used_fact_ids)
@@ -1237,16 +1244,34 @@ async def default_pipeline(sessions: Callable[[], Session], prefs: CoachPreferen
     pipeline = Pipeline(TextAuthor(sessions, LunaTextAdapter(client, key, model=cfg.coach_text_model), pricing,
                                    model=cfg.coach_text_model, max_output_tokens=cfg.coach_text_max_output_tokens,
                                    reasoning_effort=cfg.coach_text_reasoning_effort), None, None, [client.aclose])
-    voice_price = voice_pricing("realtime")
-    if prefs.mode == "hybrid":
-        if cfg.coach_paid_voice_enabled and voice_price.verified:
-            # Live speech and prepared packs share the Realtime voice timbre (decision D-E08.7).
-            adapter = RealtimeVoiceAdapter(websocket_connect, key, model=cfg.coach_voice_realtime_model,
-                                           voice=prefs.voice_profile,
-                                           reasoning_effort=cfg.coach_voice_realtime_reasoning_effort, keep_alive=True,
-                                           situational_enabled=situational_delivery_enabled())
-            pipeline.voice = VoiceStreamer(sessions, adapter, voice_price)
-            pipeline.closers.insert(0, adapter.aclose)
-        else:
-            pipeline.reason = "voice_unavailable"
+    if prefs.mode != "hybrid":
+        return pipeline
+    kind = {"openai-realtime": "realtime", "openai-tts": "tts", "fish-drama-3": "fish"}[prefs.voice_model]
+    fish_key = None
+    if kind == "fish":
+        try:
+            with sessions() as db:
+                fish_key, _ = security.read_credential(db, "fish")
+        except HTTPException:
+            # Fish is the default voice: without its key keep speaking with the OpenAI voice, flagged.
+            kind, pipeline.reason = "realtime", "voice_fallback"
+    voice_price = voice_pricing(kind)
+    if not (cfg.coach_paid_voice_enabled and voice_price.verified):
+        pipeline.reason = "voice_unavailable"
+        return pipeline
+    if kind == "realtime":
+        # Live speech and prepared packs share the Realtime voice timbre (decision D-E08.7).
+        adapter = RealtimeVoiceAdapter(websocket_connect, key, model=cfg.coach_voice_realtime_model,
+                                       voice=prefs.voice_profile,
+                                       reasoning_effort=cfg.coach_voice_realtime_reasoning_effort, keep_alive=True,
+                                       situational_enabled=situational_delivery_enabled())
+        pipeline.closers.insert(0, adapter.aclose)
+    elif kind == "tts":
+        adapter = TtsVoiceAdapter(client, key, model=cfg.coach_voice_tts_model, voice=prefs.voice_profile,
+                                  situational_enabled=situational_delivery_enabled())
+    else:
+        voice_id = prefs.fish_voice_id or persona(prefs.persona).fish_voice_id or cfg.coach_voice_fish_reference_id
+        adapter = FishVoiceAdapter(client, fish_key, model=cfg.coach_voice_fish_model, reference_id=voice_id,
+                                   emotion=prefs.voice_emotion)
+    pipeline.voice = VoiceStreamer(sessions, adapter, voice_price)
     return pipeline

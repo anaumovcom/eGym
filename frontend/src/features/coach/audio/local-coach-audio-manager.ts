@@ -5,7 +5,7 @@ import { copyNormalizedLocalBuffer, isVerifiedLocalBuffer } from './local-buffer
 import { getSharedAudioContext } from './shared-audio-context'
 
 export type LocalAudioSource = 'local' | 'cache'
-export type NetworkAudioSource = 'realtime' | 'tts' | 'fake'
+export type NetworkAudioSource = 'realtime' | 'tts' | 'fish' | 'fake'
 export type MixerAudioSource = LocalAudioSource | NetworkAudioSource
 export type LocalPlayback = Readonly<{ kind: 'count' | 'cue'; action: 'count' | 'orient' | 'support' | 'result' | 'summary' | 'safety' }>
 export type AudioReason = CoachReason | 'ready' | 'started' | 'ended' | 'cancelled' | 'scope_changed' | 'mute' |
@@ -72,7 +72,7 @@ const STREAM_WATCHDOG_MS = 60_000 // From the first observed start of network sp
 const STREAM_STALL_MS = 5_000 // A started stream without packets/final for this long is cut, not left hanging.
 const GAP_SECONDS = 0.25 // Longer underruns stop holding other voices in the background.
 const DEFAULT_PREBUFFER_MS = 120
-const NETWORK_SOURCES = new Set<MixerAudioSource>(['realtime', 'tts', 'fake'])
+const NETWORK_SOURCES = new Set<MixerAudioSource>(['realtime', 'tts', 'fish', 'fake'])
 const CHECK_MS = 10 // Observation only; gain automation runs on the audio timeline.
 const ATTACK_SECONDS = 0.05
 const RESTORE_SECONDS = 0.15

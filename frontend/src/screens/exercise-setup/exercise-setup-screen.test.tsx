@@ -148,7 +148,7 @@ describe('ExerciseSetupScreen', () => {
     expect(useHardwareStore.getState().runCommand).not.toHaveBeenCalled()
 
     await user.click(screen.getByRole('button', { name: 'Увеличить: Вес' }))
-    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('39.5'))
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('37.5'))
     await user.click(screen.getByRole('button', { name: 'Уменьшить: Подходы' }))
     await waitFor(() => expect(screen.getByRole('textbox', { name: 'Подходы' })).toHaveValue('4'))
 
@@ -157,7 +157,7 @@ describe('ExerciseSetupScreen', () => {
     view.queryClient.clear()
     view = renderScreen()
     await waitFor(() => expect(buildBackendBuilderRuntimeSessionMock).toHaveBeenCalledTimes(3))
-    expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('39.5')
+    expect(screen.getByRole('textbox', { name: 'Вес, кг' })).toHaveValue('37.5')
     expect(screen.getByRole('textbox', { name: 'Подходы' })).toHaveValue('4')
 
     // Real server plan edits must still be applied; ignoring every refetch would hide those changes.
@@ -183,7 +183,8 @@ describe('ExerciseSetupScreen', () => {
     buildBackendBuilderRuntimeSessionMock.mockResolvedValue({ ...session, exercises: [updatedExercise] })
     renderScreen()
     await waitFor(() => expect(useRuntimeStore.getState().session!.exercises[0]).toEqual(updatedExercise))
-    expect(screen.getByText(field === 'perSide' ? 'Обычное выполнение' : 'Поочерёдно · на каждую сторону')).toBeInTheDocument()
+    if (field === 'perSide') expect(screen.queryByText('Поочерёдно · на каждую сторону')).not.toBeInTheDocument()
+    else expect(screen.getByText('Поочерёдно · на каждую сторону')).toBeInTheDocument()
     if (field !== 'perSide') expect(screen.getByText(/на сторону/)).toBeInTheDocument()
     expect(useHardwareStore.getState().runCommand).not.toHaveBeenCalled()
   })
@@ -332,20 +333,54 @@ describe('ExerciseSetupScreen', () => {
     expect(parameters.compareDocumentPosition(calibration) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
-  it('groups movement and capture separately and keeps save as the final calibration action', () => {
+  it('groups each bar point with its move and capture buttons and has no separate save step', () => {
     renderScreen()
     const calibration = screen.getByRole('region', { name: 'Настройка грифа', exact: true })
-    const movement = within(calibration).getByRole('group', { name: 'Перемещение грифа при настройке' })
-    const capture = within(calibration).getByRole('group', { name: 'Фиксация положения грифа' })
-    const save = within(calibration).getByRole('button', { name: 'Сохранить амплитуду' })
-    expect(within(movement).getAllByRole('button')).toHaveLength(2)
-    expect(within(capture).getAllByRole('button')).toHaveLength(2)
-    expect(capture).not.toContainElement(save)
-    expect(capture.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
-    expect([...calibration.querySelectorAll('button')].at(-1)).toBe(save)
+    const upper = within(calibration).getByRole('group', { name: 'Верхняя точка' })
+    const lower = within(calibration).getByRole('group', { name: 'Нижняя точка' })
+    expect(within(upper).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['↑ Вверх · удерживать', 'Зафиксировать верхнюю точку'])
+    expect(within(lower).getAllByRole('button').map((button) => button.getAttribute('aria-label'))).toEqual(['↓ Вниз · удерживать', 'Зафиксировать нижнюю точку'])
+    // The top point is drawn above the bottom one.
+    expect(upper.compareDocumentPosition(lower) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    // Remembering points saves the setup by itself.
+    expect(within(calibration).queryByRole('button', { name: /Сохранить/ })).not.toBeInTheDocument()
     for (const button of calibration.querySelectorAll('button')) {
       expect(button.querySelector('svg[aria-hidden="true"]')).toBeInTheDocument()
     }
+  })
+
+  it('saves the range by itself once both points are remembered, and not before', async () => {
+    const save = vi.fn().mockImplementation(async (payload) => {
+      const saved = { id: 7, isActive: true, capturedAt: new Date().toISOString(), expiresAt: null, ...payload }
+      useHardwareStore.setState({ currentCalibration: saved })
+      return saved
+    })
+    useHardwareStore.setState({ saveCalibration: save })
+    const user = userEvent.setup()
+    renderScreen()
+    await waitFor(() => expect(loadCurrentCalibrationMock).toHaveBeenCalledWith('alexey', 'barbell-floor-press'))
+
+    await user.click(screen.getByRole('button', { name: 'Зафиксировать нижнюю точку' }))
+    expect(save).not.toHaveBeenCalled()
+    expect(screen.getByText(/Запомните верхнюю точку/)).toBeInTheDocument()
+
+    act(() => { useHardwareStore.setState({ snapshot: createSnapshot(760) }) })
+    await user.click(screen.getByRole('button', { name: 'Зафиксировать верхнюю точку' }))
+    await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ setupType: 'bar_range', lowerPointMm: 560, upperPointMm: 760 })))
+    expect(save).toHaveBeenCalledTimes(1)
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Запустить упражнение' })).toBeEnabled())
+  })
+
+  it('does not save an upside-down range', async () => {
+    const save = vi.fn()
+    useHardwareStore.setState({ saveCalibration: save })
+    const user = userEvent.setup()
+    renderScreen()
+    await waitFor(() => expect(loadCurrentCalibrationMock).toHaveBeenCalledWith('alexey', 'barbell-floor-press'))
+    await user.click(screen.getByRole('button', { name: 'Зафиксировать верхнюю точку' }))
+    await user.click(screen.getByRole('button', { name: 'Зафиксировать нижнюю точку' }))
+    expect(save).not.toHaveBeenCalled()
+    expect(useHardwareStore.getState().setErrorMessage).toHaveBeenLastCalledWith(expect.stringContaining('Верхняя точка должна быть выше нижней'))
   })
 
   it('shows two distinct video angles in the same vertical media column', async () => {
@@ -486,7 +521,6 @@ describe('ExerciseSetupScreen', () => {
     await user.click(screen.getByRole('button', { name: 'Фиксированное положение' }))
     expect(screen.queryByText('Нижняя точка')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Зафиксировать высоту грифа' }))
-    await user.click(screen.getByRole('button', { name: 'Сохранить положение' }))
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ userId: 'alexey', exerciseSlug: 'bodyweight-pull-up', setupType: 'fixed_position', fixedPositionMm: 560, lowerPointMm: null, upperPointMm: null })))
     expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Зафиксировать высоту грифа' })).toBeVisible()
@@ -496,7 +530,7 @@ describe('ExerciseSetupScreen', () => {
     expect(navigateMock).toHaveBeenCalledWith(`/exercise-session${currentSearch}`)
   })
 
-  it('loads a saved range and blocks start until edits are saved', async () => {
+  it('loads a saved range and saves a new point by itself', async () => {
     const saved: HardwareCalibration = {
       id: 3, userId: 'alexey', exerciseSlug: 'barbell-floor-press', setupType: 'bar_range',
       lowerPointMm: 560, upperPointMm: 760, fixedPositionMm: null, zeroPositionMm: 660,
@@ -510,7 +544,11 @@ describe('ExerciseSetupScreen', () => {
     const user = userEvent.setup()
     renderScreen()
     expect(await screen.findByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
-    expect(screen.getByText('Калибровка: 56 см - 76 см')).toBeInTheDocument()
+    const savedPoints = screen.getByRole('region', { name: 'Настройка грифа', exact: true })
+    expect(within(savedPoints).getByRole('group', { name: 'Нижняя точка' })).toHaveTextContent('56 см')
+    expect(within(savedPoints).getByRole('group', { name: 'Верхняя точка' })).toHaveTextContent('76 см')
+    // A saved setup raises nothing in the header; only problems do.
+    expect(screen.queryByText(/Нужна настройка грифа|несохранённые изменения/)).not.toBeInTheDocument()
     expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Свернуть' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Фиксированное положение' }))
@@ -532,7 +570,7 @@ describe('ExerciseSetupScreen', () => {
       return saved
     })
     renderScreen()
-    expect(await screen.findByText('Фиксация: 148 см')).toBeInTheDocument()
+    expect(await screen.findByRole('group', { name: 'Фиксированная высота' })).toHaveTextContent('148 см')
     expect(screen.getByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
     expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()
     expect(screen.getByText('Фиксированная высота')).toBeInTheDocument()
@@ -544,8 +582,6 @@ describe('ExerciseSetupScreen', () => {
     })
     useHardwareStore.setState({ saveCalibration: save })
     await userEvent.setup().click(screen.getByRole('button', { name: 'Зафиксировать высоту грифа' }))
-    expect(screen.getByRole('button', { name: 'Старт недоступен' })).toBeDisabled()
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Сохранить положение' }))
     await waitFor(() => expect(save).toHaveBeenCalledWith(expect.objectContaining({ setupType: 'fixed_position', fixedPositionMm: 560 })))
     expect(screen.getByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
     expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()

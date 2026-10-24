@@ -351,7 +351,7 @@ def test_crossrun_explicit_optin_enum_only_ttl_delete_and_bounds():
     opted = CoachPreferences(consent_version=1, cross_workout_memory=True, nickname="Алексей", style="calm")
     assert store.exchange("a", "r1", opted) == {}
     result = store.exchange("a", "r2", opted)
-    assert result == {"style": "calm", "humor": "light", "verbosity": "normal", "praise": "normal"}
+    assert result == {"style": "calm", "humor": "often", "verbosity": "normal", "praise": "normal"}
     assert "Алексей" not in str(store.entries) and not store.exchange("b", "r2", default)
     now[0] = 7 * 86400
     assert not store.current("a")

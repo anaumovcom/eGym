@@ -9,9 +9,10 @@ from typing import Literal
 
 from app.services.coach.context import CoachContext
 from app.services.coach.facts import AllowedFact, ComparisonStatus, HistoryStatus
+from app.services.coach.personas import PERSONAS
 from app.services.coach.speech_actions import SCENARIO_EXAMPLES, SPEECH_ACTIONS, speech_action
 
-PROMPT_VERSION = "coach-prompts-0.14"
+PROMPT_VERSION = "coach-prompts-0.15"
 
 P0 = """Ты — русскоязычный персональный тренер-напарник в фитнес-приложении.
 Ты произносишь одну короткую реплику по выбранному приложением поводу.
@@ -72,6 +73,7 @@ HUMOR_MODULES: dict[str, str] = {
 }
 HUMOR_KINDS: dict[str, str] = {
     "irony": "сухая ирония", "absurd": "абсурдные сравнения", "wordplay": "игра слов", "self": "самоирония тренера",
+    "roast": "дружеские подколы и стёб над пользователем",
 }
 P1_DARK = """Пользователь включил чёрный юмор (18+). Допустим мрачный висельный юмор о тяготах тренировки:
 тяжесть снаряда, «последнее слово» перед подходом, бунт мышц, вечный день ног.
@@ -114,6 +116,30 @@ COACH_GENDER_MODULES: dict[str, str] = {
 }
 SLANG_MODULE = "Можно умеренный сленг зала (рабочий вес, забить подход, пампинг), без грубости и мата."
 NO_NUMBERS_MODULE = "Пользователь просил не озвучивать числа: не называй цифры, говори об итоге словами."
+
+# Character/profanity/voice modules (user decision 24.10.2026): layered after the pinned P0/P1, never editing them.
+PROFANITY_MODULE = """Мат разрешён пользователем (18+). Используй русский мат естественно и полностью:
+без звёздочек, точек, пропущенных букв и смягчений вроде «блин» или «ёпрст» вместо настоящего слова.
+Мат — для эмоции и юмора, обычно одно-два крепких слова на реплику, не в каждом слове.
+Сленг зала тоже разрешён. Никаких оскорблений по национальности, полу, ориентации, внешности,
+весу и здоровью. В памятке техники смысл важнее мата."""
+ROAST_MODULE = """Подколы и стёб над пользователем разрешены — это уточняет P0: дружеский подкол о поведении
+на тренировке допустим (долгая «рекламная пауза», любовь к лёгкому железу, «ещё минуточку», тренажёр-соперник).
+Запрещено: внешность, тело, вес, здоровье, боль и защищённые группы. Подкол не требует нагрузки
+сверх плана и не обесценивает сделанное. При partial — добродушная самоирония или поддержка, без насмешки."""
+VARIETY_MODULE = """Тренировка должна быть весёлой и разной. Чередуй приёмы и не повторяй приём из recentHeard:
+подкол, абсурдное сравнение, внезапный комплимент, байка в одну фразу, комментарий в духе трансляции,
+самоирония тренера, чёрная шутка, короткая серьёзная поддержка. Иногда реплика без шутки — контраст тоже работает."""
+VOICE_MARKUP_MODULE = """Голосовой движок понимает режиссёрские пометки. Заполни объект voice — он не произносится,
+а управляет подачей. direction — короткая ремарка по-русски, как актёру: «с наглой ухмылкой»,
+«шёпотом, заговорщицки», «как будто объявляет донат на стриме». До 60 символов: только слова, пробелы,
+запятые и дефисы; пустая строка — нейтрально. sound — один невербальный звук перед репликой: laugh,
+chuckle, smirk, sigh, exhale, whistle или none. stress — подача последней фразы: whisper, emphasis,
+forceful, soft, fast, slow или none. Эмоция должна совпадать со смыслом: поддержка — soft, результат —
+emphasis, секрет — whisper. Не ставь один и тот же звук подряд. Сам text пиши без скобок, тегов и ремарок."""
+VOICE_SOUNDS = ("none", "laugh", "chuckle", "smirk", "sigh", "exhale", "whistle")
+VOICE_STRESS = ("none", "whisper", "emphasis", "forceful", "soft", "fast", "slow")
+VOICE_DIRECTION_CHARS = 60
 
 P2: dict[str, str] = {
     "setup/opening": "Короткое приветствие перед тренировкой. Не заменяй инструкцию к упражнению общими лозунгами. Если нет полезного содержания — silence. Без чисел и плана вне facts, без обещаний результата. 8–20 слов.",
@@ -196,10 +222,17 @@ class AuthorRequest:
     optional_motif: str | None = None
     motif_callback: bool = False
     category: str = ""
+    # Coach character (personas.PERSONAS); "classic" is the pinned P1.
+    character: str = "classic"
+    profanity: bool = False
+    # The voice engine understands stage directions: the schema then asks for a `voice` block.
+    voice_markup: bool = False
 
     def __post_init__(self):
         if self.task not in P2:
             raise ValueError("Unknown P2 task")
+        if self.character not in PERSONAS:
+            raise ValueError("Unknown character")
         if (self.style != "companion" and self.style not in STYLE_MODULES) or (
                 self.humor is not None and self.humor not in HUMOR_MODULES) or (
                 not set(self.humor_kinds) <= set(HUMOR_KINDS)) or not set(self.extras) <= set(EXTRA_MODULES):
@@ -221,6 +254,11 @@ class AuthorRequest:
     @property
     def mode(self) -> Literal["ordinary", "locked_fact"]:
         return "locked_fact" if self.locked_clause else "ordinary"
+
+    @property
+    def roast(self) -> bool:
+        """Friendly teasing of the user is allowed (prompt module + relaxed insult check)."""
+        return self.humor != "off" and ("roast" in self.humor_kinds or PERSONAS[self.character].roast)
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,6 +297,12 @@ def output_schema(req: AuthorRequest) -> dict:
         "silenceReason": {"anyOf": [{"type": "string", "enum": list(SILENCE_REASONS)}, {"type": "null"}]},
         speech_key: speech,
     }
+    if req.voice_markup:
+        properties["voice"] = {
+            "type": "object", "additionalProperties": False, "required": ["direction", "sound", "stress"],
+            "properties": {"direction": {"type": "string", "description": "Russian stage direction, not spoken."},
+                           "sound": {"type": "string", "enum": list(VOICE_SOUNDS)},
+                           "stress": {"type": "string", "enum": list(VOICE_STRESS)}}}
     return {"type": "object", "additionalProperties": False, "required": list(properties), "properties": properties}
 
 
@@ -281,15 +325,30 @@ def personality_modules(req: AuthorRequest) -> list[str]:
                        (COACH_GENDER_MODULES, req.coach_gender)):
         if key in table:
             modules.append(table[key])
-    if req.slang:
+    if req.profanity:
+        modules.append(PROFANITY_MODULE)  # also covers gym slang
+    elif req.slang:
         modules.append(SLANG_MODULE)
+    if req.roast:
+        modules.append(ROAST_MODULE)
+    if joking and (req.character != "classic" or req.humor == "often"):
+        modules.append(VARIETY_MODULE)
     if not req.say_numbers:
         modules.append(NO_NUMBERS_MODULE)
+    if req.voice_markup:
+        modules.append(VOICE_MARKUP_MODULE)
     return modules
 
 
+def character_modules(req: AuthorRequest) -> list[str]:
+    character = PERSONAS[req.character].character
+    if character is None:
+        return [P1, *([P1_SHARP] if req.persona == "sharp" else [])]
+    return [character]
+
+
 def build_prompt(req: AuthorRequest) -> BuiltPrompt:
-    modules = [P0, P1, *([P1_SHARP] if req.persona == "sharp" else []), *personality_modules(req), P2[req.task]]
+    modules = [P0, *character_modules(req), *personality_modules(req), P2[req.task]]
     action = speech_action(req.task)
     modules.append(SCENARIO_EXAMPLES[action])
     if req.recent_heard or req.cross_workout_preferences or req.optional_motif:
@@ -357,7 +416,9 @@ def static_hashes() -> dict[str, str]:
     personality = [*STYLE_MODULES.values(), *HUMOR_MODULES.values(), *HUMOR_KINDS.values(), P1_DARK,
                    *EXTRA_MODULES.values(), ADDRESS_VY, NAME_MODULE, *VERBOSITY_MODULES.values(),
                    *PRAISE_MODULES.values(), *GOAL_MODULES.values(), *EXPERIENCE_MODULES.values(),
-                   *USER_GENDER_MODULES.values(), *COACH_GENDER_MODULES.values(), SLANG_MODULE, NO_NUMBERS_MODULE]
+                   *USER_GENDER_MODULES.values(), *COACH_GENDER_MODULES.values(), SLANG_MODULE, NO_NUMBERS_MODULE,
+                   PROFANITY_MODULE, ROAST_MODULE, VARIETY_MODULE, VOICE_MARKUP_MODULE]
     return {"version": PROMPT_VERSION, "p0": sha256(P0), "p1": sha256(P1), "p1Sharp": sha256(P1_SHARP),
             "p1User": sha256("\n".join(personality)),
+            "characters": sha256("\n".join(p.character or "" for p in PERSONAS.values())),
             **{f"p2:{key}": sha256(value) for key, value in P2.items()}}

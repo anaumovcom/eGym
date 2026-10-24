@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -37,31 +37,32 @@ afterEach(() => { cleanup(); client.clear(); vi.unstubAllGlobals(); vi.restoreAl
 const tabNames = ['Обзор', 'Сила', 'Тело', 'Фото']
 
 describe('Progress stage 6', () => {
-  it('shows four tabs, one period select and no more than four overview metrics', async () => {
+  it('shows four tabs, one period switch and no more than four overview metrics', async () => {
     renderScreen('/progress?period=30d')
     expect(await screen.findByRole('heading', { name: 'Прогресс' })).toBeVisible()
     expect(await screen.findByText('Динамика объёма')).toBeVisible()
     for (const tab of tabNames) expect(screen.getByRole('button', { name: tab, exact: true })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Восстановление' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Усталость мышц' })).toHaveAttribute('href', '/fatigue')
-    expect(screen.getByRole('combobox', { name: 'Период прогресса' })).toHaveValue('30d')
+    const periods = screen.getByRole('group', { name: 'Период прогресса' })
+    expect(within(periods).getByRole('button', { name: '30 дней' })).toHaveAttribute('aria-pressed', 'true')
     expect(document.querySelectorAll('.progress-metrics article')).toHaveLength(4)
     for (const removed of ['Сводка', 'Упражнения', 'Сила и объём', 'Регулярность', 'Мышцы', 'Фото прогресса']) expect(screen.queryByRole('button', { name: removed, exact: true })).not.toBeInTheDocument()
   })
 
   it('keeps legacy analytics links useful by mapping them to strength', async () => {
     renderScreen('/progress?tab=exercise&period=3m&exercise=machine-pulldown')
-    expect(await screen.findByRole('heading', { name: 'Сила и объём' })).toBeVisible()
+    expect(await screen.findByRole('heading', { name: 'Тяга сверху', level: 2 })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Сила' })).toHaveAttribute('aria-current', 'page')
-    expect(apiGet).toHaveBeenCalledWith('/api/progress?userId=alexey&period=3m&exerciseSlug=machine-pulldown')
+    expect(apiGet).toHaveBeenCalledWith('/api/progress?userId=alexey&period=3m')
   })
 
-  it('changes period with one select and preserves the current tab', async () => {
+  it('changes period with one switch and preserves the current tab', async () => {
     const user = userEvent.setup()
     renderScreen('/progress?tab=strength&period=30d')
-    await screen.findByRole('heading', { name: 'Сила и объём' })
-    await user.selectOptions(screen.getByRole('combobox', { name: 'Период прогресса' }), '7d')
-    await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/progress?userId=alexey&period=7d&exerciseSlug=machine-pulldown'))
+    await screen.findByRole('heading', { name: 'Тяга сверху', level: 2 })
+    await user.click(screen.getByRole('button', { name: '7 дней' }))
+    await waitFor(() => expect(apiGet).toHaveBeenCalledWith('/api/progress?userId=alexey&period=7d'))
     expect(location()).toContain('tab=strength')
     expect(location()).toContain('period=7d')
   })
@@ -111,6 +112,34 @@ describe('Progress stage 6', () => {
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
   })
 
+  it('summarises the period with comparisons, insights, records and muscle balance', async () => {
+    renderScreen('/progress')
+    const days = await screen.findByText('Тренировочных дней')
+    const card = days.closest('article')!
+    expect(within(card).getByText('+33%')).toBeVisible()
+    expect(within(card).getByText('было 6')).toBeVisible()
+    expect(screen.getByRole('link', { name: /Присед: \+20%/ })).toHaveAttribute('href', '/progress?tab=strength&exercise=barbell-heels-up-back-squat')
+    expect(screen.getByText('Личные рекорды')).toBeVisible()
+    expect(screen.getByText('Баланс нагрузки')).toBeVisible()
+    expect(screen.getByRole('link', { name: /Карта усталости/ })).toHaveAttribute('href', '/fatigue')
+    expect(screen.getByText('Регулярность')).toBeVisible()
+  })
+
+  it('switches exercises locally and shows the next-session target', async () => {
+    const user = userEvent.setup()
+    renderScreen('/progress?tab=strength')
+    expect(await screen.findByRole('heading', { name: 'Тяга сверху', level: 2 })).toBeVisible()
+    expect(screen.getByText('Цель на следующую тренировку')).toBeVisible()
+    expect(screen.getByRole('table')).toBeVisible()
+    const calls = vi.mocked(apiGet).mock.calls.length
+    await user.click(screen.getByRole('button', { name: /Присед/ }))
+    expect(await screen.findByRole('heading', { name: 'Присед', level: 2 })).toBeVisible()
+    expect(location()).toContain('exercise=barbell-heels-up-back-squat')
+    expect(vi.mocked(apiGet).mock.calls.length).toBe(calls)
+    await user.click(screen.getByRole('button', { name: 'Вес' }))
+    expect(screen.getByRole('button', { name: 'Вес' })).toHaveAttribute('aria-pressed', 'true')
+  })
+
   it('renders one actionable empty state instead of zero metric tiles', async () => {
     progress = buildProgressData({ user: getProfileSeed('guest'), period: '30d', blacklistedSlugs: [], dev: { ...defaultStage4DevFlags, noHistory: true, noPhotos: true } })
     renderScreen()
@@ -130,7 +159,7 @@ describe('Progress stage 6', () => {
     expect(await screen.findByText('Последняя съёмка')).toBeVisible()
     expect(screen.getByRole('link', { name: 'Управление снимками' })).toHaveAttribute('href', '/profile?tab=photo')
     expect(document.querySelectorAll('.photo-gallery-card')).toHaveLength(3)
-    expect(screen.queryByRole('combobox', { name: 'Период прогресса' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Период прогресса' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Фотофиксация' })).toBeVisible()
     expect(screen.queryByText('История фотофиксаций')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Фотофиксация' }))

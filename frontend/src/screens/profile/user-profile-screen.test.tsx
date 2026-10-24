@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { getExerciseCatalog } from '@/mocks/stage2-data'
+import { buildProgressData, defaultStage4DevFlags, getProfileSeed } from '@/mocks/stage4-data'
 import { UserProfileScreen } from '@/screens/profile/user-profile-screen'
 import { apiDelete, apiGet, apiPost, apiPut } from '@/shared/api/client'
 import { useAppStore } from '@/stores/app-store'
@@ -32,6 +33,7 @@ beforeEach(() => {
     if (path.startsWith('/api/body-measurements?')) return structuredClone(measurements) as T
     if (path.startsWith('/api/photo-progress?')) return structuredClone(photos) as T
     if (path.startsWith('/api/exercises?')) return getExerciseCatalog() as T
+    if (path.startsWith('/api/progress?')) return buildProgressData({ user: getProfileSeed('alexey'), period: '30d', blacklistedSlugs: [], dev: defaultStage4DevFlags }) as T
     throw new Error(`Unexpected ${path}`)
   })
   vi.mocked(apiPut).mockReset().mockResolvedValue(user)
@@ -46,7 +48,7 @@ describe('UserProfileScreen stage 6', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Алексей' })).toBeVisible()
     expect(screen.getByText(/35 лет|34 лет/)).toBeVisible()
     expect(screen.getByText(/182 см/)).toBeVisible()
-    expect(screen.getAllByText(/84\.2 кг/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/84,2 кг/).length).toBeGreaterThan(0)
     expect(screen.getByText('Жим 100 кг')).toBeVisible()
     expect(screen.getByText('Ближайший ориентир: 100 кг')).toBeVisible()
     const nav = screen.getByRole('navigation', { name: 'Разделы профиля' })
@@ -93,5 +95,56 @@ describe('UserProfileScreen stage 6', () => {
     renderProfile('/profile?tab=photo')
     await actor.click(await screen.findByRole('button', { name: 'Фотофиксация' }))
     expect(screen.getByRole('dialog', { name: 'Фотофиксация' })).toBeVisible()
+  })
+
+  it('summarises body, photos, training and a timeline on the overview', async () => {
+    renderProfile()
+    expect(await screen.findByText('ИМТ 25,4 · выше нормы')).toBeVisible()
+    const body = screen.getByRole('heading', { name: 'Тело' }).closest('section')!
+    expect(within(body).getByText('Талия').closest('article')).toHaveTextContent('91')
+    expect(within(body).getByText('−3 см')).toBeVisible()
+    const training = screen.getByRole('heading', { name: 'Тренировки за 30 дней' }).closest('section')!
+    expect(await within(training).findByText('Тренировочных дней')).toBeVisible()
+    expect(within(training).getByRole('link', { name: /Прогресс/ })).toHaveAttribute('href', '/progress')
+    const timeline = screen.getByRole('heading', { name: 'Хронология' }).closest('section')!
+    expect(within(timeline).getByText('Фотофиксация')).toBeVisible()
+    expect(within(timeline).getAllByText('Измерение тела')).toHaveLength(2)
+  })
+
+  it('charts a selected metric and deletes a measurement only after confirmation', async () => {
+    const actor = userEvent.setup()
+    renderProfile('/profile?tab=measurements')
+    await actor.click(await screen.findByRole('button', { name: /^Талия/ }))
+    expect(screen.getByRole('img', { name: 'Динамика: Талия' })).toBeInTheDocument()
+    const rows = within(screen.getByRole('table')).getAllByRole('row')
+    expect(rows[1]).toHaveTextContent('−3')
+    await actor.click(screen.getByRole('button', { name: /Удалить измерение от 10 сент/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Удалить измерение?' })
+    expect(dialog).toHaveTextContent('Вес 84,2 кг')
+    expect(apiDelete).not.toHaveBeenCalled()
+    await actor.click(within(dialog).getByRole('button', { name: 'Удалить' }))
+    expect(apiDelete).toHaveBeenCalledWith('/api/body-measurements/2?userId=alexey&confirm=true')
+  })
+
+  it('rejects implausible measurement values before saving', async () => {
+    const actor = userEvent.setup()
+    renderProfile('/profile?tab=measurements')
+    await actor.click(await screen.findByRole('button', { name: 'Добавить измерение' }))
+    const dialog = screen.getByRole('dialog', { name: 'Новое измерение' })
+    expect(within(dialog).getByLabelText('Вес, кг')).toHaveAttribute('placeholder', '84,2')
+    await actor.type(within(dialog).getByLabelText('Вес, кг'), '842')
+    expect(within(dialog).getByText('Допустимо 20–300 кг')).toBeVisible()
+    expect(within(dialog).getByRole('button', { name: 'Сохранить измерение' })).toBeDisabled()
+  })
+
+  it('asks for confirmation before deleting a photo in the profile gallery', async () => {
+    const actor = userEvent.setup()
+    renderProfile('/profile?tab=photo')
+    await actor.click(await screen.findByRole('button', { name: /Удалить фото: Спереди/ }))
+    expect(screen.getByRole('dialog', { name: 'Удалить фото?' })).toBeVisible()
+    expect(apiDelete).not.toHaveBeenCalled()
+    await actor.click(screen.getByRole('button', { name: 'Удалить фото' }))
+    expect(apiDelete).toHaveBeenCalledWith('/api/photo-progress/5?confirm=true')
+    expect(screen.getByRole('link', { name: /Сравнить до и после/ })).toHaveAttribute('href', '/progress?tab=photo')
   })
 })

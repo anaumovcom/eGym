@@ -1,11 +1,12 @@
 import { Slot, Slottable } from '@radix-ui/react-slot'
-import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import type { ButtonHTMLAttributes, ReactNode, Ref } from 'react'
 import { cn } from '@/shared/lib/cn'
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   asChild?: boolean
   variant?: 'primary' | 'secondary' | 'ghost' | 'danger'
   iconLeft?: ReactNode
+  ref?: Ref<HTMLButtonElement>
 }
 
 const variants = {

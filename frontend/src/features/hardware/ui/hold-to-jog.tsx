@@ -1,14 +1,22 @@
 import { ArrowDown, ArrowUp } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { runHardwareCommand } from '@/features/hardware/api/hardware-api'
 import { Button } from '@/shared/ui/button'
 import { useHardwareStore } from '@/stores/hardware-store'
 
 type Hold = { id: string; userId: string; exerciseSlug: string; started: boolean; released: boolean; timer?: number; sending: boolean }
 
-export function HoldToJog({ userId, exerciseSlug, disabled = false, onMoved, onHoldingChange }: {
+type HoldToJogOptions = {
   userId: string | null; exerciseSlug: string; disabled?: boolean; onMoved?: () => void; onHoldingChange?: (holding: boolean) => void
-}) {
+}
+
+export const jogLabels = { up: '↑ Вверх · удерживать', down: '↓ Вниз · удерживать' } as const
+
+/**
+ * Press-and-hold bar movement. One hook owns a single hold, so its up and down
+ * buttons may live in different places of the screen and still never move the bar twice.
+ */
+export function useHoldToJog({ userId, exerciseSlug, disabled = false, onMoved, onHoldingChange }: HoldToJogOptions) {
   const runCommand = useHardwareStore((state) => state.runCommand)
   const setError = useHardwareStore((state) => state.setErrorMessage)
   const hold = useRef<Hold | null>(null)
@@ -81,22 +89,36 @@ export function HoldToJog({ userId, exerciseSlug, disabled = false, onMoved, onH
     }
   }, [userId, exerciseSlug])
 
+  /** Props for a hold button moving the bar in `direction`; spread them onto any button. */
+  function buttonProps(direction: 'up' | 'down') {
+    return {
+      disabled: (!hold.current && (disabled || busy)) || !userId,
+      'aria-label': jogLabels[direction],
+      onPointerDown: (event: PointerEvent<HTMLButtonElement>) => {
+        if (event.pointerType === 'mouse' && event.button !== 0) return
+        event.currentTarget.setPointerCapture?.(event.pointerId)
+        press(direction)
+      },
+      onPointerUp: release,
+      onPointerCancel: release,
+      onLostPointerCapture: release,
+      onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => {
+        if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); press(direction) }
+      },
+      onKeyUp: (event: KeyboardEvent<HTMLButtonElement>) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); release() } },
+    }
+  }
+
+  return { buttonProps, holding: busy }
+}
+
+export function HoldToJog(options: HoldToJogOptions) {
+  const jog = useHoldToJog(options)
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label="Перемещение грифа при настройке">
       {(['up', 'down'] as const).map((direction) => (
-        <Button key={direction} variant="secondary" disabled={(!hold.current && (disabled || busy)) || !userId}
-          aria-label={direction === 'up' ? '↑ Вверх · удерживать' : '↓ Вниз · удерживать'}
+        <Button key={direction} variant="secondary" {...jog.buttonProps(direction)}
           iconLeft={direction === 'up' ? <ArrowUp aria-hidden="true" /> : <ArrowDown aria-hidden="true" />}
-          onPointerDown={(event) => {
-            if (event.pointerType === 'mouse' && event.button !== 0) return
-            event.currentTarget.setPointerCapture?.(event.pointerId)
-            press(direction)
-          }}
-          onPointerUp={release} onPointerCancel={release} onLostPointerCapture={release}
-          onKeyDown={(event) => {
-            if ((event.key === ' ' || event.key === 'Enter') && !event.repeat) { event.preventDefault(); press(direction) }
-          }}
-          onKeyUp={(event) => { if (event.key === ' ' || event.key === 'Enter') { event.preventDefault(); release() } }}
         >{direction === 'up' ? 'Вверх · удерживать' : 'Вниз · удерживать'}</Button>
       ))}
     </div>

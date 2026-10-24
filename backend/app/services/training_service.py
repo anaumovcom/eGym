@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.analytics import ExerciseSession, WorkoutSession
+from app.models.analytics import ExerciseSession, SetResult, WorkoutSession
 from app.models.enums import ExerciseSessionStatus, RuntimeExerciseKind, WorkoutSessionStatus
 from app.models.settings import AppSetting
 from app.models.training import ExerciseHistoryRecord, UserExerciseState, UserHiddenWorkoutProgram, WorkoutProgram
@@ -45,6 +45,8 @@ from app.schemas.training import (
     ProgramLibraryDataSchema,
     ProgramMutationResultSchema,
     ProgramMutationSchema,
+    ProgramOrderMutationSchema,
+    ProgramOrderResultSchema,
     ProgramSummarySchema,
     QuickStartDataSchema,
     QuickStartExerciseListItemSchema,
@@ -81,6 +83,8 @@ from app.services.exercise_settings import (
 from app.services.fatigue_service import FatigueService, equipment_affects_fatigue
 from app.services.machine_service import MachineService
 from app.services.muscle_catalog import CANONICAL_MUSCLE_DEFINITIONS
+from app.services.progress_insights import estimate_one_rep_max
+from app.services.workout_duration import DurationEstimate, estimate_workout_duration
 
 RU_MONTHS = ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"]
 
@@ -92,8 +96,10 @@ FEATURED = {
 
 TODAY_PLAN_SETTING_KEY = "training.today.plan"
 BUILDER_PLAN_SETTING_KEY = "training.builder.plan"
+PROGRAM_ORDER_SETTING_KEY = "training.programs.order"
 # session.info marker: this user's builder items already have exercise profiles in this DB session.
 PROFILES_READY_KEY = "training.exercise_profiles_ready"
+E1RM_LOOKBACK_DAYS = 120
 DEFAULT_BUILDER_NOTE = "Следить за техникой и не терять контроль в нижней точке."
 
 STRENGTH_TRAINING_MODES = [
@@ -692,7 +698,7 @@ class TrainingService:
 
         builder_value = self._builder_setting_value(session, user_id, selected_program.id)
         groups = self._builder_groups(session, user_id, selected_program)
-        estimated_duration_minutes = self._builder_estimated_duration_minutes(groups, selected_program.duration_minutes)
+        duration = self._builder_duration_estimate(session, user_id, groups)
         persisted_selected_id = self._builder_selected_exercise_id(session, user_id, selected_program.id)
         available_items = [item for group in groups for item in group.items]
         selected_item = next((item for item in available_items if item.id == (selected_exercise_id or persisted_selected_id)), None)
@@ -712,12 +718,12 @@ class TrainingService:
             programs=[self._builder_program_tab(self._builder_workout_name(self._builder_setting_value(session, user_id, program.id), program), program) for program in programs],
             strength_modes=self.get_strength_modes(),
             selected_program_id=selected_program.id,
-            info=self._builder_info(selected_program, self._builder_workout_name(builder_value, selected_program), estimated_duration_minutes),
+            info=self._builder_info(selected_program, self._builder_workout_name(builder_value, selected_program), duration.minutes),
             groups=groups,
             selected_exercise_id=selected_item_id,
             selected_exercise=selected_editor,
             add_suggestions=[],
-            summary_cards=self._builder_summary_cards(groups, estimated_duration_minutes),
+            summary_cards=self._builder_summary_cards(groups, duration),
             warnings=[
                 {"tone": "warning", "title": "Длинная тренировка", "description": "Расчётное время больше целевого. Можно убрать один вспомогательный блок."},
                 {"tone": "warning", "title": "Короткий отдых", "description": "Для тяжёлых подходов рекомендуется отдых 60–90 секунд."},
@@ -1171,40 +1177,54 @@ class TrainingService:
             return workout_name.strip()
         return self._builder_workout_name(value, program)
 
-    def _builder_summary_cards(self, groups: list[BuilderWorkoutGroupSchema], duration_minutes: int) -> list[BuilderSummaryCardSchema]:
+    def _builder_summary_cards(self, groups: list[BuilderWorkoutGroupSchema], duration: DurationEstimate) -> list[BuilderSummaryCardSchema]:
         exercise_count = sum(len(group.items) for group in groups)
         set_count = sum(len(item.strength_plan) or self._parse_sets(item.sets) for group in groups for item in group.items)
         tonnage = sum(self._builder_item_tonnage(item) for group in groups for item in group.items)
         return [
             BuilderSummaryCardSchema(label="упражнений", value=str(exercise_count), hint="структура тренировки"),
             BuilderSummaryCardSchema(label="подходов", value=str(set_count), hint="общий объём"),
-            BuilderSummaryCardSchema(label="минут", value=str(duration_minutes), hint="оценка длительности"),
+            BuilderSummaryCardSchema(label="минут", value=str(duration.minutes), hint=self._builder_duration_hint(duration)),
             BuilderSummaryCardSchema(label="кг", value=f"{int(round(tonnage)):,}".replace(",", " "), hint="общий тоннаж"),
         ]
 
-    def _builder_estimated_duration_minutes(self, groups: list[BuilderWorkoutGroupSchema], fallback_minutes: int) -> int:
-        total_seconds = sum(self._builder_item_duration_seconds(item) for group in groups for item in group.items)
-        if total_seconds <= 0:
-            return 0
-        return max(1, int(round(total_seconds / 60)))
+    def _builder_duration_estimate(self, session: Session, user_id: str, groups: list[BuilderWorkoutGroupSchema]) -> DurationEstimate:
+        items = [item for group in groups for item in group.items]
+        slugs = {item.slug for item in items}
+        tempo_by_slug = {
+            slug: profile.tempo
+            for slug, state in self._user_states(session, user_id, slugs).items()
+            if (profile := read_profile(state)) is not None
+        }
+        return estimate_workout_duration(items, tempo_by_slug=tempo_by_slug, e1rm_by_slug=self._recent_e1rm_by_slug(session, user_id, slugs))
 
-    def _builder_item_duration_seconds(self, item: BuilderExerciseItemSchema) -> int:
-        if item.strength_plan:
-            work_seconds = sum(self._builder_set_active_seconds(item, set_plan.target_reps_label) for set_plan in item.strength_plan)
-            rest_seconds = sum(set_plan.rest_seconds for set_plan in item.strength_plan[:-1])
-            return work_seconds + rest_seconds
+    def _recent_e1rm_by_slug(self, session: Session, user_id: str, slugs: set[str]) -> dict[str, float]:
+        """Best Epley e1RM over recent sets: tells the duration estimate how heavy the planned weights are."""
+        if not slugs:
+            return {}
+        since = datetime.now(UTC) - timedelta(days=E1RM_LOOKBACK_DAYS)
+        best: dict[str, float] = {}
+        set_rows = session.execute(
+            select(ExerciseSession.exercise_slug, SetResult.weight_kg, SetResult.reps)
+            .join(SetResult, SetResult.exercise_session_id == ExerciseSession.id)
+            .where(ExerciseSession.user_id == user_id, ExerciseSession.exercise_slug.in_(slugs), ExerciseSession.started_at >= since)
+        )
+        history_rows = session.execute(
+            select(ExerciseHistoryRecord.exercise_slug, ExerciseHistoryRecord.weight_kg, ExerciseHistoryRecord.reps, ExerciseHistoryRecord.sets)
+            .where(ExerciseHistoryRecord.user_id == user_id, ExerciseHistoryRecord.exercise_slug.in_(slugs), ExerciseHistoryRecord.performed_at >= since)
+        )
+        rows = [*set_rows, *((slug, weight, round(reps / max(sets, 1))) for slug, weight, reps, sets in history_rows)]
+        for slug, weight, reps in rows:
+            e1rm = estimate_one_rep_max(weight or 0, int(reps or 0))
+            if e1rm is not None and e1rm > best.get(slug, 0):
+                best[slug] = e1rm
+        return best
 
-        set_count = self._parse_sets(item.sets)
-        work_seconds = self._builder_set_active_seconds(item, item.sets) * max(set_count, 1)
-        rest_seconds = self._parse_builder_rest(item.rest) * max(set_count - 1, 0)
-        return work_seconds + rest_seconds
-
-    def _builder_set_active_seconds(self, item: BuilderExerciseItemSchema, source: str) -> int:
-        if item.load_type == "timed":
-            return self._parse_builder_duration(item.sets) or 45
-
-        reps = self._parse_strength_target_reps(source) if item.strength_plan else self._parse_reps(source)
-        return max(20, reps * 4)
+    def _builder_duration_hint(self, duration: DurationEstimate) -> str:
+        if duration.total_seconds <= 0:
+            return "оценка длительности"
+        parts = [("подходы", duration.work_seconds), ("отдых", duration.rest_seconds), ("переходы", duration.transition_seconds)]
+        return "≈ " + " · ".join(f"{label} {int(round(seconds / 60))}" for label, seconds in parts) + " мин"
 
     def _builder_item_tonnage(self, item: BuilderExerciseItemSchema) -> float:
         if item.strength_plan:
@@ -1875,7 +1895,25 @@ class TrainingService:
             )
             visible_programs = [program for program in visible_programs if program.id not in hidden_program_ids]
 
-        return sorted(visible_programs, key=lambda program: (not program.recommended_today, program.name.lower(), program.id))
+        visible_programs.sort(key=lambda program: (not program.recommended_today, program.name.lower(), program.id))
+        if user_id:
+            # A user-arranged order wins; programs it does not know yet keep the default order after it.
+            positions = {program_id: index for index, program_id in enumerate(self._program_order(session, user_id))}
+            visible_programs.sort(key=lambda program: positions.get(program.id, len(positions)))
+        return visible_programs
+
+    def _program_order(self, session: Session, user_id: str) -> list[str]:
+        setting = self._get_setting(session, user_id, PROGRAM_ORDER_SETTING_KEY)
+        program_ids = setting.value.get("programIds") if setting and isinstance(setting.value, dict) else None
+        return [item for item in program_ids if isinstance(item, str)] if isinstance(program_ids, list) else []
+
+    def save_program_order(self, session: Session, payload: ProgramOrderMutationSchema) -> ProgramOrderResultSchema:
+        visible_ids = [program.id for program in self._programs(session, payload.user_id)]
+        known_ids = set(visible_ids)
+        ordered_ids = list(dict.fromkeys(item for item in payload.program_ids if item in known_ids))
+        ordered_ids += [item for item in visible_ids if item not in ordered_ids]
+        self._save_setting(session, payload.user_id, PROGRAM_ORDER_SETTING_KEY, {"programIds": ordered_ids})
+        return ProgramOrderResultSchema(program_ids=ordered_ids)
 
     def _default_programs(self) -> list[WorkoutProgram]:
         return [

@@ -21,6 +21,9 @@ from app.models.coach import CoachCredential, CoachOperatorSession
 
 COOKIE = "egym_coach_operator"
 SESSION_SECONDS = 900
+# One vault row per provider. Row 1 (OpenAI) also pins run credential versions; Fish is voice-only.
+CREDENTIAL_IDS = {"openai": 1, "fish": 2}
+_CHECK_URLS = {"openai": "https://api.openai.com/v1/models", "fish": "https://api.fish.audio/wallet/self/api-credit"}
 _login_limits: OrderedDict[str, tuple[float, int]] = OrderedDict()
 
 
@@ -129,8 +132,8 @@ def cipher() -> Fernet:
         raise HTTPException(503, "secure_storage_unavailable") from None
 
 
-def credential_status(db: Session) -> dict:
-    row = db.get(CoachCredential, 1)
+def credential_status(db: Session, provider: str = "openai") -> dict:
+    row = db.get(CoachCredential, CREDENTIAL_IDS[provider])
     available = False
     try:
         cipher()
@@ -141,8 +144,8 @@ def credential_status(db: Session) -> dict:
             "source": "server-vault", "storageAvailable": available, "lastCheckStatus": row.last_check if row else "not_checked"}
 
 
-def read_credential(db: Session) -> tuple[str, int]:
-    row = db.get(CoachCredential, 1)
+def read_credential(db: Session, provider: str = "openai") -> tuple[str, int]:
+    row = db.get(CoachCredential, CREDENTIAL_IDS[provider])
     if not row or row.disabled or not row.ciphertext:
         raise HTTPException(409, "credential_unavailable")
     try:
@@ -151,11 +154,11 @@ def read_credential(db: Session) -> tuple[str, int]:
         raise HTTPException(503, "secure_storage_unavailable") from None
 
 
-async def metadata_check(key: str) -> str:
+async def metadata_check(key: str, provider: str = "openai") -> str:
     # Fixed whitelist URL, no inference, redirects or provider body/error forwarding.
     try:
         async with httpx.AsyncClient(timeout=5, follow_redirects=False, trust_env=False) as client:
-            async with client.stream("GET", "https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {key}"}) as response:
+            async with client.stream("GET", _CHECK_URLS[provider], headers={"Authorization": f"Bearer {key}"}) as response:
                 return "auth_ok_models_not_verified" if response.status_code == 200 else "auth_failed" if response.status_code in {401, 403} else "provider_unavailable"
     except Exception:
         return "provider_unavailable"

@@ -1,11 +1,3 @@
-/** Steps for editing a timed set: fine near short holds, coarse for long cardio. */
-export function stepTimedSeconds(current: number, delta: number) {
-  const step = delta > 0
-    ? current >= 600 ? 60 : current >= 120 ? 30 : 15
-    : current > 600 ? 60 : current > 120 ? 30 : 15
-  return Math.max(15, current + delta * step)
-}
-
 /** "45 сек", "2 мин", "2 мин 30 сек". */
 export function formatTimedSeconds(seconds: number) {
   const total = Math.max(0, Math.round(seconds))

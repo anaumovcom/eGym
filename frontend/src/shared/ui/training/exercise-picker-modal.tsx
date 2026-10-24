@@ -2,6 +2,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, ArrowRight, Check, Dumbbell, SearchX, Star, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
+import { stepRestSeconds, stepWeightKg } from '@/shared/lib/value-steps'
 import { useExerciseCatalog } from '@/entities/exercise/model/catalog'
 import { emptyCatalogSelection, type CatalogFilterKey } from '@/entities/exercise/model/catalog-filters'
 import type { ExerciseDetails, ExerciseSummary } from '@/entities/exercise/model/types'
@@ -157,8 +158,8 @@ export function ExercisePickerModal({ open, onOpenChange, userId, mode, currentE
               <div className="picker-configure-controls">
                 <ValueStepper label="Подходы" value={stagedSets.sets} onChange={(delta) => setStagedSets((s) => s && ({ ...s, sets: Math.min(10, Math.max(1, s.sets + delta)) }))} onValueCommit={(value) => setStagedSets((s) => s && ({ ...s, sets: Math.min(10, Math.max(1, value ?? s.sets)) }))} />
                 <ValueStepper label="Повторы" value={stagedSets.reps} onChange={(delta) => setStagedSets((s) => s && ({ ...s, reps: Math.max(1, s.reps + delta) }))} onValueCommit={(value) => setStagedSets((s) => s && ({ ...s, reps: Math.max(1, value ?? s.reps) }))} />
-                <ValueStepper label="Вес" unit="кг" value={weightless ? null : stagedSets.weight} emptyLabel={weightless ? 'вес тела' : '—'} readOnly={weightless} onChange={(delta) => setStagedSets((s) => s && ({ ...s, weight: Math.max(0, s.weight + delta) }))} onValueCommit={(value) => setStagedSets((s) => s && ({ ...s, weight: Math.max(0, value ?? 0) }))} />
-                <ValueStepper label="Отдых" unit="сек" value={stagedSets.restSeconds} onChange={(delta) => setStagedSets((s) => s && ({ ...s, restSeconds: Math.max(15, s.restSeconds + delta * 15) }))} onValueCommit={(value) => setStagedSets((s) => s && ({ ...s, restSeconds: Math.max(15, value ?? s.restSeconds) }))} />
+                <ValueStepper label="Вес" unit="кг" value={weightless ? null : stagedSets.weight} emptyLabel={weightless ? 'вес тела' : '—'} readOnly={weightless} decimals={1} onChange={(delta) => setStagedSets((s) => s && ({ ...s, weight: stepWeightKg(s.weight, delta) }))} onValueCommit={(value) => setStagedSets((s) => s && ({ ...s, weight: Math.max(0, value ?? 0) }))} />
+                <ValueStepper label="Отдых" unit="сек" value={stagedSets.restSeconds} onChange={(delta) => setStagedSets((s) => s && ({ ...s, restSeconds: stepRestSeconds(s.restSeconds, delta) }))} onValueCommit={(value) => setStagedSets((s) => s && ({ ...s, restSeconds: Math.max(15, value ?? s.restSeconds) }))} />
               </div>
               {error ? <p role="alert" className="text-[#ffb4a7]">{error}</p> : null}
               <div className="picker-actions">

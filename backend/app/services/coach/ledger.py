@@ -15,7 +15,7 @@ from app.models.analytics import WorkoutSession
 from app.models.coach import CoachAttempt, CoachCredential, CoachJob, CoachLedgerRun, CoachReceipt, CoachResponseReceipt
 from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, UsageBounds
 from app.services.coach.preferences import load_preferences
-from app.services.coach.security import digest
+from app.services.coach.security import CREDENTIAL_IDS, digest
 
 MAX_LIVE_RUNS = 64
 RUN_CONNECT_GRACE_SECONDS = 60
@@ -227,13 +227,16 @@ def dispatch(db: Session, attempt_id: str, owner: str, *, test_only: bool = Fals
             # Real dispatch: opt-in text author or opt-in voice adapters only; everything else stays fail-closed.
             cfg = get_settings()
             credential = db.get(CoachCredential, 1)
-            voice_models = {"realtime": cfg.coach_voice_realtime_model, "tts": cfg.coach_voice_tts_model}
+            voice_models = {"realtime": cfg.coach_voice_realtime_model, "tts": cfg.coach_voice_tts_model,
+                            "fish": cfg.coach_voice_fish_model}
             text_ok = (adapter == "luna-text" and attempt.stage == "text" and cfg.coach_paid_text_enabled
                        and cfg.coach_text_pricing_verified and attempt.model == cfg.coach_text_model
                        and row.ledger in {"workout", "test"})
             kind = (adapter or "").removeprefix("pack-")
+            fish = db.get(CoachCredential, CREDENTIAL_IDS["fish"]) if kind == "fish" else None
             voice_ok = (attempt.stage == "voice" and cfg.coach_paid_voice_enabled and cfg.coach_voice_pricing_verified
                         and kind in voice_models and attempt.model == voice_models[kind]
+                        and (kind != "fish" or (fish is not None and not fish.disabled and bool(fish.ciphertext)))
                         and row.ledger in ({"pack", "test"} if adapter.startswith("pack-") else {"workout", "test"}))
             if (not (text_ok or voice_ok) or not attempt.pricing.get("verified")
                     or credential is None or credential.disabled or not credential.ciphertext or credential.version != attempt.credential_version):

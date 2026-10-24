@@ -1,3 +1,4 @@
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Literal, TypedDict
 
@@ -5,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models.analytics import ExerciseSession, WorkoutSession
-from app.models.enums import ExerciseSessionStatus, NotificationTone, RuntimeFlowSource, WorkoutSessionStatus
+from app.models.enums import ExerciseSessionStatus, MuscleRole, NotificationTone, RuntimeFlowSource, WorkoutSessionStatus
 from app.models.profile import BodyMeasurement
 from app.models.settings import AppSetting
 from app.models.training import ExerciseHistoryRecord, UserExerciseState
@@ -20,11 +21,11 @@ from app.schemas.dashboard import (
     DashboardQuickStartItemSchema,
     DashboardRecommendationSchema,
     DashboardWorkoutExerciseSchema,
+    DashboardWorkoutMuscleLoadSchema,
     DashboardWorkoutSnapshotSchema,
     DashboardWorkoutSchema,
     MuscleCardSchema,
 )
-from app.services.exercise_library import get_imported_exercise
 from app.services.exercise_library import ImportedExercise, get_imported_exercise
 from app.services.fatigue_service import FatigueService
 from app.services.machine_service import MachineService
@@ -214,11 +215,12 @@ class DashboardService:
     def _builder_workouts(self, session: Session, user_id: str) -> list[DashboardBuilderWorkoutSchema]:
         programs = list(self.training_service._programs(session, user_id))
         progress_by_title = self._builder_progress_by_title(session, user_id, programs)
+        current_scores = self._current_scores_by_name(session, user_id)
         workouts: list[DashboardBuilderWorkoutSchema] = []
         for program in programs:
             builder_value = self.training_service._builder_setting_value(session, user_id, program.id)
             groups = self.training_service._builder_groups(session, user_id, program)
-            duration_minutes = self.training_service._builder_estimated_duration_minutes(groups, program.duration_minutes)
+            duration_minutes = self.training_service._builder_duration_estimate(session, user_id, groups).minutes
             workout_title = self.training_service._builder_workout_name(builder_value, program)
             progress = progress_by_title.get(workout_title)
             exercise_rows = self._builder_workout_exercises(groups, progress)
@@ -227,6 +229,8 @@ class DashboardService:
                     id=program.id,
                     title=workout_title,
                     exercises=exercise_rows,
+                    total_sets=sum(row.target_sets for row in exercise_rows),
+                    muscle_load=self._builder_muscle_load(groups, current_scores),
                     duration=f"≈ {duration_minutes} минут" if duration_minutes > 0 else f"{program.duration_minutes} минут",
                     today_status=progress["status"] if progress else "idle",
                     today_progress_percent=progress["progress_percent"] if progress else 0,
@@ -351,10 +355,89 @@ class DashboardService:
                     completed_sets=completed_sets,
                     target_sets=target_sets,
                     progress_percent=min(100, int(round((completed_sets / max(target_sets, 1)) * 100))),
+                    plan_label=self._plan_label(item),
                 )
             )
 
         return rows
+
+    def _current_scores_by_name(self, session: Session, user_id: str) -> dict[str, float]:
+        scores: dict[str, float] = {}
+        for snapshot in self.fatigue_service.list_current_scores(session, user_id):
+            name = get_muscle_definition(snapshot.muscle_id).name
+            scores[name] = scores.get(name, 0.0) + snapshot.fatigue_score
+        return scores
+
+    def _builder_muscle_load(self, groups: list[object], current_scores: dict[str, float]) -> list[DashboardWorkoutMuscleLoadSchema]:
+        """Projects the fatigue a full run of the plan adds, with the same formula the runtime applies per set.
+
+        Muscles are keyed by display name like the runtime sends them: the first muscle is primary.
+        """
+        added: dict[str, float] = {}
+        roles: dict[str, MuscleRole] = {}
+        for item in (item for group in groups for item in group.items):
+            if not item.affects_fatigue or not item.muscles:
+                continue
+            exercise = get_imported_exercise(item.slug)
+            equipment = exercise.equipment if exercise else None
+            targets = [{"muscle_id": name, "role": "primary" if index == 0 else "secondary"} for index, name in enumerate(item.muscles)]
+            contributions = self.fatigue_service.target_contributions(targets)
+            exercise_load = sum(self._projected_set_load(item, set_plan, equipment) for set_plan in self._projected_sets(item))
+            for name, (target_factor, role) in contributions.items():
+                delta = exercise_load * min(target_factor, 1.0)
+                if delta <= 0:
+                    continue
+                added[name] = added.get(name, 0.0) + delta
+                if name not in roles or role == MuscleRole.primary:
+                    roles[name] = role
+
+        rows: list[DashboardWorkoutMuscleLoadSchema] = []
+        for name, delta in sorted(added.items(), key=lambda entry: entry[1], reverse=True):
+            current = current_scores.get(name, 0.0)
+            projected = current + delta
+            rows.append(
+                DashboardWorkoutMuscleLoadSchema(
+                    name=name,
+                    role="primary" if roles[name] == MuscleRole.primary else "secondary",
+                    added_score=max(1, int(round(delta))),
+                    current_score=int(round(current)),
+                    projected_score=int(round(projected)),
+                    current_status=self.fatigue_service.fatigue_status(current),
+                    projected_status=self.fatigue_service.fatigue_status(projected),
+                )
+            )
+        return rows
+
+    @staticmethod
+    def _plan_label(item: object) -> str:
+        """"4 × 12 · 15 кг": what one run of the exercise asks for."""
+        sets = re.sub(r"\s*×\s*", " × ", item.sets.strip())
+        return " · ".join(part for part in (sets, item.load.strip()) if part)
+
+    def _projected_sets(self, item: object) -> list[tuple[str, str, str]]:
+        """(set type, target label, weight label) for every planned set."""
+        if item.strength_plan:
+            return [(plan.set_type, plan.target_reps_label, plan.recommended_weight_label) for plan in item.strength_plan]
+        sets = self.training_service._parse_sets(item.sets)
+        target = item.sets.split("×", 1)[1] if "×" in item.sets else "10"
+        return [("work", target, item.load)] * sets
+
+    def _projected_set_load(self, item: object, set_plan: tuple[str, str, str], equipment: str | None) -> float:
+        set_type, target_label, weight_label = set_plan
+        numbers = [int(value) for value in re.findall(r"\d+", target_label)]
+        # A range like "10–12" plans for its middle.
+        target = round(sum(numbers) / len(numbers)) if numbers else 10
+        timed = item.load_type == "timed" or "сек" in target_label
+        weight = self.training_service._parse_weight(weight_label) if item.load_type != "bodyweight" else 0.0
+        return self.fatigue_service.set_base_load(
+            planned_value=target,
+            actual_value=target,
+            reps=None if timed else target,
+            weight_kg=weight,
+            duration_seconds=target if timed else None,
+            set_type=set_type,
+            equipment=equipment,
+        )
 
     def _effective_builder_progress_start(self, session: Session, user_id: str, now: datetime | None = None) -> datetime:
         day_start = self._training_day_start(now)

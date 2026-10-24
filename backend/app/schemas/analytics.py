@@ -73,6 +73,126 @@ class ProgressBodyMeasurementRowSchema(SchemaModel):
     tone: str
 
 
+class ProgressKpiSchema(SchemaModel):
+    id: str
+    label: str
+    value: float
+    unit: str
+    previous: float | None = None
+    delta_pct: float | None = None
+    spark: list[float]
+
+
+class ProgressActivityDaySchema(SchemaModel):
+    date: str
+    level: int
+    sets: int
+    volume_kg: float
+    future: bool = False
+
+
+class ProgressActivitySchema(SchemaModel):
+    weeks: list[list[ProgressActivityDaySchema]]
+    active_days: int
+    streak_weeks: int
+    days_since_last: int | None = None
+
+
+class ProgressTimelinePointSchema(SchemaModel):
+    start: str
+    label: str
+    volume_kg: float
+    sets: int
+    days: int
+
+
+class ProgressTimelineSchema(SchemaModel):
+    granularity: str
+    points: list[ProgressTimelinePointSchema]
+
+
+class ProgressRecordSchema(SchemaModel):
+    exercise_slug: str
+    exercise_name: str
+    date: str
+    e1rm: float
+    previous: float
+    weight_kg: float
+    reps_per_set: int
+
+
+class ProgressMoverSchema(SchemaModel):
+    slug: str
+    name: str
+    from_value: float
+    to_value: float
+    delta_pct: float
+    series: list[float]
+
+
+class ProgressMuscleShareSchema(SchemaModel):
+    id: str
+    name: str
+    sets: int
+    share: float
+
+
+class ProgressInsightSchema(SchemaModel):
+    tone: str
+    title: str
+    text: str
+    href: str | None = None
+
+
+class ProgressExerciseSessionSchema(SchemaModel):
+    date: str
+    weight_kg: float
+    sets: int
+    reps: int
+    reps_per_set: int
+    volume_kg: float
+    rpe: int
+    e1rm: float | None = None
+    is_pr: bool = False
+
+
+class ProgressNextTargetSchema(SchemaModel):
+    weight_kg: float
+    sets: int
+    reps_per_set: int
+    note: str
+
+
+class ProgressExerciseInsightSchema(SchemaModel):
+    slug: str
+    name: str
+    kind: str
+    unit: str
+    sessions_in_period: int
+    last_date: str
+    best_e1rm: float | None = None
+    best_weight: float
+    best_volume: float
+    best_reps: int
+    trend_pct: float | None = None
+    sessions: list[ProgressExerciseSessionSchema]
+    next_target: ProgressNextTargetSchema | None = None
+
+
+class ProgressInsightsSchema(SchemaModel):
+    period_start: str | None = None
+    previous_label: str | None = None
+    kpis: list[ProgressKpiSchema]
+    activity: ProgressActivitySchema
+    timeline: ProgressTimelineSchema
+    records: list[ProgressRecordSchema]
+    record_count: int
+    movers: list[ProgressMoverSchema]
+    muscle_balance: list[ProgressMuscleShareSchema]
+    insights: list[ProgressInsightSchema]
+    exercises: list[ProgressExerciseInsightSchema]
+
+
 class ProgressDataSchema(SchemaModel):
     machine: MachineHealthSchema
     updated_at: str
@@ -106,6 +226,7 @@ class ProgressDataSchema(SchemaModel):
     photo_entries: list[ProgressPhotoEntrySchema]
     photo_stats: list[MetricCardSchema]
     photo_recommendation: str
+    insights: ProgressInsightsSchema | None = None
     empty_state: dict[str, str] | None = None
 
 

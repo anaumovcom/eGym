@@ -64,6 +64,43 @@ export type ProgressBodyMeasurementRow = {
   tone: 'good' | 'neutral' | 'warning'
 }
 
+export type ProgressKpi = { id: 'days' | 'volume' | 'minutes' | 'records'; label: string; value: number; unit: string; previous?: number | null; deltaPct?: number | null; spark: number[] }
+export type ProgressActivityDay = { date: string; level: number; sets: number; volumeKg: number; future?: boolean }
+export type ProgressTimelinePoint = { start: string; label: string; volumeKg: number; sets: number; days: number }
+export type ProgressRecord = { exerciseSlug: string; exerciseName: string; date: string; e1rm: number; previous: number; weightKg: number; repsPerSet: number }
+export type ProgressMover = { slug: string; name: string; fromValue: number; toValue: number; deltaPct: number; series: number[] }
+export type ProgressMuscleShare = { id: string; name: string; sets: number; share: number }
+export type ProgressInsight = { tone: 'good' | 'warning' | 'info'; title: string; text: string; href?: string | null }
+export type ProgressExerciseSession = { date: string; weightKg: number; sets: number; reps: number; repsPerSet: number; volumeKg: number; rpe: number; e1rm?: number | null; isPr?: boolean }
+export type ProgressExerciseInsight = {
+  slug: string
+  name: string
+  kind: 'weighted' | 'bodyweight'
+  unit: string
+  sessionsInPeriod: number
+  lastDate: string
+  bestE1rm?: number | null
+  bestWeight: number
+  bestVolume: number
+  bestReps: number
+  trendPct?: number | null
+  sessions: ProgressExerciseSession[]
+  nextTarget?: { weightKg: number; sets: number; repsPerSet: number; note: string } | null
+}
+export type ProgressInsights = {
+  periodStart?: string | null
+  previousLabel?: string | null
+  kpis: ProgressKpi[]
+  activity: { weeks: ProgressActivityDay[][]; activeDays: number; streakWeeks: number; daysSinceLast?: number | null }
+  timeline: { granularity: 'day' | 'week' | 'month'; points: ProgressTimelinePoint[] }
+  records: ProgressRecord[]
+  recordCount: number
+  movers: ProgressMover[]
+  muscleBalance: ProgressMuscleShare[]
+  insights: ProgressInsight[]
+  exercises: ProgressExerciseInsight[]
+}
+
 export type ProgressData = {
   machine: MachineHealth
   updatedAt: string
@@ -107,6 +144,7 @@ export type ProgressData = {
   photoEntries: ProgressPhotoEntry[]
   photoStats: MetricCard[]
   photoRecommendation: string
+  insights?: ProgressInsights | null
   emptyState?: {
     title: string
     description: string

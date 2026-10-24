@@ -29,7 +29,7 @@ for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 10
     const progressTabs = page.getByRole('navigation', { name: 'Разделы прогресса' })
     await expect(progressTabs.getByRole('button')).toHaveCount(4)
     for (const label of ['Обзор', 'Сила', 'Тело', 'Фото']) await expect(progressTabs.getByRole('button', { name: label, exact: true })).toBeInViewport()
-    await expect(page.getByRole('combobox', { name: 'Период прогресса' })).toHaveCount(1)
+    await expect(page.getByRole('group', { name: 'Период прогресса' })).toHaveCount(1)
     await expect(page.locator('.progress-metrics article')).toHaveCount(4)
     await expect(page.getByRole('button', { name: /Сводка|Упражнения|Регулярность|Мышцы|Фото прогресса/ })).toHaveCount(0)
     expect(await page.locator('main').evaluate((node) => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(2)

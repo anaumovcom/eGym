@@ -238,13 +238,13 @@ describe('builder plan persistence regressions', () => {
     expect(writes.at(-1)!.groups[0].items[0]).toMatchObject({ loadType: 'weighted', load: '5 кг' })
     await user.click(stage().getByRole('button', { name: 'Уменьшить: Вес' }))
     await saved()
-    expect(writes.at(-1)!.selectedExercise).toMatchObject({ loadType: 'weighted', setParams: { weight: 4 } })
+    expect(writes.at(-1)!.selectedExercise).toMatchObject({ loadType: 'weighted', setParams: { weight: 4.5 } })
     await commitValue('Вес', 0)
     await saved()
     expect(writes.at(-1)!.selectedExercise).toMatchObject({ loadType: 'bodyweight', setParams: { weight: 0 } })
     await user.click(stage().getByRole('button', { name: 'Увеличить: Вес' }))
     await saved()
-    expect(writes.at(-1)!.selectedExercise).toMatchObject({ loadType: 'weighted', setParams: { weight: 1 } })
+    expect(writes.at(-1)!.selectedExercise).toMatchObject({ loadType: 'weighted', setParams: { weight: 0.5 } })
   })
 
   it('autosaves per-side reps without doubling the builder plan and restores the flag on A → B → A', async () => {
@@ -317,7 +317,7 @@ describe('builder plan persistence regressions', () => {
     expect(stage().getByRole('checkbox', { name: 'На каждую сторону' })).toBeChecked()
     await user.click(stage().getByRole('button', { name: 'Увеличить: Вес' }))
     await saved()
-    expect(writes.at(-1)!.selectedExercise).toMatchObject({ perSide: true, setParams: { weight: 46 } })
+    expect(writes.at(-1)!.selectedExercise).toMatchObject({ perSide: true, setParams: { weight: 45.5 } })
     expect(writes.at(-1)!.groups[0].items[0].perSide).toBe(true)
   })
 
@@ -355,15 +355,15 @@ describe('builder plan persistence regressions', () => {
       await waitFor(() => expect(apiPut).toHaveBeenCalledTimes(1))
       expect(writes[0].selectedExercise).toMatchObject({ loadType: 'timed', setParams: { durationSeconds: 60 } })
       await user.click(stage().getByRole('button', { name: 'Увеличить: Длительность' }))
-      expect(stage().getByRole('textbox', { name: /^Длительность,/ })).toHaveValue('75')
+      expect(stage().getByRole('textbox', { name: /^Длительность,/ })).toHaveValue('70')
       expect(apiPut).toHaveBeenCalledTimes(1)
       expect(document.querySelector('.builder-save-status')).toHaveTextContent('Сохранение…')
       await act(async () => { gate.resolve() })
       await saved()
       expect(apiPut).toHaveBeenCalledTimes(2)
-      expect(writes[1].selectedExercise).toMatchObject({ loadType: 'timed', setParams: { durationSeconds: 75 } })
-      expect(programs.get(programId)!.editors.get(firstId)).toMatchObject({ loadType: 'timed', setParams: { durationSeconds: 75 } })
-      expect(programs.get(programId)!.data.groups[0].items[0]).toMatchObject({ loadType: 'timed', sets: '3×75 сек' })
+      expect(writes[1].selectedExercise).toMatchObject({ loadType: 'timed', setParams: { durationSeconds: 70 } })
+      expect(programs.get(programId)!.editors.get(firstId)).toMatchObject({ loadType: 'timed', setParams: { durationSeconds: 70 } })
+      expect(programs.get(programId)!.data.groups[0].items[0]).toMatchObject({ loadType: 'timed', sets: '3×70 сек' })
     } finally {
       await act(async () => { gate.resolve() })
     }
@@ -452,7 +452,7 @@ describe('builder plan persistence regressions', () => {
     await user.click(stage().getByRole('button', { name: 'Увеличить: Вес' }))
     await saved()
     const last = writes.at(-1)!
-    expect(last).toMatchObject({ programId: 'fullbody-base', selectedExerciseId: firstId, selectedExercise: { strengthModeId: 'strength', setParams: { weight: 81 } } })
+    expect(last).toMatchObject({ programId: 'fullbody-base', selectedExerciseId: firstId, selectedExercise: { strengthModeId: 'strength', setParams: { weight: 80.5 } } })
     expect(last.groups[0].items[0].strengthModeId).toBe('strength')
     expect(last.groups[0].items[0].strengthPlan).toEqual(last.selectedExercise!.strengthPlan)
     expect(programs.get(programId)!.editors.get(firstId)).toMatchObject({ strengthModeId: 'basic', setParams: { weight: 45 } })

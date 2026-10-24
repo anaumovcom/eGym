@@ -21,7 +21,7 @@ function object(value: unknown): JsonObject {
 function preferences(value: unknown): CoachPreferences {
   const raw = object(value)
   const tuning = pickTuning(raw)
-  const p: JsonObject = { memoryEnabled: true, crossWorkoutMemory: false, ...raw, ...tuning }
+  const p: JsonObject = { memoryEnabled: true, crossWorkoutMemory: false, fishVoiceId: '', ...raw, ...tuning }
   if (typeof p.enabled !== 'boolean' || typeof p.historyConsent !== 'boolean' || typeof p.duringSets !== 'boolean' ||
       typeof p.duringRest !== 'boolean' || !['local', 'hybrid', 'text-only'].includes(String(p.mode)) ||
       !['quiet', 'companion', 'talkative'].includes(String(p.density)) || !['every', 'last-three', 'milestones', 'off'].includes(String(p.count)) ||
@@ -31,7 +31,7 @@ function preferences(value: unknown): CoachPreferences {
   return { schemaVersion: 1, enabled: p.enabled, consentVersion: p.consentVersion as null | 1,
     mode: p.mode as CoachPreferences['mode'], density: p.density as CoachPreferences['density'], count: p.count as CoachPreferences['count'],
     voiceProfile: coachVoice(p.voiceProfile), historyConsent: p.historyConsent, revision: p.revision as number, budgetUsd: p.budgetUsd as string,
-    networkConsentVersion: p.networkConsentVersion as null | 1, voiceVolume: p.voiceVolume as number | null,
+    networkConsentVersion: p.networkConsentVersion as null | 1, voiceVolume: p.voiceVolume as number | null, fishVoiceId: p.fishVoiceId as string,
     style: p.style as CoachPreferences['style'], humor: p.humor as CoachPreferences['humor'],
     humorKinds: [...p.humorKinds as CoachPreferences['humorKinds']], edgyOptIn: p.edgyOptIn as boolean,
     extras: [...p.extras as CoachPreferences['extras']], address: p.address as CoachPreferences['address'],
@@ -82,6 +82,11 @@ async function request(path: string, method: string, signal: AbortSignal, body?:
     signal.removeEventListener('abort', abort)
   }
 }
+/** One server-vault key per provider; OpenAI keeps the unparameterised paths. */
+export type CredentialProvider = 'openai' | 'fish'
+function credentialPath(path: string, provider: CredentialProvider) {
+  return provider === 'openai' ? path : `${path}?provider=${provider}`
+}
 function userPath(userId: string) {
   if (!/^[a-zA-Z0-9_-]{1,128}$/.test(userId)) throw new CoachApiError('request_failed')
   return `users/${encodeURIComponent(userId)}/settings`
@@ -105,10 +110,12 @@ export const coachSettingsApi = {
     return { authorized: true, setupAvailable: true } as const
   },
   logout: async (signal: AbortSignal) => { await request('operator/session', 'DELETE', signal) },
-  credentials: async (signal: AbortSignal) => status(await request('credentials', 'GET', signal)),
-  putCredential: async (key: string, expectedVersion: number, signal: AbortSignal) => status(await request('credentials', 'PUT', signal, { schemaVersion: 1, key, expectedVersion })),
-  deleteCredential: async (expectedVersion: number, signal: AbortSignal) => status(await request('credentials', 'DELETE', signal, { schemaVersion: 1, expectedVersion })),
-  checkCredential: async (signal: AbortSignal) => status(await request('credentials/check', 'POST', signal)),
+  credentials: async (signal: AbortSignal, provider: CredentialProvider = 'openai') => status(await request(credentialPath('credentials', provider), 'GET', signal)),
+  putCredential: async (key: string, expectedVersion: number, signal: AbortSignal, provider: CredentialProvider = 'openai') =>
+    status(await request(credentialPath('credentials', provider), 'PUT', signal, { schemaVersion: 1, key, expectedVersion })),
+  deleteCredential: async (expectedVersion: number, signal: AbortSignal, provider: CredentialProvider = 'openai') =>
+    status(await request(credentialPath('credentials', provider), 'DELETE', signal, { schemaVersion: 1, expectedVersion })),
+  checkCredential: async (signal: AbortSignal, provider: CredentialProvider = 'openai') => status(await request(credentialPath('credentials/check', provider), 'POST', signal)),
   /** Paid requests actually sent since `sinceMs` (local midnight) across all runs. */
   dailyUsage: async (sinceMs: number, signal: AbortSignal): Promise<DailyUsage> => {
     const u = object(await request(`usage/today?since=${encodeURIComponent((sinceMs / 1000).toFixed(3))}`, 'GET', signal))

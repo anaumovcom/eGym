@@ -184,7 +184,7 @@ class CoachAudio(CoachModel):
     generation_id: str = Field(min_length=1, max_length=120)
     scope: CoachScope
     sequence: int = Field(ge=0)
-    source: Literal["local", "cache", "realtime", "tts", "fake"]
+    source: Literal["local", "cache", "realtime", "tts", "fish", "fake"]
     codec: Literal["pcm_s16le", "wav"]
     sample_rate: int = Field(ge=8000, le=96000)
     channels: Literal[1, 2] = 1

@@ -69,7 +69,7 @@ export type CoachDecision = Readonly<{
 }>
 export type CoachAudio = Readonly<{
   schemaVersion: 1; utteranceId: string; generationId: string; scope: CoachScope; sequence: number
-  source: 'local' | 'cache' | 'realtime' | 'tts' | 'fake'; codec: 'pcm_s16le' | 'wav'
+  source: 'local' | 'cache' | 'realtime' | 'tts' | 'fish' | 'fake'; codec: 'pcm_s16le' | 'wav'
   sampleRate: number; channels: 1 | 2; byteLength: number; durationMs: number; final: boolean
 }>
 export type CoachUsage = Readonly<{

@@ -194,7 +194,19 @@ def test_personality_preferences_round_trip_and_legacy_defaults(db_session):
     row.value = {k: v for k, v in row.value.items() if k not in {"humorKinds", "extras", "address", "nickname"}}
     db_session.commit()
     legacy = load_preferences(db_session, "alexey")
-    assert legacy.style == "showman" and legacy.humor_kinds == ("irony", "self") and legacy.nickname == ""
+    assert legacy.style == "showman" and legacy.humor_kinds == ("roast", "irony", "absurd") and legacy.nickname == ""
+    # Values saved before coach characters get the default roast set once; «no jokes» stays respected.
+    row.value = {k: v for k, v in row.value.items() if k not in {"persona", "profanity", "voiceModel"}}
+    row.value = {**row.value, "humor": "light", "humorKinds": ["irony", "self"], "edgyOptIn": False}
+    db_session.commit()
+    migrated = load_preferences(db_session, "alexey")
+    assert (migrated.persona, migrated.profanity, migrated.voice_model, migrated.humor, migrated.edgy_opt_in) == (
+        "streamer", True, "fish-drama-3", "often", True)
+    assert migrated.humor_kinds == ("roast", "irony", "self") and migrated.style == "showman"
+    row.value = {**{k: v for k, v in row.value.items() if k != "persona"}, "humor": "off"}
+    db_session.commit()
+    quiet = load_preferences(db_session, "alexey")
+    assert (quiet.humor, quiet.edgy_opt_in, quiet.profanity) == ("off", False, True) and "roast" not in quiet.humor_kinds
 
 
 def test_settings_endpoint_and_conflict(client):

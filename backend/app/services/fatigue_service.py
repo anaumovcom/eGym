@@ -212,24 +212,24 @@ class FatigueService:
         completion_status: str | None = None,
         equipment: str | None = None,
     ) -> list[FatigueUpdate]:
-        equipment_factor = EQUIPMENT_FACTORS.get(equipment or "", 1.0)
-        if equipment_factor <= 0 or completion_status == "skipped" or not self._has_performed_work(actual_value, reps, duration_seconds):
+        if EQUIPMENT_FACTORS.get(equipment or "", 1.0) <= 0 or completion_status == "skipped" or not self._has_performed_work(actual_value, reps, duration_seconds):
             return []
 
-        # A timed set has no reps: its actual value is seconds, not repetitions.
-        effective_reps = max(reps or 0, 0)
-        effective_duration = max(duration_seconds or (actual_value if reps is None else 0), 0)
-        completion_factor = min(1.25, max(actual_value / planned_value, 0.15)) if planned_value > 0 else 1.0
-        set_factor = SET_TYPE_FACTORS.get(str(set_type or "work"), 1.0)
-        # 60 s of work ~ one 10-rep set; longer holds add load with diminishing returns.
-        volume_factor = effective_reps / 10 + sqrt(effective_duration / 60)
-        intensity_factor = 1.0 + max((subjective_effort or 6) - 5, 0) * 0.08 + ((weight_kg or 0) / 100)
-        quality_factor = 0.9 + (amplitude_percent or 90) / 1000
-        subjective_factor = 1.0 + (discomfort_level or 0) * 0.05
-        base_load = 8.0 * max(volume_factor, 0.35) * intensity_factor * quality_factor * subjective_factor * completion_factor * set_factor * equipment_factor
+        base_load = self.set_base_load(
+            planned_value=planned_value,
+            actual_value=actual_value,
+            reps=reps,
+            weight_kg=weight_kg,
+            duration_seconds=duration_seconds,
+            amplitude_percent=amplitude_percent,
+            subjective_effort=subjective_effort,
+            discomfort_level=discomfort_level,
+            set_type=set_type,
+            equipment=equipment,
+        )
 
         updates: list[FatigueUpdate] = []
-        for canonical_id, (target_factor, role) in self._target_contributions(muscle_targets).items():
+        for canonical_id, (target_factor, role) in self.target_contributions(muscle_targets).items():
             definition = get_muscle_definition(canonical_id)
             delta = round(base_load * min(target_factor, 1.0), 2)
             if delta <= 0:
@@ -271,6 +271,34 @@ class FatigueService:
         session.flush()
         return updates
 
+    def set_base_load(
+        self,
+        *,
+        planned_value: int,
+        actual_value: int,
+        reps: int | None,
+        weight_kg: float | None,
+        duration_seconds: int | None,
+        amplitude_percent: float | None = None,
+        subjective_effort: int | None = None,
+        discomfort_level: int | None = None,
+        set_type: str | None = None,
+        equipment: str | None = None,
+    ) -> float:
+        """Fatigue one set adds to a fully targeted muscle (role factor 1.0)."""
+        equipment_factor = EQUIPMENT_FACTORS.get(equipment or "", 1.0)
+        # A timed set has no reps: its actual value is seconds, not repetitions.
+        effective_reps = max(reps or 0, 0)
+        effective_duration = max(duration_seconds or (actual_value if reps is None else 0), 0)
+        completion_factor = min(1.25, max(actual_value / planned_value, 0.15)) if planned_value > 0 else 1.0
+        set_factor = SET_TYPE_FACTORS.get(str(set_type or "work"), 1.0)
+        # 60 s of work ~ one 10-rep set; longer holds add load with diminishing returns.
+        volume_factor = effective_reps / 10 + sqrt(effective_duration / 60)
+        intensity_factor = 1.0 + max((subjective_effort or 6) - 5, 0) * 0.08 + ((weight_kg or 0) / 100)
+        quality_factor = 0.9 + (amplitude_percent or 90) / 1000
+        subjective_factor = 1.0 + (discomfort_level or 0) * 0.05
+        return 8.0 * max(volume_factor, 0.35) * intensity_factor * quality_factor * subjective_factor * completion_factor * set_factor * equipment_factor
+
     def _has_performed_work(self, actual_value: int, reps: int | None, duration_seconds: int | None) -> bool:
         return max(actual_value, reps or 0, duration_seconds or 0) > 0
 
@@ -280,7 +308,7 @@ class FatigueService:
         except ValueError:
             return MuscleRole.secondary
 
-    def _target_contributions(self, muscle_targets: list[dict[str, str]]) -> dict[str, tuple[float, MuscleRole]]:
+    def target_contributions(self, muscle_targets: list[dict[str, str]]) -> dict[str, tuple[float, MuscleRole]]:
         totals: defaultdict[str, float] = defaultdict(float)
         dominant_roles: dict[str, MuscleRole] = {}
 

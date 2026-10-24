@@ -112,4 +112,34 @@ describe('ProgressPhotoGallery', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Повторить' }))
     expect(props.onRetry).toHaveBeenCalledOnce()
   })
+
+  it('compares the first and latest shots of a view with the weight measured around them', async () => {
+    const user = userEvent.setup()
+    const early = { ...front, id: 4, takenAt: '2026-08-10T10:00:00Z', imageUrl: '/early.jpg' }
+    const measurements = [
+      { id: 1, measuredAt: '2026-08-12T08:00:00Z', weightKg: 86, bodyFatPercent: null, chestCm: null, waistCm: null, hipsCm: null },
+      { id: 2, measuredAt: '2026-09-14T08:00:00Z', weightKg: 84.2, bodyFatPercent: null, chestCm: null, waistCm: null, hipsCm: null },
+    ]
+    show([front, back, early], { measurements })
+    const compare = screen.getByRole('heading', { name: 'Сравнение до и после' }).closest('section')!
+    expect(within(compare).getByText('36 дней между снимками')).toBeVisible()
+    expect(within(compare).getByRole('img', { name: 'До: Спереди' })).toHaveAttribute('src', expect.stringContaining('/early.jpg'))
+    expect(within(compare).getByRole('img', { name: 'После: Спереди' })).toHaveAttribute('src', expect.stringContaining('/front.jpg'))
+    expect(within(compare).getByText('−1,8 кг')).toBeVisible()
+    fireEvent.change(within(compare).getByRole('slider', { name: 'Положение шторки' }), { target: { value: '20' } })
+    expect(compare.querySelector('.photo-compare-before')).toHaveStyle({ clipPath: 'inset(0 80% 0 0)' })
+    await user.click(within(compare).getByRole('button', { name: 'Рядом' }))
+    expect(compare.querySelectorAll('.photo-compare-side figure')).toHaveLength(2)
+    await user.click(within(compare).getByRole('button', { name: 'Сзади' }))
+    expect(within(compare).getByText(/Это первый снимок ракурса «сзади»/)).toBeVisible()
+    expect(within(compare).getByRole('button', { name: 'Сбоку' })).toBeDisabled()
+  })
+
+  it('nudges to refresh photos when the latest session is old', async () => {
+    const user = userEvent.setup()
+    const props = show([{ ...front, takenAt: '2020-01-10T10:00:00Z' }])
+    await user.click(screen.getByRole('button', { name: /Пора обновить фото/ }))
+    expect(props.onPhoto).toHaveBeenCalledOnce()
+    expect(screen.getByText('одна съёмка')).toBeVisible()
+  })
 })

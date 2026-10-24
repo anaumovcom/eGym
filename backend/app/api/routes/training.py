@@ -7,6 +7,8 @@ from app.schemas.training import (
     BuilderPlanMutationSchema,
     ProgramMutationResultSchema,
     ProgramMutationSchema,
+    ProgramOrderMutationSchema,
+    ProgramOrderResultSchema,
     ProgramLibraryDataSchema,
     QuickStartDataSchema,
     StrengthTrainingModeSchema,
@@ -126,6 +128,14 @@ def create_program(
     session: Session = Depends(get_session),
 ) -> ProgramMutationResultSchema:
     return training_service.create_program(session, payload)
+
+
+@router.put("/programs/order", response_model=ProgramOrderResultSchema)
+def save_program_order(
+    payload: ProgramOrderMutationSchema,
+    session: Session = Depends(get_session),
+) -> ProgramOrderResultSchema:
+    return training_service.save_program_order(session, payload)
 
 
 @router.delete("/programs/{program_id}", response_model=ProgramMutationResultSchema)

@@ -1,6 +1,6 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from app.models.enums import AccessRole, UserAccent
 from app.schemas.base import SchemaModel
@@ -37,6 +37,12 @@ class BodyMeasurementSchema(SchemaModel):
     chest_cm: float | None
     waist_cm: float | None
     hips_cm: float | None
+
+    @field_validator("measured_at")
+    @classmethod
+    def _as_utc(cls, value: datetime) -> datetime:
+        # SQLite returns naive datetimes; they are stored in UTC and must say so, or clients shift them to local time.
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
 class UserProfileSchema(SchemaModel):

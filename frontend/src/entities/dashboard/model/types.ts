@@ -1,5 +1,5 @@
 import type { MachineHealth } from '@/entities/machine/model/types'
-import type { MuscleCard } from '@/entities/muscle/model/types'
+import type { MuscleCard, MuscleStatus } from '@/entities/muscle/model/types'
 
 export type DashboardWorkout = {
   title: string
@@ -19,8 +19,13 @@ export type DashboardBuilderWorkout = {
     completedSets?: number
     targetSets?: number
     progressPercent?: number
+    /** "4 × 12 · 15 кг" */
+    planLabel?: string
   }>
   duration: string
+  totalSets?: number
+  /** Projected fatigue of a full run, only muscles the plan actually loads; strongest first. */
+  muscleLoad?: DashboardWorkoutMuscleLoad[]
   lastPerformedAt?: string | null
   lastStatus?: 'completed' | 'partial' | 'aborted' | null
   todayStatus?: 'idle' | 'in_progress' | 'completed' | 'partial' | 'aborted'
@@ -28,6 +33,16 @@ export type DashboardBuilderWorkout = {
   todayCompletedExercises?: number
   todayTotalExercises?: number
   resumeAvailable?: boolean
+}
+
+export type DashboardWorkoutMuscleLoad = {
+  name: string
+  role: 'primary' | 'secondary'
+  addedScore: number
+  currentScore: number
+  projectedScore: number
+  currentStatus: MuscleStatus
+  projectedStatus: MuscleStatus
 }
 
 export type DashboardWorkoutSnapshot = {

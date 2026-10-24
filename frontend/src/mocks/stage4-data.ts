@@ -1,7 +1,7 @@
 import type { ExerciseSummary } from '@/entities/exercise/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { MuscleCard, MuscleStatus } from '@/entities/muscle/model/types'
-import type { FatigueData, FatigueMode, FatigueMuscle, ProfileTab, ProgressData, ProgressExerciseDetails, ProgressTab, SettingsTab, Stage4DevFlags, Stage4Period, SystemSettingsData, UserProfileData } from '@/entities/stage4/model/types'
+import type { FatigueData, FatigueMode, FatigueMuscle, ProfileTab, ProgressData, ProgressExerciseDetails, ProgressExerciseInsight, ProgressInsights, ProgressTab, SettingsTab, Stage4DevFlags, Stage4Period, SystemSettingsData, UserProfileData } from '@/entities/stage4/model/types'
 import { generatedExerciseEntries } from '@/mocks/generated/exercises.generated'
 
 export const defaultStage4DevFlags: Stage4DevFlags = {
@@ -181,6 +181,81 @@ function makeMachine(dev: Stage4DevFlags): MachineHealth {
 
 export function getProfileSeed(userId: string | null) {
   return structuredClone(baseProfiles[userId ?? 'alexey'] ?? baseProfiles.alexey)
+}
+
+function isoDaysAgo(days: number, hour = 18) {
+  const date = new Date()
+  date.setDate(date.getDate() - days)
+  date.setHours(hour, 0, 0, 0)
+  return date.toISOString()
+}
+
+function mockExercise(slug: string, name: string, start: number, step: number, reps: number): ProgressExerciseInsight {
+  const sessions = [27, 23, 20, 16, 13, 9, 6, 2].map((days, index) => {
+    const weightKg = start + step * Math.floor(index / 2)
+    const e1rm = Math.round(weightKg * (1 + reps / 30) * 10) / 10
+    return { date: isoDaysAgo(days), weightKg, sets: 3, reps: reps * 3, repsPerSet: reps, volumeKg: weightKg * reps * 3, rpe: index % 3 === 2 ? 8 : 7, e1rm, isPr: index > 0 && index % 2 === 0 }
+  })
+  const last = sessions[sessions.length - 1]
+  return {
+    slug, name, kind: 'weighted', unit: 'повт.', sessionsInPeriod: sessions.length, lastDate: last.date,
+    bestE1rm: last.e1rm, bestWeight: last.weightKg, bestVolume: last.volumeKg, bestReps: reps,
+    trendPct: Math.round(((last.e1rm - sessions[0].e1rm) / sessions[0].e1rm) * 1000) / 10, sessions,
+    nextTarget: { weightKg: last.weightKg + 2.5, sets: 3, repsPerSet: reps, note: 'Запас есть — добавьте 2,5 кг при тех же повторах.' },
+  }
+}
+
+function buildProgressInsights(noHistory: boolean): ProgressInsights {
+  const exercises = noHistory ? [] : [
+    mockExercise('machine-pulldown', 'Тяга сверху', 35, 2.5, 10),
+    mockExercise('barbell-floor-press', 'Жим с пола', 40, 2.5, 8),
+    mockExercise('barbell-heels-up-back-squat', 'Присед', 50, 5, 8),
+  ]
+  const days = new Set(exercises.flatMap((exercise) => exercise.sessions.map((session) => session.date.slice(0, 10))))
+  const today = new Date()
+  const monday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - ((today.getDay() + 6) % 7))
+  const weeks = Array.from({ length: 20 }, (_, week) => Array.from({ length: 7 }, (_, weekday) => {
+    const date = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() - (19 - week) * 7 + weekday, 12)
+    const iso = date.toISOString().slice(0, 10)
+    const active = days.has(iso)
+    return { date: iso, level: active ? 3 : 0, sets: active ? 9 : 0, volumeKg: active ? 2400 : 0, future: date > today }
+  }))
+  const points = Array.from({ length: 31 }, (_, index) => {
+    const date = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 30 + index, 12)
+    const iso = date.toISOString().slice(0, 10)
+    const active = days.has(iso)
+    return { start: iso, label: `${date.getDate()}.${date.getMonth() + 1}`, volumeKg: active ? 2400 + (index % 4) * 300 : 0, sets: active ? 9 : 0, days: active ? 1 : 0 }
+  })
+  const spark = points.map((point) => point.volumeKg)
+  return {
+    periodStart: points[0].start,
+    previousLabel: 'прошлыми 30 днями',
+    kpis: [
+      { id: 'days', label: 'Тренировочных дней', value: days.size, unit: '', previous: noHistory ? null : 6, deltaPct: noHistory ? null : 33, spark: points.map((point) => point.days) },
+      { id: 'volume', label: 'Поднятый объём', value: spark.reduce((sum, value) => sum + value, 0), unit: 'кг', previous: noHistory ? null : 18000, deltaPct: noHistory ? null : 12, spark },
+      { id: 'minutes', label: 'Время тренировок', value: days.size * 48, unit: 'мин', previous: noHistory ? null : 290, deltaPct: noHistory ? null : 6, spark: points.map((point) => point.days * 48) },
+      { id: 'records', label: 'Личных рекордов', value: noHistory ? 0 : 9, unit: '', previous: noHistory ? null : 4, deltaPct: noHistory ? null : 125, spark: points.map(() => 0) },
+    ],
+    activity: { weeks, activeDays: days.size, streakWeeks: noHistory ? 0 : 4, daysSinceLast: noHistory ? null : 2 },
+    timeline: { granularity: 'day', points },
+    records: exercises.map((exercise) => ({ exerciseSlug: exercise.slug, exerciseName: exercise.name, date: exercise.lastDate, e1rm: exercise.bestE1rm ?? 0, previous: (exercise.bestE1rm ?? 0) - 3, weightKg: exercise.bestWeight, repsPerSet: exercise.bestReps })),
+    recordCount: noHistory ? 0 : 9,
+    movers: exercises.map((exercise) => ({ slug: exercise.slug, name: exercise.name, fromValue: exercise.sessions[0].e1rm ?? 0, toValue: exercise.bestE1rm ?? 0, deltaPct: exercise.trendPct ?? 0, series: exercise.sessions.map((session) => session.e1rm ?? 0) })).sort((a, b) => b.deltaPct - a.deltaPct),
+    muscleBalance: [
+      { id: 'chest', name: 'Грудь', sets: noHistory ? 0 : 24, share: noHistory ? 0 : 0.33 },
+      { id: 'back', name: 'Спина', sets: noHistory ? 0 : 24, share: noHistory ? 0 : 0.33 },
+      { id: 'shoulders', name: 'Плечи', sets: noHistory ? 0 : 6, share: noHistory ? 0 : 0.08 },
+      { id: 'arms', name: 'Руки', sets: noHistory ? 0 : 6, share: noHistory ? 0 : 0.08 },
+      { id: 'legs', name: 'Ноги', sets: noHistory ? 0 : 12, share: noHistory ? 0 : 0.17 },
+      { id: 'core', name: 'Кор', sets: 0, share: 0 },
+    ],
+    insights: noHistory ? [] : [
+      { tone: 'good', title: 'Присед: +20%', text: 'Расчётный максимум вырос с 63 до 76 кг. Это лучший рост за период.', href: '/progress?tab=strength&exercise=barbell-heels-up-back-squat' },
+      { tone: 'good', title: '1,9 тренировки в неделю', text: 'Хорошая регулярность — продолжайте в том же ритме.' },
+      { tone: 'info', title: 'Перекос нагрузки', text: 'Почти не тренировались: кор. Добавьте упражнения на эти зоны для гармоничного развития.', href: '/catalog' },
+    ],
+    exercises,
+  }
 }
 
 function buildSelectedExercise(blacklistedSlugs: string[], noHistory: boolean): ProgressExerciseDetails {
@@ -417,6 +492,7 @@ export function buildProgressData(options: { user: UserProfileData; period: Stag
           { label: 'Последовательность', value: '14 дней', tone: 'good' },
         ],
     photoRecommendation: noPhotos ? 'Сделайте первую фотофиксацию, чтобы начать отслеживать визуальные изменения.' : 'Продолжайте фиксировать прогресс каждые 2–4 недели. Регулярная фотофиксация помогает лучше отслеживать изменения и сохранять мотивацию.',
+    insights: buildProgressInsights(noHistory),
     emptyState: noHistory ? { title: 'Недостаточно данных для аналитики', description: 'История тренировок пока пуста. После нескольких завершённых тренировок здесь появятся графики, таблицы и рекомендации.' } : undefined,
   }
 }

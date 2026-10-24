@@ -519,7 +519,7 @@ describe('DashboardView', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /фото/i })).not.toBeInTheDocument()
     const dialog = await selectWorkout(user, 'Новая тренировка')
-    expect(dialog.getAllByRole('listitem')).toHaveLength(1)
+    expect(within(dialog.getByRole('list', { name: 'План тренировки' })).getAllByRole('listitem')).toHaveLength(1)
     expect(dialog.getByText('Тяга сверху')).toBeVisible()
     expect(dialog.getByRole('button', { name: 'Начать', exact: true })).toBeEnabled()
     await user.dblClick(dialog.getByRole('button', { name: 'Начать', exact: true }))

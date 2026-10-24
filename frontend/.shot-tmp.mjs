@@ -1,0 +1,17 @@
+import { chromium } from 'playwright'
+const [,, dir] = process.argv
+const browser = await chromium.launch()
+const page = await browser.newPage({ viewport: { width: 1920, height: 1200 } })
+await page.route('http://127.0.0.1:8000/**', (route) => route.continue({ url: route.request().url().replace(':8000', ':8001') }))
+await page.addInitScript(() => { if (!localStorage.getItem('egym-app-store')) localStorage.setItem('egym-app-store', JSON.stringify({ state: { selectedUserId: 'alexey' }, version: 0 })) })
+await page.goto('http://localhost:5173/dashboard')
+const card = page.getByRole('button', { name: /^Выбрать тренировку «День C/ })
+await card.waitFor({ timeout: 30000 })
+await card.click()
+await page.getByRole('dialog').getByRole('button', { name: /^(Начать|Продолжить)$/ }).click()
+await page.waitForTimeout(3000)
+console.log(page.url())
+await page.screenshot({ path: `${dir}/setup1.png` })
+const body = await page.locator('main').innerText()
+console.log(body.slice(0, 2500))
+await browser.close()

@@ -9,8 +9,10 @@ from sqlalchemy.orm import Session
 
 from app.models.analytics import MuscleFatigueEvent, MuscleFatigueSnapshot, ProgressPhoto, WorkoutSession
 from app.models.enums import ProgressPeriod, WorkoutSessionStatus
-from app.models.profile import BodyMeasurement
+from app.models.profile import BodyMeasurement, UserProfile
+from app.models.scale import ScaleReading
 from app.models.training import ExerciseHistoryRecord
+from app.repositories.scale_repository import ScaleRepository
 from app.schemas.analytics import (
     AchievementSchema,
     AchievementsResponseSchema,
@@ -40,6 +42,7 @@ from app.schemas.user import BodyMeasurementSchema
 from app.services.exercise_library import get_imported_exercise
 from app.services.fatigue_service import FatigueService
 from app.services.muscle_catalog import get_muscle_definition
+from app.services.progress_insights import ProgressInsightsBuilder
 from app.services.machine_service import MachineService
 
 
@@ -69,7 +72,8 @@ class ProgressService:
         photos = self._photo_rows(session, user_id)
         fatigue_rows = self.fatigue_service.list_current_scores(session, user_id)
         empty = len(exercise_rows) == 0
-        selected_slug = exercise_slug or (exercise_rows[0].exercise_slug if exercise_rows else "barbell-floor-press")
+        known_slugs = {row.exercise_slug for row in exercise_rows}
+        selected_slug = exercise_slug if exercise_slug in known_slugs else (exercise_rows[-1].exercise_slug if exercise_rows else exercise_slug or "barbell-floor-press")
         selected_history = [row for row in exercise_rows if row.exercise_slug == selected_slug]
         selected_exercise = self._build_selected_exercise(selected_slug, selected_history, fatigue_rows)
         muscle_cards = self._fatigue_cards(fatigue_rows)
@@ -118,6 +122,11 @@ class ProgressService:
             photo_entries=self._photo_entries(photos),
             photo_stats=self._photo_stats(photos),
             photo_recommendation="Сохраняйте одинаковые ракурсы раз в 2–4 недели для корректного сравнения.",
+            insights=ProgressInsightsBuilder(
+                period=period,
+                history=self._exercise_history_rows(session, user_id, None),
+                workouts=self._workout_rows(session, user_id, None),
+            ).build(),
             empty_state={
                 "title": "Недостаточно данных для аналитики",
                 "description": "Сохраните тренировку, измерение или фото, и здесь появятся графики и рекомендации.",
@@ -229,9 +238,39 @@ class ProgressService:
             hips_cm=payload.hips_cm,
         )
         session.add(measurement)
+        session.flush()
+        if payload.weight_kg is not None and self._latest_weight_row(session, payload.user_id) is measurement:
+            profile = session.get(UserProfile, payload.user_id)
+            if profile is not None:
+                profile.weight_kg = payload.weight_kg
         session.commit()
         session.refresh(measurement)
         return BodyMeasurementSchema.model_validate(measurement)
+
+    def delete_body_measurement(self, session: Session, *, user_id: str, measurement_id: int) -> None:
+        measurement = session.get(BodyMeasurement, measurement_id)
+        if measurement is None or measurement.user_id != user_id:
+            raise LookupError("Измерение не найдено")
+        if session.get(ScaleReading, measurement_id) is not None:
+            # Scale weighings carry a tombstone so the same BLE packet is not re-imported.
+            ScaleRepository().delete_measurement(session, measurement_id, user_id)
+            return
+        was_latest = self._latest_weight_row(session, user_id) is measurement
+        session.delete(measurement)
+        session.flush()
+        profile = session.get(UserProfile, user_id)
+        if was_latest and profile is not None:
+            previous = self._latest_weight_row(session, user_id)
+            profile.weight_kg = previous.weight_kg if previous else None
+        session.commit()
+
+    def _latest_weight_row(self, session: Session, user_id: str) -> BodyMeasurement | None:
+        return session.scalar(
+            select(BodyMeasurement)
+            .where(BodyMeasurement.user_id == user_id, BodyMeasurement.weight_kg.is_not(None))
+            .order_by(BodyMeasurement.measured_at.desc(), BodyMeasurement.id.desc())
+            .limit(1)
+        )
 
     def list_achievements(self, session: Session, *, user_id: str) -> AchievementsResponseSchema:
         workouts = self._workout_rows(session, user_id, None)

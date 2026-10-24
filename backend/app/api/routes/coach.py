@@ -20,6 +20,7 @@ from app.schemas.coach_control import (
     CapChange,
     CoachPreferences,
     CredentialDelete,
+    CredentialProvider,
     CredentialSave,
     JobAction,
     JobCreate,
@@ -95,26 +96,30 @@ def operator_logout(request: Request, response: Response, db: Session = Depends(
 
 
 @router.get("/coach/credentials")
-def get_credential(request: Request, response: Response, db: Session = Depends(get_session)):
+def get_credential(request: Request, response: Response, provider: CredentialProvider = "openai",
+                   db: Session = Depends(get_session)):
     security.authorize(db, request)
     response.headers["Cache-Control"] = "no-store"
-    return security.credential_status(db)
+    return security.credential_status(db, provider)
 
 
-def rotate_credential(db: Session, expected: int, encrypted: str | None):
-    current = db.get(CoachCredential, 1)
+def rotate_credential(db: Session, expected: int, encrypted: str | None, provider: CredentialProvider = "openai"):
+    row_id = security.CREDENTIAL_IDS[provider]
+    current = db.get(CoachCredential, row_id)
     version = current.version if current else 0
     if expected != version:
         raise HTTPException(409, "credential_version_conflict")
     if current is None:
-        db.add(CoachCredential(id=1, version=1, ciphertext=encrypted, disabled=encrypted is None, last_check="not_checked"))
+        db.add(CoachCredential(id=row_id, version=1, ciphertext=encrypted, disabled=encrypted is None, last_check="not_checked"))
     else:
-        result = db.execute(update(CoachCredential).where(CoachCredential.id == 1, CoachCredential.version == expected).values(
+        result = db.execute(update(CoachCredential).where(CoachCredential.id == row_id, CoachCredential.version == expected).values(
             version=expected + 1, ciphertext=encrypted, disabled=encrypted is None, last_check="not_checked"))
         if result.rowcount != 1:
             db.rollback()
             raise HTTPException(409, "credential_version_conflict")
-    db.execute(update(CoachLedgerRun).values(generation=CoachLedgerRun.generation + 1, credential_version=version + 1))
+    if provider == "openai":
+        # Runs pin the OpenAI key version; a Fish rotation only affects voice dispatch (ledger checks its row).
+        db.execute(update(CoachLedgerRun).values(generation=CoachLedgerRun.generation + 1, credential_version=version + 1))
     db.execute(update(CoachAttempt).where(CoachAttempt.status == "reserved").values(status="cancelled"))
     db.execute(update(CoachAttempt).where(CoachAttempt.status == "sent").values(status="unsettled"))
     from sqlalchemy.exc import IntegrityError
@@ -127,37 +132,40 @@ def rotate_credential(db: Session, expected: int, encrypted: str | None):
 
 
 @router.put("/coach/credentials")
-def put_credential(payload: CredentialSave, request: Request, db: Session = Depends(get_session)):
+def put_credential(payload: CredentialSave, request: Request, provider: CredentialProvider = "openai",
+                   db: Session = Depends(get_session)):
     security.authorize(db, request)
     key = payload.key.get_secret_value()
     if any(ord(char) < 33 or ord(char) > 126 for char in key):
         raise HTTPException(422, "invalid_credential")
     encrypted = security.cipher().encrypt(key.encode()).decode()
-    rotate_credential(db, payload.expected_version, encrypted)
-    return security.credential_status(db)
+    rotate_credential(db, payload.expected_version, encrypted, provider)
+    return security.credential_status(db, provider)
 
 
 @router.delete("/coach/credentials")
-def delete_credential(payload: CredentialDelete, request: Request, db: Session = Depends(get_session)):
+def delete_credential(payload: CredentialDelete, request: Request, provider: CredentialProvider = "openai",
+                      db: Session = Depends(get_session)):
     security.authorize(db, request)
-    rotate_credential(db, payload.expected_version, None)
-    return security.credential_status(db)
+    rotate_credential(db, payload.expected_version, None, provider)
+    return security.credential_status(db, provider)
 
 
 @router.post("/coach/credentials/check")
-async def check_credential(request: Request, db: Session = Depends(get_session)):
+async def check_credential(request: Request, provider: CredentialProvider = "openai", db: Session = Depends(get_session)):
     security.authorize(db, request)
-    key, version = security.read_credential(db)
+    key, version = security.read_credential(db, provider)
     db.rollback()  # Never keep a DB transaction over provider await.
-    status = await security.metadata_check(key)
+    status = await security.metadata_check(key, provider)
     key = ""
     # Rotation during request must not apply the old check result to the new key.
-    changed = db.execute(update(CoachCredential).where(CoachCredential.id == 1, CoachCredential.version == version).values(last_check=status))
+    changed = db.execute(update(CoachCredential).where(CoachCredential.id == security.CREDENTIAL_IDS[provider],
+                                                       CoachCredential.version == version).values(last_check=status))
     if changed.rowcount != 1:
         db.rollback()
         raise HTTPException(409, "credential_version_conflict")
     db.commit()
-    return security.credential_status(db)
+    return security.credential_status(db, provider)
 
 
 @router.get("/coach/usage/today")
@@ -425,7 +433,8 @@ async def coach_live(websocket: WebSocket, run_id: str, sessions: Callable[[], S
     renewal = asyncio.create_task(renew())
     try:
         await send_json({"type": "configured", "generation": generation, "mode": prefs.mode,
-                         "voiceId": prefs.voice_profile, "text": pipeline.author is not None,
+                         "voiceId": prefs.voice_profile, "voiceModel": prefs.voice_model,
+                         "text": pipeline.author is not None,
                          "voice": pipeline.voice is not None, "degraded": pipeline.reason is not None,
                          "degradedReason": pipeline.reason})
         window, count = time.monotonic(), 0

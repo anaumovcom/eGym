@@ -672,9 +672,10 @@ def test_builder_duration_is_calculated_from_exercises(client: TestClient) -> No
     assert builder_response.status_code == 200
     payload = builder_response.json()
     duration_card = next(card for card in payload["summaryCards"] if card["label"] == "минут")
-    # "3×10" now means exactly three sets in the plan.
-    assert duration_card["value"] == "4"
-    assert payload["info"]["duration"] == "≈ 4 минут"
+    # "3×10" now means exactly three sets in the plan; setup before the first set is part of the estimate.
+    assert duration_card["value"] == "6"
+    assert duration_card["hint"] == "≈ подходы 2 · отдых 2 · переходы 1 мин"
+    assert payload["info"]["duration"] == "≈ 6 минут"
 
 
 def test_builder_set_count_shapes_strength_plan(client: TestClient) -> None:
@@ -1038,3 +1039,20 @@ def test_runtime_recovery_exercise_does_not_create_fatigue(client: TestClient, d
 
     assert before == []
     assert after == []
+
+
+def test_program_order_persists_per_user_for_builder_and_dashboard(client: TestClient) -> None:
+    default_ids = [program["id"] for program in client.get("/api/builder", params={"userId": "alexey"}).json()["programs"]]
+    assert default_ids[:3] == ["back-biceps", "mobility-recovery", "fullbody-base"]
+
+    # Unknown ids are dropped, duplicates collapsed, and omitted visible programs are kept at the end.
+    response = client.put("/api/programs/order", json={"userId": "alexey", "programIds": ["fullbody-base", "missing", "mobility-recovery", "fullbody-base"]})
+    assert response.status_code == 200
+    assert response.json()["programIds"] == ["fullbody-base", "mobility-recovery", "back-biceps"]
+
+    builder_ids = [program["id"] for program in client.get("/api/builder", params={"userId": "alexey"}).json()["programs"]]
+    dashboard_ids = [workout["id"] for workout in client.get("/api/dashboard", params={"userId": "alexey"}).json()["workouts"]]
+    other_user_ids = [program["id"] for program in client.get("/api/builder", params={"userId": "elena"}).json()["programs"]]
+    assert builder_ids == ["fullbody-base", "mobility-recovery", "back-biceps"]
+    assert dashboard_ids == builder_ids
+    assert other_user_ids[:3] == ["back-biceps", "mobility-recovery", "fullbody-base"]

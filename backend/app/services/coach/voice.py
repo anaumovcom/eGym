@@ -27,7 +27,15 @@ from app.schemas.coach import CoachAudio, CoachScope
 from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, UsageBounds
 from app.services.coach import ledger
 from app.services.coach.ports import AudioChunk
-from app.services.coach.prompts import EMPHASIS, ENERGY, PACE, sha256
+from app.services.coach.prompts import (
+    EMPHASIS,
+    ENERGY,
+    PACE,
+    VOICE_DIRECTION_CHARS,
+    VOICE_SOUNDS,
+    VOICE_STRESS,
+    sha256,
+)
 from app.services.coach.validation import spoken_numbers
 
 VOICE_PROMPT_VERSION = "coach-voice-0.6"
@@ -36,6 +44,7 @@ CANDIDATE_DELIVERY_VERSION = "coach-situational-candidate-0.1"
 SITUATIONAL_DELIVERY_ACCEPTED = False
 SPEECH_URL = "https://api.openai.com/v1/audio/speech"
 REALTIME_URL = "wss://api.openai.com/v1/realtime"
+FISH_TTS_URL = "https://api.fish.audio/v1/tts"
 SAMPLE_RATE = 24_000
 FRAME_MAGIC = b"ECA1"
 MAX_HEADER_BYTES = 4096
@@ -83,7 +92,7 @@ COUNT_INSTRUCTIONS = (
     "Первый слог — низко, без подъёма тона; тон к концу числа понижается."
 )
 
-AdapterName = Literal["tts", "realtime", "fake"]
+AdapterName = Literal["tts", "realtime", "fish", "fake"]
 ConnectionClass = Literal["cold", "warm", "unknown", "not-applicable", "fake"]
 
 # Separate from the byte-exact accepted baseline above. Presentation never changes voice identity.
@@ -122,10 +131,15 @@ class Delivery:
     pace: str = "normal"
     emphasis: str = "none"
     profile: str = "legacy"
+    # Author's validated stage directions (validation.voice_block); only markup-capable engines use them.
+    direction: str = ""
+    sound: str = "none"
+    stress: str = "none"
 
     def __post_init__(self):
         if (self.energy not in ENERGY or self.pace not in PACE or self.emphasis not in EMPHASIS
-                or self.profile not in DELIVERY_PROFILES):
+                or self.profile not in DELIVERY_PROFILES or self.sound not in VOICE_SOUNDS
+                or self.stress not in VOICE_STRESS or len(self.direction) > VOICE_DIRECTION_CHARS):
             raise ValueError("Unknown delivery")
 
 
@@ -153,7 +167,69 @@ def select_delivery(delivery: Delivery, *, intent: str | None, action: str, outc
         else:
             profile = "support"
     return Delivery(delivery.energy if energy == "auto" else energy,
-                    delivery.pace if pace == "auto" else pace, delivery.emphasis, profile)
+                    delivery.pace if pace == "auto" else pace, delivery.emphasis, profile,
+                    delivery.direction, delivery.sound, delivery.stress)
+
+
+# ---------- Fish Audio emotion markup (drama-3: [free-form direction] + paired <tag>…</tag>) ----------
+
+EMOTION_LEVELS = ("off", "subtle", "expressive")
+# speechText is model-authored data: it must never open its own direction or tag.
+_FISH_MARKUP = re.compile(r"[\[\]<>|]")
+_SENTENCES = re.compile(r"(?<=[.!?…])\s+")
+FISH_ENERGY = {"calm": "спокойно и уверенно", "warm": "тепло и дружелюбно", "bright": "энергично и задорно"}
+FISH_PROFILE = {
+    "count": "коротко, твёрдо и отчётливо, низким уверенным голосом",
+    "support": "ободряюще, как напарник по тренировке",
+    "result": "с тёплой гордостью, сдержанно радуясь результату",
+    "playful": "игриво, с лёгкой улыбкой в голосе",
+    "partial": "спокойно и уважительно, с поддержкой, без победного тона",
+    "safety": "строго, спокойно и серьёзно, без улыбки",
+}
+# Expressive only: one paired tag on the closing sentence, never on safety or a bare count.
+FISH_CLOSING_TAG = {"support": "soft", "partial": "soft", "result": "emphasis"}
+FISH_SOUNDS = {"laugh": "смеётся", "chuckle": "короткий смешок", "smirk": "хмыкает", "sigh": "вздыхает",
+               "exhale": "резкий выдох", "whistle": "присвистывает"}
+# Count/safety/partial have a fixed tone: neither the author's energy nor their direction may change it.
+FIXED_PROFILES = {"count", "safety", "partial"}
+
+
+def fish_direction(delivery: Delivery) -> str:
+    fixed = delivery.profile in FIXED_PROFILES
+    if delivery.direction and not fixed:
+        lead = [_FISH_MARKUP.sub(" ", delivery.direction).strip()]  # the author's own stage direction
+    else:
+        lead = [FISH_ENERGY[delivery.energy], FISH_PROFILE.get(delivery.profile, "")]
+    parts = [FISH_PROFILE[delivery.profile]] if fixed else lead
+    if delivery.emphasis == "result" and not fixed:
+        parts.append("с акцентом на результате")
+    if delivery.pace == "brisk" and delivery.profile != "safety":
+        parts.append("в бодром темпе")
+    return ", ".join(part for part in parts if part)
+
+
+def fish_markup(text: str, delivery: Delivery, emotion: str) -> str:
+    """Pure: verbatim speech text plus Russian stage directions; the words themselves never change."""
+    if emotion not in EMOTION_LEVELS:
+        raise ValueError("Unknown emotion level")
+    clean = " ".join(_FISH_MARKUP.sub(" ", text).split())
+    if emotion == "off":
+        return clean
+    body = clean
+    if emotion == "expressive":
+        sentences = _SENTENCES.split(clean)
+        safety = delivery.profile == "safety"
+        # The author's stress applies even to a single sentence; the profile default only closes a longer line.
+        author_tag = None if safety or delivery.stress == "none" else delivery.stress
+        tag = author_tag or FISH_CLOSING_TAG.get(delivery.profile)
+        if tag and (author_tag or len(sentences) > 1):
+            body = " ".join([*sentences[:-1], f"<{tag}>{sentences[-1]}</{tag}>"])
+        sound = FISH_SOUNDS.get(delivery.sound) if delivery.profile not in FIXED_PROFILES else None
+        if sound is None and delivery.profile == "playful":
+            sound = FISH_SOUNDS["chuckle"]
+        if sound:
+            body = f"[{sound}] {body}"
+    return f"[{fish_direction(delivery)}] {body}"
 
 
 def candidate_instructions(delivery: Delivery) -> str:
@@ -195,12 +271,17 @@ def voice_hashes() -> dict[str, str]:
             "count": sha256(COUNT_INSTRUCTIONS)}
 
 
-def voice_pricing(kind: Literal["realtime", "tts"]) -> Pricing:
+def voice_pricing(kind: Literal["realtime", "tts", "fish"]) -> Pricing:
     """Official rates (micro-USD per 1M tokens, checked 2026-10-08); `verified` is the operator's deployment switch.
 
     Both paths report usage: Realtime per response.done, TTS per SSE speech.audio.done (input text, output audio).
+    Fish bills UTF-8 input bytes only, so its "input tokens" are bytes of the marked-up request text.
     """
     cfg = get_settings()
+    if kind == "fish":
+        return Pricing(version=cfg.coach_voice_fish_pricing_version, model=cfg.coach_voice_fish_model,
+                       input_rate=cfg.coach_voice_fish_input_rate, cached_rate=0, output_rate=0,
+                       verified=cfg.coach_voice_pricing_verified, enforceable_bounds=True)
     if kind == "realtime":
         return Pricing(version=cfg.coach_voice_pricing_version, model=cfg.coach_voice_realtime_model,
                        input_rate=600_000, cached_rate=60_000, output_rate=2_400_000,
@@ -277,7 +358,7 @@ class PcmFramer:
     utterance_id: str
     generation_id: str
     scope: CoachScope
-    source: Literal["realtime", "tts", "fake"]
+    source: Literal["realtime", "tts", "fish", "fake"]
     sample_rate: int = SAMPLE_RATE
     frame_bytes: int = 4800
     sequence: int = field(default=0, init=False)
@@ -453,6 +534,63 @@ def parse_tts_usage(raw: object) -> ReportedUsage | PartialUsage | None:
             return PartialUsage(input_tokens=raw.get("input_tokens"), audio_output_tokens=raw.get("output_tokens"))
         except ValueError:
             return None
+
+
+class FishVoiceAdapter:
+    """Fish Audio HTTP TTS: chunked raw PCM of the verbatim text, coloured by stage directions (fish_markup).
+
+    `emotive` asks the live coach for a situational delivery profile; the words are never changed by it.
+    """
+
+    name: AdapterName = "fish"
+    test_only = False
+    last_connection_class: ConnectionClass = "not-applicable"
+
+    def __init__(self, client: httpx.AsyncClient, key: str, *, model: str, reference_id: str = "",
+                 emotion: str = "expressive", url: str = FISH_TTS_URL):
+        if not url.startswith("https://api.fish.audio/"):
+            raise ValueError("Only the official HTTPS endpoint is allowed")
+        if emotion not in EMOTION_LEVELS or not re.fullmatch(r"([a-f0-9]{32})?", reference_id):
+            raise ValueError("Invalid Fish voice options")
+        self._client, self._key, self.url = client, key, url
+        self.capability = VoiceCapability("fish", model, (reference_id or "default",), verbatim_input=True,
+                                          verified=_operator_verified())
+        self.reference_id, self.emotion, self.emotive = reference_id, emotion, emotion != "off"
+        self.last_usage: ReportedUsage | PartialUsage | None = None
+        self.last_response_id = ""
+        self.last_transcript: str | None = None
+
+    def __repr__(self) -> str:
+        return f"FishVoiceAdapter(model={self.capability.model!r}, voice={self.reference_id!r}, key=<redacted>)"
+
+    def request(self, text: str, delivery: Delivery) -> dict:
+        body = {"text": fish_markup(text, delivery, self.emotion), "format": "pcm", "sample_rate": SAMPLE_RATE,
+                "latency": "balanced"}
+        if self.reference_id:
+            body["reference_id"] = self.reference_id
+        return body
+
+    async def stream(self, text: str, scope: CoachScope, generation_id: str, delivery: Delivery, *,
+                     instructions: str | None = None, max_output_tokens: int | None = None) -> AsyncIterator[AudioChunk]:
+        _check_text(text)
+        self.last_usage, self.last_transcript = None, None
+        body = self.request(text, delivery)
+        framer = PcmFramer(generation_id, generation_id, scope, "fish")
+        # A missing/misspelt model header silently falls back to s2.1-pro, so it is always sent explicitly.
+        async with self._client.stream("POST", self.url, json=body, headers={
+                "Authorization": f"Bearer {self._key}", "model": self.capability.model}) as response:
+            if response.status_code != 200:
+                raise VoiceError(f"http-{response.status_code}")
+            if response.headers.get("content-type", "").startswith("application/json"):
+                raise VoiceError("provider_malformed")  # an error body must never be played as PCM
+            self.last_response_id = (response.headers.get("x-request-id") or generation_id)[:120]
+            async for data in response.aiter_bytes():
+                for chunk in framer.push(data):
+                    yield chunk
+        # Billing is per UTF-8 input byte and the request text is known exactly: usage is complete locally.
+        self.last_usage = ReportedUsage(input_tokens=len(body["text"].encode()), output_tokens=0,
+                                        audio_input_tokens=0, audio_output_tokens=0)
+        yield framer.finish()
 
 
 class RealtimeSocket(Protocol):

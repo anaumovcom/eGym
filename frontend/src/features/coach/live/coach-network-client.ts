@@ -61,7 +61,7 @@ type Stream = { event: SentEvent; source: NetworkAudioSource; sampleRate: number
 type Run = { runId: string; token: string }
 const OPEN = 1
 const BACKOFF_MS = [1_000, 2_000, 4_000, 8_000, 16_000, 30_000]
-const SOURCES = new Set(['realtime', 'tts', 'fake'])
+const SOURCES = new Set(['realtime', 'tts', 'fish', 'fake'])
 const FORWARDED: ReadonlySet<CoachEventKind> = new Set(['set_persisted', 'exercise_finalized', 'workout_finalized'])
 const EXERCISE_KINDS = new Set(['machine', 'bodyweight', 'timed', 'stretch', 'group'])
 const REST_EXTRA_MIN_ELAPSED_S = 15
@@ -476,7 +476,7 @@ export class CoachNetworkClient {
         const legacyReason = str(message.degraded, 80)
         const degraded = message.degraded === true || !!legacyReason
         const rawReason = str(message.degradedReason, 80) ?? legacyReason
-        const reason = rawReason && ['credential_unavailable', 'voice_unavailable', 'provider_unavailable'].includes(rawReason)
+        const reason = rawReason && ['credential_unavailable', 'voice_unavailable', 'voice_fallback', 'provider_unavailable'].includes(rawReason)
           ? rawReason : 'degraded'
         this.configured = { mode: str(message.mode, 20), voiceId: str(message.voiceId, 40), text: message.text === true,
           voice: message.voice === true, degraded }
@@ -960,7 +960,7 @@ export class CoachNetworkClient {
 const REPORT_REASONS = new Set(('ready disabled audio_locked safety hardware_active runtime_session mute hidden no_user preferences_loading ' +
   'preferences_unavailable no_consent unavailable decode_failed cancelled scope_changed missing_clip admitted idle stale_source mock_source ' +
   'owner_mismatch expired no_source pipeline_busy provider_unavailable stale_run local_mode coach_disabled run_not_found run_not_live run_closed ' +
-  'budget degraded credential_unavailable voice_unavailable no_useful_content validation_failed closed network run_unavailable run_create_failed active_runs_full invalid_response socket error ' +
+  'budget degraded credential_unavailable voice_unavailable voice_fallback no_useful_content validation_failed closed network run_unavailable run_create_failed active_runs_full invalid_response socket error ' +
   'queue_full queue_preempted invalid_local_completion provider_timeout provider_error rate_limited plan_changed paused-set ' +
   'playback_failed scope_changed watchdog stale invalid disposed audio_overrun first_audio_timeout internal_error facts_changed ' +
   'identity_mismatch duplicate event_capacity stale_event stale_text incomplete complete failed frame sequence_gap invalid_frame').split(' '))

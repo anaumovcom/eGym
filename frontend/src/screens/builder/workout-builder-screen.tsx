@@ -6,17 +6,21 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { BuilderExerciseEditor, BuilderExerciseItem, BuilderGroupKind, BuilderLoadType, BuilderWorkoutGroup, WorkoutBuilderData } from '@/entities/builder/model/types'
 import { workoutBadge } from '@/entities/dashboard/lib/workout-badge'
+import { WorkoutCardExercises } from '@/entities/dashboard/ui/workout-card-exercises'
 import type { DashboardData } from '@/entities/dashboard/model/types'
 import type { ExerciseDetails } from '@/entities/exercise/model/types'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import type { StrengthSetPlan, StrengthSetType, StrengthTrainingMode } from '@/entities/strength/model/types'
 import { buildStrengthPlan, getSetTypeLabel, normalizeStrengthDayType, normalizeStrengthModeId } from '@/features/strength/lib/strength-plan'
+import { useWorkoutOrder } from '@/features/workout-order/use-workout-order'
 import { apiDelete, apiGet, apiPost, apiPut } from '@/shared/api/client'
 import { cn } from '@/shared/lib/cn'
+import { stepDurationSeconds, stepRestSeconds, stepWeightKg } from '@/shared/lib/value-steps'
 import { exerciseCountLabel, shortDuration } from '@/shared/lib/ru-format'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
+import { SortableCard, SortableGrid } from '@/shared/ui/sortable-grid'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { CompactBodyMapMini, ExerciseVideoPlayer } from '@/shared/ui/stage2/screen-components'
 import { ExercisePickerModal, isRecoveryEquipment, isWeightlessEquipment } from '@/shared/ui/training/exercise-picker-modal'
@@ -68,6 +72,7 @@ export function WorkoutBuilderScreen() {
   const emergencyStopActive = useAppStore((state) => state.emergencyStopActive)
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const resolvedUserId = selectedUserId ?? 'alexey'
+  const saveWorkoutOrder = useWorkoutOrder(resolvedUserId)
 
   const selectedExerciseIdParam = searchParams.get('selectedExerciseId')
   const selectedProgramIdParam = searchParams.get('programId')
@@ -409,7 +414,7 @@ export function WorkoutBuilderScreen() {
       const currentRestSeconds = parseDurationSeconds(group.betweenRoundsRest) ?? 120
       return {
         ...group,
-        betweenRoundsRest: `${Math.max(15, currentRestSeconds + delta * 15)} сек`,
+        betweenRoundsRest: `${stepRestSeconds(currentRestSeconds, delta)} сек`,
       }
     })
   }
@@ -813,7 +818,7 @@ export function WorkoutBuilderScreen() {
             <header className="home-heading">
               <div className="min-w-0">
                 <h1 id="builder-title" className="font-display font-bold text-white">Мои тренировки</h1>
-                <p className="text-white/60">{hasPrograms ? 'Выберите тренировку, чтобы изменить упражнения и нагрузку.' : 'Все тренировки удалены. Создайте новую тренировку.'}</p>
+                <p className="text-white/60">{hasPrograms ? 'Выберите тренировку, чтобы изменить упражнения и нагрузку. Перетащите карточку, чтобы изменить порядок.' : 'Все тренировки удалены. Создайте новую тренировку.'}</p>
               </div>
               <div className="home-heading-actions">
                 <Dialog.Trigger asChild>
@@ -821,28 +826,28 @@ export function WorkoutBuilderScreen() {
                 </Dialog.Trigger>
               </div>
             </header>
-            <div className="builder-list-grid" data-count={data.programs.length}>
+            <SortableGrid className="builder-list-grid" data-count={data.programs.length} ids={data.programs.map((program) => program.id)} onReorder={(ids) => void saveWorkoutOrder(ids)}>
               {data.programs.map((program) => {
                 const summary = dashboard?.workouts?.find((workout) => workout.id === program.id)
                 const badge = summary ? workoutBadge(summary) : null
                 return (
-                <button key={program.id} type="button" className="home-workout-card builder-card" data-tone={badge?.tone} aria-label={`Открыть тренировку «${program.name}»`} onClick={() => handleSelectProgram(program.id)}>
+                <SortableCard key={program.id} sortableId={program.id} className="home-workout-card builder-card" data-tone={badge?.tone} aria-label={`Открыть тренировку «${program.name}»`} onClick={() => handleSelectProgram(program.id)}>
                   {badge ? <span className="home-card-badge" data-tone={badge.tone}>{badge.label}</span> : null}
                   <span className="home-card-title">{program.name}</span>
-                  <span className="home-card-exercises">{summary?.exercises.length ? summary.exercises.map((exercise) => exercise.name).join(' · ') : program.subtitle}</span>
+                  {summary ? <WorkoutCardExercises exercises={summary.exercises} /> : <span className="home-card-exercises">{program.subtitle}</span>}
                   <span className="home-card-footer">
                     <span className="home-card-meta">
                       {summary ? <>
                         <span><ListChecks aria-hidden="true" />{exerciseCountLabel(summary.exercises.length)}</span>
-                        <span><Clock3 aria-hidden="true" />{shortDuration(summary.duration)}</span>
+                        {summary.exercises.length ? <span><Clock3 aria-hidden="true" />{shortDuration(summary.duration)}</span> : null}
                       </> : null}
                     </span>
                     <span className="home-card-select">Изменить <ArrowRight aria-hidden="true" /></span>
                   </span>
-                </button>
+                </SortableCard>
                 )
               })}
-            </div>
+            </SortableGrid>
           </section>
         ) : (
           <section className="builder-editor" aria-labelledby="builder-title">
@@ -1023,7 +1028,8 @@ export function WorkoutBuilderScreen() {
                             unit="кг"
                             value={editor.setParams.weight > 0 ? editor.setParams.weight : null}
                             emptyLabel={weightlessSelected ? 'вес тела' : '—'}
-                            onChange={(delta) => updateEditor((state) => withBuilderWeight(state, state.setParams.weight + delta))}
+                            decimals={1}
+                            onChange={(delta) => updateEditor((state) => withBuilderWeight(state, stepWeightKg(state.setParams.weight, delta)))}
                             onValueCommit={(value) => updateEditor((state) => withBuilderWeight(state, value ?? 0))}
                             onReset={() => updateEditor((state) => withBuilderWeight(state, 0))}
                             resetLabel="Без веса"
@@ -1034,7 +1040,7 @@ export function WorkoutBuilderScreen() {
                         label="Отдых"
                         unit="сек"
                         value={editor.setParams.restSeconds}
-                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, state.setParams.restSeconds + delta * 15) } }))}
+                        onChange={(delta) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: stepRestSeconds(state.setParams.restSeconds, delta) } }))}
                         onValueCommit={(value) => updateEditor((state) => ({ ...state, setParams: { ...state.setParams, restSeconds: Math.max(15, value ?? state.setParams.restSeconds) } }))}
                       />
                     </div>
@@ -1359,13 +1365,8 @@ function getBuilderPlanShape(setParams: BuilderExerciseEditor['setParams'], item
   return { sets: setParams.sets ?? parseBuilderSetCount(item?.sets ?? '3'), durationSeconds: setParams.durationSeconds }
 }
 
-/** Coarser steps for long cardio so minutes are reachable without dozens of taps. */
 function adjustBuilderDuration(value: number | undefined, delta: number) {
-  const current = value ?? 0
-  const step = delta > 0
-    ? current >= 600 ? 60 : current >= 120 ? 30 : 15
-    : current > 600 ? 60 : current > 120 ? 30 : 15
-  return Math.max(15, current + delta * step)
+  return stepDurationSeconds(value ?? 0, delta)
 }
 
 function formatBuilderDurationHint(seconds?: number) {

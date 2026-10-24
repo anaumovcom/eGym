@@ -13,10 +13,14 @@ class CoachPreferences(CoachSettings):
     network_consent_version: Literal[1] | None = None
     voice_volume: float | None = Field(default=None, ge=0, le=1)
     style: Literal["companion", "calm", "strict", "showman", "stoic"] = "companion"
-    humor: Literal["off", "light", "often"] = "light"
-    humor_kinds: tuple[Literal["irony", "absurd", "wordplay", "self"], ...] = ("irony", "self")
+    # Coach character (services/coach/personas.py). Default roast set — user decision 24.10.2026:
+    # streamer character, swearing, teasing and dark humor on unless the user turns them off.
+    persona: Literal["streamer", "classic"] = "streamer"
+    profanity: bool = True
+    humor: Literal["off", "light", "often"] = "often"
+    humor_kinds: tuple[Literal["irony", "absurd", "wordplay", "self", "roast"], ...] = ("roast", "irony", "absurd")
     # Explicit 18+ dark-humor opt-in; the prompt module still forbids pain/injury/body/protected groups.
-    edgy_opt_in: bool = False
+    edgy_opt_in: bool = True
     extras: tuple[Literal["callbacks", "pop-culture", "trivia", "breathing"], ...] = ()
     address: Literal["ty", "vy"] = "ty"
     # Letters separated by single spaces/hyphens only: it is sent to the model as data, never as instructions.
@@ -26,6 +30,12 @@ class CoachPreferences(CoachSettings):
     # Voice delivery: "auto" keeps the author's per-line choice.
     voice_energy: Literal["auto", "calm", "warm", "bright"] = "auto"
     voice_pace: Literal["auto", "normal", "brisk"] = "auto"
+    # Live speech model. OpenAI models speak with voice_profile; Fish drama-3 with fish_voice_id.
+    voice_model: Literal["openai-realtime", "openai-tts", "fish-drama-3"] = "fish-drama-3"
+    # fish.audio library voice (32-hex ID); empty → the character's voice, then the server default.
+    fish_voice_id: str = Field(default="", pattern=r"^([a-f0-9]{32})?$")
+    # Emotion markup where the model supports it (drama-3): plain text | direction | direction + inline tags.
+    voice_emotion: Literal["off", "subtle", "expressive"] = "expressive"
     pause_gap: Literal["short", "normal", "long"] = "normal"
     verbosity: Literal["short", "normal", "detailed"] = "normal"
     # Which moments may be voiced.
@@ -72,6 +82,9 @@ class PreferencesSave(CoachModel):
 
 class OperatorLogin(CoachModel):
     password: SecretStr = Field(min_length=1, max_length=256)
+
+
+CredentialProvider = Literal["openai", "fish"]
 
 
 class CredentialSave(CoachModel):

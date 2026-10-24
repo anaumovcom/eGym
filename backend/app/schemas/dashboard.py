@@ -1,6 +1,8 @@
 from datetime import datetime
 from typing import Literal
 
+from pydantic import Field
+
 from app.models.enums import NotificationTone
 from app.schemas.base import SchemaModel
 from app.schemas.machine import MachineHealthSchema
@@ -41,6 +43,19 @@ class DashboardBuilderWorkoutExerciseSchema(SchemaModel):
     completed_sets: int = 0
     target_sets: int = 0
     progress_percent: int = 0
+    plan_label: str = ""
+
+
+class DashboardWorkoutMuscleLoadSchema(SchemaModel):
+    """Fatigue the whole planned workout is expected to add to one muscle."""
+
+    name: str
+    role: Literal["primary", "secondary"]
+    added_score: int
+    current_score: int
+    projected_score: int
+    current_status: str
+    projected_status: str
 
 
 class DashboardBuilderWorkoutSchema(SchemaModel):
@@ -48,6 +63,8 @@ class DashboardBuilderWorkoutSchema(SchemaModel):
     title: str
     exercises: list[DashboardBuilderWorkoutExerciseSchema]
     duration: str
+    total_sets: int = 0
+    muscle_load: list[DashboardWorkoutMuscleLoadSchema] = Field(default_factory=list)
     last_performed_at: datetime | None = None
     last_status: Literal["completed", "partial", "aborted"] | None = None
     today_status: str = "idle"

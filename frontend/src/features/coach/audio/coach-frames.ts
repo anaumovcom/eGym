@@ -8,7 +8,7 @@ export const MAX_STREAM_PCM_BYTES = 2_880_000
 export type CoachFrame = Readonly<{ metadata: CoachAudio; pcm: Uint8Array }>
 export class CoachFrameError extends Error {}
 
-const SOURCES = new Set(['local', 'cache', 'realtime', 'tts', 'fake'])
+const SOURCES = new Set(['local', 'cache', 'realtime', 'tts', 'fish', 'fake'])
 const isId = (value: unknown) => typeof value === 'string' && value.length > 0 && value.length <= 120
 const isCount = (value: unknown) => Number.isInteger(value) && (value as number) >= 0
 

@@ -4,7 +4,7 @@ import { useStage4Store } from '@/stores/stage4-store'
 import { coachErrorMessage, coachSettingsApi } from '../lib/settings-api'
 import { isCurrentCoachScope, useCoachSettingsScope } from '../lib/settings-scope'
 import {
-  COACH_CHOICES, COACH_EXTRAS, COACH_HUMOR_KINDS, COACH_NICKNAME, COACH_STYLES, DEFAULT_COACH_PREFERENCES, effectiveCoachState, preferencesValid,
+  COACH_CHOICES, COACH_EXTRAS, COACH_HUMOR_KINDS, COACH_NICKNAME, COACH_STYLES, DEFAULT_COACH_PREFERENCES, FISH_VOICE_ID, effectiveCoachState, preferencesValid,
   type CoachChoice, type CoachExtra, type CoachHumorKind, type CoachPreferences, type CoachSwitch,
 } from '../model/preferences'
 import { CoachOperatorPanel } from './coach-operator-panel'
@@ -27,7 +27,7 @@ const STYLES: Record<CoachPreferences['style'], [string, string]> = {
   stoic: ['Философ-стоик', 'Сдержанно, с короткими афоризмами о дисциплине.'],
 }
 const HUMOR_KIND_LABELS: Record<CoachHumorKind, string> = {
-  irony: 'Ирония', absurd: 'Абсурд', wordplay: 'Каламбуры', self: 'Самоирония тренера',
+  roast: 'Подколы и стёб', irony: 'Ирония', absurd: 'Абсурд', wordplay: 'Каламбуры', self: 'Самоирония тренера',
 }
 const EXTRA_LABELS: Record<CoachExtra, string> = {
   callbacks: 'Коронные шутки', 'pop-culture': 'Отсылки к кино и спорту', trivia: 'Любопытные факты', breathing: 'Подсказки по дыханию',
@@ -39,7 +39,19 @@ const EXTRA_HINTS: Record<CoachExtra, string> = {
   breathing: 'На отдыхе напоминает выдохнуть и расслабить плечи.',
 }
 const GENDER_LABELS = { unspecified: 'Не указан', m: 'Мужской', f: 'Женский' } as const
+const VOICE_MODEL_HINTS: Record<CoachPreferences['voiceModel'], string> = {
+  'openai-realtime': 'Быстрый старт речи, живая интонация.',
+  'openai-tts': 'Читает текст дословно, ровная подача.',
+  'fish-drama-3': 'Выразительная актёрская подача с эмоциями. Нужен ключ Fish Audio у оператора.',
+}
+const PERSONA_HINTS: Record<CoachPreferences['persona'], string> = {
+  streamer: 'Скандальный стример-миллионер: тренировка как прямой эфир, «чат», донаты, мат и подколы. Свой голос в Fish Audio.',
+  classic: 'Тёплый энергичный напарник с лёгкой иронией.',
+}
 const CHOICE_LABELS: { [K in CoachChoice]: Record<typeof COACH_CHOICES[K][number], string> } = {
+  persona: { streamer: 'Дерзкий стример', classic: 'Классический напарник' },
+  voiceModel: { 'openai-realtime': 'OpenAI Realtime', 'openai-tts': 'OpenAI TTS', 'fish-drama-3': 'Fish Audio Drama 3' },
+  voiceEmotion: { off: 'Без эмоций', subtle: 'Сдержанно', expressive: 'Выразительно' },
   voiceEnergy: { auto: 'По ситуации', calm: 'Спокойно', warm: 'Тепло', bright: 'Ярко' },
   voicePace: { auto: 'По ситуации', normal: 'Обычный', brisk: 'Быстрый' },
   pauseGap: { short: 'Короткие', normal: 'Обычные', long: 'Длинные' },
@@ -87,6 +99,7 @@ function problems(p: CoachPreferences): string[] {
   if (p.mode !== 'local' && p.networkConsentVersion !== 1) list.push('Для облачного режима нужно согласие на отправку данных.')
   if (!/^\d{1,3}(\.\d{1,4})?$/.test(p.budgetUsd) || !(Number(p.budgetUsd) > 0 && Number(p.budgetUsd) <= 2)) list.push('Лимит — от 0.01 до 2 $.')
   if (p.nickname.length > 24 || !COACH_NICKNAME.test(p.nickname)) list.push('Имя: только буквы, пробел или дефис, до 24 символов.')
+  if (!FISH_VOICE_ID.test(p.fishVoiceId)) list.push('ID голоса Fish Audio — 32 символа: цифры и латинские a–f.')
   return list
 }
 export function CoachSettingsPanel() {
@@ -179,6 +192,7 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
     } catch (error) { if (current()) setMessage(coachErrorMessage(error)) }
   }
   const cloud = draft.mode !== 'local'
+  const fish = draft.voiceModel === 'fish-drama-3'
   const issues = problems(draft)
   const status = effective.textEnabled ? 'пишет текстом' : effective.audioEnabled ? 'говорит голосом' : 'молчит'
   return <section aria-label="AI-тренер" className="coach-settings-panel overflow-clip rounded-2xl border border-violet-400/25 bg-gradient-to-br from-violet-500/10 via-transparent to-sky-500/5">
@@ -206,8 +220,13 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
           <Toggle label="Говорить во время подходов" checked={draft.duringSets} onChange={checked => change('duringSets', checked)} />
           <Toggle label="Говорить во время отдыха" checked={draft.duringRest} onChange={checked => change('duringRest', checked)} />
         </Group>
-        <Group title="Голос">
-          <Field label="Голос тренера"><select className="rt-input" value={coachVoice(draft.voiceProfile)} onChange={event => change('voiceProfile', coachVoice(event.target.value))}>{COACH_VOICES.map(voice => <option key={voice} value={voice}>{COACH_VOICE_LABELS[voice]}</option>)}</select></Field>
+        <Group title="Голос" note={cloud ? undefined : 'Модель — только с облачным ИИ'}>
+          {choice('voiceModel', 'Голосовая модель', VOICE_MODEL_HINTS[draft.voiceModel])}
+          {fish && <>
+            <Field label="Голос Fish Audio" hint="ID голоса из библиотеки fish.audio (32 символа). Пусто — голос выбранного персонажа."><input className="rt-input" type="text" maxLength={32} autoComplete="off" spellCheck={false} placeholder="Голос персонажа" value={draft.fishVoiceId} onChange={event => change('fishVoiceId', event.target.value.trim().toLowerCase())} /></Field>
+            {choice('voiceEmotion', 'Эмоциональная окраска', 'Тренер подбирает тон под момент: поддержка, гордость за результат, игривость, строгость при безопасности. Слова не меняются.')}
+          </>}
+          <Field label={fish ? 'Голос готовых фраз' : 'Голос тренера'}><select className="rt-input" value={coachVoice(draft.voiceProfile)} onChange={event => change('voiceProfile', coachVoice(event.target.value))}>{COACH_VOICES.map(voice => <option key={voice} value={voice}>{COACH_VOICE_LABELS[voice]}</option>)}</select></Field>
           <Field label="Громкость тренера"><select className="rt-input" value={draft.voiceVolume === null ? 'inherit' : String(draft.voiceVolume)} onChange={event => change('voiceVolume', event.target.value === 'inherit' ? null : Number(event.target.value))}><option value="inherit">Как общая</option>{[...new Set([0, 0.25, 0.5, 0.75, 1, ...(draft.voiceVolume === null ? [] : [draft.voiceVolume])])].sort((a, b) => a - b).map(volume => <option key={volume} value={volume}>{Math.round(volume * 100)}%</option>)}</select></Field>
           <CoachVoicePackSection slot={draft.voiceProfile} />
         </Group>
@@ -226,6 +245,8 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
       </div>
       <div className="grid gap-3">
       <Group title="Характер и юмор" note={cloud ? undefined : 'Только с облачным ИИ'}>
+        {choice('persona', 'Персонаж тренера', PERSONA_HINTS[draft.persona])}
+        {flag('profanity', 'Мат (18+)', 'Крепкие слова без цензуры и звёздочек. Без оскорблений внешности, тела и здоровья; при боли и риске — выключается.')}
         <Field label="Стиль тренера" hint={STYLES[draft.style][1]}><select className="rt-input" value={draft.style} onChange={event => change('style', event.target.value as CoachPreferences['style'])}>{COACH_STYLES.map(style => <option key={style} value={style}>{STYLES[style][0]}</option>)}</select></Field>
         <Field label="Обращение"><select className="rt-input" value={draft.address} onChange={event => change('address', event.target.value as CoachPreferences['address'])}><option value="ty">На «ты»</option><option value="vy">На «вы»</option></select></Field>
         <Field label="Как вас называть"><input className="rt-input" type="text" maxLength={24} autoComplete="off" placeholder="Без имени" value={draft.nickname} onChange={event => change('nickname', event.target.value)} /></Field>

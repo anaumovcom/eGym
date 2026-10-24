@@ -48,5 +48,5 @@ export const scalesApi = {
 }
 
 export async function invalidateScaleOwner(client: QueryClient, userId: string) {
-  await Promise.all([scaleKeys.history(userId), scaleKeys.latest(userId), ['progress-screen', userId], ['user-profile-screen', userId]].map(queryKey => client.invalidateQueries({ queryKey })))
+  await Promise.all([scaleKeys.history(userId), scaleKeys.latest(userId), ['progress-screen', userId], ['user-profile-screen', userId], ['body-measurements', userId]].map(queryKey => client.invalidateQueries({ queryKey })))
 }

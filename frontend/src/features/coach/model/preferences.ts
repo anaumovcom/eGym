@@ -2,7 +2,9 @@ import { DEFAULT_COACH_SETTINGS, type CoachSettings } from './contracts'
 
 export const COACH_STYLES = ['companion', 'calm', 'strict', 'showman', 'stoic'] as const
 export const COACH_HUMOR_LEVELS = ['off', 'light', 'often'] as const
-export const COACH_HUMOR_KINDS = ['irony', 'absurd', 'wordplay', 'self'] as const
+export const COACH_HUMOR_KINDS = ['roast', 'irony', 'absurd', 'wordplay', 'self'] as const
+/** Coach characters (backend services/coach/personas.py); each brings its own default Fish voice. */
+export const COACH_PERSONAS = ['streamer', 'classic'] as const
 export const COACH_EXTRAS = ['callbacks', 'pop-culture', 'trivia', 'breathing'] as const
 export type CoachStyle = typeof COACH_STYLES[number]
 export type CoachHumorKind = typeof COACH_HUMOR_KINDS[number]
@@ -10,7 +12,12 @@ export type CoachExtra = typeof COACH_EXTRAS[number]
 /** Same rule as the backend: letters separated by single spaces/hyphens, up to 24 chars. */
 export const COACH_NICKNAME = /^(?:\p{L}+(?:[ -]\p{L}+)*)?$/u
 /** Enum settings mirrored from backend `CoachPreferences`; the first value of each list is not necessarily the default. */
+/** fish.audio library voice ID; empty means the server default voice. */
+export const FISH_VOICE_ID = /^(?:[a-f0-9]{32})?$/
 export const COACH_CHOICES = {
+  persona: COACH_PERSONAS,
+  voiceModel: ['openai-realtime', 'openai-tts', 'fish-drama-3'],
+  voiceEmotion: ['off', 'subtle', 'expressive'],
   voiceEnergy: ['auto', 'calm', 'warm', 'bright'],
   voicePace: ['auto', 'normal', 'brisk'],
   pauseGap: ['short', 'normal', 'long'],
@@ -22,19 +29,19 @@ export const COACH_CHOICES = {
   coachGender: ['unspecified', 'm', 'f'],
 } as const
 export const COACH_SWITCHES = ['greeting', 'exerciseIntro', 'setFeedback', 'exerciseSummary', 'workoutSummary', 'comparisons',
-  'sayNumbers', 'sayExerciseName', 'saySetProgress', 'sayWeight', 'slang'] as const
+  'sayNumbers', 'sayExerciseName', 'saySetProgress', 'sayWeight', 'slang', 'profanity'] as const
 export type CoachChoice = keyof typeof COACH_CHOICES
 export type CoachSwitch = typeof COACH_SWITCHES[number]
 export type CoachTuning = Readonly<{ [K in CoachChoice]: typeof COACH_CHOICES[K][number] } & { [K in CoachSwitch]: boolean }>
 export const DEFAULT_COACH_TUNING: CoachTuning = Object.freeze<CoachTuning>({
-  voiceEnergy: 'auto', voicePace: 'auto', pauseGap: 'normal', verbosity: 'normal', praise: 'normal', goal: 'none',
+  persona: 'streamer', voiceModel: 'fish-drama-3', voiceEmotion: 'expressive', voiceEnergy: 'auto', voicePace: 'auto', pauseGap: 'normal', verbosity: 'normal', praise: 'normal', goal: 'none',
   experience: 'intermediate', userGender: 'unspecified', coachGender: 'unspecified',
   greeting: true, exerciseIntro: true, setFeedback: true, exerciseSummary: true, workoutSummary: true, comparisons: true,
-  sayNumbers: true, sayExerciseName: true, saySetProgress: true, sayWeight: true, slang: false,
+  sayNumbers: true, sayExerciseName: true, saySetProgress: true, sayWeight: true, slang: false, profanity: true,
 })
 
 export type CoachPreferences = CoachSettings & CoachTuning & Readonly<{
-  networkConsentVersion: null | 1; voiceVolume: number | null
+  networkConsentVersion: null | 1; voiceVolume: number | null; fishVoiceId: string
   style: CoachStyle; humor: typeof COACH_HUMOR_LEVELS[number]; humorKinds: readonly CoachHumorKind[]
   /** Explicit 18+ dark-humor opt-in. */
   edgyOptIn: boolean; extras: readonly CoachExtra[]; address: 'ty' | 'vy'; nickname: string
@@ -42,8 +49,9 @@ export type CoachPreferences = CoachSettings & CoachTuning & Readonly<{
   memoryEnabled: boolean; crossWorkoutMemory: boolean
 }>
 export const DEFAULT_COACH_PREFERENCES: CoachPreferences = Object.freeze<CoachPreferences>({
-  ...DEFAULT_COACH_SETTINGS, ...DEFAULT_COACH_TUNING, networkConsentVersion: null, voiceVolume: null,
-  style: 'companion', humor: 'light', humorKinds: ['irony', 'self'], edgyOptIn: false, extras: [],
+  ...DEFAULT_COACH_SETTINGS, ...DEFAULT_COACH_TUNING, networkConsentVersion: null, voiceVolume: null, fishVoiceId: '',
+  // Default roast set (user decision 24.10.2026): streamer character, swearing, teasing, dark humor.
+  style: 'companion', humor: 'often', humorKinds: ['roast', 'irony', 'absurd'], edgyOptIn: true, extras: [],
   address: 'ty', nickname: '', duringSets: true, duringRest: true,
   memoryEnabled: true, crossWorkoutMemory: false,
 })
@@ -73,6 +81,7 @@ export function preferencesValid(p: CoachPreferences): boolean {
     typeof p.budgetUsd === 'string' && /^\d{1,3}(\.\d{1,4})?$/.test(p.budgetUsd) &&
     Number(p.budgetUsd) > 0 && Number(p.budgetUsd) <= 2 &&
     (p.voiceVolume === null || (Number.isFinite(p.voiceVolume) && p.voiceVolume >= 0 && p.voiceVolume <= 1)) &&
+    typeof p.fishVoiceId === 'string' && FISH_VOICE_ID.test(p.fishVoiceId) &&
     Number.isSafeInteger(p.revision) && p.revision >= 0 && typeof p.edgyOptIn === 'boolean' &&
     COACH_STYLES.includes(p.style) && COACH_HUMOR_LEVELS.includes(p.humor) &&
     enumList(p.humorKinds, COACH_HUMOR_KINDS) && enumList(p.extras, COACH_EXTRAS) &&

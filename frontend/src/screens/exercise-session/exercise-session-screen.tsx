@@ -14,6 +14,8 @@ import { BarStartPointSelector } from '@/features/hardware/ui/bar-start-point-se
 import type { BarStartPoint, LoadDirection } from '@/features/hardware/model/types'
 import { LoadDirectionSelector } from '@/features/hardware/ui/load-direction-selector'
 import { resetExercisesOnBackend, saveWorkoutToBackend, shouldSaveSetResult, toBackendSetPayload } from '@/features/runtime/lib/runtime-persistence'
+import { describeSetPlan, SetPlanTrack } from '@/features/runtime/ui/set-plan-track'
+import { stepWeightKg } from '@/shared/lib/value-steps'
 import { WorkoutNavigator } from '@/features/runtime/ui/workout-navigator'
 import { getExerciseSettingsSnapshot, ownsExerciseSettingsSession, useExerciseSettings } from '@/features/runtime/lib/use-exercise-settings'
 import { captureRuntimeLifecycle, coachLifecycle, coachSetTimer } from '@/features/coach/lib/runtime-observation'
@@ -267,10 +269,9 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         { label: 'Синхронность', value: `${syncDeltaMm?.toFixed(1) ?? '0.0'} мм`, tone: (syncDeltaMm ?? 0) <= 5 ? 'good' as const : 'warning' as const },
       ]
     : isTimed
+      // The goal is under the clock and the set number in the header: only the elapsed time is new here.
       ? [
-          { label: 'Цель', value: formatTimedSeconds(plannedValue), tone: 'neutral' as const },
           { label: 'Прошло', value: formatTimerClock(timerElapsedSeconds), tone: timerElapsedSeconds >= plannedValue ? 'good' as const : 'neutral' as const },
-          { label: 'Подход', value: `${state.setNumber} из ${state.totalSets}`, tone: 'neutral' as const },
         ]
       : state.metrics
   const motionRail = isMachineExercise && !isFixedExercise ? buildMotionRail(liveMotion, activeCalibration) : null
@@ -823,6 +824,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   // The plan is offered only before the set really starts: no running motor, timer or counted reps.
   const navigatorAvailable = activeSession.exercises.length > 1 && !motorSetActive && !timerRunning && timerElapsedSeconds === 0
     && !(liveMotion?.repetitionCount) && !pendingAction && !editingPoint && !calibrationBusy && !restartingPrevious
+  const nextSetPlan = state.groupMeta ? undefined : exercise.plan[activeSession.currentSetIndex + 1]
   const nextExercise = !state.groupMeta && state.setNumber >= state.totalSets
     ? activeSession.exercises[activeSession.exercises.indexOf(exercise) + 1]
     : undefined
@@ -849,8 +851,6 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
             <p>
               <span>Подход {exercise.perSide ? state.roundNumber ?? setPlan.roundNumber : state.setNumber} из {exercise.perSide ? state.totalRounds ?? exercise.plan.length / 2 : state.totalSets}</span>
               {setTypeLabel ? <span>{setTypeLabel}</span> : null}
-              <span>Отдых после подхода {setPlan.restSeconds} с</span>
-              {nextExercise ? <span>Следующее упражнение: {nextExercise.name}</span> : null}
             </p>
           </div>
           <div className="rt-chips" aria-label="Текущий подход">
@@ -881,14 +881,13 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
               ) : (
                 <div className="flex aspect-video items-center justify-center rounded-[var(--ui-radius)] border border-white/8 bg-[#0b1017] text-white/45">Видео упражнения недоступно</div>
               )}
-              <div className="rt-media-caption" aria-hidden="true">
-                <span>Следите за темпом и амплитудой</span>
-                <span>Цель: <strong>{targetText}</strong></span>
-              </div>
             </div>
           </div>
 
           <section className="rt-panel rt-session-center" data-compact={Boolean(editingPoint || machineHold || motorIdle || partialReps > 0)} aria-label="Текущий подход">
+            {exercise.plan.length > 1 ? (
+              <SetPlanTrack exercise={exercise} currentIndex={activeSession.currentSetIndex} results={activeSession.completedSets[exercise.id]} label="Подходы упражнения" />
+            ) : null}
             {isTimed ? (
               <TimedSetClock
                 remainingSeconds={Math.max(0, plannedValue - timerElapsedSeconds)}
@@ -917,7 +916,8 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
                   label="Вес"
                   unit="кг"
                   value={actualWeight}
-                  onChange={(delta) => changeExerciseWeight(Math.max(0, actualWeight + delta))}
+                  decimals={1}
+                  onChange={(delta) => changeExerciseWeight(stepWeightKg(actualWeight, delta))}
                   onValueCommit={(value) => changeExerciseWeight(Math.max(0, value ?? 0))}
                 />
               ) : null}
@@ -1041,7 +1041,11 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
             </Button>
           </div>
           <div className="rt-actions-note">
-            {state.setWarning ?? state.setNote ?? <>{state.rirLabel ?? '1–3 повтора в запасе'} · после подхода начнётся отдых <strong>{setPlan.restSeconds} с</strong></>}
+            {state.setWarning ?? state.setNote ?? <>
+              {isTimed ? null : <>{state.rirLabel ?? '1–3 повтора в запасе'} · </>}{nextSetPlan
+                ? <>дальше отдых <strong>{setPlan.restSeconds} с</strong>, затем <strong>{describeSetPlan(nextSetPlan)}</strong></>
+                : nextExercise ? <>последний подход · дальше <strong>{nextExercise.name}</strong></> : <>последний подход упражнения</>}
+            </>}
           </div>
           <Button className="rt-primary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy || restartingPrevious} iconLeft={<CheckCircle2 aria-hidden="true" />} onClick={() => void handleFinishSet()}>
             {pendingAction && pendingAction !== 'skipped' ? 'Сохраняю…' : 'Завершить подход'}

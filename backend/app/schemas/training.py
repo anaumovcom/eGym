@@ -370,6 +370,15 @@ class ProgramMutationResultSchema(SchemaModel):
     status: str
 
 
+class ProgramOrderMutationSchema(SchemaModel):
+    user_id: str = Field(min_length=1)
+    program_ids: list[str]
+
+
+class ProgramOrderResultSchema(SchemaModel):
+    program_ids: list[str]
+
+
 class ScheduleAssignmentRequestSchema(SchemaModel):
     user_id: str
     program_id: str

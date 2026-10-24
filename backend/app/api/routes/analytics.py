@@ -138,6 +138,21 @@ def create_body_measurement(
     return progress_service.list_body_measurements(session, user_id=payload.user_id)
 
 
+@router.delete("/body-measurements/{measurement_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_body_measurement(
+    measurement_id: int,
+    user_id: str = Query(..., alias="userId"),
+    confirm: bool = Query(default=False),
+    session: Session = Depends(get_session),
+) -> None:
+    if not confirm:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Подтвердите удаление измерения")
+    try:
+        progress_service.delete_body_measurement(session, user_id=user_id, measurement_id=measurement_id)
+    except LookupError as error:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error)) from error
+
+
 @router.get("/achievements", response_model=AchievementsResponseSchema)
 def list_achievements(
     user_id: str = Query(..., alias="userId"),

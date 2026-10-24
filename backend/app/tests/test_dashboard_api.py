@@ -501,3 +501,23 @@ def test_dashboard_hides_builder_progress_from_previous_training_day(client: Tes
     assert updated_workout["todayStatus"] == "idle"
     assert updated_workout["todayProgressPercent"] == 0
     assert all(item["completedSets"] == 0 for item in updated_workout["exercises"])
+
+
+def test_dashboard_builder_workouts_project_muscle_load(client: TestClient) -> None:
+    response = client.get("/api/dashboard", params={"userId": "alexey"})
+
+    assert response.status_code == 200
+    muscles = {item["name"]: item["score"] for item in response.json()["muscles"]}
+    workouts = [item for item in response.json()["workouts"] if item["exercises"]]
+    assert workouts
+    for workout in workouts:
+        assert workout["totalSets"] == sum(exercise["targetSets"] for exercise in workout["exercises"])
+        assert all(exercise["planLabel"] for exercise in workout["exercises"])
+        load = workout["muscleLoad"]
+        assert load, workout["title"]
+        assert [item["addedScore"] for item in load] == sorted((item["addedScore"] for item in load), reverse=True)
+        for item in load:
+            assert item["role"] in {"primary", "secondary"}
+            assert item["addedScore"] > 0
+            assert abs(item["projectedScore"] - item["currentScore"] - item["addedScore"]) <= 1
+            assert item["currentScore"] == muscles.get(item["name"], 0)

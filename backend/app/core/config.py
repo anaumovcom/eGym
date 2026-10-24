@@ -50,6 +50,14 @@ class Settings(BaseSettings):
     # gpt-4o-mini-tts is deprecated (shutdown 2027-01-06): kept only for A/B and pack generation before that date.
     coach_voice_tts_model: str = Field(default="gpt-4o-mini-tts", max_length=80, alias="COACH_VOICE_TTS_MODEL")
     coach_voice_pricing_version: str = Field(default="openai-2026-10-08", max_length=80, alias="COACH_VOICE_PRICING_VERSION")
+    # Fish Audio drama-3 (docs.fish.audio, checked 2026-10-24): verbatim text with inline emotion directions,
+    # billed per UTF-8 input byte. Same paid-voice gates as OpenAI plus its own vault key.
+    coach_voice_fish_model: Literal["drama-3"] = Field(default="drama-3", alias="COACH_VOICE_FISH_MODEL")
+    # Default Fish voice (32-hex model ID from the fish.audio library); empty → provider default voice.
+    coach_voice_fish_reference_id: str = Field(default="", pattern=r"^([a-f0-9]{32})?$", alias="COACH_VOICE_FISH_REFERENCE_ID")
+    # Micro-USD per 1M UTF-8 bytes: list price $50. The launch promo ($10 until 2026-11-12) is not assumed.
+    coach_voice_fish_input_rate: int = Field(default=50_000_000, ge=0, alias="COACH_VOICE_FISH_INPUT_RATE")
+    coach_voice_fish_pricing_version: str = Field(default="fish-2026-10-24", max_length=80, alias="COACH_VOICE_FISH_PRICING_VERSION")
     # E09 packs: private directory (never under the public media mount). One pack per provider voice;
     # generated with the live adapter (Realtime) so prepared phrases and live speech share one timbre.
     coach_pack_root: str = Field(default=str(BACKEND_ROOT / "coach_packs"), alias="COACH_PACK_ROOT")
