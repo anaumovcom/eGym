@@ -163,6 +163,8 @@ class Delivery:
     phase: str = ""
     sounds: bool = True
     crowd: bool = False
+    # V10: a short line of the story's second character, voiced after the main line in the co-host voice.
+    co_host_text: str = ""
 
     def __post_init__(self):
         if (self.energy not in ENERGY or self.pace not in PACE or self.emphasis not in EMPHASIS
@@ -170,7 +172,8 @@ class Delivery:
                 or self.stress not in VOICE_STRESS or len(self.direction) > VOICE_DIRECTION_CHARS
                 or not isinstance(self.segments, tuple) or len(self.segments) > expressive.MAX_SEGMENTS
                 or not all(isinstance(seg, expressive.Segment) for seg in self.segments)
-                or (self.mood and self.mood not in expressive.MOOD_VOICE)):
+                or (self.mood and self.mood not in expressive.MOOD_VOICE)
+                or not isinstance(self.co_host_text, str) or len(self.co_host_text) > 160):
             raise ValueError("Unknown delivery")
 
 
@@ -200,7 +203,7 @@ def select_delivery(delivery: Delivery, *, intent: str | None, action: str, outc
     return Delivery(delivery.energy if energy == "auto" else energy,
                     delivery.pace if pace == "auto" else pace, delivery.emphasis, profile,
                     delivery.direction, delivery.sound, delivery.stress, delivery.segments, delivery.mood,
-                    delivery.phase, delivery.sounds, delivery.crowd)
+                    delivery.phase, delivery.sounds, delivery.crowd, delivery.co_host_text)
 
 
 # ---------- Fish Audio emotion markup (drama-3: [free-form direction] + paired <tag>…</tag>) ----------
@@ -599,11 +602,14 @@ class FishVoiceAdapter:
     last_connection_class: ConnectionClass = "not-applicable"
 
     def __init__(self, client: httpx.AsyncClient, key: str, *, model: str, reference_id: str = "",
-                 emotion: str = "expressive", url: str = FISH_TTS_URL):
+                 emotion: str = "expressive", url: str = FISH_TTS_URL, co_host_reference_id: str = ""):
         if not url.startswith("https://api.fish.audio/"):
             raise ValueError("Only the official HTTPS endpoint is allowed")
-        if emotion not in EMOTION_LEVELS or not re.fullmatch(r"([a-f0-9]{32})?", reference_id):
+        if (emotion not in EMOTION_LEVELS or not re.fullmatch(r"([a-f0-9]{32})?", reference_id)
+                or not re.fullmatch(r"([a-f0-9]{32})?", co_host_reference_id)):
             raise ValueError("Invalid Fish voice options")
+        # V10: a second library voice for the co-host; multi-speaker needs both voices explicit.
+        self.co_host_reference_id = co_host_reference_id if reference_id and co_host_reference_id != reference_id else ""
         self._client, self._key, self.url = client, key, url
         self.capability = VoiceCapability("fish", model, (reference_id or "default",), verbatim_input=True,
                                           verified=_operator_verified())
@@ -621,6 +627,13 @@ class FishVoiceAdapter:
                 "latency": "balanced"}
         if delivery.mood and self.emotive:
             body.update(expressive.synthesis(delivery.profile, delivery.mood, delivery.phase))  # V6.5
+        if delivery.co_host_text and self.co_host_reference_id and self.emotive:
+            # V10: one multi-speaker request — the voices can never overlap and the mixer stays unchanged.
+            second = fish_markup(delivery.co_host_text, Delivery(mood=delivery.mood or "", phase=delivery.phase,
+                                                                 sounds=False), self.emotion)
+            body["text"] = f"<|speaker:0|>{body['text']} <|speaker:1|>{second}"
+            body["reference_id"] = [self.reference_id, self.co_host_reference_id]
+            return body
         if self.reference_id:
             body["reference_id"] = self.reference_id
         return body
@@ -940,10 +953,11 @@ class VoiceStreamer:
         # A refused request never inherits the preceding request's socket classification.
         outcome.connection_class = "unknown"
         delivery = delivery or Delivery()
-        max_ms = speech_ms_bound(text)
+        spoken = f"{text} {delivery.co_host_text}".strip()
+        max_ms = speech_ms_bound(spoken)
         extra = (candidate_instructions(delivery) if delivery.profile != "legacy"
              and getattr(self.adapter, "situational_enabled", False) else "")
-        bounds = voice_bounds(text, audio_tokens_per_s=self.audio_tokens_per_s, max_ms=max_ms, instructions=extra)
+        bounds = voice_bounds(spoken, audio_tokens_per_s=self.audio_tokens_per_s, max_ms=max_ms, instructions=extra)
         try:
             with self.sessions() as db:
                 outcome.attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "voice", self.pricing, bounds,

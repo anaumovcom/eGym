@@ -116,6 +116,10 @@ VARIANT_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "rest/ful
                            "rest/comparison", "rest/playful", "rest/record", "rest/why", "summary/exercise",
                            "summary/workout"})
 TIER_NO_VARIANTS = 1
+# V10: the co-host speaks at most once per this many lines, never in-set; voice pairs for the two library voices.
+CO_HOST_EVERY = 4
+CO_HOST_PHASES = frozenset({"rest", "summary", "setup"})
+MELLSTROY, EKATERINA = "0a690dbeb3984a9f88cd39353880775f", "6d23d3209d6849e0b24ddae6f734afe9"
 # V7.2: a story motif returns no sooner than this many exercises after its last use.
 MOTIF_GAP_EXERCISES = 2
 # V5 #20: in-set moments that carry a new observation; the rest are generic cheers.
@@ -295,6 +299,7 @@ class LiveCoach:
         self.voice_history = expressive.VoiceHistory()
         self.motif_uses: dict[str, int] = {}
         self.why_done: set[str] = set()
+        self.lines_since_co_host = CO_HOST_EVERY
         self.prebuilt: dict[str, PrebuiltLine] = {}
         self.prebuild_job: asyncio.Task | None = None
         self._prebuild_items: set[asyncio.Task] = set()
@@ -1432,7 +1437,8 @@ class LiveCoach:
             if self.scenario_card and self.scenario_bible else None,
             scenario_opening=op.candidate.trigger_id == "T01" and self.scenario_bible is not None,
             mood=mood.data(), no_roast=mood.name == "recover",
-            variants=3 if op.task in VARIANT_TASKS and self.budget_tier() < TIER_NO_VARIANTS else 1)
+            variants=3 if op.task in VARIANT_TASKS and self.budget_tier() < TIER_NO_VARIANTS else 1,
+            co_host=self._co_host(op, mood))
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:
         warmup = None
@@ -1490,6 +1496,8 @@ class LiveCoach:
         if outcome.kind != "speech":
             await self._decision(op.event_id, trigger, "silence", outcome.reason or "no_useful_content")
             return
+        co_host_text = (outcome.delivery or {}).get("co_host_text") or ""
+        self.lines_since_co_host = 0 if co_host_text else self.lines_since_co_host + 1
         if trigger == "T70" and op.exercise_id:
             self.why_done.add(op.scope.exercise_id or "-")
         if self.settings.memory_enabled and outcome.attempt_ids:
@@ -1564,6 +1572,7 @@ class LiveCoach:
         try:
             await self.send_json({"type": "speech_start", "eventId": op.event_id, "triggerId": trigger,
                                   "generationId": gid, "text": outcome.text, "validForMs": round(valid_for),
+                                  **({"coHostText": delivery.co_host_text} if delivery.co_host_text else {}),
                                   "sampleRate": 24_000, "source": self.voice.adapter.name,
                                   **({"identity": identity(op.event)} if op.event else {})})
             if not self._current(op):
@@ -1628,6 +1637,16 @@ class LiveCoach:
         self._mark(op, "speechEnd")
         await self.send_json({"type": "speech_end", "generationId": gid, "status": voice.status,
                               "reason": voice.reason or None, "frames": voice.frames, **self._speech_metadata(op, voice)})
+
+    def _co_host(self, op: Opportunity, mood: Mood) -> dict | None:
+        """V10: offer the co-host field only when the story has one, the user allows it and the voice can do it."""
+        co = (self.scenario_bible or {}).get("coHost")
+        adapter = getattr(self.voice, "adapter", None)
+        if (not co or not self.settings.co_host or self.settings.mode != "hybrid" or mood.name == "recover"
+                or op.candidate.phase not in CO_HOST_PHASES or self.lines_since_co_host < CO_HOST_EVERY
+                or not getattr(adapter, "co_host_reference_id", "")):
+            return None
+        return {"role": co["role"], "name": co["name"]}
 
     def _story_motif(self, op: Opportunity) -> tuple[str, bool] | None:
         """V7.2: the next bible motif that has rested at least MOTIF_GAP_EXERCISES exercises (a running gag)."""
@@ -1831,6 +1850,7 @@ async def default_pipeline(sessions: Callable[[], Session], prefs: CoachPreferen
     else:
         voice_id = prefs.fish_voice_id or persona(prefs.persona).fish_voice_id or cfg.coach_voice_fish_reference_id
         adapter = FishVoiceAdapter(client, fish_key, model=cfg.coach_voice_fish_model, reference_id=voice_id,
-                                   emotion=prefs.voice_emotion)
+                                   emotion=prefs.voice_emotion,
+                                   co_host_reference_id=(EKATERINA if voice_id != EKATERINA else MELLSTROY) if prefs.co_host else "")
     pipeline.voice = VoiceStreamer(sessions, adapter, voice_price)
     return pipeline

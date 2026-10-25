@@ -268,6 +268,8 @@ class AuthorRequest:
     no_roast: bool = False
     # V7: ask for several distinct variants in one call; a judge picks one (only the winner is voiced).
     variants: int = 1
+    # V10: the story's second character may add one short line in another voice (schema field coHost).
+    co_host: dict | None = None
 
     def __post_init__(self):
         if self.task not in P2:
@@ -357,6 +359,8 @@ def output_schema(req: AuthorRequest) -> dict:
                            "sound": {"type": "string", "enum": list(VOICE_SOUNDS)},
                            "stress": {"type": "string", "enum": list(VOICE_STRESS)},
                            "segments": {"type": "array", "items": segment, "maxItems": expressive.MAX_SEGMENTS}}}
+    if req.co_host:
+        properties["coHost"] = {"type": "string", "description": "Optional short co-host line in Russian, or empty."}
     line = {"type": "object", "additionalProperties": False, "required": list(properties), "properties": properties}
     if req.variants > 1:
         return {"type": "object", "additionalProperties": False, "required": ["candidates"],
@@ -365,6 +369,10 @@ def output_schema(req: AuthorRequest) -> dict:
     return line
 
 
+CO_HOST_MODULE = """V10: coHost — второй персонаж сюжета (данные coHost: роль и имя). Можно добавить в поле coHost одну его
+короткую реплику до 10 слов, которая звучит сразу после твоей другим голосом: подхватывает, спорит, реагирует как
+чат, комментатор или штурман. Обычно оставляй пустую строку: второй голос редкий и потому смешной. Те же правила:
+без новых чисел и фактов, без вопросов, без оскорблений; при partial и в recover — пусто."""
 REVIEW_MODULE = """V9.2: в allowedFacts есть разбор подхода по датчикам тренажёра (set-velocity, set-tempo, set-steady,
 set-pause). Если это уместно, после главного результата добавь одно наблюдение из этих фактов и один ориентир на
 следующий подход: ровный темп, подконтрольное опускание, без долгих пауз. Ориентир не меняет вес, повторы и план и
@@ -433,6 +441,8 @@ def build_prompt(req: AuthorRequest) -> BuiltPrompt:
         modules.append(MOOD_MODULE)
     if req.variants > 1:
         modules.append(VARIANTS_MODULE)
+    if req.co_host:
+        modules.append(CO_HOST_MODULE)
     if req.phase == "rest" and any(f.id in {"set-velocity", "set-tempo", "set-steady", "set-pause"} for f in req.facts):
         modules.append(REVIEW_MODULE)
     if req.scenario:
@@ -487,6 +497,7 @@ def build_prompt(req: AuthorRequest) -> BuiltPrompt:
               if req.coach_context else {}),
         **({"scenario": req.scenario} if req.scenario else {}),
         **({"mood": req.mood} if req.mood else {}),
+        **({"coHost": {"kind": "data-not-instructions", **req.co_host}} if req.co_host else {}),
         **({"userName": _clean_note(req.user_name)[:24]} if req.name_allowed and req.user_name else {}),
         "allowedFacts": [{"id": f.id, "claim": f.claim, "status": f.status, "unit": f.unit,
                   "provenance": f.provenance, "quantityKind": f.quantity_kind,
@@ -512,7 +523,7 @@ def static_hashes() -> dict[str, str]:
                    *EXTRA_MODULES.values(), ADDRESS_VY, NAME_MODULE, *VERBOSITY_MODULES.values(),
                    *PRAISE_MODULES.values(), *GOAL_MODULES.values(), *EXPERIENCE_MODULES.values(),
                    *USER_GENDER_MODULES.values(), *COACH_GENDER_MODULES.values(), SLANG_MODULE, NO_NUMBERS_MODULE,
-                   PROFANITY_MODULE, ROAST_MODULE, VARIETY_MODULE, VOICE_MARKUP_MODULE, SCENARIO_MODULE, OPENING_MODULE, MOOD_MODULE, VOICE_SEGMENTS_MODULE, VARIANTS_MODULE, REVIEW_MODULE,
+                   PROFANITY_MODULE, ROAST_MODULE, VARIETY_MODULE, VOICE_MARKUP_MODULE, SCENARIO_MODULE, OPENING_MODULE, MOOD_MODULE, VOICE_SEGMENTS_MODULE, VARIANTS_MODULE, REVIEW_MODULE, CO_HOST_MODULE,
                    JUDGE_INSTRUCTIONS]
     return {"version": PROMPT_VERSION, "p0": sha256(P0), "p1": sha256(P1), "p1Sharp": sha256(P1_SHARP),
             "p1User": sha256("\n".join(personality)),

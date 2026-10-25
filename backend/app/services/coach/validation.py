@@ -329,6 +329,8 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
     required = {"action", "intent", "topicKey", "usedFactIds", "delivery", "silenceReason", speech_key}
     if req.voice_markup:
         required.add("voice")
+    if req.co_host:
+        required.add("coHost")
     if not isinstance(output, dict) or set(output) != required:
         return _fail("schema")
     voice = voice_block(output["voice"]) if req.voice_markup else {}
@@ -409,6 +411,14 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
                 continue  # Semantic completion, not a partial start, explains a tip.
             if not memory.fact_allowed(memory_key(facts[fact_id]), facts[fact_id].value, summary=req.summary):
                 return _fail("fact_repeat")
+    co_host = ""
+    if req.co_host and isinstance(output.get("coHost"), str) and output["coHost"].strip():
+        # V10: the co-host obeys every rule of the main line and adds no numbers of its own.
+        candidate = " ".join(output["coHost"].split())
+        if (len(words(candidate)) <= 10 and (req.mood or {}).get("name") != "recover"
+                and req.outcome not in {"partial", "skipped", "limited"}
+                and _check_text(candidate, req, used, allowed_numbers=set()) is None):
+            co_host = candidate
     if voice and voice.get("segments"):
         # Palette of this moment (humor/roast/mood) and tags only on exact fragments of the spoken text.
         context = expressive.VoiceContext(humor=intent == "humor" and req.humor != "off", roast=req.roast,
@@ -416,7 +426,8 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
         voice = {**voice, "segments": tuple(
             expressive.allowed(replace(seg, tags=tuple(t for t in seg.tags if t[0] in final)), context)
             for seg in voice["segments"])}
-    return Verdict(True, None, final, tuple(sorted(used)), {**delivery, **voice}, "speak")
+    return Verdict(True, None, final, tuple(sorted(used)), {**delivery, **voice, **({"co_host_text": co_host} if co_host else {})},
+                   "speak")
 
 
 def facts_current(req: AuthorRequest, scope_epoch: int, now_ms: float) -> bool:
