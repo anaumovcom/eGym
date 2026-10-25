@@ -39,6 +39,7 @@ from app.services.coach.facts import (
 from app.services.coach.identity import SpeechContext, WorkState, identity, matches_identity, same_run
 from app.services.coach.luna import LunaTextAdapter, TextAuthor, text_pricing
 from app.services.coach.memory import CoachMemory, CrossWorkoutStore, RunMemoryStore, Utterance
+from app.services.coach.mood import Mood, MoodTracker, classify
 from app.services.coach.personas import persona
 from app.services.coach.prompts import DEFAULT_FORBIDDEN, AuthorRequest
 from app.services.coach.routing import default_routes
@@ -103,6 +104,8 @@ SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
 }
 SET_MOMENT_KINDS = {"set_activated": "start", "rep_completed": "partial", "rep_milestone": "half",
                     "last_rep_pending": "finish"}
+# V5 #20: in-set moments that carry a new observation; the rest are generic cheers.
+NOVEL_MOMENTS = frozenset({"partial", "velocity_drop", "velocity_drop_hard", "tempo", "stall", "finish"})
 # Timed sets (the browser follows the on-screen clock): same moments, claims about time instead of reps.
 TIMED_SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "start": ("Таймер подхода запущен, работа началась", "set-start", ("motivation", "general-tip")),
@@ -261,6 +264,7 @@ class LiveCoach:
         self.record_sets: dict[int, bool] = {}
         self.steady_sets: dict[int, bool] = {}
         self.counter_state: list[dict] = []
+        self.moods = MoodTracker()
         self._sent_counters: list[dict] = []
         self._load_scenario()
 
@@ -1044,8 +1048,9 @@ class LiveCoach:
                 target_fact(exact, exact, unit, prefix="Цель подхода —", **common) if exact else None,
                 AllowedFact("milestone", claim, "confirmed", moment, **common), *measured])
             # Topic stays per set: "half" keeps the historical key so one comment per moment per set.
-            return op(candidate("T21", "active", f"{topic}:{set_key}", started=now - phase_elapsed),
-                      "active/general-tip" if moment == "support" else "active/support", intents, package)
+            moment_candidate = replace(candidate("T21", "active", f"{topic}:{set_key}", started=now - phase_elapsed),
+                                       novelty=moment in NOVEL_MOMENTS)
+            return op(moment_candidate, "active/general-tip" if moment == "support" else "active/support", intents, package)
         if event.kind == "set_persisted":
             if not s.set_feedback:
                 return "disabled"
@@ -1221,6 +1226,9 @@ class LiveCoach:
                                               phase_key=op.candidate.semantic_key):
                 motif, callback = self.memory.motif, True
         record = any("record" in f.permits for f in request_facts)
+        mood = self._mood(op, request_facts, risk)
+        if mood.name == "recover":
+            dark = False
         return AuthorRequest(
             op.candidate.trigger_id, op.candidate.phase, op.task, intents, op.candidate.topic_key, max(1, max_words),
             request_facts, p.comparison.status if p else "unavailable", p.history if p else "unavailable",
@@ -1243,7 +1251,8 @@ class LiveCoach:
             scenario=scenario.prompt_data(self.scenario_card, self.scenario_bible, op.exercise_id,
                                           finale=op.candidate.trigger_id in {"T58", "T59", "T69"})
             if self.scenario_card and self.scenario_bible else None,
-            scenario_opening=op.candidate.trigger_id == "T01" and self.scenario_bible is not None)
+            scenario_opening=op.candidate.trigger_id == "T01" and self.scenario_bible is not None,
+            mood=mood.data(), no_roast=mood.name == "recover")
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:
         warmup = None
@@ -1349,7 +1358,8 @@ class LiveCoach:
             actual_motif = (request.optional_motif if request.optional_motif and outcome.intent == "humor"
                             and request.optional_motif.casefold() in outcome.text.casefold() else None)
             self.line_metadata[gid] = {"intent": outcome.intent, "energy": delivery.energy,
-                                       "motif": actual_motif, "callback": bool(actual_motif and request.motif_callback)}
+                                       "motif": actual_motif, "callback": bool(actual_motif and request.motif_callback),
+                                       "mood": (request.mood or {}).get("name")}
         checked_first_pcm = False
         try:
             await self.send_json({"type": "speech_start", "eventId": op.event_id, "triggerId": trigger,
@@ -1418,6 +1428,22 @@ class LiveCoach:
         self._mark(op, "speechEnd")
         await self.send_json({"type": "speech_end", "generationId": gid, "status": voice.status,
                               "reason": voice.reason or None, "frames": voice.frames, **self._speech_metadata(op, voice)})
+
+    def _mood(self, op: Opportunity, request_facts: tuple, risk: bool) -> Mood:
+        """V5: classify the moment from facts and context, then apply hysteresis."""
+        context = dict(op.source_context)
+        values = {f.id: f.value for f in request_facts}
+        outcome = op.package.outcome if op.package and op.package.outcome != "none" else None
+        previous = self.moods.note_outcome(op.exercise_id, outcome) if op.candidate.phase == "rest" and outcome else None
+        act = scenario.act_state(self.scenario_bible, op.exercise_id) if self.scenario_bible else None
+        total = context.get("totalSets") if isinstance(context.get("totalSets"), int) else None
+        if total is None:
+            total = next((f.numbers[1] for f in request_facts if f.id == "set-position" and len(f.numbers) == 2), None)
+        mood = classify(trigger=op.candidate.trigger_id, task=op.task, phase=op.candidate.phase, outcome=outcome,
+                        fact_ids=set(values), fact_values=values, moment=context.get("moment"),
+                        last_exercise=bool(act and act.last_exercise), set_ordinal=op.scope.set_ordinal,
+                        total_sets=total, previous_outcome=previous, risk=risk)
+        return self.moods.update(mood, self.now_ms())
 
     @staticmethod
     def _journal_meta(op: Opportunity) -> dict:

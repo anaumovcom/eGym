@@ -152,7 +152,8 @@ async def test_short_set_density_caps_still_prevent_extra_paid_calls(session_fac
         second["context"]["moment"] = "half"
         await coach.handle(second)
         await settle(coach)
-        assert sink.of("decision")[-1]["reason"] == "density_cap"
+        # V5: in quiet/companion a second generic cheer is refused even earlier, for lack of a new observation.
+        assert sink.of("decision")[-1]["reason"] in {"density_cap", "no_novelty"}
         assert len(fake.calls) == len(adapter.calls) == int(first_speaks)
     finally:
         await coach.close()

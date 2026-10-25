@@ -65,6 +65,8 @@ class Candidate:
     speech_action: str = ""
     # V1: scenario openings/acts may run longer than an ordinary intro (still bounded by the action and window).
     words_cap: int | None = None
+    # V5 #20: the moment carries a new observation (measured fact, partial rep, last reps) vs a generic cheer.
+    novelty: bool = True
 
     @property
     def spec(self) -> TriggerSpec:
@@ -95,6 +97,8 @@ class Director:
         self.last_start_ms: float | None = None
         self.last_local_support_ms: float | None = None
         self.safety_latched = False
+        # V5: whether the last admitted in-set line of each set brought something new.
+        self.active_novelty: dict[str, bool] = {}
 
     def set_profile(self, name: DensityName) -> None:
         self.profile = PROFILES[name]
@@ -147,11 +151,17 @@ class Director:
         if spec.group and spec.group not in {"set-support", "rest-extra"} and self.group_counts.get(
                 (spec.group, group_scope), 0) >= 1:
             return Admission(False, "cooldown")
+        if live and c.phase == "active" and not c.novelty and self.profile.name in {"quiet", "companion"} and (
+                self.active_novelty.get(self._phase_key(c)) is False):
+            # V5 #20: two generic in-set cheers in a row are noise; the next one must bring a new observation.
+            return Admission(False, "no_novelty")
         if live:
             # Required persisted feedback is not swallowed by a local count/start gap.
             # The mixer remains simultaneous latest-actual-start, never a serial queue.
+            # A new in-set observation (V5) waits a shorter gap than a generic cheer.
+            gap = self.profile.min_start_gap_ms * self.gap_scale * (0.6 if c.phase == "active" and c.novelty else 1.0)
             if not required_result and c.phase != "summary" and self.last_start_ms is not None and (
-                    now_ms - self.last_start_ms < self.profile.min_start_gap_ms * self.gap_scale):
+                    now_ms - self.last_start_ms < gap):
                 return Admission(False, "cooldown")
         elif spec.group == "set-support" and self.last_local_support_ms is not None and (
                 now_ms - self.last_local_support_ms < self.profile.local_support_gap_ms):
@@ -199,6 +209,10 @@ class Director:
         if spec.live:
             slot = (c.phase, self._phase_key(c))
             self.slot_counts[slot] = self.slot_counts.get(slot, 0) + 1
+            if c.phase == "active":
+                self.active_novelty[self._phase_key(c)] = c.novelty
+                while len(self.active_novelty) > 256:
+                    self.active_novelty.pop(next(iter(self.active_novelty)))
             self.memory.note_attempted(c.topic_key)
         for counts in (self.trigger_counts, self.group_counts, self.slot_counts):
             while len(counts) > 1024:
