@@ -724,6 +724,57 @@
         }
       }
     },
+    "/api/coach/workouts/{workout_id}/episode": {
+      "get": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Workout Episode",
+        "description": "V11: the story recap of a finished workout; a local template from saved facts until one is written.",
+        "operationId": "workout_episode_api_coach_workouts__workout_id__episode_get",
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 120,
+              "title": "Userid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/coach/runs": {
       "post": {
         "tags": [

@@ -19,7 +19,7 @@ from fastapi import (
 )
 from fastapi.responses import FileResponse
 from pydantic import ValidationError
-from sqlalchemy import delete, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session, get_session_factory
@@ -43,7 +43,7 @@ from app.schemas.coach_control import (
     RunBind,
     RunCreate,
 )
-from app.services.coach import journal, ledger, live, pack_generation, packs, security
+from app.services.coach import episode, history, journal, ledger, live, pack_generation, packs, scenario, security
 from app.services.coach.preferences import load_preferences, save_preferences
 
 router = APIRouter()
@@ -255,6 +255,31 @@ def usage_summary(request: Request, response: Response, user_id: str = Query(ali
     response.headers["Cache-Control"] = "no-store"
     return journal.usage_summary(db, user_id=user_id, since=journal_since(db, period, since, run_id, user_id),
                                  run_id=run_id)
+
+
+@router.get("/coach/workouts/{workout_id}/episode")
+def workout_episode(workout_id: int, request: Request, response: Response,
+                    user_id: str = Query(alias="userId", max_length=120), db: Session = Depends(get_session)):
+    """V11: the story recap of a finished workout; a local template from saved facts until one is written."""
+    security.safe_request(request, mutation=False)
+    load_preferences(db, user_id)
+    response.headers["Cache-Control"] = "no-store"
+    found = episode.load(db, workout_id, user_id)
+    if found is not None:
+        return found
+    try:
+        package = history.workout_summary(db, user_id, workout_id, scope_epoch=0, valid_until_ms=float("inf"))
+    except history.HistoryError as error:
+        raise HTTPException(404, "episode_unavailable") from error
+    run = db.scalar(select(CoachLedgerRun).where(CoachLedgerRun.workout_id == workout_id, CoachLedgerRun.user_id == user_id))
+    story = scenario.load(db, run.id, user_id) if run is not None else None
+    values = {f.id: f.value for f in package.facts}
+    source = episode.EpisodeInput(tuple((f.id, f.claim, tuple(f.numbers)) for f in package.facts),
+                                  episode.achievements(fact_ids=set(values), fact_values=values, records=0, steady_sets=0,
+                                                       boss_defeated=False),
+                                  story[0].get("title") if story else None, story[1].get("finale") if story else None)
+    return {**episode.local(source), "achievements": [{"id": a, "label": episode.ACHIEVEMENTS[a]} for a in source.achievements],
+            "source": "local"}
 
 
 @router.post("/coach/runs")

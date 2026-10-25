@@ -7,6 +7,7 @@ import type { RuntimeWorkoutSummaryState } from '@/entities/runtime/model/types'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { adjustExerciseLoadOnBackend, resolveWorkoutSaveStatus, saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
 import { captureRuntimeLifecycle, coachLifecycle } from '@/features/coach/lib/runtime-observation'
+import { CoachEpisodeCard } from '@/features/coach/ui/coach-episode'
 import type { LoadAdjustmentDirection, LoadAdjustmentResponse } from '@/features/runtime/lib/runtime-persistence'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -178,6 +179,8 @@ export function WorkoutSummaryScreen() {
               </article>
             ))}
           </div>
+
+          <CoachEpisodeCard workoutId={summary.workoutSessionId} userId={selectedUserId} />
 
           {saveError ? (
             <div className="rt-alert" data-tone="danger" role="alert">

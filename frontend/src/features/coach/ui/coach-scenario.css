@@ -32,3 +32,14 @@
   .coach-scenario-cards { grid-template-columns: 1fr; }
   .coach-scenario-card { min-height: 0; }
 }
+.coach-episode { display: grid; gap: 12px; padding: 22px; border-radius: 20px; border: 1px solid #a78bfa55;
+  background: radial-gradient(circle at top left, #3b2a6b, #111827 70%); color: #f8fafc; }
+.coach-episode > header { display: flex; align-items: center; gap: 10px; }
+.coach-episode > header svg { width: 26px; height: 26px; color: #c4b5fd; }
+.coach-episode h2 { margin: 0; font-size: clamp(20px, 2vw, 28px); font-weight: 800; }
+.coach-episode ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 16px; color: #e2e8f0; }
+.coach-episode-finale { margin: 0; font-style: italic; color: #e9ddff; }
+.coach-episode-achievements { display: flex; flex-wrap: wrap; gap: 8px; }
+.coach-episode-achievements span { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px;
+  background: #fbbf2422; color: #fde68a; font-weight: 700; }
+.coach-episode-achievements svg { width: 16px; height: 16px; }

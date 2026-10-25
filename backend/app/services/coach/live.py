@@ -22,7 +22,18 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.schemas.coach import CoachEvent, CoachScope
 from app.schemas.coach_control import CoachPreferences
-from app.services.coach import counters, expressive, history, journal, ledger, progress, scenario, security, telemetry
+from app.services.coach import (
+    counters,
+    episode,
+    expressive,
+    history,
+    journal,
+    ledger,
+    progress,
+    scenario,
+    security,
+    telemetry,
+)
 from app.services.coach.completion import LocalCompletion, additional_package, duplicate_local, useful_addition
 from app.services.coach.context import CoachContext, build_context
 from app.services.coach.director import Candidate, Director
@@ -301,6 +312,7 @@ class LiveCoach:
         self.why_done: set[str] = set()
         self.lines_since_co_host = CO_HOST_EVERY
         self.prebuilt: dict[str, PrebuiltLine] = {}
+        self.episode_job: asyncio.Task | None = None
         self.prebuild_job: asyncio.Task | None = None
         self._prebuild_items: set[asyncio.Task] = set()
         self._sent_counters: list[dict] = []
@@ -614,6 +626,9 @@ class LiveCoach:
         except history.HistoryError as error:
             await self._decision(event.id, None, "silence", error.reason)
             return
+        if event.kind == "workout_finalized" and isinstance(opportunity, Opportunity) and (
+                self.episode_job is None or self.episode_job.done()):
+            self.episode_job = asyncio.create_task(self._episode(opportunity))
         if self.counter_state != self._sent_counters:
             self._sent_counters = list(self.counter_state)
             await self.send_json({"type": "scenario_state", "counters": self.counter_state})
@@ -758,7 +773,7 @@ class LiveCoach:
 
     async def close(self) -> None:
         self.closed = True
-        for job in (self.scenario_job, self.prebuild_job, *self._prebuild_items):
+        for job in (self.scenario_job, self.prebuild_job, self.episode_job, *self._prebuild_items):
             if job is not None and not job.done():
                 job.cancel()
                 with contextlib.suppress(asyncio.CancelledError, Exception):
@@ -903,6 +918,53 @@ class LiveCoach:
         self.scenario_card, self.scenario_bible = card, bible
         await self.send_json(self.scenario_state())
         self.schedule_prebuild()
+
+    # ---------- V11 episode ----------
+
+    def episode_input(self, db: Session, workout_id: int, package: FactPackage | None) -> episode.EpisodeInput:
+        facts = list(package.facts if package else ())
+        if self.settings.history_consent:
+            found, _ = progress.regularity(db, self.user_id, current_workout_id=workout_id, scope_epoch=0,
+                                           valid_until_ms=float("inf"))
+            facts += found
+        values = {f.id: f.value for f in facts}
+        boss = next((c["value"] for c in self.counter_state if c["id"] == "boss"), None)
+        earned = episode.achievements(fact_ids=set(values), fact_values=values, records=sum(self.record_sets.values()),
+                                      steady_sets=sum(self.steady_sets.values()), boss_defeated=boss == 0)
+        bible = self.scenario_bible or {}
+        return episode.EpisodeInput(tuple((f.id, f.claim, tuple(f.numbers)) for f in facts), earned,
+                                    (self.scenario_card or {}).get("title"), bible.get("finale"))
+
+    async def _episode(self, op: Opportunity) -> None:
+        """After the workout summary line: write the recap on the reserved budget, or keep the local template."""
+        workout_id = dict(op.source_refs).get("backendWorkoutId")
+        if workout_id is None:
+            return
+        deadline = time.monotonic() + PREBUILD_IDLE_WAIT_S
+        await asyncio.sleep(0.1)  # Let the summary line take the paid slot first.
+        while self.task is not None and not self.task.done() and time.monotonic() < deadline:
+            await asyncio.sleep(0.2)
+        with self.sessions() as db:
+            source = self.episode_input(db, workout_id, op.package)
+        payload, kind = episode.local(source), "local"
+        if self.author is not None and not self.closed and (self.task is None or self.task.done()):
+            self.task = asyncio.current_task()
+            self.task.add_done_callback(self._after)
+            output, _ = await self.author.generate(
+                run_id=self.run_id, owner=self.owner, generation=self.generation,
+                opportunity=f"{self.run_id}:episode:{workout_id}", task="episode/workout", name="coach_episode",
+                instructions=episode.INSTRUCTIONS, data=episode.data(source), schema=episode.SCHEMA, purpose="episode",
+                meta={"trigger_id": op.candidate.trigger_id})
+            written = episode.validate(output, source) if output is not None else None
+            if written is not None:
+                payload, kind = written, "generated"
+            elif output is not None:
+                self.author.reject_generation("episode")
+        with self.sessions() as db:
+            saved = episode.save(db, workout_id=workout_id, user_id=self.user_id, run_id=self.run_id, payload=payload,
+                                 source=kind, achievement_ids=source.achievements)
+        with contextlib.suppress(Exception):
+            await self.send_json({"type": "episode", "workoutId": workout_id, "title": saved["title"]})
 
     # ---------- V8 prebuild ----------
 

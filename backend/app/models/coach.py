@@ -129,3 +129,16 @@ class CoachScenario(Base):
     bible: Mapped[dict] = mapped_column(JSON, default=dict)
     version: Mapped[str] = mapped_column(String(40), default="")
     created_at: Mapped[float] = mapped_column(Float)
+
+
+class CoachEpisode(Base):
+    """V11: the story recap of one finished workout (validated wording + computed achievements)."""
+
+    __tablename__ = "coach_episodes"
+    workout_id: Mapped[int] = mapped_column(ForeignKey("workout_sessions.id", ondelete="CASCADE"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), index=True)
+    run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    title: Mapped[str] = mapped_column(String(80))
+    payload: Mapped[dict] = mapped_column(JSON, default=dict)
+    version: Mapped[str] = mapped_column(String(40), default="")
+    created_at: Mapped[float] = mapped_column(Float)
