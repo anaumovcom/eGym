@@ -139,7 +139,7 @@ async def test_propose_select_and_story_lines(session_factory):
     await wait_job(coach)
     ready = sink.of("scenario")[-1]
     assert ready["state"] == "ready" and [a["exerciseIds"] for a in ready["acts"]] == [["ex-1"], ["ex-2"], ["ex-3"]]
-    assert ready["counters"] == [{"id": "c1", "label": "очки славы"}]
+    assert ready["counters"] == [{"id": "c1", "label": "очки славы", "value": None}]  # V4 fills values later
     with session_factory() as db:
         row = db.get(CoachScenario, run_id)
         assert row.archetype == proposal["cards"][1]["archetype"]
