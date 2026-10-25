@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.schemas.coach import CoachEvent, CoachScope
 from app.schemas.coach_control import CoachPreferences
-from app.services.coach import history, journal, ledger, progress, scenario, security, telemetry
+from app.services.coach import counters, history, journal, ledger, progress, scenario, security, telemetry
 from app.services.coach.completion import LocalCompletion, additional_package, duplicate_local, useful_addition
 from app.services.coach.context import CoachContext, build_context
 from app.services.coach.director import Candidate, Director
@@ -257,6 +257,11 @@ class LiveCoach:
         self.scenario_proposals = 0
         self.scenario_shown: list[str] = []
         self.scenario_job: asyncio.Task | None = None
+        # V4: per saved set, whether it was a record / a steady set (stable across revalidation re-plans).
+        self.record_sets: dict[int, bool] = {}
+        self.steady_sets: dict[int, bool] = {}
+        self.counter_state: list[dict] = []
+        self._sent_counters: list[dict] = []
         self._load_scenario()
 
     def budget_tier(self) -> int:
@@ -567,6 +572,9 @@ class LiveCoach:
         except history.HistoryError as error:
             await self._decision(event.id, None, "silence", error.reason)
             return
+        if self.counter_state != self._sent_counters:
+            self._sent_counters = list(self.counter_state)
+            await self.send_json({"type": "scenario_state", "counters": self.counter_state})
         if opportunity is None:
             return  # Not a live opportunity (local cue or unmapped event): nothing to say.
         if isinstance(opportunity, str):
@@ -724,6 +732,18 @@ class LiveCoach:
         if found:
             self.scenario_card, self.scenario_bible = found
 
+    def story_counters(self, db: Session, workout_id: int | None, *, exercise_id: str | None = None,
+                       exercise_session_id: int | None = None) -> list[dict]:
+        """V4: the chosen story's counters for this workout, plus boss health on the boss exercise."""
+        if not (self.scenario_card and self.scenario_bible):
+            return []
+        totals = counters.workout_totals(db, workout_id, self.user_id)
+        found = counters.values(self.scenario_bible, totals, records=sum(self.record_sets.values()),
+                                steady=sum(self.steady_sets.values()))
+        boss = counters.boss_health(self.scenario_bible, self.scenario_card.get("archetype", ""), exercise_id,
+                                    counters.boss_sets_done(db, exercise_session_id))
+        return [*found, *([boss] if boss else [])]
+
     def scenario_state(self) -> dict:
         if not (self.scenario_card and self.scenario_bible):
             return {"type": "scenario", "state": "none"}
@@ -731,7 +751,9 @@ class LiveCoach:
         return {"type": "scenario", "state": "ready", "title": self.scenario_card["title"],
                 "tagline": self.scenario_card.get("tagline"), "archetype": self.scenario_card["archetype"],
                 "acts": [{"act": a["act"], "title": a["title"], "exerciseIds": a["exerciseIds"]} for a in bible["acts"]],
-                "counters": [{"id": c["id"], "label": c["label"]} for c in bible.get("counters", [])],
+                "counters": [{"id": c["id"], "label": c["label"],
+                              "value": next((v["value"] for v in self.counter_state if v["id"] == c["id"]), None)}
+                             for c in bible.get("counters", [])],
                 "coHost": bible.get("coHost")}
 
     async def announce(self) -> None:
@@ -1061,6 +1083,14 @@ class LiveCoach:
                         getattr(progress.tonnage(db, self.user_id, workout_id), "share", None))):
                     extra.append(progress.tonnage_fact(mark, ref=f"tonnage:{workout_id}:{mark}", scope_epoch=epoch,
                                                        valid_until_ms=valid))
+            self.record_sets[set_id] = bool(records)
+            self.steady_sets[set_id] = (telemetry.parse(context.get("setMetrics")) or {}).get("steady") is True
+            if self.scenario_bible:
+                exercise_row = db.get(history.ExerciseSession, saved.exercise_id)
+                self.counter_state = self.story_counters(
+                    db, getattr(exercise_row, "workout_session_id", None), exercise_id=scope.exercise_id,
+                    exercise_session_id=saved.exercise_id)
+                extra.extend(counters.facts(self.counter_state, {**common, "ref": f"counters:{set_id}"}))
             package = replace(package, facts=(package.facts + tuple(extra))[:12], source_signature=saved.source_signature)
             until = now - rest_elapsed + rest_ms - 3_000 if rest_ms else None
             c = candidate(package.trigger_id, "rest", f"set-result:{set_key}", until=until, hint=4_000,
@@ -1074,9 +1104,11 @@ class LiveCoach:
                 return "no_window"
             if any(gid not in self.memory.completed for gid in self.acks if self.acks[gid][0].scope == scope):
                 return "utterance_pending"
+            story = counters.facts(self.counter_state, {**common, "ref": f"counters-rest:{set_key}"}) if (
+                self.scenario_bible and self.counter_state) else []
             package = plan_package("T46", [
                 named, *progress_facts(scope.set_ordinal, _count(context, "totalSets"),
-                                       next_exercise=_name(context, "nextExerciseName"), **common)])
+                                       next_exercise=_name(context, "nextExerciseName"), **common), *story])
             c = candidate("T46", "rest", f"rest-playful:{set_key}", until=now - rest_elapsed + rest_ms - 5_000,
                           hint=4_000, started=now - rest_elapsed, length=rest_ms)
             return op(c, "rest/playful", ("humor", "motivation"), package)
@@ -1099,6 +1131,10 @@ class LiveCoach:
             if workout_ref is None:
                 return "no_source"
             package = history.workout_summary(db, self.user_id, workout_ref, scope_epoch=epoch, valid_until_ms=valid)
+            if self.scenario_bible:
+                final = [c for c in self.story_counters(db, workout_ref) if c["id"] != "boss"]
+                package = replace(package, facts=(*package.facts, *counters.facts(
+                    final, {**common, "ref": f"counters-final:{workout_ref}"}))[:12])
             if s.history_consent and s.comparisons and (mark := progress.tonnage_mark(
                     getattr(progress.tonnage(db, self.user_id, workout_ref), "share", None))):
                 package = replace(package, facts=(*package.facts, progress.tonnage_fact(

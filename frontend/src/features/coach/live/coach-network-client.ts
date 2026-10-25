@@ -428,6 +428,16 @@ export class CoachNetworkClient {
     if (this.last) this.tick({ ...this.last, nowMs: this.now() })
   }
 
+  /** V4: server-computed story counters (glory, donations, boss health) after each saved set. */
+  private receiveCounters(message: Record<string, unknown>): void {
+    if (this.scenario.phase !== 'ready' || !Array.isArray(message.counters)) return
+    const counters = message.counters.slice(0, 3).flatMap(raw => {
+      const counter = object(raw), id = str(counter?.id, 8), label = str(counter?.label, 60), value = num(counter?.value)
+      return id && label && value !== null && value >= 0 ? [{ id, label, value }] : []
+    })
+    this.setScenario({ counters })
+  }
+
   async forgetMemory(signal?: AbortSignal): Promise<number | null> {
     const userId = this.last?.userId
     if (!userId || !/^[a-zA-Z0-9_-]{1,120}$/.test(userId)) return null
@@ -609,6 +619,7 @@ export class CoachNetworkClient {
         break
       }
       case 'scenarios': case 'scenario': this.receiveScenario(message); break
+      case 'scenario_state': this.receiveCounters(message); break
       case 'speech_start': this.speechStart(message); break
       case 'speech_end': this.speechEnd(message); break
       case 'decision': {

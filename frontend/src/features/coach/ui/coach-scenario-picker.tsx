@@ -81,6 +81,7 @@ export function CoachScenarioChip({ exerciseId }: { exerciseId: string }) {
   return <span className="rt-chip coach-scenario-chip" title={scenario.tagline ?? undefined}>
     <Icon aria-hidden="true" />
     <span>{scenario.title}{act ? ` · Акт ${act.act}/${scenario.acts.length}: ${act.title}` : ''}</span>
-    {counters.map(counter => <span key={counter.id} className="coach-scenario-counter">{counter.label}: {counter.value}</span>)}
+    {counters.map(counter => <span key={counter.id} className="coach-scenario-counter">
+      {counter.label}: {counter.id === 'boss' ? `${counter.value}%` : counter.value?.toLocaleString('ru-RU')}</span>)}
   </span>
 }

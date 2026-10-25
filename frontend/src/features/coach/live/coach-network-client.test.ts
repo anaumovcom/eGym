@@ -1425,3 +1425,18 @@ describe('CoachNetworkClient rep telemetry (V2)', () => {
     expect(result.context?.setMetrics).toMatchObject({ reps: 6, velocityDropPct: 39, steady: true })
   })
 })
+
+describe('CoachNetworkClient story counters (V4)', () => {
+  it('updates counter values only for a ready story', async () => {
+    const f = new Fixture()
+    await f.connect()
+    f.socket.push({ type: 'scenario_state', counters: [{ id: 'c1', label: 'Очки славы', value: 100 }] })
+    expect(f.client.getSnapshot().scenario?.counters ?? []).toEqual([])
+    f.socket.push({ type: 'scenario', state: 'ready', title: 'Боссфайт', archetype: 'rpg', acts: [],
+      counters: [{ id: 'c1', label: 'Очки славы', value: null }] })
+    f.socket.push({ type: 'scenario_state', counters: [{ id: 'c1', label: 'Очки славы', value: 240 },
+      { id: 'boss', label: 'Здоровье босса', value: 75 }, { id: 'bad', label: 'x', value: -1 }] })
+    expect(f.client.getSnapshot().scenario?.counters).toEqual([{ id: 'c1', label: 'Очки славы', value: 240 },
+      { id: 'boss', label: 'Здоровье босса', value: 75 }])
+  })
+})
