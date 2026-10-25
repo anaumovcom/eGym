@@ -104,6 +104,12 @@ SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
 }
 SET_MOMENT_KINDS = {"set_activated": "start", "rep_completed": "partial", "rep_milestone": "half",
                     "last_rep_pending": "finish"}
+# V7.1: lines with time to think get three variants and a judge (never in-set cues or verbatim tips/catalog).
+VARIANT_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "rest/full-feedback", "rest/partial-feedback",
+                           "rest/comparison", "rest/playful", "rest/record", "summary/exercise", "summary/workout"})
+TIER_NO_VARIANTS = 1
+# V7.2: a story motif returns no sooner than this many exercises after its last use.
+MOTIF_GAP_EXERCISES = 2
 # V5 #20: in-set moments that carry a new observation; the rest are generic cheers.
 NOVEL_MOMENTS = frozenset({"partial", "velocity_drop", "velocity_drop_hard", "tempo", "stall", "finish"})
 # Timed sets (the browser follows the on-screen clock): same moments, claims about time instead of reps.
@@ -266,6 +272,7 @@ class LiveCoach:
         self.counter_state: list[dict] = []
         self.moods = MoodTracker()
         self.voice_history = expressive.VoiceHistory()
+        self.motif_uses: dict[str, int] = {}
         self._sent_counters: list[dict] = []
         self._load_scenario()
 
@@ -1219,7 +1226,10 @@ class LiveCoach:
         if s.humor == "off" or risk or not self.memory.humor_allowed():
             intents = tuple(i for i in intents if i != "humor") or ("motivation",)
         motif, callback = None, False
-        if (s.memory_enabled and "callbacks" in s.extras and "humor" in intents and not risk
+        story_motif = self._story_motif(op) if (s.memory_enabled and not risk and op.candidate.phase in {"rest", "setup"}) else None
+        if story_motif:
+            motif, callback = story_motif
+        elif (s.memory_enabled and "callbacks" in s.extras and "humor" in intents and not risk
                 and op.task == "rest/playful" and op.candidate.phase == "rest"):
             if self.memory.motif is None:
                 motif = "спокойный ритм"
@@ -1253,7 +1263,8 @@ class LiveCoach:
                                           finale=op.candidate.trigger_id in {"T58", "T59", "T69"})
             if self.scenario_card and self.scenario_bible else None,
             scenario_opening=op.candidate.trigger_id == "T01" and self.scenario_bible is not None,
-            mood=mood.data(), no_roast=mood.name == "recover")
+            mood=mood.data(), no_roast=mood.name == "recover",
+            variants=3 if op.task in VARIANT_TASKS and self.budget_tier() < TIER_NO_VARIANTS else 1)
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:
         warmup = None
@@ -1366,9 +1377,10 @@ class LiveCoach:
         voice = VoiceOutcome()
         self._transition(op, 'ready')
         self._remember(gid, op, outcome.text, outcome.used_fact_ids)
+        story_motif = self._note_motif(request.optional_motif, outcome.text, op.exercise_id)
         if gid in self.acks:
-            actual_motif = (request.optional_motif if request.optional_motif and outcome.intent == "humor"
-                            and request.optional_motif.casefold() in outcome.text.casefold() else None)
+            actual_motif = (request.optional_motif if request.optional_motif and (story_motif or (
+                outcome.intent == "humor" and request.optional_motif.casefold() in outcome.text.casefold())) else None)
             self.line_metadata[gid] = {"intent": outcome.intent, "energy": delivery.energy,
                                        "motif": actual_motif, "callback": bool(actual_motif and request.motif_callback),
                                        "mood": (request.mood or {}).get("name")}
@@ -1440,6 +1452,30 @@ class LiveCoach:
         self._mark(op, "speechEnd")
         await self.send_json({"type": "speech_end", "generationId": gid, "status": voice.status,
                               "reason": voice.reason or None, "frames": voice.frames, **self._speech_metadata(op, voice)})
+
+    def _story_motif(self, op: Opportunity) -> tuple[str, bool] | None:
+        """V7.2: the next bible motif that has rested at least MOTIF_GAP_EXERCISES exercises (a running gag)."""
+        if not self.scenario_bible:
+            return None
+        act = scenario.act_state(self.scenario_bible, op.exercise_id)
+        position = act.exercise_index if act else 0
+        for motif in self.scenario_bible.get("motifs", []):
+            last = self.motif_uses.get(motif)
+            if last is None or position - last >= MOTIF_GAP_EXERCISES:
+                return motif, last is not None
+        return None
+
+    def _note_motif(self, motif: str | None, text: str, exercise_id: str | None) -> bool:
+        """A motif counts as used when the line shares one of its distinctive words (≥ 5 letters)."""
+        if not motif or not self.scenario_bible or motif not in self.scenario_bible.get("motifs", []):
+            return False
+        words = {w for w in motif.casefold().replace("ё", "е").split() if len(w) >= 5}
+        spoken = text.casefold().replace("ё", "е")
+        if not any(word[:-2] in spoken for word in words):
+            return False
+        act = scenario.act_state(self.scenario_bible, exercise_id)
+        self.motif_uses[motif] = act.exercise_index if act else 0
+        return True
 
     def _mood(self, op: Opportunity, request_facts: tuple, risk: bool) -> Mood:
         """V5: classify the moment from facts and context, then apply hysteresis."""

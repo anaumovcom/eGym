@@ -16,7 +16,7 @@ from app.core.config import get_settings
 from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, UsageBounds
 from app.services.coach import journal, ledger
 from app.services.coach.memory import CoachMemory
-from app.services.coach.prompts import PROMPT_VERSION, AuthorRequest, BuiltPrompt, build_prompt
+from app.services.coach.prompts import JUDGE_INSTRUCTIONS, PROMPT_VERSION, AuthorRequest, BuiltPrompt, build_prompt
 from app.services.coach.routing import Route, TaskClass, degrade, task_class
 from app.services.coach.validation import facts_current, validate
 
@@ -284,6 +284,41 @@ class TextAuthor:
         self.last_generation_attempt = attempt_id
         return result.output, None
 
+    async def _pick_variant(self, output: dict, request: AuthorRequest, memory: CoachMemory | None, *, run_id: str,
+                            owner: str, generation: int, opportunity: str, tier: int):
+        """V7.1: every variant passes the full validator; two or more go to a cheap judge, the first valid one wins
+        when the judge is unavailable. Returns (variant output, verdict) or None if no variant is valid."""
+        candidates = output.get("candidates") if isinstance(output, dict) else None
+        if candidates is None and isinstance(output, dict):
+            candidates = [output]  # A single-line answer is one variant (fakes, legacy providers).
+        if not isinstance(candidates, list):
+            return None, "schema"
+        valid, silence, first_failure = [], None, None
+        for candidate in candidates[:3]:
+            verdict = validate(candidate, request, memory)
+            if verdict.ok and verdict.action == "speak":
+                valid.append((candidate, verdict))
+            elif verdict.ok:
+                silence = silence or (candidate, verdict)  # A deliberate silence is a decision, not a failure.
+            elif first_failure is None:
+                first_failure = verdict.reason
+        if len(valid) < 2:
+            return (valid[0] if valid else silence), first_failure
+        heard = [str(u.get("text", ""))[:200] for u in request.recent_heard[-4:]]
+        data = json.dumps({"task": request.task, "mood": request.mood, "intent": list(request.intents),
+                           "scenario": (request.scenario or {}).get("title"), "recentHeard": heard,
+                           "candidates": [{"index": i, "text": v.speech, "intent": c.get("intent")}
+                                          for i, (c, v) in enumerate(valid)]}, ensure_ascii=False)
+        schema = {"type": "object", "additionalProperties": False, "required": ["best", "reason"],
+                  "properties": {"best": {"type": "integer", "enum": list(range(len(valid)))}, "reason": {"type": "string"}}}
+        choice, _ = await self.generate(run_id=run_id, owner=owner, generation=generation,
+                                        opportunity=f"{opportunity}:judge", task="judge/pick", name="coach_judge",
+                                        instructions=JUDGE_INSTRUCTIONS, data=data, schema=schema, purpose="judge",
+                                        meta={"trigger_id": request.trigger_id}, tier=tier)
+        best = choice.get("best") if isinstance(choice, dict) else None
+        self.last_judge = {"best": best, "options": len(valid)}
+        return (valid[best] if type(best) is int and 0 <= best < len(valid) else valid[0]), None
+
     def reject_generation(self, reason: str) -> None:
         """The caller's validation refused the JSON returned by generate()."""
         self._journal(getattr(self, "last_generation_attempt", None), outcome="rejected",
@@ -366,7 +401,19 @@ class TextAuthor:
                 return fallback("scope_changed", "stale")  # Deletion/expiry while awaiting must not refill memory.
             if result.output is None:
                 return fallback(result.error or "provider_error")
-            verdict = validate(result.output, request, memory)
+            if request.variants > 1:
+                picked = await self._pick_variant(result.output, request, memory, run_id=run_id, owner=owner,
+                                                  generation=generation, opportunity=opportunity, tier=tier)
+                if picked[0] is None:
+                    reason = f"validation_failed:{picked[1] or 'schema'}"
+                    self._journal(attempt_id, outcome="rejected", error_code=reason, finished_at=time.time())
+                    return AuthorOutcome("local" if local_available else "silence", reason,
+                                         attempt_ids=tuple(attempts), prompt_hash=built.instructions_hash,
+                                         schema_hash=built.schema_hash)
+                result_output, verdict = picked[0]
+                result = AuthorResult(result_output, result.usage, result.response_id, result.complete)
+            else:
+                verdict = validate(result.output, request, memory)
             if verdict.ok:
                 if verdict.action == "silence":
                     self._journal(attempt_id, outcome="silence", error_code=verdict.reason, finished_at=time.time())
