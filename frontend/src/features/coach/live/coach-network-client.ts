@@ -10,6 +10,7 @@ import { preferencesValid, type CoachPreferences } from '../model/preferences'
 import { matchesIdentity, planSignature, sameRun, sameScope, speechIdentity, speechSurvives, type SpeechContext } from './coach-scope-policy'
 import type { LocalCompletion } from './local-completion'
 import { OPPORTUNITY_STATES, transitionOpportunity, type OpportunityState } from './opportunity'
+import { RepTracker, telemetryContext, type TelemetrySample } from './rep-tracker'
 
 /** E10 live client: forwards a few semantic events over one WebSocket and plays the
  * backend's tagged PCM through the local mixer. The run token only travels in the
@@ -21,6 +22,8 @@ export type NetworkTick = Readonly<{
   reps: number | null; partialReps?: number | null; timer?: SetTimerInput | null; lifecycle: readonly CoachEvent[]; refs: (eventId: string) => LifecycleRefs | null
   mixer: () => NetworkMixer | null
   localCompletion?: (event: CoachEvent) => LocalCompletion | null
+  /** V2: the machine's bar position/velocity sample of this tick (absent without hardware telemetry). */
+  telemetry?: TelemetrySample | null
 }>
 export type NetworkState = 'off' | 'creating' | 'connecting' | 'ready' | 'retrying' | 'refused'
 export type NetworkDecision = Readonly<{ atMs: number; triggerId: string | null; action: string; reason: string | null; text: string | null }>
@@ -86,7 +89,9 @@ const FORWARDED: ReadonlySet<CoachEventKind> = new Set(['set_persisted', 'exerci
 const EXERCISE_KINDS = new Set(['machine', 'bodyweight', 'timed', 'stretch', 'group'])
 const REST_EXTRA_MIN_ELAPSED_S = 15
 const REST_EXTRA_MIN_LEFT_S = 40
-const SET_STALL_MS = 8_000
+// V2 #14: a pause between reps worth a word (bar still for this long after the first rep).
+const SET_STALL_MS = 4_500
+const SET_NO_REP_MS = 8_000
 const SET_ADVICE_INTERVAL_MS = 15_000
 const USAGE_EVERY_MS = 15_000
 const PING_EVERY_MS = 20_000
@@ -224,6 +229,7 @@ export class CoachNetworkClient {
   private firstAudioMs: number | null = null
   private snap: NetworkSnapshot | null = null
   private scenario: ScenarioView = SCENARIO_OFF
+  private readonly repTracker = new RepTracker()
   private scenarioSince = 0
   private scenarioProposed = false
   private readonly listeners = new Set<() => void>()
@@ -276,6 +282,7 @@ export class CoachNetworkClient {
       this.registry.clear(); this.generations.clear(); this.history = []; this.context = null; this.contextKey = ''; this.planKey = null
       this.localStarted.clear()
       this.scenario = SCENARIO_OFF; this.scenarioProposed = false
+      this.repTracker.clear()
     }
     this.updateContext(input)
     if (this.state === 'refused' && this.refusedRevision !== saved.revision) { this.refusedRevision = null; this.setState('off', null) }
@@ -764,8 +771,10 @@ export class CoachNetworkClient {
       const refs = input.refs(event.id)
       if (!refs) continue
       const localCompletion = input.localCompletion?.(event)
+      const metrics = event.kind === 'set_persisted'
+        ? telemetryContext(this.repTracker.finishedSet(`${event.scope.exerciseId}:${event.scope.setOrdinal}`, input.nowMs)) : {}
       this.forward(event, refs, { ...this.restContext(session, event.scope.exerciseId, event.scope.setOrdinal),
-        ...(localCompletion ? { localCompletion } : {}) })
+        ...(localCompletion ? { localCompletion } : {}), ...(Object.keys(metrics).length ? { setMetrics: metrics } : {}) })
     }
     if (!scope || quiet) return
     const exercise = session.exercises.find(item => item.id === session.currentExerciseId)
@@ -808,6 +817,10 @@ export class CoachNetworkClient {
     const now = input.nowMs, reps = input.reps, partial = input.partialReps ?? null
     if (this.inSet?.key !== setKey) this.inSet = { key: setKey, startedAt: now, reps, repAt: now, partial }
     const track = this.inSet
+    this.repTracker.begin(setKey, now, reps)
+    this.repTracker.sample(input.telemetry)
+    this.repTracker.rep(reps, now)
+    const metrics = this.repTracker.snapshot(now)
     if (reps !== track.reps) { track.reps = reps; track.repAt = now }
     const partialRose = partial !== null && track.partial !== null && partial > track.partial
     track.partial = partial
@@ -816,12 +829,19 @@ export class CoachNetworkClient {
     const left = target === null ? null : target - reps
     const elapsed = now - track.startedAt
     const adviceSlot = Math.min(4, Math.floor(elapsed / SET_ADVICE_INTERVAL_MS))
+    const drop = metrics.velocityDropPct ?? 0
+    const telemetry = !!input.telemetry
+    const paused = telemetry ? metrics.stillMs >= SET_STALL_MS : now - track.repAt >= SET_NO_REP_MS
     const moments: Array<[CoachEventKind, string, boolean]> = [
       ['rep_completed', 'partial', partialRose],
       ['set_activated', 'start', reps >= 1 && reps <= 2 && (left === null || left >= 3)],
+      // V2: what the machine measured — fading speed, the descent/ascent tempo, a long pause.
+      ['rep_milestone', 'velocity-hard', drop >= 30 && (left === null || left >= 1)],
+      ['rep_milestone', 'velocity', drop >= 15 && (left === null || left >= 1)],
       ['last_rep_pending', 'finish', target !== null && target >= 5 && left !== null && left >= 1 && left <= 2],
+      ['rep_milestone', 'tempo', reps >= 4 && metrics.avgEccentricS !== null && metrics.avgConcentricS !== null && (left === null || left >= 2)],
       ['rep_milestone', 'half', target !== null && target >= 8 && reps >= Math.ceil(target / 2) && left !== null && left >= 3],
-      ['rep_milestone', 'stall', reps >= 1 && (left === null || left >= 1) && now - track.repAt >= SET_STALL_MS],
+      ['rep_milestone', 'stall', reps >= 1 && (left === null || left >= 1) && paused],
       // Retry with a new useful opportunity after an early moment lost to cooldown/busy.
       // The Director still enforces density, topic memory, opt-in and the paid budget.
       ['rep_milestone', `support-${adviceSlot}`, adviceSlot >= 1 && reps >= 1 && (left === null || left >= 3)],
@@ -829,9 +849,13 @@ export class CoachNetworkClient {
     const moment = moments.find(([, name, due]) => due && !this.sentKeys.has(`${name}:${setKey}`))
     if (!moment) return
     this.sentKeys.add(`${moment[1]}:${setKey}`)
+    if (moment[1] === 'velocity-hard') this.sentKeys.add(`velocity:${setKey}`)
     if (adviceSlot >= 1) this.sentKeys.add(`support-${adviceSlot}:${setKey}`)
-    this.emit(moment[0], scope, input, 'active-set', { ...exerciseIdentity(session, exercise), phaseElapsedMs: Math.round(elapsed), moment: moment[1].startsWith('support-') ? 'support' : moment[1],
-      exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length, ...(exact !== null ? { targetReps: exact } : {}) }, 'reps')
+    const names: Readonly<Record<string, string>> = { 'velocity-hard': 'velocity_drop_hard', velocity: 'velocity_drop' }
+    const name = moment[1].startsWith('support-') ? 'support' : names[moment[1]] ?? moment[1]
+    this.emit(moment[0], scope, input, 'active-set', { ...exerciseIdentity(session, exercise), phaseElapsedMs: Math.round(elapsed), moment: name,
+      exerciseName: exercise.name.slice(0, 120), totalSets: exercise.plan.length, ...(exact !== null ? { targetReps: exact } : {}),
+      ...(['velocity_drop', 'velocity_drop_hard', 'tempo', 'stall'].includes(name) ? { telemetry: telemetryContext(metrics) } : {}) }, 'reps')
   }
 
   /** Timed sets: start, half and the final stretch by the screen's clock; only while it runs. */

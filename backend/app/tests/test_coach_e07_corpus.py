@@ -16,7 +16,8 @@ from app.services.coach.prompts import AuthorRequest
 from app.services.coach.triggers import TRIGGERS, UNSUPPORTED_SOURCES, evaluate
 from app.services.coach.validation import spoken_numbers, validate
 
-UNSUPPORTED = {"T12", "T18", "T19", "T20", "T22", "T43", "T44", "T57", "T60", "T61"}
+# V2 (metric-policy-0.3): machine tempo telemetry makes T19/T20/T44 eligible; the rest still lack a source.
+UNSUPPORTED = {"T12", "T18", "T22", "T43", "T57", "T60", "T61"}
 
 
 @pytest.mark.parametrize("trigger_id", list(TRIGGERS))

@@ -236,7 +236,8 @@ def _check_text(text: str, req: AuthorRequest, used: set[str], *, allowed_number
         return "claim"
     if req.coach_context and not catalog_setup and re.search(r"плеч|локт|запяст|наклон|хват|лопат|выпрям|согни", lower):
         return "claim"
-    if req.coach_context and req.phase == "active" and re.search(
+    measured_cue = any("movement-cue" in f.permits for f in req.facts if f.id in used)
+    if req.coach_context and req.phase == "active" and not measured_cue and re.search(
             r"дыш|вдох|выдох|двигай|плавн|рывк|тян[иь]|опускай|поднимай", lower):
         if req.coach_context.tip is None or text != req.coach_context.tip.text:
             return "unreviewed_tip"

@@ -1395,3 +1395,33 @@ describe('CoachNetworkClient scenarios (V1)', () => {
     expect(off.socket.events().map(item => item.event.kind)).toEqual(['workout_started'])
   })
 })
+
+describe('CoachNetworkClient rep telemetry (V2)', () => {
+  it('forwards a fading set as one measured moment and its summary with the saved result', async () => {
+    const f = new Fixture()
+    await f.connect()
+    const active = { phase: 'active-set' as const, session: session({ view: 'exercise-session',
+      exercises: [{ id: 'e1', name: 'Жим ногами', kind: 'machine', plan: [plan(12), plan(12)] }] }) }
+    f.tick({ ...active, reps: 0, partialReps: 0 })
+    let reps = 0
+    for (const peak of [400, 400, 400, 300, 250, 240]) {
+      for (let i = 0; i < 10; i++) f.tick({ ...active, reps, partialReps: 0, telemetry: { atMs: f.input.nowMs + 100, positionMm: 100, velocityMmPerSec: peak, loadDirection: 'down' } })
+      for (let i = 0; i < 12; i++) f.tick({ ...active, reps, partialReps: 0, telemetry: { atMs: f.input.nowMs + 100, positionMm: 100, velocityMmPerSec: -250, loadDirection: 'down' } })
+      reps++
+      f.tick({ ...active, reps, partialReps: 0, telemetry: { atMs: f.input.nowMs + 100, positionMm: 100, velocityMmPerSec: 0, loadDirection: 'down' } })
+    }
+    const moments = f.socket.events().slice(1).map(item => item.context?.moment)
+    expect(moments).toContain('velocity_drop_hard')
+    expect(moments).not.toContain('velocity_drop')
+    const hard = f.socket.events().find(item => item.context?.moment === 'velocity_drop_hard')!
+    expect(hard.context?.telemetry).toMatchObject({ reps: 5, velocityDropPct: 31 })
+    const tempo = f.socket.events().find(item => item.context?.moment === 'tempo')
+    expect(tempo?.context?.telemetry).toMatchObject({ concentricS: 1, eccentricS: 1.2 })
+    // The saved result of this set carries its rounded summary.
+    f.refs['s1'] = { backendSetId: 7 }
+    const saved = f.lifecycle('s1', 'set_persisted', 'active-set')
+    f.tick({ ...active, reps, lifecycle: [saved] })
+    const result = f.socket.events().find(item => item.event.kind === 'set_persisted')!
+    expect(result.context?.setMetrics).toMatchObject({ reps: 6, velocityDropPct: 39, steady: true })
+  })
+})

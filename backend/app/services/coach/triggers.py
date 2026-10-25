@@ -10,7 +10,6 @@ Intent = Literal["motivation", "humor", "factual-feedback", "general-tip", "summ
 # Data the application cannot currently prove. A trigger depending on them is always skipped.
 UNSUPPORTED_SOURCES: dict[str, str] = {
     "rep.start": "no_rep_start_source",
-    "tempo.validated": "tempo_metric_policy_unverified",
     "mechanics.phase": "unknown_movement_mechanics",
     "history.personal_best": "no_personal_best_detector",
     "schedule.next": "no_workout_schedule",

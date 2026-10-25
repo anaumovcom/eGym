@@ -176,10 +176,19 @@ export class CoachLiveRuntime {
     this.deps.network?.tick({ nowMs: now, userId: inputs.userId, saved: inputs.saved, session: inputs.session, featureEnabled: true,
       phase: result.phase, scope: result.scope, latched: result.latched, gate, reps: this.interpreter.snapshot().baseline,
       partialReps: this.hardware?.motion?.partialReps ?? null, timer: inputs.timer ?? null, lifecycle, refs: this.deps.lifecycleRefs,
+      telemetry: this.telemetry(now),
       localCompletion: event => this.completions.forEvent(event), mixer: () => this.networkMixer() })
     if (!result.cues.length && gate) this.reason = gate
     if (this.manager) this.deps.network?.observe(this.manager.snapshot())
     this.publish(!gate)
+  }
+
+  /** V2: the bar sample the rep tracker needs; only real (fresh) machine control telemetry. */
+  private telemetry(now: number) {
+    const control = this.hardware?.control
+    if (!control || this.hardwareAtMs === null || now - this.hardwareAtMs > 1_000 || !Number.isFinite(control.velocityMmPerSec)) return null
+    return { atMs: this.hardwareAtMs, positionMm: control.positionMm, velocityMmPerSec: control.velocityMmPerSec,
+      loadDirection: control.loadDirection === 'up' ? 'up' as const : 'down' as const }
   }
 
   private stopNetwork(inputs: LiveInputs, now: number): void {

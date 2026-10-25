@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.schemas.coach import CoachEvent, CoachScope
 from app.schemas.coach_control import CoachPreferences
-from app.services.coach import history, journal, ledger, scenario, security
+from app.services.coach import history, journal, ledger, scenario, security, telemetry
 from app.services.coach.completion import LocalCompletion, additional_package, duplicate_local, useful_addition
 from app.services.coach.context import CoachContext, build_context
 from app.services.coach.director import Candidate, Director
@@ -96,6 +96,10 @@ SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "finish": ("Идут последние повторения подхода", "set-finish", ("motivation",)),
     "stall": ("В подходе пауза: новое повторение пока не засчитано", "set-stall", ("motivation",)),
     "support": ("Подход продолжается", "set-advice", ("general-tip",)),
+    # V2 rep tracker moments; their measured facts come from telemetry.moment_facts.
+    "velocity_drop": ("Подход продолжается", "set-velocity", ("motivation",)),
+    "velocity_drop_hard": ("Идут последние, самые тяжёлые повторения подхода", "set-velocity", ("motivation",)),
+    "tempo": ("Подход продолжается", "set-tempo", ("general-tip", "motivation")),
 }
 SET_MOMENT_KINDS = {"set_activated": "start", "rep_completed": "partial", "rep_milestone": "half",
                     "last_rep_pending": "finish"}
@@ -910,6 +914,9 @@ class LiveCoach:
                                     "exerciseSlug", "variant", "controlMode", "moment", "phaseElapsedMs")
                                    if key in context and isinstance(context[key], int | float | str)
                                    and len(str(context[key])) <= 120)
+            # Telemetry summaries travel as canonical JSON so revalidation rebuilds the same measured facts.
+            source_context += tuple((key, value) for key in ("setMetrics", "telemetry")
+                                    if (value := telemetry.wire(context.get(key))) is not None)
             shaped = self._shape(package)
             cc = replace(cc, fact_ids=tuple(f.id for f in shaped.facts) if shaped else (),
                          goal=self.settings.goal, experience=self.settings.experience)
@@ -974,7 +981,8 @@ class LiveCoach:
             if not s.during_sets:
                 return "disabled"
             moment = SET_MOMENT_KINDS[event.kind]
-            if event.kind == "rep_milestone" and context.get("moment") in ("stall", "support"):
+            if event.kind == "rep_milestone" and context.get("moment") in (
+                    "stall", "support", "velocity_drop", "velocity_drop_hard", "tempo"):
                 moment = context["moment"]
             moments = TIMED_SET_MOMENTS if unit == "seconds" else SET_MOMENTS
             if moment not in moments:
@@ -987,6 +995,13 @@ class LiveCoach:
                                                                   "confirmed", "finale", **common)])
                 return op(candidate("T69", "active", f"finale:{set_key}", started=now - phase_elapsed),
                           "active/finale", ("motivation",), package)
+            measured = telemetry.moment_facts(moment, telemetry.parse(context.get("telemetry")), common)
+            if moment in {"velocity_drop", "velocity_drop_hard", "tempo"} and not measured:
+                return "insufficient_facts"
+            if moment == "tempo":
+                package = plan_package("T19", [named, *measured])
+                return op(candidate("T19", "active", f"set-tempo:{set_key}", started=now - phase_elapsed),
+                          "active/tempo", intents, package)
             if moment == "support":
                 slot = min(4, int(phase_elapsed // 15_000))
                 if slot < 1:
@@ -996,7 +1011,7 @@ class LiveCoach:
             package = plan_package("T21", [
                 named, *progress_facts(scope.set_ordinal, _count(context, "totalSets"), **common)[:1],
                 target_fact(exact, exact, unit, prefix="Цель подхода —", **common) if exact else None,
-                AllowedFact("milestone", claim, "confirmed", moment, **common)])
+                AllowedFact("milestone", claim, "confirmed", moment, **common), *measured])
             # Topic stays per set: "half" keeps the historical key so one comment per moment per set.
             return op(candidate("T21", "active", f"{topic}:{set_key}", started=now - phase_elapsed),
                       "active/general-tip" if moment == "support" else "active/support", intents, package)
@@ -1020,6 +1035,7 @@ class LiveCoach:
                                  **set_common)] if saved.exercise_name else []
             extra += progress_facts(saved.current.ordinal, saved.target_sets or None,
                                     next_exercise=_name(context, "nextExerciseName"), **set_common)
+            extra += telemetry.set_facts(telemetry.parse(context.get("setMetrics")), {**common, "ref": f"set:{set_id}"})
             package = replace(package, facts=package.facts + tuple(extra), source_signature=saved.source_signature)
             until = now - rest_elapsed + rest_ms - 3_000 if rest_ms else None
             c = candidate(package.trigger_id, "rest", f"set-result:{set_key}", until=until, hint=4_000,
