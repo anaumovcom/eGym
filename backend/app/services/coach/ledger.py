@@ -14,6 +14,7 @@ from app.core.config import get_settings
 from app.models.analytics import WorkoutSession
 from app.models.coach import CoachAttempt, CoachCredential, CoachJob, CoachLedgerRun, CoachReceipt, CoachResponseReceipt
 from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, UsageBounds
+from app.services.coach.journal import clean_fields
 from app.services.coach.preferences import load_preferences
 from app.services.coach.security import CREDENTIAL_IDS, digest
 
@@ -156,7 +157,9 @@ def snapshot(db: Session, run_id: str) -> dict:
             "capMicros": run.cap_micros, "settledMicros": settled, "pendingMicros": pending,
             "availableMicros": max(0, run.cap_micros - settled - pending), "requests": sum(a.sent_at is not None for a in attempts),
             "budget": budget_state(run, attempts),
-            "limitKind": "strict-reservations" if all(a.pricing.get("verified") and a.pricing.get("enforceableBounds") for a in attempts) and attempts else "target-no-paid-adapter",
+            "limitKind": "strict-reservations" if all(a.pricing.get("verified") and a.pricing.get("enforceableBounds")
+                                                      for a in attempts if a.status != "refused")
+                         and any(a.status != "refused" for a in attempts) else "target-no-paid-adapter",
             "attempts": [{"attemptId": a.id, "stage": a.stage, "model": a.model, "status": a.status,
                           "completeness": a.completeness, "usage": a.usage or None, "costMicros": a.cost_micros,
                           "reserveMicros": a.reserve_micros, "pricingVersion": a.pricing["version"],
@@ -213,7 +216,8 @@ def run_budget(db: Session, run_id: str) -> dict:
 
 
 def reserve(db: Session, run_id: str, owner: str, generation: int, opportunity: str, stage: str,
-            pricing: Pricing, bounds: UsageBounds, *, retry: int = 0, purpose: str = "live") -> str:
+            pricing: Pricing, bounds: UsageBounds, *, retry: int = 0, purpose: str = "live",
+            meta: dict | None = None) -> str:
     if (stage not in {"text", "voice"} or retry not in {0, 1} or not opportunity or len(opportunity) > 1024
             or purpose not in PURPOSES):
         raise HTTPException(422, "invalid_attempt")
@@ -232,7 +236,7 @@ def reserve(db: Session, run_id: str, owner: str, generation: int, opportunity: 
             raise HTTPException(409, "retry_not_eligible")
         if any(a.status in {"reserved", "sent"} for a in attempts):
             raise HTTPException(409, "pipeline_busy")
-        if len(attempts) >= 1024:
+        if sum(a.status != "refused" for a in attempts) >= 1024:
             raise HTTPException(429, "attempts_full")
         receipt = db.scalar(select(CoachReceipt).where(CoachReceipt.run_id == run_id, CoachReceipt.canonical == key))
         if receipt is None:
@@ -260,7 +264,7 @@ def reserve(db: Session, run_id: str, owner: str, generation: int, opportunity: 
         db.add(CoachAttempt(id=attempt_id, run_id=run_id, opportunity=key, stage=stage, ordinal=retry,
                             model=pricing.model, status="reserved", reserve_micros=amount, pricing=pricing.model_dump(by_alias=True),
                             bounds=bounds.model_dump(by_alias=True), generation=generation, credential_version=row.credential_version,
-                            created_at=time.time(), purpose=purpose))
+                            created_at=time.time(), purpose=purpose, **clean_fields(meta or {})))
         row.pricing = {**row.pricing, pricing.model: pricing.model_dump(by_alias=True)}
     return attempt_id
 

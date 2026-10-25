@@ -1,12 +1,15 @@
 import * as Popover from '@radix-ui/react-popover'
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useSafetyDockTarget } from '@/shared/ui/overlays/safety-dialog'
+import { useAppStore } from '@/stores/app-store'
+import { useRuntimeStore } from '@/stores/runtime-store'
 import { localAudioRuntime, type LocalAudioRuntimeSnapshot } from '../audio/local-audio-runtime'
 import type { LocalAudioSnapshot } from '../audio/local-coach-audio-manager'
 import { coachLiveRuntime, coachNetworkClient, type LiveRuntimeSnapshot } from '../live/coach-live-runtime'
 import { redactedNetworkReport, type NetworkSnapshot } from '../live/coach-network-client'
 import { coachSettingsApi, type DailyUsage } from '../lib/settings-api'
 import type { CoachPreferences } from '../model/preferences'
+import { CoachRequestsTab, CoachSpendTab, errorText, money, useUnseenErrors } from './coach-requests-panel'
 import './coach-mini-debug.css'
 
 const reasons: Readonly<Record<string, string>> = {
@@ -165,14 +168,41 @@ export function CoachLocalPreview() {
   </section>
 }
 
+type PanelTab = 'requests' | 'spend' | 'status'
+const TAB_KEY = 'coach-panel-tab'
+const TABS: ReadonlyArray<readonly [PanelTab, string]> = [['requests', 'Запросы'], ['spend', 'Расход'], ['status', 'Состояние']]
+function readTab(): PanelTab {
+  try { const value = localStorage.getItem(TAB_KEY); return value === 'spend' || value === 'status' ? value : 'requests' } catch { return 'requests' }
+}
+
+/** Workout progress for the spend forecast: sets saved so far and sets still planned. */
+function useSetProgress(): { done: number; left: number } {
+  const session = useRuntimeStore(state => state.session)
+  if (!session) return { done: 0, left: 0 }
+  const done = Object.values(session.completedSets).reduce((sum, list) => sum + list.length, 0)
+  const planned = session.exercises.reduce((sum, exercise) => sum + exercise.plan.length, 0)
+  return { done, left: Math.max(0, planned - done) }
+}
+
 export function CoachMiniDebug() {
   const snapshot = useSyncExternalStore(localAudioRuntime.subscribe, localAudioRuntime.getSnapshot, localAudioRuntime.getSnapshot)
   const live = useSyncExternalStore(coachLiveRuntime.subscribe, coachLiveRuntime.getSnapshot, coachLiveRuntime.getSnapshot)
+  const userId = useAppStore(state => state.selectedUserId)
   const runUsage = live.network?.usage
-  const daily = useDailyUsage(runUsage ? `${runUsage.requests}:${runUsage.settledMicros}:${runUsage.pendingMicros}` : '')
+  const runId = live.network?.runId ?? null
+  const usageKey = runUsage ? `${runUsage.requests}:${runUsage.settledMicros}:${runUsage.pendingMicros}` : ''
+  const daily = useDailyUsage(usageKey)
+  const coachEnabled = import.meta.env.VITE_COACH_ENABLED === 'true'
+  const errors = useUnseenErrors(userId, runId, coachEnabled, usageKey)
+  const progress = useSetProgress()
   const dailyText = daily ? `Сегодня: ${daily.requests} платн. запр. на ${dayUsd(daily.totalMicros)}${daily.pendingMicros ? ` (из них в расчёте ${dayUsd(daily.pendingMicros)})` : ''}` : null
+  const workoutSpend = runUsage && runId ? runUsage.settledMicros + runUsage.pendingMicros : null
+  const workoutText = runUsage && workoutSpend !== null ? `Тренировка: ${runUsage.requests} запр. на ${money(workoutSpend)} из ${money(runUsage.capMicros)}` : null
+  const share = runUsage && workoutSpend !== null && runUsage.capMicros > 0 ? Math.min(1, workoutSpend / runUsage.capMicros) : null
   const target = useSafetyDockTarget()
   const [open, setOpen] = useState(false)
+  const [tab, setTabState] = useState<PanelTab>(readTab)
+  const setTab = (value: PanelTab) => { setTabState(value); try { localStorage.setItem(TAB_KEY, value) } catch { /* convenience only */ } }
   const triggerRef = useRef<HTMLButtonElement>(null)
   const [availableHeight, setAvailableHeight] = useState(0)
   const anchorRef = useRef({
@@ -185,7 +215,7 @@ export function CoachMiniDebug() {
       // can be empty. Include all controls as well as the enclosing header.
       const controls = [...(dockElement?.children ?? [])].map(element => element.getBoundingClientRect())
       const bottom = Math.max(dock?.bottom ?? 0, header?.bottom ?? trigger?.getBoundingClientRect().bottom ?? 0, ...controls.map(rect => rect.bottom))
-      const panelWidth = Math.min(460, window.innerWidth - 24)
+      const panelWidth = Math.min(560, window.innerWidth - 24)
       // Reserve the ENTIRE wrapped header/dock, not just the AI trigger's row.
       // Clamp the end-aligned virtual anchor horizontally before Radix places it.
       const right = Math.min(window.innerWidth - 12, Math.max(panelWidth + 12, dock?.right || header?.right || window.innerWidth - 12))
@@ -212,15 +242,29 @@ export function CoachMiniDebug() {
   useEffect(() => { if (target !== null) setOpen(false) }, [target])
   const locked = snapshot.reason === 'audio_locked' || (snapshot.previewAllowed && snapshot.audio?.contextState === 'suspended')
   const mode = coachMode(localAudioRuntime.getSavedPreferences(), live.network)
-  const coachEnabled = import.meta.env.VITE_COACH_ENABLED === 'true'
-  const title = [mode.title, reasonLabel(locked ? 'audio_locked' : snapshot.reason), dailyText].filter(Boolean).join(' · ')
+  const latestError = errors.latest ? `Последняя ошибка: ${errorText(errors.latest.errorCode, errors.latest.httpStatus)}` : null
+  const title = [mode.title, reasonLabel(locked ? 'audio_locked' : snapshot.reason), workoutText, dailyText, latestError].filter(Boolean).join(' · ')
+  const journal = coachEnabled && !!userId
+  const activeTab: PanelTab = journal ? tab : 'status'
+  const markSeen = errors.markSeen
+  const status = <>
+    {dailyText && <p className="coach-local-note">{dailyText}</p>}
+    <CoachLocalDiagnostics snapshot={snapshot} audio={live.audio ?? snapshot.audio} reason={live.audio ? live.reason : snapshot.reason} live={!!live.audio} />
+    <CoachLiveDiagnostics snapshot={live} />
+    {live.network && <CoachNetworkDiagnostics snapshot={live.network} />}
+  </>
   return <Popover.Root open={open && target === null} onOpenChange={value => setOpen(target === null && value)}>
     <Popover.Trigger asChild>
-      <button ref={triggerRef} type="button" className="coach-mini-debug-trigger" disabled={target !== null} aria-label="AI-тренер: локальная диагностика" title={title}>
+      <button ref={triggerRef} type="button" className="coach-mini-debug-trigger" disabled={target !== null} aria-label="AI-тренер: локальная диагностика" title={title}
+        data-budget={share === null ? undefined : share > 0.9 ? 'high' : share > 0.7 ? 'mid' : 'low'}
+        style={share === null ? undefined : { ['--coach-budget' as string]: String(share) }}>
         <span className="coach-mini-debug-mode" data-tone={mode.tone}>AI · {mode.label}</span>
         {coachEnabled && <>
-          <span>{daily ? `${daily.requests} запр.` : '—'}</span>
-          <span>{daily ? dayUsd(daily.totalMicros) : '—'}</span>
+          <span className="coach-mini-debug-requests">
+            {runUsage && runId ? `${runUsage.requests} запр.` : daily ? `${daily.requests} запр.` : '—'}
+            {errors.unseen > 0 && <span className="coach-mini-debug-errors" aria-label={`Новых ошибок: ${errors.unseen}`}>⚠ {errors.unseen}</span>}
+          </span>
+          <span>{workoutSpend !== null && runUsage ? `${money(workoutSpend)} / ${money(runUsage.capMicros)}` : daily ? dayUsd(daily.totalMicros) : '—'}</span>
         </>}
       </button>
     </Popover.Trigger>
@@ -230,12 +274,17 @@ export function CoachMiniDebug() {
     <Popover.Portal>
         {/* Never flip/shift into the protected header. Width and remaining height
           are constrained instead; Radix still owns placement, portal and focus. */}
-        <Popover.Content className="coach-mini-debug-popover" style={{ maxHeight: Math.min(640, availableHeight) }} aria-label="Локальная диагностика AI-тренера" side="bottom" align="end" sideOffset={8} avoidCollisions={false} updatePositionStrategy="always" onCloseAutoFocus={event => { if (target !== null) event.preventDefault() }}>
-        <header><h3>AI · Локальная диагностика</h3><Popover.Close aria-label="Закрыть диагностику AI">×</Popover.Close></header>
-        {dailyText && <p className="coach-local-note">{dailyText}</p>}
-        <CoachLocalDiagnostics snapshot={snapshot} audio={live.audio ?? snapshot.audio} reason={live.audio ? live.reason : snapshot.reason} live={!!live.audio} />
-        <CoachLiveDiagnostics snapshot={live} />
-        {live.network && <CoachNetworkDiagnostics snapshot={live.network} />}
+        <Popover.Content className="coach-mini-debug-popover" style={{ maxHeight: Math.min(760, availableHeight) }} aria-label="Локальная диагностика AI-тренера" side="bottom" align="end" sideOffset={8} avoidCollisions={false} updatePositionStrategy="always" onCloseAutoFocus={event => { if (target !== null) event.preventDefault() }}>
+        <header><h3>AI · Диагностика</h3><Popover.Close aria-label="Закрыть диагностику AI">×</Popover.Close></header>
+        {journal && <div className="coach-panel-tabs" role="tablist" aria-label="Разделы диагностики">
+          {TABS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} id={`coach-tab-${id}`}
+            onClick={() => setTab(id)}>{label}{id === 'requests' && errors.unseen > 0 ? <span className="coach-mini-debug-errors">⚠ {errors.unseen}</span> : null}</button>)}
+        </div>}
+        <div role={journal ? 'tabpanel' : undefined} aria-labelledby={journal ? `coach-tab-${activeTab}` : undefined}>
+          {activeTab === 'requests' && userId && <CoachRequestsTab userId={userId} runId={runId} onSeen={markSeen} />}
+          {activeTab === 'spend' && userId && <CoachSpendTab userId={userId} runId={runId} setsDone={progress.done} setsLeft={progress.left} />}
+          {activeTab === 'status' && status}
+        </div>
       </Popover.Content>
     </Popover.Portal>
   </Popover.Root>

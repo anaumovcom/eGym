@@ -220,6 +220,37 @@ describe('CoachMiniDebug', () => {
   })
 })
 
+describe('CoachMiniDebug header (VD)', () => {
+  it('shows workout spend against its cap, a budget bar and a badge for unseen errors', async () => {
+    vi.stubEnv('VITE_COACH_ENABLED', 'true')
+    localStorage.removeItem('coach-errors-seen:actual-A')
+    const createdAt = Date.now() / 1000 - 20
+    const error = { id: 'e1', group: 'g', runId: 'run-1', createdAt, finishedAt: createdAt, stage: 'voice', kind: 'voice', purpose: 'live',
+      model: 'drama-3', triggerId: 'T36', task: null, exerciseLabel: null, setOrdinal: 1, status: 'error', ledgerStatus: 'unsettled',
+      outcome: 'error', errorCode: 'http-402', httpStatus: 402, durationMs: 300, firstByteMs: null, retry: false, costMicros: 0, costSettled: false }
+    const fetchMock = vi.fn(async (url: string) => new Response(JSON.stringify(url.startsWith('/api/coach/usage/today')
+      ? { since: 0, requests: 9, settledMicros: 30_000, pendingMicros: 0, totalMicros: 30_000 }
+      : { rows: [error], nextCursor: null, totals: { total: 1, ok: 0, error: 1, cancelled: 0, refused: 0, pending: 0, settledMicros: 0,
+        pendingMicros: 0, totalMicros: 0, p50Ms: null, p95Ms: null, avgMicros: null } }), { status: 200 }))
+    vi.stubGlobal('fetch', fetchMock)
+    const live = coachLiveRuntime.getSnapshot()
+    const network = { state: 'ready', reason: null, mode: 'hybrid', voiceId: 'ash', text: true, voice: true, runId: 'run-1', degraded: false,
+      eventsSent: 3, streams: 2, spoken: 2, failed: 1, decisions: [], reasons: {}, lastText: null, firstAudioMs: null, firstAudioMsLabel: 'voice-only',
+      latencies: {}, serverTimings: {}, telemetry: { classified: 0, missingClassification: 0, pendingClassification: 0, retained: 0 },
+      usage: { requests: 6, settledMicros: 1_500_000, pendingMicros: 100_000, capMicros: 2_000_000, limitKind: 'strict-reservations', budget: null } } as const
+    const read = vi.spyOn(coachLiveRuntime, 'getSnapshot').mockReturnValue({ ...live, network })
+    try {
+      render(<CoachMiniDebug />)
+      const trigger = screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' })
+      expect(within(trigger).getByText('6 запр.')).toBeInTheDocument()
+      expect(within(trigger).getByText('$1.60 / $2.00')).toBeInTheDocument()
+      expect(trigger).toHaveAttribute('data-budget', 'mid')
+      expect(await within(trigger).findByLabelText('Новых ошибок: 1')).toBeInTheDocument()
+      expect(trigger.title).toContain('Последняя ошибка: Нет средств на счёте провайдера')
+    } finally { cleanup(); read.mockRestore(); vi.unstubAllEnvs() }
+  })
+})
+
 describe('CoachLocalPreview', () => {
   it('disables preparation and previews according to runtime while keeping stop available', () => {
     render(<CoachLocalPreview />)

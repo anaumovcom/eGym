@@ -68,6 +68,22 @@ class CoachAttempt(Base):
     created_at: Mapped[float] = mapped_column(Float)
     # V0 budget bucket: live | summary | scenario | prebuild | judge | episode.
     purpose: Mapped[str] = mapped_column(String(16), default="live", server_default="live")
+    # VD request journal: what the attempt was for and how it ended. Bounded, no keys/prompts/provider bodies.
+    trigger_id: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    task: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    exercise_label: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    set_ordinal: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    outcome: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    error_detail: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    first_byte_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    duration_ms: Mapped[float | None] = mapped_column(Float, nullable=True)
+    finished_at: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Spoken text only while the user keeps conversation memory on; erased with it (VD.6).
+    text_preview: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    markup_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    text_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class CoachReceipt(Base):

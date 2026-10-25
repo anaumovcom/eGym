@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.coach_limits import COACH_TEXT_OUTPUT_TOKENS
 from app.core.config import get_settings
 from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, UsageBounds
-from app.services.coach import ledger
+from app.services.coach import journal, ledger
 from app.services.coach.memory import CoachMemory
 from app.services.coach.prompts import PROMPT_VERSION, AuthorRequest, BuiltPrompt, build_prompt
 from app.services.coach.routing import Route, TaskClass, degrade, task_class
@@ -57,6 +57,9 @@ class AuthorResult:
     response_id: str
     complete: bool
     error: str | None = None
+    # VD journal only: HTTP status and a short sanitized provider error message.
+    http_status: int | None = None
+    detail: str | None = None
 
 
 def parse_response(payload: object) -> AuthorResult:
@@ -97,6 +100,18 @@ def parse_response(payload: object) -> AuthorResult:
                         None if isinstance(output, dict) else "provider_malformed")
 
 
+def provider_error_detail(response: httpx.Response) -> str | None:
+    try:
+        error = response.json().get("error")
+    except (ValueError, AttributeError):
+        return None
+    if not isinstance(error, dict):
+        return None
+    head = " ".join(str(error.get(key)) for key in ("type", "code") if isinstance(error.get(key), str))
+    message = error.get("message") if isinstance(error.get("message"), str) else ""
+    return journal.sanitize(f"{head}: {message}" if head else message, 300)
+
+
 class LunaTextAdapter:
     """Real Responses API call. Requires injected client and vault key; dispatch gate stays in the ledger."""
 
@@ -115,7 +130,9 @@ class LunaTextAdapter:
         response = await self.client.post(self.url, json=body, headers={"Authorization": f"Bearer {self._key}"})
         if response.status_code != 200:
             # Provider bodies are never forwarded; usage unknown keeps the reservation as liability.
-            return AuthorResult(None, None, f"http-{response.status_code}", False, "provider_error")
+            # Only the documented error code/message reaches the journal, sanitized and bounded.
+            return AuthorResult(None, None, f"http-{response.status_code}", False, "provider_error",
+                                http_status=response.status_code, detail=provider_error_detail(response))
         try:
             return parse_response(response.json())
         except ValueError:
@@ -189,13 +206,32 @@ class TextAuthor:
         return degrade(Route(cls, self.model, self.pricing, self.reasoning_effort, self.max_output_tokens,
                              self.timeout_s), tier)
 
+    def _journal(self, attempt_id: str | None, **fields) -> None:
+        """VD: best-effort request journal; never fails the line that reports it."""
+        if not attempt_id:
+            return
+        try:
+            with self.sessions() as db:
+                journal.annotate(db, attempt_id, **fields)
+        except Exception:  # noqa: BLE001 - diagnostics only
+            pass
+
+    def _refusal(self, run_id: str, reason: str, purpose: str, model: str, meta: dict) -> None:
+        try:
+            with self.sessions() as db:
+                journal.record_refusal(db, run_id, stage="text", purpose=purpose, reason=reason, model=model, meta=meta)
+        except Exception:  # noqa: BLE001 - diagnostics only
+            pass
+
     async def author(self, *, run_id: str, owner: str, generation: int, opportunity: str, request: AuthorRequest,
                      memory: CoachMemory | None = None, scope_epoch: int = 0, deadline_ms: float | None = None,
-                     local_available: bool = False, tier: int = 0, purpose: str | None = None) -> AuthorOutcome:
+                     local_available: bool = False, tier: int = 0, purpose: str | None = None,
+                     meta: dict | None = None) -> AuthorOutcome:
         built = build_prompt(request)
         route = self.route(request.task, tier)
         self.last_route = route
         purpose = purpose or ("summary" if request.summary else "live")
+        meta = {"trigger_id": request.trigger_id, "task": request.task, **(meta or {})}
         # All phases need room for reasoning + structured JSON, even a short cue.
         # Reserve the same full cap sent to the provider BEFORE every dispatch.
         body = request_body(route.model, built, route.max_output_tokens, route.reasoning_effort)
@@ -203,7 +239,9 @@ class TextAuthor:
         attempts: list[str] = []
         memory_revision = memory.revision if memory is not None else None
 
-        def fallback(reason: str) -> AuthorOutcome:
+        def fallback(reason: str, outcome: str = "error", **fields) -> AuthorOutcome:
+            if attempts:
+                self._journal(attempts[-1], outcome=outcome, error_code=reason, finished_at=time.time(), **fields)
             return AuthorOutcome("local" if local_available else "silence", reason, attempt_ids=tuple(attempts),
                                  prompt_hash=built.instructions_hash, schema_hash=built.schema_hash)
 
@@ -216,24 +254,36 @@ class TextAuthor:
             try:
                 with self.sessions() as db:
                     attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "text", route.pricing,
-                                                bounds, retry=retry, purpose=purpose)
+                                                bounds, retry=retry, purpose=purpose, meta=meta)
                     attempts.append(attempt_id)
                     ledger.dispatch(db, attempt_id, owner, test_only=self.adapter.test_only,
                                     adapter=None if self.adapter.test_only else self.adapter.name)
             except HTTPException as error:
+                reason = _REASONS.get(str(error.detail), "provider_unavailable")
                 if attempt_id is not None:
                     with self.sessions() as db:
                         ledger.cancel_reserved(db, attempt_id)
-                return fallback(_REASONS.get(str(error.detail), "provider_unavailable"))
+                    return fallback(reason, "cancelled", error_detail=str(error.detail))
+                self._refusal(run_id, str(error.detail), purpose, route.model, meta)
+                return fallback(reason)
+            started = time.monotonic()
             try:
                 # No DB transaction spans the provider await.
                 result = await asyncio.wait_for(self.adapter.author(body), timeout=route.timeout_s)
             except (asyncio.CancelledError, Exception) as error:
                 with self.sessions() as db:
                     ledger.mark_unsettled(db, attempt_id)
+                elapsed = (time.monotonic() - started) * 1000
                 if isinstance(error, asyncio.CancelledError):
+                    self._journal(attempt_id, outcome="cancelled", error_code="cancelled", duration_ms=elapsed,
+                                  finished_at=time.time())
                     raise
-                return fallback("provider_timeout" if isinstance(error, TimeoutError) else "provider_error")
+                timeout = isinstance(error, TimeoutError)
+                return fallback("provider_timeout" if timeout else "provider_error", duration_ms=elapsed,
+                                error_detail=None if timeout else type(error).__name__)
+            elapsed = (time.monotonic() - started) * 1000
+            self._journal(attempt_id, duration_ms=elapsed, http_status=result.http_status,
+                          error_detail=result.detail)
             with self.sessions() as db:
                 try:
                     ledger.settle(db, attempt_id, result.response_id, result.usage, terminal=True,
@@ -243,25 +293,34 @@ class TextAuthor:
                     return fallback("usage_unsettled")
                 run = ledger.get_run(db, run_id)
                 if run.generation != generation or run.state != "active":
-                    return fallback("scope_changed")
+                    return fallback("scope_changed", "stale")
             if not facts_current(request, scope_epoch, self.now_ms()):
-                return fallback("scope_changed")
+                return fallback("scope_changed", "stale")
             if memory is not None and memory.revision != memory_revision:
-                return fallback("scope_changed")  # Deletion/expiry while awaiting must not refill memory.
+                return fallback("scope_changed", "stale")  # Deletion/expiry while awaiting must not refill memory.
             if result.output is None:
                 return fallback(result.error or "provider_error")
             verdict = validate(result.output, request, memory)
             if verdict.ok:
                 if verdict.action == "silence":
+                    self._journal(attempt_id, outcome="silence", error_code=verdict.reason, finished_at=time.time())
                     return AuthorOutcome("silence", verdict.reason, attempt_ids=tuple(attempts),
                                          prompt_hash=built.instructions_hash, schema_hash=built.schema_hash)
                 if memory is not None:
                     memory.note_attempted(request.topic_key, intent=result.output["intent"])
+                self._journal(attempt_id, outcome="speech", finished_at=time.time())
                 return AuthorOutcome("speech", None, verdict.speech, verdict.used_fact_ids, verdict.delivery,
                                      tuple(attempts), PROMPT_VERSION, built.instructions_hash, built.schema_hash,
                                      intent=result.output["intent"])
+            # The rejected draft stays out of the journal: only the reason is recorded.
+            self._journal(attempt_id, outcome="rejected", error_code=f"validation_failed:{verdict.reason}",
+                          finished_at=time.time())
             # One calm summary retry with a new reserve and enough time; never a recursive joke hunt.
             time_left = deadline_ms is None or deadline_ms - self.now_ms() >= route.timeout_s * 1000
             if not (request.summary and retry == 0 and time_left):
-                return fallback(f"validation_failed:{verdict.reason}")
-        return fallback("validation_failed")
+                attempts_snapshot = tuple(attempts)
+                return AuthorOutcome("local" if local_available else "silence", f"validation_failed:{verdict.reason}",
+                                     attempt_ids=attempts_snapshot, prompt_hash=built.instructions_hash,
+                                     schema_hash=built.schema_hash)
+        return AuthorOutcome("local" if local_available else "silence", "validation_failed", attempt_ids=tuple(attempts),
+                             prompt_hash=built.instructions_hash, schema_hash=built.schema_hash)

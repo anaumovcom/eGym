@@ -2,6 +2,7 @@ import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { CoachFrameError, decodeCoachFrame, pcmDurationMs } from '../audio/coach-frames'
 import type { AudioReason, LocalAudioSnapshot, LocalCoachAudioManager, NetworkAudioSource } from '../audio/local-coach-audio-manager'
 import { exactRepTarget, type SetTimerInput } from '../interpreter/coach-interpreter'
+import { parseBudget, type BudgetState } from '../lib/diagnostics-api'
 import { coachEventIds } from '../lib/event-ids'
 import type { LifecycleContext, LifecycleRefs, LifecycleVersions } from '../lib/lifecycle-observer'
 import { coachRunId, type CoachEvent, type CoachEventKind, type CoachPhase, type CoachScope, type CoachSpeechIdentity } from '../model/contracts'
@@ -23,9 +24,13 @@ export type NetworkTick = Readonly<{
 }>
 export type NetworkState = 'off' | 'creating' | 'connecting' | 'ready' | 'retrying' | 'refused'
 export type NetworkDecision = Readonly<{ atMs: number; triggerId: string | null; action: string; reason: string | null; text: string | null }>
-export type NetworkUsage = Readonly<{ requests: number; settledMicros: number; pendingMicros: number; capMicros: number; limitKind: string }>
+export type NetworkUsage = Readonly<{ requests: number; settledMicros: number; pendingMicros: number; capMicros: number; limitKind: string
+  /** V0 budget buckets and degradation tier of this workout's ledger. */
+  budget: BudgetState | null }>
 export type NetworkSnapshot = Readonly<{
   state: NetworkState; reason: string | null; mode: string | null; voiceId: string | null; text: boolean; voice: boolean
+  /** Billing ledger of the current workout (not secret: the run token never leaves the client). */
+  runId: string | null
   degraded: boolean; eventsSent: number; streams: number; spoken: number; failed: number
   decisions: readonly NetworkDecision[]; reasons: Readonly<Record<string, number>>; usage: NetworkUsage | null
   lastText: string | null; firstAudioMs: number | null
@@ -226,6 +231,7 @@ export class CoachNetworkClient {
   }
   getSnapshot = (): NetworkSnapshot => this.snap ??= Object.freeze({
     state: this.state, reason: this.reason, mode: this.configured?.mode ?? null, voiceId: this.configured?.voiceId ?? null,
+    runId: this.run?.runId ?? null,
     text: this.configured?.text ?? false, voice: this.configured?.voice ?? false, degraded: this.configured?.degraded ?? false,
     ...this.counters, decisions: Object.freeze([...this.decisions]), reasons: Object.freeze({ ...this.reasons }),
     usage: this.usage, lastText: this.lastText, firstAudioMs: this.firstAudioMs,
@@ -457,8 +463,10 @@ export class CoachNetworkClient {
       if (!response.ok) return
       const body = object(await response.json())
       if (!body || this.run !== run) return
+      let budget: BudgetState | null = null
+      try { budget = parseBudget(body.budget) } catch { budget = null }
       this.usage = Object.freeze({ requests: num(body.requests) ?? 0, settledMicros: num(body.settledMicros) ?? 0,
-        pendingMicros: num(body.pendingMicros) ?? 0, capMicros: num(body.capMicros) ?? 0, limitKind: str(body.limitKind, 60) ?? '' })
+        pendingMicros: num(body.pendingMicros) ?? 0, capMicros: num(body.capMicros) ?? 0, limitKind: str(body.limitKind, 60) ?? '', budget })
       this.changed()
     } catch { /* usage is diagnostics only */ } finally { this.usageBusy = false }
   }
@@ -617,6 +625,7 @@ export class CoachNetworkClient {
     const first = num(message.firstAudioMs)
     if (first !== null && first >= 0 && first <= MAX_TIMING_MS) this.firstAudioMs = Math.round(first)
     if (message.status !== 'complete') this.count(str(message.reason, 80) ?? str(message.status, 40) ?? 'incomplete')
+    this.usageAt = -Infinity // The header's spend follows each paid line instead of waiting for the next 15 s poll.
     if (gid && active && message.status !== 'complete' && !active.final) {
       this.note(str(message.reason, 80) ?? 'provider_error', { triggerId: null, action: active.started ? 'interrupted' : 'rejected', text: null })
       this.failStream(gid, active)

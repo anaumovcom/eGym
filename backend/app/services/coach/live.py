@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.schemas.coach import CoachEvent, CoachScope
 from app.schemas.coach_control import CoachPreferences
-from app.services.coach import history, ledger, security
+from app.services.coach import history, journal, ledger, security
 from app.services.coach.completion import LocalCompletion, additional_package, duplicate_local, useful_addition
 from app.services.coach.context import CoachContext, build_context
 from app.services.coach.director import Candidate, Director
@@ -1030,7 +1030,7 @@ class LiveCoach:
                                                opportunity=opportunity, request=request,
                                                memory=self.memory, scope_epoch=op.scope.scope_epoch,
                                                deadline_ms=op.candidate.valid_until_ms, tier=self.budget_tier(),
-                                               purpose=self._purpose(op))
+                                               purpose=self._purpose(op), meta=self._journal_meta(op))
         finally:
             self._mark(op, "textEnd")
         # Some providers swallow CancelledError. Task cancellation and terminal work
@@ -1041,6 +1041,10 @@ class LiveCoach:
         if outcome.kind != "speech":
             await self._decision(op.event_id, trigger, "silence", outcome.reason or "no_useful_content")
             return
+        if self.settings.memory_enabled and outcome.attempt_ids:
+            # VD.6: the spoken text joins the journal only under conversation memory, and expires with it.
+            with contextlib.suppress(Exception), self.sessions() as db:
+                journal.annotate(db, outcome.attempt_ids[-1], text_preview=outcome.text)
         if duplicate_local(outcome.text, op.local_completion):
             await self._decision(op.event_id, trigger, 'silence', 'no_useful_content')
             return
@@ -1103,7 +1107,7 @@ class LiveCoach:
             async with contextlib.aclosing(self.voice.stream(
                     run_id=self.run_id, owner=self.owner, generation=self.generation, opportunity=opportunity,
                     text=outcome.text, scope=op.scope, generation_id=gid, outcome=voice, delivery=delivery,
-                    purpose=self._purpose(op))) as frames:
+                    purpose=self._purpose(op), meta=self._journal_meta(op))) as frames:
                 async for frame in frames:
                     self._voice_state(op, voice)
                     if not self._current(op):
@@ -1160,6 +1164,14 @@ class LiveCoach:
         self._mark(op, "speechEnd")
         await self.send_json({"type": "speech_end", "generationId": gid, "status": voice.status,
                               "reason": voice.reason or None, "frames": voice.frames, **self._speech_metadata(op, voice)})
+
+    @staticmethod
+    def _journal_meta(op: Opportunity) -> dict:
+        """What the panel shows next to a request: the exercise and set, never facts or prompts."""
+        name = next((f.value for f in (op.package.facts if op.package else ()) if f.id == "exercise"
+                     and isinstance(f.value, str)), None)
+        return {"trigger_id": op.candidate.trigger_id, "task": op.task, "exercise_label": name,
+                "set_ordinal": op.scope.set_ordinal}
 
     @staticmethod
     def _purpose(op: Opportunity) -> str:

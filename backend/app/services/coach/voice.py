@@ -25,7 +25,7 @@ from app.core.coach_limits import COACH_VOICE_REASONING_TOKENS
 from app.core.config import get_settings
 from app.schemas.coach import CoachAudio, CoachScope
 from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, UsageBounds
-from app.services.coach import ledger
+from app.services.coach import journal, ledger
 from app.services.coach.ports import AudioChunk
 from app.services.coach.prompts import (
     EMPHASIS,
@@ -120,9 +120,31 @@ PROFILE_PRESENTATION = {
 
 
 class VoiceError(Exception):
-    def __init__(self, reason: str):
+    def __init__(self, reason: str, *, http_status: int | None = None, detail: str | None = None):
         super().__init__(reason)
         self.reason = reason
+        # VD journal only: never forwarded to the browser speech stream.
+        self.http_status, self.detail = http_status, detail
+
+
+async def http_error(response: httpx.Response) -> VoiceError:
+    """A short sanitized provider message for the journal; the body is read at most 2 KB."""
+    detail = None
+    with contextlib.suppress(Exception):
+        raw = b""
+        async for chunk in response.aiter_bytes():
+            raw += chunk
+            if len(raw) > 2048:
+                break
+        text = raw[:2048].decode("utf-8", "replace")
+        with contextlib.suppress(ValueError):
+            payload = json.loads(text)
+            if isinstance(payload, dict):
+                error = payload.get("error") if isinstance(payload.get("error"), dict) else payload
+                text = " ".join(str(error.get(key)) for key in ("type", "code", "status", "message", "detail")
+                                if isinstance(error.get(key), str | int))
+        detail = journal.sanitize(text, 300)
+    return VoiceError(f"http-{response.status_code}", http_status=response.status_code, detail=detail)
 
 
 @dataclass(frozen=True, slots=True)
@@ -493,7 +515,7 @@ class TtsVoiceAdapter:
         async with self._client.stream("POST", self.url, json=body,
                                        headers={"Authorization": f"Bearer {self._key}"}) as response:
             if response.status_code != 200:
-                raise VoiceError(f"http-{response.status_code}")
+                raise await http_error(response)
             self.last_response_id = (response.headers.get("x-request-id") or generation_id)[:120]
             async for line in response.aiter_lines():
                 if not line.startswith("data:"):
@@ -556,6 +578,7 @@ class FishVoiceAdapter:
         self.capability = VoiceCapability("fish", model, (reference_id or "default",), verbatim_input=True,
                                           verified=_operator_verified())
         self.reference_id, self.emotion, self.emotive = reference_id, emotion, emotion != "off"
+        self.last_request_bytes: tuple[int, int] | None = None  # (spoken text bytes, whole request text bytes)
         self.last_usage: ReportedUsage | PartialUsage | None = None
         self.last_response_id = ""
         self.last_transcript: str | None = None
@@ -575,12 +598,13 @@ class FishVoiceAdapter:
         _check_text(text)
         self.last_usage, self.last_transcript = None, None
         body = self.request(text, delivery)
+        self.last_request_bytes = (len(text.encode()), len(body["text"].encode()))
         framer = PcmFramer(generation_id, generation_id, scope, "fish")
         # A missing/misspelt model header silently falls back to s2.1-pro, so it is always sent explicitly.
         async with self._client.stream("POST", self.url, json=body, headers={
                 "Authorization": f"Bearer {self._key}", "model": self.capability.model}) as response:
             if response.status_code != 200:
-                raise VoiceError(f"http-{response.status_code}")
+                raise await http_error(response)
             if response.headers.get("content-type", "").startswith("application/json"):
                 raise VoiceError("provider_malformed")  # an error body must never be played as PCM
             self.last_response_id = (response.headers.get("x-request-id") or generation_id)[:120]
@@ -869,9 +893,16 @@ class VoiceStreamer:
             run = ledger.get_run(db, run_id)
             return run.state == "active" and run.generation == generation
 
+    def _journal(self, attempt_id: str | None, **fields) -> None:
+        if not attempt_id:
+            return
+        with contextlib.suppress(Exception):  # Diagnostics only.
+            with self.sessions() as db:
+                journal.annotate(db, attempt_id, **fields)
+
     async def stream(self, *, run_id: str, owner: str, generation: int, opportunity: str, text: str, scope: CoachScope,
                      generation_id: str, outcome: VoiceOutcome, delivery: Delivery | None = None,
-                     purpose: str = "live") -> AsyncIterator[bytes]:
+                     purpose: str = "live", meta: dict | None = None) -> AsyncIterator[bytes]:
         outcome.model = self.adapter.capability.model[:96]
         outcome.source = self.adapter.name
         # A refused request never inherits the preceding request's socket classification.
@@ -884,9 +915,13 @@ class VoiceStreamer:
         try:
             with self.sessions() as db:
                 outcome.attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "voice", self.pricing, bounds,
-                                                    purpose=purpose)
+                                                    purpose=purpose, meta=meta)
         except HTTPException as error:
             outcome.status, outcome.reason = "refused", str(error.detail)
+            with contextlib.suppress(Exception):
+                with self.sessions() as db:
+                    journal.record_refusal(db, run_id, stage="voice", purpose=purpose, reason=str(error.detail),
+                                           model=self.pricing.model, meta=meta)
             return
         try:
             with self.sessions() as db:
@@ -895,11 +930,13 @@ class VoiceStreamer:
             with self.sessions() as db:
                 ledger.cancel_reserved(db, outcome.attempt_id)
             outcome.status, outcome.reason = "refused", str(error.detail)
+            self._journal(outcome.attempt_id, outcome="cancelled", error_code=str(error.detail), finished_at=time.time())
             return
         started = self.now_s()
         iterator = self.adapter.stream(text, scope, generation_id, delivery,
                                        max_output_tokens=bounds.output_tokens + bounds.audio_output_tokens).__aiter__()
         settled = False
+        failure: VoiceError | None = None
         try:
             while True:
                 limit = self.first_timeout if outcome.frames == 0 else self.total_timeout - (self.now_s() - started)
@@ -930,6 +967,7 @@ class VoiceStreamer:
             elif self.adapter.capability.verbatim_input:
                 outcome.transcript = TranscriptCheck("unavailable", "verbatim-input", None, None)
         except VoiceError as error:
+            failure = error
             outcome.status, outcome.reason = ("cancelled" if error.reason == "scope_changed" else "failed"), error.reason
         except (asyncio.CancelledError, GeneratorExit):
             outcome.status, outcome.reason = "cancelled", "cancelled"
@@ -940,6 +978,14 @@ class VoiceStreamer:
             if not settled:
                 with self.sessions() as db:
                     ledger.mark_unsettled(db, outcome.attempt_id)
+            sizes = getattr(self.adapter, "last_request_bytes", None)
+            ended = {"complete": "spoken", "cancelled": "cancelled"}.get(outcome.status, "error")
+            self._journal(outcome.attempt_id, outcome=ended, error_code=outcome.reason or None,
+                          first_byte_ms=outcome.first_audio_ms, duration_ms=(self.now_s() - started) * 1000,
+                          finished_at=time.time(), http_status=failure.http_status if failure else None,
+                          error_detail=failure.detail if failure else None,
+                          text_bytes=sizes[0] if sizes else len(text.encode()),
+                          markup_bytes=sizes[1] - sizes[0] if sizes else None)
 
     def _connection(self, outcome: VoiceOutcome) -> None:
         value = getattr(self.adapter, "last_connection_class", "unknown")

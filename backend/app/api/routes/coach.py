@@ -11,6 +11,7 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     HTTPException,
+    Query,
     Request,
     Response,
     WebSocket,
@@ -42,7 +43,7 @@ from app.schemas.coach_control import (
     RunBind,
     RunCreate,
 )
-from app.services.coach import ledger, live, pack_generation, packs, security
+from app.services.coach import journal, ledger, live, pack_generation, packs, security
 from app.services.coach.preferences import load_preferences, save_preferences
 
 router = APIRouter()
@@ -66,6 +67,8 @@ def get_preferences(user_id: str, response: Response, db: Session = Depends(get_
 def put_preferences(user_id: str, payload: PreferencesSave, request: Request, response: Response, db: Session = Depends(get_session)):
     security.safe_request(request)
     settings = save_preferences(db, user_id, payload)
+    if not settings.memory_enabled:
+        journal.forget_previews(db, user_id)  # VD.6: spoken texts leave the journal with the memory.
     response.headers["Cache-Control"] = "no-store"
     response.headers["ETag"] = f'"{settings.revision}"'
     return settings
@@ -189,6 +192,69 @@ def daily_usage(request: Request, response: Response, since: float | None = None
         raise HTTPException(422, "invalid_since")
     response.headers["Cache-Control"] = "no-store"
     return ledger.daily_usage(db, since)
+
+
+JOURNAL_PERIODS = {"today", "7d", "run"}
+
+
+def journal_since(db: Session, period: str, since: float | None, run_id: str | None, user_id: str) -> float:
+    """Local midnight from the client for «today»; a run starts at its creation; 7 days at most."""
+    now = time.time()
+    if period not in JOURNAL_PERIODS:
+        raise HTTPException(422, "invalid_period")
+    if period == "run":
+        if not run_id:
+            raise HTTPException(422, "run_required")
+        run = db.get(CoachLedgerRun, run_id)
+        if run is None or run.user_id != user_id:
+            raise HTTPException(404, "run_not_found")
+        return run.created_at - 1
+    if period == "7d":
+        return now - 7 * 86_400
+    if since is None:
+        return now - now % 86_400
+    if not now - 2 * 86_400 <= since <= now + 60:
+        raise HTTPException(422, "invalid_since")
+    return since
+
+
+@router.get("/coach/requests")
+def request_journal(request: Request, response: Response, user_id: str = Query(alias="userId", max_length=120),
+                    period: str = "today", since: float | None = None, run_id: str | None = Query(None, alias="runId",
+                                                                                                  max_length=64),
+                    status: str = "all", kind: str = "all", cursor: str | None = Query(None, max_length=120),
+                    limit: int = Query(50, ge=1, le=200), db: Session = Depends(get_session)):
+    """VD: the user's Coach requests, newest first, with totals for the selected period/kind."""
+    security.safe_request(request, mutation=False)
+    load_preferences(db, user_id)
+    if status not in {"all", *journal.STATUSES} or kind not in {"all", *journal.KINDS}:
+        raise HTTPException(422, "invalid_filter")
+    response.headers["Cache-Control"] = "no-store"
+    return journal.requests(db, user_id=user_id, since=journal_since(db, period, since, run_id, user_id),
+                            run_id=run_id if period == "run" else None, status=status, kind_filter=kind,
+                            cursor=cursor, limit=limit)
+
+
+@router.get("/coach/requests/{attempt_id}")
+def request_card(attempt_id: str, request: Request, response: Response,
+                 user_id: str = Query(alias="userId", max_length=120), db: Session = Depends(get_session)):
+    security.safe_request(request, mutation=False)
+    found = journal.request_detail(db, user_id, attempt_id[:64])
+    if found is None:
+        raise HTTPException(404, "request_not_found")
+    response.headers["Cache-Control"] = "no-store"
+    return found
+
+
+@router.get("/coach/usage/summary")
+def usage_summary(request: Request, response: Response, user_id: str = Query(alias="userId", max_length=120),
+                  period: str = "today", since: float | None = None,
+                  run_id: str | None = Query(None, alias="runId", max_length=64), db: Session = Depends(get_session)):
+    security.safe_request(request, mutation=False)
+    load_preferences(db, user_id)
+    response.headers["Cache-Control"] = "no-store"
+    return journal.usage_summary(db, user_id=user_id, since=journal_since(db, period, since, run_id, user_id),
+                                 run_id=run_id)
 
 
 @router.post("/coach/runs")
@@ -395,6 +461,7 @@ def delete_memory(user_id: str, request: Request, db: Session = Depends(get_sess
     security.safe_request(request)
     load_preferences(db, user_id)  # 404 for unknown users
     db.rollback()
+    journal.forget_previews(db, user_id)
     return {"cleared": live.forget_user(user_id), "persistentMemory": False}
 
 

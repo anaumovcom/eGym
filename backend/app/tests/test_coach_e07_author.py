@@ -440,7 +440,8 @@ async def test_author_budget_and_unverified_pricing_never_call_provider(session_
     fake = FakeTextAuthor(lambda body: GOOD)
     result = await author(session_factory, fake).author(run_id=run_id, owner="tab-a", generation=generation,
                                                         opportunity="o", request=REQ, scope_epoch=1)
-    assert result.reason == "budget" and not fake.calls and attempts(session_factory, run_id) == []
+    # VD: the refusal is journaled as a zero-cost row, never a reservation or a provider call.
+    assert result.reason == "budget" and not fake.calls and attempts(session_factory, run_id) == [("refused", 0)]
     unverified = PRICE.model_copy(update={"verified": False})
     result = await author(session_factory, fake, unverified).author(
         run_id=run_id, owner="tab-a", generation=generation, opportunity="o", request=REQ, scope_epoch=1)

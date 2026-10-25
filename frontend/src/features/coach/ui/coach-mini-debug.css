@@ -15,9 +15,19 @@
 .coach-mini-debug-mode[data-tone='pending']::before { background: #fbbf24; }
 .coach-mini-debug-mode[data-tone='live']::before { background: #4ade80; box-shadow: 0 0 6px #4ade80aa; }
 .coach-mini-debug-mode[data-tone='error']::before { background: #f87171; }
+/* VD: budget bar under the trigger (workout spend / cap) and the unseen-errors badge. */
+.coach-mini-debug-trigger { position: relative; }
+.coach-mini-debug-trigger[data-budget]::after {
+  content: ''; position: absolute; left: 6px; bottom: 3px; height: 2px; border-radius: 2px;
+  width: calc((100% - 12px) * var(--coach-budget, 0)); background: #4ade80;
+}
+.coach-mini-debug-trigger[data-budget='mid']::after { background: #fbbf24; }
+.coach-mini-debug-trigger[data-budget='high']::after { background: #f87171; }
+.coach-mini-debug-requests { display: inline-flex; align-items: center; gap: 4px; }
+.coach-mini-debug-errors { display: inline-flex; align-items: center; padding: 0 4px; border-radius: 6px; background: #ef444433; color: #fca5a5; font-weight: 700; }
 
 .coach-mini-debug-popover {
-  z-index: 45; box-sizing: border-box; width: min(460px, calc(100vw - 24px));
+  z-index: 45; box-sizing: border-box; width: min(560px, calc(100vw - 24px));
   min-height: 0; overflow: auto; overscroll-behavior: contain;
   padding: 18px; border: 1px solid #a78bfa50; border-radius: 18px;
   background: linear-gradient(145deg, #192033, #101722); color: #f1f5f9;
@@ -53,4 +63,65 @@
   :is(.forma-system-dock, .forma-header-side):has(.coach-mini-debug-trigger) .forma-stop span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
   :is(.forma-system-dock, .forma-header-side):has(.coach-mini-debug-trigger) .forma-stop::after { content: 'СТОП'; }
   :is(.forma-system-dock, .forma-header-side):has(.coach-mini-debug-trigger) .forma-machine-status-button { width: 44px; min-height: 44px; padding: 0; justify-content: center; }
+}
+/* VD panel: tabs, request journal, spend. Status colours always come with an icon/label, never colour alone. */
+.coach-panel-tabs { display: flex; gap: 4px; margin: 12px 0; padding: 3px; border-radius: 12px; background: #ffffff0a; }
+.coach-panel-tabs button { flex: 1; min-height: 40px; border-radius: 9px; color: #cbd5e1; font-weight: 600; display: inline-flex; justify-content: center; align-items: center; gap: 6px; }
+.coach-panel-tabs button[aria-selected='true'] { background: #8b5cf633; color: #f5f3ff; }
+.coach-journal-summary { display: flex; flex-wrap: wrap; gap: 6px 12px; margin: 0 0 10px; color: #cbd5e1; font-variant-numeric: tabular-nums; }
+.coach-journal-summary .is-ok { color: #86efac; }
+.coach-journal-summary .is-refused { color: #fcd34d; }
+.coach-journal-summary button.is-error { color: #fca5a5; font-weight: 700; padding: 0 6px; border-radius: 6px; background: #ef44441f; }
+.coach-journal-summary button.is-error:disabled { background: transparent; color: #94a3b8; font-weight: 400; }
+.coach-journal-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 10px; }
+.coach-journal-filters label, .coach-spend-period { display: grid; gap: 3px; font-size: 11px; color: #94a3b8; }
+.coach-journal-filters .rt-input, .coach-spend-period .rt-input { min-height: 36px; padding: 4px 8px; font-size: 12px; }
+.coach-journal-incoming { position: sticky; top: 0; z-index: 1; width: 100%; min-height: 36px; margin-bottom: 8px; border-radius: 10px; background: #7c3aed; color: #fff; font-weight: 700; }
+.coach-journal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.coach-journal-item { border-radius: 12px; border: 1px solid #ffffff12; border-left: 3px solid #4ade8080; background: #ffffff06; }
+.coach-journal-item[data-status='error'] { border-color: #ef444466; border-left-color: #ef4444; background: #ef444418; }
+.coach-journal-item[data-status='refused'] { border-left-color: #f59e0b; background: #f59e0b10; }
+.coach-journal-item[data-status='cancelled'] { border-left-color: #64748b; opacity: .8; }
+.coach-journal-item[data-status='pending'] { border-left-color: #a78bfa; }
+.coach-journal-item[data-fresh] { animation: coach-journal-fresh 2s ease-out; }
+@keyframes coach-journal-fresh { from { box-shadow: 0 0 0 2px #a78bfa; } to { box-shadow: 0 0 0 0 transparent; } }
+.coach-journal-row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 8px; align-items: start; width: 100%; padding: 8px 10px; text-align: left; border-radius: 12px; }
+.coach-journal-row:focus-visible { outline: 2px solid #c4b5fd; outline-offset: -2px; }
+.coach-journal-icon { font-weight: 800; text-align: center; color: #86efac; }
+.coach-journal-item[data-status='error'] .coach-journal-icon { color: #f87171; }
+.coach-journal-item[data-status='refused'] .coach-journal-icon { color: #fbbf24; }
+.coach-journal-item[data-status='cancelled'] .coach-journal-icon { color: #94a3b8; }
+.coach-journal-main { display: grid; min-width: 0; }
+.coach-journal-title { font-weight: 600; color: #f1f5f9; }
+.coach-journal-sub { font-size: 11px; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.coach-journal-reason { font-size: 12px; color: #fca5a5; }
+.coach-journal-item[data-status='refused'] .coach-journal-reason { color: #fcd34d; }
+.coach-journal-item[data-status='cancelled'] .coach-journal-reason { color: #cbd5e1; }
+.coach-journal-meta { display: grid; justify-items: end; font-size: 11px; color: #cbd5e1; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.coach-journal-expanded { padding: 0 10px 10px 40px; }
+.coach-journal-steps { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.coach-journal-steps button { min-height: 32px; padding: 0 10px; border-radius: 8px; background: #ffffff0d; font-size: 11px; }
+.coach-journal-steps button[aria-pressed='true'] { background: #8b5cf640; }
+.coach-journal-steps button[data-status='error'] { color: #fca5a5; }
+.coach-journal-error, .coach-journal-warning { display: grid; gap: 4px; margin: 6px 0; padding: 8px 10px; border-radius: 10px; background: #ef444422; color: #fecaca; }
+.coach-journal-warning { background: #f59e0b1a; color: #fde68a; }
+.coach-journal-error code, .coach-journal-warning code { font-size: 11px; color: #e2e8f0; }
+.coach-journal-provider { font-size: 12px; color: #fee2e2; overflow-wrap: anywhere; }
+.coach-journal-text { margin: 8px 0; padding: 8px 10px; border-left: 3px solid #a78bfa; background: #ffffff08; color: #e9ddff; font-style: italic; }
+.coach-journal-more { width: 100%; margin-top: 8px; }
+.coach-spend-bar { display: grid; grid-template-columns: 1fr auto; gap: 4px 8px; margin: 10px 0; font-variant-numeric: tabular-nums; }
+.coach-spend-bar > div { grid-column: 1 / -1; height: 6px; border-radius: 3px; background: #ffffff14; overflow: hidden; }
+.coach-spend-bar i { display: block; height: 100%; background: #4ade80; }
+.coach-spend-bar[data-level='mid'] i { background: #fbbf24; }
+.coach-spend-bar[data-level='high'] i { background: #f87171; }
+.coach-spend dd[data-tier='3'], .coach-spend dd[data-tier='4'] { color: #fca5a5; }
+.coach-spend dd[data-tier='1'], .coach-spend dd[data-tier='2'] { color: #fcd34d; }
+.coach-spend-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.coach-spend-table th, .coach-spend-table td { padding: 5px 4px; border-bottom: 1px solid #ffffff0d; text-align: right; }
+.coach-spend-table th:first-child, .coach-spend-table td:first-child { text-align: left; overflow-wrap: anywhere; }
+.coach-spend-table th { color: #94a3b8; font-weight: 600; }
+.coach-spend-table td[data-error] { color: #fca5a5; font-weight: 700; }
+@media (max-width: 600px) {
+  .coach-journal-filters { grid-template-columns: 1fr; }
+  .coach-journal-expanded { padding-left: 10px; }
 }
