@@ -48,11 +48,13 @@ from app.services.coach.triggers import TRIGGERS
 from app.services.coach.voice import (
     Delivery,
     FishVoiceAdapter,
+    PcmFramer,
     RealtimeVoiceAdapter,
     TtsVoiceAdapter,
     VoiceOutcome,
     VoiceStreamer,
     decode_frame,
+    encode_frame,
     select_delivery,
     situational_delivery_enabled,
     voice_pricing,
@@ -85,6 +87,11 @@ TIER_SHORT_REST, TIER_SHORT_REST_WORDS = 2, 25
 SCENARIO_PROPOSALS = 4
 SCENARIO_IDLE_WAIT_S = 20.0
 SCENARIO_WORDS = 30
+# V8: prepared story lines (exercise intros, act starts, the boss, the last-set cheer) built while the user prepares.
+PREBUILD_START_DELAY_S = 3.0
+PREBUILD_IDLE_WAIT_S = 60.0
+PREBUILD_VALID_MS = 2 * 3_600_000
+PREBUILD_MAX_LINES = 12
 SPEECH_TIMING_STAGES = ("receive", "textStart", "textEnd", "firstPcm", "speechEnd", "ackStart", "ackEnd", "ackCancel")
 PROGRESS_FACTS = frozenset({"set-position", "sets-left", "exercise-position", "plan-sets", "planned-sets"})
 # In-set moments (T21 set support): claim, per-set topic, intents. The browser only says which moment it is;
@@ -119,6 +126,19 @@ TIMED_SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
     "finish": ("До конца подхода остаются последние секунды", "set-finish", ("motivation",)),
     "support": ("Работа по таймеру продолжается", "set-advice", ("general-tip",)),
 }
+
+
+@dataclass(frozen=True)
+class PrebuiltLine:
+    """A validated story line with its synthesized PCM, played instead of a live request when its moment comes."""
+    key: str
+    text: str
+    used_fact_ids: tuple[str, ...]
+    pcm: bytes
+    source: str
+    intent: str | None
+    mood: str | None
+    exercise_name: str | None
 
 
 class _FactsChangedError(Exception):
@@ -273,6 +293,9 @@ class LiveCoach:
         self.moods = MoodTracker()
         self.voice_history = expressive.VoiceHistory()
         self.motif_uses: dict[str, int] = {}
+        self.prebuilt: dict[str, PrebuiltLine] = {}
+        self.prebuild_job: asyncio.Task | None = None
+        self._prebuild_items: set[asyncio.Task] = set()
         self._sent_counters: list[dict] = []
         self._load_scenario()
 
@@ -613,7 +636,8 @@ class LiveCoach:
         self.opportunities[event.id] = opportunity
         self.stats.opportunities['pending'] += 1
         if self.task and not self.task.done():
-            if event.kind in {'set_persisted', 'exercise_finalized', 'workout_finalized'}:
+            # A prebuild item takes a few seconds: live moments wait for it instead of being lost (V8).
+            if event.kind in {'set_persisted', 'exercise_finalized', 'workout_finalized'} or self.task in self._prebuild_items:
                 await self._enqueue(opportunity)
                 return
             await self._decision(event.id, opportunity.candidate.trigger_id, "silence", "pipeline_busy")
@@ -631,7 +655,8 @@ class LiveCoach:
             return
         # A queued callback can race an inbound event after the previous task ends.
         if self.task is not None and not self.task.done():
-            if op.event and op.event.kind in {'set_persisted', 'exercise_finalized', 'workout_finalized'}:
+            if (op.event and op.event.kind in {'set_persisted', 'exercise_finalized', 'workout_finalized'}) or (
+                    self.task in self._prebuild_items):
                 await self._enqueue(op)
             else:
                 await self._decision(op.event_id, op.candidate.trigger_id, "silence", "pipeline_busy")
@@ -726,11 +751,11 @@ class LiveCoach:
 
     async def close(self) -> None:
         self.closed = True
-        job = self.scenario_job
-        if job is not None and not job.done():
-            job.cancel()
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await job
+        for job in (self.scenario_job, self.prebuild_job, *self._prebuild_items):
+            if job is not None and not job.done():
+                job.cancel()
+                with contextlib.suppress(asyncio.CancelledError, Exception):
+                    await job
         await self.cancel("cancelled")
 
     # ---------- V1 scenarios ----------
@@ -870,6 +895,139 @@ class LiveCoach:
             scenario.save(db, self.run_id, self.user_id, card, bible)
         self.scenario_card, self.scenario_bible = card, bible
         await self.send_json(self.scenario_state())
+        self.schedule_prebuild()
+
+    # ---------- V8 prebuild ----------
+
+    def schedule_prebuild(self) -> None:
+        if (self.prebuild_job is None or self.prebuild_job.done()) and self.scenario_bible and self.author is not None \
+                and self.voice is not None and self.settings.mode == "hybrid":
+            self.prebuild_job = asyncio.create_task(self._prebuild_all())
+
+    def _prebuild_targets(self) -> list[tuple[str, str, str, dict, int]]:
+        """(key, trigger, task, plan exercise, position) for result-independent story moments."""
+        plan = self.scenario_bible.get("plan", []) if self.scenario_bible else []
+        targets = []
+        for position, exercise in enumerate(plan, 1):
+            act = scenario.act_state(self.scenario_bible, exercise["id"])
+            if position > 1 and act is not None:
+                trigger, task = (("T68", "setup/boss") if act.last_exercise else
+                                 ("T67", "setup/act") if act.first_of_act and act.act > 1 else ("T04", "setup/opening"))
+                targets.append((f"{trigger}:{exercise['id']}", trigger, task, exercise, position))
+        if plan:
+            targets.append((f"T69:{plan[-1]['id']}", "T69", "active/finale", plan[-1], len(plan)))
+        return targets[:PREBUILD_MAX_LINES]
+
+    def _prebuild_op(self, trigger: str, task: str, exercise: dict, position: int) -> Opportunity:
+        now = self.now_ms()
+        total = len(self.scenario_bible.get("plan", []))
+        common = {"scope_epoch": 0, "valid_until_ms": now + PREBUILD_VALID_MS, "ref": f"prebuild:{exercise['id']}",
+                  "provenance": "runtime-event-declaration", "quantity_kind": "declared", "sufficiency": "limited"}
+        name = history.speakable_name(exercise.get("name"))
+        found = [AllowedFact("exercise", f"Упражнение — {name}", "confirmed", name, **common) if name else None]
+        if trigger == "T69":
+            found.append(AllowedFact("milestone", "Идёт последний подход всей тренировки", "confirmed", "finale", **common))
+        else:
+            found.append(AllowedFact("exercise-position", "Это последнее упражнение тренировки", "confirmed", position,
+                                     **common) if position == total else
+                         AllowedFact("exercise-position", f"Упражнение {position} из {total}", "confirmed",
+                                     f"{position}/{total}", numbers=(position, total), **common))
+            sets = exercise.get("sets")
+            if type(sets) is int and 0 < sets <= 50:
+                found.append(AllowedFact("plan-sets", f"По плану {spoken_quantity(sets, 'sets')}", "confirmed", sets,
+                                         "sets", numbers=(sets,), **common))
+        package = FactPackage(trigger, tuple(f for f in found if f is not None), Comparison("unavailable"), "none")
+        phase = "active" if trigger == "T69" else "setup"
+        scope = CoachScope(user_id=self.user_id, run_id=self.scope_run_id, exercise_id=exercise["id"])
+        candidate = Candidate(trigger, f"prebuild:{exercise['id']}", phase, now, now + PREBUILD_VALID_MS,
+                              f"prebuild:{trigger}:{exercise['id']}", {}, words_cap=None if trigger == "T69" else SCENARIO_WORDS,
+                              topic_family=TRIGGERS[trigger].family, speech_action=speech_action(task))
+        return Opportunity(f"prebuild-{trigger}-{exercise['id']}", candidate, task, ("motivation", "humor"), scope,
+                           self._shape(package), exercise["id"])
+
+    async def _prebuild_all(self) -> None:
+        await asyncio.sleep(PREBUILD_START_DELAY_S)  # Let the story's opening line go first.
+        for key, trigger, task, exercise, position in self._prebuild_targets():
+            if self.closed or not self.scenario_bible:
+                return
+            if key in self.prebuilt:
+                continue
+            deadline = time.monotonic() + PREBUILD_IDLE_WAIT_S
+            while self.task is not None and not self.task.done() and time.monotonic() < deadline:
+                await asyncio.sleep(0.2)
+            item = asyncio.create_task(self._prebuild_one(key, trigger, task, exercise, position))
+            self._prebuild_items.add(item)
+            item.add_done_callback(self._prebuild_items.discard)
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await item
+
+    async def _prebuild_one(self, key: str, trigger: str, task: str, exercise: dict, position: int) -> None:
+        if self.task is not None and not self.task.done():
+            return  # A live line took the slot; this moment will simply be authored live.
+        self.task = asyncio.current_task()
+        self.task.add_done_callback(self._after)
+        op = self._prebuild_op(trigger, task, exercise, position)
+        if self.budget_tier() >= 1:
+            return  # Economy: prepared lines are a luxury, live results and summaries come first.
+        request = self._request(op, 14 if trigger == "T69" else SCENARIO_WORDS)
+        outcome = await self.author.author(run_id=self.run_id, owner=self.owner, generation=self.generation,
+                                           opportunity=f"{self.run_id}:prebuild:{key}", request=request, memory=None,
+                                           scope_epoch=0, purpose="prebuild",
+                                           meta={**self._journal_meta(op), "task": f"prebuild/{task}"[:40]})
+        if outcome.kind != "speech":
+            return
+        delivery = Delivery(**(outcome.delivery or {})) if outcome.delivery else Delivery()
+        delivery = select_delivery(delivery, intent=outcome.intent, action=op.candidate.speech_action, outcome=None,
+                                   enabled=getattr(self.voice.adapter, "emotive", False))
+        if getattr(self.voice.adapter, "emotive", False) and request.mood:
+            delivery = replace(delivery, mood=request.mood["name"], phase="rest", sounds=self.settings.voice_sounds)
+        voice = VoiceOutcome()
+        pcm = bytearray()
+        async with contextlib.aclosing(self.voice.stream(
+                run_id=self.run_id, owner=self.owner, generation=self.generation,
+                opportunity=f"{self.run_id}:prebuild:{key}", text=outcome.text, scope=op.scope,
+                generation_id=f"prebuild-{secrets.token_hex(6)}", outcome=voice, delivery=delivery, purpose="prebuild",
+                meta={**self._journal_meta(op), "task": f"prebuild/{task}"[:40]})) as frames:
+            async for frame in frames:
+                pcm += decode_frame(frame).data
+        if voice.status == "complete" and pcm:
+            self.prebuilt[key] = PrebuiltLine(key, outcome.text, outcome.used_fact_ids, bytes(pcm), voice.source,
+                                              outcome.intent, (request.mood or {}).get("name"),
+                                              history.speakable_name(exercise.get("name")))
+
+    async def _play_prebuilt(self, op: Opportunity, line: PrebuiltLine) -> None:
+        """Speak a prepared line for this live moment: same ACK/memory path, re-framed for the live scope."""
+        trigger, gid = op.candidate.trigger_id, secrets.token_hex(12)
+        valid_for = op.candidate.valid_until_ms - self.now_ms()
+        if op.deadline_ms is not None:
+            valid_for = min(valid_for, op.deadline_ms - self.monotonic_ms())
+        if valid_for < 1_000 or not self._current(op):
+            await self._decision(op.event_id, trigger, "silence", "expired")
+            return
+        self._transition(op, 'ready')
+        self._remember(gid, op, line.text, line.used_fact_ids)
+        if gid in self.acks:
+            self.line_metadata[gid] = {"intent": line.intent, "energy": "", "motif": None, "callback": False,
+                                       "mood": line.mood}
+        source = line.source if line.source in {"realtime", "tts", "fish", "fake"} else "fish"
+        await self.send_json({"type": "speech_start", "eventId": op.event_id, "triggerId": trigger, "generationId": gid,
+                              "text": line.text, "validForMs": round(valid_for), "sampleRate": 24_000, "source": source,
+                              "prebuilt": True, **({"identity": identity(op.event)} if op.event else {})})
+        framer = PcmFramer(gid, gid, op.scope, source)
+        frames = 0
+        for chunk in [*framer.push(line.pcm), framer.finish()]:
+            if not self._current(op):
+                self._finish(gid)
+                await self.send_json({"type": "speech_end", "generationId": gid, "status": "cancelled",
+                                      "reason": "cancelled", "frames": frames})
+                return
+            await self.send_bytes(encode_frame(chunk))
+            frames += 1
+        self.stats.spoken += 1
+        self._mark(op, "speechEnd")
+        await self.send_json({"type": "speech_end", "generationId": gid, "status": "complete", "reason": None,
+                              "frames": frames, "voiceModel": "prebuilt", "source": source, "timingsMs": {},
+                              "firstAudioMs": 0, "connectionClass": "not-applicable"})
 
     # ---------- event → opportunity ----------
 
@@ -1293,6 +1451,12 @@ class LiveCoach:
         trigger, gid = op.candidate.trigger_id, secrets.token_hex(12)
         opportunity = f"{self.run_id}:{op.key}"
         if not self._current(op):
+            return
+        line = self.prebuilt.pop(f"{trigger}:{op.exercise_id}", None) if op.exercise_id else None
+        if line is not None and self.voice is not None and self.settings.mode == "hybrid" and (
+                line.exercise_name is None or line.exercise_name in {
+                    f.value for f in (op.package.facts if op.package else ()) if f.id == "exercise"} or not op.package):
+            await self._play_prebuilt(op, line)
             return
         if self.author is None:
             await self._decision(op.event_id, trigger, "silence", "provider_unavailable")
