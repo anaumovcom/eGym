@@ -870,7 +870,8 @@ class VoiceStreamer:
             return run.state == "active" and run.generation == generation
 
     async def stream(self, *, run_id: str, owner: str, generation: int, opportunity: str, text: str, scope: CoachScope,
-                     generation_id: str, outcome: VoiceOutcome, delivery: Delivery | None = None) -> AsyncIterator[bytes]:
+                     generation_id: str, outcome: VoiceOutcome, delivery: Delivery | None = None,
+                     purpose: str = "live") -> AsyncIterator[bytes]:
         outcome.model = self.adapter.capability.model[:96]
         outcome.source = self.adapter.name
         # A refused request never inherits the preceding request's socket classification.
@@ -882,7 +883,8 @@ class VoiceStreamer:
         bounds = voice_bounds(text, audio_tokens_per_s=self.audio_tokens_per_s, max_ms=max_ms, instructions=extra)
         try:
             with self.sessions() as db:
-                outcome.attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "voice", self.pricing, bounds)
+                outcome.attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "voice", self.pricing, bounds,
+                                                    purpose=purpose)
         except HTTPException as error:
             outcome.status, outcome.reason = "refused", str(error.detail)
             return

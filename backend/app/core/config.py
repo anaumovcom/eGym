@@ -37,6 +37,17 @@ class Settings(BaseSettings):
                                             le=COACH_MAX_TEXT_OUTPUT_TOKENS, alias="COACH_TEXT_MAX_OUTPUT_TOKENS")
     # Documented gpt-6-luna values: none|low|medium(default)|high|xhigh|max. Low keeps rest-phase latency short.
     coach_text_reasoning_effort: Literal["none", "low", "medium"] = Field(default="low", alias="COACH_TEXT_REASONING_EFFORT")
+    # V0 routing (25.10.2026): rest/setup/summary lines and scenario/episode generation use the "strong" route.
+    # Same model by default (gpt-6-luna) with deeper reasoning; a different model needs its own verified rates.
+    coach_text_model_strong: str = Field(default="gpt-6-luna", max_length=80, alias="COACH_TEXT_MODEL_STRONG")
+    coach_text_strong_pricing_version: str = Field(default="openai-2026-10-08", max_length=80,
+                                                   alias="COACH_TEXT_STRONG_PRICING_VERSION")
+    coach_text_strong_input_rate: int = Field(default=100_000, ge=0, alias="COACH_TEXT_STRONG_INPUT_RATE")
+    coach_text_strong_cached_rate: int = Field(default=10_000, ge=0, alias="COACH_TEXT_STRONG_CACHED_RATE")
+    coach_text_strong_output_rate: int = Field(default=500_000, ge=0, alias="COACH_TEXT_STRONG_OUTPUT_RATE")
+    coach_text_strong_pricing_verified: bool = Field(default=True, alias="COACH_TEXT_STRONG_PRICING_VERIFIED")
+    coach_text_strong_reasoning_effort: Literal["none", "low", "medium", "high"] = Field(
+        default="medium", alias="COACH_TEXT_STRONG_REASONING_EFFORT")
     # E08 voice: paid dispatch on by default (user decision 08.10.2026); same vault/consent/cap gates as text.
     coach_paid_voice_enabled: bool = Field(default=True, alias="COACH_PAID_VOICE_ENABLED")
     coach_voice_pricing_verified: bool = Field(default=True, alias="COACH_VOICE_PRICING_VERIFIED")

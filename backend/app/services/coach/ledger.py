@@ -19,6 +19,15 @@ from app.services.coach.security import CREDENTIAL_IDS, digest
 
 MAX_LIVE_RUNS = 64
 RUN_CONNECT_GRACE_SECONDS = 60
+# V0.2 budget buckets. Summary/episode lines may use the whole cap; everything else stops before the reserve,
+# so the final words of a workout are never lost to in-set chatter. Prebuild/scenario have their own ceilings.
+PURPOSES = frozenset({"live", "summary", "scenario", "prebuild", "judge", "episode"})
+RESERVED_PURPOSES = frozenset({"summary", "episode"})
+SUMMARY_RESERVE_SHARE = 0.10
+PURPOSE_SHARES = {"prebuild": 0.25, "scenario": 0.05}
+# V0.3 degradation tiers by the live share still available (0 = everything on … 4 = local clips only).
+TIER_BOUNDS = (0.40, 0.20, 0.10)
+TIER_EXHAUSTED_MICROS = 20_000
 
 
 def check_run_capacity(db: Session, now: float, *, exclude_id: str | None = None) -> None:
@@ -146,10 +155,12 @@ def snapshot(db: Session, run_id: str) -> dict:
             "generation": run.generation, "workoutSessionId": run.workout_id,
             "capMicros": run.cap_micros, "settledMicros": settled, "pendingMicros": pending,
             "availableMicros": max(0, run.cap_micros - settled - pending), "requests": sum(a.sent_at is not None for a in attempts),
+            "budget": budget_state(run, attempts),
             "limitKind": "strict-reservations" if all(a.pricing.get("verified") and a.pricing.get("enforceableBounds") for a in attempts) and attempts else "target-no-paid-adapter",
             "attempts": [{"attemptId": a.id, "stage": a.stage, "model": a.model, "status": a.status,
                           "completeness": a.completeness, "usage": a.usage or None, "costMicros": a.cost_micros,
-                          "reserveMicros": a.reserve_micros, "pricingVersion": a.pricing["version"]} for a in attempts]}
+                          "reserveMicros": a.reserve_micros, "pricingVersion": a.pricing["version"],
+                          "purpose": a.purpose or "live"} for a in attempts]}
 
 
 def daily_usage(db: Session, since: float) -> dict:
@@ -169,9 +180,42 @@ def cost(pricing: Pricing, usage: ReportedUsage) -> int:
     return (total + 999_999) // 1_000_000
 
 
+def summary_reserve(run: CoachLedgerRun) -> int:
+    """Only real workouts hold back a summary reserve; test/pack ledgers keep their whole cap."""
+    return int(run.cap_micros * SUMMARY_RESERVE_SHARE) if run.ledger == "workout" else 0
+
+
+def budget_state(run: CoachLedgerRun, attempts: list[CoachAttempt]) -> dict:
+    """Spend by bucket plus the V0.3 tier. Pure over already loaded rows (no extra queries)."""
+    by_purpose: dict[str, int] = {}
+    for attempt in attempts:
+        purpose = attempt.purpose or "live"
+        by_purpose[purpose] = by_purpose.get(purpose, 0) + committed(attempt)
+    used = sum(by_purpose.values())
+    reserve = summary_reserve(run)
+    live_cap = max(1, run.cap_micros - reserve)
+    live_available = max(0, live_cap - used)
+    share = live_available / live_cap
+    # Exhausted: not even one more ordinary line fits (scaled down for tiny test caps).
+    if run.cap_micros - reserve <= 0 or live_available <= min(TIER_EXHAUSTED_MICROS, live_cap // 50):
+        tier = 4
+    else:
+        tier = next((index for index, bound in enumerate(TIER_BOUNDS) if share > bound), 3)
+    sent = [a for a in attempts if a.sent_at is not None and a.status == "settled" and a.cost_micros]
+    return {"tier": tier, "liveAvailableMicros": live_available, "liveShare": round(share, 4),
+            "summaryReserveMicros": reserve, "byPurpose": by_purpose,
+            "avgRequestMicros": round(sum(a.cost_micros for a in sent) / len(sent)) if sent else None}
+
+
+def run_budget(db: Session, run_id: str) -> dict:
+    run = get_run(db, run_id)
+    return budget_state(run, list(db.scalars(select(CoachAttempt).where(CoachAttempt.run_id == run_id))))
+
+
 def reserve(db: Session, run_id: str, owner: str, generation: int, opportunity: str, stage: str,
-            pricing: Pricing, bounds: UsageBounds, *, retry: int = 0) -> str:
-    if stage not in {"text", "voice"} or retry not in {0, 1} or not opportunity or len(opportunity) > 1024:
+            pricing: Pricing, bounds: UsageBounds, *, retry: int = 0, purpose: str = "live") -> str:
+    if (stage not in {"text", "voice"} or retry not in {0, 1} or not opportunity or len(opportunity) > 1024
+            or purpose not in PURPOSES):
         raise HTTPException(422, "invalid_attempt")
     if not pricing.verified or not pricing.enforceable_bounds:
         raise HTTPException(409, "strict_cap_unprovable")
@@ -194,8 +238,14 @@ def reserve(db: Session, run_id: str, owner: str, generation: int, opportunity: 
         if receipt is None:
             db.add(CoachReceipt(id=secrets.token_hex(16), run_id=run_id, canonical=key))
         amount = cost(pricing, ReportedUsage(**bounds.model_dump(exclude={"schema_version"})))
-        if sum(committed(a) for a in attempts) + amount > row.cap_micros:
+        used = sum(committed(a) for a in attempts)
+        if used + amount > row.cap_micros:
             raise HTTPException(409, "budget")
+        if purpose not in RESERVED_PURPOSES and used + amount > row.cap_micros - summary_reserve(row):
+            raise HTTPException(409, "budget")
+        if purpose in PURPOSE_SHARES and sum(committed(a) for a in attempts if (a.purpose or "live") == purpose) + amount > (
+                row.cap_micros * PURPOSE_SHARES[purpose]):
+            raise HTTPException(409, "budget_bucket")
         now = datetime.now(UTC)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).timestamp()
         day_start = now.replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
@@ -210,7 +260,7 @@ def reserve(db: Session, run_id: str, owner: str, generation: int, opportunity: 
         db.add(CoachAttempt(id=attempt_id, run_id=run_id, opportunity=key, stage=stage, ordinal=retry,
                             model=pricing.model, status="reserved", reserve_micros=amount, pricing=pricing.model_dump(by_alias=True),
                             bounds=bounds.model_dump(by_alias=True), generation=generation, credential_version=row.credential_version,
-                            created_at=time.time()))
+                            created_at=time.time(), purpose=purpose))
         row.pricing = {**row.pricing, pricing.model: pricing.model_dump(by_alias=True)}
     return attempt_id
 
@@ -230,7 +280,9 @@ def dispatch(db: Session, attempt_id: str, owner: str, *, test_only: bool = Fals
             voice_models = {"realtime": cfg.coach_voice_realtime_model, "tts": cfg.coach_voice_tts_model,
                             "fish": cfg.coach_voice_fish_model}
             text_ok = (adapter == "luna-text" and attempt.stage == "text" and cfg.coach_paid_text_enabled
-                       and cfg.coach_text_pricing_verified and attempt.model == cfg.coach_text_model
+                       and cfg.coach_text_pricing_verified
+                       and (attempt.model == cfg.coach_text_model
+                            or (attempt.model == cfg.coach_text_model_strong and cfg.coach_text_strong_pricing_verified))
                        and row.ledger in {"workout", "test"})
             kind = (adapter or "").removeprefix("pack-")
             fish = db.get(CoachCredential, CREDENTIAL_IDS["fish"]) if kind == "fish" else None

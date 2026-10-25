@@ -319,6 +319,7 @@ async def test_failures_are_terminal_and_attempt_density_never_retries_forever(s
     if failure != 'busy':
         await settle(coach)
         assert len(fake.calls) == (0 if failure == 'budget' else 1)
-        assert sum(coach.director.slot_counts.values()) == 1
+        # V0.3: an exhausted ledger (tier 4) is refused before the Director, so no density slot is consumed.
+        assert sum(coach.director.slot_counts.values()) == (0 if failure == 'budget' else 1)
     assert coach.stats.opportunities['rejected'] >= 1
     await coach.close()

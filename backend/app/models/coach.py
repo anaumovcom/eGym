@@ -66,6 +66,8 @@ class CoachAttempt(Base):
     credential_version: Mapped[int] = mapped_column(Integer)
     sent_at: Mapped[float | None] = mapped_column(Float, nullable=True)
     created_at: Mapped[float] = mapped_column(Float)
+    # V0 budget bucket: live | summary | scenario | prebuild | judge | episode.
+    purpose: Mapped[str] = mapped_column(String(16), default="live", server_default="live")
 
 
 class CoachReceipt(Base):

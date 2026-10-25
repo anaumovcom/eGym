@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.schemas.coach import CoachEvent, CoachScope
 from app.schemas.coach_control import CoachPreferences
-from app.services.coach import history, security
+from app.services.coach import history, ledger, security
 from app.services.coach.completion import LocalCompletion, additional_package, duplicate_local, useful_addition
 from app.services.coach.context import CoachContext, build_context
 from app.services.coach.director import Candidate, Director
@@ -41,6 +41,7 @@ from app.services.coach.luna import LunaTextAdapter, TextAuthor, text_pricing
 from app.services.coach.memory import CoachMemory, CrossWorkoutStore, RunMemoryStore, Utterance
 from app.services.coach.personas import persona
 from app.services.coach.prompts import AuthorRequest
+from app.services.coach.routing import default_routes
 from app.services.coach.speech_actions import SPEECH_ACTIONS, speech_action
 from app.services.coach.triggers import TRIGGERS
 from app.services.coach.voice import (
@@ -74,6 +75,11 @@ GAP_SCALE = {"short": 0.7, "normal": 1.0, "long": 1.6}
 WORDS_SCALE = {"short": 0.6, "normal": 1.0, "detailed": 1.25}
 NAME_FACTS = frozenset({"exercise", "next-exercise", "exercise-names"})
 MAX_TELEMETRY_MS = 86_400_000
+# V0.3: budget tier is read from the ledger at most this often (one cheap SQLite read per window).
+BUDGET_TIER_TTL_MS = 2_000
+# From tier 3 only results/summaries are authored live; tier 4 keeps only the reserved summary.
+TIER_RESULT_ONLY, TIER_SUMMARY_ONLY = 3, 4
+TIER_SHORT_REST, TIER_SHORT_REST_WORDS = 2, 25
 SPEECH_TIMING_STAGES = ("receive", "textStart", "textEnd", "firstPcm", "speechEnd", "ackStart", "ackEnd", "ackCancel")
 PROGRESS_FACTS = frozenset({"set-position", "sets-left", "exercise-position", "plan-sets", "planned-sets"})
 # In-set moments (T21 set support): claim, per-set topic, intents. The browser only says which moment it is;
@@ -138,6 +144,7 @@ class LiveStats:
     opportunities: Counter = field(default_factory=Counter)
     first_audio_ms: deque = field(default_factory=lambda: deque(maxlen=32))
     latencies: dict[str, deque] = field(default_factory=dict)
+    budget_tier: int = 0
 
     def measure(self, metric: str, op: Opportunity, elapsed: float) -> None:
         if not math.isfinite(elapsed):
@@ -152,6 +159,7 @@ class LiveStats:
     def as_dict(self) -> dict:
         audio = sorted(self.first_audio_ms)
         return {"spoken": self.spoken, "reasons": dict(self.reasons), "triggers": dict(self.triggers),
+                "budgetTier": self.budget_tier,
             "opportunities": dict(self.opportunities),
                 "firstAudioMs": {"count": len(audio), "median": audio[len(audio) // 2] if audio else None,
                      "max": audio[-1] if audio else None}, "firstAudioMsLabel": "voice-only",
@@ -232,6 +240,22 @@ class LiveCoach:
         self.stats = LiveStats()
         self.closed = False
         self.local_observations: deque[float] = deque(maxlen=128)
+        self._tier_cache: tuple[float, int] | None = None
+
+    def budget_tier(self) -> int:
+        """V0.3 degradation tier of this run's ledger; an unreadable ledger never degrades by itself."""
+        now = self.monotonic_ms()
+        if self._tier_cache is not None and now - self._tier_cache[0] < BUDGET_TIER_TTL_MS:
+            self.stats.budget_tier = self._tier_cache[1]
+            return self._tier_cache[1]
+        try:
+            with self.sessions() as db:
+                tier = ledger.run_budget(db, self.run_id)["tier"]
+        except HTTPException:
+            tier = 0
+        self._tier_cache = (now, tier)
+        self.stats.budget_tier = tier
+        return tier
 
     @property
     def queued(self) -> Opportunity | None:
@@ -573,6 +597,13 @@ class LiveCoach:
             else:
                 await self._decision(op.event_id, op.candidate.trigger_id, "silence", "pipeline_busy")
             return
+        tier = self.budget_tier()
+        action = op.candidate.speech_action
+        if (tier >= TIER_SUMMARY_ONLY and action != "summary") or (
+                tier >= TIER_RESULT_ONLY and action not in {"result", "summary"}):
+            # Local clips keep counting/confirming; the remaining money is kept for results and the summary.
+            await self._decision(op.event_id, op.candidate.trigger_id, "silence", "budget_tier")
+            return
         admission = self.director.admit(op.candidate, self.now_ms())
         if not admission.ok:
             await self._decision(op.event_id, op.candidate.trigger_id, "silence", admission.reason or "no_window")
@@ -581,7 +612,10 @@ class LiveCoach:
         self._transition(op, 'preparing')
         self.stats.triggers[op.candidate.trigger_id] += 1
         self.active_op = op
-        self.task = asyncio.create_task(self._pipeline(op, admission.max_words))
+        max_words = admission.max_words
+        if tier >= TIER_SHORT_REST and op.candidate.phase in {"rest", "setup"} and action != "summary":
+            max_words = min(max_words, TIER_SHORT_REST_WORDS)
+        self.task = asyncio.create_task(self._pipeline(op, max_words))
         self.task.add_done_callback(self._after)
 
     def _after(self, task: asyncio.Task) -> None:
@@ -995,7 +1029,8 @@ class LiveCoach:
             outcome = await self.author.author(run_id=self.run_id, owner=self.owner, generation=self.generation,
                                                opportunity=opportunity, request=request,
                                                memory=self.memory, scope_epoch=op.scope.scope_epoch,
-                                               deadline_ms=op.candidate.valid_until_ms)
+                                               deadline_ms=op.candidate.valid_until_ms, tier=self.budget_tier(),
+                                               purpose=self._purpose(op))
         finally:
             self._mark(op, "textEnd")
         # Some providers swallow CancelledError. Task cancellation and terminal work
@@ -1067,7 +1102,8 @@ class LiveCoach:
                 raise asyncio.CancelledError
             async with contextlib.aclosing(self.voice.stream(
                     run_id=self.run_id, owner=self.owner, generation=self.generation, opportunity=opportunity,
-                    text=outcome.text, scope=op.scope, generation_id=gid, outcome=voice, delivery=delivery)) as frames:
+                    text=outcome.text, scope=op.scope, generation_id=gid, outcome=voice, delivery=delivery,
+                    purpose=self._purpose(op))) as frames:
                 async for frame in frames:
                     self._voice_state(op, voice)
                     if not self._current(op):
@@ -1124,6 +1160,11 @@ class LiveCoach:
         self._mark(op, "speechEnd")
         await self.send_json({"type": "speech_end", "generationId": gid, "status": voice.status,
                               "reason": voice.reason or None, "frames": voice.frames, **self._speech_metadata(op, voice)})
+
+    @staticmethod
+    def _purpose(op: Opportunity) -> str:
+        """Summaries may spend the reserved tail of the budget; every other line is ordinary live speech."""
+        return "summary" if op.candidate.trigger_id in SUMMARY_TRIGGERS else "live"
 
     def _remember(self, gid: str, op: Opportunity, text: str, used: tuple[str, ...] = ()) -> None:
         if gid in self.terminal or gid in self.acks or not op.state.valid:
@@ -1240,10 +1281,12 @@ async def default_pipeline(sessions: Callable[[], Session], prefs: CoachPreferen
             key, _ = security.read_credential(db)
     except HTTPException:
         return Pipeline(None, None, "credential_unavailable")
-    client = httpx.AsyncClient(timeout=10, follow_redirects=False, trust_env=False)
+    # Read timeout covers the slowest route (narrative/plan reasoning); TextAuthor enforces each route's own bound.
+    client = httpx.AsyncClient(timeout=16, follow_redirects=False, trust_env=False)
     pipeline = Pipeline(TextAuthor(sessions, LunaTextAdapter(client, key, model=cfg.coach_text_model), pricing,
                                    model=cfg.coach_text_model, max_output_tokens=cfg.coach_text_max_output_tokens,
-                                   reasoning_effort=cfg.coach_text_reasoning_effort), None, None, [client.aclose])
+                                   reasoning_effort=cfg.coach_text_reasoning_effort, routes=default_routes(pricing)),
+                        None, None, [client.aclose])
     if prefs.mode != "hybrid":
         return pipeline
     kind = {"openai-realtime": "realtime", "openai-tts": "tts", "fish-drama-3": "fish"}[prefs.voice_model]

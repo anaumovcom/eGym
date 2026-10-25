@@ -17,6 +17,7 @@ from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, Usag
 from app.services.coach import ledger
 from app.services.coach.memory import CoachMemory
 from app.services.coach.prompts import PROMPT_VERSION, AuthorRequest, BuiltPrompt, build_prompt
+from app.services.coach.routing import Route, TaskClass, degrade, task_class
 from app.services.coach.validation import facts_current, validate
 
 RESPONSES_URL = "https://api.openai.com/v1/responses"
@@ -147,6 +148,7 @@ class FakeTextAuthor:
 
 
 _REASONS = {"budget": "budget", "operator_budget": "budget", "strict_cap_unprovable": "budget",
+            "budget_bucket": "budget",
             "pipeline_busy": "pipeline_busy", "owner_mismatch": "owner_mismatch", "stale_attempt": "owner_mismatch",
             "paid_adapter_unavailable": "provider_unavailable", "duplicate_attempt": "duplicate"}
 
@@ -168,22 +170,36 @@ class AuthorOutcome:
 class TextAuthor:
     def __init__(self, sessions: Callable[[], Session], adapter, pricing: Pricing, *, model: str,
                  max_output_tokens: int = COACH_TEXT_OUTPUT_TOKENS, timeout_s: float = 8.0, reasoning_effort: str | None = None,
-                 now_ms: Callable[[], float] = lambda: time.time() * 1000):
+                 now_ms: Callable[[], float] = lambda: time.time() * 1000,
+                 routes: dict[TaskClass, Route] | None = None):
         if not 0 < timeout_s <= 15:
             raise ValueError("Bounded timeout required")
         self.sessions, self.adapter, self.pricing, self.model = sessions, adapter, pricing, model
         self.max_output_tokens = max(COACH_TEXT_OUTPUT_TOKENS, max_output_tokens)
         self.timeout_s, self.now_ms = timeout_s, now_ms
         self.reasoning_effort = reasoning_effort
+        # V0.4: per task class model/reasoning/output budget. Without routes every task uses the fields above.
+        self.routes = routes
+        self.last_route: Route | None = None
+
+    def route(self, task: str, tier: int = 0) -> Route:
+        cls = task_class(task)
+        if self.routes and cls in self.routes:
+            return degrade(self.routes[cls], tier)
+        return degrade(Route(cls, self.model, self.pricing, self.reasoning_effort, self.max_output_tokens,
+                             self.timeout_s), tier)
 
     async def author(self, *, run_id: str, owner: str, generation: int, opportunity: str, request: AuthorRequest,
                      memory: CoachMemory | None = None, scope_epoch: int = 0, deadline_ms: float | None = None,
-                     local_available: bool = False) -> AuthorOutcome:
+                     local_available: bool = False, tier: int = 0, purpose: str | None = None) -> AuthorOutcome:
         built = build_prompt(request)
+        route = self.route(request.task, tier)
+        self.last_route = route
+        purpose = purpose or ("summary" if request.summary else "live")
         # All phases need room for reasoning + structured JSON, even a short cue.
         # Reserve the same full cap sent to the provider BEFORE every dispatch.
-        body = request_body(self.model, built, self.max_output_tokens, self.reasoning_effort)
-        bounds = text_bounds(body, self.max_output_tokens)
+        body = request_body(route.model, built, route.max_output_tokens, route.reasoning_effort)
+        bounds = text_bounds(body, route.max_output_tokens)
         attempts: list[str] = []
         memory_revision = memory.revision if memory is not None else None
 
@@ -199,8 +215,8 @@ class TextAuthor:
             attempt_id = None
             try:
                 with self.sessions() as db:
-                    attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "text", self.pricing,
-                                                bounds, retry=retry)
+                    attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "text", route.pricing,
+                                                bounds, retry=retry, purpose=purpose)
                     attempts.append(attempt_id)
                     ledger.dispatch(db, attempt_id, owner, test_only=self.adapter.test_only,
                                     adapter=None if self.adapter.test_only else self.adapter.name)
@@ -211,7 +227,7 @@ class TextAuthor:
                 return fallback(_REASONS.get(str(error.detail), "provider_unavailable"))
             try:
                 # No DB transaction spans the provider await.
-                result = await asyncio.wait_for(self.adapter.author(body), timeout=self.timeout_s)
+                result = await asyncio.wait_for(self.adapter.author(body), timeout=route.timeout_s)
             except (asyncio.CancelledError, Exception) as error:
                 with self.sessions() as db:
                     ledger.mark_unsettled(db, attempt_id)
@@ -245,7 +261,7 @@ class TextAuthor:
                                      tuple(attempts), PROMPT_VERSION, built.instructions_hash, built.schema_hash,
                                      intent=result.output["intent"])
             # One calm summary retry with a new reserve and enough time; never a recursive joke hunt.
-            time_left = deadline_ms is None or deadline_ms - self.now_ms() >= self.timeout_s * 1000
+            time_left = deadline_ms is None or deadline_ms - self.now_ms() >= route.timeout_s * 1000
             if not (request.summary and retry == 0 and time_left):
                 return fallback(f"validation_failed:{verdict.reason}")
         return fallback("validation_failed")
