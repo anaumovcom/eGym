@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.schemas.coach import CoachEvent, CoachScope
 from app.schemas.coach_control import CoachPreferences
-from app.services.coach import counters, history, journal, ledger, progress, scenario, security, telemetry
+from app.services.coach import counters, expressive, history, journal, ledger, progress, scenario, security, telemetry
 from app.services.coach.completion import LocalCompletion, additional_package, duplicate_local, useful_addition
 from app.services.coach.context import CoachContext, build_context
 from app.services.coach.director import Candidate, Director
@@ -265,6 +265,7 @@ class LiveCoach:
         self.steady_sets: dict[int, bool] = {}
         self.counter_state: list[dict] = []
         self.moods = MoodTracker()
+        self.voice_history = expressive.VoiceHistory()
         self._sent_counters: list[dict] = []
         self._load_scenario()
 
@@ -1351,6 +1352,17 @@ class LiveCoach:
                        outcome=op.package.outcome if op.package else None,
                        enabled=situational_delivery_enabled() or getattr(self.voice.adapter, "emotive", False),
                        energy=s.voice_energy, pace=s.voice_pace)
+        if getattr(self.voice.adapter, "emotive", False) and request.mood:
+            # V6: mood → voice defaults, the user's sound/crowd switches and the curve between lines.
+            crowd = s.crowd_effects and (self.scenario_card or {}).get("archetype") in expressive.CROWD_ARCHETYPES
+            context = expressive.VoiceContext(humor=outcome.intent == "humor", roast=request.roast,
+                                              mood=request.mood["name"], sounds=s.voice_sounds, crowd=crowd)
+            segments = tuple(expressive.allowed(seg, context) for seg in delivery.segments)
+            segments = self.voice_history.shape(segments, now_ms=self.now_ms(), exercise=op.exercise_id)
+            delivery = replace(delivery, segments=segments, mood=request.mood["name"], phase=op.candidate.phase,
+                               sounds=s.voice_sounds, crowd=bool(crowd))
+            self.voice_history.note(segments or (expressive.base_segment(delivery.mood),), now_ms=self.now_ms(),
+                                    exercise=op.exercise_id)
         voice = VoiceOutcome()
         self._transition(op, 'ready')
         self._remember(gid, op, outcome.text, outcome.used_fact_ids)

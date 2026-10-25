@@ -29,7 +29,7 @@ export const COACH_CHOICES = {
   coachGender: ['unspecified', 'm', 'f'],
 } as const
 export const COACH_SWITCHES = ['greeting', 'exerciseIntro', 'setFeedback', 'exerciseSummary', 'workoutSummary', 'comparisons',
-  'sayNumbers', 'sayExerciseName', 'saySetProgress', 'sayWeight', 'slang', 'profanity', 'scenarioPicker', 'coHost'] as const
+  'sayNumbers', 'sayExerciseName', 'saySetProgress', 'sayWeight', 'slang', 'profanity', 'scenarioPicker', 'coHost', 'voiceSounds', 'crowdEffects'] as const
 export type CoachChoice = keyof typeof COACH_CHOICES
 export type CoachSwitch = typeof COACH_SWITCHES[number]
 export type CoachTuning = Readonly<{ [K in CoachChoice]: typeof COACH_CHOICES[K][number] } & { [K in CoachSwitch]: boolean }>
@@ -38,7 +38,7 @@ export const DEFAULT_COACH_TUNING: CoachTuning = Object.freeze<CoachTuning>({
   experience: 'intermediate', userGender: 'unspecified', coachGender: 'unspecified',
   greeting: true, exerciseIntro: true, setFeedback: true, exerciseSummary: true, workoutSummary: true, comparisons: true,
   sayNumbers: true, sayExerciseName: true, saySetProgress: true, sayWeight: true, slang: false, profanity: true,
-  scenarioPicker: true, coHost: true,
+  scenarioPicker: true, coHost: true, voiceSounds: true, crowdEffects: true,
 })
 
 export type CoachPreferences = CoachSettings & CoachTuning & Readonly<{

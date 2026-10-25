@@ -7,6 +7,7 @@ import unicodedata
 from dataclasses import dataclass, field
 from typing import Literal
 
+from app.services.coach import expressive
 from app.services.coach.context import CoachContext
 from app.services.coach.facts import AllowedFact, ComparisonStatus, HistoryStatus
 from app.services.coach.mood import MOOD_MODULE
@@ -139,6 +140,16 @@ VOICE_MARKUP_MODULE = """Голосовой движок понимает реж
 chuckle, smirk, sigh, exhale, whistle или none. stress — подача последней фразы: whisper, emphasis,
 forceful, soft, fast, slow или none. Эмоция должна совпадать со смыслом: поддержка — soft, результат —
 emphasis, секрет — whisper. Не ставь один и тот же звук подряд. Сам text пиши без скобок, тегов и ремарок."""
+VOICE_SEGMENTS_MODULE = """V6: заполни voice.segments — по одному сегменту на предложение text, в том же порядке (до 4).
+emotion — одна главная эмоция предложения из списка схемы; intensity — slightly/very/extremely или none
+(extremely только на победе и в финале). tone — shouting только на триумфе и тяжёлой работе, whispering — секрет,
+soft tone — бережно. direction — короткая английская ремарка до 40 символов или пусто («like a stream host hyping
+chat»). soundBefore — невербальный звук перед предложением (laughing, chuckling, sighing, gasping, panting, breath…),
+эффекты зала (crowd laughing) — только в сюжете трансляции или шоу и только после шутки. pauseAfter — break или
+long-break для комедийной паузы или интриги перед результатом. tags — до двух точных фрагментов предложения в
+парном теге (emphasis на результате, stress на ключевом слове, forceful на короткой команде, whisper на секрете).
+Не ставь звук и громкую подачу в каждой реплике; эмоция совпадает со смыслом и настроением mood.
+Запрещены страх, тревога, грусть, стыд, злость: их нет в списке."""
 VOICE_SOUNDS = ("none", "laugh", "chuckle", "smirk", "sigh", "exhale", "whistle")
 VOICE_STRESS = ("none", "whisper", "emphasis", "forceful", "soft", "fast", "slow")
 VOICE_DIRECTION_CHARS = 60
@@ -323,11 +334,23 @@ def output_schema(req: AuthorRequest) -> dict:
         speech_key: speech,
     }
     if req.voice_markup:
+        tag = {"type": "object", "additionalProperties": False, "required": ["words", "tag"],
+               "properties": {"words": {"type": "string"}, "tag": {"type": "string", "enum": list(expressive.TAGS)}}}
+        segment = {"type": "object", "additionalProperties": False,
+                   "required": ["emotion", "intensity", "tone", "direction", "soundBefore", "pauseAfter", "tags"],
+                   "properties": {"emotion": {"type": "string", "enum": list(expressive.EMOTIONS)},
+                                  "intensity": {"type": "string", "enum": list(expressive.INTENSITIES)},
+                                  "tone": {"type": "string", "enum": list(expressive.TONES)},
+                                  "direction": {"type": "string", "description": "Short English stage direction."},
+                                  "soundBefore": {"type": "string", "enum": list(expressive.SEGMENT_SOUNDS)},
+                                  "pauseAfter": {"type": "string", "enum": list(expressive.PAUSES)},
+                                  "tags": {"type": "array", "items": tag, "maxItems": expressive.MAX_TAGS_PER_SEGMENT}}}
         properties["voice"] = {
-            "type": "object", "additionalProperties": False, "required": ["direction", "sound", "stress"],
+            "type": "object", "additionalProperties": False, "required": ["direction", "sound", "stress", "segments"],
             "properties": {"direction": {"type": "string", "description": "Russian stage direction, not spoken."},
                            "sound": {"type": "string", "enum": list(VOICE_SOUNDS)},
-                           "stress": {"type": "string", "enum": list(VOICE_STRESS)}}}
+                           "stress": {"type": "string", "enum": list(VOICE_STRESS)},
+                           "segments": {"type": "array", "items": segment, "maxItems": expressive.MAX_SEGMENTS}}}
     return {"type": "object", "additionalProperties": False, "required": list(properties), "properties": properties}
 
 
@@ -362,6 +385,7 @@ def personality_modules(req: AuthorRequest) -> list[str]:
         modules.append(NO_NUMBERS_MODULE)
     if req.voice_markup:
         modules.append(VOICE_MARKUP_MODULE)
+        modules.append(VOICE_SEGMENTS_MODULE)
     return modules
 
 
@@ -460,7 +484,7 @@ def static_hashes() -> dict[str, str]:
                    *EXTRA_MODULES.values(), ADDRESS_VY, NAME_MODULE, *VERBOSITY_MODULES.values(),
                    *PRAISE_MODULES.values(), *GOAL_MODULES.values(), *EXPERIENCE_MODULES.values(),
                    *USER_GENDER_MODULES.values(), *COACH_GENDER_MODULES.values(), SLANG_MODULE, NO_NUMBERS_MODULE,
-                   PROFANITY_MODULE, ROAST_MODULE, VARIETY_MODULE, VOICE_MARKUP_MODULE, SCENARIO_MODULE, OPENING_MODULE, MOOD_MODULE]
+                   PROFANITY_MODULE, ROAST_MODULE, VARIETY_MODULE, VOICE_MARKUP_MODULE, SCENARIO_MODULE, OPENING_MODULE, MOOD_MODULE, VOICE_SEGMENTS_MODULE]
     return {"version": PROMPT_VERSION, "p0": sha256(P0), "p1": sha256(P1), "p1Sharp": sha256(P1_SHARP),
             "p1User": sha256("\n".join(personality)),
             "characters": sha256("\n".join(p.character or "" for p in PERSONAS.values())),

@@ -13,7 +13,7 @@ import re
 import struct
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Literal, Protocol
 
 import httpx
@@ -25,7 +25,7 @@ from app.core.coach_limits import COACH_VOICE_REASONING_TOKENS
 from app.core.config import get_settings
 from app.schemas.coach import CoachAudio, CoachScope
 from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, UsageBounds
-from app.services.coach import journal, ledger
+from app.services.coach import expressive, journal, ledger
 from app.services.coach.ports import AudioChunk
 from app.services.coach.prompts import (
     EMPHASIS,
@@ -157,11 +157,20 @@ class Delivery:
     direction: str = ""
     sound: str = "none"
     stress: str = "none"
+    # V6: validated per-sentence segments, the line's mood/phase and what the user allows (sounds, crowd effects).
+    segments: tuple = ()
+    mood: str = ""
+    phase: str = ""
+    sounds: bool = True
+    crowd: bool = False
 
     def __post_init__(self):
         if (self.energy not in ENERGY or self.pace not in PACE or self.emphasis not in EMPHASIS
                 or self.profile not in DELIVERY_PROFILES or self.sound not in VOICE_SOUNDS
-                or self.stress not in VOICE_STRESS or len(self.direction) > VOICE_DIRECTION_CHARS):
+                or self.stress not in VOICE_STRESS or len(self.direction) > VOICE_DIRECTION_CHARS
+                or not isinstance(self.segments, tuple) or len(self.segments) > expressive.MAX_SEGMENTS
+                or not all(isinstance(seg, expressive.Segment) for seg in self.segments)
+                or (self.mood and self.mood not in expressive.MOOD_VOICE)):
             raise ValueError("Unknown delivery")
 
 
@@ -190,7 +199,8 @@ def select_delivery(delivery: Delivery, *, intent: str | None, action: str, outc
             profile = "support"
     return Delivery(delivery.energy if energy == "auto" else energy,
                     delivery.pace if pace == "auto" else pace, delivery.emphasis, profile,
-                    delivery.direction, delivery.sound, delivery.stress)
+                    delivery.direction, delivery.sound, delivery.stress, delivery.segments, delivery.mood,
+                    delivery.phase, delivery.sounds, delivery.crowd)
 
 
 # ---------- Fish Audio emotion markup (drama-3: [free-form direction] + paired <tag>…</tag>) ----------
@@ -230,13 +240,33 @@ def fish_direction(delivery: Delivery) -> str:
     return ", ".join(part for part in parts if part)
 
 
+def expressive_segments(delivery: Delivery, emotion: str) -> tuple:
+    """V6 path: fixed tone for count/safety/partial; else the author's segments over the mood's defaults."""
+    if delivery.profile in expressive.FIXED:
+        return (expressive.FIXED[delivery.profile],)
+    segments = delivery.segments or (expressive.base_segment(delivery.mood),)
+    base = expressive.base_segment(delivery.mood)
+    first = segments[0]
+    if first.emotion == "none" and base.emotion != "none":
+        first = replace(first, emotion=base.emotion, intensity=first.intensity if first.intensity != "none" else base.intensity)
+    segments = (first, *segments[1:])
+    if not delivery.sounds:
+        segments = tuple(replace(seg, sound="none") for seg in segments)
+    if emotion == "subtle":
+        # Subtle: one emotion for the line, no sounds, pauses or inline tags.
+        segments = (replace(segments[0], sound="none", pause="none", tags=(), direction=""),)
+    return segments
+
+
 def fish_markup(text: str, delivery: Delivery, emotion: str) -> str:
-    """Pure: verbatim speech text plus Russian stage directions; the words themselves never change."""
+    """Pure: verbatim speech text plus stage directions; the words themselves never change."""
     if emotion not in EMOTION_LEVELS:
         raise ValueError("Unknown emotion level")
     clean = " ".join(_FISH_MARKUP.sub(" ", text).split())
     if emotion == "off":
         return clean
+    if delivery.mood or delivery.segments:
+        return expressive.render(clean, expressive.within_budget(clean, expressive_segments(delivery, emotion)))
     body = clean
     if emotion == "expressive":
         sentences = _SENTENCES.split(clean)
@@ -589,6 +619,8 @@ class FishVoiceAdapter:
     def request(self, text: str, delivery: Delivery) -> dict:
         body = {"text": fish_markup(text, delivery, self.emotion), "format": "pcm", "sample_rate": SAMPLE_RATE,
                 "latency": "balanced"}
+        if delivery.mood and self.emotive:
+            body.update(expressive.synthesis(delivery.profile, delivery.mood, delivery.phase))  # V6.5
         if self.reference_id:
             body["reference_id"] = self.reference_id
         return body

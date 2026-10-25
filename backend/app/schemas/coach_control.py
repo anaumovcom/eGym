@@ -67,6 +67,9 @@ class CoachPreferences(CoachSettings):
     scenario_picker: bool = True
     # V10: the scenario's second character may add a short line in the co-host voice.
     co_host: bool = True
+    # V6: non-verbal sounds (laughs, sighs) and studio crowd effects (stream/show stories only) in Fish speech.
+    voice_sounds: bool = True
+    crowd_effects: bool = True
 
     @model_validator(mode="after")
     def validate_consent(self):

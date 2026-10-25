@@ -7881,6 +7881,16 @@
             "type": "boolean",
             "title": "Cohost",
             "default": true
+          },
+          "voiceSounds": {
+            "type": "boolean",
+            "title": "Voicesounds",
+            "default": true
+          },
+          "crowdEffects": {
+            "type": "boolean",
+            "title": "Crowdeffects",
+            "default": true
           }
         },
         "additionalProperties": false,

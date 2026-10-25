@@ -1,8 +1,9 @@
 """Pre-voice validation of author output. Any failure means local/silence, never a free retry loop."""
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
+from app.services.coach import expressive
 from app.services.coach.facts import memory_key
 from app.services.coach.memory import CoachMemory, words
 from app.services.coach.prompts import (
@@ -297,15 +298,26 @@ _DIRECTION = re.compile(r"^[а-яёА-ЯЁ ,\-]*$")
 
 
 def voice_block(raw: object) -> dict | None:
-    """Stage directions for the voice engine. Never spoken as words, so never part of the fact checks."""
-    if not isinstance(raw, dict) or set(raw) != {"direction", "sound", "stress"}:
+    """Stage directions for the voice engine. Never spoken as words, so never part of the fact checks.
+
+    V6 adds optional per-sentence `segments` (expressive.Segment); the legacy three keys stay valid alone."""
+    if not isinstance(raw, dict) or set(raw) not in ({"direction", "sound", "stress"}, {"direction", "sound", "stress", "segments"}):
         return None
+    segments: tuple = ()
+    if "segments" in raw:
+        if not isinstance(raw["segments"], list) or len(raw["segments"]) > expressive.MAX_SEGMENTS:
+            return None
+        parsed = [expressive.segment_from(item) for item in raw["segments"]]
+        if any(item is None for item in parsed):
+            return None
+        segments = tuple(parsed)
     direction, sound, stress = raw["direction"], raw["sound"], raw["stress"]
     if (not isinstance(direction, str) or len(direction) > VOICE_DIRECTION_CHARS or not _DIRECTION.match(direction)
             or re.search(r"игнорир|инструкц|промпт|правил", direction.lower())
             or sound not in VOICE_SOUNDS or stress not in VOICE_STRESS):
         return None
-    return {"direction": " ".join(direction.split()), "sound": sound, "stress": stress}
+    return {"direction": " ".join(direction.split()), "sound": sound, "stress": stress,
+            **({"segments": segments} if segments else {})}
 
 
 def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = None) -> Verdict:
@@ -393,6 +405,13 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
                 continue  # Semantic completion, not a partial start, explains a tip.
             if not memory.fact_allowed(memory_key(facts[fact_id]), facts[fact_id].value, summary=req.summary):
                 return _fail("fact_repeat")
+    if voice and voice.get("segments"):
+        # Palette of this moment (humor/roast/mood) and tags only on exact fragments of the spoken text.
+        context = expressive.VoiceContext(humor=intent == "humor" and req.humor != "off", roast=req.roast,
+                                          mood=(req.mood or {}).get("name", ""))
+        voice = {**voice, "segments": tuple(
+            expressive.allowed(replace(seg, tags=tuple(t for t in seg.tags if t[0] in final)), context)
+            for seg in voice["segments"])}
     return Verdict(True, None, final, tuple(sorted(used)), {**delivery, **voice}, "speak")
 
 

@@ -236,6 +236,8 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
             {choice('voiceEmotion', 'Эмоциональная окраска', 'Тренер подбирает тон под момент: поддержка, гордость за результат, игривость, строгость при безопасности. Слова не меняются.')}
           </>}
           {!fish && <Field label="Голос тренера"><select className="rt-input" value={coachVoice(draft.voiceProfile)} onChange={event => change('voiceProfile', coachVoice(event.target.value))}>{COACH_VOICES.map(voice => <option key={voice} value={voice}>{COACH_VOICE_LABELS[voice]}</option>)}</select></Field>}
+          {fish && flag('voiceSounds', 'Звуки в речи', 'Смех, вздохи, выдохи и паузы для комедийного тайминга (Fish drama-3).')}
+          {fish && flag('crowdEffects', 'Эффекты зала', 'Смех и реакция «зрителей» после шуток — только в сюжетах «трансляция» и «шоу».')}
           <Field label="Громкость тренера"><select className="rt-input" value={draft.voiceVolume === null ? 'inherit' : String(draft.voiceVolume)} onChange={event => change('voiceVolume', event.target.value === 'inherit' ? null : Number(event.target.value))}><option value="inherit">Как общая</option>{[...new Set([0, 0.25, 0.5, 0.75, 1, ...(draft.voiceVolume === null ? [] : [draft.voiceVolume])])].sort((a, b) => a - b).map(volume => <option key={volume} value={volume}>{Math.round(volume * 100)}%</option>)}</select></Field>
           <CoachVoicePackSection slot={coachPackSlot(draft)} userId={userId} budgetUsd={saved?.budgetUsd ?? '2.00'} />
         </Group>
