@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     coach_enabled: bool = Field(default=False, alias="COACH_ENABLED")
     coach_operator_hash_file: str | None = Field(default=None, alias="COACH_OPERATOR_HASH_FILE")
     coach_master_key_file: str | None = Field(default=None, alias="COACH_MASTER_KEY_FILE")
-    coach_operator_daily_usd: str = Field(default="10.00", alias="COACH_OPERATOR_DAILY_USD")
+    coach_operator_daily_usd: str = Field(default="20.00", alias="COACH_OPERATOR_DAILY_USD")
     coach_operator_monthly_usd: str = Field(default="100.00", alias="COACH_OPERATOR_MONTHLY_USD")
     # Paid text dispatch is on by default (user decision 08.10.2026); it still needs a vault key, network consent and
     # the per-workout cap. Set COACH_PAID_TEXT_ENABLED=false to fall back to the local coach.

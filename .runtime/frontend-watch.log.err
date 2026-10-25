@@ -1,0 +1,30 @@
+[2m21:42:55[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/coach/users/alexey/settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+[2m21:42:55[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/coach/users/alexey/settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+[2m21:43:12[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/coach/users/alexey/settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+[2m21:43:12[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/coach/users/alexey/settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+[2m22:02:48[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/coach/users/alexey/settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+[2m22:02:48[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/coach/users/alexey/settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+[2m22:03:13[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/coach/users/alexey/settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+[2m22:03:13[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/coach/users/alexey/settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+[2m22:03:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/coach/users/alexey/settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)
+[2m22:03:27[22m [31m[1m[vite][22m[39m [31mhttp proxy error: /api/coach/users/alexey/settings[39m
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:2021:16)

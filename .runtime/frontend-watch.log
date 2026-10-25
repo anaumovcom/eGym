@@ -1,4 +1,14 @@
 
-  VITE v7.3.3  ready in 749 ms
+  [32m[1mVITE[22m v7.3.3[39m  [2mready in [0m[1m331[22m[2m[0m ms[22m
 
-  ➜  Local:   http://127.0.0.1:5173/
+  [32m➜[39m  [1mLocal[22m:   [36mhttp://127.0.0.1:[1m5173[22m/[39m
+[2m[32m  ➜[39m[22m[2m  press [22m[1mh + enter[22m[2m to show help[22m
+[2m22:02:39[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx[22m
+[2m22:03:13[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx[22m
+[2m22:03:27[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx[22m
+[2m22:41:40[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-operator-panel.tsx[22m
+[2m22:41:40[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx[22m
+[2m22:43:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-operator-panel.tsx[22m
+[2m22:43:05[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx[22m
+[2m22:43:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx, /src/shared/ui/layout/forma-shell.tsx, /src/features/coach/ui/coach-mini-debug.tsx, /src/features/coach/ui/coach-operator-panel.tsx[22m
+[2m22:43:51[22m [36m[1m[vite][22m[39m [90m[2m(client)[22m[39m [32mhmr update [39m[2m/src/app/styles.css, /src/features/coach/ui/coach-settings-panel.tsx[22m

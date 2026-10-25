@@ -304,7 +304,7 @@ async def prepare_pack(slot: str, payload: PackPrepare, request: Request, backgr
                        factory: pack_generation.ProviderFactory = Depends(get_pack_provider)):
     security.authorize(db, request)
     prefs = load_preferences(db, payload.user_id)
-    if ledger.micros(payload.cap_usd) > min(2_000_000, ledger.micros(prefs.budget_usd)):
+    if ledger.micros(payload.cap_usd) > min(10_000_000, ledger.micros(prefs.budget_usd)):
         raise HTTPException(409, "cap_exceeds_user_budget")
     db.rollback()
     store, model = pack_store(), packs.pack_model(slot)

@@ -45,6 +45,11 @@ const VOICE_MODEL_HINTS: Record<CoachPreferences['voiceModel'], string> = {
   'openai-tts': 'Читает текст дословно, ровная подача.',
   'fish-drama-3': 'Выразительная актёрская подача с эмоциями. Нужен ключ Fish Audio у оператора.',
 }
+/** fish.audio library voices offered in the picker: [voice ID, label]. */
+const FISH_VOICES = [
+  ['0a690dbeb3984a9f88cd39353880775f', 'Меллстрой'],
+  ['6d23d3209d6849e0b24ddae6f734afe9', 'Екатерина'],
+] as const
 const PERSONA_HINTS: Record<CoachPreferences['persona'], string> = {
   streamer: 'Скандальный стример-миллионер: тренировка как прямой эфир, «чат», донаты, мат и подколы. Свой голос в Fish Audio.',
   classic: 'Тёплый энергичный напарник с лёгкой иронией.',
@@ -98,7 +103,7 @@ function problems(p: CoachPreferences): string[] {
   const list: string[] = []
   if (p.enabled && p.consentVersion !== 1) list.push('Чтобы включить тренера, отметьте согласие на его работу.')
   if (p.mode !== 'local' && p.networkConsentVersion !== 1) list.push('Для облачного режима нужно согласие на отправку данных.')
-  if (!/^\d{1,3}(\.\d{1,4})?$/.test(p.budgetUsd) || !(Number(p.budgetUsd) > 0 && Number(p.budgetUsd) <= 2)) list.push('Лимит — от 0.01 до 2 $.')
+  if (!/^\d{1,3}(\.\d{1,4})?$/.test(p.budgetUsd) || !(Number(p.budgetUsd) > 0 && Number(p.budgetUsd) <= 10)) list.push('Лимит — от 0.01 до 10 $.')
   if (p.nickname.length > 24 || !COACH_NICKNAME.test(p.nickname)) list.push('Имя: только буквы, пробел или дефис, до 24 символов.')
   if (!FISH_VOICE_ID.test(p.fishVoiceId)) list.push('ID голоса Fish Audio — 32 символа: цифры и латинские a–f.')
   if (p.assistantContext.length > 500) list.push('Контекст помощника — до 500 символов.')
@@ -210,7 +215,7 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
           <Toggle label="Согласие на работу AI-тренера" checked={draft.consentVersion === 1} onChange={checked => { change('consentVersion', checked ? 1 : null); if (!checked) change('enabled', false) }} />
           <Field label="Режим тренера" hint={MODE_HINTS[draft.mode]}><select className="rt-input" value={draft.mode} onChange={event => change('mode', event.target.value as CoachPreferences['mode'])}><option value="local">Без интернета</option><option value="hybrid">Облачный ИИ, голос</option><option value="text-only">Облачный ИИ, только текст</option></select></Field>
           {cloud && <Toggle label="Согласие на отправку данных тренировки в облачный ИИ" hint="Уходят факты тренировки, контекст помощника и настройки характера, включая имя." checked={draft.networkConsentVersion === 1} onChange={checked => { change('networkConsentVersion', checked ? 1 : null); if (!checked) change('mode', 'local') }} />}
-          {cloud && <Field label="Лимит на тренировку, $ (до 2)"><input className="rt-input" type="number" min="0.01" max="2" step="0.01" value={draft.budgetUsd} onChange={event => change('budgetUsd', event.target.value)} /></Field>}
+          {cloud && <Field label="Лимит на тренировку, $ (до 10)"><input className="rt-input" type="number" min="0.01" max="10" step="0.01" value={draft.budgetUsd} onChange={event => change('budgetUsd', event.target.value)} /></Field>}
           <Toggle label="Учитывать историю тренировок" checked={draft.historyConsent} onChange={checked => change('historyConsent', checked)} />
           <Toggle label="Память текущего разговора" hint="Последние услышанные реплики и советы этого run, до 24 часов. Отключение при сохранении удаляет память, но не меняет историю результатов." checked={draft.memoryEnabled} onChange={checked => { change('memoryEnabled', checked); if (!checked) change('crossWorkoutMemory', false) }} />
           <Toggle label="Память между тренировками — отдельное согласие" hint="Только сохранённые предпочтения манеры общения, до 7 дней в памяти сервера. Без текстов разговора и биографии; перезапуск сервера очищает эту память." checked={draft.crossWorkoutMemory} onChange={checked => { change('crossWorkoutMemory', checked); if (checked) change('memoryEnabled', true) }} />
@@ -225,7 +230,7 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
         <Group title="Голос" note="Для живой речи и готовых фраз">
           {choice('voiceModel', 'Голосовая модель', VOICE_MODEL_HINTS[draft.voiceModel])}
           {fish && <>
-            <Field label="Голос Fish Audio" hint="ID голоса из библиотеки fish.audio (32 символа). Пусто — голос выбранного персонажа."><input className="rt-input" type="text" maxLength={32} autoComplete="off" spellCheck={false} placeholder="Голос персонажа" value={draft.fishVoiceId} onChange={event => change('fishVoiceId', event.target.value.trim().toLowerCase())} /></Field>
+            <Field label="Голос Fish Audio" hint="Голос из библиотеки fish.audio. «Голос персонажа» — голос выбранного персонажа."><select className="rt-input" value={draft.fishVoiceId} onChange={event => change('fishVoiceId', event.target.value)}><option value="">Голос персонажа</option>{[...FISH_VOICES, ...(draft.fishVoiceId && !FISH_VOICES.some(([id]) => id === draft.fishVoiceId) ? [[draft.fishVoiceId, draft.fishVoiceId] as const] : [])].map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></Field>
             {choice('voiceEmotion', 'Эмоциональная окраска', 'Тренер подбирает тон под момент: поддержка, гордость за результат, игривость, строгость при безопасности. Слова не меняются.')}
           </>}
           {!fish && <Field label="Голос тренера"><select className="rt-input" value={coachVoice(draft.voiceProfile)} onChange={event => change('voiceProfile', coachVoice(event.target.value))}>{COACH_VOICES.map(voice => <option key={voice} value={voice}>{COACH_VOICE_LABELS[voice]}</option>)}</select></Field>}

@@ -171,7 +171,7 @@ def test_preferences_persist_cas_isolate_and_legacy_off(db_session):
     assert not migrated.enabled and migrated.network_consent_version is None and migrated.revision == 1
 
 
-@pytest.mark.parametrize("fields", [{"enabled": True}, {"enabled": True, "consent_version": 1, "mode": "hybrid"}, {"budget_usd": "2.01"}, {"budget_usd": "0"}, {"consent_version": 99, "enabled": True}])
+@pytest.mark.parametrize("fields", [{"enabled": True}, {"enabled": True, "consent_version": 1, "mode": "hybrid"}, {"budget_usd": "10.01"}, {"budget_usd": "0"}, {"consent_version": 99, "enabled": True}])
 def test_preferences_reject_missing_consent_and_bad_caps(fields):
     with pytest.raises(ValueError):
         CoachPreferences(**fields)

@@ -79,7 +79,7 @@ export function preferencesValid(p: CoachPreferences): boolean {
     (!p.enabled || p.consentVersion === 1) &&
     (p.mode === 'local' || p.networkConsentVersion === 1) &&
     typeof p.budgetUsd === 'string' && /^\d{1,3}(\.\d{1,4})?$/.test(p.budgetUsd) &&
-    Number(p.budgetUsd) > 0 && Number(p.budgetUsd) <= 2 &&
+    Number(p.budgetUsd) > 0 && Number(p.budgetUsd) <= 10 &&
     (p.voiceVolume === null || (Number.isFinite(p.voiceVolume) && p.voiceVolume >= 0 && p.voiceVolume <= 1)) &&
     typeof p.fishVoiceId === 'string' && FISH_VOICE_ID.test(p.fishVoiceId) &&
     typeof p.assistantContext === 'string' && p.assistantContext.length <= 500 &&

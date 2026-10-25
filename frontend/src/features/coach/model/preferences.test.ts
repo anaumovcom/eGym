@@ -45,10 +45,10 @@ describe('Coach preference admission (no providers)', () => {
     expect(effectiveCoachState({ ...enabled, voiceVolume: 1 }, { ...general, volume: 0 }, true).audioEnabled).toBe(false)
     expect(effectiveCoachState({ ...enabled, voiceVolume: 0 }, general, true).audioEnabled).toBe(false)
   })
-  it.each(['0', '-1', '2.01', 'Infinity', 'NaN', '', '0.00001'])('rejects invalid budget %s', budgetUsd => {
+  it.each(['0', '-1', '10.01', 'Infinity', 'NaN', '', '0.00001'])('rejects invalid budget %s', budgetUsd => {
     expect(preferencesValid({ ...defaults, budgetUsd })).toBe(false)
   })
-  it.each(['0.001', '0.01', '1.5', '2.00'])('accepts bounded budget %s', budgetUsd => {
+  it.each(['0.001', '0.01', '1.5', '2.00', '10.00'])('accepts bounded budget %s', budgetUsd => {
     expect(preferencesValid({ ...defaults, budgetUsd })).toBe(true)
   })
 })

@@ -72,8 +72,8 @@ class CoachPreferences(CoachSettings):
             raise ValueError("Current consent required")
         if self.mode != "local" and self.network_consent_version != 1:
             raise ValueError("Network consent required")
-        if not Decimal("0") < Decimal(self.budget_usd) <= Decimal("2"):
-            raise ValueError("Workout budget must be >0 and <=2 USD")
+        if not Decimal("0") < Decimal(self.budget_usd) <= Decimal("10"):
+            raise ValueError("Workout budget must be >0 and <=10 USD")
         return self
 
 
