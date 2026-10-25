@@ -116,3 +116,16 @@ class CoachJob(Base):
     completed: Mapped[list] = mapped_column(JSON, default=list)
     state: Mapped[str] = mapped_column(String(16), default="paused")
     failures: Mapped[int] = mapped_column(Integer, default=0)
+
+class CoachScenario(Base):
+    """V1: the scenario chosen for one workout ledger (card + validated bible). Story only, never facts."""
+
+    __tablename__ = "coach_scenarios"
+    run_id: Mapped[str] = mapped_column(ForeignKey("coach_runs.id"), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(120), index=True)
+    archetype: Mapped[str] = mapped_column(String(24))
+    title: Mapped[str] = mapped_column(String(60))
+    card: Mapped[dict] = mapped_column(JSON, default=dict)
+    bible: Mapped[dict] = mapped_column(JSON, default=dict)
+    version: Mapped[str] = mapped_column(String(40), default="")
+    created_at: Mapped[float] = mapped_column(Float)

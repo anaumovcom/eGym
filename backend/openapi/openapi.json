@@ -7506,7 +7506,8 @@
             "enum": [
               "quiet",
               "companion",
-              "talkative"
+              "talkative",
+              "show"
             ],
             "title": "Density",
             "default": "companion"
@@ -7870,6 +7871,16 @@
             "type": "boolean",
             "title": "Crossworkoutmemory",
             "default": false
+          },
+          "scenarioPicker": {
+            "type": "boolean",
+            "title": "Scenariopicker",
+            "default": true
+          },
+          "coHost": {
+            "type": "boolean",
+            "title": "Cohost",
+            "default": true
           }
         },
         "additionalProperties": false,

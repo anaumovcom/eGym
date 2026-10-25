@@ -4,6 +4,7 @@ import { useEffect, useState, type PropsWithChildren, type ReactNode } from 'rea
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
 import { CoachMiniDebug } from '@/features/coach/ui/coach-mini-debug'
+import { CoachScenarioPicker } from '@/features/coach/ui/coach-scenario-picker'
 import { localAudioRuntime } from '@/features/coach/audio/local-audio-runtime'
 import { startCoachLiveRuntime } from '@/features/coach/live/coach-live-runtime'
 import { useAppStore } from '@/stores/app-store'
@@ -260,6 +261,7 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
   const dock = (
     <div role="group" className="forma-system-dock" style={{ pointerEvents: 'auto' }} aria-label="Состояние тренажёра и безопасность">
       <CoachMiniDebug />
+      <CoachScenarioPicker />
       <MotorForceReadout />
       <DisableServiceModeButton />
       <ResetBlockButton machine={machine} />

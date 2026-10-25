@@ -36,7 +36,8 @@ class Route:
     def __post_init__(self):
         if not COACH_TEXT_OUTPUT_TOKENS // 2 <= self.max_output_tokens <= COACH_MAX_TEXT_OUTPUT_TOKENS:
             raise ValueError("Route output budget out of bounds")
-        if not 0 < self.timeout_s <= 15:
+        # Whole-workout generation (plan) may think for up to 40 s; spoken lines stay within 15 s.
+        if not 0 < self.timeout_s <= (40 if self.task_class == "plan" else 15):
             raise ValueError("Bounded route timeout required")
 
 
@@ -69,7 +70,7 @@ def default_routes(fast: Pricing) -> dict[TaskClass, Route]:
     live_tokens = max(COACH_TEXT_OUTPUT_TOKENS, cfg.coach_text_max_output_tokens)
     return {
         "plan": Route("plan", strong.model, strong, cfg.coach_text_strong_reasoning_effort,
-                      COACH_PLAN_OUTPUT_TOKENS, 15),
+                      COACH_PLAN_OUTPUT_TOKENS, 40),
         "narrative": Route("narrative", strong.model, strong, cfg.coach_text_strong_reasoning_effort,
                            COACH_NARRATIVE_OUTPUT_TOKENS, 12),
         "live": Route("live", fast.model, fast, cfg.coach_text_reasoning_effort, live_tokens, 8),

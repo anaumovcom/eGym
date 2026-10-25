@@ -40,8 +40,23 @@ export type NetworkSnapshot = Readonly<{
   serverTimings: Readonly<Record<string, LatencySummary>>
   telemetry: Readonly<{ classified: number; missingClassification: number; pendingClassification: number; retained: number }>
   opportunities?: Readonly<Record<OpportunityState, number>>
+  scenario?: ScenarioView
 }>
 export type LatencySummary = Readonly<{ count: number; p50: number; p95: number }>
+/** V1 workout scenario: three generated cards to choose from, then the chosen story's acts. */
+export type ScenarioPhase = 'off' | 'waiting' | 'proposing' | 'choosing' | 'building' | 'ready' | 'skipped' | 'failed'
+export type ScenarioCard = Readonly<{ archetype: string; title: string; tagline: string; tone: string }>
+export type ScenarioAct = Readonly<{ act: number; title: string; exerciseIds: readonly string[] }>
+export type ScenarioView = Readonly<{
+  phase: ScenarioPhase; cards: readonly ScenarioCard[]; proposalsLeft: number; title: string | null; tagline: string | null
+  archetype: string | null; acts: readonly ScenarioAct[]; counters: readonly Readonly<{ id: string; label: string; value?: number | null }>[]
+  coHost: Readonly<{ role: string; name: string }> | null; error: string | null
+}>
+const SCENARIO_OFF: ScenarioView = Object.freeze({ phase: 'off', cards: [], proposalsLeft: 0, title: null, tagline: null, archetype: null,
+  acts: [], counters: [], coHost: null, error: null })
+/** The opening line waits for the choice at most this long; then the workout starts without a story. */
+const SCENARIO_HOLD_MS = 150_000
+const SCENARIO_STATE_WAIT_MS = 4_000
 export interface SocketLike {
   binaryType: string; readonly readyState: number
   send(data: string): void; close(code?: number): void
@@ -208,6 +223,9 @@ export class CoachNetworkClient {
   private textEvent: SentEvent | null = null
   private firstAudioMs: number | null = null
   private snap: NetworkSnapshot | null = null
+  private scenario: ScenarioView = SCENARIO_OFF
+  private scenarioSince = 0
+  private scenarioProposed = false
   private readonly listeners = new Set<() => void>()
   private disposed = false
 
@@ -237,6 +255,7 @@ export class CoachNetworkClient {
     usage: this.usage, lastText: this.lastText, firstAudioMs: this.firstAudioMs,
     firstAudioMsLabel: 'voice-only', latencies: summaries(this.latencySamples), serverTimings: summaries(this.serverSamples),
     opportunities: Object.freeze({ ...this.opportunityCounts }),
+    scenario: this.scenario,
     telemetry: Object.freeze({ classified: this.classified, missingClassification: this.missingClassification,
       pendingClassification: [...this.registry.values()].filter(event => event.telemetry.pending.size > 0).length, retained: this.terminalStreams.size }),
   })
@@ -256,6 +275,7 @@ export class CoachNetworkClient {
       this.run = this.loadRun(); this.boundWorkout = null; this.attempt = 0; this.refusedRevision = null
       this.registry.clear(); this.generations.clear(); this.history = []; this.context = null; this.contextKey = ''; this.planKey = null
       this.localStarted.clear()
+      this.scenario = SCENARIO_OFF; this.scenarioProposed = false
     }
     this.updateContext(input)
     if (this.state === 'refused' && this.refusedRevision !== saved.revision) { this.refusedRevision = null; this.setState('off', null) }
@@ -311,6 +331,94 @@ export class CoachNetworkClient {
         this.changed()
       }
     }
+  }
+
+  /** V1: ask the coach for three scenario cards (again: a regeneration, at most three times). */
+  proposeScenarios(): void {
+    const session = this.last?.session
+    if (!session || this.state !== 'ready' || !['waiting', 'choosing', 'failed', 'off'].includes(this.scenario.phase)) return
+    const plan = session.exercises.slice(0, 24).map(exercise => ({ id: exercise.id, name: exercise.name.slice(0, 120),
+      sets: Math.max(1, Math.min(50, exercise.plan.length)), kind: exercise.kind }))
+    if (!plan.length) return
+    this.scenarioProposed = true
+    this.setScenario({ phase: 'proposing', error: null })
+    this.send({ type: 'scenario_propose', plan })
+  }
+  selectScenario(index: number): void {
+    if (this.scenario.phase !== 'choosing' || !Number.isInteger(index) || index < 0 || index >= this.scenario.cards.length) return
+    const card = this.scenario.cards[index]
+    this.setScenario({ phase: 'building', title: card.title, tagline: card.tagline, archetype: card.archetype, error: null })
+    this.send({ type: 'scenario_select', index })
+  }
+  skipScenario(): void {
+    if (this.scenario.phase === 'ready' || this.scenario.phase === 'skipped') return
+    this.setScenario({ phase: 'skipped', cards: [] })
+    this.send({ type: 'scenario_skip' })
+    if (this.last) this.tick({ ...this.last, nowMs: this.now() })
+  }
+
+  private setScenario(patch: Partial<ScenarioView>): void {
+    if (patch.phase && patch.phase !== this.scenario.phase) this.scenarioSince = this.now()
+    this.scenario = Object.freeze({ ...this.scenario, ...patch })
+    this.changed()
+  }
+
+  /** The opening waits while a story is being offered, chosen or written (bounded by SCENARIO_HOLD_MS). */
+  private scenarioHolds(input: NetworkTick): boolean {
+    const saved = input.saved
+    if (!saved?.scenarioPicker) return false
+    const phase = this.scenario.phase
+    if (phase === 'off') {
+      this.setScenario({ phase: 'waiting' })
+      return true
+    }
+    if (phase === 'waiting' && this.now() - this.scenarioSince >= SCENARIO_STATE_WAIT_MS && !this.scenarioProposed) this.proposeScenarios()
+    if (['waiting', 'proposing', 'choosing', 'building'].includes(phase)) {
+      if (this.now() - this.scenarioSince < SCENARIO_HOLD_MS) return true
+      this.skipScenario()
+    }
+    return false
+  }
+
+  private receiveScenario(message: Record<string, unknown>): void {
+    if (message.type === 'scenarios') {
+      const error = str(message.error, 60)
+      if (error) { this.setScenario({ phase: this.scenario.phase === 'proposing' ? 'failed' : this.scenario.phase, error }); return }
+      const cards = Array.isArray(message.cards) ? message.cards.slice(0, 3).flatMap(raw => {
+        const card = object(raw)
+        const archetype = str(card?.archetype, 24), title = str(card?.title, 60), tagline = str(card?.tagline, 160), tone = str(card?.tone, 60)
+        return archetype && title && tagline && tone ? [{ archetype, title, tagline, tone }] : []
+      }) : []
+      if (cards.length !== 3) { this.setScenario({ phase: 'failed', error: 'invalid_scenarios' }); return }
+      this.setScenario({ phase: 'choosing', cards, proposalsLeft: Math.max(0, Math.min(3, num(message.proposalsLeft) ?? 0)), error: null })
+      return
+    }
+    const state = str(message.state, 16)
+    if (state === 'none') {
+      if (['off', 'waiting'].includes(this.scenario.phase) && this.last?.saved?.scenarioPicker && !this.scenarioProposed) {
+        const session = this.last.session
+        const fresh = !!session && !Object.values(session.completedSets).some(list => list.length > 0)
+        if (fresh) this.proposeScenarios(); else this.setScenario({ phase: 'skipped' })
+      }
+      return
+    }
+    if (state === 'building') { this.setScenario({ phase: 'building', title: str(message.title, 60) ?? this.scenario.title }); return }
+    if (state === 'skipped') { this.setScenario({ phase: 'skipped', cards: [] }); return }
+    if (state === 'failed') { this.setScenario({ phase: 'failed', error: str(message.reason, 60) ?? 'failed' }); return }
+    if (state !== 'ready') return
+    const acts = Array.isArray(message.acts) ? message.acts.slice(0, 3).flatMap(raw => {
+      const act = object(raw), number = num(act?.act), title = str(act?.title, 80)
+      const ids = Array.isArray(act?.exerciseIds) ? act.exerciseIds.filter((id): id is string => typeof id === 'string' && id.length <= 160).slice(0, 24) : []
+      return number && title ? [{ act: number, title, exerciseIds: ids }] : []
+    }) : []
+    const counters = Array.isArray(message.counters) ? message.counters.slice(0, 2).flatMap(raw => {
+      const counter = object(raw), id = str(counter?.id, 8), label = str(counter?.label, 60)
+      return id && label ? [{ id, label, value: num(counter?.value) }] : []
+    }) : []
+    const co = object(message.coHost), role = str(co?.role, 80), name = str(co?.name, 60)
+    this.setScenario({ phase: 'ready', cards: [], title: str(message.title, 60), tagline: str(message.tagline, 160),
+      archetype: str(message.archetype, 24), acts, counters, coHost: role && name ? { role, name } : null, error: null })
+    if (this.last) this.tick({ ...this.last, nowMs: this.now() })
   }
 
   async forgetMemory(signal?: AbortSignal): Promise<number | null> {
@@ -493,6 +601,7 @@ export class CoachNetworkClient {
         if (this.last) this.tick({ ...this.last, nowMs: this.now() })
         break
       }
+      case 'scenarios': case 'scenario': this.receiveScenario(message); break
       case 'speech_start': this.speechStart(message); break
       case 'speech_end': this.speechEnd(message); break
       case 'decision': {
@@ -661,6 +770,8 @@ export class CoachNetworkClient {
     if (!scope || quiet) return
     const exercise = session.exercises.find(item => item.id === session.currentExerciseId)
     const progress = Object.values(session.completedSets).some(list => list.length > 0)
+    if (!this.sentKeys.has('workout') && !progress && (input.phase === 'setup' || input.phase === 'waiting-start') &&
+      this.scenarioHolds(input)) return
     if (!this.sentKeys.has('workout')) {
       this.sentKeys.add('workout')
       if (exercise) this.sentKeys.add(`exercise:${exercise.id}`) // The opening already covers the first exercise.

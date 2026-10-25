@@ -12,7 +12,8 @@ class SpeechAction:
 
 
 SPEECH_ACTIONS = {
-    "orient": SpeechAction(("setup",), "declared-plan-or-reviewed-guide", 25, 60),
+    # 35 words leave room for a scenario opening/act announcement; ordinary intros stay shorter by P2/Director.
+    "orient": SpeechAction(("setup",), "declared-plan-or-reviewed-guide", 35, 60),
     "instruct": SpeechAction(("setup",), "catalog-guidance-no-observed-form", 30, 60),
     "support": SpeechAction(("active", "paused"), "current-moment-no-inferred-body-state", 16, 30),
     "result": SpeechAction(("rest",), "persisted-result-preserve-partial-and-locked-clause", 40, 90),

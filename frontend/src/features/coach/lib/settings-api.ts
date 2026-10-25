@@ -24,7 +24,7 @@ function preferences(value: unknown): CoachPreferences {
   const p: JsonObject = { memoryEnabled: true, crossWorkoutMemory: false, fishVoiceId: '', assistantContext: '', ...raw, ...tuning }
   if (typeof p.enabled !== 'boolean' || typeof p.historyConsent !== 'boolean' || typeof p.duringSets !== 'boolean' ||
       typeof p.duringRest !== 'boolean' || !['local', 'hybrid', 'text-only'].includes(String(p.mode)) ||
-      !['quiet', 'companion', 'talkative'].includes(String(p.density)) || !['every', 'last-three', 'milestones', 'off'].includes(String(p.count)) ||
+      !['quiet', 'companion', 'talkative', 'show'].includes(String(p.density)) || !['every', 'last-three', 'milestones', 'off'].includes(String(p.count)) ||
       !(p.voiceProfile === null || typeof p.voiceProfile === 'string') ||
       !(p.voiceVolume === null || typeof p.voiceVolume === 'number') || !preferencesValid(p as CoachPreferences)) throw new CoachApiError('invalid_response')
   // Pick only the public contract: never retain unknown server/provider fields.

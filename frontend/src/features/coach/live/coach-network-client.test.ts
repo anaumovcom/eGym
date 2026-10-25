@@ -16,7 +16,8 @@ const RATE = 8000
 const unknownGroup = (kind = 'workout_started') => `${kind}:unknown:voiceModel=unknown:textModel=unknown:connection=unknown`
 const metadata = { source: 'realtime', voiceModel: 'gpt-realtime-2.1-mini', textModel: 'gpt-6-luna', connectionClass: 'warm' }
 const knownGroup = (kind = 'workout_started', connection = 'warm') => `${kind}:realtime:voiceModel=gpt-realtime-2.1-mini:textModel=gpt-6-luna:connection=${connection}`
-const saved: CoachPreferences = { ...DEFAULT_COACH_PREFERENCES, enabled: true, consentVersion: 1, networkConsentVersion: 1, mode: 'hybrid', revision: 3 }
+const saved: CoachPreferences = { ...DEFAULT_COACH_PREFERENCES, enabled: true, consentVersion: 1, networkConsentVersion: 1, mode: 'hybrid', revision: 3,
+  scenarioPicker: false }
 const scope = (patch: Partial<CoachScope> = {}): CoachScope => ({ schemaVersion: 1, userId: 'u1', runId: 'run-1', exerciseId: 'e1', setOrdinal: 1, scopeEpoch: 3, ...patch })
 const plan = (reps: number) => ({ targetReps: reps, restSeconds: 90, weightLabel: '' })
 const session = (patch: Record<string, unknown> = {}) => ({ id: 'run-1', dataSource: 'backend', view: 'exercise-setup', currentExerciseId: 'e1',
@@ -1323,5 +1324,74 @@ describe('CoachLifecycleObserver refs', () => {
     expect(JSON.stringify(event)).not.toContain('42')
     observer.clear()
     expect(observer.refs(event.id)).toBeNull()
+  })
+})
+
+describe('CoachNetworkClient scenarios (V1)', () => {
+  const cards = [{ archetype: 'race', title: 'Гонка героев', tagline: 'Заезд за заездом', tone: 'дерзко' },
+    { archetype: 'rpg', title: 'Боссфайт', tagline: 'Победи босса', tone: 'эпично' },
+    { archetype: 'space', title: 'Орбита', tagline: 'Старт к звёздам', tone: 'торжественно' }]
+
+  it('holds the opening until a story is chosen, proposes the plan and opens with the chosen one', async () => {
+    const f = new Fixture()
+    f.input = { ...f.input, saved: { ...saved, scenarioPicker: true } }
+    await f.connect()
+    f.socket.push({ type: 'scenario', state: 'none' })
+    f.tick()
+    const propose = f.socket.sent.find(item => item.type === 'scenario_propose') as { plan: Array<Record<string, unknown>> }
+    expect(propose.plan).toEqual([{ id: 'e1', name: 'Жим ногами', sets: 2, kind: 'machine' }, { id: 'e2', name: 'Тяга', sets: 1, kind: 'machine' }])
+    expect(f.socket.events()).toHaveLength(0)
+    expect(f.client.getSnapshot().scenario?.phase).toBe('proposing')
+    f.socket.push({ type: 'scenarios', cards, proposalsLeft: 3 })
+    expect(f.client.getSnapshot().scenario).toMatchObject({ phase: 'choosing', proposalsLeft: 3 })
+    f.client.selectScenario(1)
+    expect(f.socket.sent.at(-1)).toEqual({ type: 'scenario_select', index: 1 })
+    f.tick()
+    expect(f.socket.events()).toHaveLength(0)
+    f.socket.push({ type: 'scenario', state: 'ready', title: 'Боссфайт', tagline: 'Победи босса', archetype: 'rpg',
+      acts: [{ act: 1, title: 'Подземелье', exerciseIds: ['e1'] }, { act: 2, title: 'Босс', exerciseIds: ['e2'] }],
+      counters: [{ id: 'c1', label: 'урон боссу' }], coHost: { role: 'летописец', name: 'Борис' } })
+    f.tick()
+    expect(f.client.getSnapshot().scenario).toMatchObject({ phase: 'ready', title: 'Боссфайт', coHost: { name: 'Борис' } })
+    expect(f.socket.events().map(item => item.event.kind)).toEqual(['workout_started'])
+  })
+
+  it('skipping or a timeout releases the opening without a story', async () => {
+    const f = new Fixture()
+    f.input = { ...f.input, saved: { ...saved, scenarioPicker: true } }
+    await f.connect()
+    f.socket.push({ type: 'scenario', state: 'none' })
+    f.tick()
+    f.socket.push({ type: 'scenarios', error: 'budget' })
+    expect(f.client.getSnapshot().scenario).toMatchObject({ phase: 'failed', error: 'budget' })
+    f.client.skipScenario()
+    expect(f.socket.sent.some(item => item.type === 'scenario_skip')).toBe(true)
+    expect(f.socket.events().map(item => item.event.kind)).toEqual(['workout_started'])
+
+    const g = new Fixture()
+    g.input = { ...g.input, saved: { ...saved, scenarioPicker: true } }
+    await g.connect()
+    g.socket.push({ type: 'scenario', state: 'none' })
+    g.tick()
+    g.tick({ nowMs: g.input.nowMs + 160_000 })
+    expect(g.client.getSnapshot().scenario?.phase).toBe('skipped')
+    g.tick()
+    expect(g.socket.events().map(item => item.event.kind)).toEqual(['workout_started'])
+  })
+
+  it('restores a chosen story after reconnecting and never offers one with the switch off', async () => {
+    const f = new Fixture()
+    f.input = { ...f.input, saved: { ...saved, scenarioPicker: true } }
+    await f.connect()
+    f.socket.push({ type: 'scenario', state: 'ready', title: 'Гонка героев', archetype: 'race', acts: [], counters: [] })
+    f.tick()
+    expect(f.socket.sent.some(item => item.type === 'scenario_propose')).toBe(false)
+    expect(f.socket.events().map(item => item.event.kind)).toEqual(['workout_started'])
+    const off = new Fixture()
+    await off.connect()
+    off.socket.push({ type: 'scenario', state: 'none' })
+    off.tick()
+    expect(off.socket.sent.some(item => item.type === 'scenario_propose')).toBe(false)
+    expect(off.socket.events().map(item => item.event.kind)).toEqual(['workout_started'])
   })
 })

@@ -558,6 +558,7 @@ async def coach_live(websocket: WebSocket, run_id: str, sessions: Callable[[], S
                          "text": pipeline.author is not None,
                          "voice": pipeline.voice is not None, "degraded": pipeline.reason is not None,
                          "degradedReason": pipeline.reason})
+        await coach.announce()
         window, count = time.monotonic(), 0
         while True:
             message = await websocket.receive()

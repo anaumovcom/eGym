@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.schemas.coach import CoachEvent, CoachScope
 from app.schemas.coach_control import CoachPreferences
-from app.services.coach import history, journal, ledger, security
+from app.services.coach import history, journal, ledger, scenario, security
 from app.services.coach.completion import LocalCompletion, additional_package, duplicate_local, useful_addition
 from app.services.coach.context import CoachContext, build_context
 from app.services.coach.director import Candidate, Director
@@ -80,6 +80,10 @@ BUDGET_TIER_TTL_MS = 2_000
 # From tier 3 only results/summaries are authored live; tier 4 keeps only the reserved summary.
 TIER_RESULT_ONLY, TIER_SUMMARY_ONLY = 3, 4
 TIER_SHORT_REST, TIER_SHORT_REST_WORDS = 2, 25
+# V1 scenarios: one proposal plus up to three regenerations; a job waits this long for the speech pipeline.
+SCENARIO_PROPOSALS = 4
+SCENARIO_IDLE_WAIT_S = 20.0
+SCENARIO_WORDS = 30
 SPEECH_TIMING_STAGES = ("receive", "textStart", "textEnd", "firstPcm", "speechEnd", "ackStart", "ackEnd", "ackCancel")
 PROGRESS_FACTS = frozenset({"set-position", "sets-left", "exercise-position", "plan-sets", "planned-sets"})
 # In-set moments (T21 set support): claim, per-set topic, intents. The browser only says which moment it is;
@@ -241,6 +245,15 @@ class LiveCoach:
         self.closed = False
         self.local_observations: deque[float] = deque(maxlen=128)
         self._tier_cache: tuple[float, int] | None = None
+        # V1: the chosen story (card + validated bible), restored from the DB after a reconnect.
+        self.scenario_card: dict | None = None
+        self.scenario_bible: dict | None = None
+        self.scenario_cards: list[dict] = []
+        self.scenario_plan: tuple[scenario.PlanExercise, ...] | None = None
+        self.scenario_proposals = 0
+        self.scenario_shown: list[str] = []
+        self.scenario_job: asyncio.Task | None = None
+        self._load_scenario()
 
     def budget_tier(self) -> int:
         """V0.3 degradation tier of this run's ledger; an unreadable ledger never degrades by itself."""
@@ -354,6 +367,8 @@ class LiveCoach:
         elif kind == "ping":
             await self._expire_queue()
             await self.send_json({"type": "pong", "stats": self.stats.as_dict()})
+        elif kind in {"scenario_propose", "scenario_select", "scenario_skip"}:
+            await self._scenario_message(kind, message)
         else:
             await self.send_json({"type": "error", "reason": "unknown_message"})
 
@@ -599,6 +614,9 @@ class LiveCoach:
             return
         tier = self.budget_tier()
         action = op.candidate.speech_action
+        if self.settings.density == "show":
+            # V0.3: from tier 1 the show is toned down to «talkative» (and back once money allows).
+            self.director.set_profile("talkative" if tier >= 1 else "show")
         if (tier >= TIER_SUMMARY_ONLY and action != "summary") or (
                 tier >= TIER_RESULT_ONLY and action not in {"result", "summary"}):
             # Local clips keep counting/confirming; the remaining money is kept for results and the summary.
@@ -684,7 +702,136 @@ class LiveCoach:
 
     async def close(self) -> None:
         self.closed = True
+        job = self.scenario_job
+        if job is not None and not job.done():
+            job.cancel()
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await job
         await self.cancel("cancelled")
+
+    # ---------- V1 scenarios ----------
+
+    def _load_scenario(self) -> None:
+        try:
+            with self.sessions() as db:
+                found = scenario.load(db, self.run_id, self.user_id)
+        except Exception:  # noqa: BLE001 - a broken optional story must never stop the coach
+            found = None
+        if found:
+            self.scenario_card, self.scenario_bible = found
+
+    def scenario_state(self) -> dict:
+        if not (self.scenario_card and self.scenario_bible):
+            return {"type": "scenario", "state": "none"}
+        bible = self.scenario_bible
+        return {"type": "scenario", "state": "ready", "title": self.scenario_card["title"],
+                "tagline": self.scenario_card.get("tagline"), "archetype": self.scenario_card["archetype"],
+                "acts": [{"act": a["act"], "title": a["title"], "exerciseIds": a["exerciseIds"]} for a in bible["acts"]],
+                "counters": [{"id": c["id"], "label": c["label"]} for c in bible.get("counters", [])],
+                "coHost": bible.get("coHost")}
+
+    async def announce(self) -> None:
+        """After `configured`: tell a (re)connected browser whether a story is already chosen."""
+        await self.send_json(self.scenario_state())
+
+    async def _scenario_message(self, kind: str, message: dict) -> None:
+        if self.author is None:
+            await self.send_json({"type": "scenarios", "error": "provider_unavailable"})
+            return
+        if self.scenario_job is not None and not self.scenario_job.done():
+            await self.send_json({"type": "scenarios", "error": "scenario_busy"})
+            return
+        if kind == "scenario_skip":
+            self.scenario_cards = []
+            await self.send_json({"type": "scenario", "state": "skipped"})
+            return
+        if kind == "scenario_propose":
+            plan = scenario.parse_plan(message.get("plan"))
+            if plan is None:
+                await self.send_json({"type": "scenarios", "error": "invalid_plan"})
+                return
+            if self.scenario_proposals >= SCENARIO_PROPOSALS:
+                await self.send_json({"type": "scenarios", "error": "no_more_proposals"})
+                return
+            self.scenario_plan = plan
+            self.scenario_job = asyncio.create_task(self._scenario_propose(plan))
+            return
+        index = message.get("index")
+        if type(index) is not int or not 0 <= index < len(self.scenario_cards) or self.scenario_plan is None:
+            await self.send_json({"type": "scenario", "state": "failed", "reason": "invalid_choice"})
+            return
+        self.scenario_job = asyncio.create_task(self._scenario_build(self.scenario_cards[index], self.scenario_plan))
+
+    async def _hold_pipeline(self) -> bool:
+        """Scenario generation shares the run's single paid flight: wait for speech, then occupy the slot."""
+        deadline = time.monotonic() + SCENARIO_IDLE_WAIT_S
+        while self.task is not None and not self.task.done():
+            if time.monotonic() > deadline:
+                return False
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await asyncio.wait_for(asyncio.shield(self.task), max(0.05, deadline - time.monotonic()))
+        if self.closed:
+            return False
+        self.task = asyncio.current_task()
+        self.task.add_done_callback(self._after)
+        return True
+
+    async def _scenario_propose(self, plan: tuple[scenario.PlanExercise, ...]) -> None:
+        if not await self._hold_pipeline():
+            await self.send_json({"type": "scenarios", "error": "pipeline_busy"})
+            return
+        self.scenario_proposals += 1
+        with self.sessions() as db:
+            recent = scenario.recent_archetypes(db, self.user_id)
+        archetypes = scenario.choose_archetypes(recent, exclude=tuple(self.scenario_shown))
+        s = self.settings
+        output, error = await self.author.generate(
+            run_id=self.run_id, owner=self.owner, generation=self.generation,
+            opportunity=f"{self.run_id}:scenario:propose:{self.scenario_proposals}", task="scenario/propose",
+            name="coach_scenarios", instructions=scenario.PROPOSE_INSTRUCTIONS,
+            data=scenario.propose_data(plan, archetypes, character=s.persona, style=s.style, goal=s.goal,
+                                       experience=s.experience, assistant_context=s.assistant_context),
+            schema=scenario.propose_schema(archetypes), purpose="scenario", reasoning_effort="low",
+            tier=self.budget_tier())
+        cards = scenario.validate_cards(output, archetypes) if output is not None else None
+        if cards is None:
+            if output is not None:
+                self.author.reject_generation("scenario_cards")
+            await self.send_json({"type": "scenarios", "error": error or "invalid_scenarios"})
+            return
+        self.scenario_cards = cards
+        self.scenario_shown.extend(archetypes)
+        await self.send_json({"type": "scenarios", "cards": cards,
+                              "proposalsLeft": max(0, SCENARIO_PROPOSALS - self.scenario_proposals)})
+
+    async def _scenario_build(self, card: dict, plan: tuple[scenario.PlanExercise, ...]) -> None:
+        await self.send_json({"type": "scenario", "state": "building", "title": card["title"]})
+        if not await self._hold_pipeline():
+            await self.send_json({"type": "scenario", "state": "failed", "reason": "pipeline_busy"})
+            return
+        s = self.settings
+        bible, error = None, None
+        for attempt in (1, 2):  # One more try for a malformed bible; then the workout simply has no story.
+            output, error = await self.author.generate(
+                run_id=self.run_id, owner=self.owner, generation=self.generation,
+                opportunity=f"{self.run_id}:scenario:bible:{card['archetype']}:{attempt}", task="scenario/bible",
+                name="coach_scenario_bible", instructions=scenario.BIBLE_INSTRUCTIONS,
+                data=scenario.bible_data(card, plan, character=s.persona, profanity=s.profanity, humor=s.humor),
+                schema=scenario.bible_schema(plan), purpose="scenario", tier=self.budget_tier())
+            if output is None:
+                break
+            bible = scenario.validate_bible(output, plan)
+            if bible is not None:
+                break
+            self.author.reject_generation("scenario_bible")
+            error = "invalid_bible"
+        if bible is None:
+            await self.send_json({"type": "scenario", "state": "failed", "reason": error or "invalid_bible"})
+            return
+        with self.sessions() as db:
+            scenario.save(db, self.run_id, self.user_id, card, bible)
+        self.scenario_card, self.scenario_bible = card, bible
+        await self.send_json(self.scenario_state())
 
     # ---------- event → opportunity ----------
 
@@ -791,8 +938,10 @@ class LiveCoach:
                 AllowedFact("exercise-count", f"В тренировке {spoken_quantity(count, 'exercises')}", "confirmed", count,
                             "exercises", numbers=(count,), **common) if count else None,
                 AllowedFact("exercise", f"Первое упражнение — {name}", "confirmed", name, **common) if name else None])
-            return op(candidate("T01", "setup", "workout-opening", hint=3_000), "setup/opening", ("motivation", "humor"),
-                      package)
+            opening = candidate("T01", "setup", "workout-opening", hint=3_000)
+            if self.scenario_bible:
+                opening = replace(opening, words_cap=SCENARIO_WORDS, duration_hint_ms=5_000)
+            return op(opening, "setup/opening", ("motivation", "humor"), package)
         if event.kind == "exercise_ready":
             if not s.exercise_intro:
                 return "disabled"
@@ -812,6 +961,13 @@ class LiveCoach:
                 AllowedFact("plan-sets", f"По плану {spoken_quantity(sets, 'sets')}", "confirmed", sets, "sets",
                             numbers=(sets,), **common) if sets else None,
                 target, weight_fact(_kg(context, "weightKg"), prefix="Плановый вес", **common)])
+            act = scenario.act_state(self.scenario_bible, scope.exercise_id) if self.scenario_bible else None
+            if act and (act.last_exercise or (act.first_of_act and act.act > 1)):
+                # The story's act boundary or climax replaces the plain introduction of this exercise.
+                trigger, task = ("T68", "setup/boss") if act.last_exercise else ("T67", "setup/act")
+                story = replace(candidate(trigger, "setup", f"exercise-intro:{exercise}", hint=5_000),
+                                words_cap=SCENARIO_WORDS)
+                return op(story, task, ("motivation", "humor"), package and replace(package, trigger_id=trigger))
             return op(candidate("T04", "setup", f"exercise-intro:{exercise}", hint=3_000), "setup/opening",
                       ("motivation",), package)
         if event.kind in SET_MOMENT_KINDS and event.phase == "active-set":
@@ -824,6 +980,13 @@ class LiveCoach:
             if moment not in moments:
                 return None
             claim, topic, intents = moments[moment]
+            total_sets = _count(context, "totalSets")
+            act = scenario.act_state(self.scenario_bible, scope.exercise_id) if self.scenario_bible else None
+            if (moment == "start" and act and act.last_exercise and total_sets and scope.set_ordinal == total_sets):
+                package = plan_package("T69", [named, AllowedFact("milestone", "Идёт последний подход всей тренировки",
+                                                                  "confirmed", "finale", **common)])
+                return op(candidate("T69", "active", f"finale:{set_key}", started=now - phase_elapsed),
+                          "active/finale", ("motivation",), package)
             if moment == "support":
                 slot = min(4, int(phase_elapsed // 15_000))
                 if slot < 1:
@@ -989,7 +1152,11 @@ class LiveCoach:
             cross_workout_preferences=tuple(self.cross_preferences.items()) if s.memory_enabled else (),
             optional_motif=motif, motif_callback=callback, category=op.candidate.topic_family,
             character=s.persona, profanity=s.profanity and not risk, assistant_context=s.assistant_context,
-            voice_markup=self.voice is not None and s.mode == "hybrid" and getattr(self.voice.adapter, "emotive", False))
+            voice_markup=self.voice is not None and s.mode == "hybrid" and getattr(self.voice.adapter, "emotive", False),
+            scenario=scenario.prompt_data(self.scenario_card, self.scenario_bible, op.exercise_id,
+                                          finale=op.candidate.trigger_id in {"T58", "T59", "T69"})
+            if self.scenario_card and self.scenario_bible else None,
+            scenario_opening=op.candidate.trigger_id == "T01" and self.scenario_bible is not None)
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:
         warmup = None
@@ -1293,8 +1460,8 @@ async def default_pipeline(sessions: Callable[[], Session], prefs: CoachPreferen
             key, _ = security.read_credential(db)
     except HTTPException:
         return Pipeline(None, None, "credential_unavailable")
-    # Read timeout covers the slowest route (narrative/plan reasoning); TextAuthor enforces each route's own bound.
-    client = httpx.AsyncClient(timeout=16, follow_redirects=False, trust_env=False)
+    # Read timeout covers the slowest route (plan reasoning); TextAuthor enforces each route's own bound.
+    client = httpx.AsyncClient(timeout=41, follow_redirects=False, trust_env=False)
     pipeline = Pipeline(TextAuthor(sessions, LunaTextAdapter(client, key, model=cfg.coach_text_model), pricing,
                                    model=cfg.coach_text_model, max_output_tokens=cfg.coach_text_max_output_tokens,
                                    reasoning_effort=cfg.coach_text_reasoning_effort, routes=default_routes(pricing)),

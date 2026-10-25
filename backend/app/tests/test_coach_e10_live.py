@@ -707,6 +707,7 @@ def test_socket_end_to_end_speech_frames(client, session_factory):
         ws.send_text(json.dumps({"type": "configure", "runToken": token, "ownerId": "tab-a"}))
         configured = ws.receive_json()
         assert configured["type"] == "configured" and configured["voice"] and configured["voiceId"] == "ash"
+        assert ws.receive_json() == {"type": "scenario", "state": "none"}  # V1 announce
         ws.send_text(json.dumps(event("workout_started", run_id)))
         start = ws.receive_json()
         assert start["type"] == "speech_start" and start["triggerId"] == "T01"
@@ -736,6 +737,7 @@ def test_settings_change_ends_socket_generation(client, session_factory, monkeyp
     with client.websocket_connect(ws_url(run_id), headers=ORIGIN) as ws:
         ws.send_text(json.dumps({"type": "configure", "runToken": token, "ownerId": "tab-a"}))
         assert ws.receive_json()["type"] == "configured"
+        assert ws.receive_json() == {"type": "scenario", "state": "none"}  # V1 announce
         with session_factory() as db:
             save_preferences(db, "alexey", PreferencesSave(expected_revision=1, settings=CoachPreferences(**HYBRID, humor="off")))
         assert ws.receive_json() == {"type": "error", "reason": "stale_run"}  # client reconnects with fresh settings
@@ -751,6 +753,7 @@ def test_socket_degraded_without_provider_and_memory_endpoint(client, session_fa
         configured = ws.receive_json()
         assert configured["text"] is False and configured["degraded"] is True
         assert configured["degradedReason"] == "provider_unavailable"
+        assert ws.receive_json() == {"type": "scenario", "state": "none"}  # V1 announce
         ws.send_text(json.dumps(event("workout_started", run_id)))
         assert ws.receive_json()["reason"] == "provider_unavailable"
         response = client.delete("/api/coach/users/alexey/memory", headers=ORIGIN)

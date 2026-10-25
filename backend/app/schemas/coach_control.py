@@ -63,6 +63,10 @@ class CoachPreferences(CoachSettings):
     memory_enabled: bool = True
     # Separate explicit opt-in; process-local enum-only metadata, at most seven days.
     cross_workout_memory: bool = False
+    # V1: offer three generated scenarios before a cloud-coached workout.
+    scenario_picker: bool = True
+    # V10: the scenario's second character may add a short line in the co-host voice.
+    co_host: bool = True
 
     @model_validator(mode="after")
     def validate_consent(self):

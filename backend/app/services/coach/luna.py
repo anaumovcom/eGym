@@ -223,6 +223,72 @@ class TextAuthor:
         except Exception:  # noqa: BLE001 - diagnostics only
             pass
 
+    async def generate(self, *, run_id: str, owner: str, generation: int, opportunity: str, task: str, name: str,
+                       instructions: str, data: str, schema: dict, purpose: str, meta: dict | None = None,
+                       reasoning_effort: str | None = None, tier: int = 0) -> tuple[dict | None, str | None]:
+        """Structured whole-workout generation (scenario, bible, episode, judge) on the same paid path:
+        reserve → dispatch → provider → settle, journaled. The caller validates the returned JSON."""
+        route = self.route(task, tier)
+        if reasoning_effort is not None and tier < 2:
+            route = Route(route.task_class, route.model, route.pricing, reasoning_effort, route.max_output_tokens,
+                          route.timeout_s)
+        meta = {"task": task, **(meta or {})}
+        body = {"model": route.model, "store": False, "instructions": instructions,
+                "input": [{"role": "user", "content": data}],
+                "text": {"format": {"type": "json_schema", "name": name, "schema": schema, "strict": True}},
+                "max_output_tokens": route.max_output_tokens}
+        if route.reasoning_effort is not None:
+            body["reasoning"] = {"effort": route.reasoning_effort}
+        bounds = text_bounds(body, route.max_output_tokens)
+        attempt_id = None
+        try:
+            with self.sessions() as db:
+                attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "text", route.pricing, bounds,
+                                            purpose=purpose, meta=meta)
+                ledger.dispatch(db, attempt_id, owner, test_only=self.adapter.test_only,
+                                adapter=None if self.adapter.test_only else self.adapter.name)
+        except HTTPException as error:
+            if attempt_id is not None:
+                with self.sessions() as db:
+                    ledger.cancel_reserved(db, attempt_id)
+                self._journal(attempt_id, outcome="cancelled", error_code=str(error.detail), finished_at=time.time())
+            else:
+                self._refusal(run_id, str(error.detail), purpose, route.model, meta)
+            return None, _REASONS.get(str(error.detail), "provider_unavailable")
+        started = time.monotonic()
+        try:
+            result = await asyncio.wait_for(self.adapter.author(body), timeout=route.timeout_s)
+        except (asyncio.CancelledError, Exception) as error:
+            with self.sessions() as db:
+                ledger.mark_unsettled(db, attempt_id)
+            cancelled = isinstance(error, asyncio.CancelledError)
+            reason = "cancelled" if cancelled else "provider_timeout" if isinstance(error, TimeoutError) else "provider_error"
+            self._journal(attempt_id, outcome="cancelled" if cancelled else "error", error_code=reason,
+                          duration_ms=(time.monotonic() - started) * 1000, finished_at=time.time())
+            if cancelled:
+                raise
+            return None, reason
+        self._journal(attempt_id, duration_ms=(time.monotonic() - started) * 1000, http_status=result.http_status,
+                      error_detail=result.detail)
+        with self.sessions() as db:
+            try:
+                ledger.settle(db, attempt_id, result.response_id, result.usage, terminal=True, complete=result.complete)
+            except HTTPException:
+                ledger.mark_unsettled(db, attempt_id)
+                self._journal(attempt_id, outcome="error", error_code="usage_unsettled", finished_at=time.time())
+                return None, "usage_unsettled"
+        if result.output is None:
+            self._journal(attempt_id, outcome="error", error_code=result.error or "provider_error", finished_at=time.time())
+            return None, result.error or "provider_error"
+        self._journal(attempt_id, outcome="speech", finished_at=time.time())
+        self.last_generation_attempt = attempt_id
+        return result.output, None
+
+    def reject_generation(self, reason: str) -> None:
+        """The caller's validation refused the JSON returned by generate()."""
+        self._journal(getattr(self, "last_generation_attempt", None), outcome="rejected",
+                      error_code=f"validation_failed:{reason}")
+
     async def author(self, *, run_id: str, owner: str, generation: int, opportunity: str, request: AuthorRequest,
                      memory: CoachMemory | None = None, scope_epoch: int = 0, deadline_ms: float | None = None,
                      local_available: bool = False, tier: int = 0, purpose: str | None = None,

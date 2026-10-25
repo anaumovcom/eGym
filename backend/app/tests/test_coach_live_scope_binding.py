@@ -95,6 +95,7 @@ def test_socket_runtime_scope_streams_without_rewriting_identity_or_billing(clie
         ws.send_json(configure)
         configured = ws.receive_json()
         assert configured["type"] == "configured" and configured["text"] is True and configured["voice"] is True
+        assert ws.receive_json() == {"type": "scenario", "state": "none"}  # V1 announce
         assert configured["degraded"] is False and configured["degradedReason"] is None
         ws.send_json(live_context(message))
         ws.send_json(message)
@@ -147,6 +148,7 @@ def test_socket_wrong_runtime_scope_or_user_rejected_before_provider_calls(clien
         ws.send_json({"type": "configure", "runToken": run["runToken"], "ownerId": "tab-a",
                       "runtimeRunId": runtime_id})
         assert ws.receive_json()["type"] == "configured"
+        assert ws.receive_json() == {"type": "scenario", "state": "none"}  # V1 announce
         ws.send_json(live_context(valid))
         for field, wrong in (("runId", run["runId"]), ("runId", "another-runtime"), ("userId", "intruder")):
             invalid = copy.deepcopy(valid)

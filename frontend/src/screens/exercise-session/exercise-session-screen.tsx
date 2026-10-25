@@ -19,6 +19,7 @@ import { stepWeightKg } from '@/shared/lib/value-steps'
 import { WorkoutNavigator } from '@/features/runtime/ui/workout-navigator'
 import { getExerciseSettingsSnapshot, ownsExerciseSettingsSession, useExerciseSettings } from '@/features/runtime/lib/use-exercise-settings'
 import { captureRuntimeLifecycle, coachLifecycle, coachSetTimer } from '@/features/coach/lib/runtime-observation'
+import { CoachScenarioChip } from '@/features/coach/ui/coach-scenario-picker'
 import { playExerciseEventSound, useExerciseEventSounds } from '@/features/runtime/lib/exercise-event-sounds'
 import { getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { useHardwareStore } from '@/stores/hardware-store'
@@ -845,6 +846,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
             <span className="rt-chip">Упражнение {exercise.order} из {session.exercises.length}</span>
             <span className="rt-chip">{exercise.strengthMode.title}</span>
             {navigatorAvailable ? <WorkoutNavigator session={activeSession} /> : null}
+            <CoachScenarioChip exerciseId={exercise.id} />
           </div>
           <div className="rt-title">
             <h1 className="font-display font-bold tracking-[-0.04em] text-white">{exercise.name}</h1>

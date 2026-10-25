@@ -50,7 +50,7 @@ export function isCoachVoice(value: unknown): value is CoachVoice { return COACH
 export function coachVoice(value: unknown): CoachVoice { return isCoachVoice(value) ? value : DEFAULT_COACH_VOICE }
 export type CoachSettings = Readonly<{
   schemaVersion: 1; enabled: boolean; consentVersion: number | null
-  mode: 'local' | 'hybrid' | 'text-only'; density: 'quiet' | 'companion' | 'talkative'
+  mode: 'local' | 'hybrid' | 'text-only'; density: 'quiet' | 'companion' | 'talkative' | 'show'
   count: 'every' | 'last-three' | 'milestones' | 'off'; voiceProfile: CoachVoice
   historyConsent: boolean; revision: number; budgetUsd: string
 }>

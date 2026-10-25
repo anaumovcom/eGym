@@ -222,10 +222,12 @@ function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number })
           <button type="button" className="rt-button" disabled={loading || saving} onClick={() => void forgetMemory()}>Удалить память тренера</button>
         </Group>
         <Group title="Когда говорить">
-          <Field label="Плотность общения"><select className="rt-input" value={draft.density} onChange={event => change('density', event.target.value as CoachPreferences['density'])}><option value="quiet">Только главное</option><option value="companion">Обычно</option><option value="talkative">Разговорчиво</option></select></Field>
+          <Field label="Плотность общения"><select className="rt-input" value={draft.density} onChange={event => change('density', event.target.value as CoachPreferences['density'])}><option value="quiet">Только главное</option><option value="companion">Обычно</option><option value="talkative">Разговорчиво</option><option value="show">Шоу</option></select></Field>
           <Field label="Подсчёт повторений"><select className="rt-input" value={draft.count} onChange={event => change('count', event.target.value as CoachPreferences['count'])}><option value="off">Не считать</option><option value="every">Каждое</option><option value="last-three">Последние три</option><option value="milestones">Контрольные точки</option></select></Field>
           <Toggle label="Говорить во время подходов" checked={draft.duringSets} onChange={checked => change('duringSets', checked)} />
           <Toggle label="Говорить во время отдыха" checked={draft.duringRest} onChange={checked => change('duringRest', checked)} />
+          {cloud && flag('scenarioPicker', 'Предлагать сценарий перед тренировкой', 'Тренер придумает три сюжета («стрим», «гонка», «боссфайт»…) и проведёт тренировку в выбранном мире. Около цента на тренировку.')}
+          {cloud && flag('coHost', 'Второй голос сюжета', 'Комментатор или «чат» из сценария изредка вставляет короткую реплику другим голосом Fish.')}
         </Group>
         <Group title="Голос" note="Для живой речи и готовых фраз">
           {choice('voiceModel', 'Голосовая модель', VOICE_MODEL_HINTS[draft.voiceModel])}

@@ -8,7 +8,7 @@ from app.services.coach.speech_actions import SPEECH_ACTIONS
 from app.services.coach.triggers import TRIGGERS, TriggerSpec
 
 Phase = Literal["setup", "active", "paused", "rest", "summary"]
-DensityName = Literal["quiet", "companion", "talkative"]
+DensityName = Literal["quiet", "companion", "talkative", "show"]
 WORDS_PER_SECOND = 2.5
 PHASE_MARGIN_MS = 500
 COALESCE_HORIZON_MS = 300
@@ -41,6 +41,9 @@ PROFILES: dict[str, Profile] = {
     "quiet": Profile("quiet", 25_000, 12_000, (6, 12), (15, 25), (0, 1, 1), (1, 1, 1, 1)),
     "companion": Profile("companion", 15_000, 10_000, (8, 16), (20, 40), (1, 2, 3), (1, 1, 2, 2)),
     "talkative": Profile("talkative", 11_000, 8_000, (8, 18), (20, 45), (1, 3, 4), (1, 1, 2, 3)),
+    # V7.3 «Шоу»: a live broadcast — frequent lines, longer rest monologues, more airtime.
+    "show": Profile("show", 8_000, 6_000, (8, 18), (25, 60), (2, 3, 5), (1, 2, 3, 4), acoustic_set=0.45,
+                    acoustic_rest=0.6),
 }
 
 
@@ -60,6 +63,8 @@ class Candidate:
     topic_family: str = ""
     safety: bool = False
     speech_action: str = ""
+    # V1: scenario openings/acts may run longer than an ordinary intro (still bounded by the action and window).
+    words_cap: int | None = None
 
     @property
     def spec(self) -> TriggerSpec:
@@ -174,6 +179,8 @@ class Director:
         low, high = self.profile.words_set if c.phase == "active" else (12, 25) if c.phase == "setup" else self.profile.words_rest
         if c.speech_action == "instruct":
             low, high = 20, 30  # About ten seconds, without lengthening in-set cues.
+        if c.words_cap is not None and c.phase != "active":
+            high = max(high, c.words_cap)
         fit = int(remaining / 1000 * WORDS_PER_SECOND)
         max_words = min(max(1, round(high * self.words_scale)), fit)
         if action:

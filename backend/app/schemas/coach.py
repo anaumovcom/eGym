@@ -66,7 +66,8 @@ class CoachSettings(CoachModel):
     enabled: bool = False
     consent_version: int | None = Field(default=None, ge=1)
     mode: Literal["local", "hybrid", "text-only"] = "local"
-    density: Literal["quiet", "companion", "talkative"] = "companion"
+    # "show" (V7.3): the most talkative profile, demoted to "talkative" once the budget economises (V0.3).
+    density: Literal["quiet", "companion", "talkative", "show"] = "companion"
     count: Literal["every", "last-three", "milestones", "off"] = "off"
     # Provider voice ID. Legacy E09 slots ("female"/"male") and unset values migrate to the default voice.
     voice_profile: CoachVoice = DEFAULT_COACH_VOICE

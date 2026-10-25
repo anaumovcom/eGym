@@ -1,4 +1,4 @@
-"""T01–T66 registry. Missing or unsupported sources produce skipped reasons, never synthetic observations."""
+"""T01–T69 registry. Missing or unsupported sources produce skipped reasons, never synthetic observations."""
 
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -139,10 +139,16 @@ _ROWS = (
     _t("T64", "service", "UI", None, "episode", 1, None, (F,), ("source.stale",)),
     _t("T65", "service", "LOCAL", "safety", "latch", 1, 2_000, (F,), ("safety.latch",)),
     _t("T66", "service", "LOCAL", "safety", "latch", 1, 2_000, (F,), ("pain.latch",)),
+    # V1 scenario moments (replace the plain exercise intro / first set support of that exercise).
+    _t("T67", "intro", "LIVE", "exercise-intro", "exercise", 1, 30_000, (M, H), ("scenario.ready", "scenario.act_start"),
+       ("T04",)),
+    _t("T68", "intro", "LIVE", "exercise-intro", "exercise", 1, 30_000, (M, H), ("scenario.ready", "plan.last_exercise"),
+       ("T04", "T67")),
+    _t("T69", "set", "LIVE", None, "set", 1, 8_000, (M,), ("scenario.ready", "plan.last_set")),
 )
 
 TRIGGERS: dict[str, TriggerSpec] = {row.id: row for row in _ROWS}
-assert list(TRIGGERS) == [f"T{i:02d}" for i in range(1, 67)]
+assert list(TRIGGERS) == [f"T{i:02d}" for i in range(1, 70)]
 
 
 def evaluate(trigger_id: str, observed: Iterable[str]) -> Eligibility:
