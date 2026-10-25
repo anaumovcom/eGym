@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.schemas.coach import CoachEvent, CoachScope
 from app.schemas.coach_control import CoachPreferences
-from app.services.coach import history, journal, ledger, scenario, security, telemetry
+from app.services.coach import history, journal, ledger, progress, scenario, security, telemetry
 from app.services.coach.completion import LocalCompletion, additional_package, duplicate_local, useful_addition
 from app.services.coach.context import CoachContext, build_context
 from app.services.coach.director import Candidate, Director
@@ -40,7 +40,7 @@ from app.services.coach.identity import SpeechContext, WorkState, identity, matc
 from app.services.coach.luna import LunaTextAdapter, TextAuthor, text_pricing
 from app.services.coach.memory import CoachMemory, CrossWorkoutStore, RunMemoryStore, Utterance
 from app.services.coach.personas import persona
-from app.services.coach.prompts import AuthorRequest
+from app.services.coach.prompts import DEFAULT_FORBIDDEN, AuthorRequest
 from app.services.coach.routing import default_routes
 from app.services.coach.speech_actions import SPEECH_ACTIONS, speech_action
 from app.services.coach.triggers import TRIGGERS
@@ -68,9 +68,9 @@ REST_EXTRA_MIN_MS = 35_000
 SUMMARY_TRIGGERS = {"T55", "T56", "T58", "T59"}
 # Saved-set trigger → P2 task. T38 (skipped) stays a local clip; T41 needs analysis opt-in (not offered).
 RESULT_TASKS = {"T36": "rest/full-feedback", "T37": "rest/partial-feedback", "T39": "rest/comparison",
-                "T40": "rest/comparison"}
+                "T40": "rest/comparison", "T43": "rest/record"}
 RESULT_INTENTS = {"T36": ("factual-feedback", "motivation", "humor"), "T37": ("factual-feedback", "motivation"),
-                  "T39": ("factual-feedback",), "T40": ("factual-feedback",)}
+                  "T39": ("factual-feedback",), "T40": ("factual-feedback",), "T43": ("factual-feedback", "motivation")}
 GAP_SCALE = {"short": 0.7, "normal": 1.0, "long": 1.6}
 WORDS_SCALE = {"short": 0.6, "normal": 1.0, "detailed": 1.25}
 NAME_FACTS = frozenset({"exercise", "next-exercise", "exercise-names"})
@@ -945,6 +945,13 @@ class LiveCoach:
                 AllowedFact("exercise-count", f"В тренировке {spoken_quantity(count, 'exercises')}", "confirmed", count,
                             "exercises", numbers=(count,), **common) if count else None,
                 AllowedFact("exercise", f"Первое упражнение — {name}", "confirmed", name, **common) if name else None])
+            if s.history_consent:
+                # V3 #17: jubilee, weekly streak, a long gap or the very first workout.
+                found, status = progress.regularity(db, self.user_id, current_workout_id=None, scope_epoch=epoch,
+                                                    valid_until_ms=valid)
+                if found:
+                    package = replace(package, facts=(*package.facts, *found), history=status) if package else \
+                        FactPackage("T01", tuple(found), Comparison("unavailable"), "none", history=status)
             opening = candidate("T01", "setup", "workout-opening", hint=3_000)
             if self.scenario_bible:
                 opening = replace(opening, words_cap=SCENARIO_WORDS, duration_hint_ms=5_000)
@@ -963,11 +970,13 @@ class LiveCoach:
             low, high = _count(context, "targetMin", 1000), _count(context, "targetMax", 1000)
             target = (target_fact(exact, exact, unit, prefix="План на подход —", **common) if exact else
                       target_fact(low, high, unit, prefix="План на подход —", **common) if low and high else None)
+            body = progress.muscle_facts(db, self.user_id, context.get("exerciseSlug") if isinstance(
+                context.get("exerciseSlug"), str) else None, scope_epoch=epoch, valid_until_ms=valid) if s.history_consent else []
             package = plan_package("T04", [
                 named, position,
                 AllowedFact("plan-sets", f"По плану {spoken_quantity(sets, 'sets')}", "confirmed", sets, "sets",
                             numbers=(sets,), **common) if sets else None,
-                target, weight_fact(_kg(context, "weightKg"), prefix="Плановый вес", **common)])
+                target, weight_fact(_kg(context, "weightKg"), prefix="Плановый вес", **common), *body])
             act = scenario.act_state(self.scenario_bible, scope.exercise_id) if self.scenario_bible else None
             if act and (act.last_exercise or (act.first_of_act and act.act > 1)):
                 # The story's act boundary or climax replaces the plain introduction of this exercise.
@@ -1036,11 +1045,28 @@ class LiveCoach:
             extra += progress_facts(saved.current.ordinal, saved.target_sets or None,
                                     next_exercise=_name(context, "nextExerciseName"), **set_common)
             extra += telemetry.set_facts(telemetry.parse(context.get("setMetrics")), {**common, "ref": f"set:{set_id}"})
-            package = replace(package, facts=package.facts + tuple(extra), source_signature=saved.source_signature)
+            records = []
+            if s.history_consent and s.comparisons:
+                # V3 #15/#16 (both are comparisons with the past): a confirmed personal record leads the line —
+                # T43, or the locked comparison clause framed as a record — and tonnage marks join as a fact.
+                records = progress.personal_records(db, self.user_id, set_id, scope_epoch=epoch, valid_until_ms=valid)
+                if records and package.outcome == "full":
+                    extra = [*records, *extra]
+                    if package.trigger_id == "T36":
+                        package = replace(package, trigger_id="T43")
+                else:
+                    records = []
+                workout_id = getattr(db.get(history.ExerciseSession, saved.exercise_id), "workout_session_id", None)
+                if workout_id is not None and (mark := progress.tonnage_mark(
+                        getattr(progress.tonnage(db, self.user_id, workout_id), "share", None))):
+                    extra.append(progress.tonnage_fact(mark, ref=f"tonnage:{workout_id}:{mark}", scope_epoch=epoch,
+                                                       valid_until_ms=valid))
+            package = replace(package, facts=(package.facts + tuple(extra))[:12], source_signature=saved.source_signature)
             until = now - rest_elapsed + rest_ms - 3_000 if rest_ms else None
             c = candidate(package.trigger_id, "rest", f"set-result:{set_key}", until=until, hint=4_000,
                           started=now - rest_elapsed, length=rest_ms)
-            return op(c, RESULT_TASKS[package.trigger_id], RESULT_INTENTS[package.trigger_id], package)
+            return op(c, "rest/record" if records else RESULT_TASKS[package.trigger_id], RESULT_INTENTS[package.trigger_id],
+                      package)
         if event.kind == "rest_long_opportunity":
             if not s.during_rest:
                 return "disabled"
@@ -1061,6 +1087,9 @@ class LiveCoach:
             if exercise_ref is None:
                 return "no_source"
             package = history.exercise_summary(db, self.user_id, exercise_ref, scope_epoch=epoch, valid_until_ms=valid)
+            if s.history_consent and s.comparisons and (record := progress.exercise_volume_record(
+                    db, self.user_id, exercise_ref, scope_epoch=epoch, valid_until_ms=valid)):
+                package = replace(package, facts=(*package.facts, record)[:12])
             return op(candidate(package.trigger_id, "summary", f"exercise-summary:{exercise}", hint=4_000),
                       "summary/exercise", ("summary",), package)
         if event.kind == "workout_finalized":
@@ -1070,6 +1099,10 @@ class LiveCoach:
             if workout_ref is None:
                 return "no_source"
             package = history.workout_summary(db, self.user_id, workout_ref, scope_epoch=epoch, valid_until_ms=valid)
+            if s.history_consent and s.comparisons and (mark := progress.tonnage_mark(
+                    getattr(progress.tonnage(db, self.user_id, workout_ref), "share", None))):
+                package = replace(package, facts=(*package.facts, progress.tonnage_fact(
+                    mark, ref=f"tonnage:{workout_ref}:{mark}", scope_epoch=epoch, valid_until_ms=valid))[:12])
             return op(candidate(package.trigger_id, "summary", "workout-summary", hint=6_000),
                       "summary/workout", ("summary",), package)
         return None
@@ -1151,12 +1184,14 @@ class LiveCoach:
             elif self.memory.callback_allowed(self.memory.motif, now_ms=self.now_ms(),
                                               phase_key=op.candidate.semantic_key):
                 motif, callback = self.memory.motif, True
+        record = any("record" in f.permits for f in request_facts)
         return AuthorRequest(
             op.candidate.trigger_id, op.candidate.phase, op.task, intents, op.candidate.topic_key, max(1, max_words),
             request_facts, p.comparison.status if p else "unavailable", p.history if p else "unavailable",
             p.outcome if p and p.outcome != "none" else None, p.locked_clause if p else None,
             p.locked_fact_ids if p else (), recent_topics=tuple(self.memory.recent_topics()),
             recent_openings=tuple(self.memory.recent_openings()),
+            forbidden_claims=tuple(c for c in DEFAULT_FORBIDDEN if not (record and c == "личный рекорд")),
             summary=op.candidate.trigger_id in SUMMARY_TRIGGERS,
             name_allowed=bool(s.nickname), user_name=s.nickname or None, persona="sharp" if dark else "default",
             style=s.style, humor="off" if risk else s.humor, humor_kinds=() if risk else tuple(s.humor_kinds), dark_humor=dark,

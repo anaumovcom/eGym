@@ -254,6 +254,11 @@ def _check_text(text: str, req: AuthorRequest, used: set[str], *, allowed_number
             continue  # Prescriptive catalog cue only; no permission during effort.
         if category == "comparison" and req.comparison_status == "comparable" and "comparison" in permits:
             continue
+        # V3: a server-verified record may name itself and its own «раньше было не больше …» comparison.
+        if category == "record" and "record" in permits:
+            continue
+        if category == "comparison" and "record-comparison" in permits:
+            continue
         if category == "tempo" and "tempo" in permits:
             continue
         if category == "first" and req.history == "empty_confirmed":

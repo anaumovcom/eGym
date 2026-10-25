@@ -11,7 +11,6 @@ Intent = Literal["motivation", "humor", "factual-feedback", "general-tip", "summ
 UNSUPPORTED_SOURCES: dict[str, str] = {
     "rep.start": "no_rep_start_source",
     "mechanics.phase": "unknown_movement_mechanics",
-    "history.personal_best": "no_personal_best_detector",
     "schedule.next": "no_workout_schedule",
     "workout.highlight": "no_workout_achievement_detector",
     "circuit.round": "no_circuit_round_source",
