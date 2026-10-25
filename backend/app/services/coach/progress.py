@@ -247,3 +247,28 @@ def muscle_facts(db: Session, user_id: str, slug: str | None, *, scope_epoch: in
         found.append(AllowedFact("muscle-readiness", "Эти мышцы сегодня ещё свежие", "derived-validated", "fresh",
                                  **{**common, "provenance": "fatigue-snapshots"}))
     return found
+
+
+MECHANICS = {"compound": "Это базовое многосуставное упражнение: работает сразу несколько крупных мышц",
+             "isolation": "Это изолирующее упражнение: нагрузка точечно идёт в одну мышцу"}
+FORCES = {"pull": "Движение тянущее", "push": "Движение толкающее"}
+
+
+def why_facts(slug: str | None, *, scope_epoch: int, valid_until_ms: float) -> list[AllowedFact]:
+    """V9.1 #27: what the exercise is for, only from the catalog (muscles, mechanic, force), never a medical claim."""
+    entry = get_imported_exercise(slug) if slug else None
+    targets = muscles(slug)
+    if entry is None or not targets:
+        return []
+    common = _common(f"why:{slug}", scope_epoch, valid_until_ms, provenance="exercise-catalog", sufficiency="limited")
+    names = [CANONICAL_MUSCLE_DEFINITIONS[m].name.lower() for m in targets[:3]]
+    listed = names[0] if len(names) == 1 else ", ".join(names[:-1]) + " и " + names[-1]
+    # «anatomy»: naming target muscles/body parts is the point here — still never a verdict about the user's body.
+    found = [AllowedFact("muscles", f"Работают {listed}", "confirmed", listed, permits=("anatomy",), **common)]
+    mechanic = (entry.mechanic or "").lower()
+    if mechanic in MECHANICS:
+        found.append(AllowedFact("mechanic", MECHANICS[mechanic], "confirmed", mechanic, **common))
+    force = (entry.force or "").lower()
+    if force in FORCES:
+        found.append(AllowedFact("force", FORCES[force], "confirmed", force, **common))
+    return found

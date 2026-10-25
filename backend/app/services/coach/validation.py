@@ -235,7 +235,9 @@ def _check_text(text: str, req: AuthorRequest, used: set[str], *, allowed_number
                      and all(f.provenance == "exercise-catalog-instructions" for f in req.facts if f.id in used))
     if req.coach_context and re.search(r"я вижу|я замет|у тебя|ты (?:неправильно|слишком)|твоя (?:спина|техника)", lower):
         return "claim"
-    if req.coach_context and not catalog_setup and re.search(r"плеч|локт|запяст|наклон|хват|лопат|выпрям|согни", lower):
+    anatomy = any("anatomy" in f.permits for f in req.facts if f.id in used)
+    if req.coach_context and not catalog_setup and not anatomy and re.search(
+            r"плеч|локт|запяст|наклон|хват|лопат|выпрям|согни", lower):
         return "claim"
     measured_cue = any("movement-cue" in f.permits for f in req.facts if f.id in used)
     if req.coach_context and req.phase == "active" and not measured_cue and re.search(
@@ -253,6 +255,8 @@ def _check_text(text: str, req: AuthorRequest, used: set[str], *, allowed_number
             continue
         if catalog_setup and category in {"body", "tempo"}:
             continue  # Prescriptive catalog cue only; no permission during effort.
+        if category == "body" and anatomy and not re.search(r"техник|осанк", claim_surface):
+            continue  # V9.1: which muscles/body parts an exercise trains (catalog), never form or posture verdicts.
         if category == "comparison" and req.comparison_status == "comparable" and "comparison" in permits:
             continue
         # V3: a server-verified record may name itself and its own «раньше было не больше …» comparison.

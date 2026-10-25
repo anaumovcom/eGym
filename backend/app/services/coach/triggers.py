@@ -1,4 +1,4 @@
-"""T01–T69 registry. Missing or unsupported sources produce skipped reasons, never synthetic observations."""
+"""T01–T70 registry. Missing or unsupported sources produce skipped reasons, never synthetic observations."""
 
 from collections.abc import Iterable
 from dataclasses import dataclass
@@ -143,10 +143,13 @@ _ROWS = (
     _t("T68", "intro", "LIVE", "exercise-intro", "exercise", 1, 30_000, (M, H), ("scenario.ready", "plan.last_exercise"),
        ("T04", "T67")),
     _t("T69", "set", "LIVE", None, "set", 1, 8_000, (M,), ("scenario.ready", "plan.last_set")),
+    # V9.1: the first rest of an exercise explains what it is for (catalog muscles/mechanic + the user's goal).
+    _t("T70", "rest", "LIVE", "rest-extra", "exercise", 1, 15_000, (G, M), ("rest.entered", "exercise.catalog"),
+       ("T46",)),
 )
 
 TRIGGERS: dict[str, TriggerSpec] = {row.id: row for row in _ROWS}
-assert list(TRIGGERS) == [f"T{i:02d}" for i in range(1, 70)]
+assert list(TRIGGERS) == [f"T{i:02d}" for i in range(1, 71)]
 
 
 def evaluate(trigger_id: str, observed: Iterable[str]) -> Eligibility:

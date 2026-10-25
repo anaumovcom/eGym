@@ -180,6 +180,10 @@ P2: dict[str, str] = {
                   "торжественно и дерзко, как перед главной битвой. Без требований веса и повторений сверх плана. 12–30 слов.",
     "active/finale": "Идёт последний подход всей тренировки: короткий мощный клич в мире сюжета, 6–14 слов, "
                      "без чисел вне facts и без требований сверх плана.",
+    # V9.1: what this exercise is for, from catalog facts and the user's goal.
+    "rest/why": "Одна мысль на отдыхе: зачем это упражнение — какие мышцы работают и чем оно полезно для цели пользователя "
+                "(факты muscles, mechanic, force и цель из модуля). Простыми словами, без медицинских обещаний, чисел и "
+                "советов вне фактов, без изменений плана; можно в мире сюжета. 15–30 слов.",
     # V3: a server-confirmed personal record (record fact) is the headline of this result.
     "rest/record": "Подтверждён личный рекорд (факт record): это главный момент тренировки — ярко и торжественно отметь "
                    "именно то, что побито по факту, в мире сюжета, если он есть. Не добавляй новых чисел и сравнений "
@@ -361,6 +365,10 @@ def output_schema(req: AuthorRequest) -> dict:
     return line
 
 
+REVIEW_MODULE = """V9.2: в allowedFacts есть разбор подхода по датчикам тренажёра (set-velocity, set-tempo, set-steady,
+set-pause). Если это уместно, после главного результата добавь одно наблюдение из этих фактов и один ориентир на
+следующий подход: ровный темп, подконтрольное опускание, без долгих пауз. Ориентир не меняет вес, повторы и план и
+не оценивает тело или технику; говори о движении грифа. Не больше двух фактов всего."""
 VARIANTS_MODULE = """V7: верни в candidates несколько самостоятельных вариантов этой реплики. Каждый вариант соблюдает все
 правила и схему одной реплики, но использует другой приём: например живую поддержку, шутку или подкол (если юмор
 разрешён), образ из сюжета, яркий факт. Варианты не перефразируют друг друга; лучший выберет редактор."""
@@ -425,6 +433,8 @@ def build_prompt(req: AuthorRequest) -> BuiltPrompt:
         modules.append(MOOD_MODULE)
     if req.variants > 1:
         modules.append(VARIANTS_MODULE)
+    if req.phase == "rest" and any(f.id in {"set-velocity", "set-tempo", "set-steady", "set-pause"} for f in req.facts):
+        modules.append(REVIEW_MODULE)
     if req.scenario:
         modules.append(SCENARIO_MODULE)
         if req.scenario_opening:
@@ -502,7 +512,7 @@ def static_hashes() -> dict[str, str]:
                    *EXTRA_MODULES.values(), ADDRESS_VY, NAME_MODULE, *VERBOSITY_MODULES.values(),
                    *PRAISE_MODULES.values(), *GOAL_MODULES.values(), *EXPERIENCE_MODULES.values(),
                    *USER_GENDER_MODULES.values(), *COACH_GENDER_MODULES.values(), SLANG_MODULE, NO_NUMBERS_MODULE,
-                   PROFANITY_MODULE, ROAST_MODULE, VARIETY_MODULE, VOICE_MARKUP_MODULE, SCENARIO_MODULE, OPENING_MODULE, MOOD_MODULE, VOICE_SEGMENTS_MODULE, VARIANTS_MODULE,
+                   PROFANITY_MODULE, ROAST_MODULE, VARIETY_MODULE, VOICE_MARKUP_MODULE, SCENARIO_MODULE, OPENING_MODULE, MOOD_MODULE, VOICE_SEGMENTS_MODULE, VARIANTS_MODULE, REVIEW_MODULE,
                    JUDGE_INSTRUCTIONS]
     return {"version": PROMPT_VERSION, "p0": sha256(P0), "p1": sha256(P1), "p1Sharp": sha256(P1_SHARP),
             "p1User": sha256("\n".join(personality)),

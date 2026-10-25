@@ -113,7 +113,8 @@ SET_MOMENT_KINDS = {"set_activated": "start", "rep_completed": "partial", "rep_m
                     "last_rep_pending": "finish"}
 # V7.1: lines with time to think get three variants and a judge (never in-set cues or verbatim tips/catalog).
 VARIANT_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "rest/full-feedback", "rest/partial-feedback",
-                           "rest/comparison", "rest/playful", "rest/record", "summary/exercise", "summary/workout"})
+                           "rest/comparison", "rest/playful", "rest/record", "rest/why", "summary/exercise",
+                           "summary/workout"})
 TIER_NO_VARIANTS = 1
 # V7.2: a story motif returns no sooner than this many exercises after its last use.
 MOTIF_GAP_EXERCISES = 2
@@ -293,6 +294,7 @@ class LiveCoach:
         self.moods = MoodTracker()
         self.voice_history = expressive.VoiceHistory()
         self.motif_uses: dict[str, int] = {}
+        self.why_done: set[str] = set()
         self.prebuilt: dict[str, PrebuiltLine] = {}
         self.prebuild_job: asyncio.Task | None = None
         self._prebuild_items: set[asyncio.Task] = set()
@@ -1275,6 +1277,14 @@ class LiveCoach:
                 return "no_window"
             if any(gid not in self.memory.completed for gid in self.acks if self.acks[gid][0].scope == scope):
                 return "utterance_pending"
+            slug = context.get("exerciseSlug") if isinstance(context.get("exerciseSlug"), str) else None
+            if scope.set_ordinal == 1 and slug and exercise not in self.why_done and (why := progress.why_facts(
+                    slug, scope_epoch=epoch, valid_until_ms=valid)):
+                # V9.1: the first rest of an exercise says what it is for — once per exercise (marked when spoken).
+                package = plan_package("T70", [named, *why])
+                c = candidate("T70", "rest", f"why:{exercise}", until=now - rest_elapsed + rest_ms - 5_000,
+                              hint=5_000, started=now - rest_elapsed, length=rest_ms)
+                return op(c, "rest/why", ("general-tip", "motivation"), package)
             story = counters.facts(self.counter_state, {**common, "ref": f"counters-rest:{set_key}"}) if (
                 self.scenario_bible and self.counter_state) else []
             package = plan_package("T46", [
@@ -1480,6 +1490,8 @@ class LiveCoach:
         if outcome.kind != "speech":
             await self._decision(op.event_id, trigger, "silence", outcome.reason or "no_useful_content")
             return
+        if trigger == "T70" and op.exercise_id:
+            self.why_done.add(op.scope.exercise_id or "-")
         if self.settings.memory_enabled and outcome.attempt_ids:
             # VD.6: the spoken text joins the journal only under conversation memory, and expires with it.
             with contextlib.suppress(Exception), self.sessions() as db:
