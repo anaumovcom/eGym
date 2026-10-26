@@ -129,6 +129,9 @@ VARIANT_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "rest/ful
                            "rest/comparison", "rest/playful", "rest/record", "rest/why", "summary/exercise",
                            "summary/workout"})
 TIER_NO_VARIANTS = 1
+# Live run 26.10.2026: every variant adds ~2.5 s of output. Lines the listener waits for (rest results) get two;
+# prepared or unhurried lines (opening, acts, boss, the workout summary) keep three.
+THREE_VARIANT_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "summary/workout"})
 # V10: the co-host speaks at most once per this many lines, never in-set; voice pairs for the two library voices.
 CO_HOST_EVERY = 4
 CO_HOST_PHASES = frozenset({"rest", "summary", "setup"})
@@ -1512,11 +1515,13 @@ class LiveCoach:
             character=s.persona, profanity=s.profanity and not risk, assistant_context=s.assistant_context,
             voice_markup=self.voice is not None and s.mode == "hybrid" and getattr(self.voice.adapter, "emotive", False),
             scenario=scenario.prompt_data(self.scenario_card, self.scenario_bible, op.exercise_id,
-                                          finale=op.candidate.trigger_id in {"T58", "T59", "T69"})
+                                          finale=op.candidate.trigger_id in {"T58", "T59", "T69"},
+                                          spoken=[u.text for u in self.memory.started.values()])
             if self.scenario_card and self.scenario_bible else None,
             scenario_opening=op.candidate.trigger_id == "T01" and self.scenario_bible is not None,
             mood=mood.data(), no_roast=mood.name == "recover",
-            variants=3 if op.task in VARIANT_TASKS and self.budget_tier() < TIER_NO_VARIANTS else 1,
+            variants=(3 if op.task in THREE_VARIANT_TASKS else 2)
+            if op.task in VARIANT_TASKS and self.budget_tier() < TIER_NO_VARIANTS else 1,
             co_host=self._co_host(op, mood))
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:

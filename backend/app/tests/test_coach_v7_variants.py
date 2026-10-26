@@ -129,3 +129,36 @@ def test_local_pick_avoids_a_worn_out_joke_object():
     valid = [({"intent": "motivation"}, SimpleNamespace(speech="Снова трос в деле: десять чистых повторений.")),
              ({"intent": "motivation"}, SimpleNamespace(speech="Снова десять чистых повторений, как по нотам."))]
     assert local_pick(valid, replace(REQ, recent_heard=heard)) == 1
+
+
+def test_worn_motifs_rest_before_the_next_line_sees_them():
+    from app.services.coach.scenario import fresh_motifs
+
+    bible = {"lexicon": [{"from": "тренажёр", "to": "артефакт"}],
+             "motifs": ["Артефакты выглядят мощно; описание к ним явно писал гоблин.",
+                        "Чат требует лут, но инвентарь забит протеиновыми тостами."]}
+    assert fresh_motifs(bible, []) == bible["motifs"]
+    # The goblin was just heard; the world word «артефакт» alone does not wear the toast motif out.
+    spoken = ["Даже гоблин понял бы этот артефакт.", "Артефакт готов.", "Чат ликует."]
+    assert fresh_motifs(bible, spoken) == bible["motifs"][1:]
+    # Two uses in the whole workout retire a motif even after it has rested four lines.
+    spoken = ["Тосты в инвентаре.", "А.", "Б.", "В.", "Г.", "Тосты снова тут.", "Д.", "Е.", "Ж.", "З."]
+    assert fresh_motifs(bible, spoken) == bible["motifs"][:1]
+
+
+async def test_an_overloaded_provider_gets_one_fresh_attempt(session_factory):
+    run_id, generation = make_run(session_factory)
+    overloaded = AuthorResult(None, None, "http-503", False, "provider_error", http_status=503,
+                              detail="service_unavailable_error server_is_overloaded")
+    answers = [overloaded, line("Десять повторений, идём дальше.")]
+    author = TextAuthor(session_factory, FakeTextAuthor(lambda body: answers.pop(0)), PRICE, model=PRICE.model,
+                        timeout_s=2)
+    outcome = await author.author(run_id=run_id, owner="tab-a", generation=generation, opportunity="o1",
+                                  request=replace(REQ, variants=1), scope_epoch=1)
+    assert outcome.kind == "speech" and len(outcome.attempt_ids) == 2 and not answers
+    # The structured path (scenario, bible, episode, judge) retries the same way, but only once.
+    answers[:] = [overloaded, overloaded, {"best": 0}]
+    output, error = await author.generate(run_id=run_id, owner="tab-a", generation=generation, opportunity="g1",
+                                          task="setup/opening", name="x", instructions="i", data="d",
+                                          schema={"type": "object"}, purpose="judge")
+    assert (output, error) == (None, "provider_error") and answers == [{"best": 0}]

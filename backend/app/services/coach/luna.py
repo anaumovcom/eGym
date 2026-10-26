@@ -198,6 +198,9 @@ def local_pick(valid: list, request: AuthorRequest) -> int:
     return -max(scored)[1]
 
 
+# Documented overload/rate answers carry no work: one fresh attempt (a new reserve) may follow.
+RETRYABLE_STATUS = frozenset({429, 500, 502, 503})
+RETRY_PAUSE_S = 0.3
 _REASONS = {"budget": "budget", "operator_budget": "budget", "strict_cap_unprovable": "budget",
             "budget_bucket": "budget",
             "pipeline_busy": "pipeline_busy", "owner_mismatch": "owner_mismatch", "stale_attempt": "owner_mismatch",
@@ -274,49 +277,58 @@ class TextAuthor:
         if route.reasoning_effort is not None:
             body["reasoning"] = {"effort": route.reasoning_effort}
         bounds = text_bounds(body, route.max_output_tokens)
-        attempt_id = None
-        try:
-            with self.sessions() as db:
-                attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "text", route.pricing, bounds,
-                                            purpose=purpose, meta=meta)
-                ledger.dispatch(db, attempt_id, owner, test_only=self.adapter.test_only,
-                                adapter=None if self.adapter.test_only else self.adapter.name)
-        except HTTPException as error:
-            if attempt_id is not None:
-                with self.sessions() as db:
-                    ledger.cancel_reserved(db, attempt_id)
-                self._journal(attempt_id, outcome="cancelled", error_code=str(error.detail), finished_at=time.time())
-            else:
-                self._refusal(run_id, str(error.detail), purpose, route.model, meta)
-            return None, _REASONS.get(str(error.detail), "provider_unavailable")
-        started = time.monotonic()
-        try:
-            result = await asyncio.wait_for(self.adapter.author(body), timeout=route.timeout_s)
-        except (asyncio.CancelledError, Exception) as error:
-            with self.sessions() as db:
-                ledger.mark_unsettled(db, attempt_id)
-            cancelled = isinstance(error, asyncio.CancelledError)
-            reason = "cancelled" if cancelled else "provider_timeout" if isinstance(error, TimeoutError) else "provider_error"
-            self._journal(attempt_id, outcome="cancelled" if cancelled else "error", error_code=reason,
-                          duration_ms=(time.monotonic() - started) * 1000, finished_at=time.time())
-            if cancelled:
-                raise
-            return None, reason
-        self._journal(attempt_id, duration_ms=(time.monotonic() - started) * 1000, http_status=result.http_status,
-                      error_detail=result.detail)
-        with self.sessions() as db:
+        for retry in (0, 1):
+            attempt_id = None
             try:
-                ledger.settle(db, attempt_id, result.response_id, result.usage, terminal=True, complete=result.complete)
-            except HTTPException:
-                ledger.mark_unsettled(db, attempt_id)
-                self._journal(attempt_id, outcome="error", error_code="usage_unsettled", finished_at=time.time())
-                return None, "usage_unsettled"
-        if result.output is None:
-            self._journal(attempt_id, outcome="error", error_code=result.error or "provider_error", finished_at=time.time())
-            return None, result.error or "provider_error"
-        self._journal(attempt_id, outcome="speech", finished_at=time.time())
-        self.last_generation_attempt = attempt_id
-        return result.output, None
+                with self.sessions() as db:
+                    attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "text", route.pricing,
+                                                bounds, retry=retry, purpose=purpose, meta=meta)
+                    ledger.dispatch(db, attempt_id, owner, test_only=self.adapter.test_only,
+                                    adapter=None if self.adapter.test_only else self.adapter.name)
+            except HTTPException as error:
+                if attempt_id is not None:
+                    with self.sessions() as db:
+                        ledger.cancel_reserved(db, attempt_id)
+                    self._journal(attempt_id, outcome="cancelled", error_code=str(error.detail),
+                                  finished_at=time.time())
+                else:
+                    self._refusal(run_id, str(error.detail), purpose, route.model, meta)
+                return None, _REASONS.get(str(error.detail), "provider_unavailable")
+            started = time.monotonic()
+            try:
+                result = await asyncio.wait_for(self.adapter.author(body), timeout=route.timeout_s)
+            except (asyncio.CancelledError, Exception) as error:
+                with self.sessions() as db:
+                    ledger.mark_unsettled(db, attempt_id)
+                cancelled = isinstance(error, asyncio.CancelledError)
+                reason = ("cancelled" if cancelled else "provider_timeout" if isinstance(error, TimeoutError)
+                          else "provider_error")
+                self._journal(attempt_id, outcome="cancelled" if cancelled else "error", error_code=reason,
+                              duration_ms=(time.monotonic() - started) * 1000, finished_at=time.time())
+                if cancelled:
+                    raise
+                return None, reason
+            self._journal(attempt_id, duration_ms=(time.monotonic() - started) * 1000,
+                          http_status=result.http_status, error_detail=result.detail)
+            with self.sessions() as db:
+                try:
+                    ledger.settle(db, attempt_id, result.response_id, result.usage, terminal=True,
+                                  complete=result.complete)
+                except HTTPException:
+                    ledger.mark_unsettled(db, attempt_id)
+                    self._journal(attempt_id, outcome="error", error_code="usage_unsettled", finished_at=time.time())
+                    return None, "usage_unsettled"
+            if result.output is None:
+                self._journal(attempt_id, outcome="error", error_code=result.error or "provider_error",
+                              finished_at=time.time())
+                if retry == 0 and result.http_status in RETRYABLE_STATUS:
+                    await asyncio.sleep(RETRY_PAUSE_S)
+                    continue
+                return None, result.error or "provider_error"
+            self._journal(attempt_id, outcome="speech", finished_at=time.time())
+            self.last_generation_attempt = attempt_id
+            return result.output, None
+        return None, "provider_error"
 
     async def _pick_variant(self, output: dict, request: AuthorRequest, memory: CoachMemory | None, *, run_id: str,
                             owner: str, generation: int, opportunity: str, tier: int):
@@ -442,6 +454,14 @@ class TextAuthor:
             if memory is not None and memory.revision != memory_revision:
                 return fallback("scope_changed", "stale")  # Deletion/expiry while awaiting must not refill memory.
             if result.output is None:
+                # Live run 26.10.2026: «503 server_is_overloaded» answers in under a second — one fresh attempt
+                # when the moment still has a full route timeout left.
+                time_left = deadline_ms is None or deadline_ms - self.now_ms() >= route.timeout_s * 1000
+                if retry == 0 and result.http_status in RETRYABLE_STATUS and time_left:
+                    self._journal(attempt_id, outcome="error", error_code=result.error or "provider_error",
+                                  finished_at=time.time())
+                    await asyncio.sleep(RETRY_PAUSE_S)
+                    continue
                 return fallback(result.error or "provider_error")
             if request.variants > 1:
                 picked = await self._pick_variant(result.output, request, memory, run_id=run_id, owner=owner,

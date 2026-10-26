@@ -130,7 +130,8 @@ async def run(args) -> int:
             result = await inner.author(body)
             outputs.append({"schema": body["text"]["format"]["name"], "reasoning": body.get("reasoning"),
                             "ms": round((time.monotonic() - started) * 1000), "output": result.output,
-                            "error": result.error, "usage": getattr(result.usage, "model_dump", lambda: None)()})
+                            "error": result.error, "httpStatus": result.http_status, "detail": result.detail,
+                            "usage": getattr(result.usage, "model_dump", lambda: None)()})
             return result
 
     pipeline.author.adapter = Recorder()

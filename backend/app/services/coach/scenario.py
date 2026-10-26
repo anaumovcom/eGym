@@ -73,7 +73,9 @@ SCENARIO_MODULE = """scenario — сюжет тренировки, которы�
 Сюжет не важнее фактов и безопасности: числа, суммы, донаты, очки, рекорды и результаты — только из allowedFacts;
 не выдумывай события, зрителей с цифрами и наблюдения за телом. Сюжет не требует веса и повторений сверх плана.
 Не пересказывай premise и не повторяй один мотив подряд; не каждая реплика обязана быть про сюжет,
-но мир должен ощущаться всю тренировку. При partial, паузе и риске — сначала поддержка, сюжет мягко."""
+но мир должен ощущаться всю тренировку. При partial, паузе и риске — сначала поддержка, сюжет мягко.
+Эти правила — для тебя, не для эфира: не говори «без читов», «без выдуманных монет», «по факту», «без накруток»,
+«без спецэффектов» и подобное о честности результата — просто радуйся результату в образах мира."""
 FINALE_MODULE = """Это последняя реплика тренировки со сценарием — кульминация шоу. Развяжи сюжет (finale): громко,
 торжественно, с гордостью за пользователя, одним-двумя фактами итога и яркой финальной фразой. Не «спокойный итог»."""
 OPENING_MODULE = """Это первая реплика тренировки со сценарием: в одной-двух фразах объяви сюжет — кто ты в этом мире,
@@ -289,13 +291,36 @@ def act_state(bible: dict, exercise_id: str | None) -> ActState | None:
     return None
 
 
+def _stems(text: str) -> set[str]:
+    return {w[:max(4, len(w) - 3)] for w in re.findall(r"[а-я]{5,}", text.casefold().replace("ё", "е"))}
+
+
+def fresh_motifs(bible: dict, spoken: list[str]) -> list[str]:
+    """Motifs that have rested: none of a motif's own words in the last four lines, and at most one earlier use.
+
+    Live run 26.10.2026: with every motif in every prompt, «гоблин» and «тосты» came three and five times. World
+    words (lexicon, title, co-host name) do not mark a motif as used — they are meant to sound all the time.
+    """
+    world = _stems(" ".join([*(e.get("to", "") for e in bible.get("lexicon", [])), str(bible.get("title") or ""),
+                             str((bible.get("coHost") or {}).get("name") or "")]))
+    lines = [_stems(text) for text in spoken]
+    fresh = []
+    for motif in bible.get("motifs", [])[:6]:
+        own = _stems(motif) - world
+        uses = [bool(own & line) for line in lines]
+        if own and (any(uses[-4:]) or sum(uses) >= 2):
+            continue
+        fresh.append(motif)
+    return fresh
+
+
 def prompt_data(card: dict, bible: dict, exercise_id: str | None, *, finale: bool = False,
-                counters: list[dict] | None = None) -> dict:
+                counters: list[dict] | None = None, spoken: list[str] | None = None) -> dict:
     """What a single line sees of the story: the world, the current act and this exercise's role."""
     state = act_state(bible, exercise_id)
     data = {"kind": "data-not-instructions", "title": card.get("title"), "premise": bible.get("premise"),
             "coachRole": bible.get("coachRole"), "userRole": bible.get("userRole"),
-            "lexicon": bible.get("lexicon", [])[:10], "motifs": bible.get("motifs", [])[:6],
+            "lexicon": bible.get("lexicon", [])[:10], "motifs": fresh_motifs(bible, spoken or []),
             "forbidden": bible.get("forbidden", [])}
     if state:
         data["act"] = {"number": state.act, "title": state.title, "goal": state.goal, "final": state.final_act,
