@@ -271,7 +271,7 @@ export function CoachRequestsTab({ userId, runId, onSeen }: { userId: string; ru
   const groups = useMemo(() => groupRows(rows), [rows])
   const freshGroups = useMemo(() => new Set(groups.filter(group => group.steps.some(row => fresh.has(row.id))).map(group => group.key)), [groups, fresh])
   return <section className="coach-journal" aria-label="Журнал запросов">
-    <Summary totals={totals} onErrors={() => setStatus('error')} />
+    {!failed && <Summary totals={totals} onErrors={() => setStatus('error')} />}
     <div className="coach-journal-filters">
       <label>Период<select className="rt-input" value={effective} onChange={event => setPeriod(event.target.value as JournalPeriod)}>
         {runId && <option value="run">Тренировка</option>}<option value="today">Сегодня</option><option value="7d">7 дней</option></select></label>
@@ -282,7 +282,7 @@ export function CoachRequestsTab({ userId, runId, onSeen }: { userId: string; ru
         <option value="all">Все</option>{(Object.keys(KIND_LABELS) as RequestKind[]).map(item => <option key={item} value={item}>{KIND_LABELS[item]}</option>)}</select></label>
     </div>
     {incoming.length > 0 && <button type="button" className="coach-journal-incoming" onClick={showIncoming}>↑ {incoming.length} новых</button>}
-    {failed && <p className="coach-local-note" role="alert">Журнал недоступен. Проверьте соединение с сервером.</p>}
+    {failed && <p className="coach-local-note" role="alert">Журнал недоступен: сервер не отвечает или живой тренер на нём выключен (COACH_ENABLED).</p>}
     {totals && !groups.length && !failed && <p className="coach-local-note">{status === 'error' ? 'Ошибок нет за выбранный период.' : 'Запросов ещё не было.'}</p>}
     <ol ref={listRef} className="coach-journal-list">
       {groups.map(group => <GroupRow key={group.key} group={group} userId={userId} nowMs={nowMs} open={open === group.key}
@@ -313,16 +313,18 @@ function Table({ title, entries, labels }: { title: string; entries: Readonly<Re
 
 export function CoachSpendTab({ userId, runId, setsDone, setsLeft }: { userId: string; runId: string | null; setsDone: number; setsLeft: number }) {
   const [summary, setSummary] = useState<UsageSummary | null>(null)
+  const [failed, setFailed] = useState(false)
   const [period, setPeriod] = useState<JournalPeriod>(runId ? 'run' : 'today')
   const effective: JournalPeriod = period === 'run' && !runId ? 'today' : period
   useEffect(() => {
     const controller = new AbortController()
-    const load = () => coachJournalApi.summary({ userId, period: effective, runId, sinceMs: localMidnight() }, controller.signal).then(setSummary, () => undefined)
+    const load = () => coachJournalApi.summary({ userId, period: effective, runId, sinceMs: localMidnight() }, controller.signal)
+      .then(value => { setSummary(value); setFailed(false) }, () => { if (!controller.signal.aborted) setFailed(true) })
     load()
     const timer = setInterval(load, SUMMARY_POLL_MS)
     return () => { controller.abort(); clearInterval(timer) }
   }, [userId, effective, runId])
-  if (!summary) return <p className="coach-local-note">Загрузка…</p>
+  if (!summary) return <p className="coach-local-note" role={failed ? 'alert' : undefined}>{failed ? 'Расход недоступен: сервер не отвечает или живой тренер на нём выключен (COACH_ENABLED).' : 'Загрузка…'}</p>
   const workout = summary.limits.workout
   const forecast = workout && setsDone > 0 ? workout.usedMicros + workout.usedMicros / setsDone * setsLeft : null
   return <section className="coach-spend" aria-label="Расход">

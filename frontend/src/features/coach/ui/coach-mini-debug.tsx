@@ -10,31 +10,10 @@ import { redactedNetworkReport, type NetworkSnapshot } from '../live/coach-netwo
 import { coachSettingsApi, type DailyUsage } from '../lib/settings-api'
 import type { CoachPreferences } from '../model/preferences'
 import { CoachRequestsTab, CoachSpendTab, errorText, money, useUnseenErrors } from './coach-requests-panel'
+import { networkStates, reasonLabel } from './coach-labels'
+import { CoachOverview, CoachStatusTab, coachOverview, type Tile } from './coach-panel-overview'
 import './coach-mini-debug.css'
 
-const reasons: Readonly<Record<string, string>> = {
-  ready: 'Локальный тест готов', disabled: 'Выключен', audio_locked: 'Звук заблокирован браузером',
-  safety: 'Блокировка безопасности', hardware_active: 'Тренажёр активен', runtime_session: 'Идёт тренировка',
-  mute: 'Звук выключен', hidden: 'Вкладка скрыта', no_user: 'Пользователь не выбран',
-  preferences_loading: 'Ожидание сохранённых настроек', preferences_unavailable: 'Настройки недоступны',
-  no_consent: 'Нет согласия', unavailable: 'Аудиоконтекст недоступен', decode_failed: 'Ошибка декодирования',
-  cancelled: 'Тест остановлен', scope_changed: 'Контекст изменён', missing_clip: 'Фраза не подготовлена',
-  admitted: 'Фраза принята', idle: 'Ожидание', stale_source: 'Данные тренажёра устарели', mock_source: 'Не реальный источник',
-  owner_mismatch: 'Владелец или контекст тренировки не совпадает', expired: 'Опоздало', no_source: 'Нет источника',
-  requiresService: 'Сервисный режим или аварийная остановка: обычная речь заблокирована',
-  pipeline_busy: 'Тренер уже говорит', provider_unavailable: 'Провайдер недоступен', stale_run: 'Настройки изменились, переподключение',
-  local_mode: 'Сервер в локальном режиме', coach_disabled: 'Тренер выключен на сервере (COACH_ENABLED)', run_not_found: 'Ledger не найден', budget: 'Лимит бюджета', degraded: 'Только локальные клипы',
-  no_useful_content: 'Нечего сказать', validation_failed: 'Текст отклонён проверкой', closed: 'Соединение закрыто', network: 'Сеть недоступна',
-  'paused-set': 'Подход поставлен на паузу', plan_changed: 'План или настройки упражнения изменились',
-  playback_failed: 'Воспроизведение отменено', watchdog: 'Поток аудио перестал поступать',
-  rate_limited: 'Превышена частота сообщений', credential_unavailable: 'Доступ провайдера недоступен', voice_unavailable: 'Live-голос недоступен', voice_fallback: 'Нет ключа Fish Audio — говорит голос OpenAI',
-  active_runs_full: 'Заняты все подключения тренера; повторяем попытку', run_create_failed: 'Не удалось создать сессию тренера',
-}
-const reasonLabel = (reason: string) => reasons[reason] ?? reason
-
-const networkStates: Readonly<Record<NetworkSnapshot['state'], string>> = {
-  off: 'Выключена', creating: 'Создание ledger', connecting: 'Подключение', ready: 'Подключена', retrying: 'Переподключение', refused: 'Отклонена сервером',
-}
 const modeLabels: Readonly<Record<CoachPreferences['mode'], string>> = { local: 'Local', hybrid: 'Live', 'text-only': 'Text' }
 const modeTitles: Readonly<Record<CoachPreferences['mode'], string>> = { local: 'локальные клипы', hybrid: 'гибрид, живой голос', 'text-only': 'только текст' }
 type ModeTone = 'off' | 'local' | 'idle' | 'pending' | 'live' | 'error'
@@ -247,15 +226,28 @@ export function CoachMiniDebug() {
   const journal = coachEnabled && !!userId
   const activeTab: PanelTab = journal ? tab : 'status'
   const markSeen = errors.markSeen
-  const status = <>
-    {dailyText && <p className="coach-local-note">{dailyText}</p>}
+  const technical = <>
     <CoachLocalDiagnostics snapshot={snapshot} audio={live.audio ?? snapshot.audio} reason={live.audio ? live.reason : snapshot.reason} live={!!live.audio} />
     <CoachLiveDiagnostics snapshot={live} />
     {live.network && <CoachNetworkDiagnostics snapshot={live.network} />}
   </>
+  const overview = coachOverview({ liveBuild: coachEnabled, saved: localAudioRuntime.getSavedPreferences(), network: live.network,
+    reason: locked ? 'audio_locked' : live.audio ? live.reason : snapshot.reason, workout: !!runId || !!live.audio,
+    latches: live.interpreter?.latches })
+  const inWorkout = !!(runUsage && runId)
+  const tiles: Tile[] = journal ? [
+    { label: inWorkout ? 'запросов за тренировку' : 'запросов сегодня', value: String(inWorkout ? runUsage.requests : daily?.requests ?? 0),
+      onClick: () => setTab('requests') },
+    { label: inWorkout ? 'потрачено за тренировку' : 'потрачено сегодня', onClick: () => setTab('spend'),
+      value: inWorkout && workoutSpend !== null ? money(workoutSpend) : daily ? dayUsd(daily.totalMicros) : '$0',
+      hint: inWorkout ? `лимит ${money(runUsage.capMicros)}` : undefined,
+      tone: share !== null && share > 0.9 ? 'error' : share !== null && share > 0.7 ? 'warn' : undefined },
+    { label: errors.unseen ? 'новых ошибок' : 'ошибок нет', value: String(errors.unseen), tone: errors.unseen ? 'error' : 'ok',
+      hint: errors.latest ? errorText(errors.latest.errorCode, errors.latest.httpStatus) ?? undefined : undefined, onClick: () => setTab('requests') },
+  ] : []
   return <Popover.Root open={open && target === null} onOpenChange={value => setOpen(target === null && value)}>
     <Popover.Trigger asChild>
-      <button ref={triggerRef} type="button" className="coach-mini-debug-trigger" disabled={target !== null} aria-label="AI-тренер: локальная диагностика" title={title}
+      <button ref={triggerRef} type="button" className="coach-mini-debug-trigger" disabled={target !== null} aria-label="AI-тренер: состояние и расход" title={title}
         data-budget={share === null ? undefined : share > 0.9 ? 'high' : share > 0.7 ? 'mid' : 'low'}
         style={share === null ? undefined : { ['--coach-budget' as string]: String(share) }}>
         <span className="coach-mini-debug-mode" data-tone={mode.tone}>AI · {mode.label}</span>
@@ -274,8 +266,9 @@ export function CoachMiniDebug() {
     <Popover.Portal>
         {/* Never flip/shift into the protected header. Width and remaining height
           are constrained instead; Radix still owns placement, portal and focus. */}
-        <Popover.Content className="coach-mini-debug-popover" style={{ maxHeight: Math.min(760, availableHeight) }} aria-label="Локальная диагностика AI-тренера" side="bottom" align="end" sideOffset={8} avoidCollisions={false} updatePositionStrategy="always" onCloseAutoFocus={event => { if (target !== null) event.preventDefault() }}>
-        <header><h3>AI · Диагностика</h3><Popover.Close aria-label="Закрыть диагностику AI">×</Popover.Close></header>
+        <Popover.Content className="coach-mini-debug-popover" style={{ maxHeight: Math.min(760, availableHeight) }} aria-label="Панель AI-тренера" side="bottom" align="end" sideOffset={8} avoidCollisions={false} updatePositionStrategy="always" onCloseAutoFocus={event => { if (target !== null) event.preventDefault() }}>
+        <header><h3>AI-тренер</h3><Popover.Close aria-label="Закрыть панель AI-тренера">×</Popover.Close></header>
+        <CoachOverview overview={overview} tiles={tiles} />
         {journal && <div className="coach-panel-tabs" role="tablist" aria-label="Разделы диагностики">
           {TABS.map(([id, label]) => <button key={id} type="button" role="tab" aria-selected={activeTab === id} id={`coach-tab-${id}`}
             onClick={() => setTab(id)}>{label}{id === 'requests' && errors.unseen > 0 ? <span className="coach-mini-debug-errors">⚠ {errors.unseen}</span> : null}</button>)}
@@ -283,7 +276,7 @@ export function CoachMiniDebug() {
         <div role={journal ? 'tabpanel' : undefined} aria-labelledby={journal ? `coach-tab-${activeTab}` : undefined}>
           {activeTab === 'requests' && userId && <CoachRequestsTab userId={userId} runId={runId} onSeen={markSeen} />}
           {activeTab === 'spend' && userId && <CoachSpendTab userId={userId} runId={runId} setsDone={progress.done} setsLeft={progress.left} />}
-          {activeTab === 'status' && status}
+          {activeTab === 'status' && <CoachStatusTab local={snapshot} live={live} liveBuild={coachEnabled} technical={technical} />}
         </div>
       </Popover.Content>
     </Popover.Portal>

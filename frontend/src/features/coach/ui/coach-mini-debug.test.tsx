@@ -64,7 +64,7 @@ describe('CoachMiniDebug', () => {
     const read = vi.spyOn(coachLiveRuntime, 'getSnapshot').mockReturnValue({ ...live, audio: { ...audio, lastActualSource: 'realtime' }, reason: 'admitted' })
     try {
       render(<CoachMiniDebug />)
-      fireEvent.click(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }))
+      fireEvent.click(screen.getByRole('button', { name: 'AI-тренер: состояние и расход' }))
       expect(screen.getByText('REALTIME')).toBeInTheDocument()
       expect(screen.getByText('Старты тренировочного микшера').nextSibling).toHaveTextContent('3')
       expect(screen.getByText('2 / 2 / 1')).toBeInTheDocument()
@@ -74,11 +74,11 @@ describe('CoachMiniDebug', () => {
 
   it.each([false, true])('anchors the native portal below the whole header, not the trigger row, compact=%s', hideNavigation => {
     render(<MemoryRouter><FormaShell machine={machineScenarios.ready} userName="Алексей" onStop={vi.fn()} hideNavigation={hideNavigation} /></MemoryRouter>)
-    const trigger = screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' })
+    const trigger = screen.getByRole('button', { name: 'AI-тренер: состояние и расход' })
     const header = trigger.closest('header')!
     const measure = vi.spyOn(header, 'getBoundingClientRect').mockReturnValue(new DOMRect(24, 24, 600, 296))
     fireEvent.click(trigger)
-    const popover = screen.getByRole('dialog', { name: 'Локальная диагностика AI-тренера' })
+    const popover = screen.getByRole('dialog', { name: 'Панель AI-тренера' })
     expect(popover).toHaveStyle({ maxHeight: `${Math.min(640, window.innerHeight - 340)}px` })
     expect(header.contains(popover)).toBe(false)
     expect(popover.closest('[data-radix-popper-content-wrapper]')).not.toBeNull()
@@ -88,7 +88,7 @@ describe('CoachMiniDebug', () => {
     const user = userEvent.setup()
     const stop = vi.fn()
     render(<MemoryRouter><FormaShell machine={machineScenarios.ready} userName="Алексей" onStop={stop} hideNavigation={hideNavigation} /></MemoryRouter>)
-    const trigger = screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' })
+    const trigger = screen.getByRole('button', { name: 'AI-тренер: состояние и расход' })
     const motor = screen.getByLabelText('Усилие на двигателях')
     expect(trigger.compareDocumentPosition(motor) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(mocks.runtime.refreshSavedPreferences).toHaveBeenCalledTimes(1)
@@ -104,10 +104,12 @@ describe('CoachMiniDebug', () => {
   it('opens read-only with keyboard, restores focus on Escape, and never fetches, hydrates, prepares or plays', async () => {
     const user = userEvent.setup()
     render(<CoachMiniDebug />)
-    const trigger = screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' })
+    const trigger = screen.getByRole('button', { name: 'AI-тренер: состояние и расход' })
     trigger.focus(); await user.keyboard('{Enter}')
-    const popover = screen.getByRole('dialog', { name: 'Локальная диагностика AI-тренера' })
-    expect(within(popover).getByText(/Usage неизвестен/)).toBeVisible()
+    const popover = screen.getByRole('dialog', { name: 'Панель AI-тренера' })
+    // The plain-language overview comes first; raw counters wait in the collapsed developer block.
+    expect(within(popover).getByRole('region', { name: 'Состояние тренера' })).toBeVisible()
+    expect(within(popover).getByText(/Usage неизвестен/)).not.toBeVisible()
     expect(within(popover).queryByText(/0 tok|\$0|req/)).not.toBeInTheDocument()
     expect(fetch).not.toHaveBeenCalled()
     expect(mocks.runtime.refreshSavedPreferences).not.toHaveBeenCalled()
@@ -120,7 +122,7 @@ describe('CoachMiniDebug', () => {
   })
   it('subscribes to stable snapshots and shows actual counters, gains, source and only last 30 text-free timeline events', () => {
     render(<CoachMiniDebug />)
-    fireEvent.click(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }))
+    fireEvent.click(screen.getByRole('button', { name: 'AI-тренер: состояние и расход' }))
     publish({ ...base, audio, reason: 'ready', previewAllowed: true, prepared: { entries: 2, bytes: 48000, loading: false } })
     expect(screen.getByText('Локальные старты').nextSibling).toHaveTextContent('3')
     expect(screen.getByText('CACHE')).toBeInTheDocument()
@@ -141,12 +143,12 @@ describe('CoachMiniDebug', () => {
   })
   it('closes and disables during an active safety modal without portalling into its dock', () => {
     const view = render(<CoachMiniDebug />)
-    fireEvent.click(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }))
+    fireEvent.click(screen.getByRole('button', { name: 'AI-тренер: состояние и расход' }))
     expect(screen.getByRole('dialog')).toBeInTheDocument()
     mocks.target = document.createElement('div'); document.body.append(mocks.target)
     view.rerender(<CoachMiniDebug />)
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
-    const trigger = screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' })
+    const trigger = screen.getByRole('button', { name: 'AI-тренер: состояние и расход' })
     expect(trigger).toBeDisabled()
     fireEvent.click(trigger); expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
     expect(mocks.target.childElementCount).toBe(0)
@@ -157,7 +159,7 @@ describe('CoachMiniDebug', () => {
   it('permits read-only diagnostics when safety blocked without an active modal', () => {
     mocks.runtime.getSnapshot.mockReturnValue({ ...base, reason: 'safety' })
     render(<CoachMiniDebug />)
-    fireEvent.click(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }))
+    fireEvent.click(screen.getByRole('button', { name: 'AI-тренер: состояние и расход' }))
     expect(screen.getByText('Блокировка безопасности')).toBeInTheDocument()
     expect(mocks.runtime.playPreview).not.toHaveBeenCalled()
   })
@@ -172,11 +174,11 @@ describe('CoachMiniDebug', () => {
       </SafetyDialogContent></Dialog.Portal></Dialog.Root>
     </MemoryRouter>
     const view = render(fixture(false))
-    await user.click(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }))
+    await user.click(screen.getByRole('button', { name: 'AI-тренер: состояние и расход' }))
     view.rerender(fixture(true))
-    expect(screen.queryByRole('dialog', { name: 'Локальная диагностика AI-тренера' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('dialog', { name: 'Панель AI-тренера' })).not.toBeInTheDocument()
     const safety = screen.getByRole('dialog', { name: 'Безопасность' })
-    const trigger = within(safety).getByRole('button', { name: 'AI-тренер: локальная диагностика' })
+    const trigger = within(safety).getByRole('button', { name: 'AI-тренер: состояние и расход' })
     expect(trigger).toBeDisabled()
     const stopButton = within(safety).getByRole('button', { name: 'Аварийная остановка' })
     expect(stopButton.closest('.forma-dialog-dock')).not.toBeNull()
@@ -184,14 +186,14 @@ describe('CoachMiniDebug', () => {
     expect(mocks.runtime.playPreview).not.toHaveBeenCalled()
     expect(fetch).not.toHaveBeenCalled()
     view.rerender(fixture(false))
-    expect(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' })).toBeEnabled()
-    expect(screen.queryByRole('dialog', { name: 'Локальная диагностика AI-тренера' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'AI-тренер: состояние и расход' })).toBeEnabled()
+    expect(screen.queryByRole('dialog', { name: 'Панель AI-тренера' })).not.toBeInTheDocument()
   })
   it.each(['audio_locked', 'suspended'] as const)('shows %s honestly rather than claiming playback', state => {
     mocks.runtime.getSnapshot.mockReturnValue({ ...base, reason: state === 'audio_locked' ? 'audio_locked' : 'ready',
       audio: state === 'suspended' ? { ...audio, contextState: 'suspended' } : null, previewAllowed: true })
     render(<CoachMiniDebug />)
-    expect(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }).title).toContain('Звук заблокирован браузером')
+    expect(screen.getByRole('button', { name: 'AI-тренер: состояние и расход' }).title).toContain('Звук заблокирован браузером')
   })
   it.each([
     [null, 'Выкл', 'off'], [{ enabled: true, mode: 'local' }, 'Local', 'local'],
@@ -201,7 +203,7 @@ describe('CoachMiniDebug', () => {
     render(<CoachMiniDebug />)
     const mode = screen.getByText(`AI · ${label}`)
     expect(mode).toHaveAttribute('data-tone', tone)
-    expect(screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' }).title).toMatch(/^Режим: /)
+    expect(screen.getByRole('button', { name: 'AI-тренер: состояние и расход' }).title).toMatch(/^Режим: /)
   })
   it('shows today\'s paid requests and spend from the server ledger since local midnight when the coach is enabled', async () => {
     vi.stubEnv('VITE_COACH_ENABLED', 'true')
@@ -211,7 +213,7 @@ describe('CoachMiniDebug', () => {
       render(<CoachMiniDebug />)
       expect(await screen.findByText('7 запр.')).toBeInTheDocument()
       expect(screen.getByText('$0.012')).toBeInTheDocument()
-      const trigger = screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' })
+      const trigger = screen.getByRole('button', { name: 'AI-тренер: состояние и расход' })
       expect(trigger.title).toContain('Сегодня: 7 платн. запр. на $0.012 (из них в расчёте <$0.001)')
       const [url] = fetchMock.mock.calls[0] as unknown as [string]
       const midnight = new Date(); midnight.setHours(0, 0, 0, 0)
@@ -241,7 +243,7 @@ describe('CoachMiniDebug header (VD)', () => {
     const read = vi.spyOn(coachLiveRuntime, 'getSnapshot').mockReturnValue({ ...live, network })
     try {
       render(<CoachMiniDebug />)
-      const trigger = screen.getByRole('button', { name: 'AI-тренер: локальная диагностика' })
+      const trigger = screen.getByRole('button', { name: 'AI-тренер: состояние и расход' })
       expect(within(trigger).getByText('6 запр.')).toBeInTheDocument()
       expect(within(trigger).getByText('$1.60 / $2.00')).toBeInTheDocument()
       expect(trigger).toHaveAttribute('data-budget', 'mid')

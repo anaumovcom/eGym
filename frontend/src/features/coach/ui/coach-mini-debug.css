@@ -125,3 +125,47 @@
   .coach-journal-filters { grid-template-columns: 1fr; }
   .coach-journal-expanded { padding-left: 10px; }
 }
+/* Overview: one sentence about the coach right now, then three numbers. Tone colours always come with an icon. */
+.coach-overview { display: grid; gap: 10px; margin: 12px 0 4px; }
+.coach-overview-card { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: start; padding: 12px 14px;
+  border-radius: 14px; border: 1px solid #4ade8040; background: #4ade8012; }
+.coach-overview-card[data-tone='info'] { border-color: #38bdf840; background: #38bdf812; }
+.coach-overview-card[data-tone='warn'] { border-color: #fbbf2450; background: #fbbf2414; }
+.coach-overview-card[data-tone='error'] { border-color: #f8717160; background: #ef44441a; }
+.coach-overview-card[data-tone='off'] { border-color: #ffffff1a; background: #ffffff08; }
+.coach-overview-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; font-size: 14px; font-weight: 800;
+  color: #86efac; background: #4ade801f; }
+.coach-overview-card[data-tone='info'] .coach-overview-icon { color: #7dd3fc; background: #38bdf81f; }
+.coach-overview-card[data-tone='warn'] .coach-overview-icon { color: #fcd34d; background: #fbbf241f; }
+.coach-overview-card[data-tone='error'] .coach-overview-icon { color: #fca5a5; background: #ef44441f; }
+.coach-overview-card[data-tone='off'] .coach-overview-icon { color: #94a3b8; background: #ffffff0d; }
+.coach-overview-title { margin: 0; font-size: 15px; font-weight: 700; color: #f8fafc; }
+.coach-overview-detail { margin: 2px 0 0; color: #cbd5e1; }
+.coach-overview-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.coach-tile { display: grid; gap: 1px; align-content: start; min-height: 64px; padding: 10px 12px; border-radius: 12px; text-align: left;
+  border: 1px solid #ffffff12; background: #ffffff08; color: #f1f5f9; }
+button.coach-tile:hover { background: #ffffff10; }
+.coach-tile-value { font-size: 20px; font-weight: 700; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.coach-tile-label { font-size: 12px; color: #b8c1ce; }
+.coach-tile-hint { font-size: 11px; color: #94a3b8; overflow-wrap: anywhere; }
+.coach-tile[data-tone='ok'] .coach-tile-value { color: #86efac; }
+.coach-tile[data-tone='warn'] .coach-tile-value { color: #fcd34d; }
+.coach-tile[data-tone='error'] { border-color: #ef444466; background: #ef444418; }
+.coach-tile[data-tone='error'] .coach-tile-value, .coach-tile[data-tone='error'] .coach-tile-hint { color: #fca5a5; }
+.coach-panel-status h4 { margin: 16px 0 4px; font-size: 12px; font-weight: 700; color: #e2e8f0; text-transform: uppercase; letter-spacing: .04em; }
+.coach-panel-status .coach-local-metrics { margin: 4px 0 8px; }
+.coach-technical { margin-top: 16px; border-top: 1px solid #ffffff12; padding-top: 10px; }
+.coach-technical > summary { cursor: pointer; min-height: 36px; display: flex; align-items: center; color: #94a3b8; font-size: 12px; }
+.coach-technical > summary:focus-visible { outline: 2px solid #c4b5fd; outline-offset: 2px; border-radius: 6px; }
+@media (max-width: 600px) {
+  .coach-overview-tiles { grid-template-columns: 1fr; }
+  .coach-tile { min-height: 0; grid-template-columns: auto 1fr; align-items: baseline; gap: 8px; }
+  .coach-tile-hint { grid-column: 1 / -1; }
+}
+.coach-technical > summary { list-style: none; gap: 6px; }
+.coach-technical > summary::-webkit-details-marker { display: none; }
+.coach-technical > summary::before { content: '▸'; display: inline-block; transition: transform .15s; }
+.coach-technical[open] > summary::before { transform: rotate(90deg); }
+.coach-mini-debug-popover .coach-local-actions button { min-height: 36px; padding: 0 12px; border-radius: 10px; border: 1px solid #ffffff1f; background: #ffffff0d; color: #e2e8f0; font-size: 12px; font-weight: 600; }
+.coach-mini-debug-popover .coach-local-actions button:hover:not(:disabled) { background: #ffffff17; }
+.coach-mini-debug-popover .coach-local-actions button:disabled { opacity: .5; }
