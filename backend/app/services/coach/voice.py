@@ -52,6 +52,7 @@ MAX_FRAME_PCM_BYTES = 96_000  # ≤1 s mono s16 at 48 kHz; providers' 24 kHz chu
 MAX_STREAM_BYTES = 2_880_000
 MAX_STREAM_MS = 60_000
 MAX_TEXT_CHARS = 600
+FISH_BOUND_MARGIN_BYTES = 64
 MAX_TRANSCRIPT_CHARS = 2000
 
 # §7 «Live voice instructions», verbatim (line breaks as in the document).
@@ -622,6 +623,10 @@ class FishVoiceAdapter:
     def __repr__(self) -> str:
         return f"FishVoiceAdapter(model={self.capability.model!r}, voice={self.reference_id!r}, key=<redacted>)"
 
+    def request_bytes(self, text: str, delivery: Delivery) -> int:
+        """Exact billed size of the request this line will send (the ledger reserves it before dispatch)."""
+        return len(self.request(text, delivery)["text"].encode())
+
     def request(self, text: str, delivery: Delivery) -> dict:
         body = {"text": fish_markup(text, delivery, self.emotion), "format": "pcm", "sample_rate": SAMPLE_RATE,
                 "latency": "balanced"}
@@ -957,7 +962,13 @@ class VoiceStreamer:
         max_ms = speech_ms_bound(spoken)
         extra = (candidate_instructions(delivery) if delivery.profile != "legacy"
              and getattr(self.adapter, "situational_enabled", False) else "")
-        bounds = voice_bounds(spoken, audio_tokens_per_s=self.audio_tokens_per_s, max_ms=max_ms, instructions=extra)
+        exact = getattr(self.adapter, "request_bytes", None)
+        if callable(exact):
+            # Byte-billed engines (Fish): the request text is known before dispatch, so reserve exactly that
+            # plus a small margin instead of the generic OpenAI-template bound (~20× more money held per line).
+            bounds = UsageBounds(input_tokens=min(1_000_000, exact(text, delivery) + FISH_BOUND_MARGIN_BYTES))
+        else:
+            bounds = voice_bounds(spoken, audio_tokens_per_s=self.audio_tokens_per_s, max_ms=max_ms, instructions=extra)
         try:
             with self.sessions() as db:
                 outcome.attempt_id = ledger.reserve(db, run_id, owner, generation, opportunity, "voice", self.pricing, bounds,

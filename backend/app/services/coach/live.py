@@ -7,6 +7,7 @@ One pipeline per run (paid single-flight); completion queue is bounded and prior
 import asyncio
 import contextlib
 import hashlib
+import logging
 import math
 import secrets
 import time
@@ -72,6 +73,7 @@ from app.services.coach.voice import (
     websocket_connect,
 )
 
+logger = logging.getLogger("coach.live")
 SendJson = Callable[[dict], Awaitable[None]]
 SendBytes = Callable[[bytes], Awaitable[None]]
 
@@ -725,6 +727,8 @@ class LiveCoach:
             return
         op.state.started = True
         self._transition(op, 'started')
+        if op.candidate.trigger_id == "T70":
+            self.why_done.add(op.scope.exercise_id or "-")  # V9.1: explained once it is actually heard.
         self._mark(op, "ackStart")
         now = self.now_ms()
         op.state.audible_duration_ms = duration if duration is not None else 2_500
@@ -1022,17 +1026,27 @@ class LiveCoach:
             if key in self.prebuilt:
                 continue
             deadline = time.monotonic() + PREBUILD_IDLE_WAIT_S
-            while self.task is not None and not self.task.done() and time.monotonic() < deadline:
-                await asyncio.sleep(0.2)
-            item = asyncio.create_task(self._prebuild_one(key, trigger, task, exercise, position))
-            self._prebuild_items.add(item)
-            item.add_done_callback(self._prebuild_items.discard)
-            with contextlib.suppress(asyncio.CancelledError, Exception):
-                await item
+            while time.monotonic() < deadline and not self.closed:
+                while self.task is not None and not self.task.done() and time.monotonic() < deadline:
+                    await asyncio.sleep(0.2)
+                item = asyncio.create_task(self._prebuild_one(key, trigger, task, exercise, position))
+                self._prebuild_items.add(item)
+                item.add_done_callback(self._prebuild_items.discard)
+                try:
+                    started = await item
+                except asyncio.CancelledError:
+                    raise
+                except Exception:  # A failed preparation only means this moment is authored live.
+                    self._note("prebuild_error")
+                    logger.exception("coach prebuild failed key=%s", key)
+                    break
+                if started is not False:
+                    break  # Built, or skipped for budget/silence: either way this moment is settled.
+                # A live line took the slot between our check and the start: wait for it and retry.
 
-    async def _prebuild_one(self, key: str, trigger: str, task: str, exercise: dict, position: int) -> None:
+    async def _prebuild_one(self, key: str, trigger: str, task: str, exercise: dict, position: int) -> bool | None:
         if self.task is not None and not self.task.done():
-            return  # A live line took the slot; this moment will simply be authored live.
+            return False  # A live line took the slot first; the caller waits and retries.
         self.task = asyncio.current_task()
         self.task.add_done_callback(self._after)
         op = self._prebuild_op(trigger, task, exercise, position)
@@ -1128,7 +1142,8 @@ class LiveCoach:
                 feedback = history.explicit_feedback(db, self.user_id, set_ref, now_ms=now,
                                                      ttl_ms=self.feedback_ttl_ms)
             cc = build_context(event, context, c.phase, saved=saved, feedback=feedback)
-            if c.phase == "setup" and self.settings.exercise_intro and cc.setup_guidance:
+            # Story moments (act start, the boss) keep their scenario intro; plain intros become a technique memo.
+            if c.phase == "setup" and self.settings.exercise_intro and cc.setup_guidance and c.trigger_id not in {"T67", "T68"}:
                 task, intents = "setup/technique", ("general-tip",)
                 package = FactPackage(c.trigger_id, tuple(
                     AllowedFact(key, text, "confirmed", text, scope_epoch=scope.scope_epoch,
@@ -1342,7 +1357,9 @@ class LiveCoach:
                 return "disabled"
             if rest_ms is None or rest_ms - rest_elapsed < REST_EXTRA_MIN_MS:
                 return "no_window"
-            if any(gid not in self.memory.completed for gid in self.acks if self.acks[gid][0].scope == scope):
+            # Another line of this rest still playing; this event's own line (seen again on revalidation) does not count.
+            if any(gid not in self.memory.completed for gid in self.acks
+                   if self.acks[gid][0].scope == scope and self.acks[gid][0].event_id != event.id):
                 return "utterance_pending"
             slug = context.get("exerciseSlug") if isinstance(context.get("exerciseSlug"), str) else None
             if scope.set_ordinal == 1 and slug and exercise not in self.why_done and (why := progress.why_facts(
@@ -1560,8 +1577,6 @@ class LiveCoach:
             return
         co_host_text = (outcome.delivery or {}).get("co_host_text") or ""
         self.lines_since_co_host = 0 if co_host_text else self.lines_since_co_host + 1
-        if trigger == "T70" and op.exercise_id:
-            self.why_done.add(op.scope.exercise_id or "-")
         if self.settings.memory_enabled and outcome.attempt_ids:
             # VD.6: the spoken text joins the journal only under conversation memory, and expires with it.
             with contextlib.suppress(Exception), self.sessions() as db:

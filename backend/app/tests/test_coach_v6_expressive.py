@@ -14,7 +14,6 @@ from app.services.coach.prompts import AuthorRequest, build_prompt
 from app.services.coach.validation import validate, voice_block
 from app.services.coach.voice import Delivery, FishVoiceAdapter, VoiceStreamer, fish_markup
 from app.tests.test_coach_e08_voice import PRICE as VOICE_PRICE
-from app.tests.test_coach_e08_voice import SCOPE
 from app.tests.test_coach_e10_live import HYBRID, event, make_coach, seed, settle
 
 TEXT = "Двенадцать повторений. Чат, это было мощно!"

@@ -42,7 +42,9 @@ async def test_first_rest_explains_the_exercise_once(session_factory):
     body, data = seen[-1]
     assert {"muscles", "mechanic"} <= {f["id"] for f in data["allowedFacts"]}
     assert "Цель пользователя — сила" in body["instructions"]
-    assert "ex-1" in coach.why_done
+    start = sink.of("speech_start")[-1]
+    await coach.handle({"type": "playback_started", "generationId": start["generationId"], "durationMs": 2_000})
+    assert "ex-1" in coach.why_done  # marked once the explanation is actually heard
     coach.director.last_start_ms = None
     await coach.handle(event("rest_long_opportunity", run_id, exercise="ex-1", set_ordinal=1, phase="rest", epoch=2,
                              context=rest))
