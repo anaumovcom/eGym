@@ -110,14 +110,16 @@ class MoodVoice:
     temperature: float
 
 
+# Live run 26.10.2026: emotive drama-3 speech came out at 1–2 words/s (an 11-word finale took 14 s). A speed probe
+# kept the transcript exact up to 1.35, so every mood speaks ~0.15–0.2 faster than neutral.
 MOOD_VOICE = {
-    "warmup": MoodVoice("confident", "none", "none", "none", 1.0, 0.0, 0.65),
-    "focus": MoodVoice("determined", "none", "none", "breath", 1.05, 0.0, 0.6),
-    "grind": MoodVoice("determined", "very", "none", "panting", 1.1, 2.0, 0.7),
-    "triumph": MoodVoice("excited", "very", "none", "laughing", 1.05, 3.0, 0.8),
-    "comeback": MoodVoice("delighted", "none", "none", "gasping", 1.0, 1.0, 0.75),
-    "recover": MoodVoice("empathetic", "none", "soft tone", "none", 0.95, -2.0, 0.6),
-    "finale": MoodVoice("proud", "very", "none", "none", 0.95, 1.0, 0.75),
+    "warmup": MoodVoice("confident", "none", "none", "none", 1.15, 0.0, 0.65),
+    "focus": MoodVoice("determined", "none", "none", "breath", 1.2, 0.0, 0.6),
+    "grind": MoodVoice("determined", "very", "none", "panting", 1.25, 2.0, 0.7),
+    "triumph": MoodVoice("excited", "very", "none", "laughing", 1.2, 3.0, 0.8),
+    "comeback": MoodVoice("delighted", "none", "none", "gasping", 1.15, 1.0, 0.75),
+    "recover": MoodVoice("empathetic", "none", "soft tone", "none", 1.05, -2.0, 0.6),
+    "finale": MoodVoice("proud", "very", "none", "none", 1.1, 1.0, 0.75),
 }
 FIXED = {"count": Segment("confident", tone="none"), "safety": Segment("calm", direction="serious and steady"),
          "partial": Segment("empathetic", tone="soft tone")}

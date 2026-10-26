@@ -77,7 +77,7 @@ def test_curve_contrast_repeats_crowd_and_extremely():
 
 def test_synthesis_parameters_by_profile_mood_and_phase():
     assert expressive.synthesis("support", "grind", "active") == {
-        "temperature": 0.7, "prosody": {"speed": 1.1, "volume": 2.0}, "language": "ru", "latency": "low"}
+        "temperature": 0.7, "prosody": {"speed": 1.25, "volume": 2.0}, "language": "ru", "latency": "low"}
     assert expressive.synthesis("safety", "triumph", "rest")["prosody"] == {"speed": 1.0, "volume": 0.0}
     assert expressive.synthesis("result", "triumph", "rest")["temperature"] == 0.8
 
@@ -148,7 +148,7 @@ async def test_live_fish_request_carries_mood_voice_and_parameters(session_facto
     assert bodies, sink.of("decision")
     body = bodies[-1]
     assert body["text"].startswith("[empathetic, soft tone] ") and body["language"] == "ru"
-    assert body["prosody"] == {"speed": 0.95, "volume": -2.0} and body["latency"] == "balanced"
+    assert body["prosody"] == {"speed": 1.05, "volume": -2.0} and body["latency"] == "balanced"
     await coach.close()
 
 
