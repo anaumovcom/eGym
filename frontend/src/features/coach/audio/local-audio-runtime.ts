@@ -10,6 +10,7 @@ import { effectiveCoachState, preferencesValid, type CoachPreferences } from '..
 import { LocalClipPreparer } from './fixture-pack-storage'
 import { LocalCoachAudioManager, type AudioReason, type LocalAudioSnapshot } from './local-coach-audio-manager'
 import { getSharedAudioContext, unlockSharedAudioContext } from './shared-audio-context'
+import { FAULT_MODES, SILENCING_MODES, silencesCoach } from '../model/safety-latches'
 
 export type LocalAudioRuntimeInputs = Readonly<{
   userId: string | null; featureEnabled: boolean; hidden: boolean; emergency: boolean
@@ -304,8 +305,10 @@ export class LocalAudioRuntime {
     boolean('panelStop', h.panel?.stopLatched)
     boolean('spotter', h.control?.spotterActive)
     boolean('failure', h.control?.failureDetected)
-    mode('controlSafety', h.control?.mode, ['estop', 'emergency_stop', 'fault', 'failure', 'spotter'])
-    mode('motionSafety', h.motion?.controlMode, ['estop', 'emergency_stop', 'fault', 'failure', 'spotter'])
+    mode('controlSafety', h.control?.mode, SILENCING_MODES)
+    mode('motionSafety', h.motion?.controlMode, SILENCING_MODES)
+    mode('controlFault', h.control?.mode, FAULT_MODES)
+    mode('motionFault', h.motion?.controlMode, FAULT_MODES)
     if (h.control?.faultCode === null || typeof h.control?.faultCode === 'string') boolean('faultCode', !!h.control.faultCode)
     mode('controlActive', h.control?.mode, ['training', 'isometric', 'fixed_hold', 'moving'])
     mode('motionActive', h.motion?.controlMode, ['training', 'isometric', 'fixed_hold', 'moving'])
@@ -315,7 +318,8 @@ export class LocalAudioRuntime {
 
   private gate(): LocalAudioRuntimeReason | null {
     if (this.disposed) return 'disposed'
-    if (this.inputs.emergency || [...this.latches].some(([key, active]) => active && !['controlActive', 'motionActive', 'moving'].includes(key))) return 'safety'
+    // D-V12.7: a machine error (fault, blocked, service) does not silence the coach; an emergency does.
+    if (this.inputs.emergency || [...this.latches].some(([key, active]) => active && silencesCoach(key))) return 'safety'
     if (this.inputs.hidden) return 'hidden'
     if (['controlActive', 'motionActive', 'moving'].some(key => this.latches.get(key))) return 'hardware_active'
     const session = this.inputs.session

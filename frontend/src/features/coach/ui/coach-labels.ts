@@ -31,5 +31,6 @@ export const latchLabels: Readonly<Record<string, string>> = {
   requiresService: 'тренажёру нужен сервис', panelStop: 'нажата кнопка «Стоп» на панели', spotter: 'сработала страховка',
   failure: 'тренажёр зафиксировал отказ в подходе', controlSafety: 'управление в защитном режиме',
   motionSafety: 'привод в защитном режиме', faultCode: 'ошибка тренажёра',
+  controlFault: 'управление в режиме ошибки', motionFault: 'привод в режиме ошибки',
 }
 export const latchLabel = (key: string) => latchLabels[key] ?? key

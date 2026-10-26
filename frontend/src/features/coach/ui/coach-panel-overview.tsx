@@ -20,16 +20,27 @@ export type OverviewInput = Readonly<{
   workout: boolean
   /** Machine latches the interpreter saw (safety reasons), when known. */
   latches?: readonly string[]
+  /** Machine errors the coach talks through (D-V12.7). */
+  machineErrors?: readonly string[]
 }>
 
 const ICONS: Readonly<Record<OverviewTone, string>> = { ok: '●', info: 'ℹ', warn: '⚠', error: '✕', off: '○' }
 
-export function coachOverview({ liveBuild, saved, reason, network, workout, latches = [] }: OverviewInput): Overview {
+export function coachOverview(input: OverviewInput): Overview {
+  const overview = baseOverview(input)
+  const errors = input.machineErrors ?? []
+  if (!errors.length || overview.tone === 'error' || overview.tone === 'off') return overview
+  // D-V12.7: a machine error is worth knowing about, but the coach keeps talking through it.
+  return { tone: 'warn', title: overview.title,
+    detail: `${overview.detail} Тренажёр сообщает: ${errors.map(latchLabel).join(', ')} — тренер при этом продолжает говорить.` }
+}
+
+function baseOverview({ liveBuild, saved, reason, network, workout, latches = [] }: OverviewInput): Overview {
   // What blocks speech outright comes first: the user must know why the coach is silent.
   if (reason === 'safety') {
     const causes = latches.map(latchLabel)
-    const cause = causes.length ? `Причина: ${causes.join(', ')}.` : 'Аварийная остановка, кнопка «Стоп» на панели, ошибка тренажёра или сервисный режим.'
-    return { tone: 'warn', title: 'Тренер молчит: сработала защита тренажёра', detail: `${cause} Когда защита снимется, тренер снова заговорит.` }
+    const cause = causes.length ? `Причина: ${causes.join(', ')}.` : 'Аварийная остановка, кнопка «Стоп» на панели, сработала страховка или отказ в подходе.'
+    return { tone: 'warn', title: 'Тренер молчит: аварийная остановка', detail: `${cause} Когда защита снимется, тренер снова заговорит.` }
   }
   if (reason === 'no_user') return { tone: 'off', title: 'Пользователь не выбран', detail: 'Выберите профиль — у каждого свои настройки тренера.' }
   if (reason === 'preferences_loading') return { tone: 'info', title: 'Загружаю настройки тренера…', detail: 'Это займёт пару секунд.' }
@@ -134,6 +145,7 @@ export function CoachStatusTab({ local, live, liveBuild, technical }: {
       <Row label="Этап">{interpreter ? PHASES[interpreter.phase] ?? interpreter.phase : 'тренировка не идёт'}</Row>
       {interpreter && <Row label="Данные тренажёра">{interpreter.fresh ? 'свежие' : 'устарели — тренер ждёт новых'}</Row>}
       {!!interpreter?.latches.length && <Row label="Что мешает говорить">{interpreter.latches.map(latchLabel).join(', ')}</Row>}
+      {!!interpreter?.machineErrors.length && <Row label="Ошибки тренажёра (тренер говорит)">{interpreter.machineErrors.map(latchLabel).join(', ')}</Row>}
       {lastCue && <Row label="Последний повод">{TRIGGER_LABELS[lastCue.triggerId] ?? lastCue.triggerId} · {reasonLabel(lastCue.reason)}</Row>}
     </dl>
     {network && <>

@@ -1,6 +1,7 @@
 import type { RuntimeExercisePlan, RuntimeSetPlan, RuntimeView, RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import { coachRunId, type CoachEvent, type CoachPhase, type CoachReason, type CoachScope, type CoachSettings } from '../model/contracts'
+import { FAULT_MODES, MACHINE_ERROR_LATCHES, SILENCING_MODES, silencesCoach } from '../model/safety-latches'
 import { CUE_SPECS, cueClipId, type CueKind } from './local-cues'
 
 export type CountMode = CoachSettings['count']
@@ -31,6 +32,8 @@ export type InterpreterResult = Readonly<{
 }>
 export type InterpreterSnapshot = Readonly<{
   phase: CoachPhase; scope: CoachScope | null; fresh: boolean; latches: readonly string[]; pain: boolean
+  /** Machine errors the coach talks through (D-V12.7): shown in the panel, never a reason for silence. */
+  machineErrors: readonly string[]
   baseline: number | null; consumed: number; lastCue: LocalCue | null; skips: readonly InterpreterSkip[]
 }>
 
@@ -43,7 +46,6 @@ type SetTrack = {
 const ACTIVE_MODES = ['training', 'isometric', 'fixed_hold'] as const
 const HOLD_MODES = ['isometric', 'fixed_hold'] as const
 const CONTROL_MODES = ['post', 'homing', 'moving', 'weightless', 'start_hold', 'training', 'fixed_hold', 'isometric', 'paused', 'parked', 'idle', 'estop', 'fault', 'emergency_stop', 'failure', 'spotter']
-const SAFETY_MODES = ['estop', 'emergency_stop', 'fault', 'failure', 'spotter']
 const MAX_CONSUMED = 4096
 const MAX_SEEN_LIFECYCLE = 1024
 const MAX_SKIPS = 50
@@ -117,7 +119,8 @@ export class CoachInterpreter {
     this.fresh = !!hw && this.hardwareAtMs !== null && now >= this.hardwareAtMs &&
       (input.sourceConnected === true || now - this.hardwareAtMs <= this.options.freshnessMs)
     const wasLatched = this.latched
-    this.latched = input.emergency || [...this.latches].some(([key, value]) => value && !key.startsWith('active'))
+    // D-V12.7: machine errors (fault, blocked, service) are shown, not silencing; emergencies still are.
+    this.latched = input.emergency || [...this.latches].some(([key, value]) => value && silencesCoach(key))
     const exercise = session?.exercises.find(item => item.id === session.currentExerciseId) ?? null
     const setOrdinal = session ? session.currentSetIndex + 1 : null
     const nextScopeKey = JSON.stringify([identity, exercise?.id ?? null, setOrdinal, session?.view ?? null])
@@ -187,7 +190,8 @@ export class CoachInterpreter {
   snapshot(): InterpreterSnapshot {
     const track = this.scope ? this.tracks.get(JSON.stringify([this.scope.userId, this.scope.runId, this.scope.exerciseId, this.scope.setOrdinal])) : undefined
     return Object.freeze({ phase: this.phase, scope: this.scope, fresh: this.fresh,
-      latches: Object.freeze([...this.latches].filter(([key, value]) => value && !key.startsWith('active')).map(([key]) => key)),
+      latches: Object.freeze([...this.latches].filter(([key, value]) => value && silencesCoach(key)).map(([key]) => key)),
+      machineErrors: Object.freeze([...this.latches].filter(([key, value]) => value && MACHINE_ERROR_LATCHES.has(key)).map(([key]) => key)),
       pain: this.painLatched, baseline: track?.baseline ?? null, consumed: this.consumed.size, lastCue: this.lastCue,
       skips: Object.freeze([...this.skips]) })
   }
@@ -212,8 +216,10 @@ export class CoachInterpreter {
     set('panelStop', next.panel?.stopLatched)
     set('spotter', next.control?.spotterActive)
     set('failure', next.control?.failureDetected)
-    mode('controlSafety', next.control?.mode, SAFETY_MODES, CONTROL_MODES)
-    mode('motionSafety', next.motion?.controlMode, SAFETY_MODES, CONTROL_MODES)
+    mode('controlSafety', next.control?.mode, SILENCING_MODES, CONTROL_MODES)
+    mode('motionSafety', next.motion?.controlMode, SILENCING_MODES, CONTROL_MODES)
+    mode('controlFault', next.control?.mode, FAULT_MODES, CONTROL_MODES)
+    mode('motionFault', next.motion?.controlMode, FAULT_MODES, CONTROL_MODES)
     if (next.control && (next.control.faultCode === null || typeof next.control.faultCode === 'string')) this.latches.set('faultCode', !!next.control.faultCode)
   }
 

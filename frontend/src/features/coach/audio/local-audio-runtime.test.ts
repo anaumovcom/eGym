@@ -320,12 +320,19 @@ describe('runtime and hardware admission/cancellation', () => {
   })
 
   it.each([
-    { safety: { state: 'emergency_stop' } }, { machine: { machineState: 'blocked' } },
-    { control: { mode: 'fault' } }, { control: { mode: 'estop' } }, { control: { faultCode: 'E99' } },
-    { motion: { moving: false, controlMode: 'fault' } }, { motion: { moving: false, controlMode: 'estop' } },
+    { machine: { machineState: 'blocked' } }, { control: { mode: 'fault' } }, { control: { faultCode: 'E99' } },
+    { motion: { moving: false, controlMode: 'fault' } }, { safety: { requiresService: true } },
+  ])('a machine error %j does not silence the coach (D-V12.7)', async patch => {
+    const f = ready(); expect(await f.runtime.playPreview('overlap')).toBe(true)
+    f.change({ hardware: hardware(patch) })
+    expect(f.runtime.getSnapshot().reason).not.toBe('safety')
+    expect(f.runtime.getSnapshot().previewAllowed).toBe(true)
+  })
+
+  it.each([
+    { safety: { state: 'emergency_stop' } }, { control: { mode: 'estop' } }, { motion: { moving: false, controlMode: 'estop' } },
     { motion: { moving: false, controlMode: 'failure' } }, { motion: { moving: false, controlMode: 'spotter' } },
-    { control: { spotterActive: true } }, { control: { failureDetected: true } },
-    { panel: { stopLatched: true } }, { safety: { requiresService: true } },
+    { control: { spotterActive: true } }, { control: { failureDetected: true } }, { panel: { stopLatched: true } },
   ])('latches explicit safety %j through missing telemetry until corresponding usable false', async patch => {
     const f = ready(); expect(await f.runtime.playPreview('overlap')).toBe(true)
     f.clock.advance(180, f.context)

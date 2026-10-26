@@ -12,10 +12,16 @@ const net = (state: NetworkSnapshot['state'], extra: Partial<NetworkSnapshot> = 
 describe('coachOverview — one plain sentence for every state', () => {
   it('explains why the coach is silent before anything else', () => {
     const safety = coachOverview({ ...base, reason: 'safety', network: net('ready') })
-    expect(safety).toMatchObject({ tone: 'warn', title: 'Тренер молчит: сработала защита тренажёра' })
+    expect(safety).toMatchObject({ tone: 'warn', title: 'Тренер молчит: аварийная остановка' })
     expect(safety.detail).toMatch(/снова заговорит/)
     expect(coachOverview({ ...base, reason: 'audio_locked' }).detail).toMatch(/Нажмите/)
     expect(coachOverview({ ...base, saved: { ...hybrid, enabled: false } }).title).toBe('Тренер выключен')
+  })
+
+  it('reports a machine error but says the coach keeps talking (D-V12.7)', () => {
+    const fault = coachOverview({ ...base, network: net('ready', { spoken: 3 }), machineErrors: ['faultCode'] })
+    expect(fault).toMatchObject({ tone: 'warn', title: 'Тренер на связи' })
+    expect(fault.detail).toMatch(/ошибка тренажёра — тренер при этом продолжает говорить/)
   })
 
   it('says plainly when the live coach is not part of this build, without jargon', () => {
