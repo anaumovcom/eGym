@@ -134,6 +134,20 @@ async def run(args) -> int:
             return result
 
     pipeline.author.adapter = Recorder()
+    markups: list[str] = []
+    voice_adapter = pipeline.voice.adapter
+    if hasattr(voice_adapter, "request"):
+        original_request = voice_adapter.request
+
+        def recording_request(text, delivery):
+            body = original_request(text, delivery)
+            if markups and markups[-1].startswith(body["text"]):
+                return body  # The ledger sizes the request first; record each line once.
+            markups.append(body["text"] + (f"  ‖ {json.dumps(body.get('prosody'))} t={body.get('temperature')}"
+                                           f" {body.get('latency')}" if body.get("prosody") else ""))
+            return body
+
+        voice_adapter.request = recording_request
     offset = [0.0]
     messages: list[dict] = []
     pcm: dict[str, bytearray] = {}
@@ -142,8 +156,12 @@ async def run(args) -> int:
     async def send_json(payload: dict) -> None:
         messages.append({**payload, "_at": time.monotonic()})
 
+    first_pcm: dict[str, float] = {}
+
     async def send_bytes(data: bytes) -> None:
         frame = decode_frame(data)
+        if frame.data:
+            first_pcm.setdefault(frame.metadata.generation_id, time.monotonic())
         pcm.setdefault(frame.metadata.generation_id, bytearray()).extend(frame.data)
 
     coach = live.LiveCoach(SessionLocal, run_id=run_id, owner=OWNER, generation=generation, user_id=USER, settings=prefs,
@@ -276,19 +294,23 @@ async def run(args) -> int:
         audio = bytes(pcm.get(start["generationId"], b""))
         if audio:
             (path / f"{index + 1:02d}-{start['triggerId']}.wav").write_bytes(pcm_to_wav(audio))
+        sent = sent_at.get(start.get("eventId", ""))
+        first = first_pcm.get(start["generationId"])
         rows.append({"trigger": start["triggerId"], "text": start["text"], "coHost": start.get("coHostText"),
-                     "prebuilt": bool(start.get("prebuilt")), "audioMs": round(len(audio) / 48)})
+                     "prebuilt": bool(start.get("prebuilt")), "audioMs": round(len(audio) / 48),
+                     "eventToFirstAudioMs": round((first - sent) * 1000) if sent and first else None})
     decisions = [{"trigger": m.get("triggerId"), "reason": m.get("reason")} for m in messages if m["type"] == "decision"]
     snap = snapshot(run_id)
     report = {"runId": run_id, "fake": args.fake, "lines": rows, "decisions": decisions,
               "scenario": next((m for m in messages if m["type"] == "scenario" and m.get("state") == "ready"), None),
               "episode": next((m for m in messages if m["type"] == "episode"), None),
               "usage": {k: snap[k] for k in ("requests", "settledMicros", "pendingMicros", "capMicros", "budget")},
-              "stats": coach.stats.as_dict(), "authorOutputs": outputs}
+              "stats": coach.stats.as_dict(), "authorOutputs": outputs, "fishMarkup": markups}
     (path / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     for row in rows:
         mark = "●" if row["prebuilt"] else " "
-        print(f"{mark} {row['trigger']:4} {row['text']}" + (f"  ↳ {row['coHost']}" if row["coHost"] else ""))
+        delay = f"{row['eventToFirstAudioMs'] / 1000:4.1f}s" if row["eventToFirstAudioMs"] is not None else "  —  "
+        print(f"{mark} {row['trigger']:4} {delay} {row['text']}" + (f"  ↳ {row['coHost']}" if row["coHost"] else ""))
     print(f"lines {len(rows)}, silenced {len(decisions)}, requests {snap['requests']}, "
           f"settled ${snap['settledMicros'] / 1e6:.4f}, pending ${snap['pendingMicros'] / 1e6:.4f} -> {path}")
     return 0

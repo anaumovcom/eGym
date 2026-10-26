@@ -267,8 +267,8 @@ def _check_text(text: str, req: AuthorRequest, used: set[str], *, allowed_number
             continue
         if category == "tempo" and "tempo" in permits:
             continue
-        if category == "first" and req.history == "empty_confirmed":
-            continue
+        if category == "first" and (req.history == "empty_confirmed" or "record" in permits):
+            continue  # «впервые с таким весом» is exactly what a verified record says
         if category == "insult" and req.roast and req.outcome not in {"partial", "skipped", "limited"}:
             continue
         if category == "partial_success" and req.outcome not in {"partial", "skipped", "limited"}:
@@ -378,7 +378,8 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
         if len(words(speech)) > limit:
             # Live run 26.10.2026: in-set lines came 17–23 words. A whole-sentence prefix within the limit is
             # still the author's own words; anything shorter than four words is not worth saying.
-            sentences = re.split(r"(?<=[.!…;])\s+|\s+(?=—\s)", speech)
+            # Whole sentences (or «;» parts) only: cutting at a dash split «цель — десять» mid-thought (live run).
+            sentences = re.split(r"(?<=[.!…;])\s+", speech)
             prefix = ""
             for sentence in sentences:
                 candidate = f"{prefix} {sentence}".strip()
@@ -428,6 +429,12 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
     if req.co_host and isinstance(output.get("coHost"), str) and output["coHost"].strip():
         # V10: the co-host obeys every rule of the main line and adds no numbers of its own.
         candidate = " ".join(output["coHost"].split())
+        name = str(req.co_host.get("name", "")).strip()
+        label = re.match(rf"^{re.escape(name)}\s*[:—–-]\s*", candidate, re.I) if name else None
+        if label:
+            # The second voice is the character: a «Чатик: …» label would be read aloud (live run 26.10.2026).
+            candidate = candidate[label.end():].strip()
+            candidate = candidate[:1].upper() + candidate[1:]
         if (len(words(candidate)) <= 10 and (req.mood or {}).get("name") != "recover"
                 and req.outcome not in {"partial", "skipped", "limited"}
                 and _check_text(candidate, req, used, allowed_numbers=set()) is None):

@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -164,6 +165,39 @@ class FakeTextAuthor:
                             None if isinstance(output, dict) else "provider_malformed")
 
 
+# Live runs 26.10.2026: the judge adds ~3.5 s. Only the few headline moments wait for it; frequent lines
+# (set results, summaries of an exercise, «why») pick locally: a fresh opening and a change of technique.
+JUDGED_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "rest/record", "summary/workout"})
+
+
+def _opening(text: str) -> str:
+    return " ".join(text.casefold().replace("ё", "е").split()[:2])
+
+
+def _stems(text: str) -> set[str]:
+    # A crude Russian stem: drop up to two ending letters, keep 4–6 («трос», «тросу» → «трос»).
+    return {word[:min(6, max(4, len(word) - 2))] for word in re.findall(r"[а-яё]{4,}", text.lower())}
+
+
+def local_pick(valid: list, request: AuthorRequest) -> int:
+    heard = request.recent_heard[-6:]
+    openings = {_opening(str(u.get("text", ""))) for u in heard}
+    last_intent = heard[-1].get("intent") if heard else None
+    # Words already heard in two recent lines are a worn-out joke (live run 26.10.2026: «трос» in five lines).
+    counts: dict[str, int] = {}
+    for u in heard:
+        for stem in _stems(str(u.get("text", ""))):
+            counts[stem] = counts.get(stem, 0) + 1
+    worn = {stem for stem, count in counts.items() if count >= 2}
+    scored = []
+    for index, (candidate, verdict) in enumerate(valid):
+        score = 2 * (_opening(verdict.speech) not in openings) + (candidate.get("intent") != last_intent)
+        score += 0.5 * (candidate.get("intent") == "humor" and request.humor not in {None, "off"})
+        score -= 0.5 * len(_stems(verdict.speech) & worn)
+        scored.append((score, -index))
+    return -max(scored)[1]
+
+
 _REASONS = {"budget": "budget", "operator_budget": "budget", "strict_cap_unprovable": "budget",
             "budget_bucket": "budget",
             "pipeline_busy": "pipeline_busy", "owner_mismatch": "owner_mismatch", "stale_attempt": "owner_mismatch",
@@ -304,6 +338,10 @@ class TextAuthor:
                 first_failure = verdict.reason
         if len(valid) < 2:
             return (valid[0] if valid else silence), first_failure
+        if request.task not in JUDGED_TASKS:
+            index = local_pick(valid, request)
+            self.last_judge = {"best": index, "options": len(valid), "local": True}
+            return valid[index], None
         heard = [str(u.get("text", ""))[:200] for u in request.recent_heard[-6:]]
         data = json.dumps({"task": request.task, "mood": request.mood, "intent": list(request.intents),
                            "scenario": (request.scenario or {}).get("title"), "recentHeard": heard,

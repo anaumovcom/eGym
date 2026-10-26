@@ -1,6 +1,7 @@
 """V7: three validated variants and a cheap judge (only the winner is voiced); story motifs as running gags."""
 
 import json
+from dataclasses import replace
 
 from app.models.coach import CoachAttempt
 from app.schemas.coach_control import CoachPreferences
@@ -47,13 +48,14 @@ async def test_judge_picks_among_valid_variants_only(session_factory):
                                line("Десять повторений — чат аплодирует.", "humor")]}
 
     author = TextAuthor(session_factory, FakeTextAuthor(script), PRICE, model=PRICE.model, timeout_s=2)
-    outcome = await author.author(run_id=run_id, owner="tab-a", generation=generation, opportunity="o1", request=REQ, scope_epoch=1)
+    judged = replace(REQ, task="rest/record")  # headline moments wait for the judge
+    outcome = await author.author(run_id=run_id, owner="tab-a", generation=generation, opportunity="o1", request=judged, scope_epoch=1)
     assert outcome.kind == "speech", outcome.reason
     assert outcome.text == "Десять повторений — чат аплодирует." and outcome.intent == "humor"
     assert calls == ["coach_line", "coach_judge"] and author.last_judge == {"best": 1, "options": 2}
     with session_factory() as db:
         purposes = [(a.purpose, a.task) for a in db.query(CoachAttempt).filter_by(run_id=run_id).order_by(CoachAttempt.created_at)]
-    assert purposes == [("live", "rest/full-feedback"), ("judge", "judge/pick")]
+    assert purposes == [("live", "rest/record"), ("judge", "judge/pick")]
 
 
 async def test_without_a_judge_the_first_valid_variant_speaks(session_factory):
@@ -98,3 +100,32 @@ async def test_live_rest_lines_ask_for_variants_and_rotate_story_motifs(session_
     assert coach.motif_uses == {"механик кричит в рацию": 1}
     assert coach._story_motif(type("Op", (), {"exercise_id": "ex-2"})())[0] == "соперник в зеркале"
     await coach.close()
+
+
+async def test_frequent_lines_pick_locally_by_fresh_opening(session_factory):
+    run_id, generation = make_run(session_factory)
+    calls = []
+
+    def script(body):
+        calls.append(body["text"]["format"]["name"])
+        return {"candidates": [line("Десять повторений, ровно и сильно."), line("Чат ревёт: десять повторений!", "humor"),
+                               line("Десять повторений, идём дальше.")]}
+
+    heard = ({"text": "Десять повторений, красиво.", "intent": "motivation"},)
+    request = replace(REQ, recent_heard=heard)
+    author = TextAuthor(session_factory, FakeTextAuthor(script), PRICE, model=PRICE.model, timeout_s=2)
+    outcome = await author.author(run_id=run_id, owner="tab-a", generation=generation, opportunity="o1", request=request,
+                                  scope_epoch=1)
+    assert calls == ["coach_line"] and outcome.text == "Чат ревёт: десять повторений!"
+
+
+def test_local_pick_avoids_a_worn_out_joke_object():
+    from types import SimpleNamespace
+
+    from app.services.coach.luna import local_pick
+
+    heard = ({"text": "Трос пишет жалобу в профсоюз.", "intent": "humor"},
+             {"text": "Тросу пора менять профессию.", "intent": "humor"})
+    valid = [({"intent": "motivation"}, SimpleNamespace(speech="Снова трос в деле: десять чистых повторений.")),
+             ({"intent": "motivation"}, SimpleNamespace(speech="Снова десять чистых повторений, как по нотам."))]
+    assert local_pick(valid, replace(REQ, recent_heard=heard)) == 1

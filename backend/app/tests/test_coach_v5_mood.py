@@ -22,6 +22,9 @@ def test_classification_follows_facts():
     assert mood(phase="rest", trigger="T43", fact_ids={"record"}, outcome="full").name == "triumph"
     assert mood(phase="rest", trigger="T36", outcome="full", fact_ids={"tonnage-progress"},
                 fact_values={"tonnage-progress": "beyond"}).name == "triumph"
+    # A summary's «limited» outcome is a data window, not a hard set: the finale stays triumphant.
+    assert mood(trigger="T59", task="summary/workout", phase="summary", outcome="limited").name == "finale"
+    assert mood(trigger="T59", task="summary/workout", phase="summary", outcome="limited", risk=True).name == "recover"
     assert mood(trigger="T69").name == "finale" and mood(trigger="T68", task="setup/boss", phase="setup").name == "finale"
     assert mood(phase="rest", trigger="T36", outcome="full", previous_outcome="partial") == Mood("comeback", 2)
     assert mood(moment="velocity_drop_hard", fact_ids={"velocity-drop"}) == Mood("grind", 3)

@@ -30,7 +30,10 @@ class Mood:
 def classify(*, trigger: str, task: str, phase: str, outcome: str | None, fact_ids: set[str], fact_values: dict,
              moment: str | None, last_exercise: bool, set_ordinal: int | None, total_sets: int | None,
              previous_outcome: str | None, risk: bool) -> Mood:
-    if risk or outcome in {"partial", "limited"} or trigger == "T37":
+    # Summaries carry outcome «limited» (a partial data window), not a hard set: their finale stays triumphant
+    # (live run 26.10.2026: T59 was voiced soft and quiet).
+    summary = trigger in {"T58", "T59"}
+    if risk or (outcome in {"partial", "limited"} and not summary) or trigger == "T37":
         return Mood("recover", 1)
     if fact_ids & TRIUMPH_FACTS or fact_values.get("tonnage-progress") in {"equal", "beyond"} or trigger == "T39" or (
             fact_values.get("counter-boss") == 0 and "counter-boss" in fact_ids):

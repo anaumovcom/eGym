@@ -31,7 +31,8 @@ def test_schema_module_and_validation():
     built = build_prompt(request)
     assert "coHost" in built.schema["required"] and CO_HOST_MODULE in built.instructions
     assert json.loads(built.data)["coHost"]["name"] == "Шумахер"
-    assert validate(output("Шумахер в восторге, трибуны ревут!"), request).delivery["co_host_text"] == "Шумахер в восторге, трибуны ревут!"
+    assert validate(output("Трибуны ревут, болид летит!"), request).delivery["co_host_text"] == "Трибуны ревут, болид летит!"
+    assert validate(output("Шумахер: трибуны ревут!"), request).delivery["co_host_text"] == "Трибуны ревут!"
     for dropped in ("", "Одиннадцать повторений!", "Раз два три четыре пять шесть семь восемь девять десять одиннадцать"):
         verdict = validate(output(dropped), request)
         assert verdict.ok and "co_host_text" not in verdict.delivery  # the main line still speaks

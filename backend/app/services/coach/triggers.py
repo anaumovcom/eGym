@@ -80,7 +80,7 @@ _ROWS = (
     _t("T18", "set", "LOCAL", "milestone", "set", 1, 1_000, (F,), ("rep.start", "target.exact")),
     _t("T19", "set", "LIVE", None, "set", 1, 20_000, (M,), ("tempo.validated",)),
     _t("T20", "set", "FACT/LIVE", None, "set", 1, 20_000, (F,), ("tempo.validated",)),
-    _t("T21", "set", "LIVE", "set-support", "set", None, 6_000, (M, H), ("set.active", "rep.confirmed")),
+    _t("T21", "set", "LIVE", "set-support", "set", None, 8_000, (M, H), ("set.active", "rep.confirmed")),
     _t("T22", "set", "LOCAL", None, "set", None, 1_000, (M,), ("mechanics.phase",)),
     _t("T23", "set", "LOCAL/FACT", None, "set", 1, 2_000, (F,), ("rep.confirmed", "partial.previous")),
     _t("T24", "set", "LOCAL", None, "episode", 1, 2_000, (F,), ("set.paused",)),
