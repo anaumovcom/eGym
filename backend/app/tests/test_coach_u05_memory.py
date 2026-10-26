@@ -371,7 +371,8 @@ async def test_next_author_rejects_exact_phrase_or_recent_opening_before_voice(s
         op.state.transition("preparing")
         frames_before = len(sink.bytes)
         await coach._run(op, 20)
-        assert len(fake.calls) == 2
+        # The rest line retries once with a note (live run 26.10.2026); this echo repeats itself and stays silent.
+        assert len(fake.calls) == 3 and "retryNote" in json.loads(fake.calls[-1]["input"][0]["content"])
         assert sink.of("decision")[-1]["reason"] == "validation_failed:topic_repeat"
         assert len(sink.of("speech_start")) == 1 and len(sink.bytes) == frames_before
     finally:

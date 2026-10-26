@@ -5,7 +5,7 @@ import json
 import re
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Literal
 
 import httpx
@@ -16,7 +16,7 @@ from app.core.coach_limits import COACH_TEXT_OUTPUT_TOKENS
 from app.core.config import get_settings
 from app.schemas.coach_control import PartialUsage, Pricing, ReportedUsage, UsageBounds
 from app.services.coach import journal, ledger
-from app.services.coach.memory import CoachMemory
+from app.services.coach.memory import CoachMemory, opening
 from app.services.coach.prompts import JUDGE_INSTRUCTIONS, PROMPT_VERSION, AuthorRequest, BuiltPrompt, build_prompt
 from app.services.coach.routing import Route, TaskClass, degrade, task_class
 from app.services.coach.validation import facts_current, validate
@@ -202,7 +202,7 @@ def local_pick(valid: list, request: AuthorRequest) -> int:
 RETRYABLE_STATUS = frozenset({429, 500, 502, 503})
 RETRY_PAUSE_S = 0.3
 # Live runs 26.10.2026: on a degraded API three variants took 13 s and judges timed out. A variant line slower
-# than SLOW_LINE_MS, or a timeout, switches to single lines for SLOW_PAUSE_S; a judge timeout pauses the judge.
+# than SLOW_LINE_MS, or timing out, switches to single lines for SLOW_PAUSE_S; a judge timeout pauses the judge.
 SLOW_LINE_MS = 12_000
 SLOW_PAUSE_S = 180.0
 _REASONS = {"budget": "budget", "operator_budget": "budget", "strict_cap_unprovable": "budget",
@@ -451,7 +451,7 @@ class TextAuthor:
                                   finished_at=time.time())
                     raise
                 timeout = isinstance(error, TimeoutError)
-                if timeout:
+                if timeout and request.variants > 1:  # A short in-set cue timing out once is not a slow provider.
                     self.slow_until = time.monotonic() + SLOW_PAUSE_S
                 return fallback("provider_timeout" if timeout else "provider_error", duration_ms=elapsed,
                                 error_detail=None if timeout else type(error).__name__)
@@ -513,7 +513,19 @@ class TextAuthor:
                           finished_at=time.time())
             # One calm summary retry with a new reserve and enough time; never a recursive joke hunt.
             time_left = deadline_ms is None or deadline_ms - self.now_ms() >= route.timeout_s * 1000
-            if not (request.summary and retry == 0 and time_left):
+            # Live run 26.10.2026: a single rest line that opened like a recent one was lost to silence. One retry
+            # that names the worn opening (never in a set: its moment is short).
+            draft = str(result.output.get("text") or result.output.get("framingText") or "")
+            reopen = (verdict.reason == "topic_repeat" and request.variants == 1 and request.phase != "active"
+                      and retry == 0 and time_left and bool(opening(draft)))
+            if reopen:
+                worn = re.sub(r"[^\w\s-]", "", opening(draft))[:40]
+                request = replace(request, retry_note=f"Черновик начинался как недавняя реплика («{worn}»). "
+                                                      "Начни с другого слова и другого образа.")
+                built = build_prompt(request)
+                body = request_body(route.model, built, route.max_output_tokens, route.reasoning_effort)
+                bounds = text_bounds(body, route.max_output_tokens)
+            if not ((request.summary or reopen) and retry == 0 and time_left):
                 attempts_snapshot = tuple(attempts)
                 return AuthorOutcome("local" if local_available else "silence", f"validation_failed:{verdict.reason}",
                                      attempt_ids=attempts_snapshot, prompt_hash=built.instructions_hash,

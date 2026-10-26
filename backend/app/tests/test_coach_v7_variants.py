@@ -207,3 +207,28 @@ def test_a_verbal_tic_across_the_workout_is_worn_out():
             "Арена ждёт.", "Сегодня всё без лишнего пафоса!", "Табло сияет снова.")
     request = replace(REQ, variants=1, workout_heard=said)
     assert worn_words(request) == ["лишнего пафоса", "табло сияет"]
+
+
+async def test_a_rest_line_that_repeats_an_opening_gets_one_retry_with_a_note(session_factory):
+    from app.services.coach.memory import CoachMemory, opening
+
+    run_id, generation = make_run(session_factory)
+    seen = []
+
+    def script(body):
+        seen.append(json.loads(body["input"][0]["content"]))
+        return line("Десять повторений, снова чисто." if len(seen) == 1 else "Как по нотам: десять повторений.")
+
+    memory = CoachMemory()
+    memory.openings.append(opening("Десять повторений!"))
+    author = TextAuthor(session_factory, FakeTextAuthor(script), PRICE, model=PRICE.model, timeout_s=2)
+    outcome = await author.author(run_id=run_id, owner="tab-a", generation=generation, opportunity="o1",
+                                  request=replace(REQ, variants=1), memory=memory, scope_epoch=1)
+    assert outcome.kind == "speech" and outcome.text == "Как по нотам: десять повторений."
+    assert "retryNote" not in seen[0] and "«десять повторений»" in seen[1]["retryNote"].lower()
+    # In a set the moment is too short: no retry, the cue stays silent.
+    seen.clear()
+    in_set = replace(REQ, trigger_id="T21", phase="active", task="active/support", variants=1, max_words=12)
+    outcome = await author.author(run_id=run_id, owner="tab-a", generation=generation, opportunity="o2",
+                                  request=in_set, memory=memory, scope_epoch=1)
+    assert len(seen) == 1
