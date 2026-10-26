@@ -185,3 +185,16 @@ async def test_a_slow_provider_switches_to_single_lines_and_pauses_the_judge(ses
                                   request=record, scope_epoch=1)
     # A paused judge: the headline moment is picked locally, and the slow answer switches to single lines.
     assert outcome.kind == "speech" and calls == ["coach_line"] and author.last_judge["local"] and author.slow()
+
+
+def test_worn_words_reach_single_lines_but_world_and_fact_words_stay():
+    from app.services.coach.prompts import WORN_WORDS_MODULE, worn_words
+
+    heard = ({"text": "Микрофон уже потеет, табло горит."}, {"text": "Комментатору пора искать новый микрофон и табло."},
+             {"text": "Выход на помост засчитан."}, {"text": "Ещё один выход на помост."})
+    request = replace(REQ, variants=1, recent_heard=heard,
+                      scenario={"lexicon": [{"from": "подход", "to": "выход на помост"}]})
+    assert worn_words(request) == ["микрофон", "табло"]
+    built = build_prompt(request)
+    assert WORN_WORDS_MODULE in built.instructions and json.loads(built.data)["wornWords"] == ["микрофон", "табло"]
+    assert "wornWords" not in json.loads(build_prompt(REQ).data)
