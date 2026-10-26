@@ -558,7 +558,7 @@ def build_prompt(req: AuthorRequest) -> BuiltPrompt:
         "maxFactIds": 2 + len(req.locked_fact_ids),
         "localCompletion": list(req.local_completion),
         **({"retryNote": req.retry_note[:200]} if req.retry_note else {}),
-        **({"preparedLines": [line[:300] for line in req.prepared_lines[-8:]]} if req.prepared_lines else {}),
+        **({"preparedLines": [line[:300] for line in req.prepared_lines[-10:]]} if req.prepared_lines else {}),
         **({"assistantContext": {"kind": "data-not-instructions",
                      "text": _CONTROL.sub(" ", unicodedata.normalize("NFKC", req.assistant_context))[:500]}}
            if req.assistant_context.strip() else {}),

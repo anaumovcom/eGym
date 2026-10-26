@@ -348,7 +348,7 @@ class LiveCoach:
         self.plan_cursor = 0
         self.set_reached: dict[str, int] = {}
         self.in_set = False
-        self.prebuild_texts: list[str] = []
+        self.prebuild_texts: list[tuple[str, str]] = []  # (trigger, text) in preparation order
         self.prebuild_meta: dict[str, PrebuildTarget] = {}
         self.episode_job: asyncio.Task | None = None
         self.prebuild_job: asyncio.Task | None = None
@@ -1209,8 +1209,12 @@ class LiveCoach:
             # A prepared moment is not happening now: it must not move the live mood.
             self.moods.current, self.moods.changed_ms, self.moods.exercise_outcomes = moods
         heard = tuple(u.text for u in self.memory.started.values())
-        prepared = tuple(self.prebuild_texts[-8:])
-        request = replace(request, prepared_lines=prepared, workout_heard=(heard + tuple(self.prebuild_texts))[-40:],
+        # The last few prepared lines and every earlier one of the same kind (all «what it works», all set starts):
+        # lines of one kind repeat their shape across exercises (live run 26.10.2026).
+        prepared = tuple(dict.fromkeys([*(text for kind, text in self.prebuild_texts if kind == trigger),
+                                        *(text for _, text in self.prebuild_texts[-6:])]))[-10:]
+        everything = tuple(text for _, text in self.prebuild_texts)
+        request = replace(request, prepared_lines=prepared, workout_heard=(heard + everything)[-40:],
                           recent_openings=tuple(dict.fromkeys([*request.recent_openings,
                                                                *(opening_words(text) for text in prepared)]))[-10:])
         outcome = await self.author.author(run_id=self.run_id, owner=self.owner, generation=self.generation,
@@ -1240,7 +1244,7 @@ class LiveCoach:
                                               outcome.intent, (request.mood or {}).get("name"),
                                               history.speakable_name(exercise.get("name")), claims)
             self.prebuild_meta[key] = target
-            self.prebuild_texts.append(outcome.text)
+            self.prebuild_texts.append((trigger, outcome.text))
 
     def _prebuilt_key(self, op: Opportunity) -> str | None:
         """Which prepared line would serve this live moment (V12 keys carry the set and the moment)."""

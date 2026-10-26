@@ -83,7 +83,7 @@ async def test_prepared_set_lines_play_only_when_facts_and_mood_still_match(sess
         assert {"T21:ex-1:1:start", "T21:ex-1:1:finish", "T70:ex-1", "T21:ex-1:2:start"} <= set(coach.prebuilt)
         assert coach.moods.current is None  # preparing moments never moved the live mood
         prepared = [c for c in calls if "preparedLines" in c]
-        assert prepared and all(len(c["preparedLines"]) <= 8 for c in prepared)  # each line saw the earlier ones
+        assert prepared and all(len(c["preparedLines"]) <= 10 for c in prepared)  # each line saw the earlier ones
         # ...and their first words are taken: neither a later prepared line nor a live one may open the same way.
         assert opening(prepared[-1]["preparedLines"][-1]) in prepared[-1]["recentOpenings"]
         upcoming = coach.prebuilt["T21:ex-1:1:finish"].text
