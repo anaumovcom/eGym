@@ -105,6 +105,7 @@ PREBUILD_START_DELAY_S = 3.0
 PREBUILD_IDLE_WAIT_S = 60.0
 PREBUILD_VALID_MS = 2 * 3_600_000
 PREBUILD_MAX_LINES = 12
+OPENING_KEY = "T01:opening"
 SPEECH_TIMING_STAGES = ("receive", "textStart", "textEnd", "firstPcm", "speechEnd", "ackStart", "ackEnd", "ackCancel")
 PROGRESS_FACTS = frozenset({"set-position", "sets-left", "exercise-position", "plan-sets", "planned-sets"})
 # In-set moments (T21 set support): claim, per-set topic, intents. The browser only says which moment it is;
@@ -317,6 +318,7 @@ class LiveCoach:
         self.why_done: set[str] = set()
         self.lines_since_co_host = CO_HOST_EVERY
         self.prebuilt: dict[str, PrebuiltLine] = {}
+        self.workout_started = False
         self.episode_job: asyncio.Task | None = None
         self.prebuild_job: asyncio.Task | None = None
         self._prebuild_items: set[asyncio.Task] = set()
@@ -992,6 +994,9 @@ class LiveCoach:
                 targets.append((f"{trigger}:{exercise['id']}", trigger, task, exercise, position))
         if plan:
             targets.append((f"T69:{plan[-1]['id']}", "T69", "active/finale", plan[-1], len(plan)))
+            if not self.workout_started:
+                # Live run 26.10.2026: on a slow API the story opening (variants + judge) expired before the voice.
+                targets.insert(0, (OPENING_KEY, "T01", "setup/opening", plan[0], 1))
         return targets[:PREBUILD_MAX_LINES]
 
     def _prebuild_op(self, trigger: str, task: str, exercise: dict, position: int) -> Opportunity:
@@ -1001,7 +1006,16 @@ class LiveCoach:
                   "provenance": "runtime-event-declaration", "quantity_kind": "declared", "sufficiency": "limited"}
         name = history.speakable_name(exercise.get("name"))
         found = [AllowedFact("exercise", f"Упражнение — {name}", "confirmed", name, **common) if name else None]
-        if trigger == "T69":
+        if trigger == "T01":
+            found = [AllowedFact("exercise-count", f"В тренировке {spoken_quantity(total, 'exercises')}", "confirmed",
+                                 total, "exercises", numbers=(total,), **common) if total else None,
+                     AllowedFact("exercise", f"Первое упражнение — {name}", "confirmed", name, **common) if name else None]
+            if self.settings.history_consent:
+                with self.sessions() as db:  # The same jubilee/streak/first-workout facts as the live opening.
+                    regular, _ = progress.regularity(db, self.user_id, current_workout_id=None, scope_epoch=0,
+                                                     valid_until_ms=now + PREBUILD_VALID_MS)
+                found += regular
+        elif trigger == "T69":
             found.append(AllowedFact("milestone", "Идёт последний подход всей тренировки", "confirmed", "finale", **common))
         else:
             found.append(AllowedFact("exercise-position", "Это последнее упражнение тренировки", "confirmed", position,
@@ -1022,7 +1036,8 @@ class LiveCoach:
                            self._shape(package), exercise["id"])
 
     async def _prebuild_all(self) -> None:
-        await asyncio.sleep(PREBUILD_START_DELAY_S)  # Let the story's opening line go first.
+        if self.workout_started:
+            await asyncio.sleep(PREBUILD_START_DELAY_S)  # Let the story's live opening line go first.
         for key, trigger, task, exercise, position in self._prebuild_targets():
             if self.closed or not self.scenario_bible:
                 return
@@ -1217,6 +1232,7 @@ class LiveCoach:
         name = _name(context, "exerciseName")
         named = AllowedFact("exercise", f"Упражнение — {name}", "confirmed", name, **common) if name else None
         if event.kind == "workout_started":
+            self.workout_started = True
             if not s.greeting and not s.exercise_intro:
                 return "disabled"
             count = _count(context, "exerciseCount")
@@ -1521,7 +1537,7 @@ class LiveCoach:
             scenario_opening=op.candidate.trigger_id == "T01" and self.scenario_bible is not None,
             mood=mood.data(), no_roast=mood.name == "recover",
             variants=(3 if op.task in THREE_VARIANT_TASKS else 2)
-            if op.task in VARIANT_TASKS and self.budget_tier() < TIER_NO_VARIANTS else 1,
+            if op.task in VARIANT_TASKS and self.budget_tier() < TIER_NO_VARIANTS and not self._author_slow() else 1,
             co_host=self._co_host(op, mood))
 
     async def _pipeline(self, op: Opportunity, max_words: int) -> None:
@@ -1552,7 +1568,8 @@ class LiveCoach:
         opportunity = f"{self.run_id}:{op.key}"
         if not self._current(op):
             return
-        line = self.prebuilt.pop(f"{trigger}:{op.exercise_id}", None) if op.exercise_id else None
+        key = OPENING_KEY if trigger == "T01" else f"{trigger}:{op.exercise_id}" if op.exercise_id else None
+        line = self.prebuilt.pop(key, None) if key else None
         if line is not None and self.voice is not None and self.settings.mode == "hybrid" and (
                 line.exercise_name is None or line.exercise_name in {
                     f.value for f in (op.package.facts if op.package else ()) if f.id == "exercise"} or not op.package):
@@ -1729,6 +1746,10 @@ class LiveCoach:
                 or not getattr(adapter, "co_host_reference_id", "")):
             return None
         return {"role": co["role"], "name": co["name"]}
+
+    def _author_slow(self) -> bool:
+        """A degraded provider: single lines (prepared ones too, they share the 15 s bound) until it recovers."""
+        return bool(self.author is not None and getattr(self.author, "slow", lambda: False)())
 
     def _story_motif(self, op: Opportunity) -> tuple[str, bool] | None:
         """V7.2: the next bible motif that has rested at least MOTIF_GAP_EXERCISES exercises (a running gag)."""

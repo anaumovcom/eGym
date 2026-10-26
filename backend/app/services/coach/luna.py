@@ -201,6 +201,10 @@ def local_pick(valid: list, request: AuthorRequest) -> int:
 # Documented overload/rate answers carry no work: one fresh attempt (a new reserve) may follow.
 RETRYABLE_STATUS = frozenset({429, 500, 502, 503})
 RETRY_PAUSE_S = 0.3
+# Live runs 26.10.2026: on a degraded API three variants took 13 s and judges timed out. A variant line slower
+# than SLOW_LINE_MS, or a timeout, switches to single lines for SLOW_PAUSE_S; a judge timeout pauses the judge.
+SLOW_LINE_MS = 12_000
+SLOW_PAUSE_S = 180.0
 _REASONS = {"budget": "budget", "operator_budget": "budget", "strict_cap_unprovable": "budget",
             "budget_bucket": "budget",
             "pipeline_busy": "pipeline_busy", "owner_mismatch": "owner_mismatch", "stale_attempt": "owner_mismatch",
@@ -235,6 +239,8 @@ class TextAuthor:
         # V0.4: per task class model/reasoning/output budget. Without routes every task uses the fields above.
         self.routes = routes
         self.last_route: Route | None = None
+        # Slow-provider guard (monotonic seconds): while it lasts, lines skip variants and the judge.
+        self.slow_until = self.judge_paused_until = 0.0
 
     def route(self, task: str, tier: int = 0) -> Route:
         cls = task_class(task)
@@ -262,7 +268,8 @@ class TextAuthor:
 
     async def generate(self, *, run_id: str, owner: str, generation: int, opportunity: str, task: str, name: str,
                        instructions: str, data: str, schema: dict, purpose: str, meta: dict | None = None,
-                       reasoning_effort: str | None = None, tier: int = 0) -> tuple[dict | None, str | None]:
+                       reasoning_effort: str | None = None, tier: int = 0,
+                       retry_overload: bool = True) -> tuple[dict | None, str | None]:
         """Structured whole-workout generation (scenario, bible, episode, judge) on the same paid path:
         reserve → dispatch → provider → settle, journaled. The caller validates the returned JSON."""
         route = self.route(task, tier)
@@ -321,7 +328,7 @@ class TextAuthor:
             if result.output is None:
                 self._journal(attempt_id, outcome="error", error_code=result.error or "provider_error",
                               finished_at=time.time())
-                if retry == 0 and result.http_status in RETRYABLE_STATUS:
+                if retry == 0 and retry_overload and result.http_status in RETRYABLE_STATUS:
                     await asyncio.sleep(RETRY_PAUSE_S)
                     continue
                 return None, result.error or "provider_error"
@@ -350,7 +357,7 @@ class TextAuthor:
                 first_failure = verdict.reason
         if len(valid) < 2:
             return (valid[0] if valid else silence), first_failure
-        if request.task not in JUDGED_TASKS:
+        if request.task not in JUDGED_TASKS or time.monotonic() < self.judge_paused_until:
             index = local_pick(valid, request)
             self.last_judge = {"best": index, "options": len(valid), "local": True}
             return valid[index], None
@@ -361,13 +368,23 @@ class TextAuthor:
                                           for i, (c, v) in enumerate(valid)]}, ensure_ascii=False)
         schema = {"type": "object", "additionalProperties": False, "required": ["best", "reason"],
                   "properties": {"best": {"type": "integer", "enum": list(range(len(valid)))}, "reason": {"type": "string"}}}
-        choice, _ = await self.generate(run_id=run_id, owner=owner, generation=generation,
+        choice, error = await self.generate(run_id=run_id, owner=owner, generation=generation,
                                         opportunity=f"{opportunity}:judge", task="judge/pick", name="coach_judge",
                                         instructions=JUDGE_INSTRUCTIONS, data=data, schema=schema, purpose="judge",
-                                        meta={"trigger_id": request.trigger_id}, tier=tier)
+                                        meta={"trigger_id": request.trigger_id}, tier=tier, retry_overload=False)
+        if error == "provider_timeout":
+            self.judge_paused_until = time.monotonic() + SLOW_PAUSE_S
         best = choice.get("best") if isinstance(choice, dict) else None
+        if not (type(best) is int and 0 <= best < len(valid)):
+            # The judge is an improvement, not a gate: without it the local pick still prefers a fresh line.
+            best = local_pick(valid, request)
+            self.last_judge = {"best": best, "options": len(valid), "local": True}
+            return valid[best], None
         self.last_judge = {"best": best, "options": len(valid)}
-        return (valid[best] if type(best) is int and 0 <= best < len(valid) else valid[0]), None
+        return valid[best], None
+
+    def slow(self) -> bool:
+        return time.monotonic() < self.slow_until
 
     def reject_generation(self, reason: str) -> None:
         """The caller's validation refused the JSON returned by generate()."""
@@ -434,9 +451,13 @@ class TextAuthor:
                                   finished_at=time.time())
                     raise
                 timeout = isinstance(error, TimeoutError)
+                if timeout:
+                    self.slow_until = time.monotonic() + SLOW_PAUSE_S
                 return fallback("provider_timeout" if timeout else "provider_error", duration_ms=elapsed,
                                 error_detail=None if timeout else type(error).__name__)
             elapsed = (time.monotonic() - started) * 1000
+            if request.variants > 1 and elapsed > SLOW_LINE_MS:
+                self.slow_until = time.monotonic() + SLOW_PAUSE_S
             self._journal(attempt_id, duration_ms=elapsed, http_status=result.http_status,
                           error_detail=result.detail)
             with self.sessions() as db:

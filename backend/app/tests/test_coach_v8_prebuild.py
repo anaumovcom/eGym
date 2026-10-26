@@ -37,14 +37,22 @@ async def test_prebuild_then_play_without_new_paid_requests(session_factory, mon
     plan = scenario.parse_plan(PLAN)
     coach.scenario_card = {"title": "Гонка героев", "archetype": "race"}
     coach.scenario_bible = scenario.validate_bible(bible_for({"plan": PLAN}), plan)
-    assert [t[0] for t in coach._prebuild_targets()] == ["T67:ex-2", "T68:ex-3", "T69:ex-3"]
+    # Before the workout starts the story opening is prepared first.
+    assert [t[0] for t in coach._prebuild_targets()] == ["T01:opening", "T67:ex-2", "T68:ex-3", "T69:ex-3"]
     coach.schedule_prebuild()
     await wait(coach.prebuild_job)
-    assert set(coach.prebuilt) == {"T67:ex-2", "T68:ex-3", "T69:ex-3"}
+    assert set(coach.prebuilt) == {"T01:opening", "T67:ex-2", "T68:ex-3", "T69:ex-3"}
     with session_factory() as db:
         before = db.query(CoachAttempt).filter_by(run_id=run_id).count()
         purposes = {a.purpose for a in db.query(CoachAttempt).filter_by(run_id=run_id)}
-    assert purposes == {"prebuild"} and before == 6  # text + voice for three lines
+    assert purposes == {"prebuild"} and before == 8  # text + voice for four lines
+    opening = coach.prebuilt["T01:opening"].text
+    await coach.handle(event("workout_started", run_id, exercise="ex-1", context={"exerciseName": "Жим ногами",
+                                                                                 "exerciseCount": 3}))
+    await settle(coach)
+    start = sink.of("speech_start")[-1]
+    assert start["triggerId"] == "T01" and start["prebuilt"] is True and start["text"] == opening
+    assert [t[0] for t in coach._prebuild_targets()] == ["T67:ex-2", "T68:ex-3", "T69:ex-3"]
     prepared = coach.prebuilt["T67:ex-2"].text
     await coach.handle(event("exercise_ready", run_id, exercise="ex-2", context={"exerciseName": "Тяга сверху"}))
     await settle(coach)

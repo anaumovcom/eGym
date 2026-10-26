@@ -162,3 +162,25 @@ async def test_an_overloaded_provider_gets_one_fresh_attempt(session_factory):
                                           task="setup/opening", name="x", instructions="i", data="d",
                                           schema={"type": "object"}, purpose="judge")
     assert (output, error) == (None, "provider_error") and answers == [{"best": 0}]
+
+
+async def test_a_slow_provider_switches_to_single_lines_and_pauses_the_judge(session_factory, monkeypatch):
+    import time
+
+    from app.services.coach import luna
+
+    run_id, generation = make_run(session_factory)
+    calls = []
+
+    def script(body):
+        calls.append(body["text"]["format"]["name"])
+        return {"candidates": [line("Десять повторений, ровно и сильно."), line("Чат ревёт: десять повторений!", "humor")]}
+
+    author = TextAuthor(session_factory, FakeTextAuthor(script), PRICE, model=PRICE.model, timeout_s=2)
+    monkeypatch.setattr(luna, "SLOW_LINE_MS", 0)  # Every variant line now counts as slow.
+    record = replace(REQ, task="rest/record", variants=2)
+    author.judge_paused_until = time.monotonic() + 60
+    outcome = await author.author(run_id=run_id, owner="tab-a", generation=generation, opportunity="o1",
+                                  request=record, scope_epoch=1)
+    # A paused judge: the headline moment is picked locally, and the slow answer switches to single lines.
+    assert outcome.kind == "speech" and calls == ["coach_line"] and author.last_judge["local"] and author.slow()

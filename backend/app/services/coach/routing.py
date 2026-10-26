@@ -76,7 +76,8 @@ def default_routes(fast: Pricing) -> dict[TaskClass, Route]:
         "narrative": Route("narrative", strong.model, strong, cfg.coach_text_narrative_reasoning_effort,
                            COACH_NARRATIVE_OUTPUT_TOKENS, 15),
         "live": Route("live", fast.model, fast, cfg.coach_text_reasoning_effort, live_tokens, 8),
-        "judge": Route("judge", fast.model, fast, "low", COACH_JUDGE_OUTPUT_TOKENS, 10),
+        # Usually 2–3 s; on a slow API (live run 26.10.2026: three 10 s timeouts) the local pick is better than waiting.
+        "judge": Route("judge", fast.model, fast, "low", COACH_JUDGE_OUTPUT_TOKENS, 5),
     }
 
 

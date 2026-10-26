@@ -144,7 +144,7 @@ async def test_propose_select_and_story_lines(session_factory):
         row = db.get(CoachScenario, run_id)
         assert row.archetype == proposal["cards"][1]["archetype"]
         purposes = {a.purpose for a in db.query(CoachAttempt).filter_by(run_id=run_id)}
-    assert purposes == {"scenario"}
+    assert purposes <= {"scenario", "prebuild"}  # The story opening may already be preparing (V8).
     # The opening announces the story.
     await coach.handle(event("workout_started", run_id, exercise="ex-1", context={"exerciseName": "Жим ногами"}))
     await settle(coach)
@@ -185,7 +185,7 @@ async def test_invalid_bible_retries_once_then_succeeds(session_factory):
     assert sum(name == "coach_scenario_bible" for name, _ in calls) == 2
     with session_factory() as db:
         outcomes = [a.outcome for a in db.query(CoachAttempt).filter_by(run_id=run_id).order_by(CoachAttempt.created_at)]
-    assert outcomes == ["speech", "rejected", "speech"]
+    assert outcomes[:3] == ["speech", "rejected", "speech"]  # Then the prepared story opening (V8).
     await coach.close()
 
 
