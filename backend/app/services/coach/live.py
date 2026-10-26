@@ -1055,7 +1055,7 @@ class LiveCoach:
         request = self._request(op, 14 if trigger == "T69" else SCENARIO_WORDS)
         outcome = await self.author.author(run_id=self.run_id, owner=self.owner, generation=self.generation,
                                            opportunity=f"{self.run_id}:prebuild:{key}", request=request, memory=None,
-                                           scope_epoch=0, purpose="prebuild",
+                                           scope_epoch=0, purpose="prebuild", timeout_s=15,
                                            meta={**self._journal_meta(op), "task": f"prebuild/{task}"[:40]})
         if outcome.kind != "speech":
             return

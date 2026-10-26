@@ -110,3 +110,15 @@ async def test_set_summary_facts_survive_revalidation(session_factory):
     assert {"set-velocity", "set-tempo", "set-steady"} <= ids
     assert sink.of("speech_start"), sink.of("decision")  # not dropped as facts_changed by revalidation
     await coach.close()
+
+
+def test_overlong_in_set_line_keeps_a_whole_sentence_prefix():
+    plain = AllowedFact("milestone", "Подход продолжается", "confirmed", "support", **COMMON)
+    request = AuthorRequest("T21", "active", "active/support", ("motivation",), "t", 16, facts=(plain,))
+    output = {"action": "speak", "intent": "motivation", "topicKey": "t", "usedFactIds": [], "silenceReason": None,
+              "delivery": {"energy": "warm", "pace": "normal", "emphasis": "none"},
+              "text": "Последние тяжёлые круги, гонщик, держим курс! Чат уже кричит в эфире, болид ревёт, трибуны встали и машут флагами над трассой."}
+    verdict = validate(output, request)
+    assert verdict.ok and verdict.speech == "Последние тяжёлые круги, гонщик, держим курс!"
+    rest = AuthorRequest("T46", "rest", "rest/playful", ("motivation",), "t", 8, facts=(plain,))
+    assert validate(output, rest).reason == "length"

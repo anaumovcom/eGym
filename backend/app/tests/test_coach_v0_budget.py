@@ -51,7 +51,7 @@ def test_task_classes(task, expected):
 
 def test_strong_route_needs_verified_pricing(monkeypatch):
     routes = routing.default_routes(PRICE)
-    assert routes["narrative"].reasoning_effort == "medium" and routes["live"].reasoning_effort == "low"
+    assert routes["plan"].reasoning_effort == "medium" and routes["narrative"].reasoning_effort == "low"
     assert routes["plan"].max_output_tokens > routes["narrative"].max_output_tokens > routes["judge"].max_output_tokens
     monkeypatch.setenv("COACH_TEXT_MODEL_STRONG", "gpt-strong-test")
     monkeypatch.setenv("COACH_TEXT_STRONG_PRICING_VERIFIED", "false")

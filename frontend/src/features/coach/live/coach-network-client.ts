@@ -904,7 +904,9 @@ export class CoachNetworkClient {
     const now = Math.max(0, input.nowMs)
     const event: CoachEvent = { schemaVersion: 1, id: this.nextEventId(), scope, kind, phase, source: 'runtime_ack',
       exerciseKind: exerciseKind && EXERCISE_KINDS.has(exerciseKind) ? exerciseKind as CoachEvent['exerciseKind'] : null,
-      controlMode: null, progressUnit, ordinal: 0, planRevision: this.planRevision, contextVersion: this.contextVersion, createdAtMs: now, startDeadlineMs: now + 20_000,
+      controlMode: null, progressUnit, ordinal: 0, planRevision: this.planRevision, contextVersion: this.contextVersion, createdAtMs: now,
+      // Rest/setup lines are authored with variants (~10–17 s); in-set moments stay short-lived.
+      startDeadlineMs: now + (kind === 'rest_long_opportunity' || kind === 'exercise_ready' || kind === 'workout_started' ? 35_000 : 20_000),
       facts: [], factDependencies: [] }
     const setId = kind === 'rest_long_opportunity' ? session.restState?.completedSet?.backendSetId : undefined
     this.forward(event, setId && Number.isSafeInteger(setId) && setId > 0 ? { backendSetId: setId } : null, context)

@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     coach_text_strong_pricing_verified: bool = Field(default=True, alias="COACH_TEXT_STRONG_PRICING_VERIFIED")
     coach_text_strong_reasoning_effort: Literal["none", "low", "medium", "high"] = Field(
         default="medium", alias="COACH_TEXT_STRONG_REASONING_EFFORT")
+    coach_text_narrative_reasoning_effort: Literal["none", "low", "medium", "high"] = Field(
+        default="low", alias="COACH_TEXT_NARRATIVE_REASONING_EFFORT")
     # E08 voice: paid dispatch on by default (user decision 08.10.2026); same vault/consent/cap gates as text.
     coach_paid_voice_enabled: bool = Field(default=True, alias="COACH_PAID_VOICE_ENABLED")
     coach_voice_pricing_verified: bool = Field(default=True, alias="COACH_VOICE_PRICING_VERIFIED")

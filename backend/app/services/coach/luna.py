@@ -304,7 +304,7 @@ class TextAuthor:
                 first_failure = verdict.reason
         if len(valid) < 2:
             return (valid[0] if valid else silence), first_failure
-        heard = [str(u.get("text", ""))[:200] for u in request.recent_heard[-4:]]
+        heard = [str(u.get("text", ""))[:200] for u in request.recent_heard[-6:]]
         data = json.dumps({"task": request.task, "mood": request.mood, "intent": list(request.intents),
                            "scenario": (request.scenario or {}).get("title"), "recentHeard": heard,
                            "candidates": [{"index": i, "text": v.speech, "intent": c.get("intent")}
@@ -327,9 +327,13 @@ class TextAuthor:
     async def author(self, *, run_id: str, owner: str, generation: int, opportunity: str, request: AuthorRequest,
                      memory: CoachMemory | None = None, scope_epoch: int = 0, deadline_ms: float | None = None,
                      local_available: bool = False, tier: int = 0, purpose: str | None = None,
-                     meta: dict | None = None) -> AuthorOutcome:
+                     meta: dict | None = None, timeout_s: float | None = None) -> AuthorOutcome:
         built = build_prompt(request)
         route = self.route(request.task, tier)
+        if timeout_s is not None:
+            # Prepared lines have no listener waiting: they may use the longest spoken-line bound.
+            route = Route(route.task_class, route.model, route.pricing, route.reasoning_effort, route.max_output_tokens,
+                          min(15.0, timeout_s))
         self.last_route = route
         purpose = purpose or ("summary" if request.summary else "live")
         meta = {"trigger_id": request.trigger_id, "task": request.task, **(meta or {})}

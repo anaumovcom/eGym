@@ -824,7 +824,7 @@ describe('immutable network speech regressions', () => {
     const event = observer.snapshot()[0]
     expect(event.createdAtMs).toBe(capture.createdAtMs)
     expect(event.phase).toBe('active-set')
-    expect(event.startDeadlineMs).toBe(capture.createdAtMs + 20_000)
+    expect(event.startDeadlineMs).toBe(capture.createdAtMs + 35_000)
     expect(event.planRevision).toBe(before.planRevision)
     expect(event.contextVersion).toBe(before.contextVersion)
     expect(event.scope.scopeEpoch).toBe(3) // Network epoch, not the observer's independent epoch=90.
@@ -867,7 +867,7 @@ describe('immutable network speech regressions', () => {
     if (change === 'missing') identity = undefined
     if (change === 'unknown') identity = { ...speechIdentity(event), eventId: 'unsolicited' }
     if (change === 'mismatch') identity = { ...speechIdentity(event), planRevision: 999 }
-    if (change === 'expired') f.clock.advance(20_001, f.context)
+    if (change === 'expired') f.clock.advance(35_001, f.context)
     if (change === 'phase') f.tick({ phase: 'waiting-start' })
     if (change === 'plan') f.tick({ session: session({ exercises: [{ ...session().exercises[0], plan: [plan(12)] }] }) })
     if (change === 'closed') f.socket.push({ type: 'error', reason: 'run_closed' })
@@ -1108,7 +1108,7 @@ describe('immutable network speech regressions', () => {
 
   it('rejects expired speech_start before the next tick and does not resurrect on reconnect', async () => {
     const f = new Fixture(); await f.connect(); const event = f.socket.events()[0].event
-    f.clock.advance(20_001, f.context); f.speech('expired', event, { validForMs: 60_000 })
+    f.clock.advance(35_001, f.context); f.speech('expired', event, { validForMs: 60_000 })
     expect(f.manager.snapshot().pending).toBe(0)
     f.socket.serverClose(); f.timers.shift()!()
     await vi.waitFor(() => expect(f.sockets).toHaveLength(2))

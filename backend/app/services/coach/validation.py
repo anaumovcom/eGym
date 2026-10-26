@@ -226,7 +226,8 @@ def _check_text(text: str, req: AuthorRequest, used: set[str], *, allowed_number
         return "question"
     if re.search(r"[a-zA-Z]", text) or not re.search(r"[а-яёА-ЯЁ]", text) or not _ALLOWED_CHARS.match(text):
         return "language"
-    if text.count("!") > 1 or _CAPS.search(text):
+    # Fish voices loudness through tags; a few exclamation marks help intonation (live run 26.10.2026). Caps never.
+    if text.count("!") > 3 or "!!" in text or _CAPS.search(text):
         return "shouting"
     lower = text.lower().replace("ё", "е")
     catalog_setup = (req.task == "setup/technique" and req.phase == "setup" and req.coach_context
@@ -375,7 +376,19 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
         policy = SPEECH_ACTIONS[speech_action(req.task)]
         limit = min(req.max_words, policy.max_words, 16 if req.phase == "active" else 60)
         if len(words(speech)) > limit:
-            return _fail("length")
+            # Live run 26.10.2026: in-set lines came 17–23 words. A whole-sentence prefix within the limit is
+            # still the author's own words; anything shorter than four words is not worth saying.
+            sentences = re.split(r"(?<=[.!…;])\s+|\s+(?=—\s)", speech)
+            prefix = ""
+            for sentence in sentences:
+                candidate = f"{prefix} {sentence}".strip()
+                candidate = candidate[:-1] + "." if candidate.endswith((";", ",")) else candidate
+                if len(words(candidate)) > limit:
+                    break
+                prefix = candidate
+            if len(words(prefix)) < 4 or req.phase != "active":
+                return _fail("length")
+            speech = prefix
         if reason := _check_text(speech, req, used, allowed_numbers=allowed):
             return _fail(reason)
         final = speech

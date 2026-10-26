@@ -96,7 +96,8 @@ export class CoachLifecycleObserver {
         phase: capture.versions?.phase ?? (kind.startsWith('set_') ? 'finalizing-set' : kind === 'exercise_finalized' ? 'exercise-summary' : 'workout-summary'),
         exerciseKind: capture.exerciseKind, controlMode: null, progressUnit: payload.progressUnit ?? null,
         ordinal: 0, planRevision: capture.versions?.planRevision ?? 0, contextVersion: capture.versions?.contextVersion ?? 0,
-        createdAtMs: capture.createdAtMs, startDeadlineMs: capture.createdAtMs + 20_000,
+        // Results and summaries are authored with variants and a judge (~10–17 s before the voice starts).
+        createdAtMs: capture.createdAtMs, startDeadlineMs: capture.createdAtMs + 35_000,
         facts: Object.freeze(facts), factDependencies: Object.freeze(facts.map(fact => fact.id)),
       })
       const key = canonicalCoachKey(event)

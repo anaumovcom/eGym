@@ -155,7 +155,7 @@ def test_prompt_composition_keeps_notes_as_data_and_schemas_per_mode():
     assert "lockedFactIds" in schema["properties"]["usedFactIds"]["description"]
     assert "Do not repeat the clause" in schema["properties"]["framingText"]["description"]
     assert json.loads(build_prompt(locked).data)["lockedFactIds"] == ["saved-set"]
-    assert "description" not in built.schema["properties"]["text"]
+    assert built.schema["properties"]["text"]["description"].endswith("words.")  # word bound for the model
     with pytest.raises(ValueError):
         AuthorRequest("T01", "setup", "unknown", ("motivation",), "x", 10)
     with pytest.raises(ValueError):

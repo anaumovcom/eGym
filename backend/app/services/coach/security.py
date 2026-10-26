@@ -41,10 +41,13 @@ def protected_file(path: str | None) -> bytes:
     if not target.is_absolute() or target.is_symlink() or target.resolve().is_relative_to(repo) or target.resolve().is_relative_to(media):
         raise HTTPException(503, "secure_storage_unavailable")
     try:
-        fd = os.open(target, os.O_RDONLY | os.O_NOFOLLOW)
+        # POSIX: no symlink follow, owner-only file. Windows has neither O_NOFOLLOW nor uid/mode bits; there the
+        # is_symlink() check above and the regular-file/size checks below are what can be enforced.
+        posix = hasattr(os, "getuid")
+        fd = os.open(target, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0))
         with os.fdopen(fd, "rb") as file:
             info = os.fstat(file.fileno())
-            if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_mode & 0o077:
+            if not stat.S_ISREG(info.st_mode) or (posix and (info.st_uid != os.getuid() or info.st_mode & 0o077)):
                 raise HTTPException(503, "secure_storage_unavailable")
             data = file.read(4097)
             if len(data) > 4096:

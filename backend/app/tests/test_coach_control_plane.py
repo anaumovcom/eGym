@@ -232,8 +232,8 @@ def test_vault_requires_operator_encrypted_and_delete_no_fallback(client, sessio
         row = db.get(CoachCredential, 1)
         assert "synthetic-secret" not in row.ciphertext
         assert security.read_credential(db) == ("synthetic-secret-key", 1)
-    async def check(key):
-        assert key == "synthetic-secret-key"
+    async def check(key, provider="openai"):
+        assert key == "synthetic-secret-key" and provider == "openai"
         return "auth_ok_models_not_verified"
     monkeypatch.setattr(security, "metadata_check", check)
     assert client.post("/api/coach/credentials/check", headers=ORIGIN).json()["lastCheckStatus"] == "auth_ok_models_not_verified"
@@ -251,6 +251,8 @@ def test_vault_fails_closed(secured, monkeypatch, case):
     if case == "missing":
         master.unlink()
     if case == "permissive":
+        if not hasattr(os, "getuid"):
+            pytest.skip("POSIX permission bits do not exist on Windows")
         master.chmod(0o644)
     if case == "symlink":
         link = master.parent / "link"

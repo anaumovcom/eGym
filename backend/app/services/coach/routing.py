@@ -71,10 +71,12 @@ def default_routes(fast: Pricing) -> dict[TaskClass, Route]:
     return {
         "plan": Route("plan", strong.model, strong, cfg.coach_text_strong_reasoning_effort,
                       COACH_PLAN_OUTPUT_TOKENS, 40),
-        "narrative": Route("narrative", strong.model, strong, cfg.coach_text_strong_reasoning_effort,
-                           COACH_NARRATIVE_OUTPUT_TOKENS, 12),
+        # Live measurement 26.10.2026: three variants with medium reasoning took >12 s on gpt-6-luna; with low they
+        # fit the rest window. Deep reasoning stays for whole-workout generation (plan).
+        "narrative": Route("narrative", strong.model, strong, cfg.coach_text_narrative_reasoning_effort,
+                           COACH_NARRATIVE_OUTPUT_TOKENS, 15),
         "live": Route("live", fast.model, fast, cfg.coach_text_reasoning_effort, live_tokens, 8),
-        "judge": Route("judge", fast.model, fast, "low", COACH_JUDGE_OUTPUT_TOKENS, 6),
+        "judge": Route("judge", fast.model, fast, "low", COACH_JUDGE_OUTPUT_TOKENS, 10),
     }
 
 

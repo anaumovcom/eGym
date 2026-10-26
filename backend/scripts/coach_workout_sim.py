@@ -118,6 +118,22 @@ async def run(args) -> int:
         if pipeline.author is None or pipeline.voice is None:
             print(f"Refusing: pipeline unavailable ({pipeline.reason})")
             return 2
+    outputs: list[dict] = []
+    inner = pipeline.author.adapter
+
+    class Recorder:
+        """Sandbox-only: keep the structured author answers (no headers/keys) to review rejected lines."""
+        test_only, name = inner.test_only, inner.name
+
+        async def author(self, body):
+            started = time.monotonic()
+            result = await inner.author(body)
+            outputs.append({"schema": body["text"]["format"]["name"], "reasoning": body.get("reasoning"),
+                            "ms": round((time.monotonic() - started) * 1000), "output": result.output,
+                            "error": result.error, "usage": getattr(result.usage, "model_dump", lambda: None)()})
+            return result
+
+    pipeline.author.adapter = Recorder()
     offset = [0.0]
     messages: list[dict] = []
     pcm: dict[str, bytearray] = {}
@@ -167,7 +183,8 @@ async def run(args) -> int:
         await coach.handle({"type": "event", "event": {
             "id": event_id, "kind": kind, "phase": phase, "source": "runtime_ack",
             "scope": {"userId": USER, "runId": run_id, "exerciseId": exercise, "setOrdinal": set_ordinal, "scopeEpoch": 1},
-            "createdAtMs": created, "startDeadlineMs": created + 20_000, "exerciseKind": "machine"},
+            "createdAtMs": created, "startDeadlineMs": created + (20_000 if phase == "active-set" else 35_000),
+            "exerciseKind": "machine"},
             "context": context or {}, **({"refs": refs} if refs else {})})
         await settle()
         await acknowledge()
@@ -181,7 +198,10 @@ async def run(args) -> int:
         for index, card in enumerate(proposal.get("cards", [])):
             print(f"  [{index}] {card['title']} — {card['tagline']} ({card['tone']})")
         if proposal.get("cards"):
-            await coach.handle({"type": "scenario_select", "index": min(args.scenario, len(proposal["cards"]) - 1)})
+            preferred = [i for i, c in enumerate(proposal["cards"]) if c["archetype"] == args.prefer]
+            choice = preferred[0] if preferred else min(args.scenario, len(proposal["cards"]) - 1)
+            print(f"  → choosing [{choice}]")
+            await coach.handle({"type": "scenario_select", "index": choice})
             await settle()
         await send("workout_started", exercise=PLAN[0]["id"], context={"exerciseCount": len(PLAN),
                                                                         "exerciseName": PLAN[0]["name"]})
@@ -264,7 +284,7 @@ async def run(args) -> int:
               "scenario": next((m for m in messages if m["type"] == "scenario" and m.get("state") == "ready"), None),
               "episode": next((m for m in messages if m["type"] == "episode"), None),
               "usage": {k: snap[k] for k in ("requests", "settledMicros", "pendingMicros", "capMicros", "budget")},
-              "stats": coach.stats.as_dict()}
+              "stats": coach.stats.as_dict(), "authorOutputs": outputs}
     (path / "report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
     for row in rows:
         mark = "●" if row["prebuilt"] else " "
@@ -300,6 +320,8 @@ def main() -> int:
     parser.add_argument("--persona", choices=("streamer", "classic"), default="streamer")
     parser.add_argument("--density", choices=("quiet", "companion", "talkative", "show"), default="show")
     parser.add_argument("--no-history", dest="history", action="store_false", help="skip the seeded past workout")
+    parser.add_argument("--fresh", action="store_true", help="new empty sandbox (records against the seeded past only)")
+    parser.add_argument("--prefer", default="", help="choose the card with this archetype if offered (e.g. stream)")
     args = parser.parse_args()
     if not args.fake and not args.confirm_paid:
         print("Refusing: a paid simulation requires --confirm-paid (or use --fake)")
@@ -312,6 +334,8 @@ def main() -> int:
     import os
     if args.fake:
         os.environ["COACH_PILOT_STATE"] = extra.pop("COACH_PILOT_STATE")
+    elif args.fresh:
+        os.environ["COACH_PILOT_STATE"] = str(Path.home() / ".local" / "state" / f"egym-coach-sim-{time.strftime('%Y%m%d-%H%M%S')}")
     prepare_sandbox(extra)
     return asyncio.run(run(args))
 

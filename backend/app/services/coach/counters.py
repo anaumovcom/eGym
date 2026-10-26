@@ -12,8 +12,9 @@ from app.models.analytics import ExerciseSession
 from app.models.analytics import SetResult as SetRow
 from app.services.coach.facts import AllowedFact, number_words
 
-# source → points per unit. «plan» is the share of planned sets done, in percent.
-COEFFICIENTS = {"reps": 10, "tonnage": 1, "sets": 100, "records": 1000, "steady": 250, "plan": 1}
+# source → points per unit: only reps are «points» (×10); counts stay counts so labels like «пройдено заездов»
+# read true (live run 26.10.2026: «завершённые заезды: шестьсот» for 6 sets). «plan» is a percent.
+COEFFICIENTS = {"reps": 10, "tonnage": 1, "sets": 1, "records": 1, "steady": 1, "plan": 1}
 BOSS_ARCHETYPES = {"rpg": "Здоровье босса", "kaiju": "Здоровье монстра"}
 MAX_VALUE = 999_999
 
@@ -80,7 +81,8 @@ def facts(counters: list[dict], common: dict) -> list[AllowedFact]:
             claim = (f"{counter['label']}: осталось {number_words(value)} процентов" if value else
                      f"{counter['label']} на нуле: босс повержен")
         else:
-            claim = f"{counter['label']}: {number_words(value)}"
+            unit = " процентов" if counter.get("source") == "plan" else ""
+            claim = f"{counter['label']}: {number_words(value)}{unit}"
         found.append(AllowedFact(f"counter-{counter['id']}", claim[:200], "derived-validated", value,
                                  numbers=(value,) if value else (),
                                  **{**common, "provenance": "scenario-counter", "quantity_kind": "derived",
