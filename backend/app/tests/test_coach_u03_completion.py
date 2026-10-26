@@ -14,7 +14,6 @@ from app.services.coach import ledger
 from app.services.coach.completion import LocalCompletion, additional_package, duplicate_local
 from app.services.coach.director import Director
 from app.services.coach.identity import WorkState
-from app.services.coach.live import MAX_QUEUED
 from app.services.coach.luna import FakeTextAuthor
 from app.tests.test_coach_e10_live import HYBRID, echo, event, make_coach, seed, settle
 
@@ -230,7 +229,7 @@ def test_same_timestamp_overlaps_update_only_the_matching_utterance():
     assert director.audible == [(1000, 9000), (1000, 2500)]
 
 
-async def test_priority_queue_bound_rejections_expiry_and_no_regeneration(session_factory):
+async def test_priority_queue_preserves_burst_until_source_expiry(session_factory):
     with session_factory() as db:
         wid, eid, sid = seed(db, actual=10, planned=10, status='completed')
     coach, sink, run = make_coach(session_factory)
@@ -240,21 +239,21 @@ async def test_priority_queue_bound_rejections_expiry_and_no_regeneration(sessio
     blocker = asyncio.Event()
     coach.task = asyncio.create_task(blocker.wait())
     messages = []
-    for _ in range(MAX_QUEUED + 1):
+    for _ in range(8):
         message = event('set_persisted', run, set_ordinal=1, phase='rest', refs={'backendSetId': sid})
         messages.append(message)
         await coach.handle(message)
-    assert len(coach.queue) == MAX_QUEUED
-    assert sink.of('decision')[-1]['reason'] == 'queue_full'
+    assert len(coach.queue) == 8
+    assert not sink.of('decision')
     await coach.handle(event('exercise_finalized', run, phase='exercise-summary', refs={'backendExerciseId': eid}))
     await coach.handle(event('workout_finalized', run, phase='workout-summary', refs={'backendWorkoutId': wid}))
-    assert len(coach.queue) == MAX_QUEUED
+    assert len(coach.queue) == 10
     assert [op.event.kind for op in coach.queue[:2]] == ['workout_finalized', 'exercise_finalized']
-    assert [m['reason'] for m in sink.of('decision')].count('queue_preempted') == 2
+    assert not sink.of('decision')
     clock[0] += 30_000
     await coach.handle({'type': 'ping'})
     assert not coach.queue
-    assert [m['reason'] for m in sink.of('decision')].count('expired') == MAX_QUEUED
+    assert [m['reason'] for m in sink.of('decision')].count('expired') == 10
     await coach.handle(messages[0])
     assert sink.of('event_rejected')[-1]['reason'] == 'duplicate'
     assert not coach.author.adapter.calls
@@ -294,16 +293,16 @@ async def test_failures_are_terminal_and_attempt_density_never_retries_forever(s
             ledger.get_run(db, run).cap_micros = 0
             db.commit()
     if failure == 'busy':
-        # Ordinary work is explicitly rejected; completions retain a bounded slot.
+        # Ordinary work and completions both wait, then respect explicit safety.
         blocker = asyncio.Event()
         coach.task = asyncio.create_task(blocker.wait())
         await coach.handle(event('exercise_ready', run))
-        assert sink.of('decision')[-1]['reason'] == 'pipeline_busy'
+        assert not sink.of('decision') and len(coach.queue) == 1
     message = event('set_persisted', run, set_ordinal=1, phase='rest', refs={'backendSetId': sid},
                     context={'localCompletion': local(), 'restMs': 90_000})
     await coach.handle(message)
     if failure == 'busy':
-        assert len(coach.queue) == 1
+        assert len(coach.queue) == 2
         await coach.cancel('safety')
     else:
         await settle(coach)

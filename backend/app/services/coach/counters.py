@@ -10,13 +10,18 @@ from sqlalchemy.orm import Session
 
 from app.models.analytics import ExerciseSession
 from app.models.analytics import SetResult as SetRow
-from app.services.coach.facts import AllowedFact, number_words
+from app.services.coach.facts import AllowedFact, number_words, spoken_quantity
 
-# source → points per unit: only reps are «points» (×10); counts stay counts so labels like «пройдено заездов»
-# read true (live run 26.10.2026: «завершённые заезды: шестьсот» for 6 sets). «plan» is a percent.
+# Only the secondary reps game earns points (×10). Raw counts and units retain exercise terminology.
 COEFFICIENTS = {"reps": 10, "tonnage": 1, "sets": 1, "records": 1, "steady": 1, "plan": 1}
+RAW_LABELS = {"tonnage": "Поднятый тоннаж", "sets": "Завершённые подходы", "steady": "Подходы в ровном темпе"}
 BOSS_ARCHETYPES = {"rpg": "Здоровье босса", "kaiju": "Здоровье монстра"}
 MAX_VALUE = 999_999
+
+
+def counter_label(source: str | None, label: str) -> str:
+    """Raw metrics are not fictional scores, even when an old bible supplied a world-specific label."""
+    return RAW_LABELS.get(source, label)
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +57,7 @@ def values(bible: dict, totals: Totals, *, records: int, steady: int) -> list[di
     for counter in bible.get("counters", []):
         source = counter.get("source")
         if source in COEFFICIENTS:
-            found.append({"id": counter["id"], "label": counter["label"], "source": source,
+            found.append({"id": counter["id"], "label": counter_label(source, counter["label"]), "source": source,
                           "value": min(MAX_VALUE, raw[source] * COEFFICIENTS[source])})
     return found
 
@@ -81,8 +86,11 @@ def facts(counters: list[dict], common: dict) -> list[AllowedFact]:
             claim = (f"{counter['label']}: осталось {number_words(value)} процентов" if value else
                      f"{counter['label']} на нуле: босс повержен")
         else:
-            unit = " процентов" if counter.get("source") == "plan" else ""
-            claim = f"{counter['label']}: {number_words(value)}{unit}"
+            source = counter.get("source")
+            quantity = (spoken_quantity(value, "kg") if source == "tonnage" else
+                        spoken_quantity(value, "sets") if source in {"sets", "steady"} else
+                        f"{number_words(value)} процентов" if source == "plan" else number_words(value))
+            claim = f"{counter_label(source, counter['label'])}: {quantity}"
         found.append(AllowedFact(f"counter-{counter['id']}", claim[:200], "derived-validated", value,
                                  numbers=(value,) if value else (),
                                  **{**common, "provenance": "scenario-counter", "quantity_kind": "derived",

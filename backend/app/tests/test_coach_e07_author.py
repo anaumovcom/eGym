@@ -90,7 +90,7 @@ def test_prompts_are_verbatim_copies_of_approved_document():
     assert quotes("### 6.3.1.")[0] == P1_DARK
     hashes = static_hashes()
     # U06 explicitly versions the approved P0/P2 action/association refinements.
-    assert hashes["version"] == "coach-prompts-0.20" and len(hashes["p0"]) == 64 and len(hashes) == 6 + len(P2)
+    assert hashes["version"] == "coach-prompts-0.21" and len(hashes["p0"]) == 64 and len(hashes) == 6 + len(P2)
 
 
 def test_personality_modules_are_fixed_enum_texts_and_dark_humor_needs_humor():
@@ -170,27 +170,28 @@ def cand(trigger="T21", phase="active", now=0, **kw):
     return Candidate(trigger, **base)
 
 
-def test_director_profiles_slots_gaps_and_acoustic_budget():
+def test_director_profiles_guide_words_without_slots_gaps_or_acoustic_vetoes():
     assert PROFILES["quiet"].min_start_gap_ms == 25_000 and PROFILES["talkative"].local_support_gap_ms == 8_000
     quiet = Director("quiet")
-    assert quiet.admit(cand(now=5_000), 5_000).reason == "density_cap"  # quiet: 0 live slots <30 s
+    assert quiet.admit(cand(now=5_000), 5_000).ok
     director = Director("companion")
     first = director.admit(cand(now=5_000), 5_000)
     assert first.ok and first.live and first.max_words <= 16
     director.note_admitted(cand(now=5_000))
     director.note_audible(6_000, 2_000, content=True)
-    assert director.admit(cand(now=10_000), 10_000).reason == "cooldown"  # < 15 s actual start gap
-    assert director.admit(cand(now=25_000), 25_000).reason == "density_cap"  # 1 slot while elapsed < 30 s
-    assert director.admit(cand(now=40_000), 40_000).ok  # actual elapsed opens the next slot
+    assert director.admit(cand(now=10_000), 10_000).ok
+    assert director.admit(cand(now=25_000), 25_000).ok
+    assert director.admit(cand(now=40_000), 40_000).ok
     director.note_admitted(cand(now=40_000))
-    assert director.admit(cand(now=58_000), 58_000).reason == "density_cap"  # 2 slots at 30–60 s
+    assert director.admit(cand(now=58_000), 58_000).ok
     acoustic = Director("talkative")
     acoustic.note_audible(0, 20_000, content=True)
-    assert acoustic.admit(cand(now=30_000), 30_000).reason == "density_cap"  # 67% > 35% content speech
+    assert acoustic.admit(cand(now=30_000), 30_000).ok  # Occupancy is telemetry only.
     late = cand(now=70_000, valid_until_ms=71_000)
     assert Director().admit(late, 70_000).reason == "no_window"
     assert Director().admit(cand(now=5, valid_until_ms=10), 20).reason == "expired"
-    assert Director().admit(cand(phase="paused"), 0).reason == "density_cap"
+    assert Director().admit(cand(phase="paused", speech_action="support"), 0).ok
+    assert Director().admit(cand(phase="paused", speech_action="result"), 0).reason == "no_window"
 
 
 def test_director_cooldown_groups_topics_and_safety_latch():
@@ -208,19 +209,35 @@ def test_director_cooldown_groups_topics_and_safety_latch():
     assert director.admit(cand("T65", now=0, safety=True), 0).ok
 
 
-def test_director_rest_caps_follow_rest_length():
-    for profile, length, cap in (("quiet", 200_000, 1), ("companion", 90_000, 2), ("talkative", 150_000, 3),
-                                 ("talkative", 45_000, 1)):
+def test_director_distinct_dense_rest_events_ignore_profile_caps_and_other_voices():
+    for profile, length in (("quiet", 200_000), ("companion", 90_000), ("talkative", 150_000),
+                            ("talkative", 45_000), ("show", 20_000)):
         director = Director(profile)
         admitted = 0
         for index in range(5):
-            now = index * 30_000
+            now = index * 10
             c = cand("T46", phase="rest", now=now, valid_until_ms=now + 20_000, phase_length_ms=length,
                      scopes={"rest": "r1", "slot": f"s{index}"}, phase_started_ms=0)
             if director.admit(c, now).ok:
                 director.note_admitted(c)
+                director.note_local_playback(now, 20_000, content=True)
                 admitted += 1
-        assert admitted == cap, (profile, length)
+        assert admitted == 5, (profile, length)
+        assert director._playing(now) == 5 and director.playback_fits(c, now)
+
+
+@pytest.mark.parametrize("profile", PROFILES)
+def test_director_dense_generic_active_topics_admitted_while_multiple_voices_play(profile):
+    director = Director(profile)
+    for index in range(8):
+        now = 5_000 + index
+        c = cand(now=now, novelty=False, speech_action="support")
+        assert director.admit(c, now).ok
+        assert director.playback_fits(c, now)
+        director.note_admitted(c)
+        director.note_audible(now, 20_000, content=True)
+    assert director._playing(now) == 8
+    assert director.slot_counts[(c.phase, director._phase_key(c))] == 8
 
 
 def test_coalescer_picks_one_per_group_and_never_delays_count():

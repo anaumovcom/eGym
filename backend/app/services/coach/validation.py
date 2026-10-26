@@ -16,9 +16,6 @@ from app.services.coach.prompts import (
     VOICE_STRESS,
     AuthorRequest,
 )
-from app.services.coach.speech_actions import SPEECH_ACTIONS, speech_action
-
-MAX_CHARS = 400
 
 _NUMBER_WORDS: dict[str, int] = {}
 for _value, _forms in {
@@ -221,7 +218,7 @@ def _claim_surface(lower: str, req: AuthorRequest) -> str:
 
 
 def _check_text(text: str, req: AuthorRequest, used: set[str], *, allowed_numbers: set[float]) -> str | None:
-    if len(text) > MAX_CHARS or "\n" in text:
+    if "\n" in text:
         return "length"
     if re.search(r"[<>{}`\[\]#*_|~]|ignore|system|assistant|developer", text, re.I):
         return "injection"
@@ -360,7 +357,8 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
         return Verdict(True, silence, "", (), delivery, "silence")
     if silence is not None:
         return _fail("schema")
-    speech = speech.strip()
+    # Paragraph breaks are formatting, not a reason to discard an utterance.
+    speech = " ".join(speech.split())
     if req.task == "setup/technique":
         guidance = req.coach_context.setup_guidance if req.coach_context else ()
         if not guidance or not used or not used <= {key for key, _ in guidance}:
@@ -376,23 +374,8 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
         if not speech:
             return _fail("schema")
         allowed = {float(n) for f in req.facts if f.id in used for n in f.numbers}
-        policy = SPEECH_ACTIONS[speech_action(req.task)]
-        limit = min(req.max_words, policy.max_words, 16 if req.phase == "active" else 60)
-        if len(words(speech)) > limit:
-            # Live run 26.10.2026: in-set lines came 17–23 words. A whole-sentence prefix within the limit is
-            # still the author's own words; anything shorter than four words is not worth saying.
-            # Whole sentences (or «;» parts) only: cutting at a dash split «цель — десять» mid-thought (live run).
-            sentences = re.split(r"(?<=[.!…;])\s+", speech)
-            prefix = ""
-            for sentence in sentences:
-                candidate = f"{prefix} {sentence}".strip()
-                candidate = candidate[:-1] + "." if candidate.endswith((";", ",")) else candidate
-                if len(words(candidate)) > limit:
-                    break
-                prefix = candidate
-            if len(words(prefix)) < 4 or req.phase != "active":
-                return _fail("length")
-            speech = prefix
+        # Word budgets guide the author, not admission. Check the entire text:
+        # truncation could both lose the sentence and hide an unsafe trailing claim.
         if reason := _check_text(speech, req, used, allowed_numbers=allowed):
             return _fail(reason)
         final = speech
@@ -404,8 +387,6 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
             speech = speech[len(req.locked_clause):].strip()
         if speech and (reason := _check_text(speech, req, used, allowed_numbers=set())):
             return _fail(reason)
-        if len(words(speech)) > req.max_words:
-            return _fail("length")
         final = f"{req.locked_clause} {speech}".strip()
     if len(used) > 2 + len(req.locked_fact_ids):
         return _fail("facts")
@@ -438,7 +419,7 @@ def validate(output: object, req: AuthorRequest, memory: CoachMemory | None = No
             # The second voice is the character: a «Чатик: …» label would be read aloud (live run 26.10.2026).
             candidate = candidate[label.end():].strip()
             candidate = candidate[:1].upper() + candidate[1:]
-        if (len(words(candidate)) <= 10 and (req.mood or {}).get("name") != "recover"
+        if ((req.mood or {}).get("name") != "recover"
                 and req.outcome not in {"partial", "skipped", "limited"}
                 and _check_text(candidate, req, used, allowed_numbers=set()) is None):
             co_host = candidate

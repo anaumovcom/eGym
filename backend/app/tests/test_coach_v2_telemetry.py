@@ -112,13 +112,14 @@ async def test_set_summary_facts_survive_revalidation(session_factory):
     await coach.close()
 
 
-def test_overlong_in_set_line_keeps_a_whole_sentence_prefix():
+def test_overlong_in_set_and_rest_lines_keep_every_complete_sentence():
     plain = AllowedFact("milestone", "Подход продолжается", "confirmed", "support", **COMMON)
     request = AuthorRequest("T21", "active", "active/support", ("motivation",), "t", 16, facts=(plain,))
     output = {"action": "speak", "intent": "motivation", "topicKey": "t", "usedFactIds": [], "silenceReason": None,
               "delivery": {"energy": "warm", "pace": "normal", "emphasis": "none"},
               "text": "Последние тяжёлые круги, гонщик, держим курс! Чат уже кричит в эфире, болид ревёт, трибуны встали и машут флагами над трассой."}
     verdict = validate(output, request)
-    assert verdict.ok and verdict.speech == "Последние тяжёлые круги, гонщик, держим курс!"
+    assert verdict.ok and verdict.speech == output["text"]
     rest = AuthorRequest("T46", "rest", "rest/playful", ("motivation",), "t", 8, facts=(plain,))
-    assert validate(output, rest).reason == "length"
+    verdict = validate(output, rest)
+    assert verdict.ok and verdict.speech == output["text"]

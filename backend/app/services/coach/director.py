@@ -1,4 +1,4 @@
-"""Director: profiles, cooldown groups, coalescing and content/acoustic budgets by actual elapsed time."""
+"""Director: semantic admission, safety and phase windows; profiles guide generation only."""
 
 from dataclasses import dataclass, field
 from typing import Literal
@@ -126,16 +126,13 @@ class Director:
         return sum(1 for s, d in self.audible if s <= now_ms < s + d)
 
     def playback_fits(self, c: Candidate, now_ms: float) -> bool:
-        required = c.speech_action in {"result", "summary"}
-        target = self.profile.acoustic_rest if c.phase in {"rest", "summary", "setup"} else self.profile.acoustic_set
-        return ((required or self.acoustic_ratio(c, now_ms) < target)
-                and self._playing(now_ms) < (1 if c.phase == "active" else 2))
+        # Compatibility hook for callers: occupancy is telemetry, never a speech veto.
+        return True
 
     def admit(self, c: Candidate, now_ms: float) -> Admission:
         spec = c.spec
         live = spec.live
         action = SPEECH_ACTIONS.get(c.speech_action)
-        required_result = c.speech_action in {"result", "summary"}
         if self.safety_latched and not c.safety:
             return Admission(False, "safety")
         if c.safety:
@@ -151,37 +148,10 @@ class Director:
         if spec.group and spec.group not in {"set-support", "rest-extra"} and self.group_counts.get(
                 (spec.group, group_scope), 0) >= 1:
             return Admission(False, "cooldown")
-        if live and c.phase == "active" and not c.novelty and self.profile.name in {"quiet", "companion"} and (
-                self.active_novelty.get(self._phase_key(c)) is False):
-            # V5 #20: two generic in-set cheers in a row are noise; the next one must bring a new observation.
-            return Admission(False, "no_novelty")
-        if live:
-            # Required persisted feedback is not swallowed by a local count/start gap.
-            # The mixer remains simultaneous latest-actual-start, never a serial queue.
-            # A new in-set observation (V5) waits a shorter gap than a generic cheer.
-            gap = self.profile.min_start_gap_ms * self.gap_scale * (0.6 if c.phase == "active" and c.novelty else 1.0)
-            if not required_result and c.phase != "summary" and self.last_start_ms is not None and (
-                    now_ms - self.last_start_ms < gap):
-                return Admission(False, "cooldown")
-        elif spec.group == "set-support" and self.last_local_support_ms is not None and (
-                now_ms - self.last_local_support_ms < self.profile.local_support_gap_ms):
-            return Admission(False, "cooldown")
-        if live:
-            if c.phase == "active":
-                elapsed = now_ms - (c.phase_started_ms if c.phase_started_ms is not None else now_ms)
-                cap = self.profile.set_cap(elapsed)
-            elif c.phase == "rest":
-                cap = self.profile.rest_cap(c.phase_length_ms)
-            elif c.phase == "paused":
-                cap = 0
-            else:
-                cap = 1
-            if not required_result and self.slot_counts.get((c.phase, self._phase_key(c)), 0) >= cap:
-                return Admission(False, "density_cap")
-            if not self.playback_fits(c, now_ms):
-                return Admission(False, "density_cap")
-            if self.memory.topic_blocked(c.topic_key):
-                return Admission(False, "topic_repeat")
+        # Distinct current topics are not paced against previous/playing speech,
+        # density slots, or whether the previous line carried a novel observation.
+        if live and self.memory.topic_blocked(c.topic_key):
+            return Admission(False, "topic_repeat")
         latency = self.live_latency_ms if live else 0
         remaining = c.valid_until_ms - now_ms - latency - PHASE_MARGIN_MS
         if remaining < c.duration_hint_ms:

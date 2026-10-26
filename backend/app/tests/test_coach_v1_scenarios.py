@@ -4,9 +4,11 @@ import asyncio
 import json
 import random
 
+import pytest
+
 from app.models.coach import CoachAttempt, CoachScenario
 from app.schemas.coach_control import CoachPreferences
-from app.services.coach import scenario
+from app.services.coach import episode, scenario
 from app.services.coach.live import LiveCoach
 from app.services.coach.luna import FakeTextAuthor
 from app.services.coach.prompts import AuthorRequest, build_prompt
@@ -28,7 +30,7 @@ def bible_for(data, *, bad_acts=False):
             {"act": 3, "title": "Финиш", "goal": "Победить на финишной прямой", "exerciseIds": ids[-1:]}]
     if bad_acts:
         acts[1]["exerciseIds"] = ids[-1:]
-    return {"premise": "Мы на трассе героев, где каждый подход — заезд, а отдых — пит-стоп.",
+    return {"premise": "Мы на трассе героев, где каждый подход проходит под рёв трибун.",
             "coachRole": "главный механик команды", "userRole": "пилот болида",
             "lexicon": [{"from": "подход", "to": "заезд"}, {"from": "отдых", "to": "пит-стоп"},
                         {"from": "упражнение", "to": "этап"}, {"from": "вес", "to": "прижимная сила"}],
@@ -126,9 +128,90 @@ def test_prompt_carries_story_as_data_with_module():
 
 # ---------- live flow ----------
 
-async def test_propose_select_and_story_lines(session_factory):
+@pytest.mark.parametrize("term", [
+    "подход", "ПОДХОДЫ", "к подходам", "подходами", "повтор", "повторы", "повторами", "повторений",
+    "вес", "веса", "с весом", "весах", "кг", "килограммами", "килограммов", "время", "времени",
+    "времён", "длительность", "длительностью", "секундах", "минутами", "часов", "сек", "мин", "сеты",
+])
+@pytest.mark.parametrize("side", ["from", "to"])
+def test_generated_and_legacy_lexicon_discards_protected_inflections(term, side):
+    protected = {"from": "зал", "to": "заряд портала", side: term}
+    harmless = [{"from": "зал", "to": "арена"}, {"from": "тренер", "to": "штурман"},
+                {"from": "настроение", "to": "веселье"}]
+    raw = {**bible_for({"plan": PLAN}), "lexicon": [protected, *harmless]}
+    original = json.loads(json.dumps(raw))
+    generated = scenario.validate_bible(raw, scenario.parse_plan(PLAN))
+    assert generated is not None and generated["lexicon"] == harmless
+    # Stored bibles already have their own plan/role shapes; no revalidation required.
+    legacy = {**generated, "lexicon": raw["lexicon"]}
+    assert scenario.sanitize_bible(legacy)["lexicon"] == harmless
+    assert scenario.prompt_data({"title": "Гонка героев"}, legacy, "ex-1")["lexicon"] == harmless
+    assert raw == original  # Sanitization must not dirty ORM JSON or caller-owned data.
+
+
+def test_all_protected_pairs_leave_valid_empty_lexicon_and_schema_allows_it():
+    raw = {**bible_for({"plan": PLAN}), "lexicon": [
+        {"from": "подходы", "to": "заезды"}, {"from": "повторения", "to": "искры"},
+        {"from": "вес", "to": "балласт"}, {"from": "килограммы", "to": "кристаллы"},
+        {"from": "время", "to": "витки"}, {"from": "арена", "to": "длительность"}]}
+    plan = scenario.parse_plan(PLAN)
+    bible = scenario.validate_bible(raw, plan)
+    assert bible is not None and bible["lexicon"] == []
+    assert scenario.bible_schema(plan)["properties"]["lexicon"]["minItems"] == 0
+    assert scenario.validate_bible({**raw, "lexicon": []}, plan) is not None
+    assert scenario.sanitize_lexicon([None, {}, "подход", {"from": "зал", "to": "арена"}]) == [
+        {"from": "зал", "to": "арена"}]
+
+
+def test_all_story_and_author_prompts_preserve_terminology():
+    for instructions in (scenario.PROPOSE_INSTRUCTIONS, scenario.BIBLE_INSTRUCTIONS, scenario.SCENARIO_MODULE,
+                         episode.INSTRUCTIONS):
+        assert scenario.TERMINOLOGY_MODULE in instructions
+        assert "подход →" not in instructions and "вместо подходов" not in instructions
+    assert "вместо" not in " ".join(scenario.ARCHETYPES.values())
+    assert "зал → арена" in scenario.BIBLE_INSTRUCTIONS
+    assert "Пустой lexicon допустим" in scenario.BIBLE_INSTRUCTIONS
+    # Direct AuthorRequests cannot bypass the lexicon boundary either.
+    req = AuthorRequest("T01", "setup", "setup/opening", ("motivation",), "open", 30,
+                        scenario={"lexicon": [{"from": "подходов", "to": "заездов"}]})
+    built = build_prompt(req)
+    assert json.loads(built.data)["scenario"]["lexicon"] == []
+    assert scenario.TERMINOLOGY_MODULE in built.instructions
+    plain = build_prompt(AuthorRequest("T01", "setup", "setup/opening", ("motivation",), "open", 30))
+    assert scenario.TERMINOLOGY_MODULE in plain.instructions
+
+
+async def test_legacy_database_bible_sanitized_before_live_prebuild_and_episode(session_factory):
+    coach, sink, run_id = coach_with(session_factory, [])
+    bible = scenario.validate_bible(bible_for({"plan": PLAN}), scenario.parse_plan(PLAN))
+    legacy = {**bible, "lexicon": [{"from": "подходами", "to": "заездами"}, {"from": "зал", "to": "арена"}],
+              "counters": [{"id": "c1", "source": "sets", "label": "Пройдено заездов"}]}
+    card = {"archetype": "race", "title": "Гонка героев"}
+    with session_factory() as db:
+        # Bypass save deliberately to simulate a row written by the legacy implementation.
+        db.add(CoachScenario(run_id=run_id, user_id="alexey", archetype="race", title=card["title"],
+                             card=card, bible=legacy, version="coach-scenario-0.1", created_at=1))
+        db.commit()
+        loaded = scenario.load(db, run_id, "alexey")
+        assert loaded[1]["lexicon"] == [{"from": "зал", "to": "арена"}]
+        assert db.get(CoachScenario, run_id).bible == legacy  # Read-time migration is not a write.
+    coach._load_scenario()
+    assert coach.scenario_bible["lexicon"] == [{"from": "зал", "to": "арена"}]
+    assert coach.scenario_state()["counters"][0]["label"] == "Завершённые подходы"
+    # Both live and _prebuild_one use this same request boundary.
+    for target in coach._prebuild_targets():
+        req = coach._request(coach._prebuild_op(target), 30)
+        assert json.loads(build_prompt(req).data)["scenario"]["lexicon"] == [{"from": "зал", "to": "арена"}]
+    with session_factory() as db:
+        recap = episode.data(coach.episode_input(db, 1, None))
+    assert "заездами" not in recap and "lexicon" not in recap
+    await coach.close()
+
+async def test_propose_select_and_story_lines(session_factory, monkeypatch):
     calls = []
     coach, sink, run_id = coach_with(session_factory, calls)
+    # This is the live flow test; concurrent preparation has its own coverage in V8.
+    monkeypatch.setattr(coach, "schedule_prebuild", lambda: None)
     await coach.announce()
     assert sink.of("scenario")[-1]["state"] == "none"
     await coach.handle({"type": "scenario_propose", "plan": PLAN})

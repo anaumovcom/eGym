@@ -1,4 +1,4 @@
-"""V5: deterministic workout mood with hysteresis, and in-set novelty pacing in the Director."""
+"""V5: deterministic workout mood with hysteresis; novelty no longer paces admission."""
 
 import json
 
@@ -51,13 +51,13 @@ def candidate(topic, novelty, now):
                      speech_action="support")
 
 
-def test_two_generic_cheers_in_a_row_need_a_new_observation():
+def test_distinct_generic_cheers_do_not_need_a_new_observation():
     director = Director("companion")
     first = candidate("set-start", False, 100_000)
     assert director.admit(first, 100_000).ok
     director.note_admitted(first)
     generic = candidate("set-support", False, 130_000)
-    assert director.admit(generic, 130_000).reason == "no_novelty"
+    assert director.admit(generic, 130_000).ok
     novel = candidate("set-velocity", True, 130_000)
     assert director.admit(novel, 130_000).ok
     director.note_admitted(novel)
@@ -67,11 +67,11 @@ def test_two_generic_cheers_in_a_row_need_a_new_observation():
     assert show.admit(candidate("set-support", False, 130_000), 130_000).ok
 
 
-def test_novel_moments_wait_a_shorter_gap():
+def test_generic_and_novel_moments_do_not_wait_for_a_start_gap():
     director = Director("companion")
     director.last_start_ms = 100_000
-    assert director.admit(candidate("set-support", False, 110_000), 110_000).reason == "cooldown"
-    assert director.admit(candidate("set-velocity", True, 110_000), 110_000).ok  # 15 s × 0.6 = 9 s
+    assert director.admit(candidate("set-support", False, 100_001), 100_001).ok
+    assert director.admit(candidate("set-velocity", True, 100_001), 100_001).ok
 
 
 async def test_live_request_carries_mood_and_recover_switches_teasing_off(session_factory):

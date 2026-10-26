@@ -25,6 +25,21 @@ def test_values_follow_fixed_formulas():
                      {"id": "c2", "label": "Пройдено пути", "source": "plan", "value": 50}]
 
 
+def test_raw_counter_labels_and_units_cannot_be_replaced_by_legacy_story_names():
+    bible = {**BIBLE, "counters": [
+        {"id": "c1", "label": "Пройдено заездов", "source": "sets"},
+        {"id": "c2", "label": "Кристаллы силы", "source": "tonnage"},
+        {"id": "c3", "label": "Ровные круги", "source": "steady"}]}
+    found = counters.values(bible, counters.Totals(reps=24, tonnage=480, sets=3), records=0, steady=2)
+    assert [c["label"] for c in found] == ["Завершённые подходы", "Поднятый тоннаж", "Подходы в ровном темпе"]
+    assert [f.claim for f in counters.facts(found, COMMON)] == [
+        "Завершённые подходы: три подхода", "Поднятый тоннаж: четыреста восемьдесят килограммов",
+        "Подходы в ровном темпе: два подхода"]
+    # facts() is also a boundary: callers may supply old counter state directly.
+    legacy = [{**c, "label": "Заезды"} for c in found]
+    assert counters.facts(legacy, COMMON) == counters.facts(found, COMMON)
+
+
 def test_boss_health_only_on_the_boss_exercise_of_boss_worlds():
     assert counters.boss_health(BIBLE, "rpg", "ex-2", 1) == {"id": "boss", "label": "Здоровье босса", "source": "boss",
                                                               "value": 75}

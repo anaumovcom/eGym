@@ -12,10 +12,16 @@ from app.services.coach.context import CoachContext
 from app.services.coach.facts import AllowedFact, ComparisonStatus, HistoryStatus
 from app.services.coach.mood import MOOD_MODULE
 from app.services.coach.personas import PERSONAS
-from app.services.coach.scenario import FINALE_MODULE, OPENING_MODULE, SCENARIO_MODULE
+from app.services.coach.scenario import (
+    FINALE_MODULE,
+    OPENING_MODULE,
+    SCENARIO_MODULE,
+    TERMINOLOGY_MODULE,
+    sanitize_lexicon,
+)
 from app.services.coach.speech_actions import SCENARIO_EXAMPLES, SPEECH_ACTIONS, speech_action
 
-PROMPT_VERSION = "coach-prompts-0.20"
+PROMPT_VERSION = "coach-prompts-0.21"
 
 P0 = """Ты — русскоязычный персональный тренер-напарник в фитнес-приложении.
 Ты произносишь одну короткую реплику по выбранному приложением поводу.
@@ -47,7 +53,7 @@ speechAction задаёт ориентир, поддержку, результа
 Если повод не даёт безопасной содержательной реплики, выбери silence.
 
 Верни только объект заданной схемы. Никаких пояснений, Markdown, дополнительных
-команд или изменения facts. Факты, использованные в речи, перечисли в usedFactIds."""
+команд или изменения facts. Факты, использованные в речи, перечисли в usedFactIds.""" + "\n\n" + TERMINOLOGY_MODULE
 
 P1 = """Твой характер: тёплый, энергичный, сообразительный напарник.
 Уверенность без командирского давления; юмор короткий, не стендап.
@@ -282,6 +288,9 @@ class AuthorRequest:
     co_host: dict | None = None
 
     def __post_init__(self):
+        if self.scenario:
+            object.__setattr__(self, "scenario", {**self.scenario,
+                                                  "lexicon": sanitize_lexicon(self.scenario.get("lexicon"))})
         if self.task not in P2:
             raise ValueError("Unknown P2 task")
         if self.character not in PERSONAS:

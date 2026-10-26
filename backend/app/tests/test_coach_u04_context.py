@@ -314,8 +314,11 @@ def test_setup_validation_requires_source_and_keeps_safety_limits(session_factor
     assert not validate({**output, "usedFactIds": []}, req).ok
     for text in ("Я вижу, ты поднимаешь плечи.", "Терпи через боль и тяни штангу.",
                  "Давай ещё один повтор.", "Наклонись на тридцать градусов.",
-                 "Гарантирую идеальную технику.", "Тяни штангу. " * 20):
+                 "Гарантирую идеальную технику."):
         assert not validate({**output, "text": text}, req).ok
+    long_text = "Тяни штангу. " * 20
+    verdict = validate({**output, "text": long_text}, req)
+    assert verdict.ok and verdict.speech == long_text.strip()
     assert not validate(output, replace(req, phase="active")).ok
     coach.director.latch_safety(True)
     assert coach.director.admit(op.candidate, coach.now_ms()).reason == "safety"

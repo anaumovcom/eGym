@@ -193,7 +193,7 @@ def test_worn_words_reach_single_lines_but_world_and_fact_words_stay():
     heard = ({"text": "Микрофон уже потеет, табло горит."}, {"text": "Комментатору пора искать новый микрофон и табло."},
              {"text": "Выход на помост засчитан."}, {"text": "Ещё один выход на помост."})
     request = replace(REQ, variants=1, recent_heard=heard,
-                      scenario={"lexicon": [{"from": "подход", "to": "выход на помост"}]})
+                      scenario={"lexicon": [{"from": "сцена", "to": "выход на помост"}]})
     assert worn_words(request) == ["микрофон", "табло"]
     built = build_prompt(request)
     assert WORN_WORDS_MODULE in built.instructions and json.loads(built.data)["wornWords"] == ["микрофон", "табло"]

@@ -322,7 +322,6 @@ export class LocalAudioRuntime {
     if (this.disposed) return 'disposed'
     // D-V12.7: only an emergency silences the coach; machine errors, the spotter and a failure do not.
     if (this.inputs.emergency || [...this.latches].some(([key, active]) => active && silencesCoach(key))) return 'safety'
-    if (this.inputs.hidden) return 'hidden'
     if (['controlActive', 'motionActive', 'moving'].some(key => this.latches.get(key))) return 'hardware_active'
     const session = this.inputs.session
     // RuntimeWorkoutSession has no status flag. A workout-summary + terminal
@@ -338,12 +337,13 @@ export class LocalAudioRuntime {
   }
   private cancelReason(): AudioReason {
     const reason = this.gate()
-    return reason === 'safety' || reason === 'hardware_active' ? 'safety' : reason === 'hidden' ? 'hidden' : reason === 'mute' ? 'mute' : 'scope_changed'
+    return reason === 'safety' || reason === 'hardware_active' ? 'safety' : reason === 'mute' ? 'mute' : 'scope_changed'
   }
   private configurationSignature(): string {
     const session = this.inputs.session
     const exercise = session?.exercises.find(item => item.id === session.currentExerciseId)
-    return JSON.stringify([this.inputs.featureEnabled, this.inputs.hidden, this.inputs.emergency, this.inputs.general,
+    // A visibility change must not invalidate in-flight decode or started/pending audio.
+    return JSON.stringify([this.inputs.featureEnabled, this.inputs.emergency, this.inputs.general,
       exercise?.plan, exercise?.loadSettings, this.inputs.hardware?.control?.config])
   }
   private makeScope(): CoachScope {

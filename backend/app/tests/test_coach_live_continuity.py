@@ -50,7 +50,7 @@ async def complete(coach, sink, clock):
 
 
 @pytest.mark.parametrize("second_elapsed", [30_000, 45_000])
-async def test_distinct_support_slots_complete_and_replays_and_cooldown_are_free(session_factory, second_elapsed):
+async def test_distinct_support_slots_complete_and_semantic_replays_are_free(session_factory, second_elapsed):
     def script(body):
         data = json.loads(body["input"][0]["content"])
         tip = data["coachContext"]["tip"]
@@ -89,14 +89,8 @@ async def test_distinct_support_slots_complete_and_replays_and_cooldown_are_free
         assert not any(f["id"] == "reviewed-tip" for f in authored["allowedFacts"])
         assert sink.of("speech_start")[1]["text"] == "Спокойно работаем дальше."
 
-        # A genuinely different moment still cannot bypass the actual-start cooldown.
-        clock[0] += 2_000
-        await coach.handle(support(coach, run_id, clock[0] - phase_start, kind="last_rep_pending"))
-        assert sink.of("decision")[-1]["reason"] == "cooldown"
-
         # Retained code-selected opportunities keep their original phase start on
-        # redelivery. Replanning the old 15 s snapshot would instead hit the <30 s
-        # density cap before topic_repeat, which must remain unchanged.
+        # redelivery, while semantic replay remains free regardless of pacing.
         for original_message in (first, second):
             clock[0] += 12_000
             replay = copy.deepcopy(original_message)
@@ -108,15 +102,14 @@ async def test_distinct_support_slots_complete_and_replays_and_cooldown_are_free
                 received_ms=clock[0], deadline_ms=clock[0] + 20_000,
                 candidate=replace(retained.candidate, created_ms=clock[0], valid_until_ms=clock[0] + 20_000)))
             assert sink.of("decision")[-1]["reason"] in {"topic_repeat", "duplicate"}
-        # Also exercise unmodified inbound event replay: the old slot's density
-        # gate can run first, while the later slot reaches topic deduplication.
-        for original_message, reason in ((first, "density_cap"), (second, "topic_repeat")):
+        # Unmodified inbound event replay also reaches semantic topic deduplication.
+        for original_message in (first, second):
             clock[0] += 12_000
             replay = copy.deepcopy(original_message)
             replay["event"].update(id=f"{original_message['event']['id']}-inbound-replay",
                                    createdAtMs=clock[0], startDeadlineMs=clock[0] + 20_000)
             await coach.handle(replay)
-            assert sink.of("decision")[-1]["reason"] == reason
+            assert sink.of("decision")[-1]["reason"] == "topic_repeat"
         await settle(coach)
         assert len(fake.calls) == len(adapter.calls) == 2
         assert len(sink.of("speech_start")) == len(sink.of("speech_end")) == 2
@@ -129,9 +122,10 @@ async def test_distinct_support_slots_complete_and_replays_and_cooldown_are_free
         await coach.close()
 
 
-@pytest.mark.parametrize("density,first_speaks", [("quiet", False), ("companion", True), ("talkative", True)])
-async def test_short_set_density_caps_still_prevent_extra_paid_calls(session_factory, density, first_speaks):
-    fake = FakeTextAuthor(echo("Спокойно работаем дальше."))
+@pytest.mark.parametrize("density", ["quiet", "companion", "talkative", "show"])
+async def test_short_set_distinct_dense_events_are_admitted_for_all_profiles(session_factory, density):
+    lines = iter(("Спокойно работаем дальше.", "Этот участок проходим в своём ритме."))
+    fake = FakeTextAuthor(lambda body: echo(next(lines))(body))
     coach, sink, run_id = make_coach(session_factory, CoachPreferences(
         **HYBRID, density=density, pause_gap="short"), fake_text=fake)
     adapter = FakeVoiceStream()
@@ -143,18 +137,14 @@ async def test_short_set_density_caps_still_prevent_extra_paid_calls(session_fac
         first = support(coach, run_id, 15_000)
         first["context"]["exerciseSlug"] = "unknown"  # Support only, without a reviewed tip.
         await coach.handle(first)
-        if first_speaks:
-            await complete(coach, sink, clock)
-        else:
-            assert sink.of("decision")[-1]["reason"] == "density_cap"
-        clock[0] = phase_start + 27_000  # Cooldown has elapsed, but the <30 s slot cap has not.
-        second = support(coach, run_id, 27_000)
+        await complete(coach, sink, clock)
+        # Still within the old cooldown and <30 s slot cap.
+        clock[0] = phase_start + 17_000
+        second = support(coach, run_id, 17_000)
         second["context"]["moment"] = "half"
         await coach.handle(second)
-        await settle(coach)
-        # V5: in quiet/companion a second generic cheer is refused even earlier, for lack of a new observation.
-        assert sink.of("decision")[-1]["reason"] in {"density_cap", "no_novelty"}
-        assert len(fake.calls) == len(adapter.calls) == int(first_speaks)
+        await complete(coach, sink, clock)
+        assert len(fake.calls) == len(adapter.calls) == 2
     finally:
         await coach.close()
 

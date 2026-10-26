@@ -1,0 +1,157 @@
+8:05:00 PM [vite] http proxy error: /api/coach/requests?userId=alexey&period=today&since=1792962000.000&status=error&kind=all&limit=50
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:05:00 PM [vite] http proxy error: /api/coach/requests?userId=alexey&period=run&runId=af368c51fd1d1855b3370f5ca94a6959&status=all&kind=all&limit=50
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:52:11 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:52:13 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:52:17 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:52:42 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:52:59 PM [vite] ws proxy error:
+Error: This socket has been ended by the other party
+    at genericNodeError (node:internal/errors:984:15)
+    at wrappedFn (node:internal/errors:538:14)
+    at Socket.writeAfterFIN [as write] (node:net:567:14)
+    at Socket.ondata (node:internal/streams/readable:1009:22)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:191:23)
+8:53:00 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:53:23 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:54:50 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:57:05 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:58:41 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+8:59:47 PM [vite] ws proxy error:
+Error: This socket has been ended by the other party
+    at genericNodeError (node:internal/errors:984:15)
+    at wrappedFn (node:internal/errors:538:14)
+    at Socket.writeAfterFIN [as write] (node:net:567:14)
+    at Socket.ondata (node:internal/streams/readable:1009:22)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:191:23)
+8:59:48 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:00:58 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:39:01 PM [vite] ws proxy error:
+Error: This socket has been ended by the other party
+    at genericNodeError (node:internal/errors:984:15)
+    at wrappedFn (node:internal/errors:538:14)
+    at Socket.writeAfterFIN [as write] (node:net:567:14)
+    at Socket.ondata (node:internal/streams/readable:1009:22)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:191:23)
+9:39:01 PM [vite] http proxy error: /api/coach/usage/today?since=1792962000.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:39:01 PM [vite] http proxy error: /api/coach/requests?userId=alexey&period=today&since=1792962000.000&status=error&kind=all&limit=50
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:39:01 PM [vite] http proxy error: /api/coach/usage/today?since=1792962000.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:39:01 PM [vite] http proxy error: /api/coach/requests?userId=alexey&period=today&since=1792962000.000&status=error&kind=all&limit=50
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:39:01 PM [vite] http proxy error: /api/coach/users/alexey/settings
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:39:01 PM [vite] http proxy error: /api/coach/usage/today?since=1792962000.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:39:01 PM [vite] http proxy error: /api/coach/requests?userId=alexey&period=today&since=1792962000.000&status=error&kind=all&limit=50
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:57:25 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:58:52 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:59:25 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+9:59:34 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+10:00:18 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+10:00:23 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+10:01:59 PM [vite] ws proxy error:
+Error: This socket has been ended by the other party
+    at genericNodeError (node:internal/errors:984:15)
+    at wrappedFn (node:internal/errors:538:14)
+    at Socket.writeAfterFIN [as write] (node:net:567:14)
+    at Socket.ondata (node:internal/streams/readable:1009:22)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:191:23)
+10:02:00 PM [vite] ws proxy error:
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+10:10:27 PM [vite] ws proxy error:
+Error: This socket has been ended by the other party
+    at genericNodeError (node:internal/errors:984:15)
+    at wrappedFn (node:internal/errors:538:14)
+    at Socket.writeAfterFIN [as write] (node:net:567:14)
+    at Socket.ondata (node:internal/streams/readable:1009:22)
+    at Socket.emit (node:events:524:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at TCP.onStreamRead (node:internal/stream_base_commons:191:23)
+10:10:28 PM [vite] http proxy error: /api/coach/usage/today?since=1792962000.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+10:10:28 PM [vite] http proxy error: /api/coach/requests?userId=alexey&period=today&since=1792962000.000&status=error&kind=all&limit=50
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+10:10:28 PM [vite] http proxy error: /api/coach/users/alexey/settings
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+10:10:28 PM [vite] http proxy error: /api/coach/usage/today?since=1792962000.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+10:10:28 PM [vite] http proxy error: /api/coach/requests?userId=alexey&period=today&since=1792962000.000&status=error&kind=all&limit=50
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+10:10:28 PM [vite] http proxy error: /api/coach/usage/today?since=1792962000.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)
+10:10:28 PM [vite] http proxy error: /api/coach/usage/today?since=1792962000.000
+Error: connect ECONNREFUSED 127.0.0.1:8000
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1605:16)

@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { Briefcase, Clapperboard, Crosshair, Flag, Medal, Rocket, Sparkles, Swords, Tv, Video, Zap, type LucideIcon } from 'lucide-react'
-import { useSyncExternalStore } from 'react'
+import { Briefcase, Check, Clapperboard, Crosshair, Flag, Headphones, LoaderCircle, Medal, Rocket, Sparkles, Swords, Tv, Video, Zap, type LucideIcon } from 'lucide-react'
+import { useLayoutEffect, useState, useSyncExternalStore } from 'react'
 import { useSafetyDockTarget } from '@/shared/ui/overlays/safety-dialog'
 import { coachNetworkClient } from '../live/coach-live-runtime'
 import type { ScenarioView } from '../live/coach-network-client'
@@ -24,25 +24,72 @@ function useScenario(): ScenarioView | undefined {
 
 /** V1: before the first set the coach offers three stories; the chosen one frames the whole workout. */
 export function CoachScenarioPicker() {
-  const scenario = useScenario()
+  const { scenario, preparation, state } = useSyncExternalStore(coachNetworkClient.subscribe, coachNetworkClient.getSnapshot, coachNetworkClient.getSnapshot)
   const safety = useSafetyDockTarget()
   const phase = scenario?.phase ?? 'off'
-  const open = safety === null && ['proposing', 'choosing', 'building', 'failed'].includes(phase)
+  const prebuilding = preparation?.state === 'preparing'
+  const loading = prebuilding || ['waiting', 'proposing', 'building'].includes(phase)
+  const open = safety === null && (prebuilding || ['waiting', 'proposing', 'choosing', 'building', 'failed'].includes(phase))
+  const [panelTop, setPanelTop] = useState(112)
+  useLayoutEffect(() => {
+    if (!open) return
+    // A non-modal panel below the real header keeps STOP clickable and in the
+    // accessibility tree, including when the kiosk header wraps on a narrow screen.
+    const header = document.querySelector('.forma-system-dock')
+    if (!header) return
+    const update = () => setPanelTop(Math.max(16, header.getBoundingClientRect().bottom + 16))
+    update()
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(update) : null
+    observer?.observe(header)
+    window.addEventListener('resize', update)
+    window.addEventListener('scroll', update, true)
+    return () => { observer?.disconnect(); window.removeEventListener('resize', update); window.removeEventListener('scroll', update, true) }
+  }, [open])
   if (!scenario) return null
-  return <Dialog.Root open={open} onOpenChange={value => { if (!value) coachNetworkClient.skipScenario() }}>
+  const stage = prebuilding ? 2 : phase === 'building' ? 1 : 0
+  const hint = prebuilding ? 'Готовим голосовые реплики для упражнения, чтобы тренер мог говорить без лишних пауз.'
+    : phase === 'waiting' ? state === 'retrying' ? 'Восстанавливаем связь с тренером. Подготовка продолжится после подключения.'
+      : 'Подключаемся к тренеру и получаем состояние подготовки.'
+      : phase === 'building' ? 'Пишем историю под ваш план: связываем упражнения и подходы в один сюжет.'
+        : phase === 'proposing' ? 'Придумываем три разных сюжета под ваш план тренировки.'
+          : phase === 'failed' ? ERRORS[scenario.error ?? ''] ?? 'Сценарий не получился.'
+            : 'Тренер проведёт всю тренировку в выбранном мире. План и вес не меняются.'
+  return <Dialog.Root open={open} modal={false}>
     <Dialog.Portal>
-      <Dialog.Overlay className="coach-scenario-overlay" />
-      <Dialog.Content className="coach-scenario-dialog" aria-describedby="coach-scenario-hint">
+      <div className="coach-scenario-backdrop" style={{ top: panelTop - 8 }} aria-hidden="true" />
+      <Dialog.Content className={`coach-scenario-dialog${loading ? ' is-preparing' : ''}`}
+        style={{ top: panelTop, maxHeight: `calc(100dvh - ${panelTop + 16}px)` }}
+        onEscapeKeyDown={event => event.preventDefault()} onInteractOutside={event => event.preventDefault()}
+        onCloseAutoFocus={event => event.preventDefault()}>
         <header>
           <Sparkles aria-hidden="true" />
-          <Dialog.Title>Выберите сюжет тренировки</Dialog.Title>
+          <div><span className="coach-scenario-eyebrow">Ваш персональный тренер</span>
+            <Dialog.Title>{loading ? 'Готовим тренировку' : 'Выберите сюжет тренировки'}</Dialog.Title></div>
         </header>
-        <p id="coach-scenario-hint" className="coach-scenario-hint">
-          {phase === 'building' ? `Тренер пишет мир «${scenario.title ?? 'сценария'}»…`
-            : phase === 'proposing' ? 'Тренер придумывает три сюжета под ваш план…'
-              : phase === 'failed' ? ERRORS[scenario.error ?? ''] ?? 'Сценарий не получился.'
-                : 'Тренер проведёт всю тренировку в выбранном мире. План и вес не меняются.'}
-        </p>
+        <Dialog.Description className="coach-scenario-hint">{hint}</Dialog.Description>
+        {loading && <section className="coach-preparation" aria-label="Подготовка тренера" aria-busy="true">
+          {scenario.title && <p className="coach-preparation-story"><Clapperboard aria-hidden="true" /><span>Выбранный сюжет<strong>{scenario.title}</strong></span></p>}
+          <ol className="coach-preparation-stages">
+            {['Варианты сюжета', 'Сценарий тренировки', 'Озвучка упражнения'].map((label, index) => <li key={label}
+              data-state={index < stage ? 'done' : index === stage ? 'current' : 'pending'} aria-current={index === stage ? 'step' : undefined}>
+              <span className="coach-preparation-step" aria-hidden="true">{index < stage ? <Check /> : index === stage ? <LoaderCircle /> : index + 1}</span>
+              <span><strong>{label}</strong><small>{index < stage ? 'Готово' : index === stage
+                ? index === 2 ? 'Предзагрузка голосовых реплик' : index === 1 ? 'Создаём историю тренировки' : phase === 'waiting' ? 'Ожидаем подключения' : 'Готовим варианты для выбора'
+                : 'Следующий этап'}</small></span>
+            </li>)}
+          </ol>
+          <div className="coach-preparation-status" role="status" aria-live="polite" aria-atomic="true">
+            <Headphones aria-hidden="true" />
+            <div>{prebuilding && preparation ? <>
+              <strong>{preparation.total > 0 ? `Обработано реплик: ${preparation.completed} из ${preparation.total}` : 'Составляем список голосовых реплик'}</strong>
+              <span>Готово к воспроизведению: {preparation.ready}</span>
+              {preparation.completed > preparation.ready && <span>Не все реплики удалось загрузить. Подготовка остальных продолжается.</span>}
+            </> : <><strong>{phase === 'waiting' ? 'Ожидаем связь с тренером' : 'Тренер работает над вашим сюжетом'}</strong>
+              <span>План упражнений и настройки нагрузки не меняются.</span></>}</div>
+          </div>
+          <p className="coach-preparation-note">{prebuilding ? 'Можно продолжить без ожидания. Уже звучащая речь не прервётся.'
+            : 'Подготовка касается только тренера. Управление тренажёром и СТОП доступны сверху.'}</p>
+        </section>}
         {phase === 'choosing' && <ul className="coach-scenario-cards">
           {scenario.cards.map((card, index) => {
             const Icon = ICONS[card.archetype] ?? Sparkles
@@ -55,16 +102,14 @@ export function CoachScenarioPicker() {
             </button></li>
           })}
         </ul>}
-        {(phase === 'proposing' || phase === 'building') && <div className="coach-scenario-cards" aria-busy="true">
-          {[0, 1, 2].map(index => <div key={index} className="coach-scenario-card is-loading" aria-hidden="true" />)}
-        </div>}
         <footer>
           {(phase === 'choosing' || phase === 'failed') && scenario.proposalsLeft > 0 &&
             <button type="button" className="rt-button" onClick={() => coachNetworkClient.proposeScenarios()}>
               Другие варианты ({scenario.proposalsLeft})</button>}
           {phase === 'failed' && scenario.proposalsLeft === 0 && scenario.error !== 'no_more_proposals' &&
             <button type="button" className="rt-button" onClick={() => coachNetworkClient.proposeScenarios()}>Попробовать снова</button>}
-          <Dialog.Close asChild><button type="button" className="rt-button">Без сценария</button></Dialog.Close>
+          <button type="button" className="rt-button" onClick={() => coachNetworkClient.skipScenario()}>
+            {prebuilding ? 'Продолжить без ожидания' : 'Без сценария'}</button>
         </footer>
       </Dialog.Content>
     </Dialog.Portal>

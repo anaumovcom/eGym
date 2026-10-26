@@ -1,7 +1,7 @@
-.coach-scenario-overlay { position: fixed; inset: 0; z-index: 60; background: #050912cc; backdrop-filter: blur(6px); }
+.coach-scenario-backdrop { position: fixed; inset: auto 0 0; z-index: 60; background: #050912b8; backdrop-filter: blur(6px); }
 .coach-scenario-dialog {
-  position: fixed; z-index: 61; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  box-sizing: border-box; width: min(980px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto;
+  position: fixed; z-index: 61; left: 50%; transform: translateX(-50%);
+  box-sizing: border-box; width: min(980px, calc(100vw - 32px)); overflow: auto; overscroll-behavior: contain;
   padding: 28px; border-radius: 24px; border: 1px solid #a78bfa55;
   background: radial-gradient(circle at top left, #3b2a6b, #111827 60%); color: #f8fafc; box-shadow: 0 30px 80px #000a;
 }
@@ -21,16 +21,54 @@
 .coach-scenario-card strong { font-size: 22px; line-height: 1.15; }
 .coach-scenario-card span { color: #e2e8f0; font-size: 15px; line-height: 1.4; }
 .coach-scenario-card em { color: #a5b4fc; font-size: 13px; font-style: normal; text-transform: lowercase; }
-.coach-scenario-card.is-loading { animation: coach-scenario-pulse 1.4s ease-in-out infinite; }
-@keyframes coach-scenario-pulse { 50% { background: #8b5cf61f; } }
+.coach-scenario-dialog.is-preparing { width: min(900px, calc(100vw - 32px)); display: flex; flex-direction: column; }
+.coach-scenario-dialog.is-preparing > header, .coach-scenario-dialog.is-preparing > footer { flex-shrink: 0; }
+.coach-scenario-dialog.is-preparing .coach-preparation { min-height: 0; overflow-y: auto; }
+.coach-scenario-eyebrow { display: block; margin-bottom: 5px; color: #c4b5fd; font-size: 11px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
+.coach-preparation { display: grid; gap: 20px; }
+.coach-preparation-story { display: flex; align-items: center; gap: 14px; margin: 0; padding: 16px 20px; border: 1px solid #c4b5fd33; border-radius: 16px; background: #c4b5fd0c; }
+.coach-preparation-story > svg { color: #c4b5fd; flex-shrink: 0; }
+.coach-preparation-story span { display: grid; gap: 4px; color: #cbd5e1; font-size: 13px; }
+.coach-preparation-story strong { color: #f8fafc; font-size: 20px; overflow-wrap: anywhere; }
+.coach-preparation-stages { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.coach-preparation-stages li { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 14px; border: 1px solid transparent; color: #94a3b8; }
+.coach-preparation-stages li[data-state='current'] { background: linear-gradient(110deg, #8b5cf62b, #8b5cf609); border-color: #a78bfa66; color: #f8fafc; }
+.coach-preparation-stages li[data-state='done'] { color: #a7f3d0; }
+.coach-preparation-step { display: grid; place-items: center; width: 36px; height: 36px; flex: 0 0 36px; border: 1px solid #ffffff26; border-radius: 50%; font-size: 14px; }
+.coach-preparation-step svg { width: 19px; height: 19px; }
+.coach-preparation-stages li[data-state='current'] .coach-preparation-step { color: #ddd6fe; background: #a78bfa1a; border-color: #a78bfa88; }
+.coach-preparation-stages li[data-state='current'] svg { animation: coach-preparation-spin 1.8s linear infinite; }
+.coach-preparation-stages strong { display: block; font-size: 16px; }
+.coach-preparation-stages small { display: block; margin-top: 3px; color: #cbd5e1; font-size: 13px; }
+.coach-preparation-status { display: flex; gap: 14px; padding: 18px 20px; background: #080f1d80; border-radius: 16px; border: 1px solid #ffffff14; }
+.coach-preparation-status > svg { flex: 0 0 22px; color: #c4b5fd; }
+.coach-preparation-status > div { display: grid; gap: 6px; min-width: 0; font-variant-numeric: tabular-nums; }
+.coach-preparation-status strong { font-size: 16px; }
+.coach-preparation-status span, .coach-preparation-note { font-size: 13px; line-height: 1.6; color: #cbd5e1; }
+.coach-preparation-note { margin: 0; }
+@media (min-width: 800px) {
+  .coach-preparation-stages { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .coach-preparation-stages li { align-items: flex-start; padding: 12px 10px; gap: 10px; }
+}
+@keyframes coach-preparation-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .coach-preparation-stages li[data-state='current'] svg { animation: none; }
+  .coach-scenario-card { transition: none; }
+  .coach-scenario-card:hover, .coach-scenario-card:focus-visible { transform: none; }
+}
 .coach-scenario-dialog > footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 20px; }
 .coach-scenario-dialog > footer .rt-button { min-height: 48px; }
 .coach-scenario-chip { display: inline-flex; align-items: center; gap: 8px; border-color: #a78bfa66; background: #8b5cf61f; color: #ede9fe; }
 .coach-scenario-chip svg { width: 18px; height: 18px; color: #c4b5fd; }
 .coach-scenario-counter { padding: 0 8px; border-radius: 999px; background: #ffffff14; font-variant-numeric: tabular-nums; }
 @media (max-width: 760px) {
+  .coach-scenario-dialog { padding: 20px; border-radius: 20px; }
   .coach-scenario-cards { grid-template-columns: 1fr; }
   .coach-scenario-card { min-height: 0; }
+  .coach-preparation { gap: 14px; }
+  .coach-preparation-stages li { padding: 10px 8px; gap: 10px; }
+  .coach-preparation-status, .coach-preparation-story { padding: 14px; }
+  .coach-scenario-dialog > footer .rt-button { flex: 1 1 auto; white-space: normal; }
 }
 .coach-episode { display: grid; gap: 12px; padding: 22px; border-radius: 20px; border: 1px solid #a78bfa55;
   background: radial-gradient(circle at top left, #3b2a6b, #111827 70%); color: #f8fafc; }

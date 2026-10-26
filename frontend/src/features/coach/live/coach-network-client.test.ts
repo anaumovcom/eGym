@@ -292,6 +292,45 @@ describe('CoachNetworkClient', () => {
     } finally { runtime.dispose(); f.manager.dispose() }
   })
 
+  it.each(['before speech', 'buffering', 'started'] as const)('keeps real live speech in a background tab hidden %s', async boundary => {
+    const f = new Fixture()
+    let inputs: LiveInputs = { userId: 'u1', saved, session: session(), featureEnabled: true, hidden: false, emergency: false,
+      hardware: null, connected: true, general: { soundEnabled: true, voiceHintsEnabled: true, volume: 1 } }
+    const runtime = new CoachLiveRuntime({ read: () => inputs, subscribeInputs: () => () => undefined,
+      lifecycle: () => [], lifecycleRefs: () => null, network: f.client, context: () => f.context.asAudioContext(),
+      createManager: (_context, current) => { f.manager.updateScope(current); return f.manager },
+      clips: () => ({ get: () => null }), restorePack: () => undefined,
+      beep: new RepBeepArbiter(() => f.clock.now()), now: () => f.clock.now(), setInterval: () => 1, clearInterval: () => undefined })
+    const hide = () => { inputs = { ...inputs, hidden: true }; runtime.tick() }
+    try {
+      if (boundary === 'before speech') inputs = { ...inputs, hidden: true }
+      runtime.start()
+      await vi.waitFor(() => expect(f.sockets).toHaveLength(1))
+      f.socket.open()
+      f.socket.push({ type: 'configured', mode: 'hybrid', text: true, voice: true, degraded: false })
+      const event = f.socket.events()[0].event
+      expect(f.socket.sent.find(item => item.type === 'configure')).toMatchObject({ ownerId: 'tab-test' })
+      f.speech('background-voice', event)
+      if (boundary === 'buffering') hide()
+      f.socket.push(frame('background-voice', 0, 2, false, event.scope))
+      f.clock.advance(50, f.context); runtime.tick()
+      expect(f.manager.snapshot().active).toBe(1)
+      if (boundary === 'started') hide()
+      expect(runtime.getSnapshot().active).toBe(true)
+      expect(f.manager.snapshot().active).toBe(1)
+      expect(f.context.sources.every(source => source.stop.mock.calls.length === 0)).toBe(true)
+      f.socket.push(frame('background-voice', 1, .2, true, event.scope))
+      f.clock.advance(2300, f.context)
+      f.context.sources.forEach(source => source.end())
+      f.client.observe(f.manager.snapshot())
+      expect(f.client.getSnapshot()).toMatchObject({ spoken: 1, failed: 0 })
+      expect(f.socket.types()).toContain('playback_completed')
+      expect(f.socket.types()).not.toContain('playback_failed')
+      inputs = { ...inputs, hidden: false }; runtime.tick()
+      expect(f.client.getSnapshot().spoken).toBe(1)
+    } finally { runtime.dispose(); f.manager.dispose() }
+  })
+
   it('does not close audible speech when provider PCM bursts above the control-message limit', async () => {
     const f = new Fixture(); await f.connect()
     const socket = f.socket
@@ -1343,6 +1382,118 @@ describe('CoachNetworkClient scenarios (V1)', () => {
   const cards = [{ archetype: 'race', title: 'Гонка героев', tagline: 'Заезд за заездом', tone: 'дерзко' },
     { archetype: 'rpg', title: 'Боссфайт', tagline: 'Победи босса', tone: 'эпично' },
     { archetype: 'space', title: 'Орбита', tagline: 'Старт к звёздам', tone: 'торжественно' }]
+
+  const preparing = { state: 'preparing', exerciseId: 'e1', completed: 0, total: 5, ready: 0 }
+
+  it('atomically restores ready + preparation and waits for actual voice preparation, not the story', async () => {
+    const f = new Fixture()
+    f.input = { ...f.input, saved: { ...saved, scenarioPicker: true } }
+    await f.connect()
+    const observed: Array<ReturnType<typeof f.client.getSnapshot>> = []
+    const unsubscribe = f.client.subscribe(() => observed.push(f.client.getSnapshot()))
+    f.socket.push({ type: 'scenario', state: 'ready', title: 'Орбита', preparation: preparing })
+    expect(observed.filter(s => s.scenario?.phase === 'ready').every(s => s.preparation?.state === 'preparing')).toBe(true)
+    expect(f.socket.events()).toHaveLength(0)
+    f.socket.push({ type: 'preparation', ...preparing, completed: 3, ready: 2 })
+    expect(f.client.getSnapshot().preparation).toEqual({ ...preparing, completed: 3, ready: 2 })
+    expect(f.socket.events()).toHaveLength(0)
+    f.socket.push({ type: 'preparation', ...preparing, state: 'degraded', completed: 5, ready: 4 })
+    expect(f.socket.events().map(item => item.event.kind)).toEqual(['workout_started'])
+    unsubscribe()
+    f.client.dispose(); f.manager.dispose()
+  })
+
+  it.each(['ready', 'degraded'])('releases preparation on %s and does not duplicate the opening', async state => {
+    const f = new Fixture()
+    f.input = { ...f.input, saved: { ...saved, scenarioPicker: true } }
+    await f.connect()
+    f.socket.push({ type: 'scenario', state: 'ready', preparation: preparing })
+    f.socket.push({ type: 'preparation', ...preparing, state, completed: 5, ready: state === 'ready' ? 5 : 3 })
+    f.tick()
+    expect(f.socket.events().map(item => item.event.kind)).toEqual(['workout_started'])
+    f.client.dispose(); f.manager.dispose()
+  })
+
+  it.each([
+    { completed: -1 }, { completed: 1.5 }, { completed: '1' }, { total: 2, completed: 3 },
+    { completed: 1, ready: 2 }, { ready: -1 }, { total: null }, { total: Number.MAX_SAFE_INTEGER + 1 },
+    { exerciseId: 1 }, { state: 'unknown' },
+  ])('ignores invalid preparation fields %j', async patch => {
+    const f = new Fixture()
+    await f.connect()
+    f.socket.push({ type: 'preparation', ...preparing })
+    const before = f.client.getSnapshot().preparation
+    f.socket.push({ type: 'preparation', ...preparing, ...patch })
+    expect(f.client.getSnapshot().preparation).toBe(before)
+    f.client.dispose(); f.manager.dispose()
+  })
+
+  it('continues while the scenario is ready, ignores late updates and does not cancel audio or the story', async () => {
+    const f = new Fixture()
+    f.input = { ...f.input, saved: { ...saved, scenarioPicker: true } }
+    await f.connect()
+    f.socket.push({ type: 'scenario', state: 'ready', title: 'Орбита', preparation: preparing })
+    const cancel = vi.spyOn(f.manager, 'cancelStream')
+    f.client.skipScenario()
+    expect(f.client.getSnapshot()).toMatchObject({ scenario: { phase: 'ready', title: 'Орбита' }, preparation: { state: 'degraded' } })
+    expect(f.socket.events().map(item => item.event.kind)).toEqual(['workout_started'])
+    expect(f.socket.types()).not.toContain('scenario_skip')
+    expect(cancel).not.toHaveBeenCalled()
+    f.socket.push({ type: 'preparation', ...preparing, completed: 2, ready: 1 })
+    f.socket.push({ type: 'scenario', state: 'ready', preparation: preparing })
+    expect(f.client.getSnapshot().preparation?.state).toBe('degraded')
+    expect(f.socket.events()).toHaveLength(1)
+    f.client.dispose(); f.manager.dispose()
+  })
+
+  it('bounds prebuild waiting despite progress updates and ignores late progress after timeout', async () => {
+    const f = new Fixture()
+    f.input = { ...f.input, saved: { ...saved, scenarioPicker: true } }
+    await f.connect()
+    f.socket.push({ type: 'scenario', state: 'ready', preparation: preparing })
+    f.tick({ nowMs: f.input.nowMs + 100_000 })
+    f.socket.push({ type: 'preparation', ...preparing, completed: 2, ready: 2 })
+    f.tick({ nowMs: f.input.nowMs + 51_000 })
+    expect(f.client.getSnapshot().preparation?.state).toBe('degraded')
+    expect(f.socket.events()).toHaveLength(1)
+    f.socket.push({ type: 'preparation', ...preparing })
+    expect(f.client.getSnapshot().preparation?.state).toBe('degraded')
+    f.client.dispose(); f.manager.dispose()
+  })
+
+  it('keeps the preparation hold through reconnect, and resets it on user/workout changes or disabling', async () => {
+    const f = new Fixture()
+    f.input = { ...f.input, saved: { ...saved, scenarioPicker: true } }
+    await f.connect()
+    f.socket.push({ type: 'scenario', state: 'ready', preparation: preparing })
+    f.socket.serverClose()
+    f.timers.shift()!()
+    f.socket.open()
+    f.socket.push({ type: 'configured', text: true, voice: true })
+    expect(f.socket.events()).toHaveLength(0)
+    f.socket.push({ type: 'scenario', state: 'ready', preparation: { ...preparing, completed: 2, ready: 1 } })
+    expect(f.client.getSnapshot().preparation).toMatchObject({ state: 'preparing', completed: 2, ready: 1 })
+    f.socket.push({ type: 'preparation', ...preparing, state: 'ready', completed: 5, ready: 5 })
+    expect(f.socket.events()).toHaveLength(1)
+    f.tick({ userId: 'u2', session: session({ id: 'run-2' }), scope: scope({ userId: 'u2', runId: 'run-2' }) })
+    expect(f.client.getSnapshot().preparation).toBeUndefined()
+    expect(f.client.getSnapshot().scenario?.title).toBeNull()
+    f.tick({ featureEnabled: false })
+    expect(f.client.getSnapshot().scenario?.phase).toBe('off')
+    expect(f.client.getSnapshot().preparation).toBeUndefined()
+    f.client.dispose(); f.manager.dispose()
+  })
+
+  it('fails open on a scenario failure even during preparation', async () => {
+    const f = new Fixture()
+    f.input = { ...f.input, saved: { ...saved, scenarioPicker: true } }
+    await f.connect()
+    f.socket.push({ type: 'scenario', state: 'ready', preparation: preparing })
+    f.socket.push({ type: 'scenario', state: 'failed', reason: 'provider_timeout' })
+    expect(f.client.getSnapshot()).toMatchObject({ preparation: { state: 'degraded' }, scenario: { phase: 'failed' } })
+    expect(f.socket.events()).toHaveLength(1)
+    f.client.dispose(); f.manager.dispose()
+  })
 
   it('holds the opening until a story is chosen, proposes the plan and opens with the chosen one', async () => {
     const f = new Fixture()

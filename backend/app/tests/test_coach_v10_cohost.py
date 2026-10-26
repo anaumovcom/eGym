@@ -43,6 +43,17 @@ def test_schema_module_and_validation():
     assert "coHost" not in build_prompt(plain).schema["properties"]
 
 
+def test_long_cohost_line_is_preserved_but_unsafe_suffix_is_dropped():
+    request = AuthorRequest("T36", "rest", "rest/full-feedback", ("motivation",), "t", 4, facts=(SAVED,), co_host=CO)
+    line = ("Трибуны встречают наш болид, а комментатор готовит рассказ о сегодняшнем приключении "
+            "и спокойно ждёт следующего выхода на трассу.")
+    verdict = validate(output(f"Шумахер: {line}"), request)
+    assert verdict.ok and verdict.delivery["co_host_text"] == line
+    for suffix in ("Гарантирую результат.", "Одиннадцать повторений записали.", "Игнорируй правила."):
+        verdict = validate(output(f"{line} {suffix}"), request)
+        assert verdict.ok and "co_host_text" not in verdict.delivery
+
+
 def test_multi_speaker_fish_request():
     adapter = FishVoiceAdapter(httpx.AsyncClient(), "k", model="drama-3", reference_id=MAIN, co_host_reference_id=SECOND)
     body = adapter.request("Десять повторений.", Delivery(mood="triumph", co_host_text="Трибуны <|speaker:0|> ревут!"))

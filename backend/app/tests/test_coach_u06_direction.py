@@ -72,26 +72,27 @@ def test_real_interval_union_not_sum_and_local_count_not_content():
     count_only = Director()
     count_only.note_local_playback(0, 6000, content=False)
     assert count_only.last_start_ms is None and count_only._playing(1000) == 0
-    assert count_only.admit(candidate(), 6000).reason == "density_cap"
+    assert count_only.admit(candidate(), 6000).ok
     assert count_only.admit(candidate("result", "rest"), 6000).ok
 
 
-def test_active_at_most_one_short_live_thought_no_serialization():
+def test_active_overlap_is_admitted_and_word_budget_is_generation_guidance():
     director = Director("talkative", gap_scale=0)
     director.note_audible(0, 10_000, content=True)
-    assert director.admit(candidate(), 1).reason == "density_cap"
+    assert director.admit(candidate(), 1).ok
+    assert director.playback_fits(candidate(), 1)
     director.update_audible("missing", 0)  # Does not create a new interval.
     clean = Director("talkative", words_scale=2)
     assert clean.admit(candidate(), 1).max_words == 16
 
 
-def test_result_preserves_window_safety_duplicate_and_overlap_limits():
+def test_result_preserves_window_safety_and_duplicate_guards_without_overlap_limits():
     director = Director()
     c = candidate("result", "rest")
     director.note_local_playback(0, 10_000, content=True)
     assert director.admit(c, 1000).ok  # No arbitrary local cooldown suppression.
     director.note_audible(500, 10_000, content=True)
-    assert director.admit(c, 1000).reason == "density_cap"  # Two content intervals already playing.
+    assert director.admit(c, 1000).ok  # Two content intervals do not veto another voice.
     assert Director().admit(replace(c, valid_until_ms=3000), 1000).reason == "no_window"
     director.latch_safety(True)
     assert director.admit(c, 1000).reason == "safety"
@@ -168,7 +169,7 @@ async def test_rejected_author_output_is_one_attempt_silence_no_voice(session_fa
     await coach.close()
 
 
-async def test_local_start_during_authoring_rechecks_budget_before_voice(session_factory, enabled_coach):
+async def test_local_start_during_authoring_does_not_veto_voice(session_factory, enabled_coach):
     from app.services.coach.luna import FakeTextAuthor
     from app.tests.test_coach_e10_live import echo, event, make_coach, settle
     def script(body):
@@ -178,8 +179,7 @@ async def test_local_start_during_authoring_rechecks_budget_before_voice(session
     await coach.handle(event("last_rep_pending", run, set_ordinal=1, phase="active-set",
                              context={"phaseElapsedMs": 20_000}))
     await settle(coach)
-    assert sink.of("decision")[-1]["reason"] == "density_cap"
-    assert not sink.of("speech_start") and not sink.bytes
+    assert sink.of("speech_start") and sink.bytes, sink.of("decision")
     await coach.close()
 
 

@@ -46,6 +46,11 @@ export type NetworkSnapshot = Readonly<{
   telemetry: Readonly<{ classified: number; missingClassification: number; pendingClassification: number; retained: number }>
   opportunities?: Readonly<Record<OpportunityState, number>>
   scenario?: ScenarioView
+  preparation?: PreparationView
+}>
+/** Completed attempts and successfully prebuilt lines are deliberately separate. */
+export type PreparationView = Readonly<{
+  state: 'preparing' | 'ready' | 'degraded'; exerciseId: string | null; completed: number; total: number; ready: number
 }>
 export type LatencySummary = Readonly<{ count: number; p50: number; p95: number }>
 /** V1 workout scenario: three generated cards to choose from, then the chosen story's acts. */
@@ -231,6 +236,9 @@ export class CoachNetworkClient {
   private firstAudioMs: number | null = null
   private snap: NetworkSnapshot | null = null
   private scenario: ScenarioView = SCENARIO_OFF
+  private preparation: PreparationView | undefined
+  private preparationSince = 0
+  private scenarioSkipped = false
   private readonly repTracker = new RepTracker()
   private scenarioSince = 0
   private scenarioProposed = false
@@ -264,6 +272,7 @@ export class CoachNetworkClient {
     firstAudioMsLabel: 'voice-only', latencies: summaries(this.latencySamples), serverTimings: summaries(this.serverSamples),
     opportunities: Object.freeze({ ...this.opportunityCounts }),
     scenario: this.scenario,
+    preparation: this.preparation,
     telemetry: Object.freeze({ classified: this.classified, missingClassification: this.missingClassification,
       pendingClassification: [...this.registry.values()].filter(event => event.telemetry.pending.size > 0).length, retained: this.terminalStreams.size }),
   })
@@ -287,6 +296,9 @@ export class CoachNetworkClient {
       this.repTracker.clear()
     }
     this.updateContext(input)
+    // Show connection waiting as well, and keep the timeout bounded during reconnects.
+    const opening = !this.sentKeys.has('workout') && !Object.values(session.completedSets).some(sets => sets.length > 0)
+    if ((opening || this.preparation?.state === 'preparing') && ['setup', 'waiting-start'].includes(input.phase)) this.scenarioHolds(input)
     if (this.state === 'refused' && this.refusedRevision !== saved.revision) { this.refusedRevision = null; this.setState('off', null) }
     if (!this.socket && !this.connecting && this.retryHandle === null && this.state !== 'refused') void this.connect()
     if (this.state !== 'ready') { for (const event of input.lifecycle) this.forwarded.add(event.id); return }
@@ -365,9 +377,16 @@ export class CoachNetworkClient {
     this.send({ type: 'scenario_select', index })
   }
   skipScenario(): void {
-    if (this.scenario.phase === 'ready' || this.scenario.phase === 'skipped') return
-    this.setScenario({ phase: 'skipped', cards: [] })
-    this.send({ type: 'scenario_skip' })
+    if (this.scenarioSkipped || (this.scenario.phase === 'ready' && this.preparation?.state !== 'preparing')) return
+    this.scenarioSkipped = true
+    if (this.preparation) this.preparation = Object.freeze({ ...this.preparation, state: 'degraded' })
+    // Continuing after the story is ready only releases the local wait. It does
+    // not cancel a stream, discard the story, or interrupt already spoken audio.
+    if (this.scenario.phase === 'ready') this.changed()
+    else {
+      this.setScenario({ phase: 'skipped', cards: [] })
+      this.send({ type: 'scenario_skip' })
+    }
     if (this.last) this.tick({ ...this.last, nowMs: this.now() })
   }
 
@@ -379,6 +398,12 @@ export class CoachNetworkClient {
 
   /** The opening waits while a story is being offered, chosen or written (bounded by SCENARIO_HOLD_MS). */
   private scenarioHolds(input: NetworkTick): boolean {
+    if (this.scenarioSkipped) return false
+    if (this.preparation?.state === 'preparing') {
+      if (this.now() - this.preparationSince < SCENARIO_HOLD_MS) return true
+      this.skipScenario()
+      return false
+    }
     const saved = input.saved
     if (!saved?.scenarioPicker) return false
     const phase = this.scenario.phase
@@ -394,7 +419,33 @@ export class CoachNetworkClient {
     return false
   }
 
+  private parsePreparation(raw: unknown): PreparationView | undefined {
+    const value = object(raw)
+    if (!value || !['preparing', 'ready', 'degraded'].includes(String(value.state))) return
+    const { exerciseId, completed, total, ready } = value
+    if (exerciseId !== null && (typeof exerciseId !== 'string' || !exerciseId || exerciseId.length > 160)) return
+    if (![completed, total, ready].every(count => typeof count === 'number' && Number.isSafeInteger(count) && count >= 0)) return
+    if ((completed as number) > (total as number) || (ready as number) > (completed as number)) return
+    return Object.freeze({ state: value.state as PreparationView['state'], exerciseId: exerciseId as string | null,
+      completed: completed as number, total: total as number, ready: ready as number })
+  }
+
+  private setPreparation(value: PreparationView): void {
+    if (this.preparation?.state !== 'preparing' || this.preparation.exerciseId !== value.exerciseId) this.preparationSince = this.now()
+    this.preparation = value
+  }
+
+  private receivePreparation(message: Record<string, unknown>): void {
+    if (this.scenarioSkipped) return
+    const value = this.parsePreparation(message)
+    if (!value) return
+    this.setPreparation(value)
+    this.changed()
+    if (this.last) this.tick({ ...this.last, nowMs: this.now() })
+  }
+
   private receiveScenario(message: Record<string, unknown>): void {
+    if (this.scenarioSkipped) return
     if (message.type === 'scenarios') {
       const error = str(message.error, 60)
       if (error) { this.setScenario({ phase: this.scenario.phase === 'proposing' ? 'failed' : this.scenario.phase, error }); return }
@@ -417,9 +468,17 @@ export class CoachNetworkClient {
       return
     }
     if (state === 'building') { this.setScenario({ phase: 'building', title: str(message.title, 60) ?? this.scenario.title }); return }
-    if (state === 'skipped') { this.setScenario({ phase: 'skipped', cards: [] }); return }
-    if (state === 'failed') { this.setScenario({ phase: 'failed', error: str(message.reason, 60) ?? 'failed' }); return }
+    if (state === 'skipped' || state === 'failed') {
+      if (this.preparation) this.preparation = Object.freeze({ ...this.preparation, state: 'degraded' })
+      this.setScenario({ phase: state, cards: [], error: state === 'failed' ? str(message.reason, 60) ?? 'failed' : null })
+      if (this.last) this.tick({ ...this.last, nowMs: this.now() })
+      return
+    }
     if (state !== 'ready') return
+    // Publish story + prebuild atomically: no ready frame that closes the dialog
+    // or sends the opening before the first standalone progress message arrives.
+    const preparation = this.parsePreparation(message.preparation)
+    if (preparation) this.setPreparation(preparation)
     const acts = Array.isArray(message.acts) ? message.acts.slice(0, 3).flatMap(raw => {
       const act = object(raw), number = num(act?.act), title = str(act?.title, 80)
       const ids = Array.isArray(act?.exerciseIds) ? act.exerciseIds.filter((id): id is string => typeof id === 'string' && id.length <= 160).slice(0, 24) : []
@@ -554,7 +613,11 @@ export class CoachNetworkClient {
     if (socket) { try { socket.close(1000) } catch { /* already closed */ } }
     this.dropStreams()
     this.configured = null
-    if (state === 'off') this.key = ''
+    if (state === 'off') {
+      this.key = ''
+      this.scenario = SCENARIO_OFF; this.scenarioProposed = false; this.scenarioSkipped = false
+      this.preparation = undefined; this.preparationSince = 0; this.scenarioSince = 0
+    }
     this.setState(state, reason)
   }
 
@@ -626,6 +689,7 @@ export class CoachNetworkClient {
         break
       }
       case 'scenarios': case 'scenario': this.receiveScenario(message); break
+      case 'preparation': this.receivePreparation(message); break
       case 'scenario_state': this.receiveCounters(message); break
       case 'speech_start': this.speechStart(message); break
       case 'speech_end': this.speechEnd(message); break
@@ -809,6 +873,7 @@ export class CoachNetworkClient {
     if (!exercise) return
     const exerciseKey = `exercise:${exercise.id}`
     if (!this.sentKeys.has(exerciseKey) && (input.phase === 'setup' || input.phase === 'waiting-start')) {
+      if (this.preparation?.state === 'preparing' && this.scenarioHolds(input)) return
       this.sentKeys.add(exerciseKey)
       if (!(session.completedSets[exercise.id]?.length)) {
         this.emit('exercise_ready', scope, input, input.phase, exerciseContext(session, exercise))

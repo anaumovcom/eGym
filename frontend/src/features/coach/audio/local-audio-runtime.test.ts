@@ -235,7 +235,50 @@ describe('explicit test-tone preparation and gesture previews', () => {
     expect(missing.runtime.getSnapshot().reason).toBe('unavailable')
   })
 
-  it.each(['stop', 'hidden', 'user', 'mute', 'voice', 'mode', 'run', 'exercise', 'config', 'emergency', 'dispose'] as const)(
+  it('keeps active and pending local speech through background/foreground changes and admits background previews', async () => {
+    const f = ready()
+    expect(await f.runtime.playPreview('overlap')).toBe(true)
+    f.clock.advance(20, f.context)
+    expect(f.runtime.getSnapshot().audio).toMatchObject({ active: 1, pending: 2 })
+    const prepared = f.runtime.getSnapshot().prepared
+    f.change({ hidden: true })
+    expect(f.runtime.getSnapshot().audio).toMatchObject({ active: 1, pending: 2, muted: false })
+    expect(f.runtime.getSnapshot().prepared).toEqual(prepared)
+    f.clock.advance(160, f.context)
+    expect(f.runtime.getSnapshot().audio).toMatchObject({ active: 3, pending: 0 })
+    expect(f.context.sources.every(source => source.stop.mock.calls.length === 0)).toBe(true)
+    f.context.sources.forEach(source => source.end())
+    expect(await f.runtime.playPreview('single')).toBe(true)
+    f.clock.advance(20, f.context)
+    const unlocks = f.unlock.mock.calls.length
+    f.change({ hidden: false })
+    expect(f.runtime.getSnapshot().audio).toMatchObject({ active: 1, pending: 0, muted: false })
+    expect(f.unlock).toHaveBeenCalledTimes(unlocks)
+    expect(f.prepare).toHaveBeenCalledTimes(2)
+    expect(f.clear).not.toHaveBeenCalled()
+  })
+
+  it.each(['unlock', 'decode'] as const)('does not invalidate %s when the tab becomes hidden', async boundary => {
+    const f = ready(), unlock = deferred<boolean>(), decoded = deferred<AudioBuffer>()
+    f.unlock.mockReturnValueOnce(unlock.promise)
+    f.prepare.mockImplementation(() => decoded.promise)
+    const playback = f.runtime.playPreview('single')
+    if (boundary === 'decode') {
+      unlock.resolve(true)
+      await Promise.resolve(); await Promise.resolve()
+      expect(f.runtime.getSnapshot().prepared.loading).toBe(true)
+    }
+    f.change({ hidden: true })
+    unlock.resolve(true)
+    decoded.resolve(createTestClipBuffer(f.context.asAudioContext()))
+    expect(await playback).toBe(true)
+    f.clock.advance(20, f.context)
+    expect(f.runtime.getSnapshot().audio).toMatchObject({ active: 1, muted: false })
+    expect(f.clear).not.toHaveBeenCalled()
+    expect(f.unlock).toHaveBeenCalledTimes(1)
+  })
+
+  it.each(['stop', 'user', 'mute', 'voice', 'mode', 'run', 'exercise', 'config', 'emergency', 'dispose'] as const)(
     'invalidates pending decode immediately on %s and ignores late completions', async boundary => {
       const f = ready(), decoded = deferred<AudioBuffer>()
       f.prepare.mockImplementation(() => decoded.promise)
@@ -244,7 +287,6 @@ describe('explicit test-tone preparation and gesture previews', () => {
       expect(f.runtime.getSnapshot().prepared.loading).toBe(true)
       switch (boundary) {
         case 'stop': f.runtime.stopPreview(); break
-        case 'hidden': f.change({ hidden: true }); f.change({ hidden: false }); break
         case 'user': f.change({ userId: 'user-b' }); f.change({ userId: 'user-a' }); f.runtime.setSavedCoachPreferences('user-a', prefs); break
         case 'mute': f.change({ general: { ...f.inputs().general, soundEnabled: false } }); f.change({ general: f.inputs().general }); break
         case 'voice': f.runtime.setSavedCoachPreferences('user-a', { ...prefs, revision: 2, voiceProfile: 'cedar' }); break
@@ -273,11 +315,10 @@ describe('explicit test-tone preparation and gesture previews', () => {
     expect(f.unlock).toHaveBeenCalledTimes(1); expect(f.context.sources).toHaveLength(0)
   })
 
-  it.each(['hidden', 'emergency', 'hardware', 'runtime', 'sound'] as const)('rechecks %s after async unlock before decode', async boundary => {
+  it.each(['emergency', 'hardware', 'runtime', 'sound'] as const)('rechecks %s after async unlock before decode', async boundary => {
     const f = ready(), unlock = deferred<boolean>()
     f.unlock.mockReturnValueOnce(unlock.promise)
     const playback = f.runtime.playPreview('single')
-    if (boundary === 'hidden') f.change({ hidden: true })
     if (boundary === 'emergency') f.change({ emergency: true })
     if (boundary === 'hardware') f.change({ hardware: hardware({ control: { mode: 'training' } }) })
     if (boundary === 'runtime') f.change({ session: session('exercise-setup') })
@@ -376,7 +417,7 @@ describe('runtime and hardware admission/cancellation', () => {
 
   it('requires actual selected user, feature flag, consent/enabled saved state and effective saved sound', async () => {
     const f = ready()
-    for (const patch of [{ userId: null }, { featureEnabled: false }, { hidden: true }, { emergency: true }]) {
+    for (const patch of [{ userId: null }, { featureEnabled: false }, { emergency: true }]) {
       const before = f.inputs(); f.change(patch)
       expect(await f.runtime.playPreview('single')).toBe(false); f.change(before)
       f.runtime.setSavedCoachPreferences('user-a', prefs)
@@ -455,7 +496,7 @@ describe('runtime and hardware admission/cancellation', () => {
 })
 
 describe('default singleton store adapter', () => {
-  it('observes app/runtime/hardware/saved-general and visibility without writes, requests, or context construction', () => {
+  it('observes app/runtime/hardware/saved-general but ignores visibility without writes, requests, or context construction', () => {
     vi.stubEnv('VITE_COACH_ENABLED', 'true')
     const context = vi.fn(); vi.stubGlobal('AudioContext', context)
     useAppStore.setState({ selectedUserId: 'user-a', emergencyStopActive: false })
@@ -467,9 +508,9 @@ describe('default singleton store adapter', () => {
     const initial = runtime.getSnapshot()
     const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true)
     document.dispatchEvent(new Event('visibilitychange'))
-    expect(runtime.getSnapshot().reason).toBe('hidden')
+    expect(runtime.getSnapshot()).toBe(initial)
     hidden.mockReturnValue(false); document.dispatchEvent(new Event('visibilitychange'))
-    expect(runtime.getSnapshot().previewAllowed).toBe(true)
+    expect(runtime.getSnapshot()).toBe(initial)
     const afterVisibility = runtime.getSnapshot()
     useStage4Store.setState({ settingsDraft: { soundEnabled: false } })
     expect(runtime.getSnapshot()).toBe(afterVisibility)

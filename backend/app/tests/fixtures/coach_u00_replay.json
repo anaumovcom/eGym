@@ -16,7 +16,7 @@
     {"id": "start-restore", "group": "start", "driver": "replay", "status": "baseline_limitation", "limitation": "Fresh ReplayCoordinator has no persisted receipts; restoring it re-emits the greeting. This is not a production reconnect test.", "input": {"event": {"kind": "workout_started", "phase": "setup"}, "restart": true}, "expect": {"reason": null, "chunks": 1, "text_calls": 2, "voice_calls": 2, "restart_reason": null}},
 
     {"id": "set-short", "group": "set", "driver": "validation", "input": {"text": "Работа пошла, ровно и спокойно.", "max_words": 6}, "expect": {"ok": true, "reason": null}},
-    {"id": "set-long", "group": "set", "driver": "validation", "input": {"text": "Работа пошла, ровно и спокойно, сохраняем внимание на движении.", "max_words": 6}, "expect": {"ok": false, "reason": "length"}},
+    {"id": "set-long", "group": "set", "driver": "validation", "input": {"text": "Работа пошла, ровно и спокойно, сохраняем внимание на движении.", "max_words": 6}, "expect": {"ok": true, "reason": null}},
     {"id": "set-exact", "group": "set", "driver": "target", "input": {"low": 10, "high": 10, "unit": "reps"}, "expect": {"value": 10, "unit": "reps", "numbers": [10]}},
     {"id": "set-range", "group": "set", "driver": "target", "input": {"low": 8, "high": 12, "unit": "reps"}, "expect": {"value": "8-12", "unit": "reps", "numbers": [8, 12]}},
     {"id": "set-open-target", "group": "set", "driver": "target", "input": {"low": null, "high": null, "unit": "reps"}, "expect": {"absent": true}},

@@ -81,7 +81,6 @@ SendBytes = Callable[[bytes], Awaitable[None]]
 
 MAX_SEEN = 1024
 MAX_PENDING_ACKS = 32
-MAX_QUEUED = 4
 REST_EXTRA_MIN_MS = 35_000
 SUMMARY_TRIGGERS = {"T55", "T56", "T58", "T59"}
 # Saved-set trigger → P2 task. T38 (skipped) stays a local clip; T41 needs analysis opt-in (not offered).
@@ -353,6 +352,10 @@ class LiveCoach:
         self.episode_job: asyncio.Task | None = None
         self.prebuild_job: asyncio.Task | None = None
         self._prebuild_items: set[asyncio.Task] = set()
+        self._prebuild_target: PrebuildTarget | None = None
+        self.preparation: dict | None = None
+        self._preparation_targets: set[str] = set()
+        self._prebuild_settled: set[str] = set()
         self._sent_counters: list[dict] = []
         self._load_scenario()
 
@@ -391,17 +394,12 @@ class LiveCoach:
 
     async def _enqueue(self, op: Opportunity) -> None:
         await self._expire_queue()
-        if len(self.queue) >= MAX_QUEUED:
-            lowest = min(self.queue, key=lambda item: (self._priority(item), -(item.received_ms or 0)))
-            if self._priority(op) <= self._priority(lowest):
-                await self._decision(op.event_id, op.candidate.trigger_id, 'silence', 'queue_full')
-                return
-            self.queue.remove(lowest)
-            await self._decision(lowest.event_id, lowest.candidate.trigger_id, 'silence', 'queue_preempted')
+        # Inbound events are already bounded by MAX_SEEN. Do not impose a second,
+        # smaller limit that silently loses accepted speech during generation.
         self.queue.append(op)
         self.queue.sort(key=lambda item: (-self._priority(item),
                  self.memory.topic_blocked(item.candidate.topic_key),
-                 -(item.received_ms or 0), item.deadline_ms or float("inf")))
+                 item.received_ms or 0, item.deadline_ms or float("inf")))
 
     async def _expire_queue(self) -> None:
         for op in list(self.queue):
@@ -510,6 +508,10 @@ class LiveCoach:
                 return
         self.context = next_context
         self.contexts.append(next_context)
+        if next_context.scope and next_context.phase in {"setup", "waiting-start"} and not next_context.gated:
+            self._prepare_exercise(next_context.scope.exercise_id)
+            if self.preparation is not None:
+                await self.send_json({"type": "preparation", **self.preparation})
         ops = [entry[0] for entry in self.acks.values()]
         ops += [op for op in [self.active_op, *self.queue] if op is not None]
         # One opportunity may be both active and waiting for its playback ACK.
@@ -697,11 +699,9 @@ class LiveCoach:
         self.opportunities[event.id] = opportunity
         self.stats.opportunities['pending'] += 1
         if self.task and not self.task.done():
-            # A prebuild item takes a few seconds: live moments wait for it instead of being lost (V8).
-            if event.kind in {'set_persisted', 'exercise_finalized', 'workout_finalized'} or self.task in self._prebuild_items:
-                await self._enqueue(opportunity)
-                return
-            await self._decision(event.id, opportunity.candidate.trigger_id, "silence", "pipeline_busy")
+            # Generation is single-flight for provider/accounting safety, not a
+            # reason to discard a distinct live moment. Playback may overlap.
+            await self._enqueue(opportunity)
             return
         await self._admit_and_start(opportunity)
 
@@ -716,11 +716,7 @@ class LiveCoach:
             return
         # A queued callback can race an inbound event after the previous task ends.
         if self.task is not None and not self.task.done():
-            if (op.event and op.event.kind in {'set_persisted', 'exercise_finalized', 'workout_finalized'}) or (
-                    self.task in self._prebuild_items):
-                await self._enqueue(op)
-            else:
-                await self._decision(op.event_id, op.candidate.trigger_id, "silence", "pipeline_busy")
+            await self._enqueue(op)
             return
         tier = self.budget_tier()
         action = op.candidate.speech_action
@@ -854,10 +850,13 @@ class LiveCoach:
                 "counters": [{"id": c["id"], "label": c["label"],
                               "value": next((v["value"] for v in self.counter_state if v["id"] == c["id"]), None)}
                              for c in bible.get("counters", [])],
-                "coHost": bible.get("coHost")}
+                "coHost": bible.get("coHost"),
+                **({"preparation": dict(self.preparation)} if self.preparation is not None else {})}
 
     async def announce(self) -> None:
         """After `configured`: tell a (re)connected browser whether a story is already chosen."""
+        if self.scenario_bible:
+            self.schedule_prebuild()
         await self.send_json(self.scenario_state())
 
     async def _scenario_message(self, kind: str, message: dict) -> None:
@@ -957,8 +956,10 @@ class LiveCoach:
         with self.sessions() as db:
             scenario.save(db, self.run_id, self.user_id, card, bible)
         self.scenario_card, self.scenario_bible = card, bible
-        await self.send_json(self.scenario_state())
         self.schedule_prebuild()
+        # The ready story and pending voice preparation are one atomic update:
+        # the browser must not briefly dismiss the loading screen in between.
+        await self.send_json(self.scenario_state())
 
     # ---------- V11 episode ----------
 
@@ -1010,9 +1011,52 @@ class LiveCoach:
     # ---------- V8 prebuild ----------
 
     def schedule_prebuild(self) -> None:
+        if self.scenario_bible:
+            plan = self.scenario_bible.get("plan", [])
+            if plan and self.preparation is None:
+                self._begin_preparation(plan[min(self.plan_cursor, len(plan) - 1)]["id"])
+            if not self.author or not self.voice or self.settings.mode != "hybrid":
+                self._update_preparation(terminal=True)
+                return
         if (self.prebuild_job is None or self.prebuild_job.done()) and self.scenario_bible and self.author is not None \
                 and self.voice is not None and self.settings.mode == "hybrid":
             self.prebuild_job = asyncio.create_task(self._prebuild_all())
+
+    def _begin_preparation(self, exercise_id: str) -> None:
+        targets = {t.key for t in self._prebuild_targets() if t.exercise["id"] == exercise_id}
+        targets.update(key for key, target in self.prebuild_meta.items() if target.exercise["id"] == exercise_id)
+        if self._prebuild_target and self._prebuild_target.exercise["id"] == exercise_id:
+            targets.add(self._prebuild_target.key)
+        self._preparation_targets = targets
+        self.preparation = {"state": "preparing", "exerciseId": exercise_id,
+                            "completed": 0, "total": len(targets), "ready": 0}
+        self._update_preparation()
+
+    def _prepare_exercise(self, exercise_id: str | None) -> None:
+        if not exercise_id or not self.scenario_bible or not self.voice or not self.author or self.settings.mode != "hybrid":
+            return
+        plan = [e["id"] for e in self.scenario_bible.get("plan", [])]
+        if exercise_id not in plan or (self.preparation and self.preparation["exerciseId"] == exercise_id):
+            return
+        self.plan_cursor = max(self.plan_cursor, plan.index(exercise_id))
+        self._begin_preparation(exercise_id)
+        self.schedule_prebuild()
+
+    def _update_preparation(self, *, terminal: bool = False) -> None:
+        if self.preparation is None:
+            return
+        targets = self._preparation_targets
+        ready = len(targets.intersection(self.prebuilt))
+        completed = len(targets.intersection(self._prebuild_settled | self.prebuilt.keys()))
+        state = "preparing"
+        if terminal or completed == len(targets):
+            state = "ready" if ready == len(targets) else "degraded"
+        self.preparation = {**self.preparation, "state": state, "completed": completed, "ready": ready}
+
+    async def _announce_preparation(self, *, terminal: bool = False) -> None:
+        self._update_preparation(terminal=terminal)
+        if self.preparation is not None and not self.closed:
+            await self.send_json({"type": "preparation", **self.preparation})
 
     def _prebuild_targets(self) -> list[PrebuildTarget]:
         """Result-independent moments in workout order: the opening, story lines (acts, boss, last set) and, from
@@ -1163,6 +1207,16 @@ class LiveCoach:
         return (self.task is not None and not self.task.done()) or bool(self.queue)
 
     async def _prebuild_all(self) -> None:
+        try:
+            await self._announce_preparation()
+            await self._prebuild_pending()
+        finally:
+            # Failed/skipped requests must release the loading screen too. A
+            # degraded preparation falls back to live speech; it is not a block.
+            await self._announce_preparation(terminal=True)
+            self._prebuild_target = None
+
+    async def _prebuild_pending(self) -> None:
         if self.workout_started:
             await asyncio.sleep(PREBUILD_START_DELAY_S)  # Let the story's live opening line go first.
         attempted: set[str] = set()
@@ -1172,6 +1226,7 @@ class LiveCoach:
             if not pending:
                 return
             target = pending[0]
+            self._prebuild_target = target
             attempted.add(target.key)
             deadline = time.monotonic() + PREBUILD_IDLE_WAIT_S
             while time.monotonic() < deadline and not self.closed:
@@ -1194,6 +1249,8 @@ class LiveCoach:
                 if started is not False:
                     break  # Built, or skipped for budget/silence: either way this moment is settled.
                 # A live line took the slot between our check and the start: wait for it and retry.
+            self._prebuild_settled.add(target.key)
+            await self._announce_preparation()
 
     async def _prebuild_one(self, target: PrebuildTarget) -> bool | None:
         if self.task is not None and not self.task.done():
@@ -1815,11 +1872,6 @@ class LiveCoach:
         if not self._sources_current(op):
             self._mark(op, "ackCancel")
             await self._decision(op.event_id, trigger, "silence", "facts_changed")
-            return
-        # A local clip/another playback ACK may start while text is being authored.
-        # Recheck occupancy only, not the already-consumed attempt/slot counters.
-        if not self.director.playback_fits(op.candidate, self.now_ms()):
-            await self._decision(op.event_id, trigger, "silence", "density_cap")
             return
         valid_for = op.candidate.valid_until_ms - self.now_ms()
         if op.deadline_ms is not None:

@@ -200,7 +200,7 @@ async def test_saved_set_uses_db_comparison_with_locked_clause(session_factory):
     assert [m["reason"] for m in sink.of("decision")[-2:]] == ["owner_mismatch", "no_source"]
 
 
-async def test_busy_pipeline_skips_ordinary_but_queues_summary(session_factory):
+async def test_busy_pipeline_preserves_ordinary_and_summary_speech(session_factory):
     with session_factory() as db:
         _, exercise_id, _ = seed(db, actual=10, planned=10, status="completed")
     slow = FakeTextAuthor(echo(), delay_s=0.2)
@@ -209,9 +209,29 @@ async def test_busy_pipeline_skips_ordinary_but_queues_summary(session_factory):
     await coach.handle(event("rep_milestone", run_id, set_ordinal=1, phase="active-set"))
     await coach.handle(event("exercise_finalized", run_id, phase="exercise-summary",
                              refs={"backendExerciseId": exercise_id}))
-    assert sink.of("decision")[0]["reason"] == "pipeline_busy" and coach.queued is not None
+    assert not sink.of("decision") and len(coach.queue) == 2
     await settle(coach)
-    assert [m["triggerId"] for m in sink.of("speech_start")] == ["T01", "T55"]
+    assert [m["triggerId"] for m in sink.of("speech_start")] == ["T01", "T55", "T21"]
+    assert not sink.of("decision")
+
+
+async def test_busy_pipeline_burst_streams_every_distinct_moment(session_factory):
+    slow = FakeTextAuthor(echo(), delay_s=0.02)
+    coach, sink, run_id = make_coach(session_factory, fake_text=slow)
+    messages = [event("rep_milestone", run_id, set_ordinal=index, phase="active-set")
+                for index in range(1, 10)]
+    for message in messages:
+        await coach.handle(message)
+    assert len(coach.queue) == 8 and not sink.of("decision")
+    # Occupied playback must not swallow queued text after authoring either.
+    coach.director.note_audible(coach.now_ms(), 60_000, content=True)
+    coach.director.note_audible(coach.now_ms(), 60_000, content=True)
+    await settle(coach)
+    assert [m["eventId"] for m in sink.of("speech_start")] == [m["event"]["id"] for m in messages]
+    assert len(sink.of("speech_end")) == 9
+    assert all(m["status"] == "complete" for m in sink.of("speech_end"))
+    assert not sink.of("decision") and len(slow.calls) == 9
+    await coach.close()
 
 
 async def test_safety_cancels_speech_and_latches(session_factory):

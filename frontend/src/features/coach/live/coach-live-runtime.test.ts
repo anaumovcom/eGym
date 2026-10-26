@@ -179,13 +179,12 @@ describe('CoachLiveRuntime', () => {
     expect(f.runtime.getSnapshot().counters).toMatchObject({ cues: 1, admitted: 1 })
   })
 
-  it.each(['mute', 'missing_clip', 'hidden', 'scope_changed'] as const)
+  it.each(['mute', 'missing_clip', 'scope_changed'] as const)
   ('explains a completion cancellation/failure from %s without later replay', reason => {
     const f = new Fixture(networkPort()); fixtures.push(f)
     f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
     if (reason === 'missing_clip') f.available.delete('set-end')
     if (reason === 'mute') f.inputs = { ...f.inputs, general: { ...f.inputs.general, soundEnabled: false } }
-    if (reason === 'hidden') f.inputs = { ...f.inputs, hidden: true }
     f.complete('set_stopped')
     if (reason === 'scope_changed') {
       f.change({ userId: 'u2' })
@@ -223,12 +222,30 @@ describe('CoachLiveRuntime', () => {
   it.each([
     ['no consent', { saved: { ...saved, consentVersion: null } }, 'no_consent'],
     ['disabled', { saved: { ...saved, enabled: false } }, 'disabled'],
-    ['hidden', { hidden: true }, 'hidden'],
   ] as const)('%s gates audio', (_name, patch, reason) => {
     const f = make(); f.change(patch as Partial<LiveInputs>)
     f.view('exercise-setup'); f.view('exercise-session'); f.hw('start_hold', 0); f.hw('training', 0)
     expect(f.runtime.getSnapshot().counters.admitted).toBe(0)
     expect(f.runtime.getSnapshot().reason).toBe(reason)
+  })
+
+  it('keeps active local cues and admits new completion speech while the tab is hidden', () => {
+    const f = make()
+    f.complete('set_stopped')
+    f.clock.advance(20, f.context)
+    const source = f.context.sources[0]
+    expect(f.managers[0].snapshot().active).toBe(1)
+    f.change({ hidden: true })
+    expect(f.runtime.getSnapshot().active).toBe(true)
+    expect(f.managers[0].snapshot().active).toBe(1)
+    expect(source.stop).not.toHaveBeenCalled()
+    source.end()
+    f.complete('exercise_finalized')
+    f.clock.advance(20, f.context)
+    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'exercise-done', reason: 'admitted' })
+    expect(f.started).toBe(2)
+    f.change({ hidden: false })
+    expect(f.runtime.getSnapshot().counters).toMatchObject({ cues: 2, admitted: 2, suppressed: 0 })
   })
 
   it('a suspended context reports audio_locked and creates no manager', () => {

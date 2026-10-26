@@ -242,7 +242,7 @@ export class CoachLiveRuntime {
   }
 
   private gate(inputs: LiveInputs): AudioReason | null {
-    if (inputs.hidden) return 'hidden'
+    // Visibility is not ownership: background tabs retain unlocked coach audio.
     const saved = inputs.saved
     if (!saved || !saved.enabled) return 'disabled'
     if (saved.consentVersion !== 1) return 'no_consent'
