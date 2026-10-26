@@ -125,13 +125,13 @@ SET_MOMENTS: dict[str, tuple[str, str, tuple[str, ...]]] = {
 }
 SET_MOMENT_KINDS = {"set_activated": "start", "rep_completed": "partial", "rep_milestone": "half",
                     "last_rep_pending": "finish"}
-# V7.1: lines with time to think get three variants and a judge (never in-set cues or verbatim tips/catalog).
-VARIANT_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "rest/full-feedback", "rest/partial-feedback",
-                           "rest/comparison", "rest/playful", "rest/record", "rest/why", "summary/exercise",
-                           "summary/workout"})
+# V7.1: lines with time to think get variants and a judge (never in-set cues or verbatim tips/catalog).
+# Live runs 26.10.2026: a single rest result is voiced 3–4 s after the set, with variants 8–12 s; the quick reaction
+# felt more alive at the same quality. Variants stay for prepared story lines, records and the workout summary.
+VARIANT_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "rest/record", "summary/workout"})
 TIER_NO_VARIANTS = 1
-# Live run 26.10.2026: every variant adds ~2.5 s of output. Lines the listener waits for (rest results) get two;
-# prepared or unhurried lines (opening, acts, boss, the workout summary) keep three.
+# Live run 26.10.2026: every variant adds ~2.5 s of output. A record the listener waits for gets two; prepared or
+# unhurried lines (opening, acts, boss, the workout summary) keep three.
 THREE_VARIANT_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "summary/workout"})
 # V10: the co-host speaks at most once per this many lines, never in-set; voice pairs for the two library voices.
 CO_HOST_EVERY = 4

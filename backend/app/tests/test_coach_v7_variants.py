@@ -76,7 +76,7 @@ async def test_without_a_judge_the_first_valid_variant_speaks(session_factory):
     assert rejected.kind == "silence" and rejected.reason == "validation_failed:number"
 
 
-async def test_live_rest_lines_ask_for_variants_and_rotate_story_motifs(session_factory):
+async def test_live_rest_lines_are_single_and_rotate_story_motifs(session_factory):
     seen = []
 
     def script(body):
@@ -95,7 +95,8 @@ async def test_live_rest_lines_ask_for_variants_and_rotate_story_motifs(session_
                              context={"restMs": 120_000, "restElapsedMs": 20_000}))
     await settle(coach)
     body, data = seen[-1]
-    assert "candidates" in body["text"]["format"]["schema"]["properties"]
+    # Ordinary rest lines answer at once with one line; variants are for records, story lines and the summary.
+    assert "candidates" not in body["text"]["format"]["schema"]["properties"]
     assert data["optionalMotif"]["text"] == "механик кричит в рацию"
     assert coach.motif_uses == {"механик кричит в рацию": 1}
     assert coach._story_motif(type("Op", (), {"exercise_id": "ex-2"})())[0] == "соперник в зеркале"
