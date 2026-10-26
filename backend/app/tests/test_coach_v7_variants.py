@@ -198,3 +198,12 @@ def test_worn_words_reach_single_lines_but_world_and_fact_words_stay():
     built = build_prompt(request)
     assert WORN_WORDS_MODULE in built.instructions and json.loads(built.data)["wornWords"] == ["микрофон", "табло"]
     assert "wornWords" not in json.loads(build_prompt(REQ).data)
+
+
+def test_a_verbal_tic_across_the_workout_is_worn_out():
+    from app.services.coach.prompts import worn_words
+
+    said = ("Снаряд собрал команду без лишнего пафоса.", "Табло сияет.", "Эфир гудит.", "Финал рядом.",
+            "Арена ждёт.", "Сегодня всё без лишнего пафоса!", "Табло сияет снова.")
+    request = replace(REQ, variants=1, workout_heard=said)
+    assert worn_words(request) == ["лишнего пафоса", "табло сияет"]

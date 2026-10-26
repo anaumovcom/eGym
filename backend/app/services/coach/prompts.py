@@ -253,6 +253,8 @@ class AuthorRequest:
     coach_context: CoachContext | None = None
     say_exercise_name: bool = True
     recent_heard: tuple[dict, ...] = ()
+    # Texts of the whole workout so far (bounded): only for spotting verbal tics, never sent verbatim.
+    workout_heard: tuple[str, ...] = ()
     discussed_tips: tuple[tuple[str, str], ...] = ()
     cross_workout_preferences: tuple[tuple[str, str], ...] = ()
     optional_motif: str | None = None
@@ -381,8 +383,8 @@ CO_HOST_MODULE = """V10: coHost — второй персонаж сюжета (
 RESULT_VARIETY_MODULE = """Результат подхода: если в recentHeard уже звучала та же цифра или «план выполнен», не повторяй
 эту формулировку и не начинай так же. Скажи по-другому («снова чистые десять», «дубль», «как по нотам») или начни
 с образа сюжета, а факт поставь вторым. Каждая реплика результата должна звучать как новый момент шоу."""
-WORN_WORDS_MODULE = """wornWords — слова, которые уже прозвучали в двух недавних репликах: шутка на них износилась.
-Не используй их и однокоренные снова; названия упражнений и слова из allowedFacts можно."""
+WORN_WORDS_MODULE = """wornWords — слова и связки, которые уже повторялись (в недавних репликах или за тренировку):
+шутка на них износилась. Не используй их и однокоренные снова; названия упражнений и слова из allowedFacts можно."""
 REVIEW_MODULE = """V9.2: в allowedFacts есть разбор подхода по датчикам тренажёра (set-velocity, set-tempo, set-steady,
 set-pause). Если это уместно, после главного результата добавь одно наблюдение из этих фактов и один ориентир на
 следующий подход: ровный темп, подконтрольное опускание, без долгих пауз. Ориентир не меняет вес, повторы и план и
@@ -401,9 +403,10 @@ def _stem(word: str) -> str:
 
 
 def worn_words(req: AuthorRequest) -> list[str]:
-    """Distinctive words heard in two of the last six lines (live run 26.10.2026: «микрофон» in four lines in a row).
+    """Distinctive words heard in two of the last six lines (live run 26.10.2026: «микрофон» in four lines in a row)
+    and word pairs heard twice in the whole workout — verbal tics («без лишнего пафоса» five times in one run).
     World words (lexicon) and fact words stay allowed: they are meant to sound all workout."""
-    keep = {_stem(w) for w in re.findall(r"[а-яё]{5,}", " ".join(
+    keep = {_stem(w) for w in re.findall(r"[а-яё]{4,}", " ".join(
         [*(f.claim for f in req.facts), *(str(e.get("to", "")) for e in (req.scenario or {}).get("lexicon", []))]).lower())}
     lines: dict[str, int] = {}
     forms: dict[str, str] = {}
@@ -415,7 +418,20 @@ def worn_words(req: AuthorRequest) -> list[str]:
                 seen.add(stem)
                 lines[stem] = lines.get(stem, 0) + 1
                 forms.setdefault(stem, word)
-    return [forms[stem] for stem, count in lines.items() if count >= 2][:8]
+    worn = [forms[stem] for stem, count in lines.items() if count >= 2][:8]
+    pairs: dict[tuple[str, str], int] = {}
+    pair_forms: dict[tuple[str, str], str] = {}
+    for text in req.workout_heard[-40:]:
+        tokens = re.findall(r"[а-яё]{4,}", text.lower().replace("ё", "е"))
+        seen_pairs = set()
+        for first, second in zip(tokens, tokens[1:], strict=False):
+            key = (_stem(first), _stem(second))
+            if key[0] in keep and key[1] in keep or key in seen_pairs:
+                continue
+            seen_pairs.add(key)
+            pairs[key] = pairs.get(key, 0) + 1
+            pair_forms.setdefault(key, f"{first} {second}")
+    return worn + [pair_forms[key] for key, count in pairs.items() if count >= 2][:8]
 
 
 def personality_modules(req: AuthorRequest) -> list[str]:

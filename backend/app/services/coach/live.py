@@ -130,9 +130,9 @@ SET_MOMENT_KINDS = {"set_activated": "start", "rep_completed": "partial", "rep_m
 # felt more alive at the same quality. Variants stay for prepared story lines, records and the workout summary.
 VARIANT_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "rest/record", "summary/workout"})
 TIER_NO_VARIANTS = 1
-# Live run 26.10.2026: every variant adds ~2.5 s of output. A record the listener waits for gets two; prepared or
-# unhurried lines (opening, acts, boss, the workout summary) keep three.
-THREE_VARIANT_TASKS = frozenset({"setup/opening", "setup/act", "setup/boss", "summary/workout"})
+# Live runs 26.10.2026: every variant adds ~2.5 s of output, and three prepared variants (8–13 s) sometimes hit the
+# 15 s bound. Two variants everywhere; only the workout summary, with nothing after it, keeps three.
+THREE_VARIANT_TASKS = frozenset({"summary/workout"})
 # V10: the co-host speaks at most once per this many lines, never in-set; voice pairs for the two library voices.
 CO_HOST_EVERY = 4
 CO_HOST_PHASES = frozenset({"rest", "summary", "setup"})
@@ -1526,6 +1526,7 @@ class LiveCoach:
             say_numbers=s.say_numbers, local_completion=op.local_completion.acknowledged if op.local_completion else (),
             coach_context=op.coach_context, say_exercise_name=s.say_exercise_name,
             recent_heard=self.memory.heard(), discussed_tips=tuple(self.memory.completed_tips)[-32:],
+            workout_heard=tuple(u.text for u in self.memory.started.values())[-40:],
             cross_workout_preferences=tuple(self.cross_preferences.items()) if s.memory_enabled else (),
             optional_motif=motif, motif_callback=callback, category=op.candidate.topic_family,
             character=s.persona, profanity=s.profanity and not risk, assistant_context=s.assistant_context,
