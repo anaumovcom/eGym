@@ -90,7 +90,7 @@ def test_prompts_are_verbatim_copies_of_approved_document():
     assert quotes("### 6.3.1.")[0] == P1_DARK
     hashes = static_hashes()
     # U06 explicitly versions the approved P0/P2 action/association refinements.
-    assert hashes["version"] == "coach-prompts-0.19" and len(hashes["p0"]) == 64 and len(hashes) == 6 + len(P2)
+    assert hashes["version"] == "coach-prompts-0.20" and len(hashes["p0"]) == 64 and len(hashes) == 6 + len(P2)
 
 
 def test_personality_modules_are_fixed_enum_texts_and_dark_humor_needs_humor():

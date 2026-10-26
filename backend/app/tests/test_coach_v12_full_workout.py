@@ -164,7 +164,9 @@ async def test_full_workout_end_to_end(session_factory, monkeypatch):
             await asyncio.sleep(0.01)
         with session_factory() as db:
             journal_rows = [(a.task, a.stage, a.outcome, a.error_code) for a in db.query(CoachAttempt).filter_by(run_id=run_id).order_by(CoachAttempt.created_at)]
-        assert set(coach.prebuilt) == {"T68:ex-2", "T69:ex-2"}, (coach.prebuilt.keys(), journal_rows)
+        # Story lines and (V12) plan-only in-set lines of both exercises (the lookahead covers the next one).
+        assert {"T68:ex-2", "T69:ex-2", "T21:ex-1:1:start", "T21:ex-1:1:finish", "T19:ex-1:fast-descent",
+                "T21:ex-2:1:start"} <= set(coach.prebuilt), (coach.prebuilt.keys(), journal_rows)
 
         service = RuntimeService()
         with session_factory() as db:
@@ -235,6 +237,7 @@ async def test_full_workout_end_to_end(session_factory, monkeypatch):
         assert expected in triggers, (expected, report)
     assert any(t in triggers for t in ("T55", "T56")) and any(t in triggers for t in ("T58", "T59")), report
     assert [m for m in starts if m.get("prebuilt")], report
+    assert [m for m in starts if m["triggerId"] == "T21" and m.get("prebuilt")], report  # set starts were prepared
     assert all(e["status"] == "complete" for e in sink.of("speech_end")), sink.of("speech_end")
     assert coach.stats.reasons.get("internal_error", 0) == 0, coach.stats.as_dict()
     assert sink.of("scenario_state")[-1]["counters"][0]["value"] > 0

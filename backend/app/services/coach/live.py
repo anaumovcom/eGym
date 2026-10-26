@@ -14,6 +14,7 @@ import time
 from collections import Counter, deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field, replace
+from typing import NamedTuple
 
 import httpx
 from fastapi import HTTPException
@@ -104,8 +105,15 @@ SCENARIO_WORDS = 30
 PREBUILD_START_DELAY_S = 3.0
 PREBUILD_IDLE_WAIT_S = 60.0
 PREBUILD_VALID_MS = 2 * 3_600_000
-PREBUILD_MAX_LINES = 12
+PREBUILD_MAX_LINES = 40
 OPENING_KEY = "T01:opening"
+# V12 (live runs 26.10.2026): plan-only moments are prepared one exercise ahead, between sets — set start and
+# «last reps» of every set, one tempo and one «hardest reps» cue per exercise (a fixed sensor category, no numbers)
+# and «what it works» (catalog). Generated live they came 3–7 s late; the finish of a set lasts only a few reps.
+PREBUILD_LOOKAHEAD = 1
+PREBUILD_IN_SET_WORDS = 14
+PREBUILD_WHY_WORDS = 30
+FAST_DESCENT_METRICS = {"eccentricS": 0.5, "concentricS": 1.0}
 SPEECH_TIMING_STAGES = ("receive", "textStart", "textEnd", "firstPcm", "speechEnd", "ackStart", "ackEnd", "ackCancel")
 PROGRESS_FACTS = frozenset({"set-position", "sets-left", "exercise-position", "plan-sets", "planned-sets"})
 # In-set moments (T21 set support): claim, per-set topic, intents. The browser only says which moment it is;
@@ -161,6 +169,22 @@ class PrebuiltLine:
     intent: str | None
     mood: str | None
     exercise_name: str | None
+    # V12: the exact claims of the facts the line used; the live moment must carry the same ones.
+    claims: tuple[tuple[str, str], ...] = ()
+
+
+class PrebuildTarget(NamedTuple):
+    key: str
+    trigger: str
+    task: str
+    exercise: dict
+    position: int
+    set_ordinal: int | None = None
+    moment: str | None = None  # start/finish of a set, rest, or a per-exercise sensor cue (tempo/velocity)
+
+
+# V12 plan-only moments whose prepared line is checked against the live facts before it plays.
+CHECKED_PREBUILT = frozenset({"T19", "T21", "T70"})
 
 
 class _FactsChangedError(Exception):
@@ -319,6 +343,12 @@ class LiveCoach:
         self.lines_since_co_host = CO_HOST_EVERY
         self.prebuilt: dict[str, PrebuiltLine] = {}
         self.workout_started = False
+        # V12 prepared-line bookkeeping: where the workout is (plan index, highest set seen, inside a set).
+        self.plan_cursor = 0
+        self.set_reached: dict[str, int] = {}
+        self.in_set = False
+        self.prebuild_texts: list[str] = []
+        self.prebuild_meta: dict[str, PrebuildTarget] = {}
         self.episode_job: asyncio.Task | None = None
         self.prebuild_job: asyncio.Task | None = None
         self._prebuild_items: set[asyncio.Task] = set()
@@ -601,6 +631,7 @@ class LiveCoach:
             await self._reject(event.id, "duplicate" if event.id in self.seen else "queue_full")
             return
         self.seen.add(event.id)
+        self._note_progress(event)
         if event.kind in {"pain_reported", "safety_changed"}:
             self.director.latch_safety(True)
             await self.cancel("safety")
@@ -982,30 +1013,93 @@ class LiveCoach:
                 and self.voice is not None and self.settings.mode == "hybrid":
             self.prebuild_job = asyncio.create_task(self._prebuild_all())
 
-    def _prebuild_targets(self) -> list[tuple[str, str, str, dict, int]]:
-        """(key, trigger, task, plan exercise, position) for result-independent story moments."""
+    def _prebuild_targets(self) -> list[PrebuildTarget]:
+        """Result-independent moments in workout order: the opening, story lines (acts, boss, last set) and, from
+        V12, plan-only in-set/rest lines — those only for the current exercise and the next one; story lines of
+        later exercises follow at the end."""
         plan = self.scenario_bible.get("plan", []) if self.scenario_bible else []
-        targets = []
+        s = self.settings
+        in_set = s.during_sets and s.density != "quiet"
+        targets: list[PrebuildTarget] = []
+        later: list[PrebuildTarget] = []
+        if plan and not self.workout_started:
+            # Live run 26.10.2026: on a slow API the story opening (variants + judge) expired before the voice.
+            targets.append(PrebuildTarget(OPENING_KEY, "T01", "setup/opening", plan[0], 1))
         for position, exercise in enumerate(plan, 1):
-            act = scenario.act_state(self.scenario_bible, exercise["id"])
+            near = position - 1 <= self.plan_cursor + PREBUILD_LOOKAHEAD
+            ex = exercise["id"]
+            act = scenario.act_state(self.scenario_bible, ex)
             if position > 1 and act is not None:
                 trigger, task = (("T68", "setup/boss") if act.last_exercise else
                                  ("T67", "setup/act") if act.first_of_act and act.act > 1 else ("T04", "setup/opening"))
-                targets.append((f"{trigger}:{exercise['id']}", trigger, task, exercise, position))
-        if plan:
-            targets.append((f"T69:{plan[-1]['id']}", "T69", "active/finale", plan[-1], len(plan)))
-            if not self.workout_started:
-                # Live run 26.10.2026: on a slow API the story opening (variants + judge) expired before the voice.
-                targets.insert(0, (OPENING_KEY, "T01", "setup/opening", plan[0], 1))
-        return targets[:PREBUILD_MAX_LINES]
+                (targets if near else later).append(PrebuildTarget(f"{trigger}:{ex}", trigger, task, exercise, position))
+            sets = exercise.get("sets") if type(exercise.get("sets")) is int else 0
+            reps = near and in_set and exercise.get("kind", "machine") not in history.TIMED_KINDS
+            for ordinal in range(1, sets + 1):
+                if position == len(plan) and ordinal == sets:
+                    (targets if near else later).append(PrebuildTarget(f"T69:{ex}", "T69", "active/finale", exercise,
+                                                                       position, ordinal, "start"))
+                elif reps:
+                    targets.append(PrebuildTarget(f"T21:{ex}:{ordinal}:start", "T21", "active/support", exercise,
+                                                  position, ordinal, "start"))
+                if reps and ordinal == 1:
+                    targets.append(PrebuildTarget(f"T19:{ex}:fast-descent", "T19", "active/tempo", exercise, position,
+                                                  None, "tempo"))
+                    targets.append(PrebuildTarget(f"T21:{ex}:velocity_drop_hard", "T21", "active/support", exercise,
+                                                  position, None, "velocity_drop_hard"))
+                if reps:
+                    targets.append(PrebuildTarget(f"T21:{ex}:{ordinal}:finish", "T21", "active/support", exercise,
+                                                  position, ordinal, "finish"))
+                if near and ordinal == 1 and s.during_rest and exercise.get("slug") and ex not in self.why_done:
+                    targets.append(PrebuildTarget(f"T70:{ex}", "T70", "rest/why", exercise, position, 1, "rest"))
+        return [t for t in targets + later if not self._prebuild_passed(t)][:PREBUILD_MAX_LINES]
 
-    def _prebuild_op(self, trigger: str, task: str, exercise: dict, position: int) -> Opportunity:
+    def _prebuild_passed(self, target: PrebuildTarget, *, strictly: bool = False) -> bool:
+        """The moment is now or behind the workout: preparing it would only waste money. `strictly` — only behind,
+        so a prepared line is dropped no earlier than the event after its own moment."""
+        index = target.position - 1
+        if target.key == OPENING_KEY:
+            return self.workout_started and (not strictly or self.plan_cursor > 0 or bool(self.set_reached))
+        if index != self.plan_cursor:
+            return index < self.plan_cursor
+        reached = self.set_reached.get(target.exercise["id"], 0)
+        if target.moment in {"start", "finish", "rest"}:
+            if strictly or target.moment == "rest":
+                return target.set_ordinal < reached
+            return target.set_ordinal < reached or (target.set_ordinal == reached and (
+                target.moment == "start" or not self.in_set))
+        if target.moment is None:
+            return index > 0 and (reached > 0 or not strictly)  # The current exercise's introduction.
+        return False
+
+    def _note_progress(self, event: CoachEvent) -> None:
+        """V12: follow the workout through the plan; prepared lines run one exercise ahead and stop at passed moments."""
+        plan = [e["id"] for e in (self.scenario_bible or {}).get("plan", [])]
+        exercise = event.scope.exercise_id
+        if event.kind == "workout_started":
+            self.workout_started = True
+        self.in_set = event.phase == "active-set"
+        if exercise not in plan:
+            return
+        if event.scope.set_ordinal:
+            self.set_reached[exercise] = max(self.set_reached.get(exercise, 0), event.scope.set_ordinal)
+        if plan.index(exercise) > self.plan_cursor:
+            self.plan_cursor = plan.index(exercise)
+            self.schedule_prebuild()
+        for key in [k for k, target in self.prebuild_meta.items() if self._prebuild_passed(target, strictly=True)]:
+            self.prebuilt.pop(key, None)
+            self.prebuild_meta.pop(key, None)
+
+    def _prebuild_op(self, target: PrebuildTarget) -> Opportunity:
+        trigger, task, exercise, position = target.trigger, target.task, target.exercise, target.position
         now = self.now_ms()
         total = len(self.scenario_bible.get("plan", []))
         common = {"scope_epoch": 0, "valid_until_ms": now + PREBUILD_VALID_MS, "ref": f"prebuild:{exercise['id']}",
                   "provenance": "runtime-event-declaration", "quantity_kind": "declared", "sufficiency": "limited"}
         name = history.speakable_name(exercise.get("name"))
-        found = [AllowedFact("exercise", f"Упражнение — {name}", "confirmed", name, **common) if name else None]
+        named = AllowedFact("exercise", f"Упражнение — {name}", "confirmed", name, **common) if name else None
+        found = [named]
+        context: dict = {}
         if trigger == "T01":
             found = [AllowedFact("exercise-count", f"В тренировке {spoken_quantity(total, 'exercises')}", "confirmed",
                                  total, "exercises", numbers=(total,), **common) if total else None,
@@ -1017,6 +1111,24 @@ class LiveCoach:
                 found += regular
         elif trigger == "T69":
             found.append(AllowedFact("milestone", "Идёт последний подход всей тренировки", "confirmed", "finale", **common))
+        elif trigger in {"T19", "T21"}:
+            # The same fact builders as the live moment in plan(), so the claims match word for word.
+            sets = exercise.get("sets") if type(exercise.get("sets")) is int else None
+            if target.set_ordinal is not None:
+                found += progress_facts(target.set_ordinal, sets, **common)[:1]
+            goals = exercise.get("targets") or []
+            exact = goals[target.set_ordinal - 1] if target.moment == "start" and len(goals) >= (
+                target.set_ordinal or 0) > 0 else None
+            if exact:
+                found.append(target_fact(exact, exact, "reps", prefix="Цель подхода —", **common))
+            if trigger == "T21":
+                found.append(AllowedFact("milestone", SET_MOMENTS[target.moment][0], "confirmed", target.moment,
+                                         **common))
+            if target.moment in {"tempo", "velocity_drop_hard"}:
+                found += telemetry.moment_facts(target.moment, FAST_DESCENT_METRICS, common)
+            context = {"moment": target.moment, **({"totalSets": sets} if sets else {})}
+        elif trigger == "T70":
+            found += progress.why_facts(exercise.get("slug"), scope_epoch=0, valid_until_ms=now + PREBUILD_VALID_MS)
         else:
             found.append(AllowedFact("exercise-position", "Это последнее упражнение тренировки", "confirmed", position,
                                      **common) if position == total else
@@ -1027,27 +1139,45 @@ class LiveCoach:
                 found.append(AllowedFact("plan-sets", f"По плану {spoken_quantity(sets, 'sets')}", "confirmed", sets,
                                          "sets", numbers=(sets,), **common))
         package = FactPackage(trigger, tuple(f for f in found if f is not None), Comparison("unavailable"), "none")
-        phase = "active" if trigger == "T69" else "setup"
-        scope = CoachScope(user_id=self.user_id, run_id=self.scope_run_id, exercise_id=exercise["id"])
+        phase = "active" if trigger in {"T69", "T19", "T21"} else "rest" if trigger == "T70" else "setup"
+        scope = CoachScope(user_id=self.user_id, run_id=self.scope_run_id, exercise_id=exercise["id"],
+                           set_ordinal=target.set_ordinal)
+        words_cap = None if trigger in {"T69", "T19", "T21", "T70"} else SCENARIO_WORDS
         candidate = Candidate(trigger, f"prebuild:{exercise['id']}", phase, now, now + PREBUILD_VALID_MS,
-                              f"prebuild:{trigger}:{exercise['id']}", {}, words_cap=None if trigger == "T69" else SCENARIO_WORDS,
+                              f"prebuild:{target.key}", {}, words_cap=words_cap,
                               topic_family=TRIGGERS[trigger].family, speech_action=speech_action(task))
-        return Opportunity(f"prebuild-{trigger}-{exercise['id']}", candidate, task, ("motivation", "humor"), scope,
-                           self._shape(package), exercise["id"])
+        intents = (SET_MOMENTS[target.moment][2] if trigger == "T21" else
+                   ("general-tip", "motivation") if trigger in {"T19", "T70"} else ("motivation", "humor"))
+        return Opportunity(f"prebuild-{target.key}", candidate, task, intents, scope, self._shape(package), exercise["id"],
+                           source_context=tuple(context.items()))
+
+    @staticmethod
+    def _prebuild_words(trigger: str) -> int:
+        return (14 if trigger == "T69" else PREBUILD_IN_SET_WORDS if trigger in {"T19", "T21"} else
+                PREBUILD_WHY_WORDS if trigger == "T70" else SCENARIO_WORDS)
+
+    def _prebuild_busy(self) -> bool:
+        return (self.task is not None and not self.task.done()) or bool(self.queue)
 
     async def _prebuild_all(self) -> None:
         if self.workout_started:
             await asyncio.sleep(PREBUILD_START_DELAY_S)  # Let the story's live opening line go first.
-        for key, trigger, task, exercise, position in self._prebuild_targets():
-            if self.closed or not self.scenario_bible:
+        attempted: set[str] = set()
+        while not self.closed and self.scenario_bible:
+            # Recomputed each pass: the lookahead moves with the workout while this job runs (V12).
+            pending = [t for t in self._prebuild_targets() if t.key not in self.prebuilt and t.key not in attempted]
+            if not pending:
                 return
-            if key in self.prebuilt:
-                continue
+            target = pending[0]
+            attempted.add(target.key)
             deadline = time.monotonic() + PREBUILD_IDLE_WAIT_S
             while time.monotonic() < deadline and not self.closed:
-                while self.task is not None and not self.task.done() and time.monotonic() < deadline:
+                # Live speech first: a running line and queued moments (bounded), and the set itself (V12).
+                while not self.closed and (self.in_set or self._prebuild_busy() and time.monotonic() < deadline):
                     await asyncio.sleep(0.2)
-                item = asyncio.create_task(self._prebuild_one(key, trigger, task, exercise, position))
+                if self._prebuild_passed(target):
+                    break
+                item = asyncio.create_task(self._prebuild_one(target))
                 self._prebuild_items.add(item)
                 item.add_done_callback(self._prebuild_items.discard)
                 try:
@@ -1056,21 +1186,30 @@ class LiveCoach:
                     raise
                 except Exception:  # A failed preparation only means this moment is authored live.
                     self._note("prebuild_error")
-                    logger.exception("coach prebuild failed key=%s", key)
+                    logger.exception("coach prebuild failed key=%s", target.key)
                     break
                 if started is not False:
                     break  # Built, or skipped for budget/silence: either way this moment is settled.
                 # A live line took the slot between our check and the start: wait for it and retry.
 
-    async def _prebuild_one(self, key: str, trigger: str, task: str, exercise: dict, position: int) -> bool | None:
+    async def _prebuild_one(self, target: PrebuildTarget) -> bool | None:
         if self.task is not None and not self.task.done():
             return False  # A live line took the slot first; the caller waits and retries.
         self.task = asyncio.current_task()
         self.task.add_done_callback(self._after)
-        op = self._prebuild_op(trigger, task, exercise, position)
+        key, trigger, task, exercise = target.key, target.trigger, target.task, target.exercise
+        op = self._prebuild_op(target)
         if self.budget_tier() >= 1:
             return  # Economy: prepared lines are a luxury, live results and summaries come first.
-        request = self._request(op, 14 if trigger == "T69" else SCENARIO_WORDS)
+        moods = (self.moods.current, self.moods.changed_ms, dict(self.moods.exercise_outcomes))
+        try:
+            request = self._request(op, self._prebuild_words(trigger))
+        finally:
+            # A prepared moment is not happening now: it must not move the live mood.
+            self.moods.current, self.moods.changed_ms, self.moods.exercise_outcomes = moods
+        heard = tuple(u.text for u in self.memory.started.values())
+        request = replace(request, prepared_lines=tuple(self.prebuild_texts[-8:]),
+                          workout_heard=(heard + tuple(self.prebuild_texts))[-40:])
         outcome = await self.author.author(run_id=self.run_id, owner=self.owner, generation=self.generation,
                                            opportunity=f"{self.run_id}:prebuild:{key}", request=request, memory=None,
                                            scope_epoch=0, purpose="prebuild", timeout_s=15,
@@ -1092,9 +1231,49 @@ class LiveCoach:
             async for frame in frames:
                 pcm += decode_frame(frame).data
         if voice.status == "complete" and pcm:
+            claims = tuple((f.id, f.claim) for f in (op.package.facts if op.package else ())
+                           if f.id in outcome.used_fact_ids)
             self.prebuilt[key] = PrebuiltLine(key, outcome.text, outcome.used_fact_ids, bytes(pcm), voice.source,
                                               outcome.intent, (request.mood or {}).get("name"),
-                                              history.speakable_name(exercise.get("name")))
+                                              history.speakable_name(exercise.get("name")), claims)
+            self.prebuild_meta[key] = target
+            self.prebuild_texts.append(outcome.text)
+
+    def _prebuilt_key(self, op: Opportunity) -> str | None:
+        """Which prepared line would serve this live moment (V12 keys carry the set and the moment)."""
+        trigger, exercise = op.candidate.trigger_id, op.exercise_id
+        if trigger == "T01":
+            return OPENING_KEY
+        if not exercise:
+            return None
+        topic = op.candidate.topic_key
+        values = {f.id: f.value for f in (op.package.facts if op.package else ())}
+        if trigger == "T21":
+            ordinal = op.scope.set_ordinal
+            if topic.startswith("set-start:") and ordinal:
+                return f"T21:{exercise}:{ordinal}:start"
+            if topic.startswith("set-finish:") and ordinal:
+                return f"T21:{exercise}:{ordinal}:finish"
+            if topic.startswith("set-velocity:") and values.get("velocity-drop") == "hard":
+                return f"T21:{exercise}:velocity_drop_hard"
+            return None
+        if trigger == "T19":
+            return f"T19:{exercise}:fast-descent" if values.get("tempo-ratio") == "fast-descent" else None
+        return f"{trigger}:{exercise}"
+
+    def _prebuilt_fits(self, op: Opportunity, line: PrebuiltLine) -> bool:
+        """A prepared line plays only if the live moment still says what the line says, in the right mood."""
+        if op.candidate.trigger_id not in CHECKED_PREBUILT:
+            return line.exercise_name is None or not op.package or line.exercise_name in {
+                f.value for f in op.package.facts if f.id == "exercise"}
+        live = {f.id: f.claim for f in (op.package.facts if op.package else ())}
+        if any(live.get(fact_id) != claim for fact_id, claim in line.claims):
+            return False
+        # After a partial set or with a risk flag the moment needs care, not a cheerful line written in advance.
+        if (op.coach_context and op.coach_context.risk) or self.moods.exercise_outcomes.get(
+                op.exercise_id or "") in {"partial", "limited"}:
+            return False
+        return not (self.memory.opening_blocked(line.text) or self.memory.repeated(line.text))
 
     async def _play_prebuilt(self, op: Opportunity, line: PrebuiltLine) -> None:
         """Speak a prepared line for this live moment: same ACK/memory path, re-framed for the live scope."""
@@ -1232,7 +1411,6 @@ class LiveCoach:
         name = _name(context, "exerciseName")
         named = AllowedFact("exercise", f"Упражнение — {name}", "confirmed", name, **common) if name else None
         if event.kind == "workout_started":
-            self.workout_started = True
             if not s.greeting and not s.exercise_intro:
                 return "disabled"
             count = _count(context, "exerciseCount")
@@ -1569,11 +1747,9 @@ class LiveCoach:
         opportunity = f"{self.run_id}:{op.key}"
         if not self._current(op):
             return
-        key = OPENING_KEY if trigger == "T01" else f"{trigger}:{op.exercise_id}" if op.exercise_id else None
+        key = self._prebuilt_key(op)
         line = self.prebuilt.pop(key, None) if key else None
-        if line is not None and self.voice is not None and self.settings.mode == "hybrid" and (
-                line.exercise_name is None or line.exercise_name in {
-                    f.value for f in (op.package.facts if op.package else ()) if f.id == "exercise"} or not op.package):
+        if line is not None and self.voice is not None and self.settings.mode == "hybrid" and self._prebuilt_fits(op, line):
             await self._play_prebuilt(op, line)
             return
         if self.author is None:

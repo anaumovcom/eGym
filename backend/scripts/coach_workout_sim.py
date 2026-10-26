@@ -180,8 +180,9 @@ async def run(args) -> int:
 
     async def settle():
         for _ in range(3000):
+            # Prepared lines are built in real rests (60–90 s); the compressed timeline waits for them.
             busy = (coach.task is not None and not coach.task.done()) or coach.queue or any(
-                j is not None and not j.done() for j in (coach.scenario_job,))
+                j is not None and not j.done() for j in (coach.scenario_job, coach.prebuild_job))
             if not busy:
                 return
             await asyncio.sleep(0.05)
@@ -211,7 +212,9 @@ async def run(args) -> int:
 
     try:
         await coach.announce()
-        await coach.handle({"type": "scenario_propose", "plan": [{k: e[k] for k in ("id", "name", "sets")} for e in PLAN]})
+        await coach.handle({"type": "scenario_propose", "plan": [
+            {"id": e["id"], "name": e["name"], "sets": e["sets"], "kind": "machine", "slug": e["slug"],
+             "targets": [10] * e["sets"]} for e in PLAN]})
         await settle()
         proposal = next((m for m in reversed(messages) if m["type"] == "scenarios"), {})
         for index, card in enumerate(proposal.get("cards", [])):
@@ -263,6 +266,9 @@ async def run(args) -> int:
                                     "phaseElapsedMs": 22_000, "telemetry": {"reps": 6, "velocityDropPct": 34,
                                                                             "eccentricS": 0.6, "concentricS": 1.2}},
                            gap_ms=10_000)
+                await send("last_rep_pending", exercise=item["id"], set_ordinal=set_ordinal, phase="active-set",
+                           context={**context, "moment": "finish", "phaseElapsedMs": 30_000, "targetReps": 10},
+                           gap_ms=6_000)
                 with SessionLocal() as db:
                     set_id = service.save_set_result(db, SetResultSaveSchema(
                         exercise_session_id=exercise_db, set_number=set_ordinal, planned_value=10, actual_value=10,

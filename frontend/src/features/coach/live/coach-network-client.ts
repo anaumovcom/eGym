@@ -344,8 +344,13 @@ export class CoachNetworkClient {
   proposeScenarios(): void {
     const session = this.last?.session
     if (!session || this.state !== 'ready' || !['waiting', 'choosing', 'failed', 'off'].includes(this.scenario.phase)) return
-    const plan = session.exercises.slice(0, 24).map(exercise => ({ id: exercise.id, name: exercise.name.slice(0, 120),
-      sets: Math.max(1, Math.min(50, exercise.plan.length)), kind: exercise.kind }))
+    // The slug and each set's exact rep goal let the coach prepare plan-only lines (set start/finish, «what it works»).
+    const plan = session.exercises.slice(0, 24).map(exercise => {
+      const slug = exerciseIdentity(session, exercise).exerciseSlug
+      return { id: exercise.id, name: exercise.name.slice(0, 120), sets: Math.max(1, Math.min(50, exercise.plan.length)),
+        kind: exercise.kind, ...(slug ? { slug } : {}),
+        ...(exercise.plan.length <= 50 ? { targets: exercise.plan.map(set => whole(exactRepTarget(set)) ?? null) } : {}) }
+    })
     if (!plan.length) return
     this.scenarioProposed = true
     this.setScenario({ phase: 'proposing', error: null })

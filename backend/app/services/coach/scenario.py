@@ -89,6 +89,9 @@ class PlanExercise:
     name: str
     sets: int
     kind: str = "machine"
+    # Optional, for lines prepared ahead: the catalog slug (what the exercise works) and each set's exact rep goal.
+    slug: str | None = None
+    targets: tuple[int | None, ...] = ()
 
 
 def clean_text(value: object, limit: int) -> str | None:
@@ -98,6 +101,9 @@ def clean_text(value: object, limit: int) -> str | None:
     if not text or len(text) > limit or not _TEXT.match(text) or _FORBIDDEN.search(text) or re.search(r"\d", text):
         return None
     return text
+
+
+_SLUG = re.compile(r"[a-z][a-z0-9]*(?:-[a-z0-9]+)*")
 
 
 def parse_plan(raw: object) -> tuple[PlanExercise, ...] | None:
@@ -113,7 +119,11 @@ def parse_plan(raw: object) -> tuple[PlanExercise, ...] | None:
                 or not 1 <= len(name) <= 120 or type(sets) is not int or not 1 <= sets <= 50):
             return None
         kind = item.get("kind") if item.get("kind") in {"machine", "bodyweight", "timed", "stretch", "group"} else "machine"
-        found.append(PlanExercise(exercise_id, " ".join(name.split())[:80], sets, kind))
+        slug = item.get("slug") if isinstance(item.get("slug"), str) and _SLUG.fullmatch(item["slug"]) else None
+        raw_targets = item.get("targets")
+        targets = tuple(t if type(t) is int and 0 < t <= 1000 else None for t in raw_targets) if (
+            isinstance(raw_targets, list) and len(raw_targets) == sets) else ()
+        found.append(PlanExercise(exercise_id, " ".join(name.split())[:80], sets, kind, slug, targets))
     if len({e.id for e in found}) != len(found):
         return None
     return tuple(found)
@@ -247,7 +257,9 @@ def validate_bible(output: object, plan: tuple[PlanExercise, ...]) -> dict | Non
     forbidden = [f for f in (clean_text(item, 90) for item in output.get("forbidden") or []) if f]
     return {**bible, "lexicon": lexicon[:10], "motifs": motifs[:6], "acts": acts, "exerciseRoles": roles,
             "counters": counters, "coHost": {"role": role, "name": name} if role and name else None,
-            "forbidden": forbidden[:4], "plan": [{"id": e.id, "name": e.name, "sets": e.sets} for e in plan]}
+            "forbidden": forbidden[:4],
+            "plan": [{"id": e.id, "name": e.name, "sets": e.sets, "kind": e.kind, "slug": e.slug, "targets": list(e.targets)}
+                     for e in plan]}
 
 
 def save(db: Session, run_id: str, user_id: str, card: dict, bible: dict) -> None:

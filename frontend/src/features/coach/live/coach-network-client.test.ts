@@ -1339,7 +1339,9 @@ describe('CoachNetworkClient scenarios (V1)', () => {
     f.socket.push({ type: 'scenario', state: 'none' })
     f.tick()
     const propose = f.socket.sent.find(item => item.type === 'scenario_propose') as { plan: Array<Record<string, unknown>> }
-    expect(propose.plan).toEqual([{ id: 'e1', name: 'Жим ногами', sets: 2, kind: 'machine' }, { id: 'e2', name: 'Тяга', sets: 1, kind: 'machine' }])
+    // V12: each set's exact rep goal travels with the plan so plan-only lines can be prepared ahead.
+    expect(propose.plan).toEqual([{ id: 'e1', name: 'Жим ногами', sets: 2, kind: 'machine', targets: [10, 10] },
+      { id: 'e2', name: 'Тяга', sets: 1, kind: 'machine', targets: [10] }])
     expect(f.socket.events()).toHaveLength(0)
     expect(f.client.getSnapshot().scenario?.phase).toBe('proposing')
     f.socket.push({ type: 'scenarios', cards, proposalsLeft: 3 })

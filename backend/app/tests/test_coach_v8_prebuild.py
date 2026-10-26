@@ -33,7 +33,9 @@ async def wait(job):
 async def test_prebuild_then_play_without_new_paid_requests(session_factory, monkeypatch):
     monkeypatch.setattr(live, "PREBUILD_START_DELAY_S", 0)
     calls = []
-    coach, sink, run_id = make_coach(session_factory, CoachPreferences(**HYBRID), fake_text=FakeTextAuthor(script(calls)))
+    # Story lines only here; plan-only in-set lines (V12) have their own test.
+    coach, sink, run_id = make_coach(session_factory, CoachPreferences(**{**HYBRID, "during_sets": False}),
+                                     fake_text=FakeTextAuthor(script(calls)))
     plan = scenario.parse_plan(PLAN)
     coach.scenario_card = {"title": "Гонка героев", "archetype": "race"}
     coach.scenario_bible = scenario.validate_bible(bible_for({"plan": PLAN}), plan)
