@@ -1229,7 +1229,15 @@ class LiveCoach:
         delivery = select_delivery(delivery, intent=outcome.intent, action=op.candidate.speech_action, outcome=None,
                                    enabled=getattr(self.voice.adapter, "emotive", False))
         if getattr(self.voice.adapter, "emotive", False) and request.mood:
-            delivery = replace(delivery, mood=request.mood["name"], phase="rest", sounds=self.settings.voice_sounds)
+            # The same voice rules as a live line (mood, humor, sounds); the curve between lines is applied by nobody:
+            # the playback order is not known yet.
+            s = self.settings
+            crowd = s.crowd_effects and (self.scenario_card or {}).get("archetype") in expressive.CROWD_ARCHETYPES
+            context = expressive.VoiceContext(humor=outcome.intent == "humor", roast=request.roast,
+                                              mood=request.mood["name"], sounds=s.voice_sounds, crowd=crowd)
+            delivery = replace(delivery, segments=tuple(expressive.allowed(seg, context) for seg in delivery.segments),
+                               mood=request.mood["name"], phase=op.candidate.phase, sounds=s.voice_sounds,
+                               crowd=bool(crowd))
         voice = VoiceOutcome()
         pcm = bytearray()
         async with contextlib.aclosing(self.voice.stream(

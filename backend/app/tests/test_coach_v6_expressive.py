@@ -156,3 +156,14 @@ async def test_live_fish_request_carries_mood_voice_and_parameters(session_facto
 def test_every_mood_has_a_palette_voice(mood):
     base = expressive.base_segment(mood)
     assert base.emotion in expressive.ALWAYS and base.emotion not in expressive.FORBIDDEN
+
+
+def test_an_in_set_line_is_one_breath_at_most_two_colours_and_no_pauses():
+    from app.services.coach.voice import Delivery, fish_markup
+
+    text = "Стыковочный манёвр! Финальный виток миссии! Жим от груди! Эфиру пора показать класс!"
+    colours = tuple(Segment(e, pause="short pause") for e in ("excited", "determined", "proud", "confident"))
+    in_set = fish_markup(text, Delivery(mood="grind", phase="active", segments=colours), "expressive")
+    assert in_set.count("[") == 2 and "pause" not in in_set and expressive.strip_markup(in_set) == text
+    rest = fish_markup(text, Delivery(mood="triumph", phase="rest", segments=colours), "expressive")
+    assert rest.count("short pause") >= 2 and rest.count("[") >= 4  # between sets the author's staging stays

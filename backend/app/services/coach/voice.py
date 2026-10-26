@@ -258,6 +258,10 @@ def expressive_segments(delivery: Delivery, emotion: str) -> tuple:
     segments = (first, *segments[1:])
     if not delivery.sounds:
         segments = tuple(replace(seg, sound="none") for seg in segments)
+    if delivery.phase == "active":
+        # In a set the line is one breath: at most two colours and no staged pauses (live run 26.10.2026: a nine-word
+        # cue cut into four exclamations took 10 s). Later sentences follow the second one's voice.
+        segments = tuple(replace(seg, pause="none") for seg in segments[:2])
     if emotion == "subtle":
         # Subtle: one emotion for the line, no sounds, pauses or inline tags.
         segments = (replace(segments[0], sound="none", pause="none", tags=(), direction=""),)
