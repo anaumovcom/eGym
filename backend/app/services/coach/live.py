@@ -1021,6 +1021,8 @@ class LiveCoach:
         plan = self.scenario_bible.get("plan", []) if self.scenario_bible else []
         s = self.settings
         in_set = s.during_sets and s.density != "quiet"
+        # Sensor cues rarely fit a calmer density's set slots (live run 26.10.2026: all three capped in «companion»).
+        cues = in_set and s.density in {"talkative", "show"}
         targets: list[PrebuildTarget] = []
         later: list[PrebuildTarget] = []
         if plan and not self.workout_started:
@@ -1043,7 +1045,7 @@ class LiveCoach:
                 elif reps:
                     targets.append(PrebuildTarget(f"T21:{ex}:{ordinal}:start", "T21", "active/support", exercise,
                                                   position, ordinal, "start"))
-                if reps and ordinal == 1:
+                if reps and cues and ordinal == 1:
                     targets.append(PrebuildTarget(f"T19:{ex}:fast-descent", "T19", "active/tempo", exercise, position,
                                                   None, "tempo"))
                     targets.append(PrebuildTarget(f"T21:{ex}:velocity_drop_hard", "T21", "active/support", exercise,

@@ -61,7 +61,7 @@ def test_plan_keeps_slug_and_set_goals_for_prepared_lines():
 
 
 async def test_targets_cover_the_current_and_next_exercise_and_story_lines_later(session_factory, monkeypatch):
-    coach, _, _, _ = await prepared_coach(session_factory, monkeypatch)
+    coach, _, _, _ = await prepared_coach(session_factory, monkeypatch, CoachPreferences(**{**HYBRID, "density": "show"}))
     keys = [t.key for t in coach._prebuild_targets()]
     assert keys[:7] == ["T21:ex-1:1:start", "T19:ex-1:fast-descent", "T21:ex-1:velocity_drop_hard",
                         "T21:ex-1:1:finish", "T70:ex-1", "T21:ex-1:2:start", "T21:ex-1:2:finish"]
@@ -73,10 +73,16 @@ async def test_targets_cover_the_current_and_next_exercise_and_story_lines_later
                                           CoachPreferences(**{**HYBRID, "density": "quiet"}))
     assert not [t for t in quiet._prebuild_targets() if t.trigger in {"T19", "T21"}]
     await quiet.close()
+    calm, _, _, _ = await prepared_coach(session_factory, monkeypatch,
+                                         CoachPreferences(**{**HYBRID, "density": "companion"}))
+    keys = [t.key for t in calm._prebuild_targets()]
+    assert "T21:ex-1:1:start" in keys and not [k for k in keys if k.startswith("T19") or "velocity" in k]
+    await calm.close()
 
 
 async def test_prepared_set_lines_play_only_when_facts_and_mood_still_match(session_factory, monkeypatch):
-    coach, sink, run_id, calls = await prepared_coach(session_factory, monkeypatch)
+    coach, sink, run_id, calls = await prepared_coach(session_factory, monkeypatch,
+                                                      CoachPreferences(**{**HYBRID, "density": "show"}))
     try:
         coach.schedule_prebuild()
         await wait(coach.prebuild_job)
