@@ -166,6 +166,8 @@ class Delivery:
     crowd: bool = False
     # V10: a short line of the story's second character, voiced after the main line in the co-host voice.
     co_host_text: str = ""
+    # The text already carries validated drama-3 tags (expressive.parse_tagged): sent verbatim, never rewritten.
+    tagged: bool = False
 
     def __post_init__(self):
         if (self.energy not in ENERGY or self.pace not in PACE or self.emphasis not in EMPHASIS
@@ -204,7 +206,7 @@ def select_delivery(delivery: Delivery, *, intent: str | None, action: str, outc
     return Delivery(delivery.energy if energy == "auto" else energy,
                     delivery.pace if pace == "auto" else pace, delivery.emphasis, profile,
                     delivery.direction, delivery.sound, delivery.stress, delivery.segments, delivery.mood,
-                    delivery.phase, delivery.sounds, delivery.crowd, delivery.co_host_text)
+                    delivery.phase, delivery.sounds, delivery.crowd, delivery.co_host_text, delivery.tagged)
 
 
 # ---------- Fish Audio emotion markup (drama-3: [free-form direction] + paired <tag>…</tag>) ----------
@@ -266,6 +268,10 @@ def fish_markup(text: str, delivery: Delivery, emotion: str) -> str:
     """Pure: verbatim speech text plus stage directions; the words themselves never change."""
     if emotion not in EMOTION_LEVELS:
         raise ValueError("Unknown emotion level")
+    if delivery.tagged:
+        # A pre-tagged script: several emotions in one request, tags kept exactly as written.
+        spoken = expressive.parse_tagged(text)
+        return spoken if emotion == "off" else text.strip()
     clean = " ".join(_FISH_MARKUP.sub(" ", text).split())
     if emotion == "off":
         return clean

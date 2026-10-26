@@ -238,3 +238,51 @@ def synthesis(profile: str, mood: str, phase: str) -> dict:
     params = {"temperature": temperature, "prosody": {"speed": speed, "volume": volume}, "language": "ru",
               "latency": "low" if phase == "active" else "balanced"}
     return params
+
+
+# ---------- pre-tagged scripts (operator/pack text with inline drama-3 tags) ----------
+# Free-form bracket directions/sounds/pauses ([excited], [very excited], [small laugh], [break], also Cyrillic),
+# placed anywhere and back to back, plus the seven documented paired tags. Speaker/phoneme control tokens are not
+# accepted here: multi-speaker requests are assembled only by the adapter.
+_TAG_TOKEN = re.compile(r"\[[^\[\]]*\]|</?[A-Za-z]+>|[\[\]<>|]")
+_BRACKET_BODY = re.compile(r"^[A-Za-zА-Яа-яЁё][A-Za-zА-Яа-яЁё0-9 ,.'\-]{0,79}$")
+
+
+class TaggedTextError(ValueError):
+    pass
+
+
+def parse_tagged(markup: str) -> str:
+    """Validate a drama-3 script with inline tags and return its spoken words (tags removed).
+
+    The script itself is never rewritten: a valid one is sent verbatim, an invalid one is refused (no silent edits)."""
+    if not isinstance(markup, str) or not markup.strip():
+        raise TaggedTextError("empty")
+    open_tags: list[str] = []
+    spoken = []
+    position = 0
+    for match in _TAG_TOKEN.finditer(markup):
+        spoken.append(markup[position:match.start()])
+        position = match.end()
+        token = match.group()
+        if token.startswith("[") and token.endswith("]") and len(token) > 2:
+            if not _BRACKET_BODY.match(token[1:-1].strip()) or re.search(r"(?i)ignore|system|instruction|prompt", token):
+                raise TaggedTextError(f"bad_direction:{token[:40]}")
+            continue
+        if token.startswith("</") and token[2:-1] in TAGS:
+            if not open_tags or open_tags.pop() != token[2:-1]:
+                raise TaggedTextError(f"unbalanced:{token}")
+            continue
+        if token.startswith("<") and token.endswith(">") and token[1:-1] in TAGS:
+            if open_tags:
+                raise TaggedTextError(f"nested:{token}")  # drama-3 paired tags are word-level, never nested
+            open_tags.append(token[1:-1])
+            continue
+        raise TaggedTextError(f"bad_token:{token[:40]}")
+    if open_tags:
+        raise TaggedTextError(f"unclosed:<{open_tags[-1]}>")
+    spoken.append(markup[position:])
+    words = " ".join("".join(spoken).split())
+    if not re.search(r"[A-Za-zА-Яа-яЁё]", words):
+        raise TaggedTextError("no_words")
+    return words
