@@ -196,6 +196,9 @@ def test_real_pilot_result_quantity_before_full_outcome_is_not_a_plan_quantity(s
         {"input": [{"content": build_prompt(req).data}]})
     payload["usedFactIds"] = ["saved-set", "outcome"]
     assert validate(payload, req).ok
+    for text in ("Десять повторений — план миссии выполнен.", "Десять повторений — и план выполнен!"):
+        assert validate({**payload, "text": text}, req).ok, text  # a world word for the plan (live run 26.10.2026)
+    assert not validate({**payload, "text": "Десять повторений — план на завтра выполнен заранее."}, req).ok
     assert not validate(payload, replace(req, outcome="partial")).ok
     assert not validate({**payload, "text": "Десять килограммов — план подхода выполнен."}, req).ok
     assert not validate({**payload, "usedFactIds": ["target", "outcome"]}, req).ok

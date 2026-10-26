@@ -52,6 +52,7 @@ from app.services.coach.facts import (
 from app.services.coach.identity import SpeechContext, WorkState, identity, matches_identity, same_run
 from app.services.coach.luna import LunaTextAdapter, TextAuthor, text_pricing
 from app.services.coach.memory import CoachMemory, CrossWorkoutStore, RunMemoryStore, Utterance
+from app.services.coach.memory import opening as opening_words
 from app.services.coach.mood import Mood, MoodTracker, classify
 from app.services.coach.personas import persona
 from app.services.coach.prompts import DEFAULT_FORBIDDEN, AuthorRequest
@@ -1208,8 +1209,10 @@ class LiveCoach:
             # A prepared moment is not happening now: it must not move the live mood.
             self.moods.current, self.moods.changed_ms, self.moods.exercise_outcomes = moods
         heard = tuple(u.text for u in self.memory.started.values())
-        request = replace(request, prepared_lines=tuple(self.prebuild_texts[-8:]),
-                          workout_heard=(heard + tuple(self.prebuild_texts))[-40:])
+        prepared = tuple(self.prebuild_texts[-8:])
+        request = replace(request, prepared_lines=prepared, workout_heard=(heard + tuple(self.prebuild_texts))[-40:],
+                          recent_openings=tuple(dict.fromkeys([*request.recent_openings,
+                                                               *(opening_words(text) for text in prepared)]))[-10:])
         outcome = await self.author.author(run_id=self.run_id, owner=self.owner, generation=self.generation,
                                            opportunity=f"{self.run_id}:prebuild:{key}", request=request, memory=None,
                                            scope_epoch=0, purpose="prebuild", timeout_s=15,
@@ -1267,13 +1270,15 @@ class LiveCoach:
             return line.exercise_name is None or not op.package or line.exercise_name in {
                 f.value for f in op.package.facts if f.id == "exercise"}
         live = {f.id: f.claim for f in (op.package.facts if op.package else ())}
-        if any(live.get(fact_id) != claim for fact_id, claim in line.claims):
-            return False
-        # After a partial set or with a risk flag the moment needs care, not a cheerful line written in advance.
-        if (op.coach_context and op.coach_context.risk) or self.moods.exercise_outcomes.get(
-                op.exercise_id or "") in {"partial", "limited"}:
-            return False
-        return not (self.memory.opening_blocked(line.text) or self.memory.repeated(line.text))
+        reason = (
+            "facts" if any(live.get(fact_id) != claim for fact_id, claim in line.claims) else
+            # After a partial set or with a risk flag the moment needs care, not a cheerful line written in advance.
+            "care" if (op.coach_context and op.coach_context.risk) or self.moods.exercise_outcomes.get(
+                op.exercise_id or "") == "partial" else
+            "repeat" if self.memory.opening_blocked(line.text) or self.memory.repeated(line.text) else None)
+        if reason:
+            self.stats.reasons[f"prebuilt_skipped_{reason}"] += 1
+        return reason is None
 
     async def _play_prebuilt(self, op: Opportunity, line: PrebuiltLine) -> None:
         """Speak a prepared line for this live moment: same ACK/memory path, re-framed for the live scope."""
@@ -1694,7 +1699,7 @@ class LiveCoach:
             request_facts, p.comparison.status if p else "unavailable", p.history if p else "unavailable",
             p.outcome if p and p.outcome != "none" else None, p.locked_clause if p else None,
             p.locked_fact_ids if p else (), recent_topics=tuple(self.memory.recent_topics()),
-            recent_openings=tuple(self.memory.recent_openings()),
+            recent_openings=self._openings_to_avoid(op),
             forbidden_claims=tuple(c for c in DEFAULT_FORBIDDEN if not (record and c == "личный рекорд")),
             summary=op.candidate.trigger_id in SUMMARY_TRIGGERS,
             name_allowed=bool(s.nickname), user_name=s.nickname or None, persona="sharp" if dark else "default",
@@ -1923,6 +1928,13 @@ class LiveCoach:
                 or not getattr(adapter, "co_host_reference_id", "")):
             return None
         return {"role": co["role"], "name": co["name"]}
+
+    def _openings_to_avoid(self, op: Opportunity) -> tuple[str, ...]:
+        """Heard openings, plus (V12) those of this exercise's prepared lines still to come: a live line must not take
+        the first words a prepared one will need (live run 26.10.2026: 15 prepared lines lost to a repeated opening)."""
+        upcoming = [opening_words(line.text) for key, line in self.prebuilt.items()
+                    if (target := self.prebuild_meta.get(key)) and target.exercise["id"] == op.exercise_id]
+        return tuple(dict.fromkeys([*self.memory.recent_openings(), *upcoming]))[-10:]
 
     def _author_slow(self) -> bool:
         """A degraded provider: single lines (prepared ones too, they share the 15 s bound) until it recovers."""

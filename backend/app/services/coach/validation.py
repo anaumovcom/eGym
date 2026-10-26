@@ -167,7 +167,10 @@ def _number_associations(text: str, req: AuthorRequest, used: set[str]) -> bool:
                 # Keep this deliberately narrow; partial/limited and kg never gain it.
                 if (role == "plan" and req.outcome == "full" and unit in {"reps", "seconds"}
                         and any(f.id == "outcome" and f.value == "full" for f in facts)
-                        and re.match(r"^\s*(?:повтор\w*|раз|секунд\w*)\s*[—–-]\s*план(?:\s+подхода)?\s+выполнен\b", suffix)):
+                        # One world word may name the plan (live run 26.10.2026: «— план миссии выполнен»,
+                        # «— и план выполнен» were lost as plan quantities).
+                        and re.match(r"^\s*(?:повтор\w*|раз|секунд\w*)\s*[—–-]\s*(?:и\s+)?план(?:\s+[а-яё]+)?"
+                                     r"\s+выполнен\b", suffix)):
                     role = "observed"
             # «с половиной» is a real fractional quantity, not a free extra integer.
             if re.match(r"\s+с половиной\b", suffix):

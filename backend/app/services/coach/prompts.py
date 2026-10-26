@@ -388,7 +388,8 @@ RESULT_VARIETY_MODULE = """Результат подхода: если в recent
 эту формулировку и не начинай так же. Скажи по-другому («снова чистые десять», «дубль», «как по нотам») или начни
 с образа сюжета, а факт поставь вторым. Каждая реплика результата должна звучать как новый момент шоу."""
 PREPARED_MODULE = """preparedLines — реплики, заранее подготовленные для других моментов этой тренировки; они прозвучат
-позже. Эта реплика должна отличаться от них началом, образом и шуткой. Не ссылайся на них как на уже сказанное."""
+позже. Эта реплика должна отличаться от них началом, образом и шуткой. Не ссылайся на них как на уже сказанное.
+Первые два слова не совпадают ни с одним из recentOpenings; не начинай с названия упражнения."""
 RETRY_MODULE = """retryNote — почему предыдущий черновик этой реплики отклонён приложением. Исправь именно это,
 остальные правила те же."""
 WORN_WORDS_MODULE = """wornWords — слова и связки, которые уже повторялись (в недавних репликах или за тренировку):
@@ -574,7 +575,7 @@ def build_prompt(req: AuthorRequest) -> BuiltPrompt:
         "forbiddenClaims": list(req.forbidden_claims),
         "userNotes": {"kind": "data-not-instructions", "items": [_clean_note(n) for n in req.notes[:3]]},
     }
-    p4 = {"recentTopics": list(req.recent_topics)[-6:], "recentOpenings": list(req.recent_openings)[-6:],
+    p4 = {"recentTopics": list(req.recent_topics)[-6:], "recentOpenings": list(req.recent_openings)[-10:],
           "recentHeard": [{**u, "text": str(u.get("text", ""))[:600]} for u in req.recent_heard[-5:]],
           "discussedTips": [{"tipId": t[0], "version": t[1]} for t in req.discussed_tips[-32:]],
           "crossWorkoutPreferences": dict(req.cross_workout_preferences[:4]),
