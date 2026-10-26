@@ -1,11 +1,2 @@
 Backend supervisor следит за backend, exercises и exercise_name_translations.csv.
-Backend server запущен. PID: 3212
-Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\coach.py, D:\eGym\backend\app\core\config.py, D:\eGym\backend\app\schemas\coach_control.py, D:\eGym\backend\app\tests\test_coach_control_plane.py
-Принудительно перезапускаю backend server.
-Backend server запущен. PID: 30864
-Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\coach.py, D:\eGym\backend\app\core\config.py, D:\eGym\backend\app\schemas\coach_control.py, D:\eGym\backend\app\tests\test_coach_control_plane.py
-Принудительно перезапускаю backend server.
-Backend server запущен. PID: 20352
-Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\coach.py, D:\eGym\backend\app\core\config.py, D:\eGym\backend\app\schemas\coach_control.py, D:\eGym\backend\app\tests\test_coach_control_plane.py
-Принудительно перезапускаю backend server.
-Backend server запущен. PID: 1832
+Backend server запущен. PID: 15940
