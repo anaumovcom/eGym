@@ -29,8 +29,9 @@ export const networkStates: Readonly<Record<NetworkSnapshot['state'], string>> =
 export const latchLabels: Readonly<Record<string, string>> = {
   emergency: 'аварийная остановка', machineEmergency: 'аварийная остановка тренажёра', blocked: 'тренажёр заблокирован',
   requiresService: 'тренажёру нужен сервис', panelStop: 'нажата кнопка «Стоп» на панели', spotter: 'сработала страховка',
-  failure: 'тренажёр зафиксировал отказ в подходе', controlSafety: 'управление в защитном режиме',
-  motionSafety: 'привод в защитном режиме', faultCode: 'ошибка тренажёра',
+  failure: 'тренажёр зафиксировал отказ в подходе', controlSafety: 'аварийная остановка управления',
+  motionSafety: 'аварийная остановка привода', faultCode: 'ошибка тренажёра',
   controlFault: 'управление в режиме ошибки', motionFault: 'привод в режиме ошибки',
+  controlAssist: 'страховка или отказ в подходе', motionAssist: 'страховка или отказ в подходе',
 }
 export const latchLabel = (key: string) => latchLabels[key] ?? key

@@ -1,7 +1,7 @@
 import type { RuntimeExercisePlan, RuntimeSetPlan, RuntimeView, RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import { coachRunId, type CoachEvent, type CoachPhase, type CoachReason, type CoachScope, type CoachSettings } from '../model/contracts'
-import { FAULT_MODES, MACHINE_ERROR_LATCHES, SILENCING_MODES, silencesCoach } from '../model/safety-latches'
+import { ASSIST_MODES, FAULT_MODES, SILENCING_MODES, TALK_THROUGH_LATCHES, silencesCoach } from '../model/safety-latches'
 import { CUE_SPECS, cueClipId, type CueKind } from './local-cues'
 
 export type CountMode = CoachSettings['count']
@@ -32,8 +32,8 @@ export type InterpreterResult = Readonly<{
 }>
 export type InterpreterSnapshot = Readonly<{
   phase: CoachPhase; scope: CoachScope | null; fresh: boolean; latches: readonly string[]; pain: boolean
-  /** Machine errors the coach talks through (D-V12.7): shown in the panel, never a reason for silence. */
-  machineErrors: readonly string[]
+  /** What the machine reports while the coach keeps talking (D-V12.7): errors, the spotter, a failure. */
+  machineNotices: readonly string[]
   baseline: number | null; consumed: number; lastCue: LocalCue | null; skips: readonly InterpreterSkip[]
 }>
 
@@ -119,7 +119,7 @@ export class CoachInterpreter {
     this.fresh = !!hw && this.hardwareAtMs !== null && now >= this.hardwareAtMs &&
       (input.sourceConnected === true || now - this.hardwareAtMs <= this.options.freshnessMs)
     const wasLatched = this.latched
-    // D-V12.7: machine errors (fault, blocked, service) are shown, not silencing; emergencies still are.
+    // D-V12.7: only an emergency silences the coach; machine errors, the spotter and a failure are shown instead.
     this.latched = input.emergency || [...this.latches].some(([key, value]) => value && silencesCoach(key))
     const exercise = session?.exercises.find(item => item.id === session.currentExerciseId) ?? null
     const setOrdinal = session ? session.currentSetIndex + 1 : null
@@ -191,7 +191,7 @@ export class CoachInterpreter {
     const track = this.scope ? this.tracks.get(JSON.stringify([this.scope.userId, this.scope.runId, this.scope.exerciseId, this.scope.setOrdinal])) : undefined
     return Object.freeze({ phase: this.phase, scope: this.scope, fresh: this.fresh,
       latches: Object.freeze([...this.latches].filter(([key, value]) => value && silencesCoach(key)).map(([key]) => key)),
-      machineErrors: Object.freeze([...this.latches].filter(([key, value]) => value && MACHINE_ERROR_LATCHES.has(key)).map(([key]) => key)),
+      machineNotices: Object.freeze([...this.latches].filter(([key, value]) => value && TALK_THROUGH_LATCHES.has(key)).map(([key]) => key)),
       pain: this.painLatched, baseline: track?.baseline ?? null, consumed: this.consumed.size, lastCue: this.lastCue,
       skips: Object.freeze([...this.skips]) })
   }
@@ -220,6 +220,8 @@ export class CoachInterpreter {
     mode('motionSafety', next.motion?.controlMode, SILENCING_MODES, CONTROL_MODES)
     mode('controlFault', next.control?.mode, FAULT_MODES, CONTROL_MODES)
     mode('motionFault', next.motion?.controlMode, FAULT_MODES, CONTROL_MODES)
+    mode('controlAssist', next.control?.mode, ASSIST_MODES, CONTROL_MODES)
+    mode('motionAssist', next.motion?.controlMode, ASSIST_MODES, CONTROL_MODES)
     if (next.control && (next.control.faultCode === null || typeof next.control.faultCode === 'string')) this.latches.set('faultCode', !!next.control.faultCode)
   }
 

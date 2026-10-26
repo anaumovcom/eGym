@@ -539,6 +539,18 @@ describe('CoachNetworkClient', () => {
     expect(sent[3].event.scope).toEqual(scope({ exerciseId: 'e2', setOrdinal: 1, scopeEpoch: 9 }))
   })
 
+  it('does not cheer a set on while the spotter holds the weight or a failure is detected (D-V12.7)', async () => {
+    const f = new Fixture()
+    await f.connect()
+    const active = { phase: 'active-set' as const, session: session({ view: 'exercise-session' }) }
+    f.tick({ ...active, reps: 0, partialReps: 0 })
+    f.tick({ ...active, reps: 1, partialReps: 0, assist: true })
+    f.tick({ ...active, reps: 9, partialReps: 0, assist: true })
+    expect(f.socket.events().slice(1)).toEqual([])  // the coach is not silenced, it just does not push
+    f.tick({ ...active, reps: 9, partialReps: 0, assist: false })
+    expect(f.socket.events().slice(1).map(item => item.context?.moment)).toEqual(['finish'])
+  })
+
   it('comments a set at its start, on a partial rep, near the end and on a stall — once each', async () => {
     const f = new Fixture()
     await f.connect()

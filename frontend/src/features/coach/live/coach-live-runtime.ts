@@ -16,6 +16,7 @@ import { coachPackClient, coachPackSlot, type PackSlot } from '../audio/pack-cli
 import type { LifecycleRefs } from '../lib/lifecycle-observer'
 import { CoachNetworkClient, type NetworkSnapshot } from './coach-network-client'
 import { LocalCompletions } from './local-completion'
+import { ASSIST_LATCHES } from '../model/safety-latches'
 
 export type LiveInputs = Readonly<{
   userId: string | null; featureEnabled: boolean; hidden: boolean; emergency: boolean
@@ -175,6 +176,7 @@ export class CoachLiveRuntime {
     }
     this.deps.network?.tick({ nowMs: now, userId: inputs.userId, saved: inputs.saved, session: inputs.session, featureEnabled: true,
       phase: result.phase, scope: result.scope, latched: result.latched, gate, reps: this.interpreter.snapshot().baseline,
+      assist: this.interpreter.snapshot().machineNotices.some(key => ASSIST_LATCHES.has(key)),
       partialReps: this.hardware?.motion?.partialReps ?? null, timer: inputs.timer ?? null, lifecycle, refs: this.deps.lifecycleRefs,
       telemetry: this.telemetry(now),
       localCompletion: event => this.completions.forEvent(event), mixer: () => this.networkMixer() })

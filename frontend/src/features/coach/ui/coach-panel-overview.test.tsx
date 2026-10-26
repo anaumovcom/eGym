@@ -19,7 +19,7 @@ describe('coachOverview — one plain sentence for every state', () => {
   })
 
   it('reports a machine error but says the coach keeps talking (D-V12.7)', () => {
-    const fault = coachOverview({ ...base, network: net('ready', { spoken: 3 }), machineErrors: ['faultCode'] })
+    const fault = coachOverview({ ...base, network: net('ready', { spoken: 3 }), machineNotices: ['faultCode'] })
     expect(fault).toMatchObject({ tone: 'warn', title: 'Тренер на связи' })
     expect(fault.detail).toMatch(/ошибка тренажёра — тренер при этом продолжает говорить/)
   })

@@ -19,6 +19,8 @@ export type NetworkMixer = Pick<LocalCoachAudioManager, 'beginStream' | 'pushStr
 export type NetworkTick = Readonly<{
   nowMs: number; userId: string | null; saved: CoachPreferences | null; session: RuntimeWorkoutSession | null
   featureEnabled: boolean; phase: CoachPhase; scope: CoachScope | null; latched: boolean; gate: AudioReason | null
+  /** D-V12.7: the spotter holds the weight or a failure is detected — no in-set cheering, the rest goes on. */
+  assist?: boolean
   reps: number | null; partialReps?: number | null; timer?: SetTimerInput | null; lifecycle: readonly CoachEvent[]; refs: (eventId: string) => LifecycleRefs | null
   mixer: () => NetworkMixer | null
   localCompletion?: (event: CoachEvent) => LocalCompletion | null
@@ -814,8 +816,9 @@ export class CoachNetworkClient {
       }
     }
     const setKey = `${exercise.id}:${scope.setOrdinal}`
-    if (input.phase === 'active-set' && saved.duringSets && exercise.kind === 'machine') this.inSetEvents(input, session, exercise, scope, setKey)
-    else if (input.phase === 'active-set' && saved.duringSets && exercise.kind === 'timed') this.timedSetEvents(input, session, exercise, scope, setKey)
+    const cheer = input.phase === 'active-set' && saved.duringSets && !input.assist
+    if (cheer && exercise.kind === 'machine') this.inSetEvents(input, session, exercise, scope, setKey)
+    else if (cheer && exercise.kind === 'timed') this.timedSetEvents(input, session, exercise, scope, setKey)
     else if (this.inSet) this.inSet.repAt = input.nowMs // a pause is not a stall
     const rest = session.restState
     if (input.phase === 'rest' && saved.duringRest && rest && !rest.timerPaused && !this.sentKeys.has(`rest:${setKey}`)) {

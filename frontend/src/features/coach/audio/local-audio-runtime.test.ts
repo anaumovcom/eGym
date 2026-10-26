@@ -322,7 +322,9 @@ describe('runtime and hardware admission/cancellation', () => {
   it.each([
     { machine: { machineState: 'blocked' } }, { control: { mode: 'fault' } }, { control: { faultCode: 'E99' } },
     { motion: { moving: false, controlMode: 'fault' } }, { safety: { requiresService: true } },
-  ])('a machine error %j does not silence the coach (D-V12.7)', async patch => {
+    { motion: { moving: false, controlMode: 'failure' } }, { motion: { moving: false, controlMode: 'spotter' } },
+    { control: { spotterActive: true } }, { control: { failureDetected: true } },
+  ])('a machine report %j does not silence the coach (D-V12.7)', async patch => {
     const f = ready(); expect(await f.runtime.playPreview('overlap')).toBe(true)
     f.change({ hardware: hardware(patch) })
     expect(f.runtime.getSnapshot().reason).not.toBe('safety')
@@ -331,8 +333,7 @@ describe('runtime and hardware admission/cancellation', () => {
 
   it.each([
     { safety: { state: 'emergency_stop' } }, { control: { mode: 'estop' } }, { motion: { moving: false, controlMode: 'estop' } },
-    { motion: { moving: false, controlMode: 'failure' } }, { motion: { moving: false, controlMode: 'spotter' } },
-    { control: { spotterActive: true } }, { control: { failureDetected: true } }, { panel: { stopLatched: true } },
+    { motion: { moving: false, controlMode: 'emergency_stop' } }, { panel: { stopLatched: true } },
   ])('latches explicit safety %j through missing telemetry until corresponding usable false', async patch => {
     const f = ready(); expect(await f.runtime.playPreview('overlap')).toBe(true)
     f.clock.advance(180, f.context)
@@ -351,7 +352,7 @@ describe('runtime and hardware admission/cancellation', () => {
   })
 
   it('does not clear safety on user/run changes and allows idle service/emulator for fixtures only', () => {
-    const f = ready(); f.change({ hardware: hardware({ control: { failureDetected: true } }) })
+    const f = ready(); f.change({ hardware: hardware({ panel: { stopLatched: true } }) })
     f.change({ hardware: null, userId: 'user-b', session: session('workout-summary') })
     f.runtime.setSavedCoachPreferences('user-b', prefs)
     expect(f.runtime.getSnapshot().reason).toBe('safety')
@@ -363,12 +364,13 @@ describe('runtime and hardware admission/cancellation', () => {
 
   it('unknown/missing modes and unrelated explicit false flags cannot clear corresponding safety latches', () => {
     const f = ready()
-    f.change({ hardware: hardware({ control: { mode: 'fault', spotterActive: true, failureDetected: true } }) })
-    f.change({ hardware: hardware({ control: { mode: 'unusable-mode', spotterActive: false } }) })
+    const estop = { moving: false, controlMode: 'estop' }
+    f.change({ hardware: hardware({ control: { mode: 'estop' }, motion: estop }) })
+    f.change({ hardware: hardware({ control: { mode: 'unusable-mode' }, motion: estop }) })
     expect(f.runtime.getSnapshot().reason).toBe('safety')
-    f.change({ hardware: hardware({ control: { mode: 'idle', spotterActive: false } }) })
-    expect(f.runtime.getSnapshot().reason).toBe('safety') // failure still latched
-    f.change({ hardware: hardware({ control: { failureDetected: false } }) })
+    f.change({ hardware: hardware({ control: { mode: 'idle' }, motion: estop }) })
+    expect(f.runtime.getSnapshot().reason).toBe('safety') // the drive's estop is still latched
+    f.change({ hardware: hardware({ control: { mode: 'idle' }, motion: { moving: false, controlMode: 'idle' } }) })
     expect(f.runtime.getSnapshot().previewAllowed).toBe(true)
   })
 
@@ -476,7 +478,7 @@ describe('default singleton store adapter', () => {
     expect(runtime.getSnapshot().reason).toBe('mute')
     useAppStore.setState({ emergencyStopActive: true }); expect(runtime.getSnapshot().reason).toBe('safety')
     useAppStore.setState({ emergencyStopActive: false })
-    useHardwareStore.setState({ snapshot: hardware({ control: { spotterActive: true } }) })
+    useHardwareStore.setState({ snapshot: hardware({ panel: { stopLatched: true } }) })
     useHardwareStore.setState({ snapshot: null }); expect(runtime.getSnapshot().reason).toBe('safety')
     useHardwareStore.setState({ snapshot: hardware() })
     useRuntimeStore.setState({ session: session('rest') }); expect(runtime.getSnapshot().reason).toBe('runtime_session')

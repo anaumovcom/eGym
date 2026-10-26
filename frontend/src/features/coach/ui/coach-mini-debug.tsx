@@ -233,7 +233,7 @@ export function CoachMiniDebug() {
   </>
   const overview = coachOverview({ liveBuild: coachEnabled, saved: localAudioRuntime.getSavedPreferences(), network: live.network,
     reason: locked ? 'audio_locked' : live.audio ? live.reason : snapshot.reason, workout: !!runId || !!live.audio,
-    latches: live.interpreter?.latches, machineErrors: live.interpreter?.machineErrors })
+    latches: live.interpreter?.latches, machineNotices: live.interpreter?.machineNotices })
   const inWorkout = !!(runUsage && runId)
   const tiles: Tile[] = journal ? [
     { label: inWorkout ? 'запросов за тренировку' : 'запросов сегодня', value: String(inWorkout ? runUsage.requests : daily?.requests ?? 0),

@@ -10,7 +10,7 @@ import { effectiveCoachState, preferencesValid, type CoachPreferences } from '..
 import { LocalClipPreparer } from './fixture-pack-storage'
 import { LocalCoachAudioManager, type AudioReason, type LocalAudioSnapshot } from './local-coach-audio-manager'
 import { getSharedAudioContext, unlockSharedAudioContext } from './shared-audio-context'
-import { FAULT_MODES, SILENCING_MODES, silencesCoach } from '../model/safety-latches'
+import { ASSIST_MODES, FAULT_MODES, SILENCING_MODES, silencesCoach } from '../model/safety-latches'
 
 export type LocalAudioRuntimeInputs = Readonly<{
   userId: string | null; featureEnabled: boolean; hidden: boolean; emergency: boolean
@@ -309,6 +309,8 @@ export class LocalAudioRuntime {
     mode('motionSafety', h.motion?.controlMode, SILENCING_MODES)
     mode('controlFault', h.control?.mode, FAULT_MODES)
     mode('motionFault', h.motion?.controlMode, FAULT_MODES)
+    mode('controlAssist', h.control?.mode, ASSIST_MODES)
+    mode('motionAssist', h.motion?.controlMode, ASSIST_MODES)
     if (h.control?.faultCode === null || typeof h.control?.faultCode === 'string') boolean('faultCode', !!h.control.faultCode)
     mode('controlActive', h.control?.mode, ['training', 'isometric', 'fixed_hold', 'moving'])
     mode('motionActive', h.motion?.controlMode, ['training', 'isometric', 'fixed_hold', 'moving'])
@@ -318,7 +320,7 @@ export class LocalAudioRuntime {
 
   private gate(): LocalAudioRuntimeReason | null {
     if (this.disposed) return 'disposed'
-    // D-V12.7: a machine error (fault, blocked, service) does not silence the coach; an emergency does.
+    // D-V12.7: only an emergency silences the coach; machine errors, the spotter and a failure do not.
     if (this.inputs.emergency || [...this.latches].some(([key, active]) => active && silencesCoach(key))) return 'safety'
     if (this.inputs.hidden) return 'hidden'
     if (['controlActive', 'motionActive', 'moving'].some(key => this.latches.get(key))) return 'hardware_active'

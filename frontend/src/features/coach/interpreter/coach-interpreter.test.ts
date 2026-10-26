@@ -322,7 +322,7 @@ describe('CoachInterpreter sources and safety', () => {
     expect(step.latched).toBe(false)
     const snapshot = h.interpreter.snapshot()
     expect(snapshot).toMatchObject({ phase: 'active-set', latches: [] })
-    expect(snapshot.machineErrors.length).toBeGreaterThan(0)
+    expect(snapshot.machineNotices.length).toBeGreaterThan(0)
   })
 })
 
