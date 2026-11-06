@@ -90,8 +90,12 @@ describe('ExerciseSetupScreen', () => {
     useRuntimeStore.getState().initializeBackendSession(builder, { source: 'builder', programId: 'back-biceps', runId: builder.runId })
     buildBackendBuilderRuntimeSessionMock.mockResolvedValue(builder)
     const view = renderScreen()
-    await waitFor(() => expect(useRuntimeStore.getState().session?.view).toBe('exercise-session'))
+    const start = await screen.findByRole('button', { name: 'Запустить упражнение' })
+    await waitFor(() => expect(start).toBeEnabled())
+    expect(useRuntimeStore.getState().session?.view).toBe('exercise-setup')
     expect(apiGet).not.toHaveBeenCalledWith(expect.stringContaining('/api/runtime/exercises/settings?'))
+    await userEvent.click(start)
+    await waitFor(() => expect(useRuntimeStore.getState().session?.view).toBe('exercise-session'))
 
     act(() => {
       // Persisted runs and setup edits may add optional runtime-only fields to the plan.
@@ -272,15 +276,16 @@ describe('ExerciseSetupScreen', () => {
     expect(useHardwareStore.getState().runCommand).not.toHaveBeenCalled()
   })
 
-  it.each(['', '&photo=before', '&photo=after'])('keeps the bodyweight exercise flow without a photo detour (%s)', async (photo) => {
+  it.each(['', '&photo=before', '&photo=after'])('opens bodyweight setup without a photo detour (%s)', async (photo) => {
     currentSearch = `?source=catalog&slug=push-up${photo}`
     useRuntimeStore.setState({ session: null, sessionSignature: null })
 
     renderScreen()
 
-    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith(`/exercise-session${currentSearch}`, { replace: true }))
-    expect(useRuntimeStore.getState().session?.view).toBe('exercise-session')
-    expect(navigateMock.mock.calls.some(([path]) => String(path).includes('/photo-progress'))).toBe(false)
+    expect(await screen.findByRole('heading', { name: 'Настройка упражнения' })).toBeVisible()
+    expect(await screen.findByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
+    expect(useRuntimeStore.getState().session?.view).toBe('exercise-setup')
+    expect(navigateMock).not.toHaveBeenCalled()
     expect(useHardwareStore.getState().runCommand).not.toHaveBeenCalled()
   })
 

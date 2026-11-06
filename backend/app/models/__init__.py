@@ -1,3 +1,11 @@
+from app.models.achievement import (
+    AchievementDefinition,
+    AchievementEvidence,
+    AchievementGrant,
+    AchievementOutbox,
+    AchievementProgress,
+    AchievementReceipt,
+)
 from app.models.analytics import (
     ExerciseSession,
     MuscleFatigueEvent,
@@ -17,6 +25,12 @@ from app.models.training import ExerciseHistoryRecord, UserExerciseState, Workou
 from app.models.user import User
 
 __all__ = [
+    "AchievementDefinition",
+    "AchievementEvidence",
+    "AchievementGrant",
+    "AchievementOutbox",
+    "AchievementProgress",
+    "AchievementReceipt",
     "AppSetting",
     "AuditLog",
     "BodyMeasurement",

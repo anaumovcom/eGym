@@ -86,11 +86,14 @@ export function ProgressScreen() {
             <h1 id="progress-title" className="font-display font-bold text-white">Прогресс</h1>
             <p>{days ? `${days} ${plural(days, 'тренировочный день', 'тренировочных дня', 'тренировочных дней')} ${periodPhrase[period]}` : 'Результаты тренировок, изменения тела и фото.'}</p>
           </div>
-          {showPeriod ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem' }}>
+            <Button asChild variant="secondary" iconLeft={<Trophy aria-hidden="true" />}><Link to="/achievements">Достижения</Link></Button>
+            {showPeriod ? (
             <div className="pv-periods" role="group" aria-label="Период прогресса">
               {periods.map((item) => <button key={item.id} type="button" aria-pressed={period === item.id} onClick={() => update({ period: item.id === '30d' ? null : item.id })}>{item.label}</button>)}
             </div>
-          ) : null}
+            ) : null}
+          </div>
         </header>
         <nav className="progress-tabs" aria-label="Разделы прогресса">{tabs.map((item) => <button key={item.id} type="button" aria-current={tab === item.id ? 'page' : undefined} onClick={() => update({ tab: item.id === 'overview' ? null : item.id })}>{item.label}</button>)}</nav>
         {tab === 'body' ? (

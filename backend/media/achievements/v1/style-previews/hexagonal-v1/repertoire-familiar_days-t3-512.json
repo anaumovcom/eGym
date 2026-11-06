@@ -1,0 +1,29 @@
+{
+  "tierId": "repertoire.familiar_days:t3",
+  "model": "gpt-image-2.5-flare",
+  "styleVersion": "hexagonal-v1",
+  "quality": "medium",
+  "prompt": "The attached images are authoritative STYLE references, not subjects to duplicate. Create one new badge for the achievement described below.\n\nCreate ONE premium mobile-game achievement badge, matching the attached reference icons.\nSilhouette: a regular point-up hexagon with gently rounded corners, seen straight on,\ncentered on a square canvas. The badge occupies roughly 80-88 percent of the canvas width\nand 88-94 percent of its height. Keep a little dark breathing room on every side.\nBorder: a clean, moderately narrow, continuous saturated-color hexagonal bevel, approximately\n5-7 percent of the badge width. A pale highlight runs along the upper-left outer edge;\nthe inner edge is darker, giving a shallow inset. It is NOT a circular medallion, thick\nmetal donut, industrial frame, or mechanical construction. No screws or rivets.\nInterior: a dark inset hexagonal panel in a deeper shade of the border hue. Use subtle\nangular planes, soft gradients, and local reflected light. A simple scenic background\nis appropriate only when the central concept needs it; it must remain subordinate.\nMain subject: one large instantly recognizable fitness object, simplified human figure,\nor achievement metaphor. Model it as polished stylized 2.5D game art: clean silhouettes,\nrounded volumes, broad smooth highlights, small crisp bevels, strong but soft-edged shadows,\nand restrained faceting. It is digitally painted/rendered illustration, not a photograph,\nnot flat outline art, and not a toy made from inflated balloon tubes. Human figures have\nsimple anonymous faces, clear anatomy, and no tiny realistic facial detail. Equipment can\nhave metallic shading, but do not turn the entire badge into a metal plaque.\nLighting: warm or cool key light from the upper left, gentle colored rim light, dark\nocclusion beneath the subject. Preserve rich color and readable shadows without blown-out\nbloom. The main subject fills most of the inner panel and remains legible at thumbnail size.\nRank marker: a small sharply faceted diamond centered across the bottom vertex, overlapping\nthe border. For legendary rarity ONLY, use a small golden three-point crown instead.\nUse the SAME silhouette, border width, lighting, and marker placement throughout the set.\nCanvas background: solid very dark blue-black charcoal, approximately #0d141c, with only\na faint local halo. No typography, letters, digits, labels, interface elements, or watermark.\n\nREQUIRED RARITY PALETTE:\nCool desaturated steel-blue border, deep slate interior, small pale-blue faceted diamond.\n\nACHIEVEMENT MEANING (choose a clear visual metaphor; do not draw this text):\n{\"title\": \"Сорок тёплых встреч\", \"description\": \"Накопить дни с упражнением, уже встречавшимся ранее в трёх днях.\", \"threshold\": 40, \"unit\": \"день знакомой практики\", \"tier\": 3}\n\nNEGATIVE CONSTRAINTS:\nNo circle, round medal enclosure, shield silhouette, thick silver/gold donut frame, rivets,\nscrews, bolts, gears, ornate filigree, banners, captions, text, multiple badges, contact sheet,\nbusy particle effects, photorealism, flat vector outlines, or cropped badge edges.",
+  "references": [
+    "icon-r2-c1.png",
+    "icon-r3-c4.png",
+    "icon-r4-c7.png"
+  ],
+  "usage": {
+    "input_tokens": 1295,
+    "input_tokens_details": {
+      "image_tokens": 588,
+      "text_tokens": 707
+    },
+    "output_tokens": 439,
+    "output_tokens_details": {
+      "image_tokens": 439,
+      "text_tokens": 0
+    },
+    "total_tokens": 1734
+  },
+  "approved": false,
+  "attemptKey": "image:medium:hexagonal-v1:reference:publish:repertoire.familiar_days:t3",
+  "sha256": "fa9251ba290dbce7118a19ff0427e568abbc014f8c1494bf90cbc12592f701b6",
+  "styleReference": true
+}

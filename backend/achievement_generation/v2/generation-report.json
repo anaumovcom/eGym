@@ -1,0 +1,57 @@
+{
+  "version": "v2",
+  "lines": 152,
+  "tiers": 515,
+  "textReady": 515,
+  "imagesReady": 515,
+  "audioReady": 515,
+  "missingText": [],
+  "missingImages": [],
+  "missingAudio": [],
+  "checksumErrors": [],
+  "validationErrors": [],
+  "budget": {
+    "openai": {
+      "capMicros": 36000000,
+      "committedMicros": 28180549,
+      "availableMicros": 7819451,
+      "requests": 790
+    },
+    "fish": {
+      "capMicros": 15000000,
+      "committedMicros": 2405750,
+      "availableMicros": 12594250,
+      "requests": 517
+    }
+  },
+  "exactProviderBilling": false,
+  "budgetNote": "Includes global historical holds and unresolved liabilities; not an invoice reconciliation.",
+  "unresolved": [
+    {
+      "key": "text:achievements-content-1.0.0:v2:repertoire.familiar:repertoire.new_exercise_months",
+      "status": "sent"
+    },
+    {
+      "key": "reconciled:legacy-unobserved-hold-v1:openai",
+      "status": "unsettled"
+    },
+    {
+      "key": "reconciled:legacy-unobserved-hold-v1:fish",
+      "status": "unsettled"
+    },
+    {
+      "key": "image:medium:hexagonal-v1:reference:publish:volume.weighted_reps:t3",
+      "status": "sent"
+    },
+    {
+      "key": "text:achievements-content-1.1.0:v2:start.first_set:start.first_workout",
+      "status": "sent"
+    },
+    {
+      "key": "text:achievements-content-1.1.0:v2:repertoire.exploration:repertoire.familiar_days",
+      "status": "sent"
+    }
+  ],
+  "complete": true,
+  "imagesRoot": "media\\achievements\\v2\\images"
+}

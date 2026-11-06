@@ -1,0 +1,10 @@
+{
+  "attemptKey": "audio:drama-3:0a690dbeb3984a9f88cd39353880775f:achievements-v2:muscle.front-shoulders:t4:speed-1.15",
+  "costMicros": 2960,
+  "utf8Bytes": 296,
+  "requestId": "",
+  "voice": "0a690dbeb3984a9f88cd39353880775f",
+  "model": "drama-3",
+  "speed": 1.15,
+  "sha256": "509c0c691e3537b1f40cd878f5f23720681914dd72b8248a13326af08d460b64"
+}

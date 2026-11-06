@@ -1,5 +1,7 @@
 import type { ReactElement } from 'react'
 import { BrowserRouter, Navigate, Route, Routes, useSearchParams } from 'react-router-dom'
+import { AchievementDetailScreen } from '@/screens/achievements/achievement-detail-screen'
+import { AchievementsScreen } from '@/screens/achievements/achievements-screen'
 import { DashboardScreen } from '@/screens/dashboard/dashboard-screen'
 import { WorkoutBuilderScreen } from '@/screens/builder/workout-builder-screen'
 import { WorkoutCalendarScreen } from '@/screens/calendar/workout-calendar-screen'
@@ -58,6 +60,8 @@ export function AppRoutes() {
         <Route path="/exercise-setup" element={<ProtectedAppRoute><ExerciseSetupScreen /></ProtectedAppRoute>} />
         <Route path="/photo-progress" element={<ProtectedAppRoute><PhotoProgressRedirect /></ProtectedAppRoute>} />
         <Route path="/progress" element={<ProtectedAppRoute><ProgressScreen /></ProtectedAppRoute>} />
+        <Route path="/achievements" element={<ProtectedAppRoute><AchievementsScreen /></ProtectedAppRoute>} />
+        <Route path="/achievements/:definitionId" element={<ProtectedAppRoute><AchievementDetailScreen /></ProtectedAppRoute>} />
         <Route path="/fatigue" element={<ProtectedAppRoute><FatigueScreen /></ProtectedAppRoute>} />
         <Route path="/profile" element={<ProtectedAppRoute><UserProfileScreen /></ProtectedAppRoute>} />
         <Route path="/settings" element={<ProtectedAppRoute><SettingsLayout /></ProtectedAppRoute>}>

@@ -1,0 +1,49 @@
+{
+  "createdAt": 1793826519.3187847,
+  "exactProviderBilling": false,
+  "reason": "Recoverable receipts plus conservative extra liabilities for lost legacy writes; possible double counting.",
+  "before": {
+    "openai": {
+      "capMicros": 36000000,
+      "committedMicros": 2058359,
+      "availableMicros": 33941641,
+      "requests": 30
+    },
+    "fish": {
+      "capMicros": 15000000,
+      "committedMicros": 0,
+      "availableMicros": 15000000,
+      "requests": 0
+    }
+  },
+  "after": {
+    "openai": {
+      "capMicros": 36000000,
+      "committedMicros": 7327266,
+      "availableMicros": 28672734,
+      "requests": 41
+    },
+    "fish": {
+      "capMicros": 15000000,
+      "committedMicros": 1000000,
+      "availableMicros": 14000000,
+      "requests": 1
+    }
+  },
+  "recovered": [
+    "reconciled:response:resp_0768c204fd0492d0016aeb8b9e73b887d2b6e2c85aeda3e771",
+    "reconciled:image-receipt:beb804ab2ff0e2da739645201dccff1f56602902ca583f567f284bc3dd43eeb8",
+    "reconciled:image-receipt:aa82182cce49449dc8ca9f379a7a44c722a18e4bbb2cebcca76514566729294f",
+    "reconciled:image-receipt:5104fded9b1a01a018f77acc2747e0a66b6da2bcbb475e23b14a9d194e3e90c1",
+    "reconciled:image-receipt:5ecdc7e39b3559c34ef8449bd96462c2e22ac0f75726f0171d8887e51da49df9",
+    "reconciled:image-receipt:e5c746075027c9662bb0f649c5949e2b964258c8555922a08c43764692450bc5",
+    "reconciled:image-receipt:4e53416472a0ccf8ae012c40ca1f0cfe8e539b90c1ad3e88ebaa15e1f9b9ba1f",
+    "reconciled:image-receipt:c6a172638a0d7d8ae244ebc71c2ca21d8b7e67848aca6b7b1205c93ec4828a43",
+    "reconciled:image-receipt:9ab3763eaf166db46e01335c0a12d9a0c9987d23db4dee1735a849d088a7ad6d",
+    "reconciled:image-receipt:55ed13d29dead706262aaf121c36e5e92a7dc81eb1a491217ce45199054ef66e"
+  ],
+  "legacyHoldUsd": {
+    "openai": 5,
+    "fish": 1
+  }
+}

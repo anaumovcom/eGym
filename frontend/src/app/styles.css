@@ -158,11 +158,11 @@ input[type='reset']:not(:disabled) {
   color: rgba(255, 255, 255, 0.9);
 }
 
-/* 4K uses CSS pixels at 100% browser scale; no zoom or transform on the app. */
+/* Target kiosk: 4K TV at Windows scale 150 % = 2560x1440 CSS px (dpr 1.5). Stage spans the full width. */
 @media (min-width: 1600px) {
   :root {
     font-size: 18px;
-    --ui-stage-width: 88vw;
+    --ui-stage-width: 100%;
     --ui-control: 64px;
     --ui-primary: 72px;
   }
@@ -173,7 +173,7 @@ input[type='reset']:not(:disabled) {
     font-size: 24px;
     --text-sm: 0.916667rem;
     --text-xs: 0.833333rem;
-    --ui-stage-width: 72vw;
+    --ui-stage-width: 100%;
     --ui-control: 72px;
     --ui-primary: 88px;
     --ui-gutter: 2rem;
@@ -1327,7 +1327,7 @@ svg [tabindex]:focus-visible { outline-offset: 0; }
   .rt-rest-ring-value { transition: none; }
 }
 
-.rt-summary-body { align-content: center; width: min(100%, 88rem); margin-inline: auto; }
+.rt-summary-body { align-content: center; width: 100%; }
 .rt-summary-body > .rt-summary-list { max-height: 34cqh; }
 .rt-outcome { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; text-align: center; }
 .rt-outcome-badge { display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.4rem 1rem; border-radius: 1.5rem; border: 1px solid #57c96855; background: #12301c; color: #9ef0a8; font-size: var(--text-sm); }
@@ -1749,3 +1749,50 @@ input::placeholder, textarea::placeholder { color: var(--ui-secondary); }
 /* Fractional weights (47,5) need the room: narrower − + inside the field. */
 .rt-screen .rt-body .value-stepper-row { grid-template-columns: 2.1rem minmax(0, 1fr) 2.1rem; }
 .rt-setup-screen .rt-setup-body .value-stepper-value input { font-size: clamp(1.1rem, 2.3cqh, 1.45rem); letter-spacing: -0.02em; }
+
+/* Exercise setup: the media, parameters and bar setup read as three clear tasks. */
+.rt-setup-media-head { display: none; }
+.rt-setup-screen .rt-actions-note { display: flex; align-items: center; justify-content: center; gap: 0.65rem; }
+.rt-setup-screen .rt-actions-note > svg { flex: none; width: 1.5rem; height: 1.5rem; color: #f2cf87; }
+.rt-setup-screen .rt-actions-note[data-ready='true'] > svg { color: #9be3a6; }
+.rt-setup-screen .rt-actions-note > span { min-width: 0; }
+@media (min-width: 1280px) {
+  .rt-setup-media-head { display: flex; flex: none; align-items: center; gap: 0.85rem; min-height: 3.5rem; padding-inline: 0.15rem; }
+  .rt-setup-media-icon { display: grid; place-items: center; flex: none; width: 3rem; height: 3rem; border: 1px solid #d6b05f35; border-radius: 1rem; background: #d6b05f10; color: #f2cf87; }
+  .rt-setup-media-icon svg { width: 1.35rem; height: 1.35rem; }
+  .rt-setup-media-head .rt-setup-eyebrow { margin-bottom: 0.15rem; font-size: 0.75rem; }
+  .rt-setup-media-head h2 { font-family: var(--font-display); font-size: clamp(1.15rem, 1.3vw, 1.45rem); font-weight: 700; line-height: 1.25; color: white; }
+  .rt-setup-media > .rt-media:last-child { margin-bottom: auto; }
+}
+
+/* Exercise summary: results on the left, one clear next-load decision on the right. */
+.rt-exercise-summary-screen > .rt-header,
+.rt-exercise-summary-screen > .rt-summary-body,
+.rt-exercise-summary-screen > .rt-actions { width: min(100%, 112rem); margin-inline: auto; }
+.rt-exercise-summary-screen .rt-summary-body { grid-template-columns: minmax(0, 1.35fr) minmax(22rem, 0.85fr); align-content: center; align-items: stretch; gap: 1.25rem; }
+.rt-exercise-summary-screen .rt-summary-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem; }
+.rt-exercise-summary-screen .rt-summary-metrics article { min-height: 9rem; justify-content: center; align-items: flex-start; padding: 1.35rem 1.5rem; border-color: #ffffff17; background: linear-gradient(145deg, #151e2b, #0e1620); text-align: left; box-shadow: inset 0 1px 0 #ffffff05; }
+.rt-summary-metric-label { display: flex; align-items: center; gap: 0.65rem; color: #b8c1ce; }
+.rt-summary-metric-label svg { flex: none; width: 1.4rem; height: 1.4rem; color: #8f9aab; }
+.rt-exercise-summary-screen .rt-summary-metrics strong { margin: 0.75rem 0 0; font-size: clamp(2rem, 2.2vw, 3rem); line-height: 1.1; letter-spacing: -0.035em; }
+.rt-exercise-summary-screen .rt-summary-metrics article[data-accent='true'] { border-color: #d7b15d55; background: linear-gradient(145deg, #242114, #171810); }
+.rt-exercise-summary-screen .rt-summary-metrics article[data-accent='true'] .rt-summary-metric-label,
+.rt-exercise-summary-screen .rt-summary-metrics article[data-accent='true'] .rt-summary-metric-label svg { color: #e7c983; }
+.rt-summary-guidance { display: flex; min-width: 0; flex-direction: column; gap: 1.25rem; }
+.rt-summary-guidance > .rt-alert { flex: 1; grid-template-columns: auto minmax(0, 1fr); align-content: center; align-items: start; padding: 1.35rem 1.5rem; }
+.rt-summary-guidance > .rt-alert[role='note'] { border-color: #d7b15d45; background: linear-gradient(145deg, #242114, #171810); }
+.rt-summary-guidance > .rt-alert > svg { width: 1.75rem; height: 1.75rem; margin-top: 0.1rem; }
+.rt-summary-guidance > .rt-alert strong { font-size: 1.15rem; }
+.rt-summary-guidance > .rt-alert p { margin-top: 0.5rem; font-size: 1rem; line-height: 1.55; text-wrap: pretty; }
+.rt-exercise-summary-screen .rt-load { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; padding: 1.25rem 1.5rem; }
+.rt-load-value strong { margin-block: 0.3rem; font-family: var(--font-display); font-size: 1.65rem; line-height: 1.2; }
+.rt-exercise-summary-screen .rt-load-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.75rem; }
+.rt-exercise-summary-screen .rt-load-actions .forma-button { width: 100%; padding-inline: 0.75rem; }
+.rt-exercise-summary-screen > .rt-summary-body > .rt-summary-list { grid-column: 1 / -1; max-height: 16rem; }
+.rt-exercise-summary-screen .rt-actions-group { flex-wrap: nowrap; }
+.rt-exercise-summary-screen .rt-actions .rt-primary { min-width: 22rem; }
+@media (max-width: 1100px) {
+  .rt-exercise-summary-screen .rt-summary-body { grid-template-columns: minmax(0, 1fr); overflow-y: auto; }
+  .rt-exercise-summary-screen .rt-summary-guidance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rt-exercise-summary-screen .rt-actions-group { flex-wrap: wrap; }
+}

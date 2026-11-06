@@ -1,0 +1,746 @@
+{
+  "schemaVersion": 1,
+  "attempts": [
+    {
+      "key": "text:achievements-content-1.0.0:start.first_set:start.first_set",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 144092,
+      "status": "settled",
+      "createdAt": 1793819436.1839323,
+      "requestId": "resp_08edff6d3fc3bbe8016aeb832fb74087d2a7628993ad5390a1",
+      "usage": {
+        "input_tokens": 959,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 1645,
+        "output_tokens_details": {
+          "reasoning_tokens": 673
+        },
+        "total_tokens": 2604
+      },
+      "costMicros": 18368,
+      "sentAt": 1793819436.1843798,
+      "settledAt": 1793819480.1846633
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:start.first_set:start.first_set",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 144092,
+      "status": "settled",
+      "createdAt": 1793819553.033453,
+      "requestId": "resp_03bca3eb865082a2016aeb839f9e5487d2979c150b156b6e63",
+      "usage": {
+        "input_tokens": 959,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 1659,
+        "output_tokens_details": {
+          "reasoning_tokens": 727
+        },
+        "total_tokens": 2618
+      },
+      "costMicros": 18508,
+      "sentAt": 1793819553.034003,
+      "settledAt": 1793819590.847163
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:start.first_workout:start.first_plan",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155252,
+      "status": "settled",
+      "createdAt": 1793819653.3529224,
+      "requestId": "resp_0f9b89506d2a4b02016aeb8403c9d887d2973191cb412f972f",
+      "usage": {
+        "input_tokens": 1678,
+        "input_tokens_details": {
+          "cache_write_tokens": 1675,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7048,
+        "output_tokens_details": {
+          "reasoning_tokens": 3106
+        },
+        "total_tokens": 8726
+      },
+      "costMicros": 73836,
+      "sentAt": 1793819653.3533964,
+      "settledAt": 1793819778.0492635
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:start.first_feedback:rhythm.active_days",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 154912,
+      "status": "settled",
+      "createdAt": 1793819778.2565675,
+      "requestId": "resp_0f9cb68b47bca5d4016aeb848074ec87d2a987c76018f567e7",
+      "usage": {
+        "input_tokens": 1670,
+        "input_tokens_details": {
+          "cache_write_tokens": 1667,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7170,
+        "output_tokens_details": {
+          "reasoning_tokens": 2794
+        },
+        "total_tokens": 8840
+      },
+      "costMicros": 75040,
+      "sentAt": 1793819778.2570212,
+      "settledAt": 1793819892.2066503
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:rhythm.active_weeks:rhythm.quarters",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155700,
+      "status": "settled",
+      "createdAt": 1793819892.4143646,
+      "requestId": "resp_01d5db7b1bf0dbc7016aeb84f2a3bc87d2b2439e3cc3b3a5db",
+      "usage": {
+        "input_tokens": 1710,
+        "input_tokens_details": {
+          "cache_write_tokens": 1707,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7611,
+        "output_tokens_details": {
+          "reasoning_tokens": 3106
+        },
+        "total_tokens": 9321
+      },
+      "costMicros": 79530,
+      "sentAt": 1793819892.4148223,
+      "settledAt": 1793820021.8083346
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:rhythm.return:practice.workouts",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 156112,
+      "status": "settled",
+      "createdAt": 1793820022.0152535,
+      "requestId": "resp_0cbfb5bf3247aed4016aeb8575218487d2bd50341055316e98",
+      "usage": {
+        "input_tokens": 1724,
+        "input_tokens_details": {
+          "cache_write_tokens": 1721,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7800,
+        "output_tokens_details": {
+          "reasoning_tokens": 3427
+        },
+        "total_tokens": 9524
+      },
+      "costMicros": 81448,
+      "sentAt": 1793820022.015694,
+      "settledAt": 1793820155.8761857
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:practice.sets:practice.partial_workouts",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155520,
+      "status": "settled",
+      "createdAt": 1793820156.0837238,
+      "requestId": "resp_06dc4daa310eb7f3016aeb85fa512087d2bcc655a9b08c7bb5",
+      "usage": {
+        "input_tokens": 1674,
+        "input_tokens_details": {
+          "cache_write_tokens": 1671,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7431,
+        "output_tokens_details": {
+          "reasoning_tokens": 2975
+        },
+        "total_tokens": 9105
+      },
+      "costMicros": 77658,
+      "sentAt": 1793820156.0841975,
+      "settledAt": 1793820283.862035
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:practice.multi_set_days:variety.timed_seconds",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155808,
+      "status": "settled",
+      "createdAt": 1793820284.0690994,
+      "requestId": "resp_0122b14645d8d2a9016aeb867a3cc487d2b76b484ed05c38d1",
+      "usage": {
+        "input_tokens": 1710,
+        "input_tokens_details": {
+          "cache_write_tokens": 1707,
+          "cached_tokens": 0
+        },
+        "output_tokens": 6491,
+        "output_tokens_details": {
+          "reasoning_tokens": 2070
+        },
+        "total_tokens": 8201
+      },
+      "costMicros": 68330,
+      "sentAt": 1793820284.0696611,
+      "settledAt": 1793820391.1670942
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:variety.timed_days:variety.bodyweight_sets",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155500,
+      "status": "settled",
+      "createdAt": 1793820391.3745117,
+      "requestId": "resp_0089d988ada0f95a016aeb86e5926c87d2b87a0b2ee5cd8fab",
+      "usage": {
+        "input_tokens": 1720,
+        "input_tokens_details": {
+          "cache_write_tokens": 1717,
+          "cached_tokens": 0
+        },
+        "output_tokens": 6840,
+        "output_tokens_details": {
+          "reasoning_tokens": 2400
+        },
+        "total_tokens": 8560
+      },
+      "costMicros": 71840,
+      "sentAt": 1793820391.3749886,
+      "settledAt": 1793820507.10549
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:variety.bodyweight_days:repertoire.distinct_exercises",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155804,
+      "status": "settled",
+      "createdAt": 1793820507.3129306,
+      "requestId": "resp_07a5c717ed0b6930016aeb87598a6087d29a48682482475702",
+      "usage": {
+        "input_tokens": 1730,
+        "input_tokens_details": {
+          "cache_write_tokens": 1727,
+          "cached_tokens": 0
+        },
+        "output_tokens": 8072,
+        "output_tokens_details": {
+          "reasoning_tokens": 3526
+        },
+        "total_tokens": 9802
+      },
+      "costMicros": 84180,
+      "sentAt": 1793820507.3134494,
+      "settledAt": 1793820643.8345726
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:repertoire.familiar:repertoire.new_exercise_months",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 156440,
+      "status": "sent",
+      "createdAt": 1793820644.0425916,
+      "requestId": null,
+      "usage": null,
+      "costMicros": null,
+      "sentAt": 1793820644.04304
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:repertoire.machine_exercises:volume.volume",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 156452,
+      "status": "settled",
+      "createdAt": 1793820956.80777,
+      "requestId": "resp_0d7543caf8e2a969016aeb891b3b2887d2bd64cccb8b089d25",
+      "usage": {
+        "input_tokens": 1756,
+        "input_tokens_details": {
+          "cache_write_tokens": 1753,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7762,
+        "output_tokens_details": {
+          "reasoning_tokens": 3267
+        },
+        "total_tokens": 9518
+      },
+      "costMicros": 81132,
+      "sentAt": 1793820956.8083143,
+      "settledAt": 1793821086.439834
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:volume.weighted_sets:volume.volume_weeks",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155272,
+      "status": "settled",
+      "createdAt": 1793821086.6475008,
+      "requestId": "resp_0a387cd376459c8f016aeb899cd52487d2a4b1558d49c97579",
+      "usage": {
+        "input_tokens": 1704,
+        "input_tokens_details": {
+          "cache_write_tokens": 1701,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7001,
+        "output_tokens_details": {
+          "reasoning_tokens": 2497
+        },
+        "total_tokens": 8705
+      },
+      "costMicros": 73418,
+      "sentAt": 1793821086.648023,
+      "settledAt": 1793821206.086546
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:volume.weight_exercises:plan.complete",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 156176,
+      "status": "settled",
+      "createdAt": 1793821206.2950099,
+      "requestId": "resp_03312565467b3975016aeb8a1478ec87d2a3bdf896c739456a",
+      "usage": {
+        "input_tokens": 1737,
+        "input_tokens_details": {
+          "cache_write_tokens": 1734,
+          "cached_tokens": 0
+        },
+        "output_tokens": 6946,
+        "output_tokens_details": {
+          "reasoning_tokens": 2588
+        },
+        "total_tokens": 8683
+      },
+      "costMicros": 72934,
+      "sentAt": 1793821206.2956097,
+      "settledAt": 1793821321.0037737
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:plan.exercise:plan.plan_streak",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155756,
+      "status": "settled",
+      "createdAt": 1793821321.2111661,
+      "requestId": "resp_08d9909589bc1f5c016aeb8a8763a887d2aa44aa1abfb3eff9",
+      "usage": {
+        "input_tokens": 1692,
+        "input_tokens_details": {
+          "cache_write_tokens": 1689,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7336,
+        "output_tokens_details": {
+          "reasoning_tokens": 2957
+        },
+        "total_tokens": 9028
+      },
+      "costMicros": 76744,
+      "sentAt": 1793821321.211655,
+      "settledAt": 1793821454.9251122
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:plan.planned_sets:progress.first_pr",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 156188,
+      "status": "settled",
+      "createdAt": 1793821455.1331575,
+      "requestId": "resp_008a84f02caf2845016aeb8b0d5ca487d2a5cb64248d0c2b93",
+      "usage": {
+        "input_tokens": 1718,
+        "input_tokens_details": {
+          "cache_write_tokens": 1715,
+          "cached_tokens": 0
+        },
+        "output_tokens": 6337,
+        "output_tokens_details": {
+          "reasoning_tokens": 2070
+        },
+        "total_tokens": 8055
+      },
+      "costMicros": 66806,
+      "sentAt": 1793821455.1336927,
+      "settledAt": 1793821559.9881504
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:progress.rep_pr:progress.after_month",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 156324,
+      "status": "settled",
+      "createdAt": 1793821560.1961098,
+      "requestId": "resp_0c0c2ffd480b8ef3016aeb8b76610087d2af07a2f7fc8f925a",
+      "usage": {
+        "input_tokens": 1706,
+        "input_tokens_details": {
+          "cache_write_tokens": 1703,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7218,
+        "output_tokens_details": {
+          "reasoning_tokens": 2843
+        },
+        "total_tokens": 8924
+      },
+      "costMicros": 75592,
+      "sentAt": 1793821560.196665,
+      "settledAt": 1793821683.903819
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:progress.retained:reflection.checkin",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 156016,
+      "status": "settled",
+      "createdAt": 1793821684.1118226,
+      "requestId": "resp_088962636591b694016aeb8bf24a7c87d2a0fb7fae98940621",
+      "usage": {
+        "input_tokens": 1715,
+        "input_tokens_details": {
+          "cache_write_tokens": 1712,
+          "cached_tokens": 0
+        },
+        "output_tokens": 6632,
+        "output_tokens_details": {
+          "reasoning_tokens": 2425
+        },
+        "total_tokens": 8347
+      },
+      "costMicros": 69750,
+      "sentAt": 1793821684.1123908,
+      "settledAt": 1793821794.9099305
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:reflection.months:reflection.effort_sets",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155640,
+      "status": "settled",
+      "createdAt": 1793821795.117741,
+      "requestId": "resp_06d661cc001dc2bf016aeb8c614bb487d29e077b4c44b65987",
+      "usage": {
+        "input_tokens": 1684,
+        "input_tokens_details": {
+          "cache_write_tokens": 1681,
+          "cached_tokens": 0
+        },
+        "output_tokens": 6997,
+        "output_tokens_details": {
+          "reasoning_tokens": 2588
+        },
+        "total_tokens": 8681
+      },
+      "costMicros": 73338,
+      "sentAt": 1793821795.1184013,
+      "settledAt": 1793821906.5467975
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:reflection.feedback_days:story.world_days",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 156140,
+      "status": "settled",
+      "createdAt": 1793821906.754432,
+      "requestId": "resp_0f251a3d2bbc6f15016aeb8cd12ce887d2be4888011ed6ce9f",
+      "usage": {
+        "input_tokens": 1706,
+        "input_tokens_details": {
+          "cache_write_tokens": 1703,
+          "cached_tokens": 0
+        },
+        "output_tokens": 6609,
+        "output_tokens_details": {
+          "reasoning_tokens": 2070
+        },
+        "total_tokens": 8315
+      },
+      "costMicros": 69502,
+      "sentAt": 1793821906.7549305,
+      "settledAt": 1793822019.7034557
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:story.explorer:story.archive",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 154956,
+      "status": "settled",
+      "createdAt": 1793822019.9117134,
+      "requestId": "resp_011e3ab846c3e812016aeb8d4227fc87d2b4ba97beb82031f2",
+      "usage": {
+        "input_tokens": 1679,
+        "input_tokens_details": {
+          "cache_write_tokens": 1676,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7535,
+        "output_tokens_details": {
+          "reasoning_tokens": 2900
+        },
+        "total_tokens": 9214
+      },
+      "costMicros": 78708,
+      "sentAt": 1793822019.9122825,
+      "settledAt": 1793822151.7062151
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:story.world_return:chapter.30_days",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155372,
+      "status": "settled",
+      "createdAt": 1793822151.9145505,
+      "requestId": "resp_0387512a653df159016aeb8dc619b887d2b556c9332a1c9bc8",
+      "usage": {
+        "input_tokens": 1710,
+        "input_tokens_details": {
+          "cache_write_tokens": 1707,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7577,
+        "output_tokens_details": {
+          "reasoning_tokens": 2910
+        },
+        "total_tokens": 9287
+      },
+      "costMicros": 79190,
+      "sentAt": 1793822151.9151056,
+      "settledAt": 1793822280.3838546
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:chapter.90_days:chapter.atlas",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155224,
+      "status": "settled",
+      "createdAt": 1793822280.5920203,
+      "requestId": "resp_0ee54889fa5464e4016aeb8e46d7c087d2be43dcfe8ba26c6c",
+      "usage": {
+        "input_tokens": 1666,
+        "input_tokens_details": {
+          "cache_write_tokens": 1663,
+          "cached_tokens": 0
+        },
+        "output_tokens": 6981,
+        "output_tokens_details": {
+          "reasoning_tokens": 2535
+        },
+        "total_tokens": 8647
+      },
+      "costMicros": 73142,
+      "sentAt": 1793822280.5926125,
+      "settledAt": 1793822394.7188232
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:chapter.balance:measured.rhythm",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 155544,
+      "status": "settled",
+      "createdAt": 1793822394.927571,
+      "requestId": "resp_08a0c8383331d318016aeb8eb92d0087d287675f59439874b6",
+      "usage": {
+        "input_tokens": 1696,
+        "input_tokens_details": {
+          "cache_write_tokens": 1693,
+          "cached_tokens": 0
+        },
+        "output_tokens": 6671,
+        "output_tokens_details": {
+          "reasoning_tokens": 2070
+        },
+        "total_tokens": 8367
+      },
+      "costMicros": 70102,
+      "sentAt": 1793822394.9281693,
+      "settledAt": 1793822501.2630074
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:measured.rhythm_days:measured.verified_days",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 156260,
+      "status": "settled",
+      "createdAt": 1793822501.4710958,
+      "requestId": "resp_091a8821272ee483016aeb8f23b09487d285c73af5796e098e",
+      "usage": {
+        "input_tokens": 1752,
+        "input_tokens_details": {
+          "cache_write_tokens": 1749,
+          "cached_tokens": 0
+        },
+        "output_tokens": 7224,
+        "output_tokens_details": {
+          "reasoning_tokens": 2588
+        },
+        "total_tokens": 8976
+      },
+      "costMicros": 75744,
+      "sentAt": 1793822501.4716446,
+      "settledAt": 1793822625.0042005
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v2:measured.verified_reps:measured.range_days",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 153392,
+      "status": "settled",
+      "createdAt": 1793822625.2122083,
+      "requestId": "resp_089b1ddb3b7760db016aeb8f9f6d6c87d2ad4d63ea4c1da6a7",
+      "usage": {
+        "input_tokens": 1579,
+        "input_tokens_details": {
+          "cache_write_tokens": 1576,
+          "cached_tokens": 0
+        },
+        "output_tokens": 6168,
+        "output_tokens_details": {
+          "reasoning_tokens": 2588
+        },
+        "total_tokens": 7747
+      },
+      "costMicros": 64838,
+      "sentAt": 1793822625.2128372,
+      "settledAt": 1793822733.3306408
+    },
+    {
+      "key": "text:achievements-content-1.0.0:v3:repertoire.familiar:repertoire.new_exercise_months",
+      "provider": "openai",
+      "kind": "text",
+      "model": "gpt-6.1-sol",
+      "reserveMicros": 160376,
+      "status": "settled",
+      "createdAt": 1793822820.979506,
+      "requestId": "resp_0cfdcffb2d63e5f3016aeb906388d487d2afcfccf9af0c1c43",
+      "usage": {
+        "input_tokens": 1907,
+        "input_tokens_details": {
+          "cache_write_tokens": 1904,
+          "cached_tokens": 0
+        },
+        "output_tokens": 8606,
+        "output_tokens_details": {
+          "reasoning_tokens": 3083
+        },
+        "total_tokens": 10513
+      },
+      "costMicros": 89874,
+      "sentAt": 1793822820.9801059,
+      "settledAt": 1793822949.617233
+    },
+    {
+      "key": "image:medium:reference-v5:start.first_set:t1",
+      "provider": "openai",
+      "kind": "image",
+      "model": "gpt-image-2.5-flare",
+      "reserveMicros": 750000,
+      "status": "settled",
+      "createdAt": 1793823348.9028904,
+      "requestId": "",
+      "usage": {
+        "input_tokens": 4246,
+        "input_tokens_details": {
+          "image_tokens": 3072,
+          "text_tokens": 1174
+        },
+        "output_tokens": 439,
+        "output_tokens_details": {
+          "image_tokens": 439,
+          "text_tokens": 0
+        },
+        "total_tokens": 4685
+      },
+      "costMicros": 19040,
+      "sentAt": 1793823348.903646,
+      "settledAt": 1793823364.7049646
+    },
+    {
+      "key": "image:medium:reference-2-only-v6:start.first_set:t1",
+      "provider": "openai",
+      "kind": "image",
+      "model": "gpt-image-2.5-flare",
+      "reserveMicros": 750000,
+      "status": "settled",
+      "createdAt": 1793823686.7110538,
+      "requestId": "",
+      "usage": {
+        "input_tokens": 2887,
+        "input_tokens_details": {
+          "image_tokens": 1536,
+          "text_tokens": 1351
+        },
+        "output_tokens": 439,
+        "output_tokens_details": {
+          "image_tokens": 439,
+          "text_tokens": 0
+        },
+        "total_tokens": 3326
+      },
+      "costMicros": 19925,
+      "sentAt": 1793823686.7117915,
+      "settledAt": 1793823701.7636638
+    },
+    {
+      "key": "image:medium:hexagonal-v1:reference:preview:start.first_set:t1",
+      "provider": "openai",
+      "kind": "image",
+      "model": "gpt-image-2.5-flare",
+      "reserveMicros": 750000,
+      "status": "settled",
+      "createdAt": 1793825994.6053965,
+      "requestId": "",
+      "usage": {
+        "input_tokens": 1279,
+        "input_tokens_details": {
+          "image_tokens": 588,
+          "text_tokens": 691
+        },
+        "output_tokens": 439,
+        "output_tokens_details": {
+          "image_tokens": 439,
+          "text_tokens": 0
+        },
+        "total_tokens": 1718
+      },
+      "costMicros": 23402,
+      "sentAt": 1793825994.606495,
+      "settledAt": 1793826008.1184962
+    }
+  ]
+}

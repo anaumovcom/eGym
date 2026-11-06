@@ -8,6 +8,7 @@ from typing import Literal
 from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
+from app.models.achievement import AchievementGrant
 from app.models.analytics import ExerciseSession, MuscleFatigueEvent, MuscleFatigueSnapshot, SetResult, WorkoutSession
 from app.models.coach import CoachLedgerRun
 from app.models.enums import (
@@ -22,6 +23,7 @@ from app.models.enums import (
 from app.models.profile import UserProfile
 from app.models.training import ExerciseHistoryRecord, UserExerciseState
 from app.models.user import User
+from app.services.achievements import service as achievements
 from app.schemas.runtime import (
     ExerciseSessionCreateSchema,
     ExerciseSessionsResetRequestSchema,
@@ -412,7 +414,13 @@ class RuntimeService:
             "kind": "workout_finalized", "user_id": workout_session.user_id,
             "workout_session_id": workout_session.id, "outcome": workout_session.status.value,
         }
+        if workout_session.status != WorkoutSessionStatus.in_progress:
+            achievements.enqueue(session, user_id=workout_session.user_id, source_type="workout",
+                                 source_id=str(workout_session.id), source_revision=str(workout_session.updated_at),
+                                 event_type="workout_finalized")
         session.commit()
+        if workout_session.status != WorkoutSessionStatus.in_progress:
+            achievements.process_outbox(session, limit=1)
         for nested_notice in nested_exercise_notices:
             self.coach_observer.record(**nested_notice)
         if payload.status != "in_progress":
@@ -533,10 +541,17 @@ class RuntimeService:
 
         self._delete_exercise_history(session, user_id, exercises)
         session.execute(update(CoachLedgerRun).where(CoachLedgerRun.workout_id == workout_session.id).values(workout_id=None))
+        # SQLite does not enforce FK ON DELETE SET NULL here, so detach any grant that
+        # references the workout being removed; re-evaluation below revokes what it must.
+        session.execute(update(AchievementGrant).where(AchievementGrant.source_workout_id == workout_session.id)
+                        .values(source_workout_id=None))
         session.delete(workout_session)
         session.flush()
         self._refresh_exercise_states(session, user_id, exercises)
+        achievements.enqueue(session, user_id=user_id, source_type="workout_deleted", source_id=str(workout_session_id),
+                             source_revision=datetime.now(UTC).isoformat(), event_type="workout_deleted")
         session.commit()
+        achievements.process_outbox(session, limit=1)
 
     def _delete_exercise_history(self, session: Session, user_id: str, exercises: list[ExerciseSession]) -> None:
         # History rows have no FK to the exercise session; _sync_training_state stamps them with

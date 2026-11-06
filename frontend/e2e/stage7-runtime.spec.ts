@@ -112,6 +112,9 @@ for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 10
       await openAppAsAlexey(page)
       const writes = await installLocalRuntimeApi(page)
       await page.goto('/exercise-setup?source=catalog&slug=push-up', { waitUntil: 'domcontentloaded' })
+      await expect(page).toHaveURL(/\/exercise-setup\?source=catalog&slug=push-up$/)
+      await expect(page.getByRole('heading', { name: 'Настройка упражнения' })).toBeVisible()
+      await page.getByRole('button', { name: 'Запустить упражнение' }).click()
       await expect(page).toHaveURL(/\/exercise-session\?source=catalog&slug=push-up$/)
 
       const finish = page.getByRole('button', { name: 'Завершить подход', exact: true })

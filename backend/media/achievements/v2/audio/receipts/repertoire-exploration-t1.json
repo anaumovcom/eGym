@@ -1,0 +1,10 @@
+{
+  "attemptKey": "audio:drama-3:0a690dbeb3984a9f88cd39353880775f:achievements-v2:repertoire.exploration:t1",
+  "costMicros": 2390,
+  "utf8Bytes": 239,
+  "requestId": "",
+  "voice": "0a690dbeb3984a9f88cd39353880775f",
+  "model": "drama-3",
+  "speed": 1.0,
+  "sha256": "ba645ac4d2ae4fe3d332d1d628752a946919a29cc7c06462cd6cf193a73514cf"
+}

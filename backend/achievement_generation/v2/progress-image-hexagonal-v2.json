@@ -1,0 +1,25 @@
+{
+  "kind": "image",
+  "styleVersion": "hexagonal-v2",
+  "status": "complete",
+  "processed": 2,
+  "queued": 2,
+  "concurrency": 2,
+  "updatedAt": 1793905315.316014,
+  "budget": {
+    "openai": {
+      "capMicros": 36000000,
+      "committedMicros": 28180549,
+      "availableMicros": 7819451,
+      "requests": 790
+    },
+    "fish": {
+      "capMicros": 15000000,
+      "committedMicros": 2376120,
+      "availableMicros": 12623880,
+      "requests": 504
+    }
+  },
+  "rejectedTiers": [],
+  "blockedTiers": []
+}

@@ -1,0 +1,4313 @@
+{
+  "schemaVersion": 1,
+  "assets": {
+    "start.first_set:t3": {
+      "image": {
+        "512": "start-first_set-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826565.8428254,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "80e0de75342db510396ab4eccabc36dac386a38730762e25005efd365fcda7bd",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793826565.8428254,
+      "audio": {
+        "file": "start-first_set-t3.wav"
+      },
+      "audioMetadata": {
+        "updatedAt": 1793821367.1601317,
+        "model": "drama-3",
+        "voice": "0a690dbeb3984a9f88cd39353880775f",
+        "sha256": "35062f150e9325db4f58844c134862d9a6df22f2a14994b81d59c54945e31b20",
+        "durationMs": 10167.375,
+        "sampleRate": 24000,
+        "rmsDbfs": -13.37,
+        "peakDbfs": -0.8
+      }
+    },
+    "start.first_set:t1": {
+      "image": {
+        "512": "start-first_set-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "approved": true,
+        "approvedAt": "2026-11-05",
+        "sha256": "aa82182cce49449dc8ca9f379a7a44c722a18e4bbb2cebcca76514566729294f",
+        "usage": {
+          "input_tokens": 1279,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 691
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1718
+        }
+      },
+      "updatedAt": 1793823701.9198134,
+      "audio": {
+        "file": "start-first_set-t1.wav"
+      },
+      "audioMetadata": {
+        "updatedAt": 1793821366.6568396,
+        "model": "drama-3",
+        "voice": "0a690dbeb3984a9f88cd39353880775f",
+        "sha256": "920393009b557ebe63852d731e5d3f8f56771fc99b742237e4817c7d5e62ffc6",
+        "durationMs": 6591.5,
+        "sampleRate": 24000,
+        "rmsDbfs": -19.7,
+        "peakDbfs": -1.74
+      }
+    },
+    "start.first_set:t2": {
+      "image": {
+        "512": "start-first_set-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826552.6817636,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "a4fceb21f63d716a703ff1cba740705fccfb67640039e80e9ca4230103ceb7f7",
+        "usage": {
+          "input_tokens": 1278,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 690
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1717
+        }
+      },
+      "updatedAt": 1793826552.6817636,
+      "audio": {
+        "file": "start-first_set-t2.wav"
+      },
+      "audioMetadata": {
+        "updatedAt": 1793821366.9762862,
+        "model": "drama-3",
+        "voice": "0a690dbeb3984a9f88cd39353880775f",
+        "sha256": "9df8897eb7ae595d1bb01fb74271c406c42f14364a32766927543c44c25639f1",
+        "durationMs": 8356.25,
+        "sampleRate": 24000,
+        "rmsDbfs": -15.8,
+        "peakDbfs": -0.59
+      }
+    },
+    "start.first_workout:t1": {
+      "image": {
+        "512": "start-first_workout-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826578.3111515,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "dd182e2bcf0fd1e603a71cdd95af6ea87cf2b90631e06c5bde4f340a738724eb",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793826578.3111515
+    },
+    "start.first_workout:t3": {
+      "image": {
+        "512": "start-first_workout-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826600.5552013,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "bedc4a41520053034e6808ee27b6ebb08cd18a128d235563d20993a7b04a6083",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793826600.5552013
+    },
+    "start.first_workout:t2": {
+      "image": {
+        "512": "start-first_workout-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826589.772907,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "5d2efd03cb7a291d4cb3c298e0f0834e6a5c2a1835af5799a45efdcbc3cc9ecc",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793826589.772907
+    },
+    "start.three_days:t3": {
+      "image": {
+        "512": "start-three_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826635.529412,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "d319b92b337ea36f7aef31f1418be2e1fec3f7c6b36e181777c06e15b1bd7726",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793826635.529412
+    },
+    "start.three_days:t2": {
+      "image": {
+        "512": "start-three_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826623.8562217,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "7a5865e0e871c899c0ee9221f037c765c0f909459da6a3760f73fd213673aaeb",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793826623.8562217
+    },
+    "start.three_days:t1": {
+      "image": {
+        "512": "start-three_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826612.4528906,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "292a984bb187b0d756269636b0439f4f2be51c6cbfe4f6c92e140774bd7af093",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793826612.4528906
+    },
+    "start.two_weeks:t1": {
+      "image": {
+        "512": "start-two_weeks-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826646.672524,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "527c0308759a4f3839d39c7206589d26c2132f77ecfb0aef71e9bef537a46e0a",
+        "usage": {
+          "input_tokens": 1276,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 688
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1715
+        }
+      },
+      "updatedAt": 1793826646.672524
+    },
+    "start.two_weeks:t2": {
+      "image": {
+        "512": "start-two_weeks-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826659.6839316,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "2986b8e133b300e152c64b57b74339bf79f83b2d6e0cbb45d5b03b3b2b42ba0d",
+        "usage": {
+          "input_tokens": 1277,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 689
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1716
+        }
+      },
+      "updatedAt": 1793826659.6839316
+    },
+    "start.two_weeks:t3": {
+      "image": {
+        "512": "start-two_weeks-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826671.8189638,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "ade4ea14bf926b254661efad419be9f2b4313b7d891d832429193650e867e536",
+        "usage": {
+          "input_tokens": 1275,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 687
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1714
+        }
+      },
+      "updatedAt": 1793826671.8189638
+    },
+    "start.exercise_return:t1": {
+      "image": {
+        "512": "start-exercise_return-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826684.2670484,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "b0607cf81801f2f0ba27ebf049bdbc1e721d8aac37f6d53c06245dfab5a1e532",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793826684.2670484
+    },
+    "start.exercise_return:t2": {
+      "image": {
+        "512": "start-exercise_return-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826694.9497948,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "029eb6781ac8bf8c4e71a5f702f9447387c21a7888c5ecfb36aed8a15dc82a84",
+        "usage": {
+          "input_tokens": 1288,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 700
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1727
+        }
+      },
+      "updatedAt": 1793826694.9497948
+    },
+    "start.exercise_return:t3": {
+      "image": {
+        "512": "start-exercise_return-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826708.926689,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "00166e9f012ff40e2e8d586dfd624d5cbf097033a70fd7031dbd3624a6d7b72c",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793826708.926689
+    },
+    "start.first_plan:t1": {
+      "image": {
+        "512": "start-first_plan-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826720.7963617,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "f749b82407a43342a885fbc52352bef69c022917d9a8844037afb580355bf910",
+        "usage": {
+          "input_tokens": 1288,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 700
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1727
+        }
+      },
+      "updatedAt": 1793826720.7963617
+    },
+    "start.first_plan:t2": {
+      "image": {
+        "512": "start-first_plan-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826733.5152793,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "5cae48bcfdbee974c4be07b7134b7748822c26c33f72d70a97367dfac7a04ce4",
+        "usage": {
+          "input_tokens": 1288,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 700
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1727
+        }
+      },
+      "updatedAt": 1793826733.5152793
+    },
+    "start.first_plan:t3": {
+      "image": {
+        "512": "start-first_plan-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826745.4010744,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "e2bdc0f19252c5b56f77a01d3e640e5b1236f16febe2df1c9c592508821044de",
+        "usage": {
+          "input_tokens": 1288,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 700
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1727
+        }
+      },
+      "updatedAt": 1793826745.4010744
+    },
+    "start.first_feedback:t1": {
+      "image": {
+        "512": "start-first_feedback-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826757.0687373,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "185ce308ea2b215ec34190d2de6e88c795f18e9ee284f43d01d4d28f595d10db",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793826757.0687373
+    },
+    "start.first_feedback:t2": {
+      "image": {
+        "512": "start-first_feedback-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826768.0809257,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "da49662b5e8b716d2fbcbf6430da72cf9aacc718138fa4cfda71550d1e83e294",
+        "usage": {
+          "input_tokens": 1288,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 700
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1727
+        }
+      },
+      "updatedAt": 1793826768.0809257
+    },
+    "start.first_feedback:t3": {
+      "image": {
+        "512": "start-first_feedback-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826780.4050584,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "f420d654e702f97fb0b98ea8aea9cd81df37a0e648d55378998096920eec0221",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793826780.4050584
+    },
+    "start.first_note:t1": {
+      "image": {
+        "512": "start-first_note-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826792.85862,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "89bc26811c7e8ef43e46702fefbeda0b6236a5b4cb14b22890729f17fdfbbc23",
+        "usage": {
+          "input_tokens": 1278,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 690
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1717
+        }
+      },
+      "updatedAt": 1793826792.85862
+    },
+    "start.first_note:t2": {
+      "image": {
+        "512": "start-first_note-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826804.1626585,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "7d661a008ea3fe7c2d62185b579af308073da2fbacbe3f91c63632949e3fd90c",
+        "usage": {
+          "input_tokens": 1279,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 691
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1718
+        }
+      },
+      "updatedAt": 1793826804.1626585
+    },
+    "start.first_note:t3": {
+      "image": {
+        "512": "start-first_note-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826817.9106073,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "fbb994aed3d8ed34e53b03a31e77cfd68e4b63db94241930e9de0b61d1b1e587",
+        "usage": {
+          "input_tokens": 1279,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 691
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1718
+        }
+      },
+      "updatedAt": 1793826817.9106073
+    },
+    "start.first_program:t1": {
+      "image": {
+        "512": "start-first_program-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826830.3681624,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "df56a7e425690ddbd8d56fa89e3318866f938017ad9cbff3b803b235e9a8a508",
+        "usage": {
+          "input_tokens": 1276,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 688
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1715
+        }
+      },
+      "updatedAt": 1793826830.3681624
+    },
+    "start.first_program:t2": {
+      "image": {
+        "512": "start-first_program-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826842.7612345,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "c2fe3ca7a3321a30fbd5b287f3b5133ca649ca0f9e4832ca12d72fa9eb0f9b8c",
+        "usage": {
+          "input_tokens": 1276,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 688
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1715
+        }
+      },
+      "updatedAt": 1793826842.7612345
+    },
+    "start.first_program:t3": {
+      "image": {
+        "512": "start-first_program-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826854.5186963,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "da2af4980a0724c0e3044e7010dc87ddba8da114210a41e8402f859100ed7203",
+        "usage": {
+          "input_tokens": 1276,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 688
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1715
+        }
+      },
+      "updatedAt": 1793826854.5186963
+    },
+    "start.first_story:t1": {
+      "image": {
+        "512": "start-first_story-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826865.5503733,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "e873bbb66ad2c7d717f1c2b44587b3f1d81c71789cf8c7d2be4ebb6fbb0f73cd",
+        "usage": {
+          "input_tokens": 1279,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 691
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1718
+        }
+      },
+      "updatedAt": 1793826865.5503733
+    },
+    "start.first_story:t2": {
+      "image": {
+        "512": "start-first_story-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826879.1059701,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "d1b3321274d4871ae1927c6aa24ad7b17781d36cee2ea5b12a6c1bde1e64be4a",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793826879.1059701
+    },
+    "start.first_story:t3": {
+      "image": {
+        "512": "start-first_story-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826892.862346,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "55f7409c57d02f5f537961e482bd29907051b8455ad726d7c82d88488cc793da",
+        "usage": {
+          "input_tokens": 1279,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 691
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1718
+        }
+      },
+      "updatedAt": 1793826892.862346
+    },
+    "rhythm.active_days:t1": {
+      "image": {
+        "512": "rhythm-active_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826904.761896,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "4cfe7e8d15b60fdfcad81cd027a642f92cf9752f2db4453f0d5dfdc6f1a0bd18",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793826904.761896
+    },
+    "rhythm.active_days:t2": {
+      "image": {
+        "512": "rhythm-active_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826916.7955062,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "d1d522d04d8642473c3b38e7eabc4e112a642423f407ba5acb2cc8252628bbcc",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793826916.7955062
+    },
+    "rhythm.active_days:t3": {
+      "image": {
+        "512": "rhythm-active_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826928.0613844,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "4d3c8ca14b4328b2b4b9dba07a15135e5542dbc35042b0e09812b17cc71767a8",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793826928.0613844
+    },
+    "rhythm.active_weeks:t1": {
+      "image": {
+        "512": "rhythm-active_weeks-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826939.0996828,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "fddf60647d5f3f589d218f4d26636fba8fca258c6149add5593aca5a98bf870d",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793826939.0996828
+    },
+    "rhythm.active_weeks:t2": {
+      "image": {
+        "512": "rhythm-active_weeks-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826951.312159,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "8f3b29463de3c3145521dd0e29195405f64fb40290463ad7f7030a438df04aed",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793826951.312159
+    },
+    "rhythm.active_weeks:t3": {
+      "image": {
+        "512": "rhythm-active_weeks-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826961.5869522,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "19417b50431562f3fb36ec764f3e716bb37280efd81a754e3560832983738145",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793826961.5869522
+    },
+    "rhythm.week_streak:t1": {
+      "image": {
+        "512": "rhythm-week_streak-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826974.2215781,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "631f7058b1b10f232585512e838314e33e64a518a3122656c5add99695cbedba",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793826974.2215781
+    },
+    "rhythm.week_streak:t2": {
+      "image": {
+        "512": "rhythm-week_streak-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826985.4327085,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "457666606dac78a072671366629d17fd5604e53d921abf6546fcb8ba62b7059b",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793826985.4327085
+    },
+    "rhythm.week_streak:t3": {
+      "image": {
+        "512": "rhythm-week_streak-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793826996.7193038,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "75f6bed9c9f80a17d9f564c948f3f9908caa9f3f717945da4f8b5ef0e01f6757",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793826996.7193038
+    },
+    "rhythm.two_days_week:t1": {
+      "image": {
+        "512": "rhythm-two_days_week-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827008.6468558,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "722f9ad806f3de8047670b97e36c0c91669173d8e371dbf2f85f83e21ac89eb7",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793827008.6468558
+    },
+    "rhythm.two_days_week:t2": {
+      "image": {
+        "512": "rhythm-two_days_week-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827019.7753549,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "4f90dc10af7c2ce2e83eee53f5e634c7801999cf05dfa1573b4d37ffaddb4987",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793827019.7753549
+    },
+    "rhythm.two_days_week:t3": {
+      "image": {
+        "512": "rhythm-two_days_week-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827032.7079268,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "2d6c86727e0a8c6a377c2bb400e5a88bccef7f18f94af5b88fe9cbf2796a21f6",
+        "usage": {
+          "input_tokens": 1288,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 700
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1727
+        }
+      },
+      "updatedAt": 1793827032.7079268
+    },
+    "rhythm.months:t1": {
+      "image": {
+        "512": "rhythm-months-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827045.2131937,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "82c02f059a09b024c3050c1d1289bb5a642f67bed2c9505ae8d2d615dc8705f7",
+        "usage": {
+          "input_tokens": 1291,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 703
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1730
+        }
+      },
+      "updatedAt": 1793827045.2131937
+    },
+    "rhythm.months:t2": {
+      "image": {
+        "512": "rhythm-months-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827057.504392,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "e8703c542f8bc4c083f4ba68e785de90a1a7a0a2e1f42c5a8097aa8316447ca4",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793827057.504392
+    },
+    "rhythm.months:t3": {
+      "image": {
+        "512": "rhythm-months-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827070.8795745,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "fef804d7afdf6804aa587a1e15c5f3f127b4a29d50142219c1c50ea9dc8b1136",
+        "usage": {
+          "input_tokens": 1291,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 703
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1730
+        }
+      },
+      "updatedAt": 1793827070.8795745
+    },
+    "rhythm.quarters:t1": {
+      "image": {
+        "512": "rhythm-quarters-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827082.818044,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "c0c9445e28954a758874c93dfffca3c2e05ab6c9e96b8df83e30ee7ad5f41e19",
+        "usage": {
+          "input_tokens": 1288,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 700
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1727
+        }
+      },
+      "updatedAt": 1793827082.818044
+    },
+    "rhythm.quarters:t2": {
+      "image": {
+        "512": "rhythm-quarters-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827098.5902576,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "e84f98b2e1d69958ac1821b5602104179e63bf5e747916473a8f6afbf247d272",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793827098.5902576
+    },
+    "rhythm.quarters:t3": {
+      "image": {
+        "512": "rhythm-quarters-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827109.282134,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "3d2aa274dbf8c730461c774b47932650183ddfb9ff0328058b57b1429c008ab1",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793827109.282134
+    },
+    "rhythm.return:t1": {
+      "image": {
+        "512": "rhythm-return-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827120.6334493,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "3f41d5f581008e7ecdc326bf4e02b4422c5da7d7867ceb2642bc3acddaff4dd1",
+        "usage": {
+          "input_tokens": 1290,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 702
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1729
+        }
+      },
+      "updatedAt": 1793827120.6334493
+    },
+    "rhythm.return:t2": {
+      "image": {
+        "512": "rhythm-return-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827134.290951,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "5108d1989723e949f1976211e5dc3a0a61af1f458d1425ad4fac741600dd5d02",
+        "usage": {
+          "input_tokens": 1289,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 701
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1728
+        }
+      },
+      "updatedAt": 1793827134.290951
+    },
+    "rhythm.return:t3": {
+      "image": {
+        "512": "rhythm-return-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827146.4422061,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "4474625998135435597e76769deb1b161a8ae8cb49517e62f34a1d35242086f0",
+        "usage": {
+          "input_tokens": 1292,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 704
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1731
+        }
+      },
+      "updatedAt": 1793827146.4422061
+    },
+    "rhythm.after_return:t1": {
+      "image": {
+        "512": "rhythm-after_return-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827157.123665,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "6d8b55457be95c9e48769db0621bb12cf73131835858507aae30d9b38899f662",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827157.123665
+    },
+    "rhythm.after_return:t2": {
+      "image": {
+        "512": "rhythm-after_return-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827169.7379525,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "719368fa6cd3cf390f4bf965fc4fbd65ed5cdafd47d094d04864fe916dda63cc",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793827169.7379525
+    },
+    "rhythm.after_return:t3": {
+      "image": {
+        "512": "rhythm-after_return-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827181.0601752,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "21b74c669afbd133a2c82099f6589e1f5dce1a6448201e308f927d5daed2d92b",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793827181.0601752
+    },
+    "rhythm.three_days_week:t1": {
+      "image": {
+        "512": "rhythm-three_days_week-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827193.3474119,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "954ea72841a9f6bdaee6bc3c4a699cf8c43fb19059b5d03645cee7d0cdfc02b7",
+        "usage": {
+          "input_tokens": 1294,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 706
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1733
+        }
+      },
+      "updatedAt": 1793827193.3474119
+    },
+    "rhythm.three_days_week:t2": {
+      "image": {
+        "512": "rhythm-three_days_week-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827204.8297164,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "f62a121eceb464a178ec96d83770bc56f0ce3c8b438cb77e99556b975c9108b7",
+        "usage": {
+          "input_tokens": 1294,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 706
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1733
+        }
+      },
+      "updatedAt": 1793827204.8297164
+    },
+    "rhythm.three_days_week:t3": {
+      "image": {
+        "512": "rhythm-three_days_week-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827215.9536114,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "f4e82284c87ba0d840ded7d3142e35b0c15217561d2664e964709e189b183472",
+        "usage": {
+          "input_tokens": 1295,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 707
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1734
+        }
+      },
+      "updatedAt": 1793827215.9536114
+    },
+    "rhythm.year_weeks:t1": {
+      "image": {
+        "512": "rhythm-year_weeks-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827227.9115536,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "521b324904528a5e9b46d9393b3ae2281d1300f33ac7fbbc70b0879d4862aa1c",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793827227.9115536
+    },
+    "rhythm.year_weeks:t2": {
+      "image": {
+        "512": "rhythm-year_weeks-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827241.4120955,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "e7fdfb72a6cd791bcadff933fe064b4586f14aa9cd0bb6f5231f1bd778c8f155",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793827241.4120955
+    },
+    "rhythm.year_weeks:t3": {
+      "image": {
+        "512": "rhythm-year_weeks-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827255.004938,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "09044639b8ae22184f25573b09f5614c106cc3364e59cc302ea2706f1f7d13d1",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827255.004938
+    },
+    "practice.workouts:t1": {
+      "image": {
+        "512": "practice-workouts-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827267.3260174,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "8d608233d12ca5ddbe41c8257ebbe19ba17ac84ce959409be57c26c1b5253f12",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793827267.3260174
+    },
+    "practice.workouts:t2": {
+      "image": {
+        "512": "practice-workouts-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827278.0582867,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "267a7069bad6408cbcdbb7da05a58641ecb4823be3dbe560f457f48d26996da7",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793827278.0582867
+    },
+    "practice.workouts:t3": {
+      "image": {
+        "512": "practice-workouts-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827289.7508626,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "faad226912756ed447826ef8d9e566e76a131315cef647703d5c985184f56cab",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793827289.7508626
+    },
+    "practice.sets:t1": {
+      "image": {
+        "512": "practice-sets-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827301.2864962,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "7f0e4e1bee63fd700cdc5d4047951cf2befbfc330ab3a7a1d39f116b019b2f08",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793827301.2864962
+    },
+    "practice.sets:t2": {
+      "image": {
+        "512": "practice-sets-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827312.9386373,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "03af0468224e7c8d812372ba242b4b441775de4c94eee7a11c208508b4e67a51",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793827312.9386373
+    },
+    "practice.sets:t3": {
+      "image": {
+        "512": "practice-sets-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827324.4792132,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "b5fcdca75349b1a8ab9c3fde4926eb2a59215ff22ce34536583f52041e19bbed",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793827324.4792132
+    },
+    "practice.reps:t1": {
+      "image": {
+        "512": "practice-reps-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827335.7041955,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "6937d7dbb6320bd5a896b3693000a789527f08a5a1f95158e415ff1d86dde1c4",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793827335.7041955
+    },
+    "practice.reps:t2": {
+      "image": {
+        "512": "practice-reps-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827347.8489323,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "52e42c96f677baf1ea8db4a513fe61133a089d88fe32e3c87fc606dfb8b7bae3",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793827347.8489323
+    },
+    "practice.reps:t3": {
+      "image": {
+        "512": "practice-reps-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827359.7153728,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "93ff6df1dff6a6fd77b9f6f3c81cd9b28955dcacf02411bbd9757643f12311e1",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793827359.7153728
+    },
+    "practice.working_sets:t1": {
+      "image": {
+        "512": "practice-working_sets-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827371.293638,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "b55ca53e65b4735d3b8df21c8797079d16b94403b70554f2666c0ba41255a78e",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793827371.293638
+    },
+    "practice.working_sets:t2": {
+      "image": {
+        "512": "practice-working_sets-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827384.683115,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "6ce368714fdb858026912582678c33d564425c6e5df6897b95019bb15d8e396a",
+        "usage": {
+          "input_tokens": 1281,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 693
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1720
+        }
+      },
+      "updatedAt": 1793827384.683115
+    },
+    "practice.working_sets:t3": {
+      "image": {
+        "512": "practice-working_sets-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827396.1516907,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "73871ede18c52777476ddfa929b6142ef43233ffbbb8c369eb3d31e5a463f2ef",
+        "usage": {
+          "input_tokens": 1279,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 691
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1718
+        }
+      },
+      "updatedAt": 1793827396.1516907
+    },
+    "practice.exercise_sessions:t1": {
+      "image": {
+        "512": "practice-exercise_sessions-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827407.6224697,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "bb79800c96c61c88ff00171ebd7128e0db9f73ee77c7ea4046631d228350aaec",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793827407.6224697
+    },
+    "practice.exercise_sessions:t2": {
+      "image": {
+        "512": "practice-exercise_sessions-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827418.4336188,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "d88348853df763081dad5bcd5443572521c65f4cffbda07ffd66211e6f9c6e43",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827418.4336188
+    },
+    "practice.exercise_sessions:t3": {
+      "image": {
+        "512": "practice-exercise_sessions-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827430.6605482,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "c7fe9c876374d44d29c7833a5b4902c3dab3514b1a6baabe1c31af30459c561f",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827430.6605482
+    },
+    "practice.partial_workouts:t1": {
+      "image": {
+        "512": "practice-partial_workouts-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827443.966003,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "4da1b1162e7434f30f89430def7549a38f0fb7a7f0c12710be95beb43e871170",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793827443.966003
+    },
+    "practice.partial_workouts:t2": {
+      "image": {
+        "512": "practice-partial_workouts-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827454.7706227,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "15d5e34bd798e3871a18ac499d3dccec15940c8d7f02383850fe2db9ea81c586",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827454.7706227
+    },
+    "practice.partial_workouts:t3": {
+      "image": {
+        "512": "practice-partial_workouts-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827467.3331914,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "a276078cfdf57e91bd835d8a11620c4e355844aa5fd3c9c034c9400cdfa545c3",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793827467.3331914
+    },
+    "practice.multi_set_days:t1": {
+      "image": {
+        "512": "practice-multi_set_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827479.553015,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "928be00cb4219729fcffdbf065359389343fc65825ac79e6a67afc6d63ab5b79",
+        "usage": {
+          "input_tokens": 1293,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 705
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1732
+        }
+      },
+      "updatedAt": 1793827479.553015
+    },
+    "practice.multi_set_days:t2": {
+      "image": {
+        "512": "practice-multi_set_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827492.2178514,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "727a628ab87d162b065375de9f738bdcd5a24adf5f5e468e2c23c6f12514a3ca",
+        "usage": {
+          "input_tokens": 1291,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 703
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1730
+        }
+      },
+      "updatedAt": 1793827492.2178514
+    },
+    "practice.multi_set_days:t3": {
+      "image": {
+        "512": "practice-multi_set_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827504.928815,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "565e42ab79ba695df4181ae553ebcac5495163a82fc2e59ab55e0fd3d2cc1acd",
+        "usage": {
+          "input_tokens": 1291,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 703
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1730
+        }
+      },
+      "updatedAt": 1793827504.928815
+    },
+    "practice.three_exercise_days:t1": {
+      "image": {
+        "512": "practice-three_exercise_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827516.843513,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "ab2b41203c6dc940e50020f6ff9dc18a0c8ec270d01da8c547f871619fee10b2",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793827516.843513
+    },
+    "practice.three_exercise_days:t2": {
+      "image": {
+        "512": "practice-three_exercise_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827530.5812666,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "8ce648d8ada9a1692dc8ee9f16c5d7a6cdeb50c4ad2b70c51431e16113ea8737",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793827530.5812666
+    },
+    "practice.three_exercise_days:t3": {
+      "image": {
+        "512": "practice-three_exercise_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827544.3943188,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "9c58a1e754018565ee5ca638ca34af23956d467b8464c0929954a2340d1473b5",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793827544.3943188
+    },
+    "practice.focus:t1": {
+      "image": {
+        "512": "practice-focus-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827556.198259,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "95d3e23283d20dbedbf780d5f1975d43bb55f3a111b9a210350eac7caa982c01",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793827556.198259
+    },
+    "practice.focus:t2": {
+      "image": {
+        "512": "practice-focus-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827568.643913,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "0598ac56e474dbf31d5be9504b2a87681224f6218243cbb7d935bf64d5034aa1",
+        "usage": {
+          "input_tokens": 1281,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 693
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1720
+        }
+      },
+      "updatedAt": 1793827568.643913
+    },
+    "practice.focus:t3": {
+      "image": {
+        "512": "practice-focus-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827579.2454958,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "c492b702a98cba075969307ad471d4fc912b578b6330f5013a9b9f20d54f2e87",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827579.2454958
+    },
+    "practice.thousand_sets:t1": {
+      "image": {
+        "512": "practice-thousand_sets-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827590.3766015,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "7faf811bdc170b0badf6cd275af37ffd9e5f0903fe17d535a82b6a0f1f89410e",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793827590.3766015
+    },
+    "practice.thousand_sets:t2": {
+      "image": {
+        "512": "practice-thousand_sets-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827602.3382607,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "7ce8dbe91f0854d65ca543e2d7b5cba9bb9115136e1470f9db9ef8f6a28cd080",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793827602.3382607
+    },
+    "practice.thousand_sets:t3": {
+      "image": {
+        "512": "practice-thousand_sets-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827614.4268584,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "26e4c1f332ea7ef152cd51daf161cb340496bc86cddc3b18433be142e4a2c14f",
+        "usage": {
+          "input_tokens": 1279,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 691
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1718
+        }
+      },
+      "updatedAt": 1793827614.4268584
+    },
+    "variety.timed_seconds:t1": {
+      "image": {
+        "512": "variety-timed_seconds-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827625.8208249,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "88cd4e2d05ffc5c3331d19f9c544e3412b1bd0d21734a26f2ec6e437c9767229",
+        "usage": {
+          "input_tokens": 1281,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 693
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1720
+        }
+      },
+      "updatedAt": 1793827625.8208249
+    },
+    "variety.timed_seconds:t2": {
+      "image": {
+        "512": "variety-timed_seconds-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827637.2403624,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "e80be922bf194612a92dce1e3351500447e8ecbb45bced45c316c7a5b132c925",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793827637.2403624
+    },
+    "variety.timed_seconds:t3": {
+      "image": {
+        "512": "variety-timed_seconds-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827649.3169496,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "29422de1ae70648a89793760c57b2ab5211b61107f5619b4572d41665b4f2829",
+        "usage": {
+          "input_tokens": 1278,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 690
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1717
+        }
+      },
+      "updatedAt": 1793827649.3169496
+    },
+    "variety.timed_days:t1": {
+      "image": {
+        "512": "variety-timed_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827662.1071305,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "c97a8fd10e51bacb73e1c45765b689db77771fbd53ead2980a73bc23d12b420e",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827662.1071305
+    },
+    "variety.timed_days:t2": {
+      "image": {
+        "512": "variety-timed_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827673.4452653,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "e9d25107183ed0062846e6ba1d888f8b548899448d2f7e7db2c8797b50097ec4",
+        "usage": {
+          "input_tokens": 1281,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 693
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1720
+        }
+      },
+      "updatedAt": 1793827673.4452653
+    },
+    "variety.timed_days:t3": {
+      "image": {
+        "512": "variety-timed_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827686.2483695,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "364cf0f3b0a05a9b2057d071b2dac54b9433c6b8088c5e1fadaa540e0f53a6e9",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793827686.2483695
+    },
+    "variety.stretch_seconds:t1": {
+      "image": {
+        "512": "variety-stretch_seconds-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827698.3373182,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "bc7667b43c9500c92ecddb7e4a1d1372952e0dda16033d4265a342bb7ddeb231",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793827698.3373182
+    },
+    "variety.stretch_seconds:t2": {
+      "image": {
+        "512": "variety-stretch_seconds-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827710.7726681,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "d01cac06e0daf4eb4680ab5512621731cf895e21b08720c310de610e796b954a",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827710.7726681
+    },
+    "variety.stretch_seconds:t3": {
+      "image": {
+        "512": "variety-stretch_seconds-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827723.3814385,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "c59fba0ec1902690c2f8a4316e9c33b360dee60eaf7a4b7ebb4bd843e45fd49e",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827723.3814385
+    },
+    "variety.stretch_days:t1": {
+      "image": {
+        "512": "variety-stretch_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827735.625716,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "3b161e20c9612cb0a1541d04b1c0e8926139ccc0ca46e37f9f0490c3453f070d",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793827735.625716
+    },
+    "variety.stretch_days:t2": {
+      "image": {
+        "512": "variety-stretch_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827748.526922,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "efff5472460a0c82bfa0e3318764bd4fa06629b8b904471bcf588ac4948a8acc",
+        "usage": {
+          "input_tokens": 1281,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 693
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1720
+        }
+      },
+      "updatedAt": 1793827748.526922
+    },
+    "variety.stretch_days:t3": {
+      "image": {
+        "512": "variety-stretch_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827764.2482622,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "55c75ed2faef0034e87b6afc9f49a38987366f10a5a304a22446246284c45b7c",
+        "usage": {
+          "input_tokens": 1279,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 691
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1718
+        }
+      },
+      "updatedAt": 1793827764.2482622
+    },
+    "variety.bodyweight_reps:t1": {
+      "image": {
+        "512": "variety-bodyweight_reps-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827776.9023,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "008c08f5ced58b61a4ac170fa35006daae3881045d7812986be4a2f7eb65feac",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793827776.9023
+    },
+    "variety.bodyweight_reps:t2": {
+      "image": {
+        "512": "variety-bodyweight_reps-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827790.5216858,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "5d758752c4c1b6deb75215d67d2a0a4b94274a016a05feef47825d2149a02209",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793827790.5216858
+    },
+    "variety.bodyweight_reps:t3": {
+      "image": {
+        "512": "variety-bodyweight_reps-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827803.0853198,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "3f359f3363d00c23217187cc2f91bdcdb4300fcca2fcfd8d52e59fc3fdfafaf4",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793827803.0853198
+    },
+    "variety.bodyweight_sets:t1": {
+      "image": {
+        "512": "variety-bodyweight_sets-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827814.7572837,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "87018a416667f333d575ca3b1b27f619b8436a236499c47a0216270719bd1b84",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793827814.7572837
+    },
+    "variety.bodyweight_sets:t2": {
+      "image": {
+        "512": "variety-bodyweight_sets-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827826.137186,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "a593ccd1d136922d58c254b90c092e3135e0b3b4548aad270e005b0bb44926bd",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827826.137186
+    },
+    "variety.bodyweight_sets:t3": {
+      "image": {
+        "512": "variety-bodyweight_sets-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827837.4357436,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "5dce4f22f0224840dde9d05bdb6d4ba6ac186a0785e434f2826ad585cad1b2ff",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827837.4357436
+    },
+    "variety.bodyweight_days:t1": {
+      "image": {
+        "512": "variety-bodyweight_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827848.9488106,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "2285f61070e33734ada868342eb4491225672af9ee5322fe898b571282c65351",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793827848.9488106
+    },
+    "variety.bodyweight_days:t2": {
+      "image": {
+        "512": "variety-bodyweight_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827860.8064315,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "199092c24b9e9339b14525e3fe8180eed933e97ddbded2fe8dc8f2d1b002b66b",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793827860.8064315
+    },
+    "variety.bodyweight_days:t3": {
+      "image": {
+        "512": "variety-bodyweight_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827873.2426934,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "0b83d4356d8c46333c454239cc33d39497b7218684ac2a52ceb86441ef4cce10",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793827873.2426934
+    },
+    "variety.mixed_kind_days:t1": {
+      "image": {
+        "512": "variety-mixed_kind_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827887.1259308,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "bd5ab790469bc8f3521b06cf93acb114dc1d2448cb1b98b20f2af41a73d4981f",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793827887.1259308
+    },
+    "variety.mixed_kind_days:t2": {
+      "image": {
+        "512": "variety-mixed_kind_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827899.2779896,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "84adf4967b2a6f711c22502ab1f6fdad80eaae315751b32de695997697a49609",
+        "usage": {
+          "input_tokens": 1281,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 693
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1720
+        }
+      },
+      "updatedAt": 1793827899.2779896
+    },
+    "variety.mixed_kind_days:t3": {
+      "image": {
+        "512": "variety-mixed_kind_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827912.2471275,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "d710e198d6a7c3fbd9c6e6545892c93ef11d8a0e0db6784ae51699edfb0450e3",
+        "usage": {
+          "input_tokens": 1280,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 692
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1719
+        }
+      },
+      "updatedAt": 1793827912.2471275
+    },
+    "variety.machine_days:t1": {
+      "image": {
+        "512": "variety-machine_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827924.5181613,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "87ea220d77ae6ad6c0597dfdf75618817ebd0825674ca21d3faa466c3f99e517",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827924.5181613
+    },
+    "variety.machine_days:t2": {
+      "image": {
+        "512": "variety-machine_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827936.006753,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "020799b24d755dbebbeeb43fa4bed4568660ae07f3a17f72223f713f164340f7",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793827936.006753
+    },
+    "variety.machine_days:t3": {
+      "image": {
+        "512": "variety-machine_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827946.9707437,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "8b7bb57264da53f591621be3f9d30aaf0db5feb3454f68f03b5d5ff25e351917",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827946.9707437
+    },
+    "variety.bodyweight_exercises:t1": {
+      "image": {
+        "512": "variety-bodyweight_exercises-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827958.3040426,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "d0b639178a3fe7144ee2580d7b85d4deb2f7ca811b10e167130652758d635f40",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793827958.3040426
+    },
+    "variety.bodyweight_exercises:t2": {
+      "image": {
+        "512": "variety-bodyweight_exercises-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827969.5386984,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "90983485b663ff06688080ba61275cf02daeb6fbdbdae5b3850b6cd9ad75f7b0",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793827969.5386984
+    },
+    "variety.bodyweight_exercises:t3": {
+      "image": {
+        "512": "variety-bodyweight_exercises-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827980.8625822,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "42dab648237f52f5c35afea175fa3e02c55b4fdea5c2de748d640909a59f1dcc",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793827980.8625822
+    },
+    "repertoire.distinct_exercises:t1": {
+      "image": {
+        "512": "repertoire-distinct_exercises-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793827992.77309,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "e03077eb6a2f8f171ee6152361614ec2868a0ff8630a520bc0ab90ea6e3f045d",
+        "usage": {
+          "input_tokens": 1275,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 687
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1714
+        }
+      },
+      "updatedAt": 1793827992.77309
+    },
+    "repertoire.distinct_exercises:t2": {
+      "image": {
+        "512": "repertoire-distinct_exercises-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828004.8234441,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "85850f8a2e8c8188dcbb1b36882da147577882bd680071b007c61f685e120885",
+        "usage": {
+          "input_tokens": 1276,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 688
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1715
+        }
+      },
+      "updatedAt": 1793828004.8234441
+    },
+    "repertoire.distinct_exercises:t3": {
+      "image": {
+        "512": "repertoire-distinct_exercises-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828016.0068595,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "dbfcf2549993025aaf9e3b23905471da274060151a290934193f962ff3916cc4",
+        "usage": {
+          "input_tokens": 1277,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 689
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1716
+        }
+      },
+      "updatedAt": 1793828016.0068595
+    },
+    "repertoire.familiar:t1": {
+      "image": {
+        "512": "repertoire-familiar-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828027.303963,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "116f2246c7ee17d8e4b66221192a68b5c70094cae3325e5ac3d18d76ae99804a",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793828027.303963
+    },
+    "repertoire.familiar:t2": {
+      "image": {
+        "512": "repertoire-familiar-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828039.811711,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "1694e15e47a45aa9b00791a57d41b671608e4533348d1addaf980a3c541ed088",
+        "usage": {
+          "input_tokens": 1288,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 700
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1727
+        }
+      },
+      "updatedAt": 1793828039.811711
+    },
+    "repertoire.familiar:t3": {
+      "image": {
+        "512": "repertoire-familiar-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828051.9916468,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "ab0a20b36c6ee9d51f657970d3d05372fce07c8d78f36d4ce826b6c5b842852a",
+        "usage": {
+          "input_tokens": 1290,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 702
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1729
+        }
+      },
+      "updatedAt": 1793828051.9916468
+    },
+    "repertoire.exploration:t1": {
+      "image": {
+        "512": "repertoire-exploration-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828064.6572044,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "be981fc13b73596d2be6edcd6f0270930d2708d08877a20d71e6b65000504046",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793828064.6572044
+    },
+    "repertoire.exploration:t2": {
+      "image": {
+        "512": "repertoire-exploration-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828075.831803,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "4f29b268a04ae52cda5ead730b98f1e443f8df7159059aff29e4387331cb5904",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793828075.831803
+    },
+    "repertoire.exploration:t3": {
+      "image": {
+        "512": "repertoire-exploration-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828088.2183201,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "3ccb1ac5e3f75aa31d359796e70a4a3033e8e190637e0a0e09d60fc5aae17037",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793828088.2183201
+    },
+    "repertoire.familiar_days:t1": {
+      "image": {
+        "512": "repertoire-familiar_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828099.8816183,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "3648a19f794d173375717100c8961d549f4d281f21b4d128c09751121d45be4c",
+        "usage": {
+          "input_tokens": 1291,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 703
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1730
+        }
+      },
+      "updatedAt": 1793828099.8816183
+    },
+    "repertoire.familiar_days:t2": {
+      "image": {
+        "512": "repertoire-familiar_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828111.348617,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "af04af5d35ccc2ed28838dfa4e76b8cac50c7466bb03ffb444335e54c3423304",
+        "usage": {
+          "input_tokens": 1292,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 704
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1731
+        }
+      },
+      "updatedAt": 1793828111.348617
+    },
+    "repertoire.familiar_days:t3": {
+      "image": {
+        "512": "repertoire-familiar_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828124.1135068,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "fa9251ba290dbce7118a19ff0427e568abbc014f8c1494bf90cbc12592f701b6",
+        "usage": {
+          "input_tokens": 1295,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 707
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1734
+        }
+      },
+      "updatedAt": 1793828124.1135068
+    },
+    "repertoire.exercise_weeks:t1": {
+      "image": {
+        "512": "repertoire-exercise_weeks-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828136.5181613,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "a88cd36c260549af94b1a2d7ab91db6d849afa2e5ae9f2bfcbecc607c0dec23a",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793828136.5181613
+    },
+    "repertoire.exercise_weeks:t2": {
+      "image": {
+        "512": "repertoire-exercise_weeks-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828149.2699459,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "40447645e1ab7cfc10d81316eebf3d8aa448756087ef1ac5a053ae451c3778a5",
+        "usage": {
+          "input_tokens": 1289,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 701
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1728
+        }
+      },
+      "updatedAt": 1793828149.2699459
+    },
+    "repertoire.exercise_weeks:t3": {
+      "image": {
+        "512": "repertoire-exercise_weeks-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828160.8697972,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "abb2dfffc8328e953fff991d3763e1727e581132a57dec8364a54ca34c556b32",
+        "usage": {
+          "input_tokens": 1288,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 700
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1727
+        }
+      },
+      "updatedAt": 1793828160.8697972
+    },
+    "repertoire.new_exercise_months:t1": {
+      "image": {
+        "512": "repertoire-new_exercise_months-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828172.1443627,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "b9e50ecc7585b117b9f0ff6d4607b9a08bba0569d7dc66a3477011246f940a66",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793828172.1443627
+    },
+    "repertoire.new_exercise_months:t2": {
+      "image": {
+        "512": "repertoire-new_exercise_months-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828184.4022539,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "90e9e7614fa2ef7087e83008acecaef7ec0649692154e84effbc16b4351a9e67",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793828184.4022539
+    },
+    "repertoire.new_exercise_months:t3": {
+      "image": {
+        "512": "repertoire-new_exercise_months-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828196.7970924,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "5eee41c81f2f25b4db1cecceff56a88ff7b8ffe2e00c6717b40ff95df4ca199f",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793828196.7970924
+    },
+    "repertoire.machine_exercises:t1": {
+      "image": {
+        "512": "repertoire-machine_exercises-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828210.4239879,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "0f4ad9f380a9b67b268259136b253bdfe3cd9c02d0821880042913f2cf2c5519",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793828210.4239879
+    },
+    "repertoire.machine_exercises:t2": {
+      "image": {
+        "512": "repertoire-machine_exercises-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828221.3084006,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "6083e4c2dd981a1b4dcb38e1c56dea40d98f763de7c651c05f6c394de8cea21d",
+        "usage": {
+          "input_tokens": 1289,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 701
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1728
+        }
+      },
+      "updatedAt": 1793828221.3084006
+    },
+    "repertoire.machine_exercises:t3": {
+      "image": {
+        "512": "repertoire-machine_exercises-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828233.423794,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "28852b7577fda9bbc25f9582db9b05a412675123b3fff17a8cf879448e765e96",
+        "usage": {
+          "input_tokens": 1287,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 699
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1726
+        }
+      },
+      "updatedAt": 1793828233.423794
+    },
+    "repertoire.timed_exercises:t1": {
+      "image": {
+        "512": "repertoire-timed_exercises-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828245.832438,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "7b067b0dbd495aee3ca93817151948cfbe712a0ea3fa06d8089289d3a853c1c5",
+        "usage": {
+          "input_tokens": 1281,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 693
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1720
+        }
+      },
+      "updatedAt": 1793828245.832438
+    },
+    "repertoire.timed_exercises:t2": {
+      "image": {
+        "512": "repertoire-timed_exercises-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828258.9650476,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "4c4b3e975a2c27d8fa5381a83656ea174a3981f9a50c899ca0255b52f8c10ce0",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793828258.9650476
+    },
+    "repertoire.timed_exercises:t3": {
+      "image": {
+        "512": "repertoire-timed_exercises-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828272.467413,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "8882fb41c310522ff12de877491db5775bf3952894949db3d0cf89102e042384",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793828272.467413
+    },
+    "repertoire.five_exercise_days:t1": {
+      "image": {
+        "512": "repertoire-five_exercise_days-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828283.6051142,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "14ba64c0d911c041b98245f4cbced5e8924d2574a45f7348752e770eb56a3e0b",
+        "usage": {
+          "input_tokens": 1285,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 697
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1724
+        }
+      },
+      "updatedAt": 1793828283.6051142
+    },
+    "repertoire.five_exercise_days:t2": {
+      "image": {
+        "512": "repertoire-five_exercise_days-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828295.6892617,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "36c88d2dc48b4d61103fa533a991cc79a4f18ce93bb4864c553fac177c0f304f",
+        "usage": {
+          "input_tokens": 1286,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 698
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1725
+        }
+      },
+      "updatedAt": 1793828295.6892617
+    },
+    "repertoire.five_exercise_days:t3": {
+      "image": {
+        "512": "repertoire-five_exercise_days-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828307.492624,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "36da634bebfea542e63a9d06146a7af0990b8361576f9b40d5f167126fd3a60f",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793828307.492624
+    },
+    "repertoire.repertoire_months:t1": {
+      "image": {
+        "512": "repertoire-repertoire_months-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828318.9608233,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "30e407df336dfc58f3bbf591a770c825164a4605f9c253ac844e306c551c381a",
+        "usage": {
+          "input_tokens": 1290,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 702
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1729
+        }
+      },
+      "updatedAt": 1793828318.9608233
+    },
+    "repertoire.repertoire_months:t2": {
+      "image": {
+        "512": "repertoire-repertoire_months-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828331.2720275,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "9dc51b8239dcf4ccb67ee35fbf215764ae357e36604e0c48da823346922ff85e",
+        "usage": {
+          "input_tokens": 1291,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 703
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1730
+        }
+      },
+      "updatedAt": 1793828331.2720275
+    },
+    "repertoire.repertoire_months:t3": {
+      "image": {
+        "512": "repertoire-repertoire_months-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828342.792769,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "3459ebf95fbab72606424c12f3217f9d4d5254c4bdbe51cbab9d281f9ff60944",
+        "usage": {
+          "input_tokens": 1289,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 701
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1728
+        }
+      },
+      "updatedAt": 1793828342.792769
+    },
+    "volume.volume:t1": {
+      "image": {
+        "512": "volume-volume-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828353.004279,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "21daae5b30469052f1ce97f42f9b47e3da6ed45e0f699bd61f112347b7aa6303",
+        "usage": {
+          "input_tokens": 1291,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 703
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1730
+        }
+      },
+      "updatedAt": 1793828353.004279
+    },
+    "volume.volume:t2": {
+      "image": {
+        "512": "volume-volume-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828363.99693,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "f49bd6c4855eb1692e288200407e0cd83ba8d0a711a221370bb91af7422cebcf",
+        "usage": {
+          "input_tokens": 1292,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 704
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1731
+        }
+      },
+      "updatedAt": 1793828363.99693
+    },
+    "volume.volume:t3": {
+      "image": {
+        "512": "volume-volume-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828376.0037782,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "b4257b9b0ad61c62c4977dbca999bfae343a7cf9140480320679538bfa7fe816",
+        "usage": {
+          "input_tokens": 1292,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 704
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1731
+        }
+      },
+      "updatedAt": 1793828376.0037782
+    },
+    "volume.weighted_sets:t1": {
+      "image": {
+        "512": "volume-weighted_sets-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828388.1527417,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "ef9bba81f3e52bad50e24ad7c2e4361c463a595063dc2ff68dc558bddf25a3bd",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793828388.1527417
+    },
+    "volume.weighted_sets:t2": {
+      "image": {
+        "512": "volume-weighted_sets-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828398.961972,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "bb065eb750264bc4ed807b8ddae8f84c0c55f046092413a4765c73c40c658147",
+        "usage": {
+          "input_tokens": 1283,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 695
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1722
+        }
+      },
+      "updatedAt": 1793828398.961972
+    },
+    "volume.weighted_sets:t3": {
+      "image": {
+        "512": "volume-weighted_sets-t3-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828411.5356412,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "217b465518063e293fb026783f482bf5395b7e563fd5acdaa5fc437acd13e175",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793828411.5356412
+    },
+    "volume.weighted_reps:t1": {
+      "image": {
+        "512": "volume-weighted_reps-t1-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828422.78852,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "3831a4443b8dc0c3ad6c999af88c4abb897ca9300cd169875cd0ba184de5c860",
+        "usage": {
+          "input_tokens": 1282,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 694
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1721
+        }
+      },
+      "updatedAt": 1793828422.78852
+    },
+    "volume.weighted_reps:t2": {
+      "image": {
+        "512": "volume-weighted_reps-t2-hexagonal-v1-512.webp"
+      },
+      "imageMetadata": {
+        "updatedAt": 1793828434.1476555,
+        "model": "gpt-image-2.5-flare",
+        "quality": "medium",
+        "styleReference": true,
+        "styleVersion": "hexagonal-v1",
+        "sha256": "107c1968a79ab321bab5d865d744927728e4202457e75c9b32a44dd6f29144fa",
+        "usage": {
+          "input_tokens": 1284,
+          "input_tokens_details": {
+            "image_tokens": 588,
+            "text_tokens": 696
+          },
+          "output_tokens": 439,
+          "output_tokens_details": {
+            "image_tokens": 439,
+            "text_tokens": 0
+          },
+          "total_tokens": 1723
+        }
+      },
+      "updatedAt": 1793828434.1476555
+    }
+  },
+  "missing": [],
+  "failed": {}
+}

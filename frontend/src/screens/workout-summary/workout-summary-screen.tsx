@@ -8,6 +8,8 @@ import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtim
 import { adjustExerciseLoadOnBackend, resolveWorkoutSaveStatus, saveWorkoutToBackend } from '@/features/runtime/lib/runtime-persistence'
 import { captureRuntimeLifecycle, coachLifecycle } from '@/features/coach/lib/runtime-observation'
 import { CoachEpisodeCard } from '@/features/coach/ui/coach-episode'
+import { WorkoutAwards } from '@/features/achievements/ui/workout-awards'
+import '@/screens/achievements/achievements-screen.css'
 import type { LoadAdjustmentDirection, LoadAdjustmentResponse } from '@/features/runtime/lib/runtime-persistence'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
@@ -181,6 +183,7 @@ export function WorkoutSummaryScreen() {
           </div>
 
           <CoachEpisodeCard workoutId={summary.workoutSessionId} userId={selectedUserId} />
+          {session.backendWorkoutSaved && <WorkoutAwards userId={selectedUserId} workoutId={summary.workoutSessionId} />}
 
           {saveError ? (
             <div className="rt-alert" data-tone="danger" role="alert">

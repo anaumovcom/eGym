@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.routes.achievements import router as achievements_router
 from app.api.routes.analytics import router as analytics_router
 from app.api.routes.coach import router as coach_router
 from app.api.routes.dashboard import router as dashboard_router
@@ -28,6 +29,7 @@ api_router.include_router(directories_router, prefix="/directories", tags=["dire
 api_router.include_router(runtime_router, tags=["runtime"])
 api_router.include_router(scales_router, tags=["scales"])
 api_router.include_router(analytics_router, tags=["analytics"])
+api_router.include_router(achievements_router, tags=["achievements"])
 api_router.include_router(training_router, tags=["training"])
 api_router.include_router(modbus_router, tags=["modbus"])
 api_router.include_router(motor_router, tags=["motor"])

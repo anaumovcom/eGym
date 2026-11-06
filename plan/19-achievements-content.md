@@ -1,0 +1,4112 @@
+# Достижения Forma: 120 линий и 360 наград
+
+Версия правил: `achievements-rules-1.0.0`. Версия контента: `achievements-content-1.0.0`.
+
+Каждая линия имеет независимое условие и три ступени. Ступени не считаются отдельными линиями.
+Фразы создаются заранее; условия и прогресс всегда вычисляет детерминированный backend.
+
+Редкость: **обычная** — золото, **редкая** — бирюза/сапфир, **эпичная** — фиолетовый/пурпур, **легендарная** — огненное золото/оранжевый.
+
+## Начало пути
+
+### `start.first_set`
+
+**Правило:** Начать с первого выполненного подхода и накопить первую практику. **Единица:** подход. **Источник:** `available`.
+
+#### 1. Рычаг старта
+
+- **ID:** `start.first_set:t1`
+- **Порог:** 1 подход
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Первый подход выполнен — ты включаешь режим «делаю». Лень пока ищет кнопку отмены.
+- **Fish Drama 3:** `[playful] Первый подход выполнен — ты включаешь режим «делаю». Лень пока ищет кнопку отмены.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a cohesive mechanical workshop series. One clear hero object: a stout vintage toggle lever flipped upward, with a rounded amber glass grip and polished warm-gold metal base. Chunky beveled hexagonal metal frame, translucent honey-gold enamel inlays, restrained common-rarity warm-gold palette. Simple compact silhouette, a few tiny stars and delicate sparks around the lever. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, crisp readable design at 96px. Stylized product render, not photography. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Ключ к практике
+
+- **ID:** `start.first_set:t2`
+- **Порог:** 5 подход
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** За твоими плечами уже 5 выполненных подходов. Ты копишь практику, а железо привыкает к знакомству.
+- **Fish Drama 3:** `[confident] За твоими плечами уже <emphasis>5 выполненных подходов</emphasis>. Ты копишь практику, а железо привыкает к знакомству.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of the same mechanical workshop series. One clear hero object: an oversized wind-up key floating diagonally, with a broad butterfly-shaped bow, a short square shaft, polished warm-gold edges, and translucent amber glass inset panels. Chunky beveled hexagonal metal frame matching the series, now double-ridged with richer honey-gold enamel details. Common-rarity warm-gold palette, slightly grander depth and stronger silhouette than the first tier. Tiny stars and a small spiral of sparks suggest gentle winding motion. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. Stylized glossy product render. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Маховик набирает ход
+
+- **ID:** `start.first_set:t3`
+- **Порог:** 20 подход
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 20 выполненных подходов — ты собрал целую коллекцию действий. Железо просит автограф.
+- **Fish Drama 3:** `[excited] В твоей истории уже <emphasis>20 выполненных подходов</emphasis> — ты собрал целую коллекцию действий. Железо просит автограф.`
+- **Image prompt:** Premium glossy 3D achievement emblem, third and most impressive tier of the same mechanical workshop series. One clear hero object: a substantial industrial flywheel with a thick polished warm-gold rim, broad sculptural spokes, a domed central hub, and translucent honey-amber glass sections between the spokes. Tilted three-quarter view with a subtle luminous arc suggesting accumulated momentum. Chunky beveled hexagonal metal frame matching the earlier tiers, now with deeper layered bevels and refined radial enamel accents. Keep the common-rarity warm-gold palette, without legendary flames. Tiny stars and clustered sparks accent the wheel, with generous negative space for readability at 96px. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, premium stylized 3D product render. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+### `start.first_workout`
+
+**Правило:** Сохранить первую тренировку с работой и продолжить начатое. **Единица:** тренировка. **Источник:** `available`.
+
+#### 1. Старт записан
+
+- **ID:** `start.first_workout:t1`
+- **Порог:** 1 тренировка
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Первая тренировка с работой сохранена — ты перевёл «когда-нибудь» в прошедшее время!
+- **Fish Drama 3:** `[excited] Первая тренировка с работой сохранена — ты перевёл «когда-нибудь» в прошедшее время!`
+- **Image prompt:** Premium glossy 3D achievement emblem, opening tier of a collectible archive-themed series. One chunky golden floppy disk with a translucent honey-glass inset is the sole hero, tilted slightly forward inside a rounded-square beveled metal frame. Simple bold silhouette, polished warm gold surfaces, a small celebratory glint at the disk corner, tiny stars and sparks. Saturated amber cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+#### 2. Сезон в архиве
+
+- **ID:** `start.first_workout:t2`
+- **Порог:** 3 тренировка
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты сохранил 3 тренировки, на которых поработал. В архиве уже мини-сериал, а не один пилот!
+- **Fish Drama 3:** `[playful] Ты сохранил 3 тренировки, на которых поработал. В архиве уже мини-сериал, а не один пилот!`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of the same warm-gold archive collection. One substantial golden film reel is the sole hero, with a short curling ribbon of translucent amber film emerging from it; the film has blank panels and no imagery. Rounded-square chunky beveled metal frame, richer layered construction than the opening tier, glossy honey enamel, tiny stars and sparks. Saturated golden cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+#### 3. Архив с характером
+
+- **ID:** `start.first_workout:t3`
+- **Порог:** 10 тренировка
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В архиве уже 10 сохранённых тренировок с работой — ты собрал коллекцию, которой тесно в одной папке.
+- **Fish Drama 3:** `[confident] В архиве уже 10 сохранённых тренировок с работой — ты собрал коллекцию, которой тесно в одной папке.`
+- **Image prompt:** Premium glossy 3D achievement emblem, grand final tier of the warm-gold archive series. One miniature monumental vault is the sole hero, its thick circular door slightly ajar around a luminous honey-glass interior, no separate contents. The familiar rounded-square chunky beveled metal frame now has deep stepped layers and broad polished shoulders. Translucent amber enamel inlays, tiny stars and sparks, saturated warm-gold cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+### `start.three_days`
+
+**Правило:** Потренироваться в разных днях и постепенно познакомиться со своим ритмом. **Единица:** тренировочный день. **Источник:** `available`.
+
+#### 1. Ритм постучался
+
+- **ID:** `start.three_days:t1`
+- **Порог:** 3 тренировочный день
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты тренировался в 3 разных дня — ритм уже постучался, и это не сосед с дрелью.
+- **Fish Drama 3:** `[playful] Ты тренировался в 3 разных дня — ритм уже постучался, и это не сосед с дрелью.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a warm-gold musical rhythm series. One compact mechanical metronome is the sole hero, with a polished golden pendulum and translucent honey-glass pyramid casing, completely unmarked. Circular chunky beveled metal frame with shallow rhythmic grooves, restrained amber enamel accents, tiny stars and sparks around the pendulum tip. Saturated warm-gold cinematic rim light, dark navy studio background, soft contact shadow, bold silhouette readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+#### 2. Собственный бит
+
+- **ID:** `start.three_days:t2`
+- **Порог:** 7 тренировочный день
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя уже 7 разных тренировочных дней. Ты собираешь свой ритм, а не чужое расписание.
+- **Fish Drama 3:** `[confident] У тебя уже 7 разных тренировочных дней. Ты собираешь свой ритм, а не чужое расписание.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of the same warm-gold musical rhythm collection. One tilted tambourine is the sole hero, featuring thick polished golden hoops, oversized metallic jingles, and a translucent amber-glass drumhead. Circular chunky beveled metal frame with deeper rhythmic grooves and a double-layer rim, more dimensional than the opening tier. Tiny stars and sparks suggest a gentle shake. Saturated golden cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+#### 3. Ритму нужна сцена
+
+- **ID:** `start.three_days:t3`
+- **Порог:** 14 тренировочный день
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** За плечами 14 разных тренировочных дней — ты дал своему ритму целую сцену, а не табуретку у микрофона.
+- **Fish Drama 3:** `[excited] За плечами 14 разных тренировочных дней — ты дал своему ритму целую сцену, а не табуретку у микрофона.`
+- **Image prompt:** Premium glossy 3D achievement emblem, grand final tier of the warm-gold musical rhythm series. One magnificent concert bell is the sole hero, suspended inside the emblem with a thick polished gold shell, a visible rounded clapper, and broad translucent honey-enamel bands. The same circular chunky beveled metal frame expands into a deep sculptural resonator with concentric grooves. Tiny stars and sparks form a restrained ringing halo. Saturated warm-gold cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+### `start.two_weeks`
+
+**Правило:** Оставить результаты в разных неделях. **Единица:** неделя. **Источник:** `available`.
+
+#### 1. Недели с закладкой
+
+- **ID:** `start.two_weeks:t1`
+- **Порог:** 2 неделя
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты оставил результаты в 2 разных неделях — у тренировочной истории появилась вторая закладка.
+- **Fish Drama 3:** `[warm] Ты оставил результаты в 2 разных неделях — у тренировочной истории появилась вторая закладка.`
+- **Image prompt:** Premium glossy 3D achievement emblem, opening tier of a warm-gold calendar-story collection. One substantial folded ribbon bookmark is the sole hero, sculpted in polished gold with a translucent honey-glass center and a crisp swallowtail tip. Tall arched chunky beveled metal frame with subtle page-edge ridges establishes the series identity. Clean spacious composition, tiny stars and sparks near the fold, saturated amber cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+#### 2. Календарь стал издателем
+
+- **ID:** `start.two_weeks:t2`
+- **Порог:** 4 неделя
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Результаты тренировок есть уже в 4 разных неделях. Ты пишешь историю, а календарь подрабатывает издателем!
+- **Fish Drama 3:** `[playful] Результаты тренировок есть уже в 4 разных неделях. Ты пишешь историю, а календарь подрабатывает издателем!`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of the same warm-gold calendar-story collection. One luxurious fountain pen is the sole hero, positioned diagonally with an oversized polished golden nib and a translucent amber-glass barrel containing a luminous suspended swirl. No paper or ink marks. Tall arched chunky beveled metal frame with richer layered page-edge ridges and honey-enamel recesses. Tiny stars and sparks gather around the nib. Saturated golden cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+#### 3. Сага на полке
+
+- **ID:** `start.two_weeks:t3`
+- **Порог:** 8 неделя
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя накопились результаты в 8 разных неделях — календарь просит книжную полку для этой саги.
+- **Fish Drama 3:** `[confident] У тебя накопились результаты в 8 разных неделях — календарь просит книжную полку для этой саги.`
+- **Image prompt:** Premium glossy 3D achievement emblem, grand final tier of the warm-gold calendar-story series. One sculptural accordion calendar is the sole hero, its thick blank translucent honey-glass panels unfolding upward like a majestic fan, each panel held by polished golden hinges. No dates or markings. Tall arched chunky beveled metal frame with monumental stepped page-edge ridges, glossy amber enamel recesses, tiny stars and sparks between the folds. Saturated warm-gold cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+### `start.exercise_return`
+
+**Правило:** Возвращаться к одному упражнению в разные дни. **Единица:** день с упражнением. **Источник:** `available`.
+
+#### 1. Уже знакомы
+
+- **ID:** `start.exercise_return:t1`
+- **Порог:** 3 день с упражнением
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты выполнял одно и то же упражнение в 3 разных дня — можно уже не представляться.
+- **Fish Drama 3:** `[playful] Ты выполнял одно и то же упражнение в 3 разных дня — можно уже не представляться.`
+- **Image prompt:** Premium glossy 3D achievement emblem, opening tier of a rare return-and-orbit collection. One bold boomerang is the sole hero, with rounded polished metal edges and thick translucent turquoise-glass inlays. A restrained curved light trail suggests its return without adding another object. Circular chunky beveled sapphire-metal frame with a single sweeping orbital groove, tiny stars and sparks. Saturated turquoise and sapphire cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+#### 2. Дежавю с абонементом
+
+- **ID:** `start.exercise_return:t2`
+- **Порог:** 7 день с упражнением
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя набралось 7 разных дней с одним и тем же упражнением. Дежавю уже просит абонемент!
+- **Fish Drama 3:** `[playful] У тебя набралось 7 разных дней с одним и тем же упражнением. Дежавю уже просит абонемент!`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of the same rare return-and-orbit collection. One oversized yo-yo is the sole hero, with deep sapphire polished metal rims and luminous translucent turquoise-glass faces; its attached cord curls into a broad returning loop behind it. Circular chunky beveled metal frame with doubled orbital grooves and richer glass recesses. Tiny stars and sparks follow the cord curve. Saturated turquoise and sapphire cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+#### 3. Большое возвращение
+
+- **ID:** `start.exercise_return:t3`
+- **Порог:** 15 день с упражнением
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Одно и то же упражнение ты выполнил уже в 15 разных дней — это спортивная сага, а не разовое камео.
+- **Fish Drama 3:** `[confident] Одно и то же упражнение ты выполнил уже в 15 разных дней — это спортивная сага, а не разовое камео.`
+- **Image prompt:** Premium glossy 3D achievement emblem, grand final tier of the rare return-and-orbit series. One monumental gyroscope is the sole hero, formed from broad interlocking polished sapphire-metal rings surrounding a luminous translucent turquoise-glass rotor. Strong readable mechanical silhouette, no extra floating objects. The familiar circular chunky beveled frame has deep orbital channels and a wide sculptural rim. Tiny stars and sparks trace the rotating rings. Saturated turquoise and sapphire cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+### `start.first_plan`
+
+**Правило:** Выполнить исходный план и собрать первую серию таких тренировок. **Единица:** тренировка по плану. **Источник:** `requires_plan`.
+
+#### 1. План сошёлся
+
+- **ID:** `start.first_plan:t1`
+- **Порог:** 1 тренировка по плану
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты впервые полностью выполнил исходный план тренировки. Список дел растерян: всё уже сделано!
+- **Fish Drama 3:** `[excited] Ты впервые полностью выполнил исходный план тренировки. Список дел растерян: всё уже сделано!`
+- **Image prompt:** Premium glossy 3D achievement emblem, opening tier of a rare planned-navigation collection. One compact open compass is the sole hero, with a thick polished sapphire-metal case, a translucent turquoise-glass face, and a simple sculpted needle on a completely unmarked dial. Hexagonal chunky beveled metal frame with subtle nautical edge grooves. Tiny stars and sparks glint at the hinge. Saturated turquoise and sapphire cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+#### 2. Маршрут подтверждён
+
+- **ID:** `start.first_plan:t2`
+- **Порог:** 3 тренировка по плану
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя 3 тренировки с полностью выполненным исходным планом. Список дел трижды остался без работы!
+- **Fish Drama 3:** `[playful] У тебя 3 тренировки с полностью выполненным исходным планом. Список дел трижды остался без работы!`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of the same rare planned-navigation collection. One folded navigational map is the sole hero, sculpted from thick translucent turquoise-glass panels with polished sapphire-metal edges. A single raised curved route is purely abstract, with no labels, symbols, or markings. Hexagonal chunky beveled metal frame with layered nautical grooves and richer enamel depth. Tiny stars and sparks hover above the central fold. Saturated turquoise and sapphire cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+#### 3. Флотилия по плану
+
+- **ID:** `start.first_plan:t3`
+- **Порог:** 10 тренировка по плану
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории 10 тренировок с полностью выполненным исходным планом — ты собрал целую флотилию завершённых маршрутов.
+- **Fish Drama 3:** `[confident] В твоей истории 10 тренировок с полностью выполненным исходным планом — ты собрал целую флотилию завершённых маршрутов.`
+- **Image prompt:** Premium glossy 3D achievement emblem, grand final tier of the rare planned-navigation series. One magnificent ship's wheel is the sole hero, its broad polished sapphire-metal spokes surrounding a thick luminous turquoise-glass hub, with jewel-like translucent enamel grips. The familiar hexagonal chunky beveled metal frame becomes deep and monumental, retaining its nautical edge grooves. Tiny stars and sparks create a celebratory arc above the wheel. Saturated turquoise and sapphire cinematic rim light, dark navy studio background, soft contact shadow, bold silhouette readable at 96px. No letters, digits, writing, logos, people, bodies, or photographs.
+
+### `start.first_feedback`
+
+**Правило:** Сохранять самочувствие или дискомфорт после тренировки. **Единица:** день с отметкой. **Источник:** `requires_reflection`.
+
+#### 1. Слово после подходов
+
+- **ID:** `start.first_feedback:t1`
+- **Порог:** 1 день с отметкой
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя есть 1 день с сохранённой отметкой о самочувствии или дискомфорте после тренировки. Ты дал слово не только железу.
+- **Fish Drama 3:** `[warm]У тебя есть <emphasis>1 день</emphasis> с сохранённой отметкой о самочувствии или дискомфорте после тренировки. Ты дал слово не только железу.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first stage of a listening-themed circular badge series. One sculptural seashell is the clear hero, its open spiral suggesting attentive listening. Chunky beveled metal frame in turquoise with sapphire edges, translucent enamel and glass inlays, restrained concentric relief details. Tiny stars and sparks, saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow. Compact silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Железо, приём
+
+- **ID:** `start.first_feedback:t2`
+- **Порог:** 3 день с отметкой
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В 3 разные дни ты сохранил отметки о самочувствии или дискомфорте после тренировок. У железа появился отдел обратной связи.
+- **Fish Drama 3:** `[playful]В <emphasis>3 разные дни</emphasis> ты сохранил отметки о самочувствии или дискомфорте после тренировок. У железа появился отдел обратной связи.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second stage of the same listening-themed circular badge series. A single substantial tuning fork is the hero, suspended diagonally with abstract vibration ripples molded into the backing. Chunky double-beveled turquoise metal frame, sapphire recesses, translucent enamel and glass inlays. More dimensional and radiant than the first stage, with tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Хроника ощущений
+
+- **ID:** `start.first_feedback:t3`
+- **Порог:** 10 день с отметкой
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В копилке уже 10 дней с отметками о самочувствии или дискомфорте после тренировок — ты собрал хронику, где слышно не только звон блинов.
+- **Fish Drama 3:** `[confident]В копилке уже <emphasis>10 дней</emphasis> с отметками о самочувствии или дискомфорте после тренировок — ты собрал хронику, где слышно не только звон блинов.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating stage of the listening-themed circular badge series. One elegant satellite dish is the unmistakable hero, tilted upward with a luminous sapphire glass bowl and turquoise metal receiver. Chunky tiered beveled metal frame, translucent enamel and glass inlays, broad concentric halo relief integrated into the backing. Richer depth and celebratory tiny stars and sparks, saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow. Strong silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+### `start.first_note`
+
+**Правило:** Добавлять собственные заметки к тренировкам. **Единица:** день с заметкой. **Источник:** `requires_reflection`.
+
+#### 1. Карандаш с характером
+
+- **ID:** `start.first_note:t1`
+- **Порог:** 1 день с заметкой
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** 1 день с собственной заметкой к тренировке — ты добавил свой голос к цифрам. Карандаш теперь тоже в команде.
+- **Fish Drama 3:** `[playful]<emphasis>1 день</emphasis> с собственной заметкой к тренировке — ты добавил свой голос к цифрам. Карандаш теперь тоже в команде.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first stage of a writing-tool series with a hexagonal frame. One oversized sharpened pencil is the hero, floating diagonally above a small abstract ink-like flourish embossed in the backing. Chunky beveled violet metal frame, magenta highlights, translucent enamel and glass inlays on the pencil barrel. Tiny stars and sparks, saturated cinematic violet rim light, dark navy studio background, soft contact shadow. Bold uncluttered silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Протокол без занудства
+
+- **ID:** `start.first_note:t2`
+- **Порог:** 3 день с заметкой
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** За твоими плечами — 3 дня с собственными заметками к тренировкам. Ты ведёшь хронику, а не допрос гантелей.
+- **Fish Drama 3:** `[confident]За твоими плечами — <emphasis>3 дня</emphasis> с собственными заметками к тренировкам. Ты ведёшь хронику, а не допрос гантелей.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second stage of the writing-tool series with the same hexagonal frame language. One compact vintage typewriter is the clear hero, featuring oversized blank rounded keys and a completely blank translucent glass sheet. Chunky double-beveled violet metal frame, vivid magenta enamel recesses and glass inlays. A richer raised backing and tiny stars and sparks make this stage more elaborate. Saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Летописец железного века
+
+- **ID:** `start.first_note:t3`
+- **Порог:** 10 день с заметкой
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты добавлял собственные заметки к тренировкам в 10 разных дней. У твоей истории уже есть автор, а железо пока работает без гонорара.
+- **Fish Drama 3:** `[playful]Ты добавлял собственные заметки к тренировкам в <emphasis>10 разных дней</emphasis>. У твоей истории уже есть автор, а железо пока работает без гонорара.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating stage of the writing-tool series. One monumental faceted inkwell is the hero, its violet glass reservoir releasing a sculptural magenta ink ribbon that curls upward without forming symbols. Chunky tiered beveled hexagonal metal frame, translucent enamel and glass inlays, ornate geometric relief integrated into the backing. Dramatic depth, tiny stars and sparks, saturated cinematic violet and magenta rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+### `start.first_program`
+
+**Правило:** Завершать тренировки из сохранённых программ. **Единица:** программа. **Источник:** `available`.
+
+#### 1. План вышел в дело
+
+- **ID:** `start.first_program:t1`
+- **Порог:** 1 программа
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты завершил тренировки из 1 сохранённой программы — план выбрался из закладок и попал в дело.
+- **Fish Drama 3:** `[confident]Ты завершил тренировки из <emphasis>1 сохранённой программы</emphasis> — план выбрался из закладок и попал в дело.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first stage of a navigation-themed shield series. One folded map is the clear hero, made from thick translucent violet glass panels with a simple raised magenta route line, no labels or symbols. Chunky beveled metal shield frame, violet and magenta rarity palette, translucent enamel and glass inlays. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Clean compact composition readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Курс не бумажный
+
+- **ID:** `start.first_program:t2`
+- **Порог:** 3 программа
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории — завершённые тренировки из 3 сохранённых программ. Ты дал планам работу, а не просто место в списке.
+- **Fish Drama 3:** `[warm]В твоей истории — завершённые тренировки из <emphasis>3 сохранённых программ</emphasis>. Ты дал планам работу, а не просто место в списке.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second stage of the navigation-themed shield series. One open expedition compass is the hero, with a chunky violet metal case, a luminous magenta needle, and a completely unmarked sapphire-violet glass dial. Double-beveled shield frame, translucent enamel and glass inlays, raised radial geometry integrated into the backing. More substantial construction than stage one, tiny stars and sparks, saturated cinematic violet rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Штурвал твоей истории
+
+- **ID:** `start.first_program:t3`
+- **Порог:** 8 программа
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты завершил тренировки из 8 сохранённых программ — в твоей истории уже целый атлас работы по плану. Закладки аплодируют стоя.
+- **Fish Drama 3:** `[excited]Ты завершил тренировки из <emphasis>8 сохранённых программ</emphasis> — в твоей истории уже целый атлас работы по плану. Закладки аплодируют стоя.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating stage of the navigation-themed shield series. One majestic ship's wheel is the unmistakable hero, with thick violet metal spokes, translucent magenta glass grip sections, and a radiant central hub. Chunky tiered beveled shield frame with sweeping geometric relief, translucent enamel and glass inlays. Expanded depth and a celebratory halo of tiny stars and sparks, saturated cinematic violet-magenta rim light, dark navy studio background, soft contact shadow. Strong silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+### `start.first_story`
+
+**Правило:** Сохранять итоговые эпизоды тренировок. **Единица:** эпизод. **Источник:** `requires_story`.
+
+#### 1. Финал в кадре
+
+- **ID:** `start.first_story:t1`
+- **Порог:** 1 эпизод
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты сохранил 1 итоговый эпизод тренировки. Финал не растворился в воздухе — у этой работы теперь есть свои титры.
+- **Fish Drama 3:** `[warm]Ты сохранил <emphasis>1 итоговый эпизод</emphasis> тренировки. Финал не растворился в воздухе — у этой работы теперь есть свои титры.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first stage of a cinema-themed series with an arched frame. One open clapperboard is the hero, its blank face made of translucent orange glass and its hinged top formed from fiery gold metal with simple alternating material bands. Chunky beveled metal frame, luminous enamel and glass inlays, tiny stars and sparks. Legendary fiery gold and orange palette, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Трилогия твоей работы
+
+- **ID:** `start.first_story:t2`
+- **Порог:** 3 эпизод
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В архиве уже 3 итоговых эпизода тренировок — ты собрал трилогию, в которой главный спецэффект — сделанная работа.
+- **Fish Drama 3:** `[playful]В архиве уже <emphasis>3 итоговых эпизода</emphasis> тренировок — ты собрал трилогию, в которой главный спецэффект — сделанная работа.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second stage of the cinema-themed arched-frame series. One substantial film reel is the clear hero, tilted in perspective, with a short curling tail of blank translucent orange film attached to it. Chunky double-beveled fiery gold metal frame, deep orange enamel and glass inlays, sculpted radiating relief behind the reel. Richer theatrical depth, tiny stars and sparks, saturated cinematic gold-orange rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Архив с овациями
+
+- **ID:** `start.first_story:t3`
+- **Порог:** 10 эпизод
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Сохранены 10 итоговых эпизодов тренировок — ты собрал целый сезон своей работы. Киноплёнке впору просить отпуск.
+- **Fish Drama 3:** `[excited]Сохранены <emphasis>10 итоговых эпизодов</emphasis> тренировок — ты собрал целый сезон своей работы. [playful]Киноплёнке впору просить отпуск.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating stage of the cinema-themed arched-frame series. One grand vintage film projector is the unmistakable hero, with an oversized glowing orange glass lens and integrated gold reels. Its abstract volumetric light beam opens upward within the emblem, containing only tiny stars and sparks. Chunky tiered beveled fiery gold metal frame, translucent orange enamel and glass inlays, dramatic theatrical depth. Saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+## Регулярность
+
+### `rhythm.active_days`
+
+**Правило:** Накопить дни с сохранённой работой. **Единица:** тренировочный день. **Источник:** `available`.
+
+#### 1. Пять точек опоры
+
+- **ID:** `rhythm.active_days:t1`
+- **Порог:** 5 тренировочный день
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории — 5 тренировочных дней с сохранённой работой. Ты собрал первые опоры; даже короткая глава остаётся частью сюжета.
+- **Fish Drama 3:** `[warm]В твоей истории — <emphasis>5 тренировочных дней</emphasis> с сохранённой работой. Ты собрал первые опоры; даже короткая глава остаётся частью сюжета.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first stage of a timekeeping series with a rounded-square frame. One compact sundial is the hero, featuring a thick triangular gnomon on a completely unmarked warm gold face with translucent honey enamel sectors. Chunky beveled warm gold metal frame, translucent enamel and glass inlays, modest tiny stars and sparks. Saturated cinematic amber rim light, dark navy studio background, soft contact shadow. Friendly substantial proportions, clean silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. История набирает ход
+
+- **ID:** `rhythm.active_days:t2`
+- **Порог:** 15 тренировочный день
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Уже 15 тренировочных дней с сохранённой работой — ты накопил историю, а не гонку без выходных. Паузы из неё не вычёркивают сделанное.
+- **Fish Drama 3:** `[confident]Уже <emphasis>15 тренировочных дней</emphasis> с сохранённой работой — ты накопил историю, а не гонку без выходных. Паузы из неё не вычёркивают сделанное.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second stage of the timekeeping rounded-square series. One sturdy hourglass is the hero, with warm gold metal supports, thick translucent honey glass chambers, and softly glowing golden sand gathered in the lower chamber. Chunky double-beveled warm gold metal frame, translucent enamel and glass inlays, layered curved relief in the backing. Slightly richer scale, tiny stars and sparks, saturated cinematic amber rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Время на твоей стороне
+
+- **ID:** `rhythm.active_days:t3`
+- **Порог:** 30 тренировочный день
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 30 тренировочных дней с сохранённой работой. Это целая летопись в твоём ритме, а не приказ являться к гантелям по звонку.
+- **Fish Drama 3:** `[warm]Ты накопил <emphasis>30 тренировочных дней</emphasis> с сохранённой работой. Это целая летопись в твоём ритме, а не приказ являться к гантелям по звонку.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating stage of the timekeeping rounded-square series. One sculptural mantel pendulum clock is the hero, with a completely unmarked circular face, simple sculpted clock hands, and a visible golden pendulum behind translucent honey glass. Chunky tiered beveled warm gold metal frame, translucent enamel and glass inlays, elegant concentric backing relief. The most elaborate stage of this common-rarity series, with tiny stars and sparks, saturated cinematic amber rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+### `rhythm.active_weeks`
+
+**Правило:** Оставить результаты в разных неделях, не обязательно подряд. **Единица:** активная неделя. **Источник:** `available`.
+
+#### 1. Архив открыт
+
+- **ID:** `rhythm.active_weeks:t1`
+- **Порог:** 4 активная неделя
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя уже 4 недели с записанными результатами — не обязательно подряд. У привычки появился архив, и пыль там явно не главная.
+- **Fish Drama 3:** `[playful] У тебя уже <emphasis>4 недели</emphasis> с записанными результатами — не обязательно подряд. У привычки появился архив, и пыль там явно не главная.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a collectible archive series. One clear hero object: a partially unfurled scroll with a completely blank translucent honey-glass surface and an integrated polished gold seal. Compact rounded-square chunky beveled metal frame in warm gold, translucent enamel/glass inlays, restrained ornament. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Bold simple silhouette, readable at 96px. No letters, numbers, writing, logos, people, bodies, or photographs.
+
+#### 2. Коллекция с характером
+
+- **ID:** `rhythm.active_weeks:t2`
+- **Порог:** 12 активная неделя
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Результаты есть уже в 12 разных неделях, не обязательно подряд. Ты собираешь историю, а магнитики на холодильнике завидуют коллекции.
+- **Fish Drama 3:** `[amused] Результаты есть уже в 12 разных неделях, не обязательно подряд. Ты собираешь историю, а магнитики на холодильнике завидуют коллекции.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of the collectible archive series. One clear hero object: a thick closed archival ledger with sculpted warm-gold covers, translucent amber-glass page edges, and a broad integrated clasp. All surfaces are blank. Rounded-square chunky beveled metal frame with a stronger double rim, translucent enamel/glass inlays, richer depth than the first tier. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 3. История заняла полку
+
+- **ID:** `rhythm.active_weeks:t3`
+- **Порог:** 26 активная неделя
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 26 недель с записанными результатами, не обязательно подряд. Архив разросся — пора выдавать ему отдельную полку.
+- **Fish Drama 3:** `[pleased] В твоей истории уже <emphasis>26 недель</emphasis> с записанными результатами, не обязательно подряд. Архив разросся — пора выдавать ему отдельную полку.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the collectible archive series. One clear hero object: a monumental miniature archive chest, lid slightly raised, with rounded warm-gold armor and glowing translucent honey-glass side panels; its interior contains only soft amber light. Rounded-square chunky beveled metal frame with three stepped rims and translucent enamel/glass inlays. More substantial proportions while retaining the common warm-gold palette. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+### `rhythm.week_streak`
+
+**Правило:** Собрать серию недель с тренировками без требования заниматься ежедневно. **Единица:** неделя подряд. **Источник:** `available`.
+
+#### 1. Сцепка пошла
+
+- **ID:** `rhythm.week_streak:t1`
+- **Порог:** 3 неделя подряд
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Тренировки есть в каждой из 3 недель подряд — ты собрал первую сцепку. Ежедневный режим для этого не нужен.
+- **Fish Drama 3:** `[upbeat] Тренировки есть в каждой из <emphasis>3 недель подряд</emphasis> — ты собрал первую сцепку. Ежедневный режим для этого не нужен.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a connection-hardware series. One clear hero object: a closed pear-shaped carabiner with an oversized polished warm-gold spine and a translucent amber-glass gate, floating at a confident diagonal. Chunky beveled metal frame shaped as a rounded hexagon, translucent enamel/glass inlays, clean compact construction. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Strong silhouette readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 2. Цепь держит ритм
+
+- **ID:** `rhythm.week_streak:t2`
+- **Порог:** 6 неделя подряд
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** За тобой 6 недель подряд с тренировками — цепочка уже звенит как награда. Ежедневные занятия для этого не нужны.
+- **Fish Drama 3:** `[confident] За тобой <emphasis>6 недель подряд</emphasis> с тренировками — цепочка уже звенит как награда. Ежедневные занятия для этого не нужны.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of the connection-hardware series. One clear hero object: a short heavy chain arranged in a rising curved silhouette, with oversized warm-gold links and translucent honey-glass inset channels. Treat the chain as a single sculptural object, without hanging ornaments. Rounded-hexagonal chunky beveled metal frame with a doubled rim and translucent enamel/glass inlays. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. More dimensional than the first tier, readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 3. Большая связная история
+
+- **ID:** `rhythm.week_streak:t3`
+- **Порог:** 12 неделя подряд
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты поддерживаешь серию из 12 недель подряд с тренировками. У этой цепи серьёзный размах, но ежедневных занятий она не требует.
+- **Fish Drama 3:** `[proud] Ты поддерживаешь серию из <emphasis>12 недель подряд</emphasis> с тренировками. У этой цепи серьёзный размах, но ежедневных занятий она не требует.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the connection-hardware series. One clear hero object: a thick braided metal cable formed into an upright continuous loop, with a single integrated locking sleeve at its base. Warm-gold strands alternate with translucent amber-glass strands, creating a bold woven silhouette. Rounded-hexagonal chunky beveled metal frame with a deep stepped rim and translucent enamel/glass inlays. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Grand but uncluttered, readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+### `rhythm.two_days_week`
+
+**Правило:** Накопить недели, в каждой из которых было два тренировочных дня. **Единица:** неделя с двумя днями. **Источник:** `available`.
+
+#### 1. Дуэт вошёл в чат
+
+- **ID:** `rhythm.two_days_week:t1`
+- **Порог:** 2 неделя с двумя днями
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей копилке 2 недели с двумя тренировочными днями в каждой. Дуэт состоялся: один выход подмигнул другому.
+- **Fish Drama 3:** `[playful] В твоей копилке 2 недели с двумя тренировочными днями в каждой. Дуэт состоялся: один выход подмигнул другому.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a musical-duet series. One clear hero object: an upright tuning fork with two thick rounded prongs, polished warm-gold edges, and a translucent honey-glass core. A subtle luminous vibration hugs the fork without adding extra objects. Circular chunky beveled metal frame, translucent enamel/glass inlays, compact balanced composition. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, musical notation, text, logos, people, bodies, or photographs.
+
+#### 2. Гастроли на два дня
+
+- **ID:** `rhythm.two_days_week:t2`
+- **Порог:** 6 неделя с двумя днями
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 6 недель, в каждой — по два тренировочных дня. Это уже не случайный дуэт, а маленькие гастроли в твоей истории.
+- **Fish Drama 3:** `[amused] Ты накопил <emphasis>6 недель</emphasis>, в каждой — по два тренировочных дня. Это уже не случайный дуэт, а маленькие гастроли в твоей истории.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of the musical-duet series. One clear hero object: a single hinged castanet with two open scalloped shells, chunky warm-gold rims, and translucent amber-enamel concave interiors. The joined shells form one expressive instrument, posed mid-click without hands or separate props. Circular chunky beveled metal frame with a double rim and translucent enamel/glass inlays. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Richer relief than the first tier, readable at 96px. No letters, numbers, musical notation, text, logos, people, bodies, or photographs.
+
+#### 3. Дюжина на два голоса
+
+- **ID:** `rhythm.two_days_week:t3`
+- **Порог:** 12 неделя с двумя днями
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя уже 12 недель с двумя тренировочными днями в каждой. Дюжина дуэтов — у этой истории явно есть слух на ритм.
+- **Fish Drama 3:** `[delighted] У тебя уже 12 недель с двумя тренировочными днями в каждой. Дюжина дуэтов — у этой истории явно есть слух на ритм.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the musical-duet series. One clear hero object: a compact concertina with its bellows proudly expanded, warm-gold polygonal endplates, large blank pearl-like buttons, and translucent honey-glass bellows folds. No additional instruments or props. Circular chunky beveled metal frame with a broad layered rim and translucent enamel/glass inlays. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Celebratory volume and bold silhouette, readable at 96px. No letters, numbers, musical notation, text, logos, people, bodies, or photographs.
+
+### `rhythm.months`
+
+**Правило:** Накопить календарные месяцы с минимум двумя тренировочными днями. **Единица:** активный месяц. **Источник:** `available`.
+
+#### 1. Месяцы вышли на орбиту
+
+- **ID:** `rhythm.months:t1`
+- **Порог:** 3 активный месяц
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 3 календарных месяца, в каждом — минимум два тренировочных дня. Даже календарь начал листаться с интересом.
+- **Fish Drama 3:** `[pleased] Ты накопил <emphasis>3 календарных месяца</emphasis>, в каждом — минимум два тренировочных дня. Даже календарь начал листаться с интересом.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a celestial-observatory series. One clear hero object: an upright crescent-shaped astronomical sculpture with a thick sapphire-metal outer edge and a luminous translucent turquoise-glass interior, mounted on its own small integrated foot. Chunky beveled metal frame shaped as a rounded shield, translucent enamel/glass inlays, rare turquoise and sapphire palette. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Clear silhouette readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 2. Шесть оборотов истории
+
+- **ID:** `rhythm.months:t2`
+- **Порог:** 6 активный месяц
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории уже 6 календарных месяцев с минимум двумя тренировочными днями в каждом. Орбита своя, расписание — тоже.
+- **Fish Drama 3:** `[confident] В твоей истории уже 6 календарных месяцев с минимум двумя тренировочными днями в каждом. <emphasis>Орбита своя, расписание — тоже.</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of the celestial-observatory series. One clear hero object: a stylized astronomical sextant with a broad unmarked sapphire-metal arc, a large translucent turquoise-glass lens, and a single integrated sighting tube. Simplify mechanical details for instant recognition. Rounded-shield chunky beveled metal frame with a doubled rim and translucent enamel/glass inlays, rare turquoise and sapphire palette. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Readable at 96px. No scale markings, letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 3. Календарь космического масштаба
+
+- **ID:** `rhythm.months:t3`
+- **Порог:** 12 активный месяц
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя накопилось 12 календарных месяцев с минимум двумя тренировочными днями в каждом. Календарь просит автограф, но стесняется шелестеть.
+- **Fish Drama 3:** `[amused] У тебя накопилось <emphasis>12 календарных месяцев</emphasis> с минимум двумя тренировочными днями в каждом. Календарь просит автограф, но стесняется шелестеть.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the celestial-observatory series. One clear hero object: an elegant mechanical orrery, with a luminous turquoise-glass central sphere and a few large sapphire-glass satellites attached to sweeping metal orbital arms on one integrated pedestal. Keep it a single readable astronomical instrument. Rounded-shield chunky beveled metal frame with a deep layered rim and translucent enamel/glass inlays, rare turquoise and sapphire palette. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+### `rhythm.quarters`
+
+**Правило:** Накопить кварталы, в каждом из которых было минимум шесть тренировочных дней. **Единица:** квартал. **Источник:** `available`.
+
+#### 1. Фундамент с характером
+
+- **ID:** `rhythm.quarters:t1`
+- **Порог:** 2 квартал
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 2 квартала, в каждом — минимум шесть тренировочных дней. У этой истории уже есть фундамент, и он не из обещаний.
+- **Fish Drama 3:** `[confident] Ты накопил <emphasis>2 квартала</emphasis>, в каждом — минимум шесть тренировочных дней. У этой истории уже есть фундамент, и он не из обещаний.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a lasting-architecture series. One clear hero object: a freestanding miniature stone arch with an oversized keystone, chunky sapphire-metal blocks, and translucent turquoise-glass inset faces. Its short foundation is integrated into the sculpture. Squared chunky beveled metal frame with clipped corners and translucent enamel/glass inlays, rare turquoise and sapphire palette. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Simple sturdy silhouette readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 2. Мост через кварталы
+
+- **ID:** `rhythm.quarters:t2`
+- **Порог:** 4 квартал
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твою коллекцию вошли 4 квартала с минимум шестью тренировочными днями в каждом. Хороший мост: держится на реальных выходах, а не на «с понедельника».
+- **Fish Drama 3:** `[playful] В твою коллекцию вошли 4 квартала с минимум шестью тренировочными днями в каждом. Хороший мост: держится на реальных выходах, а не на «с понедельника».`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of the lasting-architecture series. One clear hero object: a sculptural miniature suspension bridge with two stout sapphire-metal pylons, thick simplified cables, and one translucent turquoise-glass deck, shown in a bold three-quarter view. No landscape, vehicles, or separate scenery. Squared chunky beveled metal frame with clipped corners, a doubled rim, and translucent enamel/glass inlays, rare turquoise and sapphire palette. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 3. Башня длинной истории
+
+- **ID:** `rhythm.quarters:t3`
+- **Порог:** 8 квартал
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** За твоими плечами 8 кварталов, в каждом — минимум шесть тренировочных дней. История выросла в башню — с местом для пауз, а не для дракона дедлайнов.
+- **Fish Drama 3:** `[proud] За твоими плечами <emphasis>8 кварталов</emphasis>, в каждом — минимум шесть тренировочных дней. История выросла в башню — с местом для пауз, а не для дракона дедлайнов.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the lasting-architecture series. One clear hero object: a monumental miniature watchtower with a broad stepped base, thick sapphire-metal buttresses, a bold crenellated crown, and tall translucent turquoise-glass inset panels. No flags, creatures, or surrounding buildings. Squared chunky beveled metal frame with clipped corners, a deep triple-stepped rim, and translucent enamel/glass inlays, rare turquoise and sapphire palette. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Grand vertical silhouette readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+### `rhythm.return`
+
+**Правило:** После перерыва от четырнадцати полных дней вернуться и продолжить тренировки. **Единица:** день после возвращения. **Источник:** `available`.
+
+#### 1. Снова в эфире
+
+- **ID:** `rhythm.return:t1`
+- **Порог:** 1 день после возвращения
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты вернулся к тренировкам после перерыва от 14 полных дней — это первый день после возвращения. Железо, приём!
+- **Fish Drama 3:** `[excited] Ты вернулся к тренировкам после перерыва от 14 полных дней — это первый день после возвращения. <emphasis>Железо, приём!</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem, broadcast comeback series. One hero object: a compact retro broadcast microphone with a sapphire grille and translucent turquoise glass core, gently tilted as if switched back on. Chunky beveled polished metal frame with a single smooth signal-wave arc integrated into its edge. Rare turquoise and sapphire palette, restrained silver highlights, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Bold simple silhouette, readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 2. Сигнал принят
+
+- **ID:** `rhythm.return:t2`
+- **Порог:** 3 день после возвращения
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** После перерыва от 14 полных дней ты уже на 3-м дне после возвращения к тренировкам. Сигнал устойчивый, драму оставим радиопомехам.
+- **Fish Drama 3:** `[playful] После перерыва от 14 полных дней ты уже на 3-м дне после возвращения к тренировкам. Сигнал устойчивый, драму оставим радиопомехам.`
+- **Image prompt:** Premium glossy 3D achievement emblem, broadcast comeback series, more elaborate middle tier. One hero object: a sculptural satellite dish angled upward, its concave face made of translucent turquoise enamel with a deep sapphire receiver. Chunky beveled polished metal frame sharing the series signal-wave motif, now with layered concentric edge arcs. Rare turquoise and sapphire palette, bright glass reflections, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Clear oversized silhouette, readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 3. Камбэк на орбите
+
+- **ID:** `rhythm.return:t3`
+- **Порог:** 7 день после возвращения
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты снова в тренировках после паузы от 14 полных дней — уже 7-й день после возвращения. У камбэка теперь есть продолжение!
+- **Fish Drama 3:** `[confident] Ты снова в тренировках после паузы от 14 полных дней — уже 7-й день после возвращения. У камбэка теперь есть <emphasis>продолжение!</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem, grand finale of the broadcast comeback series. One hero object: a compact communications satellite with thick sapphire glass solar wings and a luminous turquoise enamel central module, suspended diagonally inside a sweeping orbital groove. Chunky beveled polished metal frame with the series signal-wave edges expanded into a majestic double halo. Rare turquoise and sapphire palette, tiny stars and crisp sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Keep the satellite bold and readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+### `rhythm.after_return`
+
+**Правило:** После первого возвращения оставить результаты в нескольких неделях из следующих шести. **Единица:** неделя после возвращения. **Источник:** `available`.
+
+#### 1. Сюжет продолжается
+
+- **ID:** `rhythm.after_return:t1`
+- **Порог:** 3 неделя после возвращения
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** После первого возвращения ты оставил результаты в 3 из следующих 6 недель. Сюжет явно не собирается сворачиваться.
+- **Fish Drama 3:** `[warm] После первого возвращения ты оставил результаты в 3 из следующих 6 недель. Сюжет явно не собирается сворачиваться.`
+- **Image prompt:** Premium glossy 3D achievement emblem, comeback cinema series. One hero object: a thick violet metal film reel with a short curling ribbon of translucent magenta film, every film cell completely blank. Chunky beveled metal frame with subtle sprocket-shaped notches along its outer edge. Epic violet and magenta palette, glossy enamel and glass inlays, modest theatrical depth, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Strong uncluttered silhouette, readable at 96px. No letters, numbers, text, logos, people, bodies, photographs, or images inside the film.
+
+#### 2. Титры подождут
+
+- **ID:** `rhythm.after_return:t2`
+- **Порог:** 4 неделя после возвращения
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Результаты появились в 4 из 6 недель, следующих за твоим первым возвращением. Ты дал камбэку продолжение — титры пока рано!
+- **Fish Drama 3:** `[playful] Результаты появились в 4 из 6 недель, следующих за твоим первым возвращением. Ты дал камбэку продолжение — <emphasis>титры пока рано!</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem, comeback cinema series, expanded middle tier. One hero object: an open film clapperboard with a thick violet metal hinge, diagonal magenta glass inlays on the upper bar, and a completely blank glossy lower panel. Chunky double-beveled metal frame with the series sprocket-shaped edge notches and richer layered enamel. Epic violet and magenta palette, tiny stars and sparks gathered near the open hinge, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 3. Камбэк на большой экран
+
+- **ID:** `rhythm.after_return:t3`
+- **Порог:** 5 неделя после возвращения
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** После первого возвращения ты оставил результаты в 5 из следующих 6 недель. Это уже не трейлер камбэка, а целый сезон!
+- **Fish Drama 3:** `[excited] После первого возвращения ты оставил результаты в 5 из следующих 6 недель. Это уже не трейлер камбэка, а <emphasis>целый сезон!</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem, spectacular finale of the comeback cinema series. One hero object: a vintage cinema projector rendered as a single chunky sculptural machine, with violet metal reels and a brilliant translucent magenta lens projecting a short abstract cone of light, no screen or projected imagery. Massive beveled metal frame with the series sprocket-shaped notches and a raised glass crown ridge. Epic violet and magenta palette, tiny stars and sparks in the light cone, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+### `rhythm.three_days_week`
+
+**Правило:** Накопить недели с тремя тренировочными днями, если такой ритм подходит пользователю. **Единица:** неделя с тремя днями. **Источник:** `available`.
+
+#### 1. Ритм нашёлся
+
+- **ID:** `rhythm.three_days_week:t1`
+- **Порог:** 2 неделя с тремя днями
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты накопил 2 недели с тремя тренировочными днями. Ритм под тебя, а не ты под барабанную палочку.
+- **Fish Drama 3:** `[playful] Ты накопил 2 недели с тремя тренировочными днями. Ритм под тебя, а не ты под барабанную палочку.`
+- **Image prompt:** Premium glossy 3D achievement emblem, personal rhythm instrument series. One hero object: a small handbell with a thick polished violet metal handle and a translucent magenta enamel bell skirt, caught in a gentle diagonal swing. Chunky beveled metal frame with a softly scalloped sound-wave outline. Epic violet and magenta palette, luminous glass edges, tiny stars and sparks suggesting a single clear chime, saturated cinematic rim light, dark navy studio background, soft contact shadow. Simple confident silhouette, readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 2. Метроном не командует
+
+- **ID:** `rhythm.three_days_week:t2`
+- **Порог:** 6 неделя с тремя днями
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории уже 6 недель с тремя тренировочными днями. Ты ведёшь этот ритм — метроном пусть не командует.
+- **Fish Drama 3:** `[confident] В твоей истории уже 6 недель с тремя тренировочными днями. <emphasis>Ты ведёшь этот ритм</emphasis> — метроном пусть не командует.`
+- **Image prompt:** Premium glossy 3D achievement emblem, personal rhythm instrument series, richer middle tier. One hero object: a mechanical pyramid metronome with a translucent violet glass housing, a thick magenta pendulum, and an entirely unmarked metal face. Chunky double-beveled metal frame with the series scalloped sound-wave outline and a second enamel ridge. Epic violet and magenta palette, tiny stars and sparks tracing a short pendulum arc, saturated cinematic rim light, dark navy studio background, soft contact shadow. Bold readable construction at 96px. No scale markings, letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 3. Большая ритм-секция
+
+- **ID:** `rhythm.three_days_week:t3`
+- **Порог:** 12 неделя с тремя днями
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** За плечами 12 недель с тремя тренировочными днями. Ты собрал целую ритм-секцию, и дирижёр здесь — твой план.
+- **Fish Drama 3:** `[proud] За плечами 12 недель с тремя тренировочными днями. Ты собрал целую ритм-секцию, и дирижёр здесь — <emphasis>твой план.</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem, triumphant finale of the personal rhythm instrument series. One hero object: a grand orchestral timpani drum with a deep violet metal bowl, translucent magenta enamel panels, a luminous smooth drumhead, and short integrated feet, no mallets. Massive chunky beveled metal frame with the series scalloped sound-wave outline expanded into layered resonant ridges. Epic violet and magenta palette, tiny stars and sparks floating above the drumhead, saturated cinematic rim light, dark navy studio background, soft contact shadow. Powerful single-object silhouette, readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+### `rhythm.year_weeks`
+
+**Правило:** Удерживать собственный ритм в течение длинной серии недель. **Единица:** неделя подряд. **Источник:** `available`.
+
+#### 1. Полугодовой размах
+
+- **ID:** `rhythm.year_weeks:t1`
+- **Порог:** 26 неделя подряд
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** 26 недель подряд ты держишь собственный тренировочный ритм. Календарь уже здоровается первым.
+- **Fish Drama 3:** `[warm] 26 недель подряд ты держишь собственный тренировочный ритм. Календарь уже здоровается первым.`
+- **Image prompt:** Premium glossy 3D achievement emblem, long-voyage navigation series. One hero object: an open pocket compass with a chunky fiery gold case, a translucent orange glass face, and a sculptural polished needle, its dial entirely unmarked. Heavy beveled metal frame with an engraved abstract horizon groove and warm glass inlays. Legendary fiery gold and orange palette, restrained ember glow, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Monumental but simple silhouette, readable at 96px. No cardinal letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 2. Горизонт за горизонтом
+
+- **ID:** `rhythm.year_weeks:t2`
+- **Порог:** 39 неделя подряд
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Твой тренировочный ритм держится 39 недель подряд. Ты прокладываешь курс, а календарь только шелестит за бортом.
+- **Fish Drama 3:** `[confident] Твой тренировочный ритм держится 39 недель подряд. Ты прокладываешь курс, а календарь только шелестит за бортом.`
+- **Image prompt:** Premium glossy 3D achievement emblem, long-voyage navigation series, grander middle tier. One hero object: an ornate but chunky nautical sextant, with a fiery gold triangular body, translucent orange glass arc, and a short integrated sight tube, all measuring surfaces completely unmarked. Heavy double-beveled metal frame repeating the series abstract horizon groove, with deeper layered enamel and a radiant upper edge. Legendary fiery gold and orange palette, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 3. Орбита своего ритма
+
+- **ID:** `rhythm.year_weeks:t3`
+- **Порог:** 52 неделя подряд
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты держишь свой тренировочный ритм 52 недели подряд. У календаря закончились страницы, а у этой истории — нет!
+- **Fish Drama 3:** `[excited] Ты держишь свой тренировочный ритм 52 недели подряд. У календаря закончились страницы, а у этой истории — <emphasis>нет!</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem, magnificent finale of the long-voyage navigation series. One hero object: a monumental armillary sphere on a compact integrated pedestal, formed from thick intersecting fiery gold rings with translucent orange glass inlays and a small luminous central axis. All rings are smooth and unmarked. Massive chunky beveled metal frame repeating the series horizon groove, now crowned by a radiant layered halo. Legendary fiery gold and orange palette, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+## Сила практики
+
+### `practice.workouts`
+
+**Правило:** Накопить сохранённые тренировки с фактической работой. **Единица:** тренировка. **Источник:** `available`.
+
+#### 1. Практика в копилке
+
+- **ID:** `practice.workouts:t1`
+- **Порог:** 5 тренировка
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты сохранил 5 тренировок, в которых поработал. Копилка практики звенит не обещаниями, а делом.
+- **Fish Drama 3:** `[playful] Ты сохранил 5 тренировок, в которых поработал. Копилка практики звенит не обещаниями, а <emphasis>делом.</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem, growing practice archive series. One hero object: a squat translucent honey-gold savings jar with a thick polished metal lid and a few broad blank golden tokens visible inside, designed as one unified object. Chunky beveled warm-gold metal frame with a simple stepped square outline and amber enamel corner inlays. Common warm gold palette, friendly restrained shine, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 2. Архив с характером
+
+- **ID:** `practice.workouts:t2`
+- **Порог:** 20 тренировка
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В архиве уже 20 сохранённых тренировок, в которых ты поработал. Этой папке впору выдавать собственный шкаф.
+- **Fish Drama 3:** `[amused] В архиве уже 20 сохранённых тренировок, в которых ты поработал. Этой папке впору выдавать собственный шкаф.`
+- **Image prompt:** Premium glossy 3D achievement emblem, growing practice archive series, more substantial middle tier. One hero object: a miniature metal card-catalog cabinet with one broad drawer slightly open, revealing thick blank translucent amber filing cards. A rounded golden drawer pull provides the main highlight; no label holders or writing. Chunky double-beveled warm-gold metal frame repeating the series stepped square outline, with richer honey-glass corner inlays. Common warm gold palette, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, text, logos, people, bodies, or photographs.
+
+#### 3. Полсотни в деле
+
+- **ID:** `practice.workouts:t3`
+- **Порог:** 50 тренировка
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты сохранил 50 тренировок, в которых поработал. Полсотни эпизодов практики — этому архиву нужен сейф!
+- **Fish Drama 3:** `[proud] Ты сохранил 50 тренировок, в которых поработал. Полсотни эпизодов практики — этому архиву нужен <emphasis>сейф!</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem, bold finale of the growing practice archive series. One hero object: a compact freestanding vault with a thick circular door opened slightly, a chunky wheel handle, and warm translucent amber glass visible through the opening, no contents outside. Broad polished warm-gold surfaces and deep bevels make the vault feel satisfyingly solid. Chunky layered metal frame repeating the series stepped square outline with expanded honey-glass corner inlays. Common warm gold palette, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No dial markings, letters, numbers, text, logos, people, bodies, or photographs.
+
+### `practice.sets`
+
+**Правило:** Накопить выполненные подходы, включая разминочные и частичные. **Единица:** подход. **Источник:** `available`.
+
+#### 1. Первый кирпич практики
+
+- **ID:** `practice.sets:t1`
+- **Порог:** 10 подход
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 10 выполненных подходов — разминочные и частичные тоже в счёте. Первый кирпич практики уложен, фанфары можно изобразить ртом.
+- **Fish Drama 3:** `[playful]Ты накопил <emphasis>10 выполненных подходов</emphasis> — разминочные и частичные тоже в счёте. Первый кирпич практики уложен, фанфары можно изобразить ртом.`
+- **Image prompt:** Premium glossy 3D achievement emblem for the foundation tier of a masonry series. One oversized gold building brick is the sole hero, floating slightly above a shallow inset pedestal. Chunky beveled metal frame with a simple architectural arch silhouette, translucent honey-gold enamel/glass inlays, warm gold common-rarity palette. Rounded polished edges, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Арка из подходов
+
+- **ID:** `practice.sets:t2`
+- **Порог:** 50 подход
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 50 выполненных подходов, включая разминочные и частичные. Ты строишь практику, а не декорации для спортивного кино.
+- **Fish Drama 3:** `[confident]В твоей истории уже 50 выполненных подходов, включая разминочные и частичные. Ты строишь практику, а не декорации для спортивного кино.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of the gold masonry series. A single freestanding miniature stone arch assembled from broad polished gold blocks is the hero, its keystone filled with translucent honey glass. Chunky beveled metal frame with a doubled architectural arch profile, translucent enamel/glass inlays, warm gold common-rarity palette. More depth and presence than the foundation tier, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Крепость без суеты
+
+- **ID:** `practice.sets:t3`
+- **Порог:** 150 подход
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя накоплено 150 выполненных подходов, включая разминочные и частичные. У этой крепости фундамент из практики, а не из обещаний.
+- **Fish Drama 3:** `[proud]У тебя накоплено <emphasis>150 выполненных подходов</emphasis>, включая разминочные и частичные. У этой крепости фундамент из практики, а не из обещаний.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the gold masonry series. One compact fortress keep is the hero, with a broad base, bold battlements, and a luminous honey-glass gateway. Chunky beveled metal frame using the same architectural arch silhouette, now with layered buttress-like edging and translucent enamel/glass inlays. Warm gold common-rarity palette, grander scale without changing rarity, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+### `practice.reps`
+
+**Правило:** Накопить повторения в подходах повторного типа. **Единица:** повторение. **Источник:** `available`.
+
+#### 1. Щёлк — и сотня
+
+- **ID:** `practice.reps:t1`
+- **Порог:** 100 повторение
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя накопилось 100 повторений в подходах на повторы. Механизм практики запущен, батарейки из пафоса не понадобились.
+- **Fish Drama 3:** `[playful]У тебя накопилось 100 повторений в подходах на повторы. Механизм практики запущен, батарейки из пафоса не понадобились.`
+- **Image prompt:** Premium glossy 3D achievement emblem, opening tier of a rotary-mechanism series. A single oversized ratchet wheel is the hero, with thick rounded teeth and a translucent honey-glass central hub, tilted to reveal its depth. Chunky beveled metal frame with a circular machined profile, translucent enamel/glass inlays, warm gold common-rarity palette. A small glint at one tooth suggests a satisfying click, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Лебёдка для рутины
+
+- **ID:** `practice.reps:t2`
+- **Порог:** 500 повторение
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** 500 повторений в подходах на повторы уже в твоей истории. Ты тянешь сюжет вперёд без голливудских спецэффектов.
+- **Fish Drama 3:** `[confident]<emphasis>500 повторений</emphasis> в подходах на повторы уже в твоей истории. Ты тянешь сюжет вперёд без голливудских спецэффектов.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of the rotary-mechanism series. One miniature mechanical winch is the hero, featuring a broad gold spool, neatly wound translucent honey-glass cable, and a short integrated crank. Chunky beveled metal frame with a doubled circular machined profile, translucent enamel/glass inlays, warm gold common-rarity palette. Strong readable silhouette and richer mechanical depth than the first tier, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Маховик большой истории
+
+- **ID:** `practice.reps:t3`
+- **Порог:** 1500 повторение
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** За твоими плечами 1500 повторений в подходах на повторы. Ты раскрутил маховик практики — эта история собиралась движением за движением.
+- **Fish Drama 3:** `[proud]За твоими плечами 1500 повторений в подходах на повторы. Ты раскрутил маховик практики — эта история собиралась <emphasis>движением за движением</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the rotary-mechanism series. A single monumental flywheel is the hero, with three broad curved gold spokes and a thick translucent honey-glass outer ring; subtle luminous arcs suggest stored momentum. Chunky beveled metal frame with layered concentric machined edging and translucent enamel/glass inlays, warm gold common-rarity palette. Majestic balanced composition, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+### `practice.working_sets`
+
+**Правило:** Накопить рабочие подходы без разминочных. **Единица:** рабочий подход. **Источник:** `available`.
+
+#### 1. Дело на наковальне
+
+- **ID:** `practice.working_sets:t1`
+- **Порог:** 10 рабочий подход
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 10 рабочих подходов без учёта разминочных. Наковальня практики довольно звякнула: дело пошло.
+- **Fish Drama 3:** `[pleased]Ты накопил 10 рабочих подходов без учёта разминочных. Наковальня практики довольно звякнула: дело пошло.`
+- **Image prompt:** Premium glossy 3D achievement emblem, opening tier of a gold workshop series. One stout miniature anvil is the sole hero, with a beautifully polished face, rounded horn, and a translucent honey-glass inset through its base. Chunky beveled metal frame with a simple industrial hexagonal silhouette, translucent enamel/glass inlays, warm gold common-rarity palette. A crisp reflected glint suggests a cheerful metallic ring, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Тиски для рутины
+
+- **ID:** `practice.working_sets:t2`
+- **Порог:** 50 рабочий подход
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 50 рабочих подходов, разминочные сюда не входят. Ты прижал рутину тисками практики — без производственной драмы.
+- **Fish Drama 3:** `[playful]В твоей истории уже 50 рабочих подходов, разминочные сюда не входят. Ты прижал рутину тисками практики — без производственной драмы.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of the gold workshop series. A single compact bench vise is the hero, with broad polished gold jaws, a chunky integrated screw handle, and translucent honey-glass panels along its body. Chunky beveled metal frame with a doubled industrial hexagonal silhouette, translucent enamel/glass inlays, warm gold common-rarity palette. Slight three-quarter angle and stronger sculptural depth, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Молот большой истории
+
+- **ID:** `practice.working_sets:t3`
+- **Порог:** 150 рабочий подход
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** 150 рабочих подходов без разминочных — столько ты накопил за свою практику. Молот истории выковал не обещание, а солидную главу.
+- **Fish Drama 3:** `[confident]<emphasis>150 рабочих подходов</emphasis> без разминочных — столько ты накопил за свою практику. Молот истории выковал не обещание, а солидную главу.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the gold workshop series. One ceremonial forging hammer is the sole hero, suspended diagonally with a broad faceted gold head and a thick translucent honey-glass handle. Chunky beveled metal frame with layered industrial hexagonal edging and translucent enamel/glass inlays, warm gold common-rarity palette. A refined radial gleam gives the tool a monumental presentation without flames, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+### `practice.exercise_sessions`
+
+**Правило:** Накопить завершённые записи упражнений с результатами. **Единица:** упражнение. **Источник:** `available`.
+
+#### 1. Свиток с результатом
+
+- **ID:** `practice.exercise_sessions:t1`
+- **Порог:** 5 упражнение
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты завершил 5 записей упражнений с результатами. Факты упакованы — спортивным байкам придётся потесниться.
+- **Fish Drama 3:** `[playful]Ты завершил 5 записей упражнений с результатами. Факты упакованы — спортивным байкам придётся потесниться.`
+- **Image prompt:** Premium glossy 3D achievement emblem, opening tier of a sapphire archive series. One rolled scroll is the hero, crafted from translucent turquoise glass with polished sapphire-metal end caps and a plain circular seal without markings. Chunky beveled metal frame with a simple tabbed archival silhouette, translucent enamel/glass inlays, rare-rarity turquoise and sapphire palette. Clear compact composition, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Архив без пыли
+
+- **ID:** `practice.exercise_sessions:t2`
+- **Порог:** 25 упражнение
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя накопилось 25 завершённых записей упражнений с результатами. Архив уже солидный, но смотрителя с пыльной метёлкой не требует.
+- **Fish Drama 3:** `[amused]У тебя накопилось 25 завершённых записей упражнений с результатами. Архив уже солидный, но смотрителя с пыльной метёлкой не требует.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of the sapphire archive series. One sculptural index organizer is the hero, with a polished sapphire-metal shell and several broad translucent turquoise divider tabs rising in a clean stepped fan. Chunky beveled metal frame with a doubled tabbed archival silhouette, translucent enamel/glass inlays, rare-rarity turquoise and sapphire palette. Richer depth and luminous internal reflections than the first tier, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Хранилище твоих дел
+
+- **ID:** `practice.exercise_sessions:t3`
+- **Порог:** 75 упражнение
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** 75 завершённых записей упражнений с результатами — ты собрал целое хранилище практики. Экспонаты настоящие, табличка «руками не трогать» не нужна.
+- **Fish Drama 3:** `[proud]<emphasis>75 завершённых записей упражнений с результатами</emphasis> — ты собрал целое хранилище практики. Экспонаты настоящие, табличка «руками не трогать» не нужна.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the sapphire archive series. One miniature archive vault is the sole hero, with a broad arched sapphire-metal shell, a slightly open thick door, and a luminous translucent turquoise interior. Chunky beveled metal frame with layered tabbed archival edging, translucent enamel/glass inlays, rare-rarity turquoise and sapphire palette. Monumental symmetrical presentation and a restrained radiating halo, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+### `practice.partial_workouts`
+
+**Правило:** Сохранить частичные тренировки: выполненная работа тоже имеет значение. **Единица:** частичная тренировка. **Источник:** `available`.
+
+#### 1. Маршрут можно прервать
+
+- **ID:** `practice.partial_workouts:t1`
+- **Порог:** 1 частичная тренировка
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты сохранил 1 частичную тренировку — и выполненная работа осталась в истории. У этой главы есть право быть короткой.
+- **Fish Drama 3:** `[warm]Ты сохранил 1 частичную тренировку — и выполненная работа осталась в истории. У этой главы есть право быть <soft>короткой</soft>.`
+- **Image prompt:** Premium glossy 3D achievement emblem, opening tier of a thoughtful trail series. One neatly folded trail map is the sole hero, made from translucent turquoise glass panels with a single raised sapphire route line that ends at a small polished dot. Chunky beveled metal frame with a rounded diamond silhouette and subtle trail-ridge detailing, translucent enamel/glass inlays, rare-rarity turquoise and sapphire palette. Gentle luminous presentation, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Привал входит в историю
+
+- **ID:** `practice.partial_workouts:t2`
+- **Порог:** 5 частичная тренировка
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории сохранены 5 частичных тренировок. Ты оставил место реальной жизни, а сделанная работа никуда не исчезла.
+- **Fish Drama 3:** `[reassuring]В твоей истории сохранены 5 частичных тренировок. Ты оставил место реальной жизни, а сделанная работа никуда не исчезла.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of the thoughtful trail series. One miniature pitched expedition tent is the sole hero, with broad translucent turquoise glass sides, polished sapphire structural seams, and a softly glowing open entrance. Chunky beveled metal frame with a doubled rounded diamond silhouette and trail-ridge detailing, translucent enamel/glass inlays, rare-rarity turquoise and sapphire palette. A welcoming sheltered composition, more dimensional than the first tier, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+#### 3. Фонарь сделанной работы
+
+- **ID:** `practice.partial_workouts:t3`
+- **Порог:** 15 частичная тренировка
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя сохранено 15 частичных тренировок — целая коллекция реальной работы. Финальные титры не обязательны, чтобы история имела значение.
+- **Fish Drama 3:** `[warm]У тебя сохранено <emphasis>15 частичных тренировок</emphasis> — целая коллекция реальной работы. Финальные титры не обязательны, чтобы история имела значение.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the thoughtful trail series. One grand camping lantern is the sole hero, with a thick polished sapphire cage, a bold top loop, and a radiant translucent turquoise glass chamber containing a soft abstract light core. Chunky beveled metal frame with layered rounded diamond edging and trail-ridge detailing, translucent enamel/glass inlays, rare-rarity turquoise and sapphire palette. A spacious protective halo gives this final tier greater presence, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photos.
+
+### `practice.multi_set_days`
+
+**Правило:** Накопить дни, в каждом из которых выполнено минимум пять подходов. **Единица:** день с пятью подходами. **Источник:** `available`.
+
+#### 1. Щелчок за щелчком
+
+- **ID:** `practice.multi_set_days:t1`
+- **Порог:** 2 день с пятью подходами
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя уже 2 дня, в каждом — минимум 5 выполненных подходов. Железо услышало первый уверенный щелчок твоей истории.
+- **Fish Drama 3:** `[pleased] У тебя уже <emphasis>2 дня</emphasis>, в каждом — минимум 5 выполненных подходов. Железо услышало первый уверенный щелчок твоей истории.`
+- **Image prompt:** Premium glossy 3D achievement emblem, entry tier of a cohesive mechanical workshop series. One compact ratchet wrench is the sole hero, tilted diagonally inside a chunky beveled hexagonal metal frame. Rare turquoise and sapphire palette, translucent glass and enamel inlays, crisp polished ratchet head, a small arc of luminous mechanical motion behind it. Restrained ornamentation, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Bold silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+#### 2. Практика держит крепко
+
+- **ID:** `practice.multi_set_days:t2`
+- **Порог:** 8 день с пятью подходами
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 8 дней с минимум 5 выполненными подходами в каждом. Практика взялась за дело — лени пришлось подвинуть табуретку.
+- **Fish Drama 3:** `[playful] Ты накопил <emphasis>8 дней</emphasis> с минимум 5 выполненными подходами в каждом. Практика взялась за дело — лени пришлось подвинуть табуретку.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a cohesive mechanical workshop series. One sculptural bench vise is the sole hero, its open jaws and rounded screw handle clearly silhouetted. Chunky double-beveled hexagonal metal frame, rare turquoise and sapphire palette, translucent enamel and glass inlays. The vise rests on a small integrated luminous plinth, with richer polished details than the entry emblem. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+#### 3. Маховик набрал характер
+
+- **ID:** `practice.multi_set_days:t3`
+- **Порог:** 20 день с пятью подходами
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории уже 20 дней, в каждом выполнено минимум 5 подходов. У практики появился свой маховик — и весьма деловой вид.
+- **Fish Drama 3:** `[confident] В твоей истории уже <emphasis>20 дней</emphasis>, в каждом выполнено минимум 5 подходов. У практики появился свой маховик — и весьма деловой вид.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a cohesive mechanical workshop series. One monumental mechanical flywheel is the sole hero, with thick curved spokes, a jewel-like sapphire hub, and a translucent turquoise rim suggesting gentle rotation. Elaborate layered hexagonal metal frame with chunky bevels, rare turquoise and sapphire palette, glass and enamel inlays. Broader silhouette and richer depth than earlier tiers, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+### `practice.three_exercise_days`
+
+**Правило:** Накопить дни с результатами по трём разным упражнениям. **Единица:** день с тремя упражнениями. **Источник:** `available`.
+
+#### 1. Три ноты практики
+
+- **ID:** `practice.three_exercise_days:t1`
+- **Порог:** 2 день с тремя упражнениями
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя 2 дня с результатами по трём разным упражнениям в каждом. Скука услышала это трио и тихо вышла из зала.
+- **Fish Drama 3:** `[playful] У тебя <emphasis>2 дня</emphasis> с результатами по трём разным упражнениям в каждом. Скука услышала это трио и тихо вышла из зала.`
+- **Image prompt:** Premium glossy 3D achievement emblem, entry tier of a cohesive musical instrument series. One stylized three-pronged tuning fork is the sole hero, upright with rounded polished tips and subtle translucent vibration arcs. Chunky beveled shield-shaped metal frame, epic violet and magenta palette, translucent enamel and glass inlays. Compact, playful composition with clear negative space, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No musical notation, letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+#### 2. Ритм без скуки
+
+- **ID:** `practice.three_exercise_days:t2`
+- **Порог:** 8 день с тремя упражнениями
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты собрал 8 дней, в каждом есть результаты по трём разным упражнениям. Разнообразие уже отбивает свой ритм, и скуке в нём места нет.
+- **Fish Drama 3:** `[upbeat] Ты собрал <emphasis>8 дней</emphasis>, в каждом есть результаты по трём разным упражнениям. Разнообразие уже отбивает свой ритм, и скуке в нём места нет.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a cohesive musical instrument series. One luxurious pyramid metronome is the sole hero, with a sweeping polished pendulum and a clear magenta glass front revealing a simple violet mechanism. Chunky double-beveled shield-shaped metal frame, epic violet and magenta palette, translucent enamel inlays. A curved light trail suggests a measured swing, with no scale markings. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+#### 3. Большой концерт движений
+
+- **ID:** `practice.three_exercise_days:t3`
+- **Порог:** 20 день с тремя упражнениями
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории уже 20 дней с результатами по трём разным упражнениям в каждом. Это репертуар: железо просит билеты в первый ряд.
+- **Fish Drama 3:** `[excited] В твоей истории уже <emphasis>20 дней</emphasis> с результатами по трём разным упражнениям в каждом. Это репертуар: железо просит билеты в первый ряд.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a cohesive musical instrument series. One miniature grand piano is the sole hero, its raised lid forming a dramatic sculptural silhouette above broad simplified keys. Epic violet and magenta palette, polished metal edges, translucent glass lid and enamel body. Ornate layered shield-shaped frame with chunky bevels and integrated radiating facets, more theatrical than earlier tiers. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No musical notation, letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+### `practice.focus`
+
+**Правило:** Возвращаться к одному любимому упражнению в разные дни. **Единица:** день с упражнением. **Источник:** `available`.
+
+#### 1. Курс на знакомое
+
+- **ID:** `practice.focus:t1`
+- **Порог:** 5 день с упражнением
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты возвращался к одному и тому же упражнению в 5 разных дней. Похоже, у вас уже свой секретный кивок.
+- **Fish Drama 3:** `[warm] Ты возвращался к одному и тому же упражнению в <emphasis>5 разных дней</emphasis>. Похоже, у вас уже свой секретный кивок.`
+- **Image prompt:** Premium glossy 3D achievement emblem, entry tier of a cohesive navigation series. One open pocket compass is the sole hero, featuring a bold floating needle over a completely unmarked translucent face. Chunky beveled circular metal frame with subtle navigation-inspired geometry, epic violet and magenta palette, glass and enamel inlays. A small luminous arc suggests finding a familiar direction. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, compass labels, inscriptions, logos, people, body parts, or user photos.
+
+#### 2. Проверенный адрес
+
+- **ID:** `practice.focus:t2`
+- **Порог:** 15 день с упражнением
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Одно и то же упражнение появилось в твоей истории в 15 разных дней. Знакомый маршрут, а не день сурка.
+- **Fish Drama 3:** `[confident] Одно и то же упражнение появилось в твоей истории в <emphasis>15 разных дней</emphasis>. Знакомый маршрут, а не день сурка.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a cohesive navigation series. One sculptural folded map is the sole hero, made from thick translucent violet glass panels with raised abstract magenta terrain contours. A single smooth luminous route curves across its folds without labels or symbols. Chunky double-beveled circular metal frame, epic violet and magenta palette, enamel inlays, richer depth than the entry emblem. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+#### 3. Своя орбита практики
+
+- **ID:** `practice.focus:t3`
+- **Порог:** 30 день с упражнением
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты выполнил одно и то же упражнение в 30 разных дней. У этой истории уже собственная орбита.
+- **Fish Drama 3:** `[proud] Ты выполнил одно и то же упражнение в <emphasis>30 разных дней</emphasis>. У этой истории уже собственная орбита.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a cohesive navigation series. One ornate spherical astrolabe is the sole hero, built from broad interlocking violet metal rings and translucent magenta glass bands around a luminous central bead. All rings are smooth and unmarked. Chunky layered circular metal frame with stepped bevels, epic violet and magenta palette, enamel inlays, majestic but clean silhouette. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+### `practice.thousand_sets`
+
+**Правило:** Продолжать накапливать большую историю практики. **Единица:** подход. **Источник:** `available`.
+
+#### 1. Том с железным сюжетом
+
+- **ID:** `practice.thousand_sets:t1`
+- **Порог:** 400 подход
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В твоей истории накопилось 400 подходов. Это уже солидный том, и железо в нём — персонаж, а не главный редактор.
+- **Fish Drama 3:** `[pleased] В твоей истории накопилось <emphasis>400 подходов</emphasis>. Это уже солидный том, и железо в нём — персонаж, а не главный редактор.`
+- **Image prompt:** Premium glossy 3D achievement emblem, opening tier of a cohesive grand archive series. One massive closed book is the sole hero, with a blank polished metal cover, thick layered page edges, and a translucent orange glass spine. Legendary fiery gold and orange palette, chunky beveled architectural shield frame, luminous enamel corner inlays. The book floats slightly above an integrated pedestal, conveying a substantial first volume. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+#### 2. Архив выходит в легенды
+
+- **ID:** `practice.thousand_sets:t2`
+- **Порог:** 1000 подход
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты накопил 1000 подходов за всю историю тренировок. Архиву впору выдавать отдельный ключ.
+- **Fish Drama 3:** `[proud] Ты накопил <emphasis>1000 подходов</emphasis> за всю историю тренировок. Архиву впору выдавать отдельный ключ.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a cohesive grand archive series. One magnificent archive cabinet is the sole hero, with broad rounded drawers, simple sculptural handles, and translucent orange glass fronts glowing from within. Legendary fiery gold and orange palette, chunky double-beveled architectural shield frame, polished metal and enamel inlays. No drawer labels or label holders. Strong stepped composition and richer ornamentation than the book emblem. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+#### 3. Библиотека большого дела
+
+- **ID:** `practice.thousand_sets:t3`
+- **Порог:** 2500 подход
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты собрал историю из 2500 подходов. Тут уже целая библиотека практики — железо шепчется между стеллажами.
+- **Fish Drama 3:** `[awed] Ты собрал историю из <emphasis>2500 подходов</emphasis>. Тут уже целая библиотека практики — железо шепчется между стеллажами.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a cohesive grand archive series. One fantastical cylindrical library tower is the sole hero, a single architectural miniature with broad recessed shelf bands, blank book-like blocks, and a radiant translucent orange dome. Legendary fiery gold and orange palette, monumental layered shield frame with chunky beveled metal buttresses and glass enamel inlays. Grand vertical silhouette, controlled molten glow, no separate props. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+## Свобода движения
+
+### `variety.timed_seconds`
+
+**Правило:** Накопить фактические секунды упражнений на время. **Единица:** секунда. **Источник:** `available`.
+
+#### 1. Секунды в копилке
+
+- **ID:** `variety.timed_seconds:t1`
+- **Порог:** 300 секунда
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 300 фактических секунд в упражнениях на время. Секундомер официально перестал скучать.
+- **Fish Drama 3:** `[playful] Ты накопил <emphasis>300 фактических секунд</emphasis> в упражнениях на время. Секундомер официально перестал скучать.`
+- **Image prompt:** Premium glossy 3D achievement emblem, entry tier of a cohesive timekeeping collection. One friendly oversized stopwatch is the sole hero, with a thick rounded case, a single broad hand, and a completely unmarked translucent amber glass face. Common warm gold palette, chunky beveled rounded-square metal frame, honey-gold enamel inlays. Simple compact composition with a subtle glint on the top button. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, tick marks, inscriptions, logos, people, body parts, or user photos.
+
+#### 2. Полчаса в коллекции
+
+- **ID:** `variety.timed_seconds:t2`
+- **Порог:** 1800 секунда
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** На твоём счету суммарно 1800 фактических секунд упражнений на время. Полчаса в копилке — песочные часы снимают шляпу.
+- **Fish Drama 3:** `[pleased] На твоём счету суммарно <emphasis>1800 фактических секунд</emphasis> упражнений на время. Полчаса в копилке — песочные часы снимают шляпу.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a cohesive timekeeping collection. One elegant hourglass is the sole hero, with thick translucent glass bulbs, a narrow stream of sparkling golden sand, and rounded polished metal supports. Common warm gold palette, chunky double-beveled rounded-square frame, honey-gold enamel and glass inlays. A slightly taller and richer silhouette than the stopwatch emblem, with a quiet amber glow through the sand. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, body parts, or user photos.
+
+#### 3. Два часа истории
+
+- **ID:** `variety.timed_seconds:t3`
+- **Порог:** 7200 секунда
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты собрал 7200 фактических секунд упражнений на время — 2 часа в общей истории. Часы такого поворота стрелок не ожидали.
+- **Fish Drama 3:** `[upbeat] Ты собрал <emphasis>7200 фактических секунд</emphasis> упражнений на время — 2 часа в общей истории. Часы такого поворота стрелок не ожидали.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a cohesive timekeeping collection. One stately miniature pendulum clock is the sole hero, with a broad unmarked round dial, simple sculptural hands, and a visible golden pendulum behind a translucent amber glass window. Common warm gold palette, layered rounded-square metal frame with chunky bevels, glossy enamel inlays. Richer stepped casing and deeper relief than earlier tiers, while retaining a clean approachable silhouette. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, tick marks, inscriptions, logos, people, body parts, or user photos.
+
+### `variety.timed_days`
+
+**Правило:** Накопить дни с упражнениями на время или растяжкой. **Единица:** день на время. **Источник:** `available`.
+
+#### 1. Секунды вышли гулять
+
+- **ID:** `variety.timed_days:t1`
+- **Порог:** 3 день на время
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 3 дня с упражнениями на время или растяжкой. Ты дал секундомеру повод выйти из ящика.
+- **Fish Drama 3:** `[playful] В твоей истории уже 3 дня с упражнениями на время или растяжкой. Ты дал секундомеру повод выйти из ящика.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a warm-gold timekeeper collection. One hero object: a chunky pocket stopwatch with a blank translucent honey-glass dial, two sculpted clock hands and a polished winding button. Compact circular beveled metal frame with a single amber enamel inset ring. Slightly tilted playful presentation, clean bold silhouette, restrained tiny stars and sparks. Common rarity, warm gold palette throughout, saturated golden cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+#### 2. Таймер при деле
+
+- **ID:** `variety.timed_days:t2`
+- **Порог:** 10 день на время
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 10 дней с упражнениями на время или растяжкой — у секундомера теперь солидное портфолио.
+- **Fish Drama 3:** `[confident] Ты накопил 10 дней с упражнениями на время или растяжкой — у секундомера теперь солидное портфолио.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of a cohesive warm-gold timekeeper collection. One hero object: a sculptural hourglass with thick golden end caps, clear amber glass chambers and a luminous stream of golden sand. Chunky circular beveled metal frame, now double-layered with translucent honey enamel channels. Confident upright composition, richer reflections and a small orbit of tiny stars and sparks. Common rarity, warm gold rather than orange fire, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+#### 3. Время на твоей стороне
+
+- **ID:** `variety.timed_days:t3`
+- **Порог:** 25 день на время
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Уже 25 дней с упражнениями на время или растяжкой в твоей истории. Ты превратил тиканье в целую сагу.
+- **Fish Drama 3:** `[proud] Уже <emphasis>25 дней</emphasis> с упражнениями на время или растяжкой в твоей истории. Ты превратил тиканье в целую сагу.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the warm-gold timekeeper collection. One hero object: a miniature architectural pendulum clock with a blank honey-glass face, two bold clock hands and one broad suspended golden pendulum visible through its translucent case. Substantial circular chunky beveled metal frame with three stepped rings and an integrated sculpted crest. Majestic but uncluttered silhouette, tiny stars and crisp sparks arranged in a rising arc. Common rarity, warm gold and amber enamel, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+### `variety.stretch_seconds`
+
+**Правило:** Накопить секунды сохранённых упражнений на растяжку. **Единица:** секунда растяжки. **Источник:** `available`.
+
+#### 1. Пружина сюжета
+
+- **ID:** `variety.stretch_seconds:t1`
+- **Порог:** 300 секунда растяжки
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 300 секунд в сохранённых упражнениях на растяжку. Пружина этой истории уже красиво звенит.
+- **Fish Drama 3:** `[playful] Ты накопил 300 секунд в сохранённых упражнениях на растяжку. Пружина этой истории уже красиво звенит.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a warm-gold expansion workshop collection. One hero object: a broad polished helical spring, gently open in a relaxed upright curve, with thick rounded coils and translucent amber enamel along its inner surfaces. Compact diamond-shaped chunky beveled metal frame, soft corners and one recessed glass channel. Simple confident silhouette with a few tiny stars and sparks. Common rarity, warm gold palette, saturated golden cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+#### 2. Тихая кузница времени
+
+- **ID:** `variety.stretch_seconds:t2`
+- **Порог:** 1800 секунда растяжки
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В сохранённых упражнениях на растяжку у тебя набралось 1800 секунд. Ты собрал их в историю, а не в гонку с таймером.
+- **Fish Drama 3:** `[warm] В сохранённых упражнениях на растяжку у тебя набралось 1800 секунд. Ты собрал их в историю, а не в гонку с таймером.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of the warm-gold expansion workshop collection. One hero object: an elegant pair of workshop bellows, half-open, with chunky golden side panels, broad translucent amber accordion folds and a short polished nozzle. Present the object diagonally inside a double-layered diamond-shaped beveled metal frame with rounded corners and honey-glass inlays. Clear sculptural folds, richer depth than the first tier, tiny stars and sparks but no flame. Common rarity, warm gold palette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+#### 3. Сага с размахом
+
+- **ID:** `variety.stretch_seconds:t3`
+- **Порог:** 7200 секунда растяжки
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** За всю историю ты накопил 7200 секунд в сохранённых упражнениях на растяжку. У этой саги солидный хронометраж — и никуда не надо спешить.
+- **Fish Drama 3:** `[proud] За всю историю ты накопил <emphasis>7200 секунд</emphasis> в сохранённых упражнениях на растяжку. У этой саги солидный хронометраж — и никуда не надо спешить.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the warm-gold expansion workshop collection. One hero object: a fully opened ceremonial folding fan, broad and symmetrical, built from thick polished gold ribs and luminous translucent honey-glass pleats. Grand stepped diamond-shaped chunky beveled metal frame with rounded corners, layered amber enamel inlays and radiating grooves echoing the fan. Dominant readable silhouette, tiny stars and a restrained celebratory spray of sparks. Common rarity, warm gold without violet or fiery orange, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+### `variety.stretch_days`
+
+**Правило:** Накопить дни с сохранённой растяжкой. **Единица:** день растяжки. **Источник:** `available`.
+
+#### 1. Закладка для растяжки
+
+- **ID:** `variety.stretch_days:t1`
+- **Порог:** 3 день растяжки
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 3 дня с сохранённой растяжкой. У этой истории появилась золотая закладка — календарь довольно шуршит.
+- **Fish Drama 3:** `[playful] Ты накопил 3 дня с сохранённой растяжкой. У этой истории появилась золотая закладка — календарь довольно шуршит.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a warm-gold movement archive collection. One hero object: a thick sculptural ribbon bookmark with a folded top and a clean swallowtail tip, polished gold edges surrounding translucent amber glass. Small rounded shield-shaped chunky beveled metal frame with subtle page-edge grooves and a single honey enamel border. The bookmark floats at a slight angle, with tiny stars and sparks near its tip. Common rarity, warm gold palette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No writing, letters, numerals, logos, people, bodies or photographs.
+
+#### 2. Свиток спокойных побед
+
+- **ID:** `variety.stretch_days:t2`
+- **Порог:** 10 день растяжки
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты собрал 10 дней с сохранённой растяжкой — история развернулась в целый свиток, без гонки за серией.
+- **Fish Drama 3:** `[warm] Ты собрал 10 дней с сохранённой растяжкой — история развернулась в целый свиток, без гонки за серией.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of the warm-gold movement archive collection. One hero object: a partially unfurled blank scroll made from translucent honey enamel, with thick polished golden curled ends and a broad smooth central sheet. Double-layered rounded shield-shaped chunky beveled metal frame with page-edge grooves and deep amber glass recesses. Elegant diagonal unfurling gesture, a richer halo of tiny stars and sparks, no separate accessories. Common rarity, warm gold palette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No writing, letters, numerals, logos, people, bodies or photographs.
+
+#### 3. Большая книга движения
+
+- **ID:** `variety.stretch_days:t3`
+- **Порог:** 25 день растяжки
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей коллекции 25 дней с сохранённой растяжкой. Ты накопил целую книгу движения, где для пауз тоже есть место.
+- **Fish Drama 3:** `[proud] В твоей коллекции 25 дней с сохранённой растяжкой. Ты накопил целую книгу движения, где для пауз тоже есть место.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the warm-gold movement archive collection. One hero object: a substantial open storybook with thick gold-edged blank pages and luminous translucent amber glass covers, viewed in a clear three-quarter perspective. Grand rounded shield-shaped chunky beveled metal frame, three stepped page-like borders and an integrated ornamental upper crest. The book occupies most of the emblem, with tiny stars and sparks lifting from the central fold. Common rarity, warm gold palette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No writing, letters, numerals, logos, people, bodies or photographs.
+
+### `variety.bodyweight_reps`
+
+**Правило:** Накопить повторения в упражнениях с собственным весом. **Единица:** повторение. **Источник:** `available`.
+
+#### 1. Свой ход найден
+
+- **ID:** `variety.bodyweight_reps:t1`
+- **Порог:** 50 повторение
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 50 повторений в упражнениях с собственным весом. Железо в этой истории сидит в зрительном зале.
+- **Fish Drama 3:** `[playful] Ты накопил 50 повторений в упражнениях с собственным весом. Железо в этой истории сидит в зрительном зале.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a turquoise and sapphire kinetic workshop collection. One hero object: a large sculptural wind-up key with a rounded butterfly-shaped handle and short thick shaft, polished cool metal with translucent turquoise glass insets. Compact hexagonal chunky beveled metal frame, sapphire enamel recesses and precise mechanical grooves. Bold diagonal silhouette with tiny stars and sparks, no other machinery. Rare rarity palette, turquoise and sapphire, saturated cyan cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+#### 2. Орбита своего движения
+
+- **ID:** `variety.bodyweight_reps:t2`
+- **Порог:** 300 повторение
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории уже 300 повторений в упражнениях с собственным весом. Ты вывел этот сюжет на новую орбиту, без гонки за скоростью.
+- **Fish Drama 3:** `[confident] В твоей истории уже 300 повторений в упражнениях с собственным весом. Ты вывел этот сюжет на новую орбиту, без гонки за скоростью.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of the turquoise and sapphire kinetic workshop collection. One hero object: a precision gyroscope with a thick sapphire central rotor and two broad polished metal gimbal rings containing translucent turquoise glass inlays. Double-layered hexagonal chunky beveled metal frame with matching mechanical grooves. Dynamic tilted axis, clear separation between the rings, tiny stars and sparks following a short orbital arc. Rare rarity palette, turquoise and sapphire, saturated cyan cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+#### 3. Турбина большого сюжета
+
+- **ID:** `variety.bodyweight_reps:t3`
+- **Порог:** 1000 повторение
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 1000 повторений в упражнениях с собственным весом за всю историю. Даже воображаемая турбина снимает шляпу перед таким сюжетом.
+- **Fish Drama 3:** `[excited] Ты накопил <emphasis>1000 повторений</emphasis> в упражнениях с собственным весом за всю историю. Даже воображаемая турбина снимает шляпу перед таким сюжетом.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the turquoise and sapphire kinetic workshop collection. One hero object: a powerful sculptural turbine rotor with six broad curved blades, polished cool-metal edges, translucent sapphire blade surfaces and a luminous turquoise central hub. Grand stepped hexagonal chunky beveled metal frame with deep glass channels and an integrated mechanical crest. Front three-quarter view, monumental clean silhouette, tiny stars and energetic sparks around the outer edge. Rare rarity palette, turquoise and sapphire only, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+### `variety.bodyweight_sets`
+
+**Правило:** Накопить подходы с собственным весом. **Единица:** подход с весом тела. **Источник:** `available`.
+
+#### 1. Первый бумажный рейс
+
+- **ID:** `variety.bodyweight_sets:t1`
+- **Порог:** 5 подход с весом тела
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 5 подходов с собственным весом. Бумажный самолётик этой истории уже получил разрешение на взлёт.
+- **Fish Drama 3:** `[playful] Ты накопил 5 подходов с собственным весом. Бумажный самолётик этой истории уже получил разрешение на взлёт.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a turquoise and sapphire sky adventure collection. One hero object: a folded paper airplane reimagined as a chunky metal sculpture, with polished cool-metal fold edges and translucent turquoise glass wing panels. Compact arched shield-shaped beveled metal frame with soft cloud-like scallops and sapphire enamel inlays. The airplane points gently upward in three-quarter view, accompanied only by tiny stars and sparks. Rare rarity palette, turquoise and sapphire, saturated cyan cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+#### 2. Ветер в твою пользу
+
+- **ID:** `variety.bodyweight_sets:t2`
+- **Порог:** 25 подход с весом тела
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоём багаже уже 25 подходов с собственным весом. Ты поймал ветер для большой истории — с местом для пауз.
+- **Fish Drama 3:** `[warm] В твоём багаже уже 25 подходов с собственным весом. Ты поймал ветер для большой истории — с местом для пауз.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of the turquoise and sapphire sky adventure collection. One hero object: a diamond-shaped kite with thick polished cool-metal ribs, translucent turquoise and sapphire glass panels, and one short sculptural ribbon tail curling beneath it. Double-layered arched shield-shaped chunky beveled metal frame with soft cloud-like scallops and deep enamel recesses. Buoyant diagonal composition, tiny stars and sparks along the upward edge. Rare rarity palette, turquoise and sapphire, saturated cyan cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+#### 3. Воздух большого приключения
+
+- **ID:** `variety.bodyweight_sets:t3`
+- **Порог:** 75 подход с весом тела
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 75 подходов с собственным весом за всю историю. Это уже воздушная экспедиция, а не требование взлететь за один день.
+- **Fish Drama 3:** `[proud] Ты накопил 75 подходов с собственным весом за всю историю. Это уже воздушная экспедиция, а не требование взлететь за один день.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of the turquoise and sapphire sky adventure collection. One hero object: a majestic miniature hot-air balloon with a broad faceted translucent sapphire envelope, polished cool-metal ribs, turquoise glass highlights and a small integrated empty basket. Grand stepped arched shield-shaped chunky beveled metal frame, cloud-like scalloped shoulders and layered glass inlays. Strong vertical silhouette with tiny stars and celebratory sparks rising around the envelope. Rare rarity palette, turquoise and sapphire, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies or photographs.
+
+### `variety.bodyweight_days`
+
+**Правило:** Накопить дни с упражнениями с собственным весом. **Единица:** день с весом тела. **Источник:** `available`.
+
+#### 1. Ветер в движении
+
+- **ID:** `variety.bodyweight_days:t1`
+- **Порог:** 3 день с весом тела
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя уже 3 дня с упражнениями с собственным весом. Гравитация официально вовлечена в сюжет.
+- **Fish Drama 3:** `[playful]У тебя уже <emphasis>3 дня</emphasis> с упражнениями с собственным весом. Гравитация официально вовлечена в сюжет.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One hero object: a sculptural four-blade pinwheel with thick translucent turquoise glass blades and polished sapphire metal edges, suspended inside a chunky beveled circular metal frame. A single curved wind ribbon creates a playful sense of motion. Opening tier of a cohesive wind-powered series, compact and clean. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, centered composition, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 2. Курс на свободу
+
+- **ID:** `variety.bodyweight_days:t2`
+- **Порог:** 10 день с весом тела
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 10 дней с упражнениями с собственным весом. Движение получило целый сезон, а не случайное камео.
+- **Fish Drama 3:** `[confident]Ты накопил <emphasis>10 дней</emphasis> с упражнениями с собственным весом. Движение получило целый сезон, а не случайное камео.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One hero object: a bold diamond-shaped kite made of translucent sapphire enamel panels with thick polished turquoise ribs and a short sculptural ribbon tail. The kite tilts upward through a chunky beveled double-ring metal frame, with two sweeping wind trails integrated into the frame. Middle tier of a cohesive wind-powered series, fuller and more dynamic than a simple pinwheel emblem. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 3. Паруса своей истории
+
+- **ID:** `variety.bodyweight_days:t3`
+- **Порог:** 25 день с весом тела
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории 25 дней с упражнениями с собственным весом. Если бы движение выпускало мемуары, тебе досталась бы отдельная глава.
+- **Fish Drama 3:** `[warm]В твоей истории <emphasis>25 дней</emphasis> с упражнениями с собственным весом. Если бы движение выпускало мемуары, тебе досталась бы отдельная глава.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One hero object: a majestic miniature sailing vessel with a single broad translucent turquoise glass sail, a polished sapphire hull, and a thick metallic mast. It rides one stylized enamel wave inside an expanded chunky beveled triple-ring metal frame, with wind-shaped crest details. Culminating tier of the same wind-powered series, grander silhouette while remaining unmistakably rare. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+### `variety.mixed_kind_days`
+
+**Правило:** Накопить дни с двумя разными типами упражнений. **Единица:** смешанный день. **Источник:** `available`.
+
+#### 1. Взбить однообразие
+
+- **ID:** `variety.mixed_kind_days:t1`
+- **Порог:** 2 смешанный день
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей копилке 2 дня с упражнениями двух разных типов в каждом. У тренировочного меню появился второй вкус.
+- **Fish Drama 3:** `[playful]В твоей копилке <emphasis>2 дня</emphasis> с упражнениями двух разных типов в каждом. У тренировочного меню появился второй вкус.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One hero object: an oversized balloon whisk with thick polished violet metal loops and a translucent magenta glass handle, posed diagonally as though stirring the air. Two contrasting enamel currents curl together around its lower tip. Chunky beveled hexagonal metal frame with translucent glass inlays, opening tier of a cohesive mixing-tools series. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, bold silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 2. Шейкер двух жанров
+
+- **ID:** `variety.mixed_kind_days:t2`
+- **Порог:** 8 смешанный день
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** За твоими плечами 8 дней, в каждом из которых были упражнения двух разных типов. Однообразие постояло в очереди и ушло.
+- **Fish Drama 3:** `[playful]За твоими плечами <emphasis>8 дней</emphasis>, в каждом из которых были упражнения двух разных типов. Однообразие постояло в очереди и ушло.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One hero object: a chunky cocktail shaker with a polished violet metal cap and translucent magenta glass chamber, holding two visibly interweaving luminous liquid ribbons. It floats at a lively angle within a reinforced double-layer beveled hexagonal metal frame with enamel inlays. Middle tier of the same mixing-tools series, stronger volume and broader energy arcs than the opening whisk emblem. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 3. Большая кухня движений
+
+- **ID:** `variety.mixed_kind_days:t3`
+- **Порог:** 20 смешанный день
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты собрал 20 дней с упражнениями двух разных типов в каждом. Это уже не проба жанра, а твоя антология сочетаний.
+- **Fish Drama 3:** `[excited]Ты собрал <emphasis>20 дней</emphasis> с упражнениями двух разных типов в каждом. Это уже не проба жанра, а твоя антология сочетаний.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One hero object: a sculptural retro stand mixer, its rounded violet metal housing arching over an integrated translucent magenta glass bowl, with one thick mixing paddle and a luminous two-color swirl inside. A monumental chunky beveled hexagonal frame has stepped metal shoulders and enamel inlays. Culminating tier of the cohesive mixing-tools series, richer depth and a dramatic circular mixing vortex without extra hero objects. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+### `variety.machine_days`
+
+**Правило:** Накопить дни с упражнениями на тренажёре. **Единица:** день на тренажёре. **Источник:** `available`.
+
+#### 1. Железо на связи
+
+- **ID:** `variety.machine_days:t1`
+- **Порог:** 3 день на тренажёре
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты добавил в свою историю 3 дня с упражнениями на тренажёре. Железная махина получила роль напарника, а не декорации.
+- **Fish Drama 3:** `[confident]Ты добавил в свою историю <emphasis>3 дня</emphasis> с упражнениями на тренажёре. Железная махина получила роль напарника, а не декорации.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One hero object: a large gym cable pulley wheel with a polished violet metal hub, a translucent magenta enamel rim, and a short cable neatly seated in its groove. Front three-quarter view makes the mechanical shape instantly recognizable. Chunky beveled shield-shaped metal frame with glass inlays and restrained industrial detailing, opening tier of a cohesive gym-mechanism series. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 2. Механика в деле
+
+- **ID:** `variety.machine_days:t2`
+- **Порог:** 10 день на тренажёре
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей копилке 10 дней с упражнениями на тренажёре. У этой истории уже есть механический саундтрек.
+- **Fish Drama 3:** `[pleased]В твоей копилке <emphasis>10 дней</emphasis> с упражнениями на тренажёре. У этой истории уже есть механический саундтрек.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One hero object: an oversized gym weight-stack selector pin with a thick rounded T-grip in translucent magenta glass, a polished violet metal shaft, and a compact coiled safety tether forming one clean arc. Displayed diagonally inside a chunky beveled double-layer shield frame with industrial enamel inlays. Middle tier of the same gym-mechanism series, deeper construction and more dimensional metalwork than the pulley tier. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 3. Сага стальных блоков
+
+- **ID:** `variety.machine_days:t3`
+- **Порог:** 25 день на тренажёре
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты накопил 25 дней с упражнениями на тренажёре. У железной саги солидный архив — и всё ещё ни одной реплики от тренажёра.
+- **Fish Drama 3:** `[playful]Ты накопил <emphasis>25 дней</emphasis> с упражнениями на тренажёре. У железной саги солидный архив — и всё ещё ни одной реплики от тренажёра.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One hero object: a compact stylized cable resistance machine with a broad violet metal arch, a translucent magenta weight-stack enclosure, and one integrated cable handle. Simplified chunky engineering, no settings or numerical scale. The machine stands within a monumental stepped shield frame of beveled metal and luminous glass inlays. Culminating tier of the cohesive gym-mechanism series, architectural and imposing while keeping one clear silhouette. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+### `variety.bodyweight_exercises`
+
+**Правило:** Познакомиться с разными упражнениями с собственным весом. **Единица:** упражнение с весом тела. **Источник:** `available`.
+
+#### 1. Компас свободного движения
+
+- **ID:** `variety.bodyweight_exercises:t1`
+- **Порог:** 2 упражнение с весом тела
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В твоём опыте уже 2 разных упражнения с собственным весом. Компас движения нашёл не один маршрут, а сразу два.
+- **Fish Drama 3:** `[curious]В твоём опыте уже <emphasis>2 разных упражнения</emphasis> с собственным весом. Компас движения нашёл не один маршрут, а сразу два.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One hero object: a magnificent open pocket compass with a thick polished gold casing, translucent orange glass face, and a bold sculptural needle above an entirely unmarked dial. A chunky beveled circular metal frame with enamel inlays forms a compact radiant halo behind it. Opening tier of a cohesive exploration-instruments series, already luxurious but with restrained halo depth. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 2. Карта новых манёвров
+
+- **ID:** `variety.bodyweight_exercises:t2`
+- **Порог:** 5 упражнение с весом тела
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты познакомился с 5 разными упражнениями с собственным весом. Карта движений развернулась — и места на ней ещё полно.
+- **Fish Drama 3:** `[excited]Ты познакомился с <emphasis>5 разными упражнениями</emphasis> с собственным весом. Карта движений развернулась — и места на ней ещё полно.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One hero object: an unfurled treasure-map scroll sculpted from translucent amber-orange glass with thick curled gold metal ends. Its surface shows only raised winding paths and abstract terrain contours, with no writing or symbols resembling text. A chunky beveled double-halo metal frame with enamel inlays surrounds the scroll like a rising sun. Middle tier of the exploration-instruments series, broader silhouette and richer layered radiance than the compass. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 3. Орбита десяти движений
+
+- **ID:** `variety.bodyweight_exercises:t3`
+- **Порог:** 10 упражнение с весом тела
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** У тебя уже 10 разных упражнений с собственным весом в репертуаре. Гравитация одна, а сюжетных поворотов — целая коллекция.
+- **Fish Drama 3:** `[confident]У тебя уже <emphasis>10 разных упражнений</emphasis> с собственным весом в репертуаре. Гравитация одна, а сюжетных поворотов — целая коллекция.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One hero object: a grand spherical astrolabe built from thick interlocking polished gold rings, suspended around a glowing translucent orange glass core. The rings are completely unmarked, with broad clean arcs and a sculptural pedestal integrated into the instrument. A massive chunky beveled solar metal frame with enamel inlays and layered flame-shaped rays creates the final halo. Culminating tier of the exploration-instruments series, maximal depth and ceremonial scale. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+## Атлас движений
+
+### `repertoire.distinct_exercises`
+
+**Правило:** Оставить результаты в разных упражнениях. **Единица:** упражнение. **Источник:** `available`.
+
+#### 1. Первые строки атласа
+
+- **ID:** `repertoire.distinct_exercises:t1`
+- **Порог:** 3 упражнение
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты оставил результаты в 3 разных упражнениях. У твоего атласа движений появились первые страницы — без скучного предисловия.
+- **Fish Drama 3:** `[warm]Ты оставил результаты в <emphasis>3 разных упражнениях</emphasis>. У твоего атласа движений появились первые страницы — без скучного предисловия.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. One hero object: a short chunky fountain pen with a polished warm-gold nib and a translucent honey enamel barrel, angled above a single abstract ink-like glass curl that forms no writing. A simple rounded-square frame of chunky beveled metal and glass inlays gives the emblem a collectible library character. Opening tier of a cohesive personal-archive series, clean and approachable. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 2. Картотека в движении
+
+- **ID:** `repertoire.distinct_exercises:t2`
+- **Порог:** 8 упражнение
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Результаты в 8 разных упражнениях уже в твоей коллекции. Однообразию здесь даже читательский билет не выдали.
+- **Fish Drama 3:** `[playful]Результаты в <emphasis>8 разных упражнениях</emphasis> уже в твоей коллекции. Однообразию здесь даже читательский билет не выдали.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. One hero object: a miniature rotating index-card carousel with a polished gold central spindle and thick fan-shaped translucent honey glass cards, all completely blank. Three-quarter view emphasizes the satisfying radial arrangement. A chunky beveled double-edge rounded-square metal frame with enamel inlays continues the personal-archive series. Middle tier, slightly fuller and more dimensional than the pen emblem, retaining an understated common-rarity finish. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 3. Собрание личных открытий
+
+- **ID:** `repertoire.distinct_exercises:t3`
+- **Порог:** 15 упражнение
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты сохранил результаты в 15 разных упражнениях. Это уже собрание движений, а не одинокая записка на холодильнике.
+- **Fish Drama 3:** `[pleased]Ты сохранил результаты в <emphasis>15 разных упражнениях</emphasis>. Это уже собрание движений, а не одинокая записка на холодильнике.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. One hero object: a substantial open anthology book with chunky polished gold covers, thick translucent honey glass pages, and a few broad integrated page tabs. Every page and the spine are entirely blank. The book rests at a proud upright angle within a stepped rounded-square frame of chunky beveled metal and enamel inlays. Culminating tier of the personal-archive series, more substantial and celebratory without a crown or legendary flame effects. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, body parts, or user photos.
+
+### `repertoire.familiar`
+
+**Правило:** Накопить упражнения, каждое из которых выполнялось минимум в трёх днях. **Единица:** знакомое упражнение. **Источник:** `available`.
+
+#### 1. Свои в движении
+
+- **ID:** `repertoire.familiar:t1`
+- **Порог:** 2 знакомое упражнение
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты выполнил 2 упражнения минимум в 3 разных дня каждое. Теперь у движений есть статус «свои».
+- **Fish Drama 3:** `[warm]Ты выполнил <emphasis>2 упражнения минимум в 3 разных дня каждое</emphasis>. Теперь у движений есть статус «свои».`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim with a chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. A domed translucent warm-gold enamel/glass insert holds one large embossed square-knot emblem made from two broad interlaced bands, occupying 65% of the inner circle. Simple rounded relief, restrained honey-colored glow and clean recessed crossings. Two tiny cascading stars in coral and turquoise remain inside the medallion as secondary accents. White-blue glossy highlights sweep across the glass. Saturated stylized 3D premium mobile-game achievement coin, clearly readable at 96px, dark almost uniform navy background. Preserve this circular coin silhouette for subsequent tiers. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+#### 2. Клуб знакомых движений
+
+- **ID:** `repertoire.familiar:t2`
+- **Порог:** 5 знакомое упражнение
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоём арсенале 5 упражнений, каждое выполнено минимум в 3 разных дня. Клуб знакомых движений расширился, а вступительных взносов всё ещё нет.
+- **Fish Drama 3:** `[amused]В твоём арсенале 5 упражнений, каждое выполнено минимум в 3 разных дня. Клуб знакомых движений расширился, а вступительных взносов всё ещё нет.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, using the same circular silhouette as the first tier, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim, chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. Within a domed translucent warm-gold enamel/glass insert, place one large five-lobed braided-rosette relief occupying 65% of the inner circle. Broad interwoven metallic ribbons form one unified emblem, with deeper crossings and richer honey-gold edge illumination than the first tier. Three small cascading stars in coral, turquoise and lilac sit inside the coin. Crisp white-blue glossy glass highlights. Saturated stylized 3D premium mobile-game icon, readable at 96px, dark almost uniform navy background. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+#### 3. Десятка без бейджиков
+
+- **ID:** `repertoire.familiar:t3`
+- **Порог:** 10 знакомое упражнение
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты собрал 10 знакомых упражнений: каждое выполнил минимум в 3 разных дня. Такому составу бейджики уже не нужны.
+- **Fish Drama 3:** `[confident]Ты собрал <emphasis>10 знакомых упражнений</emphasis>: каждое выполнил минимум в 3 разных дня. Такому составу бейджики уже не нужны.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, keeping the earlier tiers' circular silhouette, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim with chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. Domed translucent warm-gold enamel/glass insert. One large woven infinity-knot seal occupies 65% of the inner circle: a single unified relief with broad looping bands, pronounced over-under crossings and finely stepped metallic edges. Give it the richest relief and strongest warm honey glow within this common-rarity series, never fiery orange. Three tiny cascading stars in turquoise, coral and lilac stay inside the medallion. White-blue glossy highlights on the glass, saturated stylized 3D premium mobile-game rendering, readable at 96px, dark almost uniform navy background. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+### `repertoire.exploration`
+
+**Правило:** Выполнить разные упражнения, входившие в исходный согласованный план. **Единица:** упражнение по плану. **Источник:** `requires_plan`.
+
+#### 1. План раскрыл карты
+
+- **ID:** `repertoire.exploration:t1`
+- **Порог:** 3 упражнение по плану
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты выполнил 3 разных упражнения из исходного согласованного плана. Разведка состоялась: карта больше не просто красиво лежит.
+- **Fish Drama 3:** `[curious]Ты выполнил 3 разных упражнения из исходного согласованного плана. Разведка состоялась: карта больше не просто красиво лежит.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim, chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. Inside a domed translucent warm-gold enamel/glass insert, show one large folded-map emblem occupying 65% of the inner circle. The map is a single integrated embossed symbol with two broad folds and one winding recessed route, completely unlettered. Shallow rounded relief and a gentle honey-gold glow establish the first tier. Two small cascading stars in sapphire and coral remain inside the coin. White-blue glossy highlights on the glass. Saturated stylized 3D premium mobile-game achievement coin, readable at 96px, dark almost uniform navy background. Keep this circular silhouette across the line. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+#### 2. Маршрут с характером
+
+- **ID:** `repertoire.exploration:t2`
+- **Порог:** 8 упражнение по плану
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты выполнил 8 разных упражнений из исходного согласованного плана. Список перестал притворяться декорацией.
+- **Fish Drama 3:** `[playful]Ты выполнил <emphasis>8 разных упражнений</emphasis> из исходного согласованного плана. Список перестал притворяться декорацией.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, retaining the first tier's circular silhouette, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim with chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. Domed translucent warm-gold enamel/glass insert carrying one large four-point compass-rose relief with an integrated circular hub, occupying 65% of the inner circle. Broad sculpted points, stepped ridges and deeper metallic relief than the map tier; a richer honey-colored edge glow, still common rarity. Three tiny cascading stars in coral, sapphire and mint are enclosed inside the medallion. White-blue glossy glass highlights. Saturated stylized 3D premium mobile-game icon, readable at 96px, dark almost uniform navy background. No letters, compass labels, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+#### 3. Атлас вышел в зал
+
+- **ID:** `repertoire.exploration:t3`
+- **Порог:** 15 упражнение по плану
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты выполнил 15 разных упражнений из исходного согласованного плана. У этого атласа теперь есть биография, а не только обложка.
+- **Fish Drama 3:** `[confident]Ты выполнил 15 разных упражнений из исходного согласованного плана. У этого атласа теперь есть <emphasis>биография</emphasis>, а не только обложка.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, with the same circular silhouette as previous tiers, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim, chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. A domed translucent warm-gold enamel/glass insert contains one large closed-atlas emblem occupying 65% of the inner circle. Render the atlas as integrated high relief: thick page-block grooves, rounded spine and a single branching-route design recessed into its blank cover. Rich layered bevels and the strongest honey-gold glow in this common-rarity line. Three tiny cascading stars in sapphire, coral and mint remain inside the coin. White-blue glossy highlights across the glass. Saturated stylized 3D premium mobile-game achievement coin, readable at 96px, dark almost uniform navy background. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+### `repertoire.familiar_days`
+
+**Правило:** Накопить дни с упражнением, уже встречавшимся ранее в трёх днях. **Единица:** день знакомой практики. **Источник:** `available`.
+
+#### 1. Знакомый поворот
+
+- **ID:** `repertoire.familiar_days:t1`
+- **Порог:** 5 день знакомой практики
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 5 дней: в каждом было упражнение, которое ты уже выполнял минимум в 3 дня до этого. Возвращение к знакомому — тоже сюжетный ход.
+- **Fish Drama 3:** `[warm]Ты накопил 5 дней: в каждом было упражнение, которое ты уже выполнял минимум в 3 дня до этого. Возвращение к знакомому — тоже сюжетный ход.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim with chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. Domed translucent warm-gold enamel/glass insert holding one large circular return-arrow relief occupying 65% of the inner circle. A single thick curved band ends in a broad blunt arrowhead, with a clean open center and simple rounded metallic edges. Modest relief and gentle honey-gold illumination for the first tier. Two small cascading stars in teal and rose sit inside the medallion. White-blue glossy highlights on the glass. Saturated stylized 3D premium mobile-game achievement coin, readable at 96px, dark almost uniform navy background. Keep this round coin silhouette for all tiers. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+#### 2. Практика без представлений
+
+- **ID:** `repertoire.familiar_days:t2`
+- **Порог:** 15 день знакомой практики
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории 15 дней: в каждом было упражнение, уже выполненное минимум в 3 разных дня ранее. Знакомиться заново не пришлось — сразу к делу.
+- **Fish Drama 3:** `[amused]В твоей истории <emphasis>15 дней</emphasis>: в каждом было упражнение, уже выполненное минимум в 3 разных дня ранее. Знакомиться заново не пришлось — сразу к делу.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, preserving the first tier's circular silhouette, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim, chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. Within a domed translucent warm-gold enamel/glass insert, place one large revolving-door emblem occupying 65% of the inner circle. It is a single integrated relief: a central rounded hub and three broad curved vanes enclosed by a thick circular outline, not an architectural scene. Deeper sculpting and richer honey-gold glow than the return-arrow tier. Three small cascading stars in teal, rose and sapphire stay inside the medallion. White-blue glossy glass highlights. Saturated stylized 3D premium mobile-game icon, readable at 96px, dark almost uniform navy background. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+#### 3. Сорок тёплых встреч
+
+- **ID:** `repertoire.familiar_days:t3`
+- **Порог:** 40 день знакомой практики
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 40 дней: в каждом было упражнение, которое ты уже выполнял минимум в 3 дня до этого. У знакомой практики теперь целый сериал.
+- **Fish Drama 3:** `[confident]Ты накопил <emphasis>40 дней</emphasis>: в каждом было упражнение, которое ты уже выполнял минимум в 3 дня до этого. У знакомой практики теперь целый сериал.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, maintaining the earlier tiers' circular silhouette, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim with chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. Domed translucent warm-gold enamel/glass insert featuring one large mechanical flywheel relief occupying 65% of the inner circle. Six broad sculpted spokes, a raised hub and one recessed circular return groove form a single unified symbol. The deepest stepped relief and richest honey-gold illumination in this common-rarity line, without fiery legendary coloring. Three tiny cascading stars in teal, rose and sapphire remain inside the coin. White-blue glossy highlights on the glass. Saturated stylized 3D premium mobile-game achievement coin, readable at 96px, dark almost uniform navy background. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+### `repertoire.exercise_weeks`
+
+**Правило:** Возвращаться к одному упражнению в разных неделях. **Единица:** неделя с упражнением. **Источник:** `available`.
+
+#### 1. Возвращение в эфир
+
+- **ID:** `repertoire.exercise_weeks:t1`
+- **Порог:** 3 неделя с упражнением
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты выполнял одно и то же упражнение в 3 разных неделях. У движения появился свой сериал — без требования выпускать серии подряд.
+- **Fish Drama 3:** `[playful]Ты выполнял одно и то же упражнение в 3 разных неделях. У движения появился свой сериал — без требования выпускать серии подряд.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim, chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. A domed translucent turquoise enamel/glass insert with sapphire depth contains one large calendar-tile relief occupying 65% of the inner circle. One blank rounded calendar slab has two integrated binding tabs and a single broad horizontal week groove, with no writing or numbered grid. Clean moderate relief and a restrained cyan edge glow establish the first rare tier. Two tiny cascading stars in coral and pale gold stay inside the medallion. White-blue glossy highlights on the glass. Saturated stylized 3D premium mobile-game achievement coin, readable at 96px, dark almost uniform navy background. Preserve this circular silhouette across tiers. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+#### 2. Привычный гость календаря
+
+- **ID:** `repertoire.exercise_weeks:t2`
+- **Порог:** 8 неделя с упражнением
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Одно и то же упражнение отметилось у тебя в 8 разных неделях. Календарь уже узнаёт гостя, даже когда между встречами есть паузы.
+- **Fish Drama 3:** `[warm]Одно и то же упражнение отметилось у тебя в <emphasis>8 разных неделях</emphasis>. Календарь уже узнаёт гостя, даже когда между встречами есть паузы.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, keeping the first tier's circular silhouette, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim with chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. Domed translucent turquoise enamel/glass insert with deep sapphire edges. One large accordion-calendar emblem occupies 65% of the inner circle: three broad blank folded panels fused into one compact sculpted symbol, with integrated rounded binding tabs and thick week grooves. Deeper relief and brighter cyan illumination than the first tier. Three tiny cascading stars in coral, pale gold and lavender remain inside the medallion. White-blue glossy glass highlights. Saturated stylized 3D premium mobile-game icon, readable at 96px, dark almost uniform navy background. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+#### 3. Долгая арка движения
+
+- **ID:** `repertoire.exercise_weeks:t3`
+- **Порог:** 16 неделя с упражнением
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты выполнял одно и то же упражнение в 16 разных неделях. Вот это длинная сюжетная арка — без обязательства идти неделя в неделю.
+- **Fish Drama 3:** `[confident]Ты выполнял одно и то же упражнение в <emphasis>16 разных неделях</emphasis>. Вот это длинная сюжетная арка — без обязательства идти неделя в неделю.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, preserving the preceding tiers' circular silhouette, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim, chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. A domed translucent turquoise enamel/glass insert with sapphire depth holds one large perpetual-calendar dial relief occupying 65% of the inner circle. Seven broad unmarked radial segments, a raised central pivot and one crescent-shaped edge notch form a single integrated emblem. Rich layered sculpting and the strongest cyan glow of this rare-rarity line, entirely contained inside the coin. Three tiny cascading stars in coral, pale gold and lavender. White-blue glossy highlights on the glass. Saturated stylized 3D premium mobile-game achievement coin, readable at 96px, dark almost uniform navy background. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+### `repertoire.new_exercise_months`
+
+**Правило:** Накопить месяцы, в которых впервые выполнено новое упражнение. **Единица:** месяц открытий. **Источник:** `available`.
+
+#### 1. Первый сезон открытий
+
+- **ID:** `repertoire.new_exercise_months:t1`
+- **Порог:** 2 месяц открытий
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 2 месяца, в каждом из которых впервые выполнил хотя бы одно новое для себя упражнение. Любопытство получило собственный календарь.
+- **Fish Drama 3:** `[curious]Ты накопил 2 месяца, в каждом из которых впервые выполнил хотя бы одно новое для себя упражнение. Любопытство получило собственный календарь.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim with chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. A domed translucent turquoise enamel/glass insert with sapphire edge shading contains one large tightly furled botanical bud relief occupying 65% of the inner circle. The bud is a single bold tapered symbol with one pointed opening seam and broad rounded petal surfaces, no separate stem or surrounding foliage. Moderate sculpting and a soft cyan glow establish the first rare tier. Two tiny cascading stars in peach and pale gold remain inside the medallion. White-blue glossy highlights on the glass. Saturated stylized 3D premium mobile-game achievement coin, readable at 96px, dark almost uniform navy background. Keep this circular silhouette across tiers. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+#### 2. Новизна с пропиской
+
+- **ID:** `repertoire.new_exercise_months:t2`
+- **Порог:** 4 месяц открытий
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории 4 месяца с открытиями: в каждом ты впервые выполнил хотя бы одно новое упражнение. Рутина удивилась и отложила свой штамп.
+- **Fish Drama 3:** `[amused]В твоей истории <emphasis>4 месяца с открытиями</emphasis>: в каждом ты впервые выполнил хотя бы одно новое упражнение. Рутина удивилась и отложила свой штамп.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, using the same circular silhouette as the first tier, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim, chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. Domed translucent turquoise enamel/glass insert with deep sapphire edging. One large unfurling fern-frond relief occupies 65% of the inner circle: a single compact curled crozier with broad stepped leaflets fused into its spiral silhouette. Deeper sculpted ridges and richer cyan edge illumination than the bud tier, with a clean readable contour. Three small cascading stars in peach, pale gold and lavender stay inside the coin. White-blue glossy glass highlights. Saturated stylized 3D premium mobile-game icon, readable at 96px, dark almost uniform navy background. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+#### 3. Архив новых орбит
+
+- **ID:** `repertoire.new_exercise_months:t3`
+- **Порог:** 8 месяц открытий
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя набралось 8 месяцев: в каждом ты впервые выполнил хотя бы одно новое упражнение. Архив открытий растёт — пыль на его папках явно скучает.
+- **Fish Drama 3:** `[pleased]У тебя набралось <emphasis>8 месяцев</emphasis>: в каждом ты впервые выполнил хотя бы одно новое упражнение. Архив открытий растёт — пыль на его папках явно скучает.`
+- **Image prompt:** Exactly one round convex achievement medallion filling the frame, retaining the earlier tiers' circular silhouette, nearly frontal with minimal perspective. Thick multilayer silver-gold metal rim with chunky silver outer bevel, polished gold inner bevel and tiny metal rivets. Domed translucent turquoise enamel/glass insert with saturated sapphire depth. One large fully opened lotus-rosette relief occupies 65% of the inner circle, formed as a single unified emblem with broad faceted petals and an integrated raised seed cup. Rich high relief, finely stepped petal edges and the strongest contained cyan glow in this rare-rarity series. Three tiny cascading stars in peach, pale gold and lavender remain inside the medallion. White-blue glossy highlights on the glass. Saturated stylized 3D premium mobile-game achievement coin, readable at 96px, dark almost uniform navy background. No letters, digits, inscriptions, logos, people, bodies, photographs, floating objects, exterior props, scene, diorama or realistic product photography.
+
+### `repertoire.machine_exercises`
+
+**Правило:** Познакомиться с разными упражнениями на тренажёре. **Единица:** упражнение на тренажёре. **Источник:** `available`.
+
+#### 1. Контакт с железом
+
+- **ID:** `repertoire.machine_exercises:t1`
+- **Порог:** 2 упражнение на тренажёре
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты познакомился с 2 разными упражнениями на тренажёре. Железо больше не делает вид, что вы незнакомы.
+- **Fish Drama 3:** `[playful] Ты познакомился с 2 разными упражнениями на тренажёре. Железо больше не делает вид, что вы незнакомы.`
+- **Image prompt:** Premium glossy 3D achievement emblem, mechanical explorer series. One clear hero object: a polished exercise-machine selector pin with a chunky translucent turquoise handle, angled diagonally across a recessed sapphire hexagonal shield. Chunky beveled metal frame, restrained chrome details, translucent enamel and glass inlays, tiny stars and sparks, saturated turquoise cinematic rim light, dark navy studio background, soft contact shadow. Entry-level composition with a strong simple silhouette, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+#### 2. Механика любопытства
+
+- **ID:** `repertoire.machine_exercises:t2`
+- **Порог:** 5 упражнение на тренажёре
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоём репертуаре уже 5 разных упражнений на тренажёре. У железа, оказывается, богатый разговорник.
+- **Fish Drama 3:** `[amused] В твоём репертуаре уже 5 разных упражнений на тренажёре. У железа, оказывается, богатый разговорник.`
+- **Image prompt:** Premium glossy 3D achievement emblem, mechanical explorer series. One clear hero object: a substantial chrome cable pulley wheel with a translucent sapphire hub and a turquoise glass-lined groove, shown in three-quarter view. Use the same hexagonal shield family, now with a double-layer chunky beveled metal frame and brighter inset facets. Translucent enamel and glass inlays, tiny stars and sparks, saturated turquoise and sapphire cinematic rim light, dark navy studio background, soft contact shadow. More elaborate than the selector-pin tier, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+#### 3. Свой среди механизмов
+
+- **ID:** `repertoire.machine_exercises:t3`
+- **Порог:** 10 упражнение на тренажёре
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя в атласе 10 разных упражнений на тренажёре. Машинный зал торжественно снимает табличку «всё одно и то же».
+- **Fish Drama 3:** `[excited] У тебя в атласе 10 разных упражнений на тренажёре. Машинный зал торжественно снимает табличку «всё одно и то же».`
+- **Image prompt:** Premium glossy 3D achievement emblem, mechanical explorer series finale. One clear hero object: a stylized miniature cable resistance machine with a compact sapphire-glass weight stack, polished chrome uprights, and one curved turquoise cable arm. Bold simplified geometry, no attachments floating separately. The matching hexagonal chunky beveled metal frame has expanded layered facets and a radiant sapphire inset. Translucent enamel and glass inlays, tiny stars and sparks, saturated turquoise cinematic rim light, dark navy studio background, soft contact shadow. Grandest silhouette in this rare-tier series, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+### `repertoire.timed_exercises`
+
+**Правило:** Познакомиться с разными упражнениями на время и растяжку. **Единица:** упражнение на время. **Источник:** `available`.
+
+#### 1. Время знакомиться
+
+- **ID:** `repertoire.timed_exercises:t1`
+- **Порог:** 2 упражнение на время
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя в репертуаре 2 разных упражнения на время и растяжку. Секундомер здесь свидетель, а не начальник.
+- **Fish Drama 3:** `[playful] У тебя в репертуаре 2 разных упражнения на время и растяжку. Секундомер здесь свидетель, а не начальник.`
+- **Image prompt:** Premium glossy 3D achievement emblem, time observatory series. One clear hero object: a rounded hourglass with translucent violet chambers, luminous magenta sand, and thick polished metal end caps. Set it inside a circular chunky beveled metal frame with a restrained orbital contour. Translucent enamel and glass inlays, tiny stars and sparks, saturated violet and magenta cinematic rim light, dark navy studio background, soft contact shadow. Calm balanced composition, strong hourglass silhouette, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+#### 2. Секунды с характером
+
+- **ID:** `repertoire.timed_exercises:t2`
+- **Порог:** 5 упражнение на время
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты познакомился с 5 разными упражнениями на время и растяжку. Таймер получил новые роли — будильник завидует.
+- **Fish Drama 3:** `[amused] Ты познакомился с 5 разными упражнениями на время и растяжку. Таймер получил новые роли — будильник завидует.`
+- **Image prompt:** Premium glossy 3D achievement emblem, time observatory series. One clear hero object: a substantial mechanical stopwatch with a translucent magenta face, a single sculptural silver hand, and a violet glass crown button. The dial is completely unmarked. Surround it with the matching circular chunky beveled metal frame, now featuring two integrated orbital arcs and deeper glass facets. Translucent enamel and glass inlays, tiny stars and sparks, saturated violet and magenta cinematic rim light, dark navy studio background, soft contact shadow. Richer middle-tier composition, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+#### 3. Дирижёр времени
+
+- **ID:** `repertoire.timed_exercises:t3`
+- **Порог:** 10 упражнение на время
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Твой атлас насчитывает 10 разных упражнений на время и растяжку. У секунд теперь целый репертуар, а не одна заезженная пластинка.
+- **Fish Drama 3:** `[confident] Твой атлас насчитывает 10 разных упражнений на время и растяжку. У секунд теперь целый репертуар, а не одна заезженная пластинка.`
+- **Image prompt:** Premium glossy 3D achievement emblem, time observatory series finale. One clear hero object: a grand pyramidal metronome made of deep violet translucent glass, with a polished metal pendulum and a glowing magenta faceted pendulum weight. Its front is entirely unmarked. Use the matching circular chunky beveled metal frame with a majestic integrated orbital halo and layered crystalline recesses. Translucent enamel and glass inlays, tiny stars and sparks, saturated violet and magenta cinematic rim light, dark navy studio background, soft contact shadow. Most dramatic tier of the series, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+### `repertoire.five_exercise_days`
+
+**Правило:** Накопить дни с результатами по пяти разным упражнениям. **Единица:** день с пятью упражнениями. **Источник:** `available`.
+
+#### 1. Пять в одном дне
+
+- **ID:** `repertoire.five_exercise_days:t1`
+- **Порог:** 1 день с пятью упражнениями
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя появился 1 день с результатами по 5 разным упражнениям. Однообразие забыло пропуск в зал.
+- **Fish Drama 3:** `[playful] У тебя появился 1 день с результатами по 5 разным упражнениям. Однообразие забыло пропуск в зал.`
+- **Image prompt:** Premium glossy 3D achievement emblem, variety fair series. One clear hero object: a playful five-bladed pinwheel with thick translucent violet and magenta glass blades, a polished metal central hub, and a short integrated stem. Mount it within a scalloped pentagonal chunky beveled metal frame. Translucent enamel and glass inlays, tiny stars and sparks, saturated violet and magenta cinematic rim light, dark navy studio background, soft contact shadow. Compact celebratory entry tier with a clean static silhouette, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+#### 2. Пятёрки в коллекции
+
+- **ID:** `repertoire.five_exercise_days:t2`
+- **Порог:** 5 день с пятью упражнениями
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты накопил 5 дней, в каждом — результаты по 5 разным упражнениям. Это уже сборник, а не случайный хит.
+- **Fish Drama 3:** `[pleased] Ты накопил 5 дней, в каждом — результаты по 5 разным упражнениям. Это уже сборник, а не случайный хит.`
+- **Image prompt:** Premium glossy 3D achievement emblem, variety fair series. One clear hero object: a luxurious kaleidoscope tube angled toward the viewer, its broad front lens revealing a simple luminous violet and magenta radial glass pattern. Polished metal barrel with faceted enamel bands, no decorative symbols. The matching scalloped pentagonal chunky beveled metal frame gains a second stepped border. Translucent enamel and glass inlays, tiny stars and sparks, saturated violet and magenta cinematic rim light, dark navy studio background, soft contact shadow. More dimensional and radiant than the pinwheel tier, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+#### 3. Фестиваль движений
+
+- **ID:** `repertoire.five_exercise_days:t3`
+- **Порог:** 15 день с пятью упражнениями
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории 15 дней с результатами по 5 разным упражнениям за день. У разнообразия теперь собственная фестивальная афиша.
+- **Fish Drama 3:** `[excited] В твоей истории 15 дней с результатами по 5 разным упражнениям за день. У разнообразия теперь собственная фестивальная афиша.`
+- **Image prompt:** Premium glossy 3D achievement emblem, variety fair series finale. One clear hero object: a miniature jewel-like carousel pavilion with a broad violet glass canopy, magenta enamel platform, and three empty suspended glass gondolas. No riders, animals, or figurines. Simplify the structure into bold readable shapes. The matching scalloped pentagonal chunky beveled metal frame expands into layered festival-like facets. Translucent enamel and glass inlays, tiny stars and sparks, saturated violet and magenta cinematic rim light, dark navy studio background, soft contact shadow. Grand celebratory series finale, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+### `repertoire.repertoire_months`
+
+**Правило:** Накопить месяцы с результатами минимум по трём разным упражнениям. **Единица:** месяц с тремя упражнениями. **Источник:** `available`.
+
+#### 1. Две главы атласа
+
+- **ID:** `repertoire.repertoire_months:t1`
+- **Порог:** 2 месяц с тремя упражнениями
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** У тебя накопилось 2 месяца, в каждом — результаты минимум по 3 разным упражнениям. Тренировочный архив обзавёлся сюжетом.
+- **Fish Drama 3:** `[pleased] У тебя накопилось 2 месяца, в каждом — результаты минимум по 3 разным упражнениям. Тренировочный архив обзавёлся сюжетом.`
+- **Image prompt:** Premium glossy 3D achievement emblem, grand archive series. One clear hero object: a thick open codex with sculpted blank metallic pages and a translucent fiery-orange glass spine, floating slightly above its integrated base. Place it in an arched chunky beveled gold metal frame with deep amber enamel recesses. Translucent enamel and glass inlays, tiny stars and sparks, saturated fiery gold and orange cinematic rim light, dark navy studio background, soft contact shadow. Legendary richness with a restrained entry-tier silhouette, readable at 96px. No writing on the pages, no letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+#### 2. Хроника с размахом
+
+- **ID:** `repertoire.repertoire_months:t2`
+- **Порог:** 6 месяц с тремя упражнениями
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В твоей истории 6 месяцев с результатами минимум по 3 разным упражнениям в каждом. Сериал про движение явно обошёлся без скучного сценария.
+- **Fish Drama 3:** `[amused] В твоей истории 6 месяцев с результатами минимум по 3 разным упражнениям в каждом. Сериал про движение явно обошёлся без скучного сценария.`
+- **Image prompt:** Premium glossy 3D achievement emblem, grand archive series. One clear hero object: an unfurled ceremonial scroll with broad blank translucent amber enamel parchment and thick polished gold rollers, one curled edge glowing fiery orange. Use the matching arched chunky beveled metal frame, now with a stepped architectural border and deeper molten-gold glass recesses. Translucent enamel and glass inlays, tiny stars and sparks, saturated fiery gold and orange cinematic rim light, dark navy studio background, soft contact shadow. More expansive and ornate than the codex tier, readable at 96px. No writing, letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+#### 3. Архив большого движения
+
+- **ID:** `repertoire.repertoire_months:t3`
+- **Порог:** 12 месяц с тремя упражнениями
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты накопил 12 месяцев, в каждом — результаты минимум по 3 разным упражнениям. Это уже сага, и однообразию роль не досталась.
+- **Fish Drama 3:** `[proud] Ты накопил 12 месяцев, в каждом — результаты минимум по 3 разным упражнениям. Это уже сага, и однообразию роль не досталась.`
+- **Image prompt:** Premium glossy 3D achievement emblem, grand archive series finale. One clear hero object: a monumental miniature archive cabinet with an arched crown, thick golden doors standing slightly open, and broad glowing orange-glass compartments inside. Keep the cabinet silhouette simple and imposing, without tiny contents. The matching arched chunky beveled metal frame becomes a layered architectural halo with fiery amber facets. Translucent enamel and glass inlays, tiny stars and sparks, saturated fiery gold and orange cinematic rim light, dark navy studio background, soft contact shadow. Maximum legendary grandeur within this series, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+## Вес и объём
+
+### `volume.volume`
+
+**Правило:** Накопить учётный объём: повторения, умноженные на сохранённый вес. **Единица:** килограмм объёма. **Источник:** `available`.
+
+#### 1. Первая тонна в журнале
+
+- **ID:** `volume.volume:t1`
+- **Порог:** 1000 килограмм объёма
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя накопилось 1 000 кг учётного объёма: повторения × сохранённый вес по всем записям. Журнал открыл маленький грузовой терминал.
+- **Fish Drama 3:** `[playful] У тебя накопилось 1 000 кг учётного объёма: повторения × сохранённый вес по всем записям. Журнал открыл маленький грузовой терминал.`
+- **Image prompt:** Premium glossy 3D achievement emblem, recorded cargo series. One clear hero object: a compact reinforced shipping crate with polished warm-gold metal edges and translucent honey-gold glass side panels, shown in three-quarter view. Use a rounded-square chunky beveled metal frame with simple amber enamel inlays. Tiny stars and sparks, saturated warm-gold cinematic rim light, dark navy studio background, soft contact shadow. Modest common-rarity finish, sturdy uncluttered silhouette, readable at 96px. The crate has no labels or shipping marks. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+#### 2. Вагон записанных усилий
+
+- **ID:** `volume.volume:t2`
+- **Порог:** 10000 килограмм объёма
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории 10 000 кг учётного объёма: в записях повторения умножаются на сохранённый вес, а результаты складываются. Это уже грузовой сериал с продолжением.
+- **Fish Drama 3:** `[amused] В твоей истории 10 000 кг учётного объёма: в записях повторения умножаются на сохранённый вес, а результаты складываются. Это уже грузовой сериал с продолжением.`
+- **Image prompt:** Premium glossy 3D achievement emblem, recorded cargo series. One clear hero object: a miniature covered freight rail wagon with a warm-gold beveled chassis, chunky metal wheels, and translucent honey-amber glass walls. Show a clean three-quarter view without tracks or separate cargo. The matching rounded-square chunky beveled metal frame gains an additional shallow step and richer enamel depth. Tiny stars and sparks, saturated warm-gold cinematic rim light, dark navy studio background, soft contact shadow. More substantial than the crate tier while retaining common-rarity simplicity, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+#### 3. Сухогруз твоей истории
+
+- **ID:** `volume.volume:t3`
+- **Порог:** 50000 килограмм объёма
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 50 000 кг учётного объёма — по записям, где повторения умножаются на сохранённый вес. У этой истории уже свой сухогруз.
+- **Fish Drama 3:** `[proud] Ты накопил 50 000 кг учётного объёма — по записям, где повторения умножаются на сохранённый вес. У этой истории уже свой сухогруз.`
+- **Image prompt:** Premium glossy 3D achievement emblem, recorded cargo series finale. One clear hero object: a stylized cargo ship with a broad polished warm-gold hull, integrated geometric deck blocks, and a translucent honey-gold glass bridge. Present the ship on a low glass ripple embossed into the badge backing, not a separate scene. The matching rounded-square chunky beveled metal frame has its widest stepped border and luminous amber enamel inlays. Tiny stars and sparks, saturated warm-gold cinematic rim light, dark navy studio background, soft contact shadow. Largest silhouette in the series but still restrained common rarity, readable at 96px. No letters, digits, inscriptions, logos, people, bodies, or user photographs.
+
+### `volume.weighted_sets`
+
+**Правило:** Накопить подходы с положительным сохранённым весом. **Единица:** подход с весом. **Источник:** `available`.
+
+#### 1. Мастерская открыта
+
+- **ID:** `volume.weighted_sets:t1`
+- **Порог:** 10 подход с весом
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя накопилось 10 подходов с сохранённым весом больше нуля. Железо выдало пропуск в свою мастерскую!
+- **Fish Drama 3:** `[playful] У тебя накопилось 10 подходов с сохранённым весом больше нуля. Железо выдало пропуск в свою мастерскую!`
+- **Image prompt:** Premium glossy 3D achievement emblem, workshop series, first tier. One clear hero object: a compact forged spring clamp with thick rounded jaws, tilted diagonally inside a chunky beveled hexagonal metal frame. Warm gold palette, honey-colored translucent enamel and glass inlays, polished brass highlights, subtle machined grooves. Restrained composition with tiny stars and sparks, saturated cinematic amber rim light, dark navy studio background, soft contact shadow. Bold silhouette readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Наковальня практики
+
+- **ID:** `volume.weighted_sets:t2`
+- **Порог:** 50 подход с весом
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 50 подходов с сохранённым весом больше нуля. Наковальня бы кивнула, но у неё нет шеи.
+- **Fish Drama 3:** `[playful] В твоей истории уже 50 подходов с сохранённым весом больше нуля. Наковальня бы кивнула, но у неё нет шеи.`
+- **Image prompt:** Premium glossy 3D achievement emblem, workshop series, second tier. One clear hero object: a broad sculptural anvil with a rounded horn and mirror-polished striking face, floating centrally in a chunky double-beveled hexagonal metal frame. Warm gold palette with deeper amber translucent enamel and glass inlays. More substantial geometry and brighter reflections than the first tier, tiny stars and sparks clustered around the anvil silhouette. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Железная летопись
+
+- **ID:** `volume.weighted_sets:t3`
+- **Порог:** 150 подход с весом
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 150 подходов с сохранённым весом больше нуля. Такую историю даже тиски не сожмут до слова «нормально».
+- **Fish Drama 3:** `[confident] Ты накопил <emphasis>150 подходов</emphasis> с сохранённым весом больше нуля. Такую историю даже тиски не сожмут до слова «нормально».`
+- **Image prompt:** Premium glossy 3D achievement emblem, workshop series, third and most elaborate tier. One clear hero object: a monumental bench vise with rounded closed jaws and a prominent polished screw handle, shown in three-quarter view. Chunky triple-beveled hexagonal metal frame with sculpted corner facets, warm gold metal and luminous honey translucent enamel and glass inlays. Largest silhouette and richest detailing in this series, tiny stars and sparks tracing a celebratory arc. Saturated cinematic amber rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+### `volume.weighted_reps`
+
+**Правило:** Накопить повторения с положительным сохранённым весом. **Единица:** повторение с весом. **Источник:** `available`.
+
+#### 1. Ритм найден
+
+- **ID:** `volume.weighted_reps:t1`
+- **Порог:** 100 повторение с весом
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Первые 100 повторений с сохранённым весом больше нуля — уже в твоей копилке. Метроном одобрительно щёлкнул!
+- **Fish Drama 3:** `[playful] Первые 100 повторений с сохранённым весом больше нуля — уже в твоей копилке. Метроном одобрительно щёлкнул!`
+- **Image prompt:** Premium glossy 3D achievement emblem, mechanical rhythm series, first tier. One clear hero object: a compact pyramid-shaped mechanical metronome with a single pendulum arm caught at an angle, its face completely unmarked. Chunky beveled circular metal frame with a subtle concentric groove. Warm gold palette, translucent amber enamel and glass inlays, polished brass edges. Small motion glints, tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Strong simple silhouette readable at 96px. No letters, numbers, scale markings, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Механика упорства
+
+- **ID:** `volume.weighted_reps:t2`
+- **Порог:** 500 повторение с весом
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 500 повторений с сохранённым весом больше нуля. Храповик истории щёлкает: каждый вклад на месте.
+- **Fish Drama 3:** `[confident] Ты накопил 500 повторений с сохранённым весом больше нуля. Храповик истории щёлкает: каждый вклад на месте.`
+- **Image prompt:** Premium glossy 3D achievement emblem, mechanical rhythm series, second tier. One clear hero object: a short, chunky ratchet wrench with an oversized round ratcheting head, displayed diagonally with the mechanism visible through a translucent amber window. Chunky double-beveled circular metal frame, warm gold palette, honey enamel and glass inlays, precise polished mechanical surfaces. Richer depth than the first tier, tiny stars and sparks near the ratchet head, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Маховик в деле
+
+- **ID:** `volume.weighted_reps:t3`
+- **Порог:** 1500 повторение с весом
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоём архиве — 1500 повторений с сохранённым весом больше нуля. Маховик этой истории заслужил собственный постамент.
+- **Fish Drama 3:** `[excited] В твоём архиве — <emphasis>1500 повторений</emphasis> с сохранённым весом больше нуля. Маховик этой истории заслужил собственный постамент.`
+- **Image prompt:** Premium glossy 3D achievement emblem, mechanical rhythm series, third and most elaborate tier. One clear hero object: a massive sculptural flywheel with three broad curved spokes and a thick polished outer rim, angled to reveal its depth. Chunky triple-beveled circular metal frame with concentric stepped relief, warm gold palette, glowing honey translucent enamel and glass inlays. Expansive silhouette, elegant curved motion highlights, tiny stars and sparks orbiting the rim. Saturated cinematic amber rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+### `volume.volume_days`
+
+**Правило:** Накопить дни с положительным учётным объёмом. **Единица:** день с объёмом. **Источник:** `available`.
+
+#### 1. Песчинки истории
+
+- **ID:** `volume.volume_days:t1`
+- **Порог:** 3 день с объёмом
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя уже 3 дня с учётным объёмом больше нуля. Песочные часы получили материал для спортивной хроники!
+- **Fish Drama 3:** `[playful] У тебя уже 3 дня с учётным объёмом больше нуля. Песочные часы получили материал для спортивной хроники!`
+- **Image prompt:** Premium glossy 3D achievement emblem, timekeeping series, first tier. One clear hero object: a rounded hourglass with a narrow glass waist and a small stream of luminous golden sand. Chunky beveled octagonal metal frame with smooth clockwork-inspired edge detailing. Warm gold palette, translucent honey enamel and clear amber glass inlays, polished gold end caps. Modest balanced composition, tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Время на твоей стороне
+
+- **ID:** `volume.volume_days:t2`
+- **Порог:** 10 день с объёмом
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории накопилось 10 дней с учётным объёмом больше нуля. Солнечные часы показывают: вклад есть, суета не требуется.
+- **Fish Drama 3:** `[confident] В твоей истории накопилось 10 дней с учётным объёмом больше нуля. Солнечные часы показывают: вклад есть, суета не требуется.`
+- **Image prompt:** Premium glossy 3D achievement emblem, timekeeping series, second tier. One clear hero object: a sculptural sundial with a thick tilted circular plate and a bold triangular gnomon casting a crisp decorative shadow across its completely unmarked surface. Chunky double-beveled octagonal metal frame. Warm gold palette, translucent amber enamel and glass inlays, polished brass highlights, richer relief than the first tier. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, dial markings, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Астролябия практики
+
+- **ID:** `volume.volume_days:t3`
+- **Порог:** 25 день с объёмом
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 25 дней с учётным объёмом больше нуля. У этой хроники теперь своя астролябия: масштаб уже навигационный!
+- **Fish Drama 3:** `[excited] Ты накопил 25 дней с учётным объёмом больше нуля. У этой хроники теперь своя астролябия: масштаб уже навигационный!`
+- **Image prompt:** Premium glossy 3D achievement emblem, timekeeping series, third and most elaborate tier. One clear hero object: an ornate yet bold astrolabe with a solid circular face, a broad rotating pointer and a thick suspension loop, all surfaces unmarked. Chunky triple-beveled octagonal metal frame with layered precision-cut facets. Warm gold palette, luminous honey translucent enamel and glass inlays, rich polished relief, generous depth. Tiny stars and sparks arranged in a radiant upper arc, saturated cinematic amber rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+### `volume.weighted_days`
+
+**Правило:** Накопить дни с подходами с положительным весом. **Единица:** день с весом. **Источник:** `available`.
+
+#### 1. Свои у причала
+
+- **ID:** `volume.weighted_days:t1`
+- **Порог:** 3 день с весом
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя накопилось 3 дня с подходами с сохранённым весом больше нуля. У причала практики чайки включили фанфары!
+- **Fish Drama 3:** `[playful] У тебя накопилось 3 дня с подходами с сохранённым весом больше нуля. У причала практики чайки включили фанфары!`
+- **Image prompt:** Premium glossy 3D achievement emblem, harbor series, first tier. One clear hero object: a stout nautical mooring cleat with two rounded horns and a broad integrated foot, shown in three-quarter view. Chunky beveled porthole-shaped metal frame with subtle rounded rivet details. Rare turquoise and sapphire palette, translucent aqua enamel and deep blue glass inlays, polished cool metal edges. Tiny stars and sparks resembling harbor light glints, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Readable at 96px. No ropes, birds, letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Якорь на месте
+
+- **ID:** `volume.weighted_days:t2`
+- **Порог:** 10 день с весом
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Уже 10 дней в твоей истории отмечены подходами с сохранённым весом больше нуля. Даже якорь приподнялся от уважения!
+- **Fish Drama 3:** `[playful] Уже 10 дней в твоей истории отмечены подходами с сохранённым весом больше нуля. Даже якорь приподнялся от уважения!`
+- **Image prompt:** Premium glossy 3D achievement emblem, harbor series, second tier. One clear hero object: a sculptural ship anchor with broad curved flukes, a thick shank and a polished top ring, hovering slightly above the inner frame. Chunky double-beveled porthole-shaped metal frame with refined rivet details. Rare turquoise and sapphire palette, translucent aqua enamel and rich blue glass inlays, bright cool metal reflections. Broader silhouette and deeper relief than the first tier, tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Маяк большой истории
+
+- **ID:** `volume.weighted_days:t3`
+- **Порог:** 25 день с весом
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 25 дней, в которые были подходы с сохранённым весом больше нуля. Маяк твоей практики обзавёлся парадной подсветкой!
+- **Fish Drama 3:** `[excited] Ты накопил 25 дней, в которые были подходы с сохранённым весом больше нуля. Маяк твоей практики обзавёлся парадной подсветкой!`
+- **Image prompt:** Premium glossy 3D achievement emblem, harbor series, third and most elaborate tier. One clear hero object: a compact monumental lighthouse with a tapered faceted tower and a luminous glass lantern chamber, projecting two short stylized cyan light wedges. Chunky triple-beveled porthole-shaped metal frame with sculpted radial facets. Rare turquoise and sapphire palette, layered translucent aqua enamel and deep sapphire glass inlays, polished cool metal. Tall commanding silhouette, tiny stars and sparks in the upper corners, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+### `volume.volume_weeks`
+
+**Правило:** Накопить недели с учётным объёмом от пятисот килограммов. **Единица:** неделя с объёмом. **Источник:** `available`.
+
+#### 1. Капсула с грузом
+
+- **ID:** `volume.volume_weeks:t1`
+- **Порог:** 2 неделя с объёмом
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории — 2 недели с учётным объёмом от 500 кг в каждой. Грузовая капсула практики получила допуск к запуску!
+- **Fish Drama 3:** `[excited] В твоей истории — 2 недели с учётным объёмом от 500 кг в каждой. Грузовая капсула практики получила допуск к запуску!`
+- **Image prompt:** Premium glossy 3D achievement emblem, orbital cargo series, first tier. One clear hero object: a compact unmanned cargo capsule with a rounded conical shell, a broad sapphire glass band and a thick circular docking collar, angled upward. Chunky beveled rounded-triangular metal frame. Rare turquoise and sapphire palette, translucent aqua enamel and deep blue glass inlays, polished cool metal surfaces. Restrained tiny stars and sparks suggesting a launch glimmer, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Спутник большого дела
+
+- **ID:** `volume.volume_weeks:t2`
+- **Порог:** 6 неделя с объёмом
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 6 недель с учётным объёмом не меньше 500 кг в каждой. У этой истории уже свой спутник, и он не для прогноза погоды!
+- **Fish Drama 3:** `[playful] Ты накопил 6 недель с учётным объёмом не меньше 500 кг в каждой. У этой истории уже свой спутник, и он не для прогноза погоды!`
+- **Image prompt:** Premium glossy 3D achievement emblem, orbital cargo series, second tier. One clear hero object: a stylized unmanned satellite with a chunky central body, two short broad solar-panel wings and a small integrated dish, forming a crisp balanced silhouette. Chunky double-beveled rounded-triangular metal frame. Rare turquoise and sapphire palette, translucent aqua enamel and sapphire glass solar panels with simple unmarked geometric divisions. More expansive geometry than the first tier, tiny stars and sparks tracing a partial orbital arc, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Станция на орбите
+
+- **ID:** `volume.volume_weeks:t3`
+- **Порог:** 12 неделя с объёмом
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя накопилось 12 недель с учётным объёмом от 500 кг в каждой. Это уже орбитальная станция практики, а не случайный космический багаж!
+- **Fish Drama 3:** `[confident] У тебя накопилось <emphasis>12 недель</emphasis> с учётным объёмом от 500 кг в каждой. Это уже орбитальная станция практики, а не случайный космический багаж!`
+- **Image prompt:** Premium glossy 3D achievement emblem, orbital cargo series, third and most elaborate tier. One clear hero object: a compact toroidal unmanned orbital station with three thick connecting spokes, a central docking hub and an integrated luminous outer ring, shown in dramatic three-quarter view. Chunky triple-beveled rounded-triangular metal frame with layered angular facets. Rare turquoise and sapphire palette, rich translucent aqua enamel and deep sapphire glass inlays, polished cool metal. Grandest silhouette in the series, tiny stars and sparks forming a broad celebratory orbit, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies, or photographs.
+
+### `volume.weight_exercises`
+
+**Правило:** Оставить результаты с положительным весом в разных упражнениях. **Единица:** упражнение с весом. **Источник:** `available`.
+
+#### 1. Железные знакомства
+
+- **ID:** `volume.weight_exercises:t1`
+- **Порог:** 2 упражнение с весом
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя сохранены результаты с положительным весом в 2 разных упражнениях. Железо явно расширяет круг знакомств.
+- **Fish Drama 3:** `[amused] У тебя сохранены результаты с положительным весом в 2 разных упражнениях. Железо явно расширяет круг знакомств.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One polished metal carabiner with a translucent turquoise gate is the clear central hero, slightly tilted inside a chunky beveled hexagonal metal frame with translucent enamel/glass inlays. Compact first-tier design with one sapphire border and two tiny stars, delicate sparks. Precision-machined workshop aesthetic shared across the series. Saturated cinematic rim light, dark navy studio background, soft contact shadow, bold silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Набор не для пенала
+
+- **ID:** `volume.weight_exercises:t2`
+- **Порог:** 5 упражнение с весом
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты сохранил результаты с положительным весом в 5 разных упражнениях. Твой тренировочный набор уже не помещается в пенал.
+- **Fish Drama 3:** `[confident] Ты сохранил результаты с положительным весом в 5 разных упражнениях. Твой тренировочный набор уже не помещается в пенал.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One substantial ratchet wrench with a luminous sapphire socket and translucent turquoise handle inlay is the central hero. Chunky beveled hexagonal metal frame with translucent enamel/glass inlays, doubled border and sculpted corner brackets, matching a precision-workshop badge series. More dimensional and elaborate than the entry tier, with tiny stars and crisp sparks. Saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Цех больших возможностей
+
+- **ID:** `volume.weight_exercises:t3`
+- **Порог:** 10 упражнение с весом
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории — результаты с положительным весом в 10 разных упражнениях. У разнообразия теперь собственный инструментальный цех.
+- **Fish Drama 3:** `[proud] В твоей истории — результаты с положительным весом в <emphasis>10 разных упражнениях</emphasis>. У разнообразия теперь собственный инструментальный цех.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One sculptural folding multitool is the hero, with three broad non-bladed attachments fanned open and a thick sapphire-glass handle. Chunky beveled hexagonal metal frame with translucent enamel/glass inlays, triple stepped border and machined corner facets. Most elaborate badge in the precision-workshop series, but with a clean unified silhouette. Tiny stars and energetic turquoise sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `volume.volume_months`
+
+**Правило:** Накопить месяцы с учётным объёмом от пяти тысяч килограммов. **Единица:** месяц с объёмом. **Источник:** `available`.
+
+#### 1. Календарь с характером
+
+- **ID:** `volume.volume_months:t1`
+- **Порог:** 2 месяц с объёмом
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя уже 2 месяца с учётным объёмом от 5 000 кг в каждом. Календарь делает вид, что это обычное дело.
+- **Fish Drama 3:** `[amused] У тебя уже 2 месяца с учётным объёмом от 5 000 кг в каждом. Календарь делает вид, что это обычное дело.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One stout hourglass containing glowing violet crystal sand is the central hero, with glossy magenta metal caps and thick transparent glass. Chunky beveled scalloped circular metal frame with translucent enamel/glass inlays and subtle orbital grooves, establishing a timekeeper series. Restrained first-tier ornamentation, tiny stars and a few sparks. Saturated cinematic rim light, dark navy studio background, soft contact shadow, simple silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Архив больших месяцев
+
+- **ID:** `volume.volume_months:t2`
+- **Порог:** 6 месяц с объёмом
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории 6 месяцев с учётным объёмом от 5 000 кг в каждом. Это уже не страничка, а календарная сага.
+- **Fish Drama 3:** `[proud] В твоей истории 6 месяцев с учётным объёмом от 5 000 кг в каждом. Это уже не страничка, а календарная сага.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One mechanical pyramid metronome is the hero, built from translucent violet glass with a broad magenta pendulum and a completely unmarked face. Chunky beveled scalloped circular metal frame with translucent enamel/glass inlays, doubled orbital grooves and raised decorative facets. Mid-tier evolution of a cohesive timekeeper series. Tiny stars and lively sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, clean silhouette readable at 96px. No letters, numerals, scales, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Созвездие сильных месяцев
+
+- **ID:** `volume.volume_months:t3`
+- **Порог:** 12 месяц с объёмом
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** 12 месяцев с учётным объёмом от 5 000 кг в каждом — уже в твоей копилке. Календарь просит место в титрах.
+- **Fish Drama 3:** `[excited] <emphasis>12 месяцев</emphasis> с учётным объёмом от 5 000 кг в каждом — уже в твоей копилке. Календарь просит место в титрах.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One magnificent armillary sphere is the hero, formed from thick polished violet metal orbital rings surrounding a luminous magenta glass core. Chunky beveled scalloped circular metal frame with translucent enamel/glass inlays and three deep orbital grooves. Grandest tier of the timekeeper series, using a few broad rings rather than intricate clutter. Tiny stars and radiant sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `volume.volume_milestones`
+
+**Правило:** Продолжать большую историю учётного объёма без цели на одну тренировку. **Единица:** килограмм объёма. **Источник:** `available`.
+
+#### 1. Первый тяжёлый том
+
+- **ID:** `volume.volume_milestones:t1`
+- **Порог:** 100000 килограмм объёма
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории уже 100 000 кг учётного объёма за разные тренировки. Это не разовый рывок, а роман с железом.
+- **Fish Drama 3:** `[proud] В твоей истории уже 100 000 кг учётного объёма за разные тренировки. Это не разовый рывок, а роман с железом.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One massive closed archival book is the hero, with a blank translucent violet glass cover, polished magenta metal spine and thick metallic page edges. Chunky beveled rectangular metal frame with clipped corners and translucent enamel/glass inlays, shaped like an architectural archive niche. Simple first-tier stepped border, tiny stars and sparks. Saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Сага на четверть миллиона
+
+- **ID:** `volume.volume_milestones:t2`
+- **Порог:** 250000 килограмм объёма
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** 250 000 кг учётного объёма накопилось в твоей истории тренировок. У этой саги уже собственный погрузчик.
+- **Fish Drama 3:** `[amused] 250 000 кг учётного объёма накопилось в твоей истории тренировок. У этой саги уже собственный погрузчик.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One monumental partially unfurled scroll is the central hero, made from blank translucent magenta glass with chunky polished violet rollers. The curled sheet forms a strong flowing silhouette without any writing. Chunky beveled rectangular metal frame with clipped corners, translucent enamel/glass inlays and a double architectural stepped border, continuing an archive series. Tiny stars and rising sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Архив на полмиллиона
+
+- **ID:** `volume.volume_milestones:t3`
+- **Порог:** 500000 килограмм объёма
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Твоя история тренировок доросла до 500 000 кг учётного объёма. Полмиллиона — по частям, а не одним героическим вторником.
+- **Fish Drama 3:** `[confident] Твоя история тренировок доросла до <emphasis>500 000 кг</emphasis> учётного объёма. Полмиллиона — по частям, а не одним героическим вторником.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One imposing archive vault is the hero, its thick faceted door slightly open to reveal a soft magenta glow, with an unmarked violet glass locking wheel. Chunky beveled rectangular metal frame with clipped corners, translucent enamel/glass inlays and a triple stepped architectural border. Culminating tier of the archive series, monumental yet uncluttered. Tiny stars and concentrated sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `volume.weighted_reps_milestones`
+
+**Правило:** Накопить большую историю повторений с сохранённым весом. **Единица:** повторение с весом. **Источник:** `available`.
+
+#### 1. Дебютный альбом железа
+
+- **ID:** `volume.weighted_reps_milestones:t1`
+- **Порог:** 5000 повторение с весом
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В твоей истории уже 5 000 повторений с сохранённым весом. Железо думало, что это сингл, а ты записываешь альбом.
+- **Fish Drama 3:** `[amused] В твоей истории уже 5 000 повторений с сохранённым весом. Железо думало, что это сингл, а ты записываешь альбом.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One thick metallic vinyl record is the hero, tilted to reveal bold concentric grooves and a blank translucent amber glass center. Chunky beveled circular metal frame with translucent enamel/glass inlays and sculpted soundwave ridges, establishing a celebratory music series. Compact first-tier composition with rich golden reflections, tiny stars and orange sparks. Saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, labels, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Дискография с характером
+
+- **ID:** `volume.weighted_reps_milestones:t2`
+- **Порог:** 15000 повторение с весом
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** 15 000 повторений с сохранённым весом накопилось у тебя за всё время. У железа уже целая дискография.
+- **Fish Drama 3:** `[proud] 15 000 повторений с сохранённым весом накопилось у тебя за всё время. У железа уже целая дискография.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One ornate mechanical music box is the central hero, with an open amber-glass lid revealing a single broad golden pinned cylinder and a small integrated winding key. Chunky beveled circular metal frame with translucent enamel/glass inlays and doubled soundwave ridges, continuing a music-series design. More elaborate mid-tier construction, tiny stars and bright orange sparks. Saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, figurines, or photographs.
+
+#### 3. Легенды тяжёлого ритма
+
+- **ID:** `volume.weighted_reps_milestones:t3`
+- **Порог:** 50000 повторение с весом
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В твоей истории накопилось 50 000 повторений с сохранённым весом. Это легендарный сборник, а не трек на одну тренировку.
+- **Fish Drama 3:** `[excited] В твоей истории накопилось <emphasis>50 000 повторений</emphasis> с сохранённым весом. Это легендарный сборник, а не трек на одну тренировку.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One triumphant vintage gramophone is the hero, with an oversized flared golden horn, translucent molten-orange inner enamel and a compact polished base. Chunky beveled circular metal frame with translucent enamel/glass inlays, triple soundwave ridges and broad radiant facets. Grandest tier of the music series, dramatic but immediately recognizable. Tiny stars and exuberant sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+## По намеченному пути
+
+### `plan.complete`
+
+**Правило:** Выполнить исходный план тренировки без заднего уменьшения целей. **Единица:** тренировка по плану. **Источник:** `requires_plan`.
+
+#### 1. Маршрут без фокусов
+
+- **ID:** `plan.complete:t1`
+- **Порог:** 1 тренировка по плану
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты выполнил 1 тренировку по исходному плану, не уменьшая цели задним числом. План тихо снимает шляпу.
+- **Fish Drama 3:** `[proud] Ты выполнил 1 тренировку по исходному плану, не уменьшая цели задним числом. План тихо снимает шляпу.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. One compact navigation compass is the clear central hero, with a blank translucent honey-glass face and a broad polished gold needle, without markings. Chunky beveled rounded-diamond metal frame with translucent enamel/glass inlays and a single engraved contour-line border, establishing a navigation series. Modest first-tier styling, tiny stars and restrained sparks. Saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, cardinal-direction symbols, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. У пути есть поклонники
+
+- **ID:** `plan.complete:t2`
+- **Порог:** 5 тренировка по плану
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 5 тренировок с выполненным исходным планом без уменьшения целей задним числом. У намеченного пути появился свой фан-клуб.
+- **Fish Drama 3:** `[amused] В твоей истории уже 5 тренировок с выполненным исходным планом без уменьшения целей задним числом. У намеченного пути появился свой фан-клуб.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. One sturdy ship's steering wheel is the hero, with six broad rounded spokes, polished golden surfaces and translucent honey enamel grips. Chunky beveled rounded-diamond metal frame with translucent enamel/glass inlays and doubled contour-line borders, continuing a navigation series. Slightly richer mid-tier construction, balanced and friendly rather than extravagant. Tiny stars and gentle sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Курс держится уверенно
+
+- **ID:** `plan.complete:t3`
+- **Порог:** 15 тренировка по плану
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** За тобой 15 тренировок, где ты выполнил исходный план без уменьшения целей задним числом. Навигатор торжественно уходит пить чай.
+- **Fish Drama 3:** `[confident] За тобой 15 тренировок, где ты выполнил исходный план без уменьшения целей задним числом. Навигатор торжественно уходит пить чай.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. One stylized lighthouse is the hero, built from chunky polished gold with broad translucent honey-glass bands and a softly glowing lantern chamber. Chunky beveled rounded-diamond metal frame with translucent enamel/glass inlays and three clean contour-line borders. Most developed tier of the navigation series, with a fuller sculpted silhouette but restrained common-rarity ornamentation. Tiny stars and warm sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `plan.exercise`
+
+**Правило:** Завершить обязательные подходы упражнений с исходными целями. **Единица:** упражнение по плану. **Источник:** `requires_plan`.
+
+#### 1. Гайки по чертежу
+
+- **ID:** `plan.exercise:t1`
+- **Порог:** 5 упражнение по плану
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты закрыл все обязательные подходы с исходными целями уже в 5 упражнениях. План довольно щёлкает трещоткой.
+- **Fish Drama 3:** `[pleased] Ты закрыл все обязательные подходы с исходными целями уже в <emphasis>5 упражнениях</emphasis>. План довольно щёлкает трещоткой.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a precision-tool series. One chunky golden socket wrench stands diagonally inside a compact hexagonal beveled metal frame with warm amber translucent enamel inlays. The oversized ratchet head is the clear hero, with carefully sculpted machining details and a polished handle. Restrained tiny stars and sparks, saturated warm gold cinematic rim light, dark navy studio background, soft contact shadow. Bold silhouette readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+#### 2. Чертёж в деле
+
+- **ID:** `plan.exercise:t2`
+- **Порог:** 20 упражнение по плану
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В 20 упражнениях ты выполнил все обязательные подходы с исходными целями. Чертёж больше не лежит — работает!
+- **Fish Drama 3:** `[confident] В <emphasis>20 упражнениях</emphasis> ты выполнил все обязательные подходы с исходными целями. Чертёж больше не лежит — работает!`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a precision-tool series. A single substantial golden spirit level floats horizontally inside a double-beveled hexagonal metal frame. Its central amber glass vial contains one luminous suspended bubble, exaggerated for instant recognition. Warm gold metal, translucent honey enamel corner inlays, deeper relief and richer polished edges than an entry badge. Tiny stars and sparks gather below the tool, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+#### 3. Музей попаданий
+
+- **ID:** `plan.exercise:t3`
+- **Порог:** 60 упражнение по плану
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Все обязательные подходы с исходными целями — так ты закрыл уже 60 упражнений. План просит витрину для этой коллекции.
+- **Fish Drama 3:** `[proud] Все обязательные подходы с исходными целями — так ты закрыл уже <emphasis>60 упражнений</emphasis>. План просит витрину для этой коллекции.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a precision-tool series. One monumental drafting compass in polished warm gold opens into a strong triangular silhouette, with a large amber glass hinge and sculpted metal legs. A broad triple-stepped hexagonal beveled frame forms a luxurious display niche, filled with translucent honey enamel recesses. More elaborate depth and radiant edge highlights while retaining a common-rarity warm gold palette. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+### `plan.repeat_program`
+
+**Правило:** Выполнить одну и ту же версию программы в разные дни. **Единица:** день с программой. **Источник:** `requires_plan`.
+
+#### 1. Снова на орбите
+
+- **ID:** `plan.repeat_program:t1`
+- **Порог:** 3 день с программой
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты выполнил одну и ту же версию программы в 3 разных дня. Знакомый маршрут, новый заход — бумеранг одобряет.
+- **Fish Drama 3:** `[playful] Ты выполнил одну и ту же версию программы в <emphasis>3 разных дня</emphasis>. Знакомый маршрут, новый заход — бумеранг одобряет.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a returning-orbit series. A single thick golden boomerang with rounded beveled edges curves across a circular metal frame. Warm amber translucent enamel panels run along its wings, and one subtle glass arc behind it suggests a return path without becoming a second hero. Compact composition, warm gold rarity palette, a few tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Clear silhouette readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+#### 2. Знакомый поворот
+
+- **ID:** `plan.repeat_program:t2`
+- **Порог:** 8 день с программой
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В 8 разных дней ты выполнил одну и ту же версию программы. У знакомого маршрута явно появился постоянный гость!
+- **Fish Drama 3:** `[upbeat] В <emphasis>8 разных дней</emphasis> ты выполнил одну и ту же версию программы. У знакомого маршрута явно появился постоянный гость!`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a returning-orbit series. One oversized spinning top balances on its pointed tip at a dynamic angle, with a polished warm gold spindle and a thick translucent amber glass body. A double-beveled circular metal frame and a recessed orbital groove unify the series. A short luminous sweep conveys rotation without duplicate objects. Richer depth, tiny stars and sparks, saturated warm gold cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+#### 3. Франшиза возвращений
+
+- **ID:** `plan.repeat_program:t3`
+- **Порог:** 20 день с программой
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории — 20 разных дней, когда ты выполнил одну и ту же версию программы. Это уже не повтор, а франшиза без скучных серий.
+- **Fish Drama 3:** `[animated] В твоей истории — <emphasis>20 разных дней</emphasis>, когда ты выполнил одну и ту же версию программы. Это уже не повтор, а франшиза без скучных серий.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a returning-orbit series. A single majestic gyroscope is the hero, built from thick interlocking warm gold gimbal rings around a glowing amber glass rotor. It floats within a broad triple-beveled circular metal frame with translucent honey enamel orbital channels. Emphasize one coherent instrument, generous negative space, luxurious layered depth and a lively tilted axis. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+### `plan.chapters`
+
+**Правило:** Выполнить исходные планы разных шаблонов программы. **Единица:** шаблон программы. **Источник:** `requires_plan`.
+
+#### 1. Карта раскрыта
+
+- **ID:** `plan.chapters:t1`
+- **Порог:** 2 шаблон программы
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты выполнил исходные планы 2 разных шаблонов программы. У этой истории теперь больше одной тропинки!
+- **Fish Drama 3:** `[bright] Ты выполнил исходные планы <emphasis>2 разных шаблонов программы</emphasis>. У этой истории теперь больше одной тропинки!`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of an adventure-archive series. One partially unfolded accordion map is the hero, made from thick warm gold panels with translucent amber glass valleys along the folds. Its surface carries only abstract raised terrain contours, never writing or route labels. A compact beveled rectangular metal frame with clipped corners resembles a treasured archive plate. Tiny stars and sparks, saturated warm gold cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+#### 2. Новый разворот
+
+- **ID:** `plan.chapters:t2`
+- **Порог:** 4 шаблон программы
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории закрыты исходные планы 4 разных шаблонов программы. Ты не листал оглавление — ты прошёл главы.
+- **Fish Drama 3:** `[confident] В твоей истории закрыты исходные планы <emphasis>4 разных шаблонов программы</emphasis>. Ты не листал оглавление — ты прошёл главы.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of an adventure-archive series. A single open pop-up book forms the hero, with chunky golden page edges and one abstract mountain ridge rising directly from its blank translucent amber pages. The ridge is an integrated paper sculpture, not a separate prop. A double-stepped clipped-corner rectangular metal frame echoes an archive plate. Warm gold palette, richer relief, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+#### 3. Архив приключений
+
+- **ID:** `plan.chapters:t3`
+- **Порог:** 6 шаблон программы
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Исходные планы 6 разных шаблонов программы уже выполнены — ты собрал целый том действий. Закладка торжественно уходит в отпуск.
+- **Fish Drama 3:** `[pleased] Исходные планы <emphasis>6 разных шаблонов программы</emphasis> уже выполнены — ты собрал целый том действий. Закладка торжественно уходит в отпуск.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of an adventure-archive series. One grand closed archive chest is the hero, with a domed warm gold lid, oversized sculpted corner guards and luminous translucent amber glass panels. A broad blank clasp and deep rounded construction make it recognizable without additional props. Place it inside an opulent triple-stepped clipped-corner rectangular metal frame, maintaining the archive-plate silhouette. Warm gold palette, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+### `plan.full_weeks`
+
+**Правило:** Накопить недели с минимум одной полностью выполненной исходной тренировкой. **Единица:** неделя с планом. **Источник:** `requires_plan`.
+
+#### 1. Время в копилке
+
+- **ID:** `plan.full_weeks:t1`
+- **Порог:** 2 неделя с планом
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 2 недели, в каждой — хотя бы одна полностью выполненная тренировка по исходному плану. Календарь тихонько звякнул наградой.
+- **Fish Drama 3:** `[warm] Ты накопил <emphasis>2 недели</emphasis>, в каждой — хотя бы одна полностью выполненная тренировка по исходному плану. Календарь тихонько звякнул наградой.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a collected-time series. One stout hourglass stands upright inside a chunky arched beveled metal frame. Its sapphire glass bulbs hold luminous turquoise crystalline sand, with thick polished blue-metal supports and translucent enamel accents. The sand forms a calm collected mound, suggesting stored time rather than a countdown. Rare turquoise and sapphire palette, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+#### 2. Календарный капитал
+
+- **ID:** `plan.full_weeks:t2`
+- **Порог:** 6 неделя с планом
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории уже 6 недель хотя бы с одной полностью выполненной тренировкой по исходному плану в каждой. Ты собираешь недели, а не гонку с часами.
+- **Fish Drama 3:** `[steady] В твоей истории уже <emphasis>6 недель</emphasis> хотя бы с одной полностью выполненной тренировкой по исходному плану в каждой. Ты собираешь недели, а не гонку с часами.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a collected-time series. A single sculptural sundial is the hero, viewed at a clear three-quarter angle. Its thick sapphire glass disk is completely unmarked, with one sweeping turquoise metal gnomon casting a crisp shadow across the translucent surface. A double-beveled arched metal frame creates a small observatory-like niche. Rare turquoise and sapphire palette, luxurious depth, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+#### 3. Хранилище недель
+
+- **ID:** `plan.full_weeks:t3`
+- **Порог:** 12 неделя с планом
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя накопилось 12 недель, в каждой есть хотя бы одна полностью выполненная тренировка по исходному плану. Календарь выделил коллекции отдельный зал.
+- **Fish Drama 3:** `[proud] У тебя накопилось <emphasis>12 недель</emphasis>, в каждой есть хотя бы одна полностью выполненная тренировка по исходному плану. Календарь выделил коллекции отдельный зал.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a collected-time series. One monumental water clock tower is the hero, built as a coherent sculptural instrument with stacked sapphire glass reservoirs and thick turquoise metal ribs. A visible luminous water cascade connects its chambers, with no scales or clock faces. A broad triple-stepped arched beveled metal frame gives the tower a museum-like niche. Rare turquoise and sapphire palette, elaborate depth, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+### `plan.plan_streak`
+
+**Правило:** Собрать серию недель с полностью выполненной исходной тренировкой. **Единица:** неделя подряд с планом. **Источник:** `requires_plan`.
+
+#### 1. Первое сцепление
+
+- **ID:** `plan.plan_streak:t1`
+- **Порог:** 2 неделя подряд с планом
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** 2 недели подряд ты хотя бы раз за неделю полностью выполнил тренировку по исходному плану. Серия щёлкнула карабином: соединение есть!
+- **Fish Drama 3:** `[upbeat] <emphasis>2 недели подряд</emphasis> ты хотя бы раз за неделю полностью выполнил тренировку по исходному плану. Серия щёлкнула карабином: соединение есть!`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of an unbroken-connection series. One oversized closed climbing carabiner is the hero, tilted diagonally with its secure gate clearly visible. Thick polished turquoise metal surrounds a translucent sapphire glass inset along the spine. A chunky shield-shaped beveled metal frame carries one continuous recessed blue enamel ribbon around its border. Rare turquoise and sapphire palette, tiny stars and sparks at the gate, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+#### 2. Серия на замке
+
+- **ID:** `plan.plan_streak:t2`
+- **Порог:** 4 неделя подряд с планом
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя 4 недели подряд с хотя бы одной полностью выполненной тренировкой по исходному плану в каждой. Календарь застегнул эту серию — щёлк!
+- **Fish Drama 3:** `[playful] У тебя <emphasis>4 недели подряд</emphasis> с хотя бы одной полностью выполненной тренировкой по исходному плану в каждой. Календарь застегнул эту серию — щёлк!`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of an unbroken-connection series. One sculptural closed zipper is the hero, standing vertically with oversized interlocking sapphire glass teeth and a broad polished turquoise metal pull tab at the top. Keep the zipper a single compact object without clothing or fabric scenery. A double-beveled shield-shaped metal frame features a continuous recessed blue enamel ribbon. Rare turquoise and sapphire palette, richer relief, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+#### 3. Мост из недель
+
+- **ID:** `plan.plan_streak:t3`
+- **Порог:** 8 неделя подряд с планом
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** 8 недель подряд ты хотя бы раз в неделю полностью выполнил тренировку по исходному плану. У серии теперь размах подвесного моста!
+- **Fish Drama 3:** `[excited] <emphasis>8 недель подряд</emphasis> ты хотя бы раз в неделю полностью выполнил тренировку по исходному плану. У серии теперь размах подвесного моста!`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of an unbroken-connection series. One miniature suspension bridge is the monumental hero, with thick turquoise metal towers, bold simplified cables and an uninterrupted translucent sapphire glass deck. Show it in a dramatic three-quarter view with no surrounding landscape, vehicles or road markings. A broad triple-beveled shield-shaped metal frame surrounds it with a continuous luminous blue enamel ribbon. Rare turquoise and sapphire palette, majestic layered depth, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numbers, inscriptions, logos, people, bodies, or user photographs.
+
+### `plan.planned_sets`
+
+**Правило:** Достичь исходной цели в запланированных подходах. **Единица:** подход по цели. **Источник:** `requires_plan`.
+
+#### 1. Курс на десятку
+
+- **ID:** `plan.planned_sets:t1`
+- **Порог:** 10 подход по цели
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Первые 10 запланированных подходов с достигнутой исходной целью — в твоей копилке. Компас довольно щёлкнул: курс найден.
+- **Fish Drama 3:** `[pleased] Первые 10 запланированных подходов с достигнутой исходной целью — в твоей копилке. [playful] Компас довольно щёлкнул: курс найден.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single chunky pocket compass with an oversized sapphire needle, no cardinal markings. Navigation instrument series, opening tier: compact circular silhouette and a simple raised rim. Chunky beveled metal frame, polished turquoise metal, translucent sapphire enamel and glass inlays, tiny stars and sparks, saturated turquoise cinematic rim light, dark navy studio background, soft contact shadow. Centered three-quarter view, bold proportions, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+#### 2. Штурвал в деле
+
+- **ID:** `plan.planned_sets:t2`
+- **Порог:** 50 подход по цели
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** За твою историю набралось 50 запланированных подходов с достигнутой исходной целью. Штурвал плана явно в надёжных руках.
+- **Fish Drama 3:** `[confident] За твою историю набралось 50 запланированных подходов с достигнутой исходной целью. Штурвал плана явно в <emphasis>надёжных руках</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single sculptural ship steering wheel with thick rounded spokes and a luminous sapphire hub. Navigation instrument series, middle tier: broader silhouette, double-stepped circular border and richer radial detailing. Chunky beveled metal frame, polished turquoise metal, translucent sapphire glass inlays, tiny stars and sparks, saturated turquoise cinematic rim light, dark navy studio background, soft contact shadow. Strong centered silhouette, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+#### 3. Секстант большой истории
+
+- **ID:** `plan.planned_sets:t3`
+- **Порог:** 150 подход по цели
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя накопилось 150 запланированных подходов с достигнутой исходной целью. Даже секстант отложил важный вид и присвистнул.
+- **Fish Drama 3:** `[impressed] У тебя накопилось 150 запланированных подходов с достигнутой исходной целью. [playful] Даже секстант отложил важный вид и присвистнул.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single ornate sextant with a bold curved arc, oversized sighting tube and luminous sapphire pivot, all scales completely unmarked. Navigation instrument series, highest tier: triple-beveled circular frame, expansive silhouette and intricate polished edgework. Turquoise metal with translucent sapphire enamel and glass inlays, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Simplified strong geometry readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+### `plan.planned_days`
+
+**Правило:** Накопить дни с результатами по исходному согласованному плану. **Единица:** день по плану. **Источник:** `requires_plan`.
+
+#### 1. Песок становится историей
+
+- **ID:** `plan.planned_days:t1`
+- **Порог:** 3 день по плану
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории уже 3 дня с результатами по исходному согласованному плану. Календарь приосанился — и имеет право.
+- **Fish Drama 3:** `[pleased] В твоей истории уже 3 дня с результатами по исходному согласованному плану. [playful] Календарь приосанился — и имеет право.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single hourglass with thick violet metal end caps and luminous magenta crystal sand suspended inside clear glass. Timekeeping series, opening tier: compact oval silhouette and restrained orbital edge detailing. Chunky beveled metal frame, translucent violet enamel and magenta glass inlays, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Large readable central object at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+#### 2. Солнечная глава
+
+- **ID:** `plan.planned_days:t2`
+- **Порог:** 10 день по плану
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей копилке — 10 дней с результатами по исходному согласованному плану. Это уже хроника, а не случайная закладка.
+- **Fish Drama 3:** `[confident] В твоей копилке — 10 дней с результатами по исходному согласованному плану. Это уже <emphasis>хроника</emphasis>, а не случайная закладка.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single sculptural sundial with a thick triangular gnomon casting a crisp violet shadow across an unmarked magenta glass disc. Timekeeping series, middle tier: expanded oval frame with double orbital bevels and richer luminous accents. Chunky beveled metal frame, translucent violet enamel and magenta glass inlays, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Clear silhouette readable at 96px. No letters, numbers, dial markings, inscriptions, logos, people, bodies or user photos.
+
+#### 3. Планетарный размах
+
+- **ID:** `plan.planned_days:t3`
+- **Порог:** 25 день по плану
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** 25 дней с результатами по исходному согласованному плану уже вписаны в твою историю. Календарь просит место в титрах.
+- **Fish Drama 3:** `[proud] 25 дней с результатами по исходному согласованному плану уже вписаны в твою историю. [playful] Календарь просит место в титрах.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single miniature mechanical orrery, with a radiant magenta central sphere and a few large violet glass planets on thick sweeping orbital arms. Timekeeping series, highest tier: majestic oval silhouette with layered orbital bevels. Chunky beveled metal frame, translucent violet enamel and magenta glass inlays, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. One coherent instrument with uncluttered geometry, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+### `plan.plan_exercises_many`
+
+**Правило:** Продолжать историю полностью выполненных упражнений из исходного плана. **Единица:** упражнение по плану. **Источник:** `requires_plan`.
+
+#### 1. Сотня выкована
+
+- **ID:** `plan.plan_exercises_many:t1`
+- **Порог:** 100 упражнение по плану
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории — 100 полностью выполненных упражнений из исходного плана. Сюжет куётся, железо вежливо звенит.
+- **Fish Drama 3:** `[pleased] В твоей истории — 100 полностью выполненных упражнений из исходного плана. [playful] Сюжет куётся, железо вежливо звенит.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single artisan forging hammer with an oversized rounded violet head and a short translucent magenta handle, floating diagonally. Story-forging workshop series, opening tier: compact shield silhouette and a clean raised border. Chunky beveled metal frame, translucent violet enamel and magenta glass inlays, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Bold toy-like proportions, readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+#### 2. Наковальня опыта
+
+- **ID:** `plan.plan_exercises_many:t2`
+- **Порог:** 200 упражнение по плану
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя накопилось 200 полностью выполненных упражнений из исходного плана. Наковальня опыта уже не помещается в ящик для мелочей.
+- **Fish Drama 3:** `[impressed] У тебя накопилось 200 полностью выполненных упражнений из исходного плана. Наковальня опыта уже не помещается в ящик для мелочей.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single monumental anvil with a broad polished violet face, rounded horn and glowing magenta glass core visible through its base. Story-forging workshop series, middle tier: wider shield silhouette, double-stepped border and deeper relief. Chunky beveled metal frame, translucent violet enamel and magenta glass inlays, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Clear central mass readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+#### 3. Кузница большой истории
+
+- **ID:** `plan.plan_exercises_many:t3`
+- **Порог:** 400 упражнение по плану
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Твоя история доросла до 400 полностью выполненных упражнений из исходного плана. Тут уже не искра, а целая кузница с характером.
+- **Fish Drama 3:** `[proud] Твоя история доросла до 400 полностью выполненных упражнений из исходного плана. Тут уже не искра, а <emphasis>целая кузница с характером</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single fantasy forge furnace with a thick arched opening and a sculpted magenta glass flame glowing inside, no surrounding tools. Story-forging workshop series, highest tier: tall shield silhouette, triple-beveled border and elaborate polished corner facets. Chunky beveled violet metal frame, translucent violet enamel and magenta glass inlays, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Bold furnace outline readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+### `plan.plan_workouts_many`
+
+**Правило:** Продолжать историю полностью выполненных исходных тренировок. **Единица:** тренировка по плану. **Источник:** `requires_plan`.
+
+#### 1. Том с огоньком
+
+- **ID:** `plan.plan_workouts_many:t1`
+- **Порог:** 25 тренировка по плану
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В твоей летописи — 25 полностью выполненных тренировок по исходному плану. Этому тому уже нужна крепкая полка.
+- **Fish Drama 3:** `[proud] В твоей летописи — 25 полностью выполненных тренировок по исходному плану. [playful] Этому тому уже нужна крепкая полка.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single thick closed chronicle book with a blank fiery-gold cover, chunky rounded spine and translucent orange glass page edges. Legendary archive series, opening tier: substantial rounded rectangular frame with restrained flame-shaped bevels. Chunky beveled metal frame, translucent amber enamel and orange glass inlays, tiny stars and sparks, saturated fiery gold and orange cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+#### 2. Свиток большого дела
+
+- **ID:** `plan.plan_workouts_many:t2`
+- **Порог:** 50 тренировка по плану
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** За твоими плечами уже 50 полностью выполненных тренировок по исходному плану. Архив торжественно требует отдельный шкаф.
+- **Fish Drama 3:** `[impressed] За твоими плечами уже 50 полностью выполненных тренировок по исходному плану. [playful] Архив торжественно требует отдельный шкаф.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single broad unfurled scroll made of translucent orange glass, with thick fiery-gold rolled ends and a completely blank central surface. Legendary archive series, middle tier: expanded rounded rectangular silhouette, double flame-shaped bevels and radiant edge reflections. Chunky beveled metal frame, translucent amber enamel and orange glass inlays, tiny stars and sparks, saturated fiery gold and orange cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+#### 3. Сейф личной саги
+
+- **ID:** `plan.plan_workouts_many:t3`
+- **Порог:** 100 тренировка по плану
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В твоей истории накопилось 100 полностью выполненных тренировок по исходному плану. Для такой саги обычная обложка маловата.
+- **Fish Drama 3:** `[proud] В твоей истории накопилось 100 полностью выполненных тренировок по исходному плану. Для такой саги <emphasis>обычная обложка маловата</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single monumental archive vault door with a bold gold locking wheel and luminous orange glass radial panels, no dial markings. Legendary archive series, highest tier: towering rounded rectangular frame with triple flame-shaped bevels and dramatic layered relief. Chunky beveled fiery-gold metal frame, translucent amber enamel and orange glass inlays, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Powerful uncluttered silhouette readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+## Личный прогресс
+
+### `progress.first_pr`
+
+**Правило:** Получать подтверждённые улучшения после предыдущих сопоставимых сессий. **Единица:** день улучшения. **Источник:** `requires_comparison`.
+
+#### 1. Прогресс позвонил
+
+- **ID:** `progress.first_pr:t1`
+- **Порог:** 1 день улучшения
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя первый день с подтверждённым улучшением относительно прошлой сопоставимой сессии. Прогресс нажал на звонок — открывай!
+- **Fish Drama 3:** `[happy] У тебя первый день с подтверждённым улучшением относительно прошлой сопоставимой сессии. [playful] Прогресс нажал на звонок — открывай!`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single small desk service bell with a domed warm-gold shell, oversized button and translucent honey-glass base. Confirmed progress sound-signal series, opening tier: simple compact circular border and modest celebratory detailing. Chunky beveled metal frame, warm gold palette, translucent golden enamel and glass inlays, tiny stars and sparks, saturated golden cinematic rim light, dark navy studio background, soft contact shadow. Friendly bold proportions readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+#### 2. Прогресс подал голос
+
+- **ID:** `progress.first_pr:t2`
+- **Порог:** 2 день улучшения
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Теперь в твоей истории 2 дня с подтверждёнными улучшениями относительно предыдущих сопоставимых сессий. Мегафон включён по делу!
+- **Fish Drama 3:** `[confident] Теперь в твоей истории 2 дня с подтверждёнными улучшениями относительно предыдущих сопоставимых сессий. <emphasis>Мегафон включён по делу!</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single compact megaphone with a wide warm-gold mouth, thick rounded handle and translucent honey-glass rear housing. Confirmed progress sound-signal series, middle tier: slightly broader circular frame with a double bevel and brighter edge highlights. Chunky beveled metal frame, warm gold palette, translucent golden enamel and glass inlays, tiny stars and sparks, saturated golden cinematic rim light, dark navy studio background, soft contact shadow. Clear diagonal silhouette readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+#### 3. Фанфары по фактам
+
+- **ID:** `progress.first_pr:t3`
+- **Порог:** 5 день улучшения
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя накопилось 5 дней с подтверждёнными улучшениями относительно предыдущих сопоставимых сессий. Фанфары звучат не наугад, а по фактам.
+- **Fish Drama 3:** `[proud] У тебя накопилось 5 дней с подтверждёнными улучшениями относительно предыдущих сопоставимых сессий. Фанфары звучат не наугад, а <emphasis>по фактам</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring a single coiled ceremonial trumpet with a large rounded warm-gold bell and translucent honey-glass tubing accents. Confirmed progress sound-signal series, highest tier: fuller circular frame, triple rounded bevels and richer polished detailing, still compact and approachable. Chunky beveled metal frame, warm gold palette, translucent golden enamel and glass inlays, tiny stars and sparks, saturated golden cinematic rim light, dark navy studio background, soft contact shadow. Bold simplified silhouette readable at 96px. No letters, numbers, inscriptions, logos, people, bodies or user photos.
+
+### `progress.rep_pr`
+
+**Правило:** Улучшить повторения при том же весе и сопоставимых условиях. **Единица:** день рекорда повторений. **Источник:** `requires_comparison`.
+
+#### 1. Ещё один щелчок
+
+- **ID:** `progress.rep_pr:t1`
+- **Порог:** 1 день рекорда повторений
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Первый день рекорда повторений: ты сделал больше повторов при том же весе и в сопоставимых условиях. Железо осталось прежним, сюжет — нет.
+- **Fish Drama 3:** `[playful] Первый день рекорда повторений: ты сделал больше повторов при том же весе и в сопоставимых условиях. Железо осталось прежним, <emphasis>сюжет — нет</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one chunky ratchet wheel with a raised pawl, caught at a satisfying forward click. Compact circular warm-gold metal frame with thick beveled edges, translucent honey-gold enamel and glass inlays, subtle concentric grooves establishing a mechanical counting series. A restrained cluster of tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Bold silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Счётчик оживился
+
+- **ID:** `progress.rep_pr:t2`
+- **Порог:** 3 день рекорда повторений
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 3 дня рекордов повторений: тот же вес, сопоставимые условия, а повторов больше. У счётчика появилась работа.
+- **Fish Drama 3:** `[amused] В твоей истории уже 3 дня рекордов повторений: тот же вес, сопоставимые условия, а повторов больше. У счётчика появилась работа.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one sculptural wind-up key standing diagonally, with broad rounded wings and a spiral-ridged shaft suggesting accumulated motion. Double-stepped circular warm-gold metal frame, chunky bevels, translucent honey-gold enamel and glass inlays, concentric mechanical grooves. More dimensional than a simple starter badge, with tiny stars and lively sparks following the key's rotation. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Хроники новых повторов
+
+- **ID:** `progress.rep_pr:t3`
+- **Порог:** 8 день рекорда повторений
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 8 дней рекордов повторений при том же весе и сопоставимых условиях. Счётчик просит автограф, но пока просто считает.
+- **Fish Drama 3:** `[proud] Ты накопил <emphasis>8 дней рекордов повторений</emphasis> при том же весе и сопоставимых условиях. Счётчик просит автограф, но пока просто считает.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one substantial mechanical flywheel with broad sculpted spokes and a luminous translucent inner rim, tilted forward as if carrying steady momentum. Deep layered circular warm-gold metal frame with chunky bevels and concentric grooves, honey-gold enamel and glass inlays. The fullest composition in a coherent mechanical counting series, with a graceful orbital trail of tiny stars and sparks. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `progress.weight_pr`
+
+**Правило:** Увеличить рабочий вес в выполненном сопоставимом подходе. **Единица:** день рекорда веса. **Источник:** `requires_comparison`.
+
+#### 1. Железо удивилось
+
+- **ID:** `progress.weight_pr:t1`
+- **Порог:** 1 день рекорда веса
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В первый день рекорда веса ты увеличил рабочий вес в выполненном сопоставимом подходе. У железа обновилась биография.
+- **Fish Drama 3:** `[pleased] В первый день рекорда веса ты увеличил рабочий вес в выполненном сопоставимом подходе. У железа обновилась биография.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one polished metal ingot resting diagonally in a shallow recessed cradle. Compact square warm-gold metal frame with clipped corners and chunky beveled edges, translucent amber-gold enamel and glass corner inlays. Foundry-inspired sculptural solidity, with a gentle highlight sliding across the ingot's broad top face. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No stamped marks, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Металлическая сага
+
+- **ID:** `progress.weight_pr:t2`
+- **Порог:** 3 день рекорда веса
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории 3 дня рекордов: рабочий вес вырос в выполненных сопоставимых подходах. Железо думало, что у него роль второго плана.
+- **Fish Drama 3:** `[playful] В твоей истории 3 дня рекордов: рабочий вес вырос в выполненных сопоставимых подходах. Железо думало, что у него <emphasis>роль второго плана</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one compact sculptural anvil, its broad polished face and short horn forming an unmistakable silhouette. Double-beveled square warm-gold metal frame with clipped corners, translucent amber-gold enamel and glass inlays, deeper foundry-style relief. The anvil projects beyond its recessed mount, with tiny stars and sparks curling beneath the horn. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Рекордный переплёт
+
+- **ID:** `progress.weight_pr:t3`
+- **Порог:** 8 день рекорда веса
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 8 дней рекордов веса: рабочий вес увеличивался в выполненных сопоставимых подходах. У этой истории уже солидный металлический переплёт.
+- **Fish Drama 3:** `[confident] Ты накопил <emphasis>8 дней рекордов веса</emphasis>: рабочий вес увеличивался в выполненных сопоставимых подходах. У этой истории уже солидный металлический переплёт.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one monumental forged lifting hook, with a thick rounded profile and polished inner curve, suspended from an integrated sculptural mount. Deep terraced square warm-gold metal frame with clipped corners and chunky bevels, translucent amber-gold enamel and glass inlays. Richest relief in a cohesive foundry series, with tiny stars and sparks tracing the hook's sweeping curve. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `progress.estimate_pr`
+
+**Правило:** Улучшить оценочный показатель силы более чем на один процент. **Единица:** день расчётного рекорда. **Источник:** `requires_comparison`.
+
+#### 1. Калькулятор подмигнул
+
+- **ID:** `progress.estimate_pr:t1`
+- **Порог:** 1 день расчётного рекорда
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя 1 день расчётного рекорда: оценочный показатель силы вырос более чем на 1% относительно прежнего. Калькулятор довольно щёлкнул.
+- **Fish Drama 3:** `[pleased] У тебя 1 день расчётного рекорда: оценочный показатель силы вырос <emphasis>более чем на 1%</emphasis> относительно прежнего. Калькулятор довольно щёлкнул.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one elegant mechanical caliper with broad open jaws and a smooth unmarked sliding rail, angled upward in a compact scientific-instrument composition. Chunky beveled warm-gold metal frame shaped as a rounded shield, translucent pale-gold enamel and glass inlays. Precise sculptural joints without any measurement scales, tiny stars and sparks near the sliding carriage. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Арифметика с характером
+
+- **ID:** `progress.estimate_pr:t2`
+- **Порог:** 3 день расчётного рекорда
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты собрал 3 дня расчётных рекордов: в каждом оценочный показатель силы рос более чем на 1% относительно прежнего. Калькулятор вошёл во вкус.
+- **Fish Drama 3:** `[amused] Ты собрал 3 дня расчётных рекордов: в каждом оценочный показатель силы рос более чем на 1% относительно прежнего. Калькулятор вошёл во вкус.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one stylized sextant with a broad unmarked arc, a short optical tube and a translucent golden mirror, unified as a single readable scientific instrument. Double-layered rounded-shield warm-gold metal frame with chunky bevels, pale-gold enamel and glass inlays. Elevated instrument relief and a small crescent of tiny stars and sparks around the arc. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No scales, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Расчётный фейерверк
+
+- **ID:** `progress.estimate_pr:t3`
+- **Порог:** 8 день расчётного рекорда
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории 8 дней расчётных рекордов: каждый раз оценочный показатель силы улучшался более чем на 1% относительно прежнего. Даже запятые аплодируют.
+- **Fish Drama 3:** `[excited] В твоей истории <emphasis>8 дней расчётных рекордов</emphasis>: каждый раз оценочный показатель силы улучшался более чем на 1% относительно прежнего. Даже запятые аплодируют.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one sculptural armillary sphere made of thick interlocking unmarked golden rings, with a translucent honey-glass central orb integrated into the instrument. Deep layered rounded-shield warm-gold metal frame, chunky beveled edges, pale-gold enamel and glass inlays. Most elaborate silhouette in a coherent scientific-instrument series, with tiny stars and sparks following the tilted orbital rings. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `progress.multi_exercise`
+
+**Правило:** Получить подтверждённые улучшения в разных упражнениях. **Единица:** упражнение с улучшением. **Источник:** `requires_comparison`.
+
+#### 1. Дуэт улучшений
+
+- **ID:** `progress.multi_exercise:t1`
+- **Порог:** 2 упражнение с улучшением
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты получил подтверждённые улучшения в 2 разных упражнениях. Прогресс вышел из сольного режима — теперь дуэт.
+- **Fish Drama 3:** `[playful] Ты получил подтверждённые улучшения в <emphasis>2 разных упражнениях</emphasis>. Прогресс вышел из сольного режима — теперь дуэт.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one friendly folding multitool with two broad non-sharp tool arms deployed in a balanced V shape. Chunky beveled hexagonal metal frame with turquoise edges, translucent turquoise and sapphire enamel and glass inlays, polished cool-metal highlights. Compact versatile-tool series composition, with tiny stars and sparks nestled between the tool arms. Saturated cinematic cyan and sapphire rim light, dark navy studio background, soft contact shadow, readable at 96px. No blades, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Квартет в деле
+
+- **ID:** `progress.multi_exercise:t2`
+- **Порог:** 4 упражнение с улучшением
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Уже 4 разных упражнения с подтверждённым улучшением в твоей истории. Прогресс освоил квартет и явно доволен акустикой.
+- **Fish Drama 3:** `[amused] Уже 4 разных упражнения с подтверждённым улучшением в твоей истории. Прогресс освоил квартет и явно доволен акустикой.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one cross-shaped universal socket wrench with four chunky socket ends, rotated diagonally to create a lively compact silhouette. Double-stepped hexagonal metal frame with turquoise bevels, translucent turquoise and sapphire enamel and glass inlays, polished cool-metal surfaces. More expansive versatile-tool series composition, with tiny stars and sparks sweeping around the central wrench hub. Saturated cinematic cyan and sapphire rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Оркестр прогресса
+
+- **ID:** `progress.multi_exercise:t3`
+- **Порог:** 8 упражнение с улучшением
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил подтверждённые улучшения в 8 разных упражнениях. Тут уже оркестр, и у каждого инструмента своя партия.
+- **Fish Drama 3:** `[proud] Ты накопил подтверждённые улучшения в <emphasis>8 разных упражнениях</emphasis>. Тут уже оркестр, и у каждого инструмента своя партия.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one sculptural rotary socket carousel with eight broad socket stations arranged around a raised central hub, clearly a unified workshop tool rather than a weapon. Deep faceted hexagonal metal frame with chunky turquoise bevels, translucent turquoise and sapphire enamel and glass inlays. Fullest radial composition in a coherent versatile-tool series, with tiny stars and sparks orbiting the carousel. Saturated cinematic cyan and sapphire rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `progress.after_month`
+
+**Правило:** Улучшить результат относительно baseline возрастом минимум двадцать восемь дней. **Единица:** упражнение с длинной дугой. **Источник:** `requires_comparison`.
+
+#### 1. Привет из будущего
+
+- **ID:** `progress.after_month:t1`
+- **Порог:** 1 упражнение с длинной дугой
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты улучшил результат в 1 упражнении относительно исходной записи, которой было не менее 28 дней. Прошлому себе — дружеский кивок.
+- **Fish Drama 3:** `[warm] Ты улучшил результат в 1 упражнении относительно исходной записи, которой было <emphasis>не менее 28 дней</emphasis>. Прошлому себе — дружеский кивок.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one rounded hourglass with thick sapphire-glass bulbs, a delicate stream of luminous turquoise sand and a polished cool-metal waist. Compact arched metal frame with chunky beveled turquoise edges, translucent turquoise and sapphire enamel and glass inlays. Calm timekeeping-series composition with tiny stars and sparks gathered near the lower bulb. Saturated cinematic cyan and sapphire rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Выдержанный прогресс
+
+- **ID:** `progress.after_month:t2`
+- **Порог:** 3 упражнение с длинной дугой
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории 3 упражнения с улучшением относительно исходных записей возрастом не менее 28 дней. Прогресс выдержанный, не растворимый.
+- **Fish Drama 3:** `[pleased] В твоей истории 3 упражнения с улучшением относительно исходных записей возрастом не менее 28 дней. Прогресс <emphasis>выдержанный, не растворимый</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one substantial pocket watch with an exposed smooth sapphire-glass face, two simple sculptural hands and an oversized rounded winding crown, no chain. Double-layered arched metal frame with chunky turquoise bevels, translucent turquoise and sapphire enamel and glass inlays. Deeper dimensional timekeeping-series composition, with tiny stars and sparks forming a gentle arc behind the crown. Saturated cinematic cyan and sapphire rim light, dark navy studio background, soft contact shadow, readable at 96px. No dial markings, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Длинная дуга сюжета
+
+- **ID:** `progress.after_month:t3`
+- **Порог:** 6 упражнение с длинной дугой
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты улучшил результаты в 6 упражнениях относительно исходных записей, каждой из которых было не менее 28 дней. Календарь листал страницы, ты писал сюжет.
+- **Fish Drama 3:** `[proud] Ты улучшил результаты в 6 упражнениях относительно исходных записей, каждой из которых было не менее 28 дней. Календарь листал страницы, <emphasis>ты писал сюжет</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem featuring one monumental sculptural sundial with a broad curved sapphire-glass plate and a thick triangular turquoise gnomon casting a clean diagonal shadow. Deep terraced arched metal frame with chunky turquoise bevels, translucent turquoise and sapphire enamel and glass inlays. Most expansive composition in a coherent timekeeping series, with tiny stars and sparks tracing the outer arch. Saturated cinematic cyan and sapphire rim light, dark navy studio background, soft contact shadow, readable at 96px. No graduations, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `progress.retained`
+
+**Правило:** Повторить новый личный результат ещё в двух последующих днях. **Единица:** закреплённый результат. **Источник:** `requires_comparison`.
+
+#### 1. Результат на замке
+
+- **ID:** `progress.retained:t1`
+- **Порог:** 1 закреплённый результат
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Новый личный результат ты повторил ещё в два последующих дня — 1 результат закреплён. Случайность вышла из чата.
+- **Fish Drama 3:** `[playful] Новый личный результат ты повторил ещё в два последующих дня — 1 результат закреплён. Случайность вышла из чата.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. A single sturdy closed padlock is the hero, with a translucent sapphire glass core and polished turquoise metal shackle. Compact industrial hexagonal frame in chunky beveled metal, translucent enamel inlays, restrained tiny stars and sparks. Confident frontal composition with a slight three-quarter tilt, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+#### 2. Аргументы в тисках
+
+- **ID:** `progress.retained:t2`
+- **Порог:** 3 закреплённый результат
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты закрепил 3 новых личных результата: каждый повторил ещё в два последующих дня. Железо запомнило аргументы.
+- **Fish Drama 3:** `[confident] Ты закрепил 3 новых личных результата: каждый повторил ещё в два последующих дня. Железо запомнило аргументы.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. A single sculptural bench vise is the hero, its broad polished jaws firmly holding its own luminous sapphire glass center. Reinforced industrial hexagonal frame with chunky double-beveled metal edges and translucent turquoise enamel inlays, tiny stars and crisp sparks. More substantial than an entry-level badge, bold clean silhouette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+#### 3. Прогресс бросил якорь
+
+- **ID:** `progress.retained:t3`
+- **Порог:** 5 закреплённый результат
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя закреплены 5 новых личных результатов: каждый ты повторил ещё в два последующих дня. У прогресса теперь прописка.
+- **Fish Drama 3:** `[pleased] У тебя закреплены 5 новых личных результатов: каждый ты повторил ещё в два последующих дня. У прогресса теперь прописка.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. A single monumental anchor is the hero, with broad polished metal flukes, a deep sapphire glass spine, and luminous turquoise enamel channels. The most elaborate industrial hexagonal frame in the series, chunky layered bevels and reinforced corners, a small halo of tiny stars and sparks. Powerful centered silhouette without visual clutter, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+### `progress.pr_weeks`
+
+**Правило:** Накопить недели с подтверждёнными личными улучшениями. **Единица:** неделя с улучшением. **Источник:** `requires_comparison`.
+
+#### 1. Не случайное камео
+
+- **ID:** `progress.pr_weeks:t1`
+- **Порог:** 2 неделя с улучшением
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории накопились 2 недели с подтверждёнными личными улучшениями. Прогресс уже не камео — у него своя роль.
+- **Fish Drama 3:** `[amused] В твоей истории накопились 2 недели с подтверждёнными личными улучшениями. Прогресс уже не камео — у него своя роль.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. A single cinematic clapperboard is the hero, slightly open, made from polished violet metal and translucent magenta glass panels; all surfaces are blank, with no writing or stripe graphics. Chunky beveled metal frame shaped like a compact theatrical arch, translucent enamel inlays, tiny stars and sparks. Restrained opening-tier ornament, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+#### 2. Прогресс в кадре
+
+- **ID:** `progress.pr_weeks:t2`
+- **Порог:** 6 неделя с улучшением
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты накопил 6 недель с подтверждёнными личными улучшениями — прогресс получает всё больше экранного времени.
+- **Fish Drama 3:** `[upbeat] Ты накопил 6 недель с подтверждёнными личными улучшениями — прогресс получает всё больше экранного времени.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. A single compact vintage movie projector is the hero, with sculpted integrated reels, a translucent violet glass lens, and a short luminous magenta projection cone. Chunky double-beveled metal theatrical arch frame with translucent enamel inlays and richer side detailing, tiny stars and sparks. Clear three-quarter silhouette, more elaborate than the clapperboard tier, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+#### 3. Сезон больших сдвигов
+
+- **ID:** `progress.pr_weeks:t3`
+- **Порог:** 12 неделя с улучшением
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** За твоими плечами 12 недель с подтверждёнными личными улучшениями. У этого сериала солидный список ярких эпизодов.
+- **Fish Drama 3:** `[proud] За твоими плечами 12 недель с подтверждёнными личными улучшениями. У этого сериала солидный список ярких эпизодов.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. A single grand cinema spotlight is the hero, its polished violet housing and sculptural barn doors surrounding a brilliant translucent magenta glass lens. An upward fan of soft light stays inside the emblem. The series' richest theatrical arch frame, chunky layered beveled metal, luminous enamel inlays, elegant crest, tiny stars and sparks. Bold uncluttered silhouette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+### `progress.pr_months`
+
+**Правило:** Накопить месяцы с подтверждёнными личными улучшениями. **Единица:** месяц с улучшением. **Источник:** `requires_comparison`.
+
+#### 1. Курс на историю
+
+- **ID:** `progress.pr_months:t1`
+- **Порог:** 2 месяц с улучшением
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя накопились 2 месяца с подтверждёнными личными улучшениями. Прогресс распаковал чемодан — похоже, ему тут нравится.
+- **Fish Drama 3:** `[playful] У тебя накопились 2 месяца с подтверждёнными личными улучшениями. Прогресс распаковал чемодан — похоже, ему тут нравится.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. A single open pocket compass is the hero, with a simple sculptural needle floating beneath a translucent violet glass dome; its face is completely unmarked. Circular expedition frame in chunky beveled metal with magenta enamel inlays, modest scalloped details, tiny stars and sparks. Precise centered composition with a slightly tilted lid, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+#### 2. Дальний горизонт
+
+- **ID:** `progress.pr_months:t2`
+- **Порог:** 4 месяц с улучшением
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твою историю вошли 4 месяца с подтверждёнными личными улучшениями — уже не открытка, а путевой журнал.
+- **Fish Drama 3:** `[pleased] В твою историю вошли 4 месяца с подтверждёнными личными улучшениями — уже не открытка, а путевой журнал.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. A single extended nautical spyglass is the hero, angled upward, with thick polished violet metal sections, translucent magenta enamel bands, and a deep luminous glass objective lens. Reinforced circular expedition frame in chunky double-beveled metal, layered scalloped edging, tiny stars and sparks. A more ambitious silhouette than the compass tier while remaining simple and readable at 96px, saturated cinematic rim light, dark navy studio background, soft contact shadow. No letters, numerals, text, logos, people, bodies, or user photos.
+
+#### 3. Атлас личных сдвигов
+
+- **ID:** `progress.pr_months:t3`
+- **Порог:** 8 месяц с улучшением
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты собрал 8 месяцев с подтверждёнными личными улучшениями. Карта прогресса уже просит разворот пошире.
+- **Fish Drama 3:** `[impressed] Ты собрал 8 месяцев с подтверждёнными личными улучшениями. Карта прогресса уже просит разворот пошире.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. A single ornate sextant is the hero, built from broad polished violet metal arcs, translucent magenta glass inserts, and a compact jewel-like optical assembly; all measuring arcs are smooth and unmarked. The most elaborate circular expedition frame in the series, chunky layered metal bevels, luminous enamel scallops, tiny stars and sparks. Monumental yet uncluttered composition, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+### `progress.pr_days_many`
+
+**Правило:** Продолжать историю сопоставимых личных улучшений. **Единица:** день улучшения. **Источник:** `requires_comparison`.
+
+#### 1. Перо личной истории
+
+- **ID:** `progress.pr_days_many:t1`
+- **Порог:** 5 день улучшения
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты собрал 5 дней с сопоставимыми личными улучшениями. Летопись прогресса открыта — перо довольно скрипит.
+- **Fish Drama 3:** `[delighted] Ты собрал 5 дней с сопоставимыми личными улучшениями. Летопись прогресса открыта — перо довольно скрипит.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. A single oversized fountain pen nib is the hero, sculpted in brilliant beveled gold metal with a translucent molten-orange glass center and a clean pointed silhouette. Chunky beveled metal shield frame with amber enamel inlays, restrained radiant edging, tiny stars and sparks. The opening emblem of an increasingly grand chronicle series, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+#### 2. Печать новых глав
+
+- **ID:** `progress.pr_days_many:t2`
+- **Порог:** 15 день улучшения
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В твоей истории уже 15 дней с сопоставимыми личными улучшениями. Канцелярия прогресса просит печать побольше.
+- **Fish Drama 3:** `[amused] В твоей истории уже 15 дней с сопоставимыми личными улучшениями. Канцелярия прогресса просит печать побольше.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. A single grand wax-seal stamp is the hero, tilted to reveal a plain polished circular base, with a tall faceted translucent orange glass handle and heavy gold metal collar. Reinforced shield frame in chunky double-beveled metal, molten amber enamel inlays, a radiant stepped border, tiny stars and sparks. More ceremonial and substantial than the pen-nib tier, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+#### 3. Летопись с размахом
+
+- **ID:** `progress.pr_days_many:t3`
+- **Порог:** 30 день улучшения
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** За твоими плечами 30 дней с сопоставимыми личными улучшениями. Этой летописи тесно в блокноте — пора в парадный переплёт.
+- **Fish Drama 3:** `[triumphant] За твоими плечами 30 дней с сопоставимыми личными улучшениями. Этой летописи тесно в блокноте — пора в парадный переплёт.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. A single monumental antique printing press is the hero, simplified into a bold sculptural silhouette with a heavy gold screw, broad platen, and translucent fiery-orange glass side supports. The chronicle series' grandest shield frame, chunky multilayered beveled metal, glowing amber enamel inlays, a radiant crown-like crest, tiny stars and sparks. No loose pages or secondary hero objects, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+## Дневник ощущений
+
+### `reflection.checkin`
+
+**Правило:** Сохранять отметку самочувствия или дискомфорта; её содержание не оценивается. **Единица:** день с отметкой. **Источник:** `requires_reflection`.
+
+#### 1. Связь с собой
+
+- **ID:** `reflection.checkin:t1`
+- **Порог:** 3 день с отметкой
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты сохранил отметки о самочувствии или дискомфорте в 3 разные дня. Дневник принимает любые ощущения без конкурса на бодрость.
+- **Fish Drama 3:** `[warm] Ты сохранил отметки о самочувствии или дискомфорте в 3 разные дня. Дневник принимает любые ощущения без конкурса на бодрость.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. A single closed pocket notebook is the hero, with a softly rounded polished gold cover, a translucent honey-glass inset, and a simple integrated elastic clasp. Compact rounded-square frame in chunky beveled metal, warm amber enamel inlays, a few tiny stars and sparks. Friendly tactile stationery aesthetic, restrained opening-tier decoration, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+#### 2. Дневник без кастинга
+
+- **ID:** `reflection.checkin:t2`
+- **Порог:** 10 день с отметкой
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоём дневнике уже 10 дней с отметкой самочувствия или дискомфорта. Это журнал наблюдений, а не кастинг на вечную бодрость.
+- **Fish Drama 3:** `[playful] В твоём дневнике уже 10 дней с отметкой самочувствия или дискомфорта. Это журнал наблюдений, а не кастинг на вечную бодрость.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. A single desktop file box is the hero, its hinged lid slightly raised to reveal broad blank divider tabs, with polished warm gold walls and translucent honey-glass side panels. Rounded-square frame in chunky double-beveled metal, amber enamel inlays and small reinforced corners, tiny stars and sparks. A fuller but still cozy stationery composition, clearly more developed than the notebook tier, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+#### 3. Архив живых ощущений
+
+- **ID:** `reflection.checkin:t3`
+- **Порог:** 30 день с отметкой
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты отметил самочувствие или дискомфорт в 30 разных днях. Это целый архив: содержание записей здесь не получает ни медалей, ни замечаний.
+- **Fish Drama 3:** `[warm] Ты отметил самочувствие или дискомфорт в 30 разных днях. Это целый архив: содержание записей здесь не получает ни медалей, ни замечаний.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. A single compact archival cabinet is the hero, with broad softly rounded drawers, plain sculpted handles, polished warm gold metal, and translucent honey-glass drawer fronts. The stationery series' richest rounded-square frame, chunky layered bevels, amber enamel inlays, a modest ornamental crest, tiny stars and sparks. Welcoming rather than imposing, bold organized silhouette with no labels, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, or user photos.
+
+### `reflection.months`
+
+**Правило:** Оставлять отметки ощущений в разных календарных месяцах. **Единица:** месяц наблюдений. **Источник:** `requires_reflection`.
+
+#### 1. Дневник с продолжением
+
+- **ID:** `reflection.months:t1`
+- **Порог:** 2 месяц наблюдений
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты оставил отметки ощущений в 2 разных календарных месяцах. У дневника появился второй сезон — без драм с гантелями.
+- **Fish Drama 3:** `[playful]Ты оставил отметки ощущений в 2 разных календарных месяцах. У дневника появился второй сезон — без драм с гантелями.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a cohesive personal archive series. One clear hero object: a compact accordion document folder, slightly open, with blank translucent honey-glass dividers fanning outward. Chunky beveled warm-gold metal frame with subtle archival corner details, translucent amber enamel inlays, restrained tiny stars and sparks. Warm gold common-rarity palette, saturated cinematic amber rim light, dark navy studio background, soft contact shadow. Bold simple silhouette, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+#### 2. Архив набирает голос
+
+- **ID:** `reflection.months:t2`
+- **Порог:** 4 месяц наблюдений
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Уже в 4 разных календарных месяцах есть твои отметки ощущений — ты собираешь историю, а не слухи от блинов.
+- **Fish Drama 3:** `[confident]Уже в 4 разных календарных месяцах есть твои отметки ощущений — ты собираешь историю, а не слухи от блинов.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a cohesive personal archive series. One clear hero object: a miniature sculptural filing cabinet with a single drawer pulled forward, revealing neatly layered blank honey-glass file tabs. Chunky double-beveled warm-gold metal frame with archival corner details, translucent amber enamel inlays, tiny stars and lively sparks. Richer depth and broader silhouette than the entry tier, common-rarity warm-gold palette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+#### 3. Хранитель личных сезонов
+
+- **ID:** `reflection.months:t3`
+- **Порог:** 8 месяц наблюдений
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Твои отметки ощущений охватили 8 разных календарных месяцев. Ты собрал архив, в котором даже железу не перекричать твой опыт.
+- **Fish Drama 3:** `[warm]Твои отметки ощущений охватили 8 разных календарных месяцев. Ты собрал архив, в котором даже железу не перекричать твой опыт.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a cohesive personal archive series. One clear hero object: a monumental miniature archive vault with its thick circular door ajar and a luminous honey-glass interior, no visible contents. Oversized chunky beveled warm-gold metal frame with layered archival corner reliefs, translucent amber enamel inlays, an elegant crown of tiny stars and sparks. Most substantial composition in the series while retaining the common-rarity warm-gold palette. Saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+### `reflection.weeks`
+
+**Правило:** Оставлять отметки ощущений в разных неделях. **Единица:** неделя наблюдений. **Источник:** `requires_reflection`.
+
+#### 1. Эфир ощущений открыт
+
+- **ID:** `reflection.weeks:t1`
+- **Порог:** 4 неделя наблюдений
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В 4 разных неделях ты оставил отметки ощущений. Внутренний комментатор вышел из режима «без звука».
+- **Fish Drama 3:** `[playful]В 4 разных неделях ты оставил отметки ощущений. Внутренний комментатор вышел из режима «без звука».`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a cohesive personal signal series. One clear hero object: a rounded maritime signal buoy with a glowing honey-glass beacon cap, balanced over a shallow ripple sculpted into its base. Chunky beveled warm-gold metal frame with subtle concentric signal grooves, translucent amber enamel inlays, a few tiny stars and sparks. Compact friendly silhouette, common-rarity warm-gold palette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+#### 2. На собственной волне
+
+- **ID:** `reflection.weeks:t2`
+- **Порог:** 12 неделя наблюдений
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Отметки ощущений появились в 12 разных неделях — ты ведёшь свою хронику, пока гантели хранят многозначительное молчание.
+- **Fish Drama 3:** `[amused]Отметки ощущений появились в 12 разных неделях — ты ведёшь свою хронику, пока гантели хранят многозначительное молчание.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a cohesive personal signal series. One clear hero object: a stout sculptural lighthouse with a broad translucent honey-glass lantern chamber casting a single clean fan of amber light. Chunky double-beveled warm-gold metal frame with concentric signal grooves, translucent enamel inlays, tiny stars and sparks around the upper rim. Taller and more commanding than the entry tier, common-rarity warm-gold palette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+#### 3. Сага без помех
+
+- **ID:** `reflection.weeks:t3`
+- **Порог:** 26 неделя наблюдений
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** За твоими плечами 26 разных недель с отметками ощущений. Ты собрал целую сагу, и главный рассказчик здесь не тренажёр.
+- **Fish Drama 3:** `[confident]За твоими плечами 26 разных недель с отметками ощущений. Ты собрал целую сагу, и главный рассказчик здесь не тренажёр.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a cohesive personal signal series. One clear hero object: a large parabolic receiving dish tilted upward, with a translucent honey-glass concave surface and a thick gold central receiver. Broad chunky beveled warm-gold metal frame carrying layered concentric signal reliefs, amber enamel inlays, tiny stars and a sweeping arc of sparks. Grandest silhouette in the series, still strictly common-rarity warm gold. Saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+### `reflection.note`
+
+**Правило:** Добавлять собственные заметки к тренировкам. **Единица:** день с заметкой. **Источник:** `requires_reflection`.
+
+#### 1. Ремарка к железу
+
+- **ID:** `reflection.note:t1`
+- **Порог:** 1 день с заметкой
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 1 день с собственной заметкой к тренировке. Ты дал слово себе, а не только звону блинов.
+- **Fish Drama 3:** `[warm]В твоей истории уже 1 день с собственной заметкой к тренировке. Ты дал слово себе, а не только звону блинов.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a cohesive author workshop series. One clear hero object: a short luxurious fountain pen angled diagonally, with a broad polished nib and translucent honey-glass barrel containing a suspended amber swirl. Chunky beveled warm-gold metal frame with delicate page-edge reliefs, translucent enamel inlays, a few tiny stars and sparks. Clean compact composition, common-rarity warm-gold palette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No writing marks, letters, numbers, text, logos, people, bodies, or user photos.
+
+#### 2. Пять глав наблюдений
+
+- **ID:** `reflection.note:t2`
+- **Порог:** 5 день с заметкой
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя набралось 5 разных дней с собственными заметками к тренировкам. Краткое содержание: железо звенело, ты замечал детали.
+- **Fish Drama 3:** `[playful]У тебя набралось 5 разных дней с собственными заметками к тренировкам. Краткое содержание: железо звенело, ты замечал детали.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a cohesive author workshop series. One clear hero object: a charming compact mechanical typewriter with oversized completely blank round keys and a single blank honey-glass sheet held in the roller. Chunky double-beveled warm-gold metal frame with page-edge reliefs, translucent amber enamel inlays, tiny stars and energetic sparks. Stronger dimensional depth than the entry tier, common-rarity warm-gold palette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+#### 3. Редактор железной саги
+
+- **ID:** `reflection.note:t3`
+- **Порог:** 15 день с заметкой
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Уже 15 разных дней ты добавлял свои заметки к тренировкам — набралась авторская хроника, и у гантелей пока нет права на редактуру.
+- **Fish Drama 3:** `[amused]Уже 15 разных дней ты добавлял свои заметки к тренировкам — набралась авторская хроника, и у гантелей пока нет права на редактуру.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a cohesive author workshop series. One clear hero object: a miniature antique screw printing press with a bold gold crossbeam, thick central screw and a luminous blank honey-glass printing bed. Substantial chunky beveled warm-gold metal frame with layered page-edge reliefs, translucent amber enamel inlays, tiny stars and celebratory sparks. Monumental yet uncluttered silhouette, common-rarity warm-gold palette, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No printed marks, letters, numbers, text, logos, people, bodies, or user photos.
+
+### `reflection.adjusted`
+
+**Правило:** Явно сохранять корректировки плана с допустимой причиной. **Единица:** корректировка. **Источник:** `requires_reflection`.
+
+#### 1. Поворот по делу
+
+- **ID:** `reflection.adjusted:t1`
+- **Порог:** 1 корректировка
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты сохранил 1 корректировку плана, указав допустимую причину. План не хрустальная ваза — правки ему не страшны.
+- **Fish Drama 3:** `[playful]Ты сохранил 1 корректировку плана, указав допустимую причину. План не хрустальная ваза — правки ему не страшны.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a cohesive adaptive navigation series. One clear hero object: an open pocket compass with a thick sapphire needle floating beneath a domed translucent turquoise-glass cover; the compass face is completely unmarked. Chunky beveled metal frame with directional notch reliefs, turquoise enamel and sapphire glass inlays, restrained tiny stars and sparks. Rare-rarity turquoise and sapphire palette, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+#### 2. Капитан гибкого плана
+
+- **ID:** `reflection.adjusted:t2`
+- **Порог:** 3 корректировка
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории уже 3 сохранённые корректировки плана с допустимой причиной. Ты у руля, а плану полезно помнить, кто здесь капитан.
+- **Fish Drama 3:** `[confident]В твоей истории уже 3 сохранённые корректировки плана с допустимой причиной. Ты у руля, а плану полезно помнить, кто здесь капитан.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a cohesive adaptive navigation series. One clear hero object: a sculptural railway switch lever tilted decisively into a curved sapphire housing, topped by a large translucent turquoise-glass grip. Chunky double-beveled metal frame with directional notch reliefs, turquoise enamel and sapphire glass inlays, tiny stars and crisp sparks. Broader stance and deeper relief than the entry tier, rare-rarity turquoise and sapphire palette, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+#### 3. Реальность задаёт маршрут
+
+- **ID:** `reflection.adjusted:t3`
+- **Порог:** 8 корректировка
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Набралось 8 сохранённых корректировок плана с допустимой причиной — ты ведёшь план по реальности, а не реальность строем по плану.
+- **Fish Drama 3:** `[confident]Набралось 8 сохранённых корректировок плана с допустимой причиной — ты ведёшь план по реальности, а не реальность строем по плану.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a cohesive adaptive navigation series. One clear hero object: a commanding ship's helm with thick polished metal spokes, a luminous sapphire hub and a continuous translucent turquoise-glass outer grip. Oversized chunky beveled metal frame with layered directional notch reliefs, turquoise enamel inlays, tiny stars and a controlled spiral of sparks. Grandest composition in the series, rare-rarity turquoise and sapphire palette, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+### `reflection.effort_sets`
+
+**Правило:** Сохранять субъективную оценку усилия после подходов. **Единица:** подход с оценкой. **Источник:** `requires_reflection`.
+
+#### 1. Ощущения получили слово
+
+- **ID:** `reflection.effort_sets:t1`
+- **Порог:** 3 подход с оценкой
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории 3 подхода, после которых ты сохранил субъективную оценку усилия. У ощущений появился голос, а у железа — собеседник.
+- **Fish Drama 3:** `[warm]В твоей истории 3 подхода, после которых ты сохранил субъективную оценку усилия. У ощущений появился голос, а у железа — собеседник.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a cohesive listening studio series. One clear hero object: a bold tuning fork with thick sapphire-metal prongs and translucent turquoise-glass tips, surrounded by a subtle sculpted resonance halo. Chunky beveled metal frame with shallow sound-wave reliefs, translucent turquoise enamel inlays, restrained tiny stars and sparks. Simple strong silhouette, rare-rarity turquoise and sapphire palette, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+#### 2. Громче стука железа
+
+- **ID:** `reflection.effort_sets:t2`
+- **Порог:** 15 подход с оценкой
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты сохранил субъективную оценку усилия для 15 подходов после их выполнения. Железо считает килограммы, а ты рассказываешь свою сторону.
+- **Fish Drama 3:** `[playful]Ты сохранил субъективную оценку усилия для 15 подходов после их выполнения. Железо считает килограммы, а ты рассказываешь свою сторону.`
+- **Image prompt:** Premium glossy 3D achievement emblem, middle tier of a cohesive listening studio series. One clear hero object: a sculptural mechanical metronome with a translucent turquoise-glass pyramid shell and a thick sapphire pendulum caught at an angle; its interior has no scale or markings. Chunky double-beveled metal frame with sound-wave reliefs, turquoise enamel and sapphire glass inlays, tiny stars and rhythmic sparks. More substantial depth than the entry tier, rare-rarity turquoise and sapphire palette, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+#### 3. Антология личных усилий
+
+- **ID:** `reflection.effort_sets:t3`
+- **Порог:** 50 подход с оценкой
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** За время тренировок ты сохранил субъективную оценку усилия после 50 подходов. Получилась антология ощущений, а не сольный альбом железа.
+- **Fish Drama 3:** `[excited]За время тренировок ты сохранил субъективную оценку усилия после 50 подходов. Получилась антология ощущений, а не сольный альбом железа.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a cohesive listening studio series. One clear hero object: a compact sculptural audio mixing console tilted toward the viewer, with oversized sapphire fader caps and glowing translucent turquoise-glass channels, all controls completely unmarked. Broad chunky beveled metal frame with layered sound-wave reliefs, turquoise enamel inlays, tiny stars and a radiant fan of sparks. Most expansive silhouette in the series, rare-rarity turquoise and sapphire palette, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numbers, text, logos, people, bodies, or user photos.
+
+### `reflection.feedback_days`
+
+**Правило:** Накопить дни с явной обратной связью о подходах. **Единица:** день обратной связи. **Источник:** `requires_reflection`.
+
+#### 1. Железо на связи
+
+- **ID:** `reflection.feedback_days:t1`
+- **Порог:** 2 день обратной связи
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя уже 2 дня с явной обратной связью о подходах. Железо получило первые рецензии — и даже не зазвенело от смущения.
+- **Fish Drama 3:** `[playful] У тебя уже <emphasis>2 дня</emphasis> с явной обратной связью о подходах. Железо получило первые рецензии — и даже не зазвенело от смущения.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One clear hero object: a chunky tactile communication button with a luminous translucent center and sculpted concentric signal ripples. Single chunky beveled metal hexagonal frame, polished turquoise edges, translucent enamel/glass inlays. Compact introductory design in a coherent communication-themed series. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Strong centered silhouette, readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Пульт ощущений
+
+- **ID:** `reflection.feedback_days:t2`
+- **Порог:** 8 день обратной связи
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** За твоими плечами 8 дней с явной обратной связью о подходах. Ощущения вышли в эфир, железу остаётся слушать.
+- **Fish Drama 3:** `[confident] За твоими плечами 8 дней с явной обратной связью о подходах. Ощущения <emphasis>вышли в эфир</emphasis>, железу остаётся слушать.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One clear hero object: a sculptural portable field radio with a sapphire glass speaker grille, a single oversized unlabeled tuning knob, and a short polished antenna. Double-layer chunky beveled metal hexagonal frame, translucent enamel/glass inlays. A richer middle tier in the communication-themed series, with deeper relief and a brighter signal glow. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Штаб обратной связи
+
+- **ID:** `reflection.feedback_days:t3`
+- **Порог:** 20 день обратной связи
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 20 дней с явной обратной связью о подходах. Это уже штаб ощущений: гантели в повестке, твой опыт — у микрофона.
+- **Fish Drama 3:** `[excited] Ты накопил <emphasis>20 дней</emphasis> с явной обратной связью о подходах. Это уже штаб ощущений: гантели в повестке, твой опыт — у микрофона.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One clear hero object: a majestic satellite communication dish with a deep translucent sapphire bowl, thick polished turquoise rim, and integrated central receiver. Triple-stepped chunky beveled metal hexagonal frame with translucent enamel/glass inlays. Highest tier of the communication-themed series, broad confident silhouette and radiant signal halo. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Bold simplified construction, readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `reflection.note_weeks`
+
+**Правило:** Оставлять собственные заметки в разных неделях. **Единица:** неделя с заметкой. **Источник:** `requires_reflection`.
+
+#### 1. Перо получило слово
+
+- **ID:** `reflection.note_weeks:t1`
+- **Порог:** 2 неделя с заметкой
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Собственные заметки у тебя уже в 2 разных неделях. Дневник обрёл голос — и это не скрип тренажёра.
+- **Fish Drama 3:** `[warm] Собственные заметки у тебя уже в <emphasis>2 разных неделях</emphasis>. Дневник обрёл голос — и это не скрип тренажёра.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: an oversized fountain pen nib standing diagonally, made of polished violet metal with a luminous magenta glass slit and a rounded ink-shaped enamel inset. Chunky beveled metal octagonal frame, translucent enamel/glass inlays. Restrained first tier of a personal-writing series, crisp open negative space around the nib. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Авторские комментарии включены
+
+- **ID:** `reflection.note_weeks:t2`
+- **Порог:** 6 неделя с заметкой
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты оставил собственные заметки в 6 разных неделях. Тренировочная история больше не немое кино: авторские комментарии прилагаются.
+- **Fish Drama 3:** `[playful] Ты оставил собственные заметки в 6 разных неделях. Тренировочная история больше не немое кино: <emphasis>авторские комментарии прилагаются</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: a luxurious open notebook with thick sculpted blank pages, translucent violet page edges, and a broad integrated magenta ribbon bookmark. Double-stepped chunky beveled metal octagonal frame with translucent enamel/glass inlays. Middle tier of the personal-writing series, stronger depth and a soft glow rising from the empty page fold. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Редакция личной хроники
+
+- **ID:** `reflection.note_weeks:t3`
+- **Порог:** 12 неделя с заметкой
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В 12 разных неделях ты оставил свои заметки. У личной хроники уже есть редакция — и главный редактор тут ты, а не гантель.
+- **Fish Drama 3:** `[confident] В 12 разных неделях ты оставил свои заметки. У личной хроники уже есть редакция — и главный редактор тут <emphasis>ты, а не гантель</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: a monumental compact typewriter with oversized blank glass keys, a polished violet carriage, and one pristine blank sheet curling upward. Triple-tier chunky beveled metal octagonal frame with translucent enamel/glass inlays. Culmination of the personal-writing series, theatrical magenta glow behind the paper and generous sculptural depth. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Simplified readable silhouette at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `reflection.feedback_exercises`
+
+**Правило:** Оставить явную обратную связь в разных упражнениях. **Единица:** упражнение с отзывом. **Источник:** `requires_reflection`.
+
+#### 1. Камертон обратной связи
+
+- **ID:** `reflection.feedback_exercises:t1`
+- **Порог:** 2 упражнение с отзывом
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты оставил явную обратную связь о 2 разных упражнениях. У тренировочного оркестра появились отзывы, а не только лязг.
+- **Fish Drama 3:** `[playful] Ты оставил явную обратную связь о <emphasis>2 разных упражнениях</emphasis>. У тренировочного оркестра появились отзывы, а не только лязг.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: a thick sculptural tuning fork with polished violet metal prongs and translucent magenta glass channels, surrounded by subtle molded resonance arcs. Chunky beveled metal circular frame with translucent enamel/glass inlays. First tier in a coherent musical-feedback series, minimal confident composition. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Bold silhouette readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Ритм твоих отзывов
+
+- **ID:** `reflection.feedback_exercises:t2`
+- **Порог:** 5 упражнение с отзывом
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя уже 5 разных упражнений с явной обратной связью. Железный ансамбль услышан: даже самая молчаливая скамья попала в обсуждение.
+- **Fish Drama 3:** `[amused] У тебя уже 5 разных упражнений с явной обратной связью. Железный ансамбль услышан: даже самая молчаливая скамья попала в обсуждение.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: an elegant pyramidal mechanical metronome with a translucent violet body, a polished swinging rod, and a large magenta glass pendulum weight. Completely unmarked front panel. Double-layer chunky beveled metal circular frame with translucent enamel/glass inlays. Middle tier of the musical-feedback series, dynamic diagonal pendulum pose and richer internal glow. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Большой концерт ощущений
+
+- **ID:** `reflection.feedback_exercises:t3`
+- **Порог:** 10 упражнение с отзывом
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты дал явную обратную связь о 10 разных упражнениях. Большой концерт ощущений: ни один отзыв не обязан звучать как фанфары.
+- **Fish Drama 3:** `[warm] Ты дал явную обратную связь о <emphasis>10 разных упражнениях</emphasis>. Большой концерт ощущений: ни один отзыв не обязан звучать как фанфары.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: a grand vintage gramophone with an enormous flared violet metal horn, translucent magenta glass lining, and a compact integrated turntable base with an unmarked record. Triple-stepped chunky beveled metal circular frame, translucent enamel/glass inlays. Grand finale of the musical-feedback series, horn facing slightly upward in a bold celebratory silhouette. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `reflection.reflection_year`
+
+**Правило:** Продолжать необязательный дневник ощущений в течение длинной истории. **Единица:** неделя наблюдений. **Источник:** `requires_reflection`.
+
+#### 1. Песчинки с характером
+
+- **ID:** `reflection.reflection_year:t1`
+- **Порог:** 39 неделя наблюдений
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В твоём необязательном дневнике ощущений уже 39 недель наблюдений. Ты собираешь историю, а не выполняешь приказ календаря.
+- **Fish Drama 3:** `[warm] В твоём необязательном дневнике ощущений уже <emphasis>39 недель наблюдений</emphasis>. Ты собираешь историю, а не выполняешь приказ календаря.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One clear hero object: an ornate hourglass with thick molten-gold supports, translucent amber glass chambers, and luminous orange sand gathered into a sculptural dune. Chunky beveled metal shield frame with translucent enamel/glass inlays. Opening tier of a grand timekeeping series, noble proportions and controlled fiery radiance. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Clean centered silhouette readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Хроника без спешки
+
+- **ID:** `reflection.reflection_year:t2`
+- **Порог:** 52 неделя наблюдений
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты накопил 52 недели наблюдений в необязательном дневнике ощущений. Календарь внушительный, но дневник по-прежнему не командир.
+- **Fish Drama 3:** `[confident] Ты накопил 52 недели наблюдений в необязательном дневнике ощущений. Календарь внушительный, но дневник <emphasis>по-прежнему не командир</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One clear hero object: a monumental sundial with a tall polished gold triangular gnomon and a thick translucent orange glass disk, entirely free of markings. A dramatic sculpted shadow crosses the luminous disk. Double-stepped chunky beveled metal shield frame with translucent enamel/glass inlays. Expanded middle tier of the timekeeping series, richer depth and sunlike radiance. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Орбита личной саги
+
+- **ID:** `reflection.reflection_year:t3`
+- **Порог:** 78 неделя наблюдений
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** За твою историю набралось 78 недель наблюдений в необязательном дневнике ощущений. У этой саги твой голос, а паузы не требуют оправданий.
+- **Fish Drama 3:** `[warm] За твою историю набралось <emphasis>78 недель наблюдений</emphasis> в необязательном дневнике ощущений. У этой саги твой голос, а паузы не требуют оправданий.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One clear hero object: a majestic mechanical orrery, a unified astronomical instrument with a radiant orange glass central sun and thick polished gold orbital arms carrying a few translucent amber spheres. Triple-tier chunky beveled metal shield frame with translucent enamel/glass inlays. Climactic timekeeping-series design, sweeping celestial scale within a compact balanced silhouette. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow. Readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+## Мир историй
+
+### `story.world_days`
+
+**Правило:** Возвращаться в один сюжетный мир в разные дни. **Единица:** день в одном мире. **Источник:** `requires_story`.
+
+#### 1. Ключ от сюжета
+
+- **ID:** `story.world_days:t1`
+- **Порог:** 3 день в одном мире
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты возвращаешься в один сюжетный мир уже 3 разных дня. Похоже, у приключения появился знакомый стук в дверь.
+- **Fish Drama 3:** `[playful] Ты возвращаешься в один сюжетный мир уже <emphasis>3 разных дня</emphasis>. Похоже, у приключения появился знакомый стук в дверь.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. One clear hero object: a large whimsical golden key with an arched bow containing a translucent honey-gold glass vortex and chunky sculpted teeth. Single chunky beveled metal arch-shaped frame with translucent enamel/glass inlays. Modest first tier of a coherent story-world entrance series, inviting rather than monumental. Tiny stars and sparks, saturated cinematic warm-gold rim light, dark navy studio background, soft contact shadow. Strong diagonal silhouette readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 2. Адрес приключения
+
+- **ID:** `story.world_days:t2`
+- **Порог:** 7 день в одном мире
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В одном сюжетном мире у тебя уже 7 разных дней. Парадная дверь приключений, кажется, перестала спрашивать: «Кто там?»
+- **Fish Drama 3:** `[amused] В одном сюжетном мире у тебя уже 7 разных дней. Парадная дверь приключений, кажется, перестала спрашивать: <emphasis>«Кто там?»</emphasis>`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. One clear hero object: a freestanding rounded storybook door, slightly ajar, with a thick polished gold surface, one oversized round knob, and translucent champagne-gold light filling the opening. Double-stepped chunky beveled metal arch-shaped frame with translucent enamel/glass inlays. Middle tier of the story-world entrance series, increased depth and welcoming glow while retaining a simple common-rarity finish. Tiny stars and sparks, saturated cinematic warm-gold rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+#### 3. Легенда знакомых мест
+
+- **ID:** `story.world_days:t3`
+- **Порог:** 15 день в одном мире
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** За твою историю набралось 15 разных дней в одном сюжетном мире. Декорации тебя уже узнают, но автографов пока не просят.
+- **Fish Drama 3:** `[playful] За твою историю набралось <emphasis>15 разных дней</emphasis> в одном сюжетном мире. Декорации тебя уже узнают, но автографов пока не просят.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm gold palette. One clear hero object: a compact fairytale castle gatehouse with broad integrated turrets, rounded battlements, and a tall open arch filled with translucent honey-gold glass. Triple-stepped chunky beveled metal arch-shaped frame with translucent enamel/glass inlays. Final tier of the story-world entrance series, wider and more ceremonial than the earlier key and door while preserving restrained warm-gold common styling. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, inscriptions, logos, people, bodies, or photographs.
+
+### `story.explorer`
+
+**Правило:** Сохранить тренировки в разных сюжетных архетипах. **Единица:** сюжетный мир. **Источник:** `requires_story`.
+
+#### 1. Три мира в кармане
+
+- **ID:** `story.explorer:t1`
+- **Порог:** 3 сюжетный мир
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты сохранил тренировки в 3 разных сюжетных мирах. Компас доволен: наконец-то работа не только у гантелей.
+- **Fish Drama 3:** `[playful] Ты сохранил тренировки в <emphasis>3 разных сюжетных мирах</emphasis>. Компас доволен: наконец-то работа не только у гантелей.`
+- **Image prompt:** Premium glossy 3D achievement emblem, world-explorer series with a circular scalloped metal frame. One clear hero object: a chunky pocket compass with a floating translucent enamel needle and an unmarked dial, tilted slightly toward the viewer. Common rarity, warm gold palette, honey glass inlays, restrained polished bevels. A subtle radial pattern is embossed into the frame. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, centered silhouette readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 2. Карта трещит по швам
+
+- **ID:** `story.explorer:t2`
+- **Порог:** 6 сюжетный мир
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Уже в 6 разных сюжетных мирах ты сохранил тренировки. Карта просит расширение, а не отпуск.
+- **Fish Drama 3:** `[amused] Уже в <emphasis>6 разных сюжетных мирах</emphasis> ты сохранил тренировки. Карта просит расширение, а не отпуск.`
+- **Image prompt:** Premium glossy 3D achievement emblem, world-explorer series with a circular scalloped metal frame. One clear hero object: a sculptural accordion-fold exploration map, made from thick translucent amber glass with raised gold terrain contours and no labels. Its folds push confidently beyond an inner decorative ring. Common rarity, warm gold palette, chunky double-beveled metal frame, honey enamel inlays, richer detailing than the entry emblem. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 3. Глобус с характером
+
+- **ID:** `story.explorer:t3`
+- **Порог:** 10 сюжетный мир
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** За плечами — сохранённые тобой тренировки в 10 разных сюжетных мирах. Ты явно не ограничился экскурсионным маршрутом.
+- **Fish Drama 3:** `[confident] За плечами — сохранённые тобой тренировки в <emphasis>10 разных сюжетных мирах</emphasis>. Ты явно не ограничился экскурсионным маршрутом.`
+- **Image prompt:** Premium glossy 3D achievement emblem, world-explorer series with a circular scalloped metal frame. One clear hero object: a magnificent miniature armillary globe, an amber glass sphere with abstract unlabeled landforms inside broad polished gold orbital bands. Common rarity, warm gold palette only. The largest frame in this series has deep chunky bevels, layered honey enamel inlays and subtle compass-ray relief without markings. Tiny stars and sparks form a restrained orbital trail. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+### `story.acts`
+
+**Правило:** Выполнить обязательные baseline-условия сюжетных актов. **Единица:** акт истории. **Источник:** `requires_story`.
+
+#### 1. Звонок к действию
+
+- **ID:** `story.acts:t1`
+- **Порог:** 3 акт истории
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Обязательные базовые условия 3 сюжетных актов выполнены — ты дал истории ход. Сюжетный звонок звенит не зря!
+- **Fish Drama 3:** `[upbeat] Обязательные базовые условия <emphasis>3 сюжетных актов</emphasis> выполнены — ты дал истории ход. Сюжетный звонок звенит не зря!`
+- **Image prompt:** Premium glossy 3D achievement emblem, theatrical-act series with a rounded shield-shaped chunky beveled metal frame. One clear hero object: a small freestanding theater cue bell with a thick amber glass dome, polished gold base and a visible golden clapper. Common rarity, warm gold palette, translucent honey enamel frame inlays, simple theatrical fan relief. The bell is caught in a gentle ringing tilt, suggested by a single curved glint. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 2. Сюжет под прожектором
+
+- **ID:** `story.acts:t2`
+- **Порог:** 10 акт истории
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты выполнил обязательные базовые условия 10 сюжетных актов. Прожектор занят: подсвечивает твою коллекцию поворотов.
+- **Fish Drama 3:** `[playful] Ты выполнил обязательные базовые условия <emphasis>10 сюжетных актов</emphasis>. Прожектор занят: подсвечивает твою коллекцию поворотов.`
+- **Image prompt:** Premium glossy 3D achievement emblem, theatrical-act series with a rounded shield-shaped chunky beveled metal frame. One clear hero object: a compact theatrical spotlight on an integrated swivel bracket, with broad gold barn doors and a luminous honey glass lens. A short sculpted translucent light cone stays inside the emblem. Common rarity, warm gold palette, doubled frame bevels and amber enamel fan-shaped inlays. More substantial and dynamic than the cue-bell tier. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 3. Большая сцена открыта
+
+- **ID:** `story.acts:t3`
+- **Порог:** 30 акт истории
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 30 сюжетных актов с выполненными обязательными базовыми условиями. Ты накопил репертуар, которому мала одна афиша.
+- **Fish Drama 3:** `[proud] В твоей истории уже <emphasis>30 сюжетных актов</emphasis> с выполненными обязательными базовыми условиями. Ты накопил репертуар, которому мала одна афиша.`
+- **Image prompt:** Premium glossy 3D achievement emblem, theatrical-act series with a rounded shield-shaped chunky beveled metal frame. One clear hero object: a grand miniature theater proscenium, formed as a single architectural sculpture with fluted gold columns, an amber glass arch and a radiant empty stage opening. No curtains or performers. Common rarity, warm gold palette, deep layered bevels, translucent honey enamel fan inlays, the most elaborate frame in this series. Tiny stars and sparks gather above the arch. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+### `story.finale`
+
+**Правило:** Завершить исходный план тренировки с выбранным сценарием. **Единица:** финал по плану. **Источник:** `requires_story`.
+
+#### 1. Свиток с развязкой
+
+- **ID:** `story.finale:t1`
+- **Порог:** 1 финал по плану
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты завершил 1 тренировку с выбранным сценарием по исходному плану. Свиток свернулся: у этой истории есть финал.
+- **Fish Drama 3:** `[pleased] Ты завершил <emphasis>1 тренировку с выбранным сценарием по исходному плану</emphasis>. Свиток свернулся: у этой истории есть финал.`
+- **Image prompt:** Premium glossy 3D achievement emblem, story-finale series with a broad hexagonal chunky beveled metal frame. One clear hero object: a neatly rolled story scroll with thick polished gold end caps and a translucent honey enamel outer sheet, secured by a simple integrated golden band. No exposed writing. Common rarity, warm gold palette, modest stepped frame edges and amber glass corner inlays. A small spiral of light suggests the completed rolling motion. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 2. Занавес знает своё дело
+
+- **ID:** `story.finale:t2`
+- **Порог:** 5 финал по плану
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя уже 5 финалов: каждый — завершённая по исходному плану тренировка с выбранным сценарием. Занавес освоил торжественный шорох.
+- **Fish Drama 3:** `[playful] У тебя уже <emphasis>5 финалов</emphasis>: каждый — завершённая по исходному плану тренировка с выбранным сценарием. Занавес освоил торжественный шорох.`
+- **Image prompt:** Premium glossy 3D achievement emblem, story-finale series with a broad hexagonal chunky beveled metal frame. One clear hero object: a fully closed theatrical curtain rendered as one flowing honey-glass sculpture, with deep rounded folds, a central meeting seam and a polished gold scalloped valance. No stage architecture. Common rarity, warm gold palette, stronger double-stepped bevels and translucent amber corner inlays. The curtain appears to have just settled after a finale. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 3. Гонг финальных титров
+
+- **ID:** `story.finale:t3`
+- **Порог:** 15 финал по плану
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** 15 тренировок с выбранным сценарием ты завершил по исходному плану. Гонг звучит так важно, будто ему тоже выдали награду.
+- **Fish Drama 3:** `[triumphant] <emphasis>15 тренировок с выбранным сценарием</emphasis> ты завершил по исходному плану. Гонг звучит так важно, будто ему тоже выдали награду.`
+- **Image prompt:** Premium glossy 3D achievement emblem, story-finale series with a broad hexagonal chunky beveled metal frame. One clear hero object: a monumental ceremonial gong suspended within its compact integrated gold stand, with a convex polished golden center and a thick translucent amber glass outer ring. No mallet or additional props. Common rarity, warm gold palette, the deepest layered frame bevels in this series, honey enamel corner inlays. Subtle luminous ripples suggest a triumphant resonance. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+### `story.return_world`
+
+**Правило:** Вернуться в знакомый архетип после двадцати восьми дней. **Единица:** возвращение в мир. **Источник:** `requires_story`.
+
+#### 1. Ключ от знакомого мира
+
+- **ID:** `story.return_world:t1`
+- **Порог:** 1 возвращение в мир
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Знакомый сюжетный мир снова открыт: ты вернулся в него после 28 дней перерыва. Первое возвращение — ключ по-прежнему подходит.
+- **Fish Drama 3:** `[warm] Знакомый сюжетный мир снова открыт: ты вернулся в него после <emphasis>28 дней перерыва</emphasis>. Первое возвращение — ключ по-прежнему подходит.`
+- **Image prompt:** Premium glossy 3D achievement emblem, world-return series with an oval portal-shaped chunky beveled metal frame. One clear hero object: an ornate antique key floating diagonally, with a sapphire glass bow, turquoise enamel shaft inlays and simple polished metal teeth. Rare rarity, turquoise and sapphire palette, cool silver-blue metal edges. A restrained luminous crescent within the frame suggests a familiar doorway reopening. Tiny stars and sparks, saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 2. Билет в знакомый сюжет
+
+- **ID:** `story.return_world:t2`
+- **Порог:** 3 возвращение в мир
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 3 возвращения в знакомые сюжетные миры, каждое — после перерыва от 28 дней. Сюжет принимает билет без объяснительной.
+- **Fish Drama 3:** `[playful] Ты накопил <emphasis>3 возвращения</emphasis> в знакомые сюжетные миры, каждое — после перерыва от 28 дней. Сюжет принимает билет без объяснительной.`
+- **Image prompt:** Premium glossy 3D achievement emblem, world-return series with an oval portal-shaped chunky beveled metal frame. One clear hero object: a thick blank return ticket made from sapphire glass, with rounded notched sides, a turquoise enamel border and a curled corner revealing its polished metal underside. The ticket carries no print, stamps or symbols. Rare rarity, turquoise and sapphire palette, cool silver-blue double bevels, brighter portal inlays than the key tier. Tiny stars and sparks trace a curved arrival trail. Saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 3. Бумеранг больших историй
+
+- **ID:** `story.return_world:t3`
+- **Порог:** 6 возвращение в мир
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя уже 6 возвращений в знакомые сюжетные миры после перерывов от 28 дней. Ты как сюжетный бумеранг: пауза не мешает новой главе.
+- **Fish Drama 3:** `[confident] У тебя уже <emphasis>6 возвращений</emphasis> в знакомые сюжетные миры после перерывов от 28 дней. Ты как сюжетный бумеранг: пауза не мешает новой главе.`
+- **Image prompt:** Premium glossy 3D achievement emblem, world-return series with an oval portal-shaped chunky beveled metal frame. One clear hero object: a broad sculptural boomerang with polished silver-blue metal edges, deep sapphire glass wings and a turquoise enamel center. It follows a luminous curved return trail contained inside the emblem. Rare rarity, turquoise and sapphire palette, the most substantial layered portal frame in this series, richly translucent inlays. Tiny stars and sparks cluster near the returning tip. Saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+### `story.archive`
+
+**Правило:** Накопить дни с сохранённым локальным или облачным эпизодом. **Единица:** день с эпизодом. **Источник:** `requires_story`.
+
+#### 1. Коробка живых эпизодов
+
+- **ID:** `story.archive:t1`
+- **Порог:** 5 день с эпизодом
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя набралось 5 дней с эпизодом, сохранённым локально или в облаке. Коробка историй уже шуршит приключениями.
+- **Fish Drama 3:** `[warm] У тебя набралось <emphasis>5 дней с эпизодом</emphasis>, сохранённым локально или в облаке. Коробка историй уже шуршит приключениями.`
+- **Image prompt:** Premium glossy 3D achievement emblem, story-archive series with a square cushion-shaped chunky beveled metal frame. One clear hero object: a compact archival keepsake box with a slightly lifted lid, sapphire glass walls, turquoise enamel corner fittings and a soft glow escaping through the narrow opening. No visible contents or labels. Rare rarity, turquoise and sapphire palette, cool polished metal bevels, simple inset frame panels. Tiny stars and sparks hover above the lid. Saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 2. Картотека сюжетных находок
+
+- **ID:** `story.archive:t2`
+- **Порог:** 20 день с эпизодом
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Уже 20 дней отмечены эпизодами, которые ты сохранил локально или в облаке. Картотека приключений деловито выдвигает новый ящик.
+- **Fish Drama 3:** `[amused] Уже <emphasis>20 дней</emphasis> отмечены эпизодами, которые ты сохранил локально или в облаке. Картотека приключений деловито выдвигает новый ящик.`
+- **Image prompt:** Premium glossy 3D achievement emblem, story-archive series with a square cushion-shaped chunky beveled metal frame. One clear hero object: a miniature archival card-catalog cabinet, built from sapphire glass and polished cool metal, with turquoise enamel drawer fronts and one shallow drawer slightly open. Broad simple handles, no label holders or loose cards. Rare rarity, turquoise and sapphire palette, reinforced double-beveled frame with translucent inset panels. Tiny stars and sparks emerge near the open drawer. Saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 3. Хранилище большой саги
+
+- **ID:** `story.archive:t3`
+- **Порог:** 50 день с эпизодом
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты собрал 50 дней с сохранёнными локально или в облаке эпизодами. Это уже хранилище саги, а не ящик с надписью «разберу потом».
+- **Fish Drama 3:** `[proud] Ты собрал <emphasis>50 дней</emphasis> с сохранёнными локально или в облаке эпизодами. Это уже хранилище саги, а не ящик с надписью «разберу потом».`
+- **Image prompt:** Premium glossy 3D achievement emblem, story-archive series with a square cushion-shaped chunky beveled metal frame. One clear hero object: a monumental cylindrical archive vault capsule, with a deep sapphire glass shell, thick turquoise enamel reinforcing bands and a circular polished metal hatch bearing a simple unmarked wheel. The vault feels secure and luminous, not industrial or threatening. Rare rarity, turquoise and sapphire palette, the richest layered frame bevels in this series, translucent inset panels. Tiny stars and sparks crown the capsule. Saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+### `story.world_return`
+
+**Правило:** Встретить один сюжетный архетип в разных календарных месяцах. **Единица:** месяц одного мира. **Источник:** `requires_story`.
+
+#### 1. Свой ключ от сюжета
+
+- **ID:** `story.world_return:t1`
+- **Порог:** 2 месяц одного мира
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты встретил один и тот же сюжетный архетип в 2 разных календарных месяцах. Кажется, этот мир уже выдал тебе запасной ключ!
+- **Fish Drama 3:** `[playful] Ты встретил один и тот же сюжетный архетип в <emphasis>2 разных календарных месяцах</emphasis>. Кажется, этот мир уже выдал тебе запасной ключ!`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One clear hero object: a chunky sapphire-metal key with a translucent turquoise glass bow and a simple geometric bit, floating at a slight diagonal. Scalloped circular frame in thick beveled metal, with a continuous looping enamel channel establishing the returning-world series. Restrained first-tier scale, two tiny stars and delicate sparks. Saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow, clean readable silhouette at 96px. No letters, numerals, text, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 2. Сюжет знает дорогу
+
+- **ID:** `story.world_return:t2`
+- **Порог:** 4 месяц одного мира
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Один сюжетный архетип встретился тебе в 4 разных календарных месяцах. Компас истории явно настроен на знакомые приключения!
+- **Fish Drama 3:** `[confident] Один сюжетный архетип встретился тебе в <emphasis>4 разных календарных месяцах</emphasis>. Компас истории явно настроен на знакомые приключения!`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One clear hero object: an ornate mechanical compass with a single oversized sapphire needle beneath a domed translucent turquoise glass lens; completely unmarked dial. Use the returning-world series scalloped circular chunky beveled metal frame with its continuous looping enamel channel, now wider with a double stepped rim. A luminous curved reflection suggests finding the way back. Tiny stars and crisp sparks, saturated cinematic sapphire rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+#### 3. Возвращение с размахом
+
+- **ID:** `story.world_return:t3`
+- **Порог:** 8 месяц одного мира
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты встретил один сюжетный архетип в 8 разных календарных месяцах. Вот это сюжетный бумеранг: летает долго, возвращается эффектно!
+- **Fish Drama 3:** `[excited] Ты встретил один сюжетный архетип в <emphasis>8 разных календарных месяцах</emphasis>. Вот это сюжетный бумеранг: летает долго, возвращается эффектно!`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette. One clear hero object: a broad sculptural boomerang made of polished sapphire metal with thick translucent turquoise enamel inlays, caught at the apex of a returning arc. The arc is a subtle light trail, not another object. Returning-world series scalloped circular frame, chunky triple-stepped bevels and continuous looping enamel channel, more monumental than earlier tiers. Tiny stars and a concentrated burst of sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+### `story.world_chapters`
+
+**Правило:** Собирать триптихи: минимум три дня в каждом из трёх разных архетипов. **Единица:** триптих миров. **Источник:** `requires_story`.
+
+#### 1. Три мира на створках
+
+- **ID:** `story.world_chapters:t1`
+- **Порог:** 1 триптих миров
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя 1 триптих миров: минимум по 3 дня в каждом из 3 разных архетипов. Три мира, а пульт от приключений один!
+- **Fish Drama 3:** `[playful] У тебя <emphasis>1 триптих миров</emphasis>: минимум по 3 дня в каждом из 3 разных архетипов. Три мира, а пульт от приключений один!`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: a miniature three-panel folding screen, its chunky violet-metal hinges connecting translucent glass panels with distinct abstract mountain, wave, and cloud reliefs. No writing or figures on the panels. Establish a trefoil-shaped chunky beveled metal frame with three broad enamel recesses for the triptych series. Compact first-tier composition, tiny stars and sparse sparks, saturated cinematic magenta rim light, dark navy studio background, soft contact shadow, highly readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+#### 2. Чемодан параллельных сюжетов
+
+- **ID:** `story.world_chapters:t2`
+- **Порог:** 2 триптих миров
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты собрал 2 триптиха миров по правилу «минимум 3 дня в каждом из 3 разных архетипов». Сюжетам понадобился отдельный чемодан!
+- **Fish Drama 3:** `[excited] Ты собрал <emphasis>2 триптиха миров</emphasis> по правилу «минимум 3 дня в каждом из 3 разных архетипов». Сюжетам понадобился отдельный чемодан!`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: a fantastical travel trunk opening into three connected fan-shaped compartments, built from glossy violet metal with translucent magenta glass lids and oversized rounded corner guards. Compartments contain only soft abstract light, no extra props. Retain the triptych series trefoil-shaped chunky beveled frame with three enamel recesses, adding a deeper double rim and stronger dimensional lift. Tiny stars and lively sparks, saturated cinematic violet-magenta rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+#### 3. Трезубец больших историй
+
+- **ID:** `story.world_chapters:t3`
+- **Порог:** 3 триптих миров
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей коллекции 3 триптиха миров: каждый — минимум по 3 дня в каждом из 3 разных архетипов. Сюжетный трезубец собран!
+- **Fish Drama 3:** `[confident] В твоей коллекции <emphasis>3 триптиха миров</emphasis>: каждый — минимум по 3 дня в каждом из 3 разных архетипов. Сюжетный трезубец собран!`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: a ceremonial crystalline trident with three broad rounded prongs, each containing a different flowing glass texture, joined into one polished violet-metal shaft. Friendly sculptural trophy, not a sharp realistic weapon. Triptych series trefoil-shaped chunky beveled metal frame with three enamel recesses, now a grand triple-layer surround with radiant magenta inner glass. Tiny stars and a triumphant spray of sparks, saturated cinematic violet rim light, dark navy studio background, soft contact shadow, bold silhouette readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+### `story.world_months`
+
+**Правило:** Сохранять эпизоды в разных календарных месяцах. **Единица:** месяц историй. **Источник:** `requires_story`.
+
+#### 1. Листок с продолжением
+
+- **ID:** `story.world_months:t1`
+- **Порог:** 2 месяц историй
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты сохранил эпизоды в 2 разных календарных месяцах. Календарь перевернул лист, а история не ушла на титры!
+- **Fish Drama 3:** `[playful] Ты сохранил эпизоды в <emphasis>2 разных календарных месяцах</emphasis>. Календарь перевернул лист, а история не ушла на титры!`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: a thick blank calendar leaf with a dramatically curled lower corner, made from translucent lavender glass with polished violet-metal binding loops. Absolutely no dates, grid, marks, or writing. Establish an upright oval chunky beveled metal frame with small leaf-shaped enamel recesses for the calendar-story series. Restrained first-tier depth, tiny stars and a few sparks, saturated cinematic magenta rim light, dark navy studio background, soft contact shadow, simple readable silhouette at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+#### 2. Песочные часы сюжета
+
+- **ID:** `story.world_months:t2`
+- **Порог:** 6 месяц историй
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В 6 разных календарных месяцах ты сохранял эпизоды. Время сыпалось, а твоя история собиралась — ни крупицы скучного отчёта!
+- **Fish Drama 3:** `[warm] В <emphasis>6 разных календарных месяцах</emphasis> ты сохранял эпизоды. Время сыпалось, а твоя история собиралась — ни крупицы скучного отчёта!`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: a sculptural hourglass with chunky polished violet-metal supports and translucent magenta glass bulbs, containing a flowing stream of tiny luminous leaf-shaped grains instead of ordinary sand. Keep the leaf grains abstract and sparse for clarity. Calendar-story series upright oval chunky beveled frame with leaf-shaped enamel recesses, now a double rim with richer glass depth. Tiny stars and elegant sparks, saturated cinematic violet-magenta rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+#### 3. Орбита длинной истории
+
+- **ID:** `story.world_months:t3`
+- **Порог:** 12 месяц историй
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя сохранены эпизоды в 12 разных календарных месяцах. Такой истории впору выдавать собственную орбиту!
+- **Fish Drama 3:** `[excited] У тебя сохранены эпизоды в <emphasis>12 разных календарных месяцах</emphasis>. Такой истории впору выдавать собственную орбиту!`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette. One clear hero object: a compact celestial orrery, with a large translucent magenta central sphere enclosed by two sweeping polished violet-metal orbital rings on one integrated pedestal. Broad forms, minimal mechanics, no markings. Calendar-story series upright oval chunky beveled frame with leaf-shaped enamel recesses, expanded into a monumental triple-stepped surround. Tiny stars and bright ascending sparks emphasize the top tier without changing the rarity palette. Saturated cinematic violet rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+### `story.story_weeks`
+
+**Правило:** Сохранять эпизоды в разных неделях. **Единица:** неделя историй. **Источник:** `requires_story`.
+
+#### 1. Хлопушка продолжения
+
+- **ID:** `story.story_weeks:t1`
+- **Порог:** 4 неделя историй
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** У тебя сохранены эпизоды в 4 разных неделях. Хлопушка щёлкнула: у этой истории уже есть продолжение!
+- **Fish Drama 3:** `[excited] У тебя сохранены эпизоды в <emphasis>4 разных неделях</emphasis>. Хлопушка щёлкнула: у этой истории уже есть продолжение!`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One clear hero object: a cinematic clapperboard with a raised hinged top bar, chunky polished gold-metal edges and a completely blank translucent orange enamel face. Broad diagonal color blocks on the top bar, no writing anywhere. Establish a rounded cinema-ticket-shaped chunky beveled metal frame with smooth side notches for the weekly-story series. Compact but radiant first-tier composition, tiny stars and fiery sparks, saturated cinematic orange rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+#### 2. Катушка набирает сюжет
+
+- **ID:** `story.story_weeks:t2`
+- **Порог:** 12 неделя историй
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты сохранил эпизоды в 12 разных неделях. Катушка сюжета уже просит отдельную полку!
+- **Fish Drama 3:** `[playful] Ты сохранил эпизоды в <emphasis>12 разных неделях</emphasis>. Катушка сюжета уже просит отдельную полку!`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One clear hero object: a substantial vintage film reel in polished fiery-gold metal, with broad circular openings filled by translucent orange glass and a short curling film tail integrated into its silhouette. Film contains only blank panels, no images or writing. Weekly-story series rounded cinema-ticket-shaped chunky beveled frame with side notches, upgraded to a deep double rim. Tiny stars and energetic ember-like sparks, saturated cinematic golden-orange rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+#### 3. Премьера большого пути
+
+- **ID:** `story.story_weeks:t3`
+- **Порог:** 26 неделя историй
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты сохранял эпизоды в 26 разных неделях. Устраивай премьеру: у этой истории большой экран!
+- **Fish Drama 3:** `[confident] Ты сохранял эпизоды в <emphasis>26 разных неделях</emphasis>. Устраивай премьеру: у этой истории большой экран!`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette. One clear hero object: a grand stylized cinema projector with a single oversized orange glass lens, chunky gold-metal housing, and simplified integrated reel silhouettes. A short luminous cone emerges from the lens without creating a separate screen. Weekly-story series rounded cinema-ticket-shaped frame with side notches, now monumental triple-beveled metal with deep translucent orange enamel inlays. Tiny stars and a celebratory burst of fiery sparks, saturated cinematic gold-orange rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+## Большие главы
+
+### `chapter.30_days`
+
+**Правило:** Тридцать дней пути и шесть тренировочных дней; прогресс учитывает обе части. **Единица:** % главы. **Источник:** `available`.
+
+#### 1. Закладка на экваторе
+
+- **ID:** `chapter.30_days:t1`
+- **Порог:** 50 % главы
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя 50% главы: прогресс учитывает и 30 дней пути, и 6 тренировочных дней. Закладка на экваторе — сюжет бодро шуршит!
+- **Fish Drama 3:** `[playful] У тебя <emphasis>50% главы</emphasis>: прогресс учитывает и 30 дней пути, и 6 тренировочных дней. Закладка на экваторе — сюжет бодро шуршит!`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm-gold palette. One clear hero object: a broad ribbon bookmark folded into a gentle arch, made from polished warm-gold metal with translucent honey enamel inlays and a simple fishtail end. No book or extra props. Establish a compact shield-shaped chunky beveled frame with subtle layered page-edge contours for the chapter series. Modest first-tier depth, two tiny stars and delicate sparks, saturated cinematic amber rim light, dark navy studio background, soft contact shadow, clean silhouette readable at 96px. No letters, numerals, text, inscriptions, logos, people, bodies, body parts, or user photos.
+
+#### 2. Глава набирает размах
+
+- **ID:** `chapter.30_days:t2`
+- **Порог:** 75 % главы
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя уже 75% главы, где считаются обе части: 30 дней пути и 6 тренировочных дней. Финал машет закладкой, но не торопит!
+- **Fish Drama 3:** `[warm] У тебя уже <emphasis>75% главы</emphasis>, где считаются обе части: 30 дней пути и 6 тренировочных дней. Финал машет закладкой, но не торопит!`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm-gold palette. One clear hero object: an oversized fountain-pen nib with rounded polished gold shoulders, a central amber glass inlay, and a crisp recessed ink channel, angled upward as a writing instrument trophy. No pen lettering, paper, or ink text. Chapter series compact shield-shaped chunky beveled frame with layered page-edge contours, now a broader double rim and deeper honey enamel. Tiny stars and a lively curved sprinkle of sparks, saturated cinematic warm-gold rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+#### 3. Печать пройденной главы
+
+- **ID:** `chapter.30_days:t3`
+- **Порог:** 100 % главы
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты завершил 100% главы: 30 дней пути и 6 тренировочных дней учтены. Ставь сюжетную печать — эта глава уже в твоей истории!
+- **Fish Drama 3:** `[excited] Ты завершил <emphasis>100% главы</emphasis>: 30 дней пути и 6 тренировочных дней учтены. Ставь сюжетную печать — эта глава уже в твоей истории!`
+- **Image prompt:** Premium glossy 3D achievement emblem, common warm-gold palette. One clear hero object: an elegant sealing stamp with a thick translucent honey-glass handle and a broad polished gold-metal base, resting at a proud diagonal on its own plain circular seal impression. The impression is purely geometric and completely unmarked. Chapter series shield-shaped chunky beveled frame with layered page-edge contours, elevated to a confident triple-step rim while retaining the warm-gold common palette. Tiny stars and a bright compact burst of sparks, saturated cinematic amber rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, text, logos, people, bodies, body parts, or user photos.
+
+### `chapter.90_days`
+
+**Правило:** Девяносто дней пути и восемнадцать тренировочных дней; прогресс учитывает обе части. **Единица:** % главы. **Источник:** `available`.
+
+#### 1. Песок пошёл в сюжет
+
+- **ID:** `chapter.90_days:t1`
+- **Порог:** 50 % главы
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя 50% главы с целями «90 дней пути и 18 тренировочных дней». Календарь и железо делят авторство.
+- **Fish Drama 3:** `[playful] У тебя <emphasis>50% главы</emphasis> с целями «90 дней пути и 18 тренировочных дней». Календарь и железо делят авторство.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common rarity, warm gold and honey-amber palette. One hero object: a stout hourglass with thick polished golden supports, translucent amber glass chambers and a suspended stream of luminous golden sand. Compact chunky beveled hexagonal metal frame with restrained enamel inlays, establishing a timekeeping series. A few tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Bold uncluttered silhouette, readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+#### 2. Солнце держит курс
+
+- **ID:** `chapter.90_days:t2`
+- **Порог:** 75 % главы
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты собрал 75% главы «90 дней пути и 18 тренировочных дней»: время идёт, тренировочная история растёт. У календаря появился спортивный сюжет.
+- **Fish Drama 3:** `[confident] Ты собрал 75% главы «90 дней пути и 18 тренировочных дней»: время идёт, тренировочная история растёт. У календаря появился спортивный сюжет.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common rarity, warm gold and honey-amber palette. One hero object: a sculptural golden sundial with a bold triangular gnomon casting a crisp shadow across a translucent amber dial, completely free of markings. A broader double-beveled hexagonal metal frame continues the timekeeping series, with deeper glass inlays and subtle radial relief. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. More dimensional than an entry badge, readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+#### 3. Большое время настало
+
+- **ID:** `chapter.90_days:t3`
+- **Порог:** 100 % главы
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты закрыл 100% главы: 90 дней пути и 18 тренировочных дней. Календарь просит поставить его в титры.
+- **Fish Drama 3:** `[excited] Ты закрыл <emphasis>100% главы</emphasis>: 90 дней пути и 18 тренировочных дней. Календарь просит поставить его в титры.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common rarity, warm gold and honey-amber palette. One hero object: a monumental golden pocket watch with a thick winding crown, domed amber crystal and two broad sculptural clock hands on a blank luminous face. No chain or separate props. Grand triple-stepped hexagonal metal frame completes the timekeeping series, with deep translucent enamel channels and restrained radiant relief. A celebratory halo of tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Strong silhouette readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+### `chapter.365_days`
+
+**Правило:** Год пути и сорок тренировочных дней; прогресс учитывает обе части. **Единица:** % главы. **Источник:** `available`.
+
+#### 1. Жёлудь длинной истории
+
+- **ID:** `chapter.365_days:t1`
+- **Порог:** 50 % главы
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Половина большой истории у тебя: 50% главы с целями «365 дней пути и 40 тренировочных дней». Это сериал, а не забег на один вечер.
+- **Fish Drama 3:** `[playful] Половина большой истории у тебя: 50% главы с целями «365 дней пути и 40 тренировочных дней». Это сериал, а не забег на один вечер.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common rarity, warm gold and honey-amber palette. One hero object: an oversized acorn with a smooth translucent amber seed and a chunky polished golden cap with broad geometric facets. Simple circular beveled metal frame with subtle leaf-shaped enamel recesses, beginning a botanical year-cycle series. A few tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Tactile collectible finish and clean silhouette readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+#### 2. Сюжет в цвету
+
+- **ID:** `chapter.365_days:t2`
+- **Порог:** 75 % главы
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя уже 75% главы «365 дней пути и 40 тренировочных дней». Лень хотела короткометражку, а вышла большая сага.
+- **Fish Drama 3:** `[playful] У тебя уже <emphasis>75% главы</emphasis> «365 дней пути и 40 тренировочных дней». Лень хотела короткометражку, а вышла большая сага.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common rarity, warm gold and honey-amber palette. One hero object: an opening sculptural flower with broad translucent amber petals cupped around a polished golden center, its short curved stem integrated into the same object. Double-layered circular beveled metal frame continues the botanical year-cycle series, with richer leaf-shaped glass inlays and deeper relief. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Bold petal shapes remain readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+#### 3. Год с корнями
+
+- **ID:** `chapter.365_days:t3`
+- **Порог:** 100 % главы
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты завершил 100% годовой главы: 365 дней пути и 40 тренировочных дней. Даже календарь не ожидал такого сюжета.
+- **Fish Drama 3:** `[excited] Ты завершил 100% годовой главы: 365 дней пути и 40 тренировочных дней. Даже календарь не ожидал такого сюжета.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common rarity, warm gold and honey-amber palette. One hero object: a majestic miniature oak tree sculpture with a thick polished golden trunk, broad branching structure and a compact canopy of large translucent amber leaf clusters. Grand triple-beveled circular metal frame completes the botanical year-cycle series, with layered leaf relief and deep glowing glass inlays. Tiny stars and sparks form a restrained celebratory aura. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Simplified canopy and strong trunk readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+### `chapter.foundation`
+
+**Правило:** Пятнадцать тренировочных дней и четыре активные недели. **Единица:** % главы. **Источник:** `available`.
+
+#### 1. Первый отвес привычки
+
+- **ID:** `chapter.foundation:t1`
+- **Порог:** 50 % главы
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты заложил 50% главы с целями «15 тренировочных дней и 4 активные недели». У привычки появился свой строительный участок.
+- **Fish Drama 3:** `[confident] Ты заложил 50% главы с целями «15 тренировочных дней и 4 активные недели». У привычки появился свой строительный участок.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common rarity, warm gold and honey-amber palette. One hero object: a heavy golden plumb bob suspended from a short taut cord, its faceted pointed body containing a luminous amber glass core. Compact square metal frame with chamfered corners, chunky bevels and simple masonry-inspired enamel recesses, beginning a foundation-building series. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Centered architectural composition, readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+#### 2. Мастерок в деле
+
+- **ID:** `chapter.foundation:t2`
+- **Порог:** 75 % главы
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 75% главы «15 тренировочных дней и 4 активные недели». Фундамент крепнет, диван теряет монополию.
+- **Fish Drama 3:** `[playful] В твоей истории уже <emphasis>75% главы</emphasis> «15 тренировочных дней и 4 активные недели». Фундамент крепнет, диван теряет монополию.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common rarity, warm gold and honey-amber palette. One hero object: a bold masonry trowel angled upward, with a broad triangular polished golden blade, thick beveled edges and a translucent amber handle. Double-stepped square metal frame with chamfered corners continues the foundation-building series, adding deeper masonry-like relief and glass seams. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. No loose bricks or extra tools; strong single-object silhouette readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+#### 3. Камень с характером
+
+- **ID:** `chapter.foundation:t3`
+- **Порог:** 100 % главы
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты закрыл 100% главы: 15 тренировочных дней и 4 активные недели. Фундамент готов — каску можно торжественно поставить на полку.
+- **Fish Drama 3:** `[excited] Ты закрыл 100% главы: 15 тренировочных дней и 4 активные недели. Фундамент готов — каску можно торжественно поставить на полку.`
+- **Image prompt:** Premium glossy 3D achievement emblem, common rarity, warm gold and honey-amber palette. One hero object: a monumental wedge-shaped architectural keystone, thick and solid, with polished golden bevels and a deep translucent amber inset following its trapezoid silhouette. Grand triple-stepped square metal frame with chamfered corners completes the foundation-building series, using bold interlocking masonry relief rather than additional objects. Tiny stars and sparks radiate from the keystone edges, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Clear monumental silhouette readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+### `chapter.craft`
+
+**Правило:** Тридцать дней, сто пятьдесят подходов и двенадцать активных недель. **Единица:** % главы. **Источник:** `available`.
+
+#### 1. Молоток вошёл в чат
+
+- **ID:** `chapter.craft:t1`
+- **Порог:** 50 % главы
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя 50% главы с целями «30 дней, 150 подходов и 12 активных недель». Мастерская открыта, железо больше не реквизит.
+- **Fish Drama 3:** `[playful] У тебя 50% главы с целями «30 дней, 150 подходов и 12 активных недель». Мастерская открыта, железо больше не реквизит.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare rarity, turquoise and sapphire palette with cool polished metal. One hero object: a chunky craftsman's mallet with a broad cylindrical sapphire-glass head, thick metal end caps and a short turquoise enamel handle. Compact octagonal beveled metal frame with inset glass channels, beginning a workshop-tool series. Tiny stars and sparks, saturated cinematic cyan rim light with sapphire reflections, dark navy studio background, soft contact shadow. Bold balanced proportions and minimal small detail, readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+#### 2. Стружка большого опыта
+
+- **ID:** `chapter.craft:t2`
+- **Порог:** 75 % главы
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты собрал 75% главы «30 дней, 150 подходов и 12 активных недель». В этой мастерской опыт копится, а не выдаётся напрокат.
+- **Fish Drama 3:** `[confident] Ты собрал <emphasis>75% главы</emphasis> «30 дней, 150 подходов и 12 активных недель». В этой мастерской опыт копится, а не выдаётся напрокат.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare rarity, turquoise and sapphire palette with cool polished metal. One hero object: a sculptural hand plane with a broad polished metal sole, translucent sapphire body and chunky turquoise rear grip; one small curled glass shaving emerges directly from its mouth as an integrated detail. Double-layered octagonal beveled metal frame continues the workshop-tool series with deeper enamel channels. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Simplified recognizable profile readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+#### 3. Наковальня личной саги
+
+- **ID:** `chapter.craft:t3`
+- **Порог:** 100 % главы
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты завершил 100% главы: 30 дней, 150 подходов и 12 активных недель. Железо молчит, но по звону слышно: впечатлено.
+- **Fish Drama 3:** `[excited] Ты завершил 100% главы: 30 дней, 150 подходов и 12 активных недель. Железо молчит, но по звону слышно: впечатлено.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare rarity, turquoise and sapphire palette with cool polished metal. One hero object: a monumental anvil with a broad mirror-polished striking surface, an unmistakable tapered horn and a thick sapphire-glass body reinforced by turquoise enamel panels. Grand triple-stepped octagonal beveled metal frame completes the workshop-tool series, with deep luminous glass channels and strong industrial relief. A controlled burst of tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. No hammer or additional tools; powerful silhouette readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+### `chapter.atlas`
+
+**Правило:** Шестьдесят дней и двадцать шесть активных недель. **Единица:** % главы. **Источник:** `available`.
+
+#### 1. Карта расправляет плечи
+
+- **ID:** `chapter.atlas:t1`
+- **Порог:** 50 % главы
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Тебе уже покорились 50% главы с целями «60 дней и 26 активных недель». На карте твоей истории стало меньше белых пятен.
+- **Fish Drama 3:** `[confident] Тебе уже покорились 50% главы с целями «60 дней и 26 активных недель». На карте твоей истории стало меньше белых пятен.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare rarity, turquoise and sapphire palette with cool polished metal. One hero object: a partially unfurled map made from thick translucent turquoise glass, with curled upper and lower edges and a single abstract sapphire route line without symbols or labels. Compact diamond-shaped chunky beveled metal frame with restrained navigational relief, beginning an exploration series. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Bold scroll silhouette and broad surfaces readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+#### 2. Секстант больших историй
+
+- **ID:** `chapter.atlas:t2`
+- **Порог:** 75 % главы
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоём атласе отмечены 75% главы «60 дней и 26 активных недель». Картограф достал лист побольше: история не помещается.
+- **Fish Drama 3:** `[playful] В твоём атласе отмечены <emphasis>75% главы</emphasis> «60 дней и 26 активных недель». Картограф достал лист побольше: история не помещается.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare rarity, turquoise and sapphire palette with cool polished metal. One hero object: a simplified navigator's sextant with a broad polished metal arc, a thick turquoise enamel index arm and a single sapphire-glass viewing lens, no scale markings. Double-stepped diamond-shaped beveled metal frame continues the exploration series with deeper compass-ray relief and translucent glass inlays. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Large triangular negative space and chunky components readable at 96px. No letters, digits, inscriptions, logos, people, bodies or photographs.
+
+#### 3. Глобус пройденной главы
+
+- **ID:** `chapter.atlas:t3`
+- **Порог:** 100 % главы
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты закрыл 100% главы: 60 дней и 26 активных недель. Это уже не точка на карте, а целая экспедиция с собственным глобусом.
+- **Fish Drama 3:** `[excited] Ты закрыл <emphasis>100% главы</emphasis>: 60 дней и 26 активных недель. Это уже не точка на карте, а целая экспедиция с собственным глобусом.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare rarity, turquoise and sapphire palette with cool polished metal. One hero object: a grand desktop globe with a luminous sapphire-glass ocean, broad raised turquoise continents and a thick polished metal meridian cradle integrated into its pedestal. Grand triple-stepped diamond-shaped beveled metal frame completes the exploration series, with deep navigational relief and radiant glass inlays. Tiny stars and sparks form a restrained orbital arc, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Clear spherical silhouette readable at 96px. No labels, letters, digits, inscriptions, logos, people, bodies or photographs.
+
+### `chapter.balance`
+
+**Правило:** Базовые ступени регулярности, практики и наблюдений или плана. **Единица:** % главы. **Источник:** `available`.
+
+#### 1. Баланс без цирка
+
+- **ID:** `chapter.balance:t1`
+- **Порог:** 50 % главы
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты закрыл 50% главы о регулярности, практике и наблюдениях или плане. Половина уже в истории — баланс держится не на обещаниях!
+- **Fish Drama 3:** `[confident] Ты закрыл 50% главы о регулярности, практике и наблюдениях или плане. Половина уже в истории — баланс держится не на обещаниях!`
+- **Image prompt:** Premium glossy 3D achievement emblem, balance series, rare turquoise and sapphire palette. One hero object: a polished sapphire plumb bob suspended perfectly over a small luminous socket, suggesting a newly found center. Compact chunky beveled metal frame with translucent turquoise enamel and glass inlays, subtle concentric calibration grooves without markings. Restrained tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Centered silhouette, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+#### 2. Опора найдена
+
+- **ID:** `chapter.balance:t2`
+- **Порог:** 75 % главы
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя уже 75% главы о регулярности, практике и наблюдениях или плане. Обещаниям пора подвинуться: здесь место для сделанного.
+- **Fish Drama 3:** `[playful] У тебя уже 75% главы о регулярности, практике и наблюдениях или плане. Обещаниям пора подвинуться: здесь место для сделанного.`
+- **Image prompt:** Premium glossy 3D achievement emblem, balance series, rare turquoise and sapphire palette. One hero object: an elegant mechanical gyroscope with a luminous sapphire core held steady inside nested turquoise glass rings. Broader chunky beveled metal frame than the introductory emblem, matching concentric groove details, translucent enamel inlays. The rings tilt dynamically while the core stays centered. Tiny stars and crisp sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow. Strong silhouette readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+#### 3. Всё сошлось
+
+- **ID:** `chapter.balance:t3`
+- **Порог:** 100 % главы
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты завершил 100% главы о регулярности, практике и наблюдениях или плане. Эта история собрана целиком — даже хаосу нечего добавить.
+- **Fish Drama 3:** `[proud] Ты завершил <emphasis>100% главы</emphasis> о регулярности, практике и наблюдениях или плане. Эта история собрана целиком — даже хаосу нечего добавить.`
+- **Image prompt:** Premium glossy 3D achievement emblem, balance series finale, rare turquoise and sapphire palette. One hero object: a majestic sculptural balance scale with two level translucent sapphire pans and a radiant turquoise central pillar. Expansive chunky beveled metal frame, layered concentric detailing, thick glass and enamel inlays. Symmetrical composition with a luminous halo behind the scale, more tiny stars and celebratory sparks than earlier tiers. Saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+### `chapter.worlds`
+
+**Правило:** Десять миров, тридцать сюжетных дней и двенадцать активных недель. **Единица:** % главы. **Источник:** `requires_story`.
+
+#### 1. Ключ от приключений
+
+- **ID:** `chapter.worlds:t1`
+- **Порог:** 50 % главы
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты прошёл 50% главы про 10 миров, 30 сюжетных дней и 12 активных недель. У этой истории уже есть размах — и явно не карманный.
+- **Fish Drama 3:** `[excited] Ты прошёл 50% главы про 10 миров, 30 сюжетных дней и 12 активных недель. У этой истории уже есть размах — и явно не карманный.`
+- **Image prompt:** Premium glossy 3D achievement emblem, story worlds series, epic violet and magenta palette. One hero object: a chunky dimensional portal key made of violet metal, with a translucent magenta crystal bow containing a miniature swirling nebula. Rounded portal-shaped beveled metal frame, glass and enamel inlays, subtle orbital grooves. The key floats diagonally above a small pool of portal light. Tiny stars and sparks, saturated cinematic violet rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+#### 2. Сюжет набирает обороты
+
+- **ID:** `chapter.worlds:t2`
+- **Порог:** 75 % главы
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории уже 75% главы про 10 миров, 30 сюжетных дней и 12 активных недель. Приключение явно переросло формат «загляну на минутку».
+- **Fish Drama 3:** `[playful] В твоей истории уже 75% главы про 10 миров, 30 сюжетных дней и 12 активных недель. Приключение явно переросло формат «загляну на минутку».`
+- **Image prompt:** Premium glossy 3D achievement emblem, story worlds series, epic violet and magenta palette. One hero object: an unfolding accordion star atlas sculpted from thick translucent violet glass, its panels carrying raised miniature terrain islands connected by a single glowing magenta route, entirely without symbols or labels. Enlarged portal-shaped chunky beveled metal frame with orbital grooves and enamel inlays. Tiny stars and bright sparks spill around the dimensional folds. Saturated cinematic violet rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+#### 3. Миры в коллекции
+
+- **ID:** `chapter.worlds:t3`
+- **Порог:** 100 % главы
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты завершил 100% главы: 10 миров, 30 сюжетных дней и 12 активных недель теперь в твоей истории. Финальные титры? Только для этой главы!
+- **Fish Drama 3:** `[excited] Ты завершил 100% главы: 10 миров, 30 сюжетных дней и 12 активных недель теперь в твоей истории. Финальные титры? Только для этой главы!`
+- **Image prompt:** Premium glossy 3D achievement emblem, story worlds series finale, epic violet and magenta palette. One hero object: a magnificent translucent celestial globe with raised violet fantasy continents and a brilliant magenta inner nebula, encircled by an integrated sweeping orbital band. Grand layered portal-shaped chunky beveled metal frame with thick enamel and glass inlays. A dramatic portal halo opens behind the globe, surrounded by tiny stars and celebratory sparks. Saturated cinematic violet rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+### `chapter.second_year`
+
+**Правило:** Два года пути, восемьдесят дней и пятьдесят две активные недели. **Единица:** % главы. **Источник:** `available`.
+
+#### 1. Время на твоей стороне
+
+- **ID:** `chapter.second_year:t1`
+- **Порог:** 50 % главы
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя уже 50% главы про 2 года пути, 80 дней и 52 активные недели. Такой багаж в карман не спрячешь — разве что карман волшебный.
+- **Fish Drama 3:** `[playful] У тебя уже 50% главы про 2 года пути, 80 дней и 52 активные недели. Такой багаж в карман не спрячешь — разве что карман волшебный.`
+- **Image prompt:** Premium glossy 3D achievement emblem, time chronicle series, epic violet and magenta palette. One hero object: a compact hourglass with thick violet crystal bulbs, polished metal collars, and luminous magenta sand forming a small settled mound. Chunky beveled metal frame shaped like a softly squared archival medallion, translucent enamel inlays and a subtle stepped border. A restrained scattering of tiny stars and sparks. Saturated cinematic magenta rim light, dark navy studio background, soft contact shadow. Clean dimensional silhouette readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+#### 2. Хроника с характером
+
+- **ID:** `chapter.second_year:t2`
+- **Порог:** 75 % главы
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты собрал 75% главы про 2 года пути, 80 дней и 52 активные недели. Календарь здесь не командир, а летописец твоей практики.
+- **Fish Drama 3:** `[warm] Ты собрал 75% главы про 2 года пути, 80 дней и 52 активные недели. Календарь здесь не командир, а летописец твоей практики.`
+- **Image prompt:** Premium glossy 3D achievement emblem, time chronicle series, epic violet and magenta palette. One hero object: a sculptural sundial with a tall polished violet gnomon casting a crisp shadow across a thick translucent magenta circular base, no markings on its surface. Expanded softly squared chunky beveled metal frame with archival stepped borders and enamel inlays. A luminous arc suggests the passage of light without becoming a separate object. Tiny stars and sparks, saturated cinematic magenta rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+#### 3. Два года в копилке
+
+- **ID:** `chapter.second_year:t3`
+- **Порог:** 100 % главы
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории — 100% главы: 2 года пути, 80 дней и 52 активные недели. Время не просто прошло: ты наполнил его практикой.
+- **Fish Drama 3:** `[proud] В твоей истории — 100% главы: 2 года пути, 80 дней и 52 активные недели. Время не просто прошло: ты наполнил его <emphasis>практикой</emphasis>.`
+- **Image prompt:** Premium glossy 3D achievement emblem, time chronicle series finale, epic violet and magenta palette. One hero object: a monumental open-cased pendulum mechanism with a broad violet crystal bob, ornate structural metal arches, and glowing magenta glass side panels; no clock face. Grand softly squared chunky beveled metal frame with deep stepped archival borders and layered translucent enamel inlays. The pendulum rests at center within a radiant vertical halo. Tiny stars and abundant delicate sparks, saturated cinematic magenta rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+### `chapter.veteran`
+
+**Правило:** Сто двадцать дней, тысяча подходов и пятьдесят две активные недели. **Единица:** % главы. **Источник:** `available`.
+
+#### 1. Сплав опыта
+
+- **ID:** `chapter.veteran:t1`
+- **Порог:** 50 % главы
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты собрал 50% главы про 120 дней, 1000 подходов и 52 активные недели. Опыт уже звенит металлом, а не пустыми обещаниями.
+- **Fish Drama 3:** `[confident] Ты собрал 50% главы про 120 дней, 1000 подходов и 52 активные недели. Опыт уже звенит металлом, а не пустыми обещаниями.`
+- **Image prompt:** Premium glossy 3D achievement emblem, veteran forge series, legendary fiery gold and orange palette. One hero object: a heavy polished gold ingot with a translucent orange enamel seam glowing like captured forge light, resting at a proud diagonal. Chunky beveled metal shield frame with thick industrial corner facets and glass inlays. Subtle molten reflections rather than flames engulfing the object. Tiny stars and hot sparks, saturated cinematic orange rim light, dark navy studio background, soft contact shadow. Bold silhouette readable at 96px. No stamps, text, letters, digits, logos, people, bodies, or user photos.
+
+#### 2. Кузница большой истории
+
+- **ID:** `chapter.veteran:t2`
+- **Порог:** 75 % главы
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** У тебя готово 75% главы про 120 дней, 1000 подходов и 52 активные недели. Столько практики — у железа впору брать автограф у твоего дневника.
+- **Fish Drama 3:** `[playful] У тебя готово 75% главы про 120 дней, 1000 подходов и 52 активные недели. Столько практики — у железа впору брать автограф у твоего дневника.`
+- **Image prompt:** Premium glossy 3D achievement emblem, veteran forge series, legendary fiery gold and orange palette. One hero object: a massive ceremonial anvil with a mirror-polished golden top and deep translucent orange glass channels embedded in its body. Expanded chunky beveled metal shield frame with matching industrial corner facets, layered enamel inlays, and a warm radiant opening behind the anvil. Tiny stars and energetic forge sparks emphasize the established silhouette without clutter. Saturated cinematic orange rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+#### 3. Золотой фонд практики
+
+- **ID:** `chapter.veteran:t3`
+- **Порог:** 100 % главы
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты завершил 100% главы: 120 дней, 1000 подходов и 52 активные недели в твоей истории. Железо торжественно снимает воображаемую шляпу.
+- **Fish Drama 3:** `[proud] Ты завершил 100% главы: 120 дней, 1000 подходов и 52 активные недели в твоей истории. Железо торжественно снимает воображаемую шляпу.`
+- **Image prompt:** Premium glossy 3D achievement emblem, veteran forge series finale, legendary fiery gold and orange palette. One hero object: an imposing circular vault door standing slightly ajar, its thick golden metal face and integrated radial locking mechanism revealing a brilliant translucent orange interior glow. Monumental layered chunky beveled metal shield frame with industrial corner facets and rich enamel and glass inlays. A broad fiery halo, tiny stars, and triumphant sparks create the grandest composition in the series. Saturated cinematic orange rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+## Точность тренажёра
+
+### `measured.rhythm`
+
+**Правило:** Накопить подходы с валидным коэффициентом вариации длительности повторений. **Единица:** стабильный подход. **Источник:** `requires_sensor`.
+
+#### 1. Ритм попал в запись
+
+- **ID:** `measured.rhythm:t1`
+- **Порог:** 3 стабильный подход
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 3 подхода с валидным коэффициентом вариации длительности повторений. Датчик поймал ритм — без гадания на блинах.
+- **Fish Drama 3:** `[playful] Ты накопил 3 подхода с валидным коэффициентом вариации длительности повторений. Датчик поймал ритм — без гадания на блинах.`
+- **Image prompt:** Premium glossy 3D achievement emblem, measured rhythm series, common warm gold palette. One hero object: a compact mechanical metronome with a chunky golden housing, translucent honey enamel front, and a clearly visible single pendulum, no scale markings. Rounded chunky beveled metal frame with subtle evenly spaced inset grooves and glass details. A small warm pulse halo sits behind the metronome. Tiny stars and restrained sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow. Simple strong silhouette readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+#### 2. Ритм с продолжением
+
+- **ID:** `measured.rhythm:t2`
+- **Порог:** 10 стабильный подход
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей истории уже 10 подходов с валидным коэффициентом вариации длительности повторений. У датчика набралась маленькая ритм-секция.
+- **Fish Drama 3:** `[happy] В твоей истории уже 10 подходов с валидным коэффициентом вариации длительности повторений. У датчика набралась маленькая ритм-секция.`
+- **Image prompt:** Premium glossy 3D achievement emblem, measured rhythm series, common warm gold palette. One hero object: a polished mechanical music cylinder with bold raised golden pins and translucent honey glass end caps, displayed diagonally in a minimal integrated cradle. Enlarged rounded chunky beveled metal frame with matching evenly spaced inset grooves and enamel inlays. Soft concentric pulse rings glow behind the cylinder, suggesting recorded rhythm without musical notation. Tiny stars and bright sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+#### 3. Оркестр данных
+
+- **ID:** `measured.rhythm:t3`
+- **Порог:** 30 стабильный подход
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 30 подходов с валидным коэффициентом вариации длительности повторений. Ритм обзавёлся архивом — метроном уважительно щёлкает.
+- **Fish Drama 3:** `[proud] Ты накопил 30 подходов с валидным коэффициентом вариации длительности повторений. Ритм обзавёлся архивом — метроном уважительно щёлкает.`
+- **Image prompt:** Premium glossy 3D achievement emblem, measured rhythm series finale, common warm gold palette. One hero object: a grand precision flywheel with thick golden spokes, a luminous honey glass outer rim, and a polished central bearing, presented in a clear three-quarter view. Broad layered rounded chunky beveled metal frame with matching evenly spaced grooves and translucent enamel inlays. A full circular pulse halo gives the mechanism a composed ceremonial presence, with more tiny stars and sparks than earlier tiers. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, digits, logos, people, bodies, or user photos.
+
+### `measured.rhythm_days`
+
+**Правило:** Накопить дни с двумя валидными стабильными подходами. **Единица:** день стабильности. **Источник:** `requires_sensor`.
+
+#### 1. Маятник проснулся
+
+- **ID:** `measured.rhythm_days:t1`
+- **Порог:** 3 день стабильности
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя накопилось 3 дня с двумя валидными стабильными подходами по данным датчика. Ритм завёлся — лень ищет кнопку выключения.
+- **Fish Drama 3:** `[playful]У тебя накопилось 3 дня с двумя валидными стабильными подходами по данным датчика. Ритм завёлся — лень ищет кнопку выключения.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a warm-gold rhythm workshop series. One clear hero object: a compact mechanical metronome with a thick polished pendulum and translucent honey-glass window. Chunky beveled metal frame with paired recessed grooves, restrained warm gold common-rarity palette, amber enamel inlays. Slightly tilted three-quarter view, a small luminous arc suggesting steady motion, tiny stars and sparks. Saturated cinematic golden rim light, dark navy studio background, soft contact shadow, bold silhouette readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 2. Камертон в деле
+
+- **ID:** `measured.rhythm_days:t2`
+- **Порог:** 10 день стабильности
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Уже 10 дней с двумя валидными стабильными подходами по датчику в твоей истории. Ты держишь ритм, а железо подпевает без права на соло.
+- **Fish Drama 3:** `[confident]Уже 10 дней с двумя валидными стабильными подходами по датчику в твоей истории. Ты держишь ритм, а железо подпевает без права на соло.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of a warm-gold rhythm workshop series. One clear hero object: a sculptural tuning fork with thick rounded gold prongs and translucent amber enamel channels, surrounded by two broad glass resonance ripples. Chunky beveled metal frame with paired recessed grooves, deeper layered construction than the first tier, common-rarity warm gold palette. Centered three-quarter composition, tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 3. Колокол ровного хода
+
+- **ID:** `measured.rhythm_days:t3`
+- **Порог:** 25 день стабильности
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** За тобой 25 дней с двумя валидными стабильными подходами, подтверждёнными датчиком. Твой ритм уже заслужил собственный колокол!
+- **Fish Drama 3:** `[excited]За тобой 25 дней с двумя валидными стабильными подходами, подтверждёнными датчиком. Твой ритм уже заслужил собственный колокол!`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a warm-gold rhythm workshop series. One clear hero object: a grand polished bell with a thick flared lip, a visible rounded clapper, and translucent honey-glass shoulder inlays. Broad sculpted sound arcs sit behind the bell as integrated decorative relief. Chunky double-beveled metal frame with paired recessed grooves, richer depth and a wider crest than earlier tiers, strictly common-rarity warm gold palette. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+### `measured.repeatable`
+
+**Правило:** Повторить ритм одного упражнения в разные дни с близкой медианой. **Единица:** сопоставимая пара. **Источник:** `requires_sensor`.
+
+#### 1. Ритм вернулся
+
+- **ID:** `measured.repeatable:t1`
+- **Порог:** 1 сопоставимая пара
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя 1 сопоставимая пара: одно упражнение в разные дни, близкие медианы ритма по датчику. Эхо вернулось с доказательствами!
+- **Fish Drama 3:** `[playful]У тебя 1 сопоставимая пара: одно упражнение в разные дни, близкие медианы ритма по датчику. Эхо вернулось с доказательствами!`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a warm-gold returning-echo series. One clear hero object: a small concave sonar dish with a chunky central receiver and translucent amber-glass interior. Two nested curved reflections are embedded in the dish, suggesting an echo returning. Chunky beveled metal frame with a continuous rounded return-loop border, common-rarity warm gold palette, honey enamel accents. Compact three-quarter composition, tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 2. Бумеранг по расписанию
+
+- **ID:** `measured.repeatable:t2`
+- **Порог:** 5 сопоставимая пара
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоей копилке 5 сопоставимых пар: в каждой — одно упражнение в разные дни с близкими медианами ритма по датчику. Вот такой бумеранг ты запускаешь!
+- **Fish Drama 3:** `[confident]В твоей копилке 5 сопоставимых пар: в каждой — одно упражнение в разные дни с близкими медианами ритма по датчику. Вот такой бумеранг ты запускаешь!`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of a warm-gold returning-echo series. One clear hero object: a broad sculptural boomerang with polished gold edges and thick translucent amber enamel wings, hovering along a single curved glass return trail. Chunky beveled metal frame with the same rounded return-loop border, now layered and deeper, common-rarity warm gold palette. Strong diagonal composition with ample negative space, tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 3. Эхо с характером
+
+- **ID:** `measured.repeatable:t3`
+- **Порог:** 15 сопоставимая пара
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 15 сопоставимых пар: в каждой — одно упражнение в разные дни с близкими медианами ритма по датчику. Этому эху уже нужна персональная ракушка!
+- **Fish Drama 3:** `[excited]Ты накопил 15 сопоставимых пар: в каждой — одно упражнение в разные дни с близкими медианами ритма по датчику. Этому эху уже нужна персональная ракушка!`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a warm-gold returning-echo series. One clear hero object: a monumental spiral conch shell sculpted from polished gold, with a deep translucent amber-glass opening and broad smooth spiral ridges. A luminous curved echo ribbon wraps behind the shell without becoming a second object. Chunky double-beveled metal frame with an expanded rounded return-loop border, common-rarity warm gold palette, richer depth than earlier tiers. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+### `measured.verified_workouts`
+
+**Правило:** Накопить тренировки с доказанным датчиковым происхождением. **Единица:** подтверждённая тренировка. **Источник:** `requires_sensor`.
+
+#### 1. Железная подпись
+
+- **ID:** `measured.verified_workouts:t1`
+- **Порог:** 3 подтверждённая тренировка
+- **Ступень:** Начало
+- **Редкость:** Обычная (`common`)
+- **Фраза:** У тебя накопились 3 тренировки, данные которых подтверждённо пришли от датчика. Железо подписалось под историей!
+- **Fish Drama 3:** `[pleased]У тебя накопились 3 тренировки, данные которых подтверждённо пришли от датчика. Железо подписалось под историей!`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a warm-gold archive-of-evidence series. One clear hero object: a substantial seal stamp standing at a slight angle, with a rounded gold handle and a blank translucent honey-glass stamping face. The face contains only a smooth abstract concentric relief, never writing or a glyph. Chunky beveled metal frame with folded-corner ornament, common-rarity warm gold palette, amber enamel inlays. Tiny stars and sparks, saturated cinematic golden rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+#### 2. Сундук свидетельств
+
+- **ID:** `measured.verified_workouts:t2`
+- **Порог:** 10 подтверждённая тренировка
+- **Ступень:** Практика
+- **Редкость:** Обычная (`common`)
+- **Фраза:** В твоём архиве уже 10 тренировок с данными, подтверждённо полученными от датчика. Железо теперь ещё и летописец.
+- **Fish Drama 3:** `[playful]В твоём архиве уже 10 тренировок с данными, подтверждённо полученными от датчика. Железо теперь ещё и летописец.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of a warm-gold archive-of-evidence series. One clear hero object: a compact archival treasure chest with a domed translucent amber-glass lid, thick polished gold ribs, and a simple geometric latch. A soft inner glow shines through the closed lid; no separate contents are visible. Chunky beveled metal frame with layered folded-corner ornament, common-rarity warm gold palette, increased depth and richer detailing. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 3. Летопись без баек
+
+- **ID:** `measured.verified_workouts:t3`
+- **Порог:** 25 подтверждённая тренировка
+- **Ступень:** Мастерство
+- **Редкость:** Обычная (`common`)
+- **Фраза:** Ты накопил 25 тренировок, данные которых подтверждённо пришли от датчика. Архив уже просит парадный свиток — есть что вписать в историю!
+- **Fish Drama 3:** `[proud]Ты накопил 25 тренировок, данные которых подтверждённо пришли от датчика. Архив уже просит парадный свиток — есть что вписать в историю!`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a warm-gold archive-of-evidence series. One clear hero object: a majestic partially unfurled scroll made of translucent honey glass, with thick polished gold rollers and a completely blank curved surface. A single broad enamel ribbon is molded into the scroll's lower edge. Chunky double-beveled metal frame with expanded folded-corner ornament, common-rarity warm gold palette, ceremonial depth without changing rarity colors. Tiny stars and sparks, saturated cinematic rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+### `measured.verified_sets`
+
+**Правило:** Накопить подходы с валидным датчиковым provenance. **Единица:** подтверждённый подход. **Источник:** `requires_sensor`.
+
+#### 1. Заклёпка факта
+
+- **ID:** `measured.verified_sets:t1`
+- **Порог:** 10 подтверждённый подход
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя накопилось 10 подходов с подтверждённым происхождением данных от датчика. Факты держатся крепче заклёпок.
+- **Fish Drama 3:** `[confident]У тебя накопилось 10 подходов с подтверждённым происхождением данных от датчика. Факты держатся крепче заклёпок.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a turquoise-and-sapphire evidence-construction series. One clear hero object: an oversized industrial rivet with a broad rounded sapphire-glass head, polished turquoise metal collar, and short solid shaft. Its chunky silhouette suggests a firm foundation rather than a tool in use. Chunky beveled metal frame with stepped architectural corners, rare-rarity turquoise and sapphire palette, translucent enamel inlays. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 2. Арка из подходов
+
+- **ID:** `measured.verified_sets:t2`
+- **Порог:** 50 подтверждённый подход
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Данные 50 твоих подходов имеют подтверждённое происхождение от датчика. Вот это ты строишь архив — ни одного кирпича из слухов!
+- **Fish Drama 3:** `[animated]Данные 50 твоих подходов имеют подтверждённое происхождение от датчика. Вот это ты строишь архив — ни одного кирпича из слухов!`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of a turquoise-and-sapphire evidence-construction series. One clear hero object: a freestanding miniature triumphal arch with thick turquoise metal piers, translucent sapphire-glass voussoirs, and an oversized luminous keystone. Keep the architecture bold and simple, with a clear open center and no extra objects. Chunky beveled metal frame with layered stepped architectural corners, rare-rarity turquoise and sapphire palette, deeper construction than the first tier. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 3. Факты на пьедестале
+
+- **ID:** `measured.verified_sets:t3`
+- **Порог:** 150 подтверждённый подход
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 150 подходов, для которых подтверждено: данные пришли от датчика. Железным фактам впору ставить обелиск!
+- **Fish Drama 3:** `[proud]Ты накопил 150 подходов, для которых подтверждено: данные пришли от датчика. Железным фактам впору ставить обелиск!`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a turquoise-and-sapphire evidence-construction series. One clear hero object: a monumental faceted obelisk rising from its integrated stepped plinth, with polished turquoise metal edges and a deep translucent sapphire-glass core. Broad clean planes remain entirely blank. Chunky double-beveled metal frame with expanded stepped architectural corners, rare-rarity turquoise and sapphire palette, greater height and ceremonial depth than earlier tiers. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, bold silhouette readable at 96px. No letters, numerals, inscriptions, logos, people, bodies, or user photos.
+
+### `measured.verified_days`
+
+**Правило:** Накопить дни с валидными датчиковыми результатами. **Единица:** подтверждённый день. **Источник:** `requires_sensor`.
+
+#### 1. Время оставляет след
+
+- **ID:** `measured.verified_days:t1`
+- **Порог:** 3 подтверждённый день
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** У тебя накопились 3 дня с валидными результатами от датчика. Время не просто прошло — оставило железные улики.
+- **Fish Drama 3:** `[pleased]У тебя накопились 3 дня с валидными результатами от датчика. Время не просто прошло — оставило железные улики.`
+- **Image prompt:** Premium glossy 3D achievement emblem, first tier of a turquoise-and-sapphire time-navigation series. One clear hero object: a stout hourglass with translucent sapphire-glass bulbs, a narrow stream of luminous turquoise grains, and polished turquoise metal end caps. A circular orbital groove decorates the surrounding chunky beveled metal frame, establishing the series motif. Rare-rarity turquoise and sapphire palette, glossy enamel inlays, simple front three-quarter view. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 2. Компас подтверждений
+
+- **ID:** `measured.verified_days:t2`
+- **Порог:** 10 подтверждённый день
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** За твоими плечами 10 дней с валидными датчиковыми результатами. Календарь тихо звенит медалями — ты пополняешь историю.
+- **Fish Drama 3:** `[warm]За твоими плечами 10 дней с валидными датчиковыми результатами. Календарь тихо звенит медалями — ты пополняешь историю.`
+- **Image prompt:** Premium glossy 3D achievement emblem, second tier of a turquoise-and-sapphire time-navigation series. One clear hero object: an open-faced expedition compass with a thick turquoise metal housing, a domed sapphire-glass lens, and one broad floating magnetic needle. The dial is completely blank, with no cardinal labels or tick marks. Chunky beveled metal frame with layered circular orbital grooves, rare-rarity turquoise and sapphire palette, richer enamel depth than the first tier. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+#### 3. Орбита фактов
+
+- **ID:** `measured.verified_days:t3`
+- **Порог:** 25 подтверждённый день
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** 25 дней с валидными результатами от датчика уже в твоей истории. Ты собрал целую орбиту фактов — без гонки за календарём.
+- **Fish Drama 3:** `[confident]25 дней с валидными результатами от датчика уже в твоей истории. Ты собрал целую орбиту фактов — без гонки за календарём.`
+- **Image prompt:** Premium glossy 3D achievement emblem, culminating tier of a turquoise-and-sapphire time-navigation series. One clear hero object: a grand armillary sphere formed from three thick polished turquoise orbital bands around a luminous sapphire-glass core, mounted on a short integrated pedestal. Bands have smooth blank surfaces and broad readable spacing. Chunky double-beveled metal frame with expanded circular orbital grooves, rare-rarity turquoise and sapphire palette, majestic layered depth while preserving a simple silhouette. Tiny stars and sparks, saturated cinematic cyan rim light, dark navy studio background, soft contact shadow, readable at 96px. No letters, numerals, writing, logos, people, bodies, or user photos.
+
+### `measured.verified_reps`
+
+**Правило:** Накопить повторения с валидным датчиковым provenance. **Единица:** подтверждённое повторение. **Источник:** `requires_sensor`.
+
+#### 1. Железное алиби
+
+- **ID:** `measured.verified_reps:t1`
+- **Порог:** 100 подтверждённое повторение
+- **Ступень:** Начало
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** В твоей истории уже 100 повторений, подтверждённых достоверными данными датчика. Железо, версия «тебе показалось» больше не принимается!
+- **Fish Drama 3:** `[playful] В твоей истории уже 100 повторений, подтверждённых достоверными данными датчика. Железо, версия «тебе показалось» больше не принимается!`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette, first tier of a mechanical counting archive series. One hero object: a compact mechanical tally clicker with a chunky lever and a translucent sapphire side panel revealing luminous turquoise beads, no display or markings. Chunky beveled octagonal metal frame with translucent enamel inlays, restrained depth, tiny stars and sparks. Saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow, centered composition, readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+#### 2. Архив без отговорок
+
+- **ID:** `measured.verified_reps:t2`
+- **Порог:** 500 подтверждённое повторение
+- **Ступень:** Практика
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** Ты накопил 500 повторений с достоверным подтверждением датчика. Архив растёт: у каждого повтора есть алиби.
+- **Fish Drama 3:** `[confident] Ты накопил <emphasis>500 повторений</emphasis> с достоверным подтверждением датчика. Архив растёт: у каждого повтора есть алиби.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette, second tier of a mechanical counting archive series. One hero object: a sculptural tabletop abacus with thick sapphire rails and polished translucent turquoise beads, tilted slightly forward. Chunky beveled octagonal metal frame matching the series, now double-layered with richer glass inlays and stronger depth. Tiny stars and sparks accent the silhouette. Saturated cinematic sapphire rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+#### 3. Полторы тысячи свидетелей
+
+- **ID:** `measured.verified_reps:t3`
+- **Порог:** 1500 подтверждённое повторение
+- **Ступень:** Мастерство
+- **Редкость:** Редкая (`rare`)
+- **Фраза:** За всё время ты собрал 1500 повторений, подтверждённых достоверными данными датчика. Это уже сага, и у железа в ней роль свидетеля.
+- **Fish Drama 3:** `[excited] За всё время ты собрал 1500 повторений, подтверждённых достоверными данными датчика. Это уже сага, и у железа в ней роль свидетеля.`
+- **Image prompt:** Premium glossy 3D achievement emblem, rare turquoise and sapphire palette, grand third tier of a mechanical counting archive series. One hero object: a monumental miniature archive vault with a thick circular door slightly ajar, revealing an integrated turquoise glass core shaped like a dense bead lattice. Chunky beveled octagonal metal frame with stepped sapphire enamel buttresses, more imposing than earlier tiers. Tiny stars and sparks, saturated cinematic turquoise rim light, dark navy studio background, soft contact shadow, bold silhouette readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+### `measured.calibrated`
+
+**Правило:** Накопить тренировки с зафиксированной валидной калибровкой. **Единица:** калиброванная тренировка. **Источник:** `requires_sensor`.
+
+#### 1. Настройка на дело
+
+- **ID:** `measured.calibrated:t1`
+- **Порог:** 3 калиброванная тренировка
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя накопились 3 тренировки с зафиксированной корректной калибровкой. Тренажёр настроился на дело — без шаманства с бубном.
+- **Fish Drama 3:** `[playful] У тебя накопились 3 тренировки с зафиксированной корректной калибровкой. Тренажёр настроился на дело — без шаманства с бубном.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette, first tier of a precision tuning instrument series. One hero object: a thick polished tuning fork with translucent violet enamel filling its prongs and a vivid magenta glass insert in the handle. Chunky beveled hexagonal metal frame with concentric inset grooves, compact and restrained. Tiny stars and sparks suggest a gentle resonance without adding another object. Saturated cinematic violet rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+#### 2. Оркестр точных настроек
+
+- **ID:** `measured.calibrated:t2`
+- **Порог:** 10 калиброванная тренировка
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории уже 10 тренировок с сохранённой корректной калибровкой. Настройки не потерялись за кулисами — весь оркестр на месте.
+- **Fish Drama 3:** `[confident] В твоей истории уже 10 тренировок с сохранённой корректной калибровкой. Настройки не потерялись за кулисами — весь оркестр на месте.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette, second tier of a precision tuning instrument series. One hero object: an elegant mechanical micrometer with a bold C-shaped violet enamel body, translucent magenta adjustment barrel and polished metal spindle, entirely unmarked. Chunky beveled hexagonal metal frame with doubled concentric inlays and deeper sculptural relief, matching the series. Tiny stars and sparks, saturated cinematic magenta rim light, dark navy studio background, soft contact shadow, clear silhouette readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+#### 3. Пульт на подушке
+
+- **ID:** `measured.calibrated:t3`
+- **Порог:** 25 калиброванная тренировка
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты накопил 25 тренировок с зафиксированной корректной калибровкой. Пульт настройки заслужил бархатную подушку — столько выходов на сцену!
+- **Fish Drama 3:** `[amused] Ты накопил <emphasis>25 тренировок</emphasis> с зафиксированной корректной калибровкой. Пульт настройки заслужил бархатную подушку — столько выходов на сцену!`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette, majestic third tier of a precision tuning instrument series. One hero object: a precision gyroscope with thick nested violet metal rings and a radiant translucent magenta rotor, suspended inside its own sculptural mounting. Chunky beveled hexagonal metal frame with deep concentric glass inlays and raised architectural corners, the most elaborate frame in this series. Tiny stars and sparks, saturated cinematic violet-magenta rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+### `measured.paired_sides`
+
+**Правило:** Накопить дни с канонически подтверждёнными подходами на обе стороны. **Единица:** день двух сторон. **Источник:** `requires_sensor`.
+
+#### 1. Оба края в деле
+
+- **ID:** `measured.paired_sides:t1`
+- **Порог:** 2 день двух сторон
+- **Ступень:** Начало
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** Ты накопил 2 дня с достоверно подтверждёнными датчиком подходами на обе стороны. У железа теперь два повода уважительно скрипнуть.
+- **Fish Drama 3:** `[playful] Ты накопил 2 дня с достоверно подтверждёнными датчиком подходами на обе стороны. У железа теперь два повода уважительно скрипнуть.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette, first tier of a bilateral objects series. One hero object: a stout double-ended open wrench angled diagonally, one jaw filled with translucent violet enamel and the other with magenta glass, both ends equally visible. Chunky beveled shield-shaped metal frame with a distinctive central split in its enamel inlay, compact first-tier construction. Tiny stars and sparks, saturated cinematic violet rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+#### 2. Двусторонний пропуск
+
+- **ID:** `measured.paired_sides:t2`
+- **Порог:** 8 день двух сторон
+- **Ступень:** Практика
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** В твоей истории — 8 дней с достоверно подтверждёнными датчиком подходами на обе стороны. Одностороннее движение? Не в этой главе.
+- **Fish Drama 3:** `[confident] В твоей истории — 8 дней с достоверно подтверждёнными датчиком подходами на обе стороны. Одностороннее движение? Не в этой главе.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette, second tier of a bilateral objects series. One hero object: luxurious compact binoculars with two oversized translucent violet lenses, a polished central hinge and magenta enamel barrels, shown in a strong three-quarter view. Chunky beveled shield-shaped metal frame with the series' split enamel treatment, now broader and double-layered. Tiny stars and sparks, saturated cinematic magenta rim light, dark navy studio background, soft contact shadow, paired silhouette readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+#### 3. Союз двух сторон
+
+- **ID:** `measured.paired_sides:t3`
+- **Порог:** 20 день двух сторон
+- **Ступень:** Мастерство
+- **Редкость:** Эпичная (`epic`)
+- **Фраза:** У тебя уже 20 дней, когда датчик достоверно подтвердил подходы на обе стороны. Это не разовый дуэт, а целая дискография.
+- **Fish Drama 3:** `[excited] У тебя уже 20 дней, когда датчик достоверно подтвердил подходы на обе стороны. Это не разовый дуэт, а целая дискография.`
+- **Image prompt:** Premium glossy 3D achievement emblem, epic violet and magenta palette, triumphant third tier of a bilateral objects series. One hero object: an ornate double-leaf portal with both thick doors open equally, violet translucent glass panels, magenta enamel hinges and a luminous empty interior. Treat the portal as one unified sculptural object. Chunky beveled shield-shaped metal frame with grand stepped shoulders and deep split-color inlays matching the series. Tiny stars and sparks, saturated cinematic violet-magenta rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+### `measured.range_days`
+
+**Правило:** Накопить дни с валидной сохранённой моделью границ каждого повторения. **Единица:** день диапазона. **Источник:** `requires_sensor`.
+
+#### 1. Отсюда и досюда
+
+- **ID:** `measured.range_days:t1`
+- **Порог:** 2 день диапазона
+- **Ступень:** Начало
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты накопил 2 дня, за которые сохранена корректная модель границ каждого повторения. У «отсюда» и «досюда» теперь есть прописка.
+- **Fish Drama 3:** `[amused] Ты накопил 2 дня, за которые сохранена корректная модель границ каждого повторения. У «отсюда» и «досюда» теперь есть прописка.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette, first tier of a boundary mapping instrument series. One hero object: a chunky retractable tape measure with a translucent amber casing and a short curved golden ribbon ending in a bold metal stop, ribbon completely unmarked. Chunky beveled circular metal frame with radiant orange glass inlays, compact but prestigious. Tiny stars and sparks, saturated cinematic fiery gold rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+#### 2. Границы обрели адрес
+
+- **ID:** `measured.range_days:t2`
+- **Порог:** 8 день диапазона
+- **Ступень:** Практика
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** В твоём архиве — 8 дней с сохранённой корректной моделью границ каждого повторения. Рамки вышли из тени и заняли свои места.
+- **Fish Drama 3:** `[confident] В твоём архиве — 8 дней с сохранённой корректной моделью границ каждого повторения. Рамки вышли из тени и заняли свои места.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette, second tier of a boundary mapping instrument series. One hero object: a substantial drafting compass with widely opened polished golden legs, translucent orange enamel channels and an amber glass hinge, hovering over a faint integrated glass arc. Chunky beveled circular metal frame with double radiant bands and richer molten-orange inlays, clearly more elaborate than the first tier. Tiny stars and sparks, saturated cinematic gold-orange rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.
+
+#### 3. Картограф повторений
+
+- **ID:** `measured.range_days:t3`
+- **Порог:** 20 день диапазона
+- **Ступень:** Мастерство
+- **Редкость:** Легендарная (`legendary`)
+- **Фраза:** Ты накопил 20 дней с сохранённой корректной моделью границ каждого повторения. У этой истории даже края попали в летопись.
+- **Fish Drama 3:** `[excited] Ты накопил <emphasis>20 дней</emphasis> с сохранённой корректной моделью границ каждого повторения. У этой истории даже края попали в летопись.`
+- **Image prompt:** Premium glossy 3D achievement emblem, legendary fiery gold and orange palette, monumental third tier of a boundary mapping instrument series. One hero object: an ornate armillary measuring instrument with thick interlocking golden arcs, translucent orange glass bands and prominent integrated endpoint stops, all completely unmarked. Chunky beveled circular metal frame with majestic stepped rays and deep amber enamel inlays, the grandest silhouette in the series. Tiny stars and sparks orbit close to the frame. Saturated cinematic fiery gold-orange rim light, dark navy studio background, soft contact shadow, readable at 96px. No text, letters, numerals, logos, people, bodies or photographs.

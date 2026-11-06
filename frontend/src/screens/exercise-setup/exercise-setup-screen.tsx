@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
-import { AlertTriangle, ArrowLeft, Flag, LockKeyhole, MoveVertical, Play, RotateCcw, SlidersHorizontal, Trash2, X } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Flag, LockKeyhole, MoveVertical, Play, RotateCcw, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { ExerciseDetails } from '@/entities/exercise/model/types'
@@ -198,24 +198,6 @@ export function ExerciseSetupScreen() {
 
   const exerciseSettings = useExerciseSettings({ session, exercise, userId: selectedUserId })
   const settingsOwner = Boolean(session && ownsExerciseSettingsSession(session, selectedUserId))
-
-  useEffect(() => {
-    if (!session || !exercise || session.view !== 'exercise-setup' || !exerciseSettings.ready || exerciseSettings.error) {
-      return
-    }
-
-    if (supportsFixedBarSetup(exercise)) {
-      return
-    }
-
-    let cancelled = false
-    void exerciseSettings.flush().then(saved => {
-      if (cancelled || !saved) return
-      startExercise()
-      navigate(withSearch('/exercise-session', location.search), { replace: true })
-    })
-    return () => { cancelled = true }
-  }, [exercise, exerciseSettings.ready, exerciseSettings.error, exerciseSettings.flush, location.search, navigate, session, startExercise])
 
   useEffect(() => {
     if (session?.view === 'photo-progress') {
@@ -668,6 +650,13 @@ export function ExerciseSetupScreen() {
 
         <div className="rt-body rt-setup-body rt-setup-right" role="region" aria-label="Настройки упражнения">
           <div className="rt-setup-media" data-video-count={setupVideos.length}>
+            <header className="rt-setup-media-head">
+              <span className="rt-setup-media-icon" aria-hidden="true"><Play /></span>
+              <div>
+                <span className="rt-setup-eyebrow">Видео-инструкция</span>
+                <h2>Техника движения</h2>
+              </div>
+            </header>
             {setupVideos.length ? setupVideos.map((video) => (
               <div className="rt-media" key={video.url}>
                 <div className="rt-media-frame">
@@ -826,7 +815,10 @@ export function ExerciseSetupScreen() {
           <Button variant="secondary" iconLeft={<Flag aria-hidden="true" />} onClick={() => setFinishDialogOpen(true)}>
             Завершить тренировку
           </Button>
-          <div className="rt-actions-note">{startBlocked ? 'Запомните точки грифа — настройка сохранится, и старт откроется.' : readyNote}</div>
+          <div className="rt-actions-note" data-ready={!startBlocked}>
+            {startBlocked ? <AlertTriangle aria-hidden="true" /> : <CheckCircle2 aria-hidden="true" />}
+            <span>{startBlocked ? 'Запомните точки грифа — настройка сохранится, и старт откроется.' : readyNote}</span>
+          </div>
           <Button className="rt-primary" disabled={startBlocked || barMoving || startPointSaving || restartingPrevious || startingExercise} iconLeft={<Play aria-hidden="true" />} onClick={() => void handleStartExercise()}>
             {startBlocked ? 'Старт недоступен' : 'Запустить упражнение'}
           </Button>

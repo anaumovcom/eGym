@@ -2,7 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -83,6 +83,15 @@ def load_motor_profile() -> ProfileBundle:
         return load_active(session)
 
 
+class PublicMediaFiles(StaticFiles):
+    """Static media without achievement assets: those need the owner-checked API route."""
+
+    async def get_response(self, path: str, scope):
+        if path.replace("\\", "/").lstrip("/").split("/", 1)[0].casefold() == "achievements":
+            raise HTTPException(status_code=404)
+        return await super().get_response(path, scope)
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
     Path(settings.media_root).mkdir(parents=True, exist_ok=True)
@@ -103,7 +112,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(CoachRequestGuard)
     app.mount(f"{settings.media_url_prefix}/exercises", StaticFiles(directory=EXERCISES_ROOT), name="exercise-media")
-    app.mount(settings.media_url_prefix, StaticFiles(directory=settings.media_root), name="media")
+    app.mount(settings.media_url_prefix, PublicMediaFiles(directory=settings.media_root), name="media")
     app.include_router(api_router, prefix=settings.api_prefix)
     return app
 

@@ -1,5 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog'
-import { ArrowRight, CheckCircle2, CircleAlert, ListChecks, Play, SkipForward, Sparkles } from 'lucide-react'
+import { ArrowRight, CheckCircle2, CircleAlert, Dumbbell, ListChecks, Play, Repeat2, SkipForward, Sparkles, TrendingDown, TrendingUp, Trophy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
@@ -78,6 +78,12 @@ export function ExerciseSummaryScreen() {
   const hasWarning = summary.setResults.some((result) => result.pain || result.techniqueBreakdown || (result.discomfortLevel ?? 0) >= 5)
   const currentLoadLabel = summary.currentLoad ?? '—'
   const nextLoadLabel = summary.nextLoad ?? summary.currentLoad ?? '—'
+  const metrics = [
+    { label: 'Подходы', value: summary.totals.setsCompleted, icon: ListChecks },
+    { label: 'Повторы / время', value: summary.totals.repsOrTime, icon: Repeat2 },
+    { label: 'Объём', value: summary.totals.volume, icon: Dumbbell },
+    { label: 'Лучший подход', value: bestSet, icon: Trophy, accent: true },
+  ]
 
   async function handleAdjustLoad(direction: 'decrease' | 'increase') {
     if (!summary.exerciseSlug || pendingAdjustment) {
@@ -127,7 +133,7 @@ export function ExerciseSummaryScreen() {
 
   return (
     <FormaShell userName={getUserName(selectedUserId)} machine={session.machine} hideNavigation onStop={() => setEmergencyStopActive(true)}>
-      <div className="rt-screen">
+      <div className="rt-screen rt-exercise-summary-screen">
         <header className="rt-header">
           <div className="rt-chips" style={{ justifyContent: 'flex-start' }} aria-label="Место в тренировке">
             {currentExercise ? <span className="rt-chip">Упражнение {currentExercise.order} из {session.exercises.length}</span> : null}
@@ -147,12 +153,15 @@ export function ExerciseSummaryScreen() {
 
         <div className="rt-body rt-summary-body">
           <div className="rt-summary-metrics" role="list" aria-label="Итоги упражнения">
-            <article role="listitem"><span>Подходы</span><strong>{summary.totals.setsCompleted}</strong></article>
-            <article role="listitem"><span>Повторы / время</span><strong>{summary.totals.repsOrTime}</strong></article>
-            <article role="listitem"><span>Объём</span><strong>{summary.totals.volume}</strong></article>
-            <article role="listitem" data-accent="true"><span>Лучший подход</span><strong>{bestSet}</strong></article>
+            {metrics.map(({ label, value, icon: Icon, accent }) => (
+              <article key={label} role="listitem" data-accent={accent || undefined}>
+                <div className="rt-summary-metric-label"><Icon aria-hidden="true" /><span>{label}</span></div>
+                <strong>{value}</strong>
+              </article>
+            ))}
           </div>
 
+          <section className="rt-summary-guidance" aria-label="Рекомендации и следующая нагрузка">
           {saveError ? (
             <div className="rt-alert" data-tone="danger" role="alert">
               <CircleAlert aria-hidden="true" />
@@ -183,20 +192,21 @@ export function ExerciseSummaryScreen() {
           )}
 
           <div className="rt-load">
-            <div>
+            <div className="rt-load-value">
               <span>Нагрузка в следующий раз</span>
               <strong>{nextLoadLabel}</strong>
               <span>Сейчас: {currentLoadLabel}</span>
             </div>
-            <div className="rt-load-actions">
-              <Button variant="secondary" disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('decrease')}>
-                {pendingAdjustment === 'decrease' ? 'Сохраняю…' : 'Понизить нагрузку'}
+            <div className="rt-load-actions" role="group" aria-label="Изменить следующую нагрузку">
+              <Button variant="secondary" iconLeft={<TrendingDown aria-hidden="true" />} disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('decrease')}>
+                {pendingAdjustment === 'decrease' ? 'Сохраняю…' : 'Снизить'}
               </Button>
-              <Button variant="secondary" disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('increase')}>
-                {pendingAdjustment === 'increase' ? 'Сохраняю…' : 'Повысить нагрузку'}
+              <Button variant="secondary" iconLeft={<TrendingUp aria-hidden="true" />} disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('increase')}>
+                {pendingAdjustment === 'increase' ? 'Сохраняю…' : 'Увеличить'}
               </Button>
             </div>
           </div>
+          </section>
 
           {returnableExercises.length > 0 ? (
             <section className="rt-summary-list" aria-label="Пропущенные упражнения">

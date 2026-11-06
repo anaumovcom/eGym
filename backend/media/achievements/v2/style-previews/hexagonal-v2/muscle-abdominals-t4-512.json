@@ -1,0 +1,29 @@
+{
+  "tierId": "muscle.abdominals:t4",
+  "model": "gpt-image-2.5-flare",
+  "styleVersion": "hexagonal-v2",
+  "quality": "medium",
+  "prompt": "The attached images are authoritative STYLE references, not subjects to duplicate. Create one new badge for the achievement described below.\n\nCreate ONE premium mobile-game achievement badge, matching the attached reference icons.\nSilhouette: a regular point-up hexagon with gently rounded corners, seen straight on,\ncentered on a square canvas. The badge occupies roughly 80-88 percent of the canvas width\nand 88-94 percent of its height. Keep a little dark breathing room on every side.\nBorder: a clean, moderately narrow, continuous saturated-color hexagonal bevel, approximately\n5-7 percent of the badge width. A pale highlight runs along the upper-left outer edge;\nthe inner edge is darker, giving a shallow inset. It is NOT a circular medallion, thick\nmetal donut, industrial frame, or mechanical construction. No screws or rivets.\nInterior: a dark inset hexagonal panel in a deeper shade of the border hue. Use subtle\nangular planes, soft gradients, and local reflected light. A simple scenic background\nis appropriate only when the central concept needs it; it must remain subordinate.\nMain subject: one large instantly recognizable fitness object, simplified human figure,\nor achievement metaphor. Model it as polished stylized 2.5D game art: clean silhouettes,\nrounded volumes, broad smooth highlights, small crisp bevels, strong but soft-edged shadows,\nand restrained faceting. It is digitally painted/rendered illustration, not a photograph,\nnot flat outline art, and not a toy made from inflated balloon tubes. Human figures have\nsimple anonymous faces, clear anatomy, and no tiny realistic facial detail. Equipment can\nhave metallic shading, but do not turn the entire badge into a metal plaque.\nLighting: warm or cool key light from the upper left, gentle colored rim light, dark\nocclusion beneath the subject. Preserve rich color and readable shadows without blown-out\nbloom. The main subject fills most of the inner panel and remains legible at thumbnail size.\n    Keep the bottom vertex clean and uninterrupted: NO rank marker, diamond, crystal, gem,\n    crown, star, pendant, ribbon, or other attached ornament below or across the bottom edge.\n    Ignore all bottom markers in the attached references. Use the SAME silhouette and border\n    width throughout the set; tier progression changes the subject and lighting, not the outline.\nCanvas background: solid very dark blue-black charcoal, approximately #0d141c, with only\na faint local halo. No typography, letters, digits, labels, interface elements, or watermark.\n\nREQUIRED RARITY PALETTE:\nCool steel-blue border (#7198ad), deep slate interior; satin ceramic and brushed steel subject accents. Never gold or purple.\n\nTIER 4 OF 4: target accent saturation about 90% (art-direction target, not a measured pixel guarantee). FINAL TIER: the brightest and most imaginative scene in this line. Deliver a clear, kind visual punchline using the established subject family, a triumphant silhouette, rich broad highlights and a restrained radiant backdrop INSIDE the badge. Keep rarity hue identity, shadow detail and thumbnail readability; no white-out bloom.\n\nUNIQUE SUBJECT SCENE (apply the required style above):\nA small rolled exercise mat with mitten hands takes a bow on its tiny theater stage. Both curtains bend down in a deeper bow, dragging the spotlight with them, while the audience of kettlebells watches the theater itself steal the encore.\n\nACHIEVEMENT MEANING (choose a clear visual metaphor; do not draw this text):\n{\"title\": \"Занавес тоже кланяется\", \"description\": \"Пресс: накопить дни с явной канонической ролью primary, минимум два полных рабочих подхода или 60 секунд силового удержания. Вспомогательные роли, кардио и растяжка не засчитываются. Дополнительно для ступеней нужны разные дни подтверждённой практики: 12, 30, 75, 150. Не подряд; без повышения нагрузки ради награды.\", \"threshold\": 150, \"unit\": \"день основной нагрузки\", \"tier\": 4}\n\nNEGATIVE CONSTRAINTS:\nNo circle, round medal enclosure, shield silhouette, thick silver/gold donut frame, rivets,\nscrews, bolts, gears, ornate filigree, banners, captions, text, multiple badges, contact sheet,\n    busy particle effects, photorealism, flat vector outlines, cropped badge edges, bottom diamonds,\n    bottom crowns, bottom crystals, bottom rank markers, or any ornament attached to the lower edge.",
+  "references": [
+    "icon-r2-c1.png",
+    "icon-r3-c4.png",
+    "icon-r4-c7.png"
+  ],
+  "usage": {
+    "input_tokens": 1559,
+    "input_tokens_details": {
+      "image_tokens": 588,
+      "text_tokens": 971
+    },
+    "output_tokens": 439,
+    "output_tokens_details": {
+      "image_tokens": 439,
+      "text_tokens": 0
+    },
+    "total_tokens": 1998
+  },
+  "approved": false,
+  "attemptKey": "image:medium:hexagonal-v2:reference:publish:muscle.abdominals:t4",
+  "sha256": "b83576f3992c7c8abfa3c021d4ffd30cf03b61f6e6e6b326fd503765b82bea5a",
+  "styleReference": true
+}

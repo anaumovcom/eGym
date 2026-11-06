@@ -1,0 +1,25 @@
+{
+  "kind": "audio",
+  "styleVersion": "hexagonal-v2",
+  "status": "complete",
+  "processed": 1,
+  "queued": 1,
+  "concurrency": 1,
+  "updatedAt": 1793905427.008842,
+  "budget": {
+    "openai": {
+      "capMicros": 36000000,
+      "committedMicros": 28180549,
+      "availableMicros": 7819451,
+      "requests": 790
+    },
+    "fish": {
+      "capMicros": 15000000,
+      "committedMicros": 2405750,
+      "availableMicros": 12594250,
+      "requests": 517
+    }
+  },
+  "rejectedTiers": [],
+  "blockedTiers": []
+}

@@ -3801,6 +3801,423 @@
         }
       }
     },
+    "/api/achievements/overview": {
+      "get": {
+        "tags": [
+          "achievements"
+        ],
+        "summary": "Achievement Overview",
+        "operationId": "achievement_overview_api_achievements_overview_get",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AchievementOverviewResponseSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/achievements/catalog": {
+      "get": {
+        "tags": [
+          "achievements"
+        ],
+        "summary": "Achievement Catalog",
+        "operationId": "achievement_catalog_api_achievements_catalog_get",
+        "parameters": [
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Category"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "rarity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Rarity"
+            }
+          },
+          {
+            "name": "query",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Query"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 40,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AchievementCatalogResponseSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/achievements/tiers/{tier_id}/{kind}": {
+      "get": {
+        "tags": [
+          "achievements"
+        ],
+        "summary": "Achievement Tier Media",
+        "description": "Serve artwork/speech only for tiers the owner has earned; locked media is indistinguishable from absent.",
+        "operationId": "achievement_tier_media_api_achievements_tiers__tier_id___kind__get",
+        "parameters": [
+          {
+            "name": "tier_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Tier Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "image",
+                "audio"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/achievements/{definition_id}": {
+      "get": {
+        "tags": [
+          "achievements"
+        ],
+        "summary": "Achievement Detail",
+        "operationId": "achievement_detail_api_achievements__definition_id__get",
+        "parameters": [
+          {
+            "name": "definition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Definition Id"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AchievementLineSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/achievements/{definition_id}/receipts/{surface}": {
+      "post": {
+        "tags": [
+          "achievements"
+        ],
+        "summary": "Achievement Receipt",
+        "operationId": "achievement_receipt_api_achievements__definition_id__receipts__surface__post",
+        "parameters": [
+          {
+            "name": "definition_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Definition Id"
+            }
+          },
+          {
+            "name": "surface",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "detail",
+                "audio"
+              ],
+              "type": "string",
+              "title": "Surface"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          },
+          {
+            "name": "tier",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tier"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AchievementReceiptSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runtime/workouts/{workout_id}/awards": {
+      "get": {
+        "tags": [
+          "achievements"
+        ],
+        "summary": "Runtime Workout Awards",
+        "operationId": "runtime_workout_awards_api_runtime_workouts__workout_id__awards_get",
+        "parameters": [
+          {
+            "name": "workout_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "title": "Workout Id"
+            }
+          },
+          {
+            "name": "userId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Userid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkoutAwardsResponseSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/exercises": {
       "get": {
         "tags": [
@@ -5980,6 +6397,403 @@
         ],
         "title": "AccessRole"
       },
+      "AchievementAwardSchema": {
+        "properties": {
+          "grantId": {
+            "type": "integer",
+            "title": "Grantid"
+          },
+          "definitionId": {
+            "type": "string",
+            "title": "Definitionid"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group"
+          },
+          "sourceWorkoutId": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceworkoutid"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "isNew": {
+            "type": "boolean",
+            "title": "Isnew",
+            "default": false
+          },
+          "earnedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earnedat"
+          },
+          "awardedAt": {
+            "type": "string",
+            "title": "Awardedat"
+          },
+          "tier": {
+            "$ref": "#/components/schemas/AchievementTierSchema"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          }
+        },
+        "type": "object",
+        "required": [
+          "grantId",
+          "definitionId",
+          "group",
+          "status",
+          "awardedAt",
+          "tier",
+          "unit",
+          "description"
+        ],
+        "title": "AchievementAwardSchema"
+      },
+      "AchievementCatalogResponseSchema": {
+        "properties": {
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/AchievementLineSchema"
+            },
+            "type": "array",
+            "title": "Lines"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          },
+          "computedThrough": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computedthrough"
+          },
+          "isRebuilding": {
+            "type": "boolean",
+            "title": "Isrebuilding"
+          },
+          "groups": {
+            "items": {
+              "$ref": "#/components/schemas/AchievementGroupSchema"
+            },
+            "type": "array",
+            "title": "Groups"
+          },
+          "media": {
+            "$ref": "#/components/schemas/AchievementMediaSummarySchema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lines",
+          "total",
+          "isRebuilding",
+          "groups",
+          "media"
+        ],
+        "title": "AchievementCatalogResponseSchema"
+      },
+      "AchievementGroupSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name"
+        ],
+        "title": "AchievementGroupSchema"
+      },
+      "AchievementLineSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group"
+          },
+          "groupName": {
+            "type": "string",
+            "title": "Groupname"
+          },
+          "metric": {
+            "type": "string",
+            "title": "Metric"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description"
+          },
+          "thresholds": {
+            "items": {
+              "type": "integer"
+            },
+            "type": "array",
+            "title": "Thresholds"
+          },
+          "applicability": {
+            "type": "string",
+            "title": "Applicability"
+          },
+          "currentValue": {
+            "type": "number",
+            "title": "Currentvalue"
+          },
+          "evidenceDays": {
+            "type": "number",
+            "title": "Evidencedays",
+            "default": 0
+          },
+          "highestTier": {
+            "type": "integer",
+            "title": "Highesttier"
+          },
+          "state": {
+            "type": "string",
+            "title": "State"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          },
+          "isNew": {
+            "type": "boolean",
+            "title": "Isnew",
+            "default": false
+          },
+          "nextTierId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nexttierid"
+          },
+          "progressPercent": {
+            "type": "number",
+            "title": "Progresspercent"
+          },
+          "tiers": {
+            "items": {
+              "$ref": "#/components/schemas/AchievementTierSchema"
+            },
+            "type": "array",
+            "title": "Tiers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "group",
+          "groupName",
+          "metric",
+          "unit",
+          "description",
+          "thresholds",
+          "applicability",
+          "currentValue",
+          "highestTier",
+          "state",
+          "progressPercent",
+          "tiers"
+        ],
+        "title": "AchievementLineSchema"
+      },
+      "AchievementMediaSummarySchema": {
+        "properties": {
+          "lines": {
+            "type": "integer",
+            "title": "Lines"
+          },
+          "tiers": {
+            "type": "integer",
+            "title": "Tiers"
+          },
+          "images": {
+            "type": "integer",
+            "title": "Images"
+          },
+          "audio": {
+            "type": "integer",
+            "title": "Audio"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lines",
+          "tiers",
+          "images",
+          "audio"
+        ],
+        "title": "AchievementMediaSummarySchema"
+      },
+      "AchievementOverviewResponseSchema": {
+        "properties": {
+          "earnedTiers": {
+            "type": "integer",
+            "title": "Earnedtiers"
+          },
+          "totalTiers": {
+            "type": "integer",
+            "title": "Totaltiers"
+          },
+          "completedLines": {
+            "type": "integer",
+            "title": "Completedlines"
+          },
+          "totalLines": {
+            "type": "integer",
+            "title": "Totallines"
+          },
+          "activeDays": {
+            "type": "number",
+            "title": "Activedays"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/AchievementAwardSchema"
+            },
+            "type": "array",
+            "title": "Recent"
+          },
+          "upcoming": {
+            "items": {
+              "$ref": "#/components/schemas/AchievementLineSchema"
+            },
+            "type": "array",
+            "title": "Upcoming"
+          },
+          "computedThrough": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Computedthrough"
+          },
+          "isRebuilding": {
+            "type": "boolean",
+            "title": "Isrebuilding"
+          },
+          "media": {
+            "$ref": "#/components/schemas/AchievementMediaSummarySchema"
+          }
+        },
+        "type": "object",
+        "required": [
+          "earnedTiers",
+          "totalTiers",
+          "completedLines",
+          "totalLines",
+          "activeDays",
+          "recent",
+          "upcoming",
+          "isRebuilding",
+          "media"
+        ],
+        "title": "AchievementOverviewResponseSchema"
+      },
+      "AchievementReceiptSchema": {
+        "properties": {
+          "definitionId": {
+            "type": "string",
+            "title": "Definitionid"
+          },
+          "tier": {
+            "type": "integer",
+            "title": "Tier"
+          },
+          "surface": {
+            "type": "string",
+            "enum": [
+              "detail",
+              "audio"
+            ],
+            "title": "Surface"
+          },
+          "viewedAt": {
+            "type": "string",
+            "title": "Viewedat"
+          },
+          "isNew": {
+            "type": "boolean",
+            "title": "Isnew"
+          }
+        },
+        "type": "object",
+        "required": [
+          "definitionId",
+          "tier",
+          "surface",
+          "viewedAt",
+          "isNew"
+        ],
+        "title": "AchievementReceiptSchema"
+      },
       "AchievementSchema": {
         "properties": {
           "id": {
@@ -6018,6 +6832,135 @@
           "unlocked"
         ],
         "title": "AchievementSchema"
+      },
+      "AchievementTierSchema": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "tier": {
+            "type": "integer",
+            "title": "Tier"
+          },
+          "tierName": {
+            "type": "string",
+            "title": "Tiername"
+          },
+          "threshold": {
+            "type": "integer",
+            "title": "Threshold"
+          },
+          "minimumEvidenceDays": {
+            "type": "integer",
+            "title": "Minimumevidencedays",
+            "default": 0
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "phrase": {
+            "type": "string",
+            "title": "Phrase"
+          },
+          "rarity": {
+            "type": "string",
+            "enum": [
+              "common",
+              "rare",
+              "epic",
+              "legendary"
+            ],
+            "title": "Rarity"
+          },
+          "imageUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Imageurl"
+          },
+          "thumbnailUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnailurl"
+          },
+          "audioUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Audiourl"
+          },
+          "imageState": {
+            "type": "string",
+            "title": "Imagestate"
+          },
+          "audioState": {
+            "type": "string",
+            "title": "Audiostate"
+          },
+          "earned": {
+            "type": "boolean",
+            "title": "Earned",
+            "default": false
+          },
+          "earnedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Earnedat"
+          },
+          "awardedAt": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Awardedat"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "tier",
+          "tierName",
+          "threshold",
+          "title",
+          "phrase",
+          "rarity",
+          "imageState",
+          "audioState",
+          "status"
+        ],
+        "title": "AchievementTierSchema"
       },
       "AchievementsResponseSchema": {
         "properties": {
@@ -17337,6 +18280,32 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WorkoutAwardsResponseSchema": {
+        "properties": {
+          "workoutId": {
+            "type": "integer",
+            "title": "Workoutid"
+          },
+          "awards": {
+            "items": {
+              "$ref": "#/components/schemas/AchievementAwardSchema"
+            },
+            "type": "array",
+            "title": "Awards"
+          },
+          "isRebuilding": {
+            "type": "boolean",
+            "title": "Isrebuilding"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workoutId",
+          "awards",
+          "isRebuilding"
+        ],
+        "title": "WorkoutAwardsResponseSchema"
       },
       "WorkoutBuilderDataSchema": {
         "properties": {
