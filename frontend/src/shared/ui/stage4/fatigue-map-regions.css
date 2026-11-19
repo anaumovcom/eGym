@@ -1,0 +1,53 @@
+/* The illustration supplies the anatomy. An alpha mask traced from its inked
+   muscle borders feathers the tint towards the centre of each muscle belly. */
+@supports selector(:has(*)) {
+  [data-figure='portrait'] > g[mask]:not(:has([data-map-tone]:not([data-map-tone='ready'], [data-map-tone='no_data']))) {
+    mask: none;
+  }
+}
+[data-figure='portrait'] > g[mask] > g:not([data-map-tone]) { opacity: 0 !important; }
+[data-figure='portrait'] [data-map-tone] {
+  fill: currentColor;
+  stroke: none;
+  opacity: var(--heat-opacity, .65) !important;
+  pointer-events: fill;
+}
+[data-figure='portrait'] :is([data-map-tone='ready'], [data-map-tone='no_data']) {
+  opacity: 0 !important;
+}
+:is(.atlas-svg, .fatigue-compact) svg:not([data-figure='portrait']) [data-map-tone] {
+  opacity: var(--heat-opacity, .7) !important;
+}
+:is(.atlas-svg, .fatigue-compact) [fill*='jointradial'] { fill: currentColor; }
+:is(.atlas-svg, .fatigue-compact) svg:not([data-figure='portrait']) :is([data-map-tone='ready'], [data-map-tone='no_data']) {
+  color: #53606c !important;
+  opacity: .48 !important;
+  filter: none !important;
+}
+.atlas-svg [data-map-tone] { cursor: pointer; }
+.atlas-svg [data-map-tone]:focus { outline: none; }
+.muscle-hover-outline { filter: drop-shadow(0 1px 1px #0a192b8a); }
+.muscle-hover-outline > :is(path, ellipse) {
+  fill: white;
+  fill-opacity: .15;
+  stroke: #f4fbff;
+  stroke-width: clamp(1.5px, .12vw, 3px);
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+.fatigue-compact .muscle-hover-outline > :is(path, ellipse) { stroke-width: 1.25px; }
+.fatigue-scale-ramp { height: .32rem; border-radius: 1rem; background: var(--fatigue-scale); }
+.muscle-map-mini .muscle-figure-art {
+  height: 100%;
+  min-width: 0;
+}
+.muscle-map-mini .muscle-figure-art > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+:is(.atlas-svg, .fatigue-compact) svg [data-muscle-overlay]:is(:not([data-map-tone]), [data-map-tone='ready'], [data-map-tone='no_data']) {
+  opacity: 0 !important;
+}

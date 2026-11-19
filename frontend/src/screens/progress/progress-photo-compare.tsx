@@ -18,7 +18,9 @@ function shotsOf(photos: ProgressPhoto[], view: ProgressPhoto['view']) {
 export function PhotoCompare({ photos, measurements, onPhoto }: { photos: ProgressPhoto[]; measurements: BodyMeasurement[]; onPhoto: () => void }) {
   const available = photoViews.filter((view) => shotsOf(photos, view.id).length > 0)
   const preferred = available.find((view) => shotsOf(photos, view.id).length > 1) ?? available[0]
-  const [viewId, setViewId] = useState<ProgressPhoto['view']>(preferred?.id ?? 'front')
+  const [requestedView, setViewId] = useState<ProgressPhoto['view']>(preferred?.id ?? 'front')
+  // The selected view can disappear when its last shot is deleted in the gallery.
+  const viewId = available.some((view) => view.id === requestedView) ? requestedView : preferred?.id ?? 'front'
   const shots = shotsOf(photos, viewId)
   const [beforeId, setBeforeId] = useState<number | null>(null)
   const [afterId, setAfterId] = useState<number | null>(null)
@@ -53,7 +55,7 @@ export function PhotoCompare({ photos, measurements, onPhoto }: { photos: Progre
       </header>
 
       {before ? (
-        <div className="photo-compare-body">
+        <div className="photo-compare-body" data-mode={mode}>
           {mode === 'slider' ? (
             <div
               ref={stage}

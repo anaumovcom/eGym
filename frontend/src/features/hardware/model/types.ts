@@ -23,6 +23,7 @@ export type HardwareMotionTelemetry = {
   leftPositionMm: number
   rightPositionMm: number
   syncDeltaMm: number
+  syncAvailable?: boolean
   amplitudePercent: number
   tempoLabel: string
   repetitionCount: number
@@ -71,7 +72,7 @@ export type HardwareControlState = {
   repQuality: number
   targetReached: boolean
   syncDeltaMm: number
-  syncStatus: 'norm' | 'ok' | 'warning' | 'critical'
+  syncStatus: 'norm' | 'ok' | 'warning' | 'critical' | 'unavailable'
   asymmetryPercent: number
   gripDetected: boolean
   released: boolean
@@ -239,6 +240,8 @@ export type HardwareDiagnosticRecord = {
 
 export type HardwareCommandRequest = {
   action: string
+  workoutRunId?: string
+  workoutExerciseId?: string
   userId?: string | null
   exerciseSlug?: string | null
   calibrationRequired?: boolean

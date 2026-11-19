@@ -32,6 +32,7 @@ from app.tests.test_coach_control_plane import ORIGIN, auth, make_run, secured  
 PRICE = Pricing(version="synthetic-voice-1", model="fake-tts", input_rate=600_000, cached_rate=60_000, output_rate=2_400_000,
                 audio_output_rate=12_000_000, verified=True, enforceable_bounds=True)
 LOCAL_CUES = Path(__file__).resolve().parents[3] / "frontend/src/features/coach/interpreter/local-cues.ts"
+pytestmark = pytest.mark.usefixtures("isolated_coach_lifespan")
 
 
 @pytest.fixture
@@ -63,7 +64,7 @@ def test_catalog_covers_local_cues_and_speaks_words():
     assert all(not re.search(r"\d", spec.text) for spec in CATALOG.values())
     safety = [spec for spec in CATALOG.values() if spec.group == "safety"]
     assert {spec.id for spec in safety} == {"safety-stop", "pain-stop"} and all(spec.needs_approval for spec in safety)
-    assert packs.APPROVED_SAFETY_CATALOG == packs.CATALOG_VERSION  # user listened 08.10.2026
+    assert all(not spec.needs_approval for spec in CATALOG.values() if spec.group != "safety")
 
 
 def test_fingerprint_is_per_clip_and_voice_specific():
@@ -192,7 +193,7 @@ async def test_generate_required_publish_and_skip_existing(session_factory, pack
     run_id, job_id, _, manifest = await run_job(session_factory, required_ids(), adapter, pack_env)
     assert manifest["complete"] and set(required_ids()) <= set(manifest["clips"])
     assert len(adapter.calls) == len(required_ids())
-    assert manifest["clips"]["pain-stop"]["approved"] is True and manifest["clips"]["set-end"]["approved"] is True
+    assert manifest["clips"]["pain-stop"]["approved"] is False and manifest["clips"]["set-end"]["approved"] is True
     with session_factory() as db:
         assert db.get(CoachJob, job_id).state == "completed"
         assert db.scalar(select(func.count()).select_from(CoachAttempt).where(CoachAttempt.status == "settled")) == len(required_ids())

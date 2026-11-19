@@ -6,10 +6,11 @@ import { playCue } from '../live/local-cue-player'
 import type { CoachScope } from '../model/contracts'
 import { isVerifiedLocalBuffer } from './local-buffers'
 import { DEFAULT_COACH_PREFERENCES } from '../model/preferences'
-import { CoachPackClient, coachPackSlot, isPackSlot, clipUrl, manifestUrl, parsePackManifest, type PackDependencies } from './pack-client'
+import { cachedClipUrl, CoachPackClient, coachPackSlot, isPackSlot, clipUrl, manifestUrl, parsePackManifest, type PackDependencies } from './pack-client'
 
 it('keys prepared phrases by model and character voice without OpenAI substitution', () => {
-  const prefs = DEFAULT_COACH_PREFERENCES
+  expect(coachPackSlot(DEFAULT_COACH_PREFERENCES)).toBe('ru-base')
+  const prefs = { ...DEFAULT_COACH_PREFERENCES, standardPack: false }
   expect(coachPackSlot(null)).toBeNull()
   expect(coachPackSlot(prefs)).toBe('fish-streamer')
   expect(coachPackSlot({ ...prefs, persona: 'classic' })).toBe('fish-classic')
@@ -41,7 +42,8 @@ class MemoryCache {
     if (this.quota) throw new DOMException('full', 'QuotaExceededError')
     this.store.set(url, new Uint8Array(await response.arrayBuffer()))
   }
-  async delete(url: string) { return this.store.delete(url) }
+  async delete(url: string | Request) { return this.store.delete(typeof url === 'string' ? url : new URL(url.url).pathname) }
+  async keys() { return [...this.store.keys()].map(path => new Request(`http://localhost${path}`)) }
 }
 
 type Clip = { id: string; bytes: Uint8Array<ArrayBuffer>; required: boolean; approved: boolean }
@@ -49,8 +51,8 @@ async function fixture(overrides: Partial<PackDependencies> = {}) {
   const clips: Clip[] = [
     { id: 'count-1', bytes: wav(2400), required: true, approved: true },
     { id: 'set-start', bytes: wav(4000), required: true, approved: true },
-    { id: 'count-31', bytes: wav(2400), required: false, approved: true },
-    { id: 'pain-stop', bytes: wav(4000), required: true, approved: false },
+    { id: 'count-31', bytes: wav(2400, 0.1), required: false, approved: true },
+    { id: 'pain-stop', bytes: wav(4000, 0.1), required: true, approved: false },
   ]
   const manifest = { schemaVersion: 1, slot: 'ash', packVersion: '0123456789abcdef', complete: true, extra: 'ignored', clips: {} as Record<string, unknown> }
   for (const clip of clips) {
@@ -88,9 +90,9 @@ describe('E09 prepared pack client', () => {
     const listener = vi.fn(); f.client.subscribe(listener)
     const snapshot = await f.client.prepare('ash')
     expect(snapshot).toMatchObject({ slot: 'ash', state: 'ready', packVersion: '0123456789abcdef', prepared: 3, required: 2, optional: 1, unapproved: 1 })
-    expect(snapshot.encodedBytes).toBe(f.clips.slice(0, 3).reduce((sum, clip) => sum + clip.bytes.byteLength, 0))
+    expect(snapshot.encodedBytes).toBe(f.clips.reduce((sum, clip) => sum + clip.bytes.byteLength, 0))
     expect(listener).toHaveBeenCalled()
-    expect(f.fetch.mock.calls.map(call => call[0])).not.toContain(clipUrl('ash', '0123456789abcdef', 'pain-stop'))
+    expect(f.fetch.mock.calls.map(call => call[0])).toContain(clipUrl('ash', '0123456789abcdef', 'pain-stop'))
     expect(f.fetch.mock.calls[0][1]).toMatchObject({ cache: 'no-store' })
     const clips = f.client.clipsFor('ash')
     const buffer = clips.get('count-1')!
@@ -100,7 +102,10 @@ describe('E09 prepared pack client', () => {
     expect(clips.get('unknown')).toBeNull()
     expect(f.client.clipsFor('cedar').get('count-1')).toBeNull()
     expect(f.client.clipsFor(null).get('count-1')).toBeNull()
-    expect(f.cache.store.size).toBe(4) // manifest + 3 clips
+    f.fetch.mockClear()
+    expect(await f.client.audition('ash', 'pain-stop', new AbortController().signal)).not.toBeNull()
+    expect(f.fetch).not.toHaveBeenCalled()
+    expect(f.cache.store.size).toBe(5) // manifest + 3 playable clips + 1 review copy
   })
 
   it('repeat preparation reuses verified cache without downloading clips', async () => {
@@ -123,14 +128,12 @@ describe('E09 prepared pack client', () => {
     expect((await reloaded.restore('cedar')).slot).toBe('ash') // nothing cached for another voice
   })
 
-  it.each([true, false])('loads a published pack for enabled workout counting with cache available=%s, then starts the real local mixer', async cacheAvailable => {
-    const f = await fixture(cacheAvailable ? {} : { openCache: async () => null })
+  it('loads an explicitly installed pack for workout counting and starts the mixer without a download', async () => {
+    const install = await fixture(); await install.client.prepare('ash')
+    const f = await fixture({ openCache: async () => install.cache as unknown as Cache })
     expect(f.client.clipsFor('ash').get('count-1')).toBeNull()
-    expect(await f.client.restore('ash', { downloadPrepared: true })).toMatchObject({ state: 'ready', prepared: 3 })
-    expect(f.fetch.mock.calls.map(([url]) => url)).toEqual([
-      manifestUrl('ash'), ...f.clips.slice(0, 3).map(clip => clipUrl('ash', f.manifest.packVersion, clip.id)),
-    ])
-    expect(f.fetch.mock.calls.every(([, init]) => !init.method || init.method === 'GET')).toBe(true)
+    expect(await f.client.restore('ash')).toMatchObject({ state: 'ready', prepared: 3 })
+    expect(f.fetch).not.toHaveBeenCalled()
     const clock = new FakeClock()
     const scope: CoachScope = { schemaVersion: 1, userId: 'u', runId: 'r', exerciseId: 'e', setOrdinal: 1, scopeEpoch: 1 }
     const manager = new LocalCoachAudioManager({ context: f.context.asAudioContext(), clock, scope })
@@ -144,22 +147,22 @@ describe('E09 prepared pack client', () => {
       expect(manager.snapshot().counters.started).toBe(1)
       expect(manager.snapshot().audible).toBe(1)
       f.fetch.mockClear()
-      await f.client.restore('ash', { downloadPrepared: true })
+      await f.client.restore('ash')
       expect(f.fetch).not.toHaveBeenCalled() // Already pinned; never fetch per repetition.
     } finally { manager.dispose() }
   })
 
   it('never generates or substitutes another voice when the selected published pack is missing', async () => {
     const f = await fixture()
-    expect(await f.client.restore('cedar', { downloadPrepared: true })).toMatchObject({ state: 'not_prepared', reason: 'no_pack' })
-    expect(f.fetch.mock.calls.map(([url]) => url)).toEqual([manifestUrl('cedar')])
+    expect(await f.client.restore('cedar')).toMatchObject({ state: 'not_prepared' })
+    expect(f.fetch).not.toHaveBeenCalled()
     expect(f.client.clipsFor('cedar').get('count-1')).toBeNull()
   })
 
   it('does not start an automatic download after a concurrent select/delete', async () => {
     let release!: (cache: Cache | null) => void
     const f = await fixture({ openCache: () => new Promise(resolve => { release = resolve }) })
-    const pending = f.client.restore('ash', { downloadPrepared: true })
+    const pending = f.client.restore('ash')
     f.client.select('cedar')
     release(null)
     await pending
@@ -180,7 +183,7 @@ describe('E09 prepared pack client', () => {
   it('replaces a corrupted cached clip and rejects wrong decoded duration', async () => {
     const f = await fixture()
     await f.client.prepare('ash')
-    const url = clipUrl('ash', '0123456789abcdef', 'count-1')
+    const url = cachedClipUrl('ash', await sha(f.clips[0].bytes))
     f.cache.store.set(url, new Uint8Array(10))
     f.context.decodeAudioData.mockImplementationOnce(async () => f.context.createBuffer(1, 10, RATE))
     const snapshot = await f.client.prepare('ash')
@@ -226,10 +229,41 @@ describe('E09 prepared pack client', () => {
     expect(f.client.clipsFor('ash').get('count-1')).toBeNull()
   })
 
-  it('caps decoded memory, keeping required clips over optional ones', async () => {
+  it('never claims a pack is installed if it exceeded the decoded budget or browser storage is unavailable', async () => {
     const f = await fixture({ decodedLimit: (2400 + 4000) * 4 })
-    expect(await f.client.prepare('ash')).toMatchObject({ state: 'ready', prepared: 2, decodedBytes: 6400 * 4 })
+    expect(await f.client.prepare('ash')).toMatchObject({ state: 'failed', reason: 'quota', prepared: 2 })
     expect(f.client.clipsFor('ash').get('count-31')).toBeNull()
+    expect(f.cache.store.has(manifestUrl('ash'))).toBe(false)
+    const noCache = await fixture({ openCache: async () => null })
+    expect(await noCache.client.prepare('ash')).toMatchObject({ state: 'failed', reason: 'no_storage' })
+    expect(noCache.fetch).not.toHaveBeenCalled()
+  })
+
+  it('updates just one recording; interrupted or corrupt updates preserve the old pack even after a reload', async () => {
+    const f = await fixture(); await f.client.prepare('ash'); f.fetch.mockClear()
+    const old = f.manifest.packVersion
+    // One recording still uses the cache layout from releases before per-clip replacement.
+    const legacy = f.clips[1], hashKey = cachedClipUrl('ash', await sha(legacy.bytes))
+    f.cache.store.set(clipUrl('ash', old, legacy.id), legacy.bytes); f.cache.store.delete(hashKey)
+    f.manifest.packVersion = '1234567890abcdef'
+    const next = clipUrl('ash', f.manifest.packVersion, 'count-1'), bytes = wav(2400, 0.4)
+    Object.assign(f.manifest.clips['count-1'] as object, { text: 'Раз.', group: 'count', sha256: await sha(bytes) })
+    f.routes.set(next, () => new Response(f.clips[0].bytes.slice()))
+    expect((await f.client.prepare('ash')).reason).toBe('checksum')
+    expect(f.client.installed('ash')?.packVersion).toBe(old)
+    const reloaded = await fixture({ openCache: async () => f.cache as unknown as Cache })
+    expect((await reloaded.client.restore('ash')).packVersion).toBe(old)
+    expect(reloaded.fetch).not.toHaveBeenCalled()
+    const abort = new AbortController(); f.routes.set(next, () => { abort.abort(); return new Response(bytes.slice()) })
+    await f.client.prepare('ash', abort.signal)
+    expect(f.client.installed('ash')?.packVersion).toBe(old)
+    f.routes.set(next, () => new Response(bytes.slice())); f.fetch.mockClear()
+    expect((await f.client.prepare('ash')).packVersion).toBe(f.manifest.packVersion)
+    expect(f.fetch.mock.calls.map(([url]) => url)).toEqual([manifestUrl('ash'), next])
+    expect(f.client.installed('ash')?.clips['count-1']).toMatchObject({ text: 'Раз.', group: 'count' })
+    f.cache.store.set(manifestUrl('cedar'), new Uint8Array(3))
+    await f.client.deleteLocal('ash')
+    expect([...f.cache.store.keys()]).toEqual([manifestUrl('cedar')])
   })
 
   it('validates manifests strictly', () => {

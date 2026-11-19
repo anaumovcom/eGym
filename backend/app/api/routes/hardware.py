@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSock
 from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_session
+from app.schemas.drive_transport import DriveTransportSettings, DriveTransportStatus
 from app.schemas.hardware import (
     CalibrationListResponseSchema,
     CalibrationSaveSchema,
@@ -16,12 +17,26 @@ from app.schemas.hardware import (
     SafetyGateRequestSchema,
     SafetyGateResponseSchema,
 )
+from app.services.drive_transport_settings import save_transport
 from app.services.hardware_runtime import hardware_runtime
 from app.services.hardware_service import HardwareService
 
 router = APIRouter(prefix="/hardware")
 
 hardware_service = HardwareService()
+
+
+@router.get("/drive-transport", response_model=DriveTransportStatus)
+def drive_transport() -> DriveTransportStatus:
+    return hardware_runtime.transport_status()
+
+
+@router.put("/drive-transport", response_model=DriveTransportStatus)
+def change_drive_transport(config: DriveTransportSettings, session: Session = Depends(get_session)) -> DriveTransportStatus:
+    try:
+        return hardware_runtime.change_transport(config, lambda selected: save_transport(session, selected))
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.get("/status", response_model=HardwareSnapshotSchema)

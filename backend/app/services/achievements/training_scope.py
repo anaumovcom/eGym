@@ -50,6 +50,7 @@ CURATED_PRIMARY = {
     'smith-machine-upright-row': ('traps',),
     'underhand-pulldown': ('lats',),
 }
+CURATED_PRIMARY_GROUPS = frozenset(group for groups in CURATED_PRIMARY.values() for group in groups)
 
 
 def exercise_metric(slug: str) -> str:
@@ -75,6 +76,7 @@ class TrainingScopeCounter:
 
     def __init__(self, user_id: str):
         self.user_id = user_id
+        self.available_primary = set(CURATED_PRIMARY_GROUPS)
         self._seen: set[int] = set()
         self._days: dict[tuple[str, date], list[int]] = defaultdict(lambda: [0, 0])
 
@@ -99,6 +101,7 @@ class TrainingScopeCounter:
         if not is_stretch and not is_cardio:
             explicit = canonical_primary_targets(exercise.muscle_targets)
             primary = explicit or frozenset(CURATED_PRIMARY.get(exercise.exercise_slug, ()))
+            self.available_primary.update(primary)
             metrics.extend(muscle_metric(group) for group in primary)
         if not metrics:
             return
@@ -142,6 +145,13 @@ class TrainingScopeCounter:
             for metric in metrics:
                 counts = self._days[(metric, day)]
                 counts[1 if timed else 0] += value if timed else 1
+
+    def include_workout(self, workout: TrainingScopeCounter) -> None:
+        self.available_primary.update(workout.available_primary)
+        for key, (sets, seconds) in workout._days.items():
+            counts = self._days[key]
+            counts[0] += sets
+            counts[1] += seconds
 
     def values(self) -> dict[str, float]:
         result = {exercise_metric(slug): 0.0 for slug in SAVED_PROGRAM_EXERCISES}

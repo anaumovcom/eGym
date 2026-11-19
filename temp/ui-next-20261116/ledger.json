@@ -1,0 +1,94 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "budget_usd":  10,
+    "prior_estimate_usd":  0.77981499999999992,
+    "estimate_usd":  0.876926,
+    "reservation_per_request_usd":  0.75,
+    "reference":  "reference-current.png",
+    "requests":  [
+                     {
+                         "id":  "01-broadcast",
+                         "name":  "Live Broadcast",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024294,
+                         "usage":  {
+                                       "input_tokens":  2274,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  766
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2554
+                                   },
+                         "started_at":  "2026-11-16T15:40:27.7669812Z"
+                     },
+                     {
+                         "id":  "02-spatial",
+                         "name":  "Spatial Flow",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024169,
+                         "usage":  {
+                                       "input_tokens":  2249,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  741
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2529
+                                   },
+                         "started_at":  "2026-11-16T15:40:44.4111281Z"
+                     },
+                     {
+                         "id":  "03-rhythm",
+                         "name":  "Movement Rhythm",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024289,
+                         "usage":  {
+                                       "input_tokens":  2273,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  765
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2553
+                                   },
+                         "started_at":  "2026-11-16T15:41:00.5646243Z"
+                     },
+                     {
+                         "id":  "04-editorial",
+                         "name":  "Athletic Editorial",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024359,
+                         "usage":  {
+                                       "input_tokens":  2287,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  779
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2567
+                                   },
+                         "started_at":  "2026-11-16T15:41:16.7663518Z"
+                     }
+                 ]
+}

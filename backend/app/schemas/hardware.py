@@ -31,6 +31,7 @@ class MotionTelemetrySchema(SchemaModel):
     left_position_mm: float
     right_position_mm: float
     sync_delta_mm: float
+    sync_available: bool = True
     amplitude_percent: int
     tempo_label: str
     repetition_count: int
@@ -195,6 +196,8 @@ class SafetyGateResponseSchema(SchemaModel):
 
 class HardwareCommandRequestSchema(SchemaModel):
     action: str
+    workout_run_id: str | None = Field(None, max_length=160)
+    workout_exercise_id: str | None = Field(None, max_length=160)
     user_id: str | None = None
     exercise_slug: str | None = None
     calibration_required: bool = False

@@ -19,6 +19,7 @@ MEDIA_ROOT = Path(__file__).resolve().parents[3] / "media" / "achievements" / AS
 IMAGE_ROOT = MEDIA_ROOT / "images"
 AUDIO_ROOT = MEDIA_ROOT / "audio"
 MANIFEST_PATH = MEDIA_ROOT / "manifest.json"
+COLLECTION_ROOT = MEDIA_ROOT.parent / "collection"
 
 
 def media_stem(tier_id: str) -> str:
@@ -31,7 +32,7 @@ def _write_json(path: Path, value: Any) -> None:
     durable_json(path, value)
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=4)
 def _read_manifest(path: Path, modified_ns: int, size: int) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -41,6 +42,22 @@ def load_manifest() -> dict[str, Any]:
         stat = MANIFEST_PATH.stat()
         return _read_manifest(MANIFEST_PATH, stat.st_mtime_ns, stat.st_size)
     return {"schemaVersion": 1, "assetVersion": ASSET_VERSION, "assets": {}, "missing": [], "failed": {}}
+
+
+def collection_images() -> dict[str, str]:
+    path = COLLECTION_ROOT / "manifest.json"
+    if not path.is_file():
+        return {}
+    stat = path.stat()
+    return _read_manifest(path, stat.st_mtime_ns, stat.st_size)["images"]
+
+
+def collection_voice() -> dict[str, str]:
+    path = COLLECTION_ROOT / "voice.json"
+    if not path.is_file():
+        return {}
+    stat = path.stat()
+    return _read_manifest(path, stat.st_mtime_ns, stat.st_size)["clips"]
 
 
 def save_asset(tier_id: str, kind: str, files: dict[str, str], **metadata: Any) -> dict[str, Any]:
@@ -70,8 +87,12 @@ def asset_file(tier_id: str, kind: str) -> Path | None:
     asset = load_manifest().get("assets", {}).get(tier_id, {})
     if kind == "image":
         name, root = (asset.get("image") or {}).get("512"), IMAGE_ROOT
+        if tier_id in (edition := collection_images()):
+            name, root = edition[tier_id], COLLECTION_ROOT / "images"
     elif kind == "audio":
         name, root = (asset.get("audio") or {}).get("file"), AUDIO_ROOT
+        if tier_id in (voices := collection_voice()):
+            name, root = voices[tier_id], COLLECTION_ROOT / "voice"
     else:
         return None
     if not isinstance(name, str) or name != Path(name).name:
@@ -86,7 +107,10 @@ def asset_urls(tier_id: str, media_prefix: str = "/media", *, user_id: str | Non
     asset = load_manifest().get("assets", {}).get(tier_id, {})
     result: dict[str, Any] = {"imageUrl": None, "thumbnailUrl": None, "audioUrl": None, "imageState": "missing",
                               "audioState": "missing"}
-    image = asset.get("image")
+    curated = collection_images().get(tier_id)
+    image = curated or (asset.get("image") or {}).get("512")
+    voice = collection_voice().get(tier_id)
+    audio = voice or (asset.get("audio") or {}).get("file")
     if user_id is not None:
         from urllib.parse import quote
 
@@ -94,16 +118,21 @@ def asset_urls(tier_id: str, media_prefix: str = "/media", *, user_id: str | Non
         base = f"{get_settings().api_prefix}/achievements/tiers/{quote(tier_id, safe='')}"
         owner = f"?userId={quote(user_id, safe='')}"
         if image:
-            result.update(imageUrl=f"{base}/image{owner}", thumbnailUrl=f"{base}/image{owner}", imageState="ready")
-        if asset.get("audio"):
-            result.update(audioUrl=f"{base}/audio{owner}", audioState="ready")
+            revision = f"&art={curated.split('.')[-2]}" if curated else ""
+            image_url = f"{base}/image{owner}{revision}"
+            result.update(imageUrl=image_url, thumbnailUrl=image_url, imageState="ready")
+        if audio:
+            revision = f"&voice={voice.split('.')[-2]}" if voice else ""
+            result.update(audioUrl=f"{base}/audio{owner}{revision}", audioState="ready")
         result["assetKey"] = stem
         return result
     if image:
-        result.update(imageUrl=f"{media_prefix}/achievements/{ASSET_VERSION}/images/{image['512']}",
-                  thumbnailUrl=f"{media_prefix}/achievements/{ASSET_VERSION}/images/{image['512']}", imageState="ready")
-    if asset.get("audio"):
-        result.update(audioUrl=f"{media_prefix}/achievements/{ASSET_VERSION}/audio/{asset['audio']['file']}", audioState="ready")
+        edition = "collection" if curated else ASSET_VERSION
+        image_url = f"{media_prefix}/achievements/{edition}/images/{image}"
+        result.update(imageUrl=image_url, thumbnailUrl=image_url, imageState="ready")
+    if audio:
+        directory = "collection/voice" if voice else f"{ASSET_VERSION}/audio"
+        result.update(audioUrl=f"{media_prefix}/achievements/{directory}/{audio}", audioState="ready")
     # Keep deterministic fallback URLs for clients that choose to render local vector placeholders.
     result["assetKey"] = stem
     return result
@@ -137,9 +166,13 @@ def finalize_streaming_wav(data: bytes) -> bytes:
     return b"RIFF" + struct.pack("<I", len(body) + 4) + b"WAVE" + body
 
 
-def manifest_summary() -> dict[str, int]:
+def manifest_summary(lines: list[dict[str, Any]] | None = None) -> dict[str, int]:
     assets = load_manifest().get("assets", {})
-    return {"lines": len(load_catalog()["lines"]),
-            "tiers": sum(len(line["tiers"]) for line in load_catalog()["lines"]),
-            "images": sum("image" in value for value in assets.values()),
-            "audio": sum("audio" in value for value in assets.values())}
+    illustrated = collection_images()
+    voices = collection_voice()
+    if lines is None:
+        lines = load_catalog()["lines"]
+    tiers = [tier["id"] for line in lines for tier in line["tiers"]]
+    return {"lines": len(lines), "tiers": len(tiers),
+            "images": sum(key in illustrated or "image" in assets.get(key, {}) for key in tiers),
+            "audio": sum(key in voices or "audio" in assets.get(key, {}) for key in tiers)}

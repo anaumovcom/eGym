@@ -105,7 +105,7 @@ def test_active_set_cannot_change_direction(action):
 def test_unloaded_between_sets_accepts_new_direction_without_mutating_old_plan():
     import threading
 
-    runtime = HardwareRuntime.__new__(HardwareRuntime)
+    runtime = HardwareRuntime()
     runtime._lock = threading.RLock()
     runtime.motion_block_reason = lambda: None
     old_plan = SimpleNamespace(load_direction="down")

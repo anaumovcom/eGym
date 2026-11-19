@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, Cable, CheckCircle2, Link, Unlink, Wifi, XCircle } from 'lucide-react'
+import { Activity, Cable, CheckCircle2, Link, Unlink, Wifi, XCircle } from 'lucide-react'
 import { useState } from 'react'
 import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 import { Button } from '@/shared/ui/button'
@@ -6,16 +6,20 @@ import { cn } from '@/shared/lib/cn'
 
 export function ConnectionPanel() {
   const {
-    connectionParams,
+    connectionParams: savedParams,
     connectionStatus,
     ports,
-    setConnectionParams,
     connect,
     disconnect,
     ping,
-    driveAddresses,
-    setDriveAddress,
+    selectedSide,
   } = useModbusStore()
+
+  const [edits, setEdits] = useState<Partial<typeof savedParams>>({})
+  const connectionParams = { ...savedParams, ...edits }
+  const setConnectionParams = (patch: Partial<typeof savedParams>) => setEdits((previous) => ({ ...previous, ...patch }))
+  const driveAddresses = { left: connectionParams.slaveId, right: connectionParams.rightSlaveId }
+  const setDriveAddress = (side: 'left' | 'right', value: number) => setConnectionParams(side === 'left' ? { slaveId: value } : { rightSlaveId: value })
 
   const [pingResult, setPingResult] = useState<boolean | null>(null)
   const [pingLoading, setPingLoading] = useState(false)
@@ -24,7 +28,8 @@ export function ConnectionPanel() {
   const handleConnect = async () => {
     setBusy(true)
     try {
-      await connect()
+      const status = await connect(connectionParams)
+      if (status.connected) setEdits({})
     } finally {
       setBusy(false)
     }
@@ -42,7 +47,7 @@ export function ConnectionPanel() {
   const handlePing = async () => {
     setPingLoading(true)
     try {
-      const ok = await ping()
+      const ok = await ping(selectedSide)
       setPingResult(ok)
     } finally {
       setPingLoading(false)
@@ -52,20 +57,20 @@ export function ConnectionPanel() {
   const isConnected = connectionStatus?.connected ?? false
 
   return (
-    <div className="space-y-4">
+    <div className="modbus-connection-layout">
       {/* Main connection block */}
       <div className="glass-panel rounded-2xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[#f4dfb4] font-semibold">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h3 className="flex items-center gap-2 text-[#eaf6ff] font-semibold">
             <Cable size={18} />
             Подключение к Modbus RTU
-          </div>
+          </h3>
           <StatusBadge connected={isConnected} simMode={connectionStatus?.simulationMode ?? false} />
         </div>
 
         {/* Port & params row */}
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <label className="space-y-1">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,9rem),1fr))] gap-3">
+          <label className="min-w-0 space-y-1">
             <span className="text-xs text-white/50">Serial-порт</span>
             <select
               className="input-field w-full"
@@ -146,7 +151,8 @@ export function ConnectionPanel() {
         )}
 
         {/* Action buttons */}
-        <div className="flex flex-wrap gap-3">
+        <div className="modbus-actions">
+          <p className="modbus-action-label">Действия с подключением</p>
           {!isConnected ? (
             <Button
               variant="primary"
@@ -185,11 +191,11 @@ export function ConnectionPanel() {
 
       {/* Wiring guide */}
       <div className="glass-panel rounded-2xl p-5">
-        <div className="flex items-center gap-2 text-[#f4dfb4] font-semibold mb-3">
-          <AlertTriangle size={16} className="text-[#f2cf87]" />
+        <h3 className="flex items-center gap-2 text-[#eaf6ff] font-semibold mb-3">
+          <Cable size={16} className="text-[#70c9ff]" />
           Схема подключения
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2">
+        </h3>
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-4">
           <div>
             <p className="text-xs text-white/50 mb-2 uppercase tracking-wide">Адаптер → Драйвер</p>
             <WireRow from="T/R+" to="485+" />
@@ -219,8 +225,8 @@ function StatusBadge({ connected, simMode }: { connected: boolean; simMode: bool
   }
   if (simMode) {
     return (
-      <span className="flex items-center gap-1.5 rounded-full bg-[#2d2500] px-3 py-1 text-xs text-[#f2cf87]">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-[#f2cf87]" />
+      <span className="flex items-center gap-1.5 rounded-full bg-[#123553] px-3 py-1 text-xs text-[#70c9ff]">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-[#70c9ff]" />
         Симуляция
       </span>
     )
@@ -235,7 +241,7 @@ function StatusBadge({ connected, simMode }: { connected: boolean; simMode: bool
 
 function FormatTag({ label, highlighted }: { label: string; highlighted?: boolean }) {
   return (
-    <span className={cn('rounded px-2 py-0.5 text-xs font-mono', highlighted ? 'bg-[#b5852f]/30 text-[#f2cf87]' : 'bg-white/8 text-white/70')}>
+    <span className={cn('rounded px-2 py-0.5 text-xs font-mono', highlighted ? 'bg-[#123553] text-[#70c9ff]' : 'bg-white/8 text-white/70')}>
       {label}
     </span>
   )
@@ -254,7 +260,7 @@ function StatCell({ label, value, tone }: { label: string; value: string; tone?:
 function WireRow({ from, to }: { from: string; to: string }) {
   return (
     <div className="flex items-center gap-2 py-1 text-sm">
-      <span className="font-mono text-[#f2cf87] min-w-[48px]">{from}</span>
+      <span className="font-mono text-[#70c9ff] min-w-[48px]">{from}</span>
       <span className="text-white/30">→</span>
       <span className="font-mono text-white/80">{to}</span>
     </div>
@@ -264,7 +270,7 @@ function WireRow({ from, to }: { from: string; to: string }) {
 function PinRow({ pin, label, highlighted }: { pin: string; label: string; highlighted?: boolean }) {
   return (
     <div className="flex items-center gap-2 py-1 text-sm">
-      <span className={cn('rounded px-1.5 py-0.5 font-mono text-xs font-bold', highlighted ? 'bg-[#b5852f]/30 text-[#f2cf87]' : 'bg-white/8 text-white/50')}>
+      <span className={cn('rounded px-1.5 py-0.5 font-mono text-xs font-bold', highlighted ? 'bg-[#123553] text-[#70c9ff]' : 'bg-white/8 text-white/65')}>
         pin {pin}
       </span>
       <span className="font-mono text-white/80">{label}</span>

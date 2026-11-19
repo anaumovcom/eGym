@@ -99,11 +99,16 @@ export function ParametersPanel() {
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="glass-panel rounded-2xl p-4 space-y-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h3 className="font-semibold">Каталог регистров</h3>
+          <p className="text-xs text-[#a9bece]">Показано: {filtered.length} из {PARAMETER_CATALOG.length}</p>
+        </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
+          <div className="relative min-w-0 flex-[1_1_14rem]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
             <input
-              type="text"
+              type="search"
+              aria-label="Поиск регистра"
               placeholder="Поиск по параметру, названию, адресу..."
               className="input-field w-full pl-8"
               value={search}
@@ -112,6 +117,7 @@ export function ParametersPanel() {
           </div>
           <select
             className="input-field"
+            aria-label="Группа регистров"
             value={filterGroup}
             onChange={(e) => setFilterGroup(e.target.value as ParameterGroup | 'ALL')}
           >
@@ -128,7 +134,8 @@ export function ParametersPanel() {
           </FilterToggle>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="modbus-actions">
+          <p className="modbus-action-label">Чтение регистров</p>
           <Button
             variant="secondary"
             className="text-xs"
@@ -149,6 +156,10 @@ export function ParametersPanel() {
               Читать группу: {GROUP_LABELS[filterGroup] ?? filterGroup}
             </Button>
           )}
+        </div>
+        <div className="modbus-actions">
+          <p className="modbus-action-label">Изменения в драйвере</p>
+          <p className="basis-full text-xs text-[#a9bece]">{!isConnected ? 'Нет подключения. Чтение и запись недоступны.' : 'Запись меняет значение в драйвере. Хранение в EEPROM — отдельная операция во вкладке «Сохранение».'}</p>
           {dirtyCount > 0 && (
             <Button
               variant="primary"
@@ -179,8 +190,8 @@ export function ParametersPanel() {
 
       {/* Table */}
       <div className="glass-panel rounded-2xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div className="modbus-table-scroll" role="region" aria-label="Таблица регистров Modbus" tabIndex={0}>
+          <table className="modbus-register-table w-full text-sm">
             <thead>
               <tr className="border-b border-white/8 text-xs text-white/40 uppercase tracking-wide">
                 <th className="px-4 py-3 text-left">Параметр</th>
@@ -222,9 +233,11 @@ export function ParametersPanel() {
 function FilterToggle({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
+      type="button"
+      aria-pressed={active}
       className={cn(
         'rounded-xl px-3 py-2 text-xs font-medium transition',
-        active ? 'bg-[#b5852f]/30 text-[#f2cf87]' : 'border border-white/10 bg-white/4 text-white/50 hover:text-white',
+        active ? 'border border-[#2b7ab9] bg-[#123553] text-[#ccefff]' : 'border border-white/10 bg-white/4 text-white/70 hover:text-white',
       )}
       onClick={onClick}
     >
@@ -286,11 +299,11 @@ function ParameterRow({
   return (
     <tr className={cn(
       'border-b border-white/4 hover:bg-white/3 transition',
-      isDirty && 'bg-[#2d2500]/40',
+      isDirty && 'bg-[#123553]/65',
       isUnsaved && 'bg-[#0d2d0f]/40',
     )}>
       {/* Parameter name */}
-      <td className="px-4 py-3 font-mono text-xs text-[#f2cf87] whitespace-nowrap">
+      <td className="px-4 py-3 font-mono text-xs text-[#70c9ff] whitespace-nowrap">
         <div className="flex items-center gap-1">
           {param.name}
           {param.dangerous && <span className="text-[#ff8f84] text-[10px]">⚠</span>}
@@ -319,7 +332,7 @@ function ParameterRow({
         {driverVal != null && param.enumMap?.[driverVal] && (
           <div className="text-[11px] text-white/40">{param.enumMap[driverVal]}</div>
         )}
-        {driverVal != null && param.unit && (
+        {param.unit && (
           <div className="text-[11px] text-white/30">{param.unit}</div>
         )}
         {state?.readStatus === 'error' && (
@@ -333,6 +346,7 @@ function ParameterRow({
           <div className="flex items-center justify-end gap-1">
             <input
               type="number"
+              aria-label={`Новое значение ${param.name}${param.unit ? `, ${param.unit}` : ''}`}
               className="input-field w-24 text-right text-sm"
               placeholder={driverVal != null ? String(driverVal) : '—'}
               value={localInput}
@@ -342,7 +356,7 @@ function ParameterRow({
               disabled={!isConnected}
             />
             {isDirty && (
-              <span className="text-[10px] text-[#f2cf87]">*</span>
+              <span className="text-[10px] text-[#70c9ff]" title="Изменено">*</span>
             )}
           </div>
         )}
@@ -390,7 +404,7 @@ function ParameterRow({
 function StatusDot({ status, label }: { status: string; label: string }) {
   const colors: Record<string, string> = {
     idle: 'bg-white/20 text-white/30',
-    loading: 'bg-[#f2cf87]/40 text-[#f2cf87] animate-pulse',
+    loading: 'bg-[#123553] text-[#70c9ff] animate-pulse',
     ok: 'bg-[#79de83]/20 text-[#79de83]',
     error: 'bg-[#ff8f84]/20 text-[#ff8f84]',
   }
@@ -419,7 +433,7 @@ function ActionBtn({
       className={cn(
         'rounded-lg px-2 py-1 text-xs font-bold transition',
         accent
-          ? 'bg-[#b5852f]/30 text-[#f2cf87] hover:bg-[#b5852f]/50 disabled:opacity-30'
+          ? 'bg-[#123553] text-[#70c9ff] hover:bg-[#1b466a] disabled:opacity-30'
           : 'bg-white/8 text-white/50 hover:bg-white/14 hover:text-white disabled:opacity-30',
       )}
     >

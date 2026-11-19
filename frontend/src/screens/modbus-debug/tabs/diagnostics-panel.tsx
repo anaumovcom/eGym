@@ -1,5 +1,6 @@
 import { Activity, CheckCircle2, RefreshCw, XCircle } from 'lucide-react'
-import { useState } from 'react'
+import { useCallback } from 'react'
+import { useModbusRead } from '@/features/modbus/lib/use-modbus-read'
 import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
 import {
   BAUD_RATE_LABELS,
@@ -9,30 +10,25 @@ import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/cn'
 
 export function DiagnosticsPanel() {
-  const { diagnostics, loadDiagnostics, connectionStatus, readRegister } = useModbusStore()
-  const [loading, setLoading] = useState(false)
-
-  const handleRefresh = async () => {
-    setLoading(true)
-    try {
-      await loadDiagnostics()
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { diagnostics: lastCheck, loadDiagnostics, connectionStatus, readRegister, selectedSide, driveAddresses } = useModbusStore()
+  const isConnected = connectionStatus?.connected ?? false
+  const slave = driveAddresses[selectedSide]
+  const check = useCallback(async () => {
+    if (isConnected && slave) await loadDiagnostics()
+  }, [isConnected, slave, loadDiagnostics])
+  const { loading, failed, refresh: handleRefresh } = useModbusRead(check, isConnected ? 1000 : undefined)
+  const diagnostics = isConnected && !failed ? lastCheck : null
 
   const handleQuickRead = async (address: number) => {
     await readRegister(address)
     await loadDiagnostics()
   }
 
-  const isConnected = connectionStatus?.connected ?? false
-
   return (
     <div className="space-y-4">
       <div className="glass-panel rounded-2xl p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-[#f4dfb4]">Проверка драйвера</h3>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h3 className="font-semibold">Проверка выбранного драйвера</h3>
           <Button
             variant="secondary"
             iconLeft={loading ? <Activity size={14} className="animate-spin" /> : <RefreshCw size={14} />}
@@ -45,7 +41,7 @@ export function DiagnosticsPanel() {
         </div>
 
         {!diagnostics && (
-          <p className="text-sm text-white/40">Нажмите «Обновить» для запуска диагностики.</p>
+          <p className="text-sm text-[#a9bece]">{failed ? 'Состояние привода неизвестно' : isConnected ? 'Ожидание данных привода' : 'Ожидание подключения приводов'}</p>
         )}
 
         {diagnostics && (
@@ -87,10 +83,10 @@ export function DiagnosticsPanel() {
               <DiagRow
                 label="Код ошибки"
                 value={diagnostics.alarmCode != null ? (diagnostics.alarmCode === 0 ? 'Нет ошибки' : `0x${diagnostics.alarmCode.toString(16).toUpperCase().padStart(4, '0')}`) : '—'}
-                paramName="UN_200"
-                address={0x200}
+                paramName="PA_1C9"
+                address={0x1C9}
                 onRead={handleQuickRead}
-                valueColor={diagnostics.hasAlarm ? 'danger' : 'good'}
+                valueColor={diagnostics.hasAlarm == null ? 'warning' : diagnostics.hasAlarm ? 'danger' : 'good'}
               />
             </div>
 
@@ -105,7 +101,8 @@ export function DiagnosticsPanel() {
 
       {/* Quick action buttons */}
       <div className="glass-panel rounded-2xl p-5">
-        <h4 className="text-sm font-semibold text-[#f4dfb4] mb-3">Быстрые действия</h4>
+        <h3 className="text-sm font-semibold mb-1">Чтение отдельных регистров</h3>
+        <p className="mb-3 text-xs text-[#a9bece]">Чтение обновляет сводку и не записывает значения.</p>
         <div className="flex flex-wrap gap-2">
           {QUICK_READS.map((qr) => (
             <Button
@@ -129,22 +126,22 @@ const QUICK_READS = [
   { name: 'PA_002', address: 0x002 },
   { name: 'PA_00D', address: 0x00D },
   { name: 'PA_090', address: 0x090 },
-  { name: 'UN_200 (ошибка)', address: 0x200 },
-  { name: 'UN_203 (скорость)', address: 0x203 },
-  { name: 'UN_204 (момент)', address: 0x204 },
+  { name: 'PA_1C9 (ошибка)', address: 0x1C9 },
+  { name: 'PA_1C1 (скорость)', address: 0x1C1 },
+  { name: 'PA_1C4 (момент)', address: 0x1C4 },
 ]
 
 function DiagSummary({
   responding, summary, hasAlarm, motionSafe,
-}: { responding: boolean; summary: string; hasAlarm: boolean; motionSafe: boolean }) {
-  const tone = !responding ? 'danger' : hasAlarm ? 'warning' : 'good'
+}: { responding: boolean; summary: string; hasAlarm: boolean | null; motionSafe: boolean }) {
+  const tone = !responding ? 'danger' : !motionSafe ? 'warning' : 'good'
   const toneClasses = {
     danger: 'border-[#ff8f84]/30 bg-[#3d1010]',
     warning: 'border-[#f2cf87]/30 bg-[#2d2500]',
     good: 'border-[#79de83]/20 bg-[#0d2d0f]',
   }
   const icon = responding
-    ? hasAlarm
+    ? hasAlarm !== false || !motionSafe
       ? <XCircle size={18} className="text-[#f2cf87]" />
       : <CheckCircle2 size={18} className="text-[#79de83]" />
     : <XCircle size={18} className="text-[#ff8f84]" />

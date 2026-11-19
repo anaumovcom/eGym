@@ -78,7 +78,7 @@ def test_regularity_first_jubilee_streak_and_gap(db_session):
 
 def test_muscle_facts_from_catalog_and_fatigue(db_session):
     found = progress.muscle_facts(db_session, "alexey", "machine-pulldown", **EPOCH)
-    assert found[0].claim == "Работают бицепс и широчайшие"
+    assert found[0].claim == "Работают широчайшие и бицепс"
     assert found[1].value == "fresh"
     assert progress.muscle_facts(db_session, "alexey", "no-such-exercise", **EPOCH) == []
 

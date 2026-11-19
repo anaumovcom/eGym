@@ -1,0 +1,14 @@
+{
+  "error": {
+    "message": "Your request was rejected by the safety system. If you believe this is an error, contact us at help.openai.com and include the request ID req_65f3b2beed7d4f3a88fbbbdfd9b2aa9e. safety_violations=[sexual].",
+    "type": "image_generation_user_error",
+    "param": null,
+    "code": "moderation_blocked",
+    "moderation_details": {
+      "moderation_stage": "output",
+      "categories": [
+        "sexual"
+      ]
+    }
+  }
+}

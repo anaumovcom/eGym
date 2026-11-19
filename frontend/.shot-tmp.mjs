@@ -1,7 +1,8 @@
 import { chromium } from 'playwright'
+import { kioskDisplay } from './e2e/kiosk-display.mjs'
 const [,, dir] = process.argv
 const browser = await chromium.launch()
-const page = await browser.newPage({ viewport: { width: 1920, height: 1200 } })
+const page = await browser.newPage(kioskDisplay)
 await page.route('http://127.0.0.1:8000/**', (route) => route.continue({ url: route.request().url().replace(':8000', ':8001') }))
 await page.addInitScript(() => { if (!localStorage.getItem('egym-app-store')) localStorage.setItem('egym-app-store', JSON.stringify({ state: { selectedUserId: 'alexey' }, version: 0 })) })
 await page.goto('http://localhost:5173/dashboard')

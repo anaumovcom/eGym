@@ -16,6 +16,8 @@ def test_outputs_are_isolated_in_v2():
 
 
 def test_urls_and_extended_tier_ids(monkeypatch):
+    monkeypatch.setattr(media, "collection_images", lambda: {})
+    monkeypatch.setattr(media, "collection_voice", lambda: {})
     monkeypatch.setattr(media, "load_manifest", lambda: {"assets": {
         "practice.workouts:t6": {"image": {"512": "icon.webp"}, "audio": {"file": "voice.wav"}},
     }})

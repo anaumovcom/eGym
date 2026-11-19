@@ -1,0 +1,192 @@
+/* Opt-in only. The parent owns the attribute and excludes /fatigue. */
+html[data-forma-theme='broadcast-blue'] {
+  --broadcast-accent: #2878f0;
+  --broadcast-accent-soft: #2878f024;
+  --broadcast-accent-border: #2878f066;
+  --broadcast-accent-light: #98c2ff;
+  --broadcast-accent-strong: #c2dbff;
+  --broadcast-accent-hover: #2878f038;
+  --broadcast-accent-pressed: #1d60c7;
+  --broadcast-surface: #15181e;
+  --broadcast-surface-raised: #1b1f27;
+  --broadcast-border: #ffffff16;
+  --broadcast-action: #145fdb;
+  --broadcast-chrome: #0b151e;
+  --color-sand-500: var(--broadcast-accent);
+  --color-sand-400: var(--broadcast-accent-light);
+  --color-sand-300: var(--broadcast-accent-strong);
+  --ui-focus: var(--broadcast-accent-light);
+  color: #f4f6fa;
+  background: radial-gradient(ellipse at 30% 0%, #10202c, transparent 55%), #080f15;
+}
+
+/* Status palettes and muscle roles retain their legacy meaning. No SVG rules. */
+html[data-forma-theme='broadcast-blue'] :is(.home-recovery, .fatigue-map, .wd-map, .wd-load, .rt-muscle-load, .builder-stage-media, .rt-muscles) {
+  --color-sand-500: #d7b15d;
+  --color-sand-400: #e5c779;
+  --color-sand-300: #f0ddb0;
+}
+
+html[data-forma-theme='broadcast-blue'] .glass-panel:not(:where(.home-recovery, .home-recovery *, .fatigue-map, .fatigue-map *, .wd-map, .wd-map *, .wd-load, .wd-load *, .rt-muscle-load, .rt-muscle-load *)) {
+  border-color: var(--broadcast-border);
+  background: var(--broadcast-surface);
+  box-shadow: none;
+}
+html[data-forma-theme='broadcast-blue'] .glass-panel .glass-panel:not(:where(.home-recovery *, .fatigue-map *, .wd-map *, .wd-load *, .rt-muscle-load *)) {
+  background: var(--broadcast-surface-raised);
+  border-color: var(--broadcast-border);
+}
+html[data-forma-theme='broadcast-blue'] .forma-button[data-variant='primary'] {
+  background: linear-gradient(155deg, #176ee8, #114cbb);
+  color: #fff;
+  border-color: var(--broadcast-accent);
+  box-shadow: inset 0 1px 0 #ffffff24, 0 4px 14px #0003;
+}
+html[data-forma-theme='broadcast-blue'] .forma-button[data-variant='primary']:hover:not(:disabled) {
+  background: var(--broadcast-action);
+  filter: none;
+}
+html[data-forma-theme='broadcast-blue'] .forma-button[data-variant='primary']:active:not(:disabled) {
+  background: var(--broadcast-accent-pressed);
+}
+html[data-forma-theme='broadcast-blue'] .forma-button[data-variant='secondary']:hover:not(:disabled) {
+  border-color: var(--broadcast-accent-border);
+}
+html[data-forma-theme='broadcast-blue'] :is(.forma-button, .home-resume, .builder-item, .builder-add, .catalog-card-open):focus-visible {
+  outline: 2px solid var(--broadcast-accent-light);
+  outline-offset: 3px;
+}
+html[data-forma-theme='broadcast-blue'] :is(.input-field, .builder-title-input, .builder-field input, .builder-field textarea):focus {
+  border-color: var(--broadcast-accent);
+  box-shadow: 0 0 0 3px var(--broadcast-accent-soft);
+}
+html[data-forma-theme='broadcast-blue'] :is(.catalog-search, .rt-screen .rt-body .value-stepper-row, .rt-field):focus-within {
+  border-color: var(--broadcast-accent);
+  box-shadow: 0 0 0 3px var(--broadcast-accent-soft);
+}
+
+html[data-forma-theme='broadcast-blue'] .home-resume {
+  border-color: var(--broadcast-accent-border);
+  background: linear-gradient(100deg, #172b48, var(--broadcast-surface) 75%);
+}
+html[data-forma-theme='broadcast-blue'] .home-resume:hover {
+  border-color: var(--broadcast-accent);
+  box-shadow: 0 0 0 1px var(--broadcast-accent-soft);
+}
+html[data-forma-theme='broadcast-blue'] :is(.home-resume-icon, .home-resume-action, .home-resume-progress > span, .picker-item-action) {
+  background: var(--broadcast-accent);
+  color: #fff;
+}
+html[data-forma-theme='broadcast-blue'] .home-resume-icon { animation: none; }
+html[data-forma-theme='broadcast-blue'] .home-resume-eyebrow { color: var(--broadcast-accent-light); }
+html[data-forma-theme='broadcast-blue'] :is(.home-resume-title, .builder-stage-heading h2, .catalog-card-body h3) { overflow-wrap: anywhere; }
+
+html[data-forma-theme='broadcast-blue'] :is(.builder-group, .builder-stage, .catalog-header, .catalog-card, .rt-panel) {
+  background: var(--broadcast-surface);
+  border-color: var(--broadcast-border);
+}
+html[data-forma-theme='broadcast-blue'] .builder-item { background: var(--broadcast-surface-raised); }
+html[data-forma-theme='broadcast-blue'] :is(.builder-item:hover, .builder-title-button:hover, .builder-add:hover, .catalog-card:hover, .catalog-card:focus-within) {
+  border-color: var(--broadcast-accent-border);
+}
+html[data-forma-theme='broadcast-blue'] .builder-item[aria-current='true'] {
+  border-color: var(--broadcast-accent);
+  background: var(--broadcast-accent-soft);
+  box-shadow: inset 3px 0 0 var(--broadcast-accent);
+}
+html[data-forma-theme='broadcast-blue'] :is(.builder-add, .builder-title-button:hover, .catalog-filter-section h3) { color: var(--broadcast-accent-light); }
+html[data-forma-theme='broadcast-blue'] :is(.builder-load-switch button[aria-checked='true'], .catalog-active-chip, .picker-chip-active) {
+  background: var(--broadcast-accent-soft);
+  color: var(--broadcast-accent-strong);
+  border-color: var(--broadcast-accent-border);
+  box-shadow: inset 0 0 0 1px var(--broadcast-accent-border);
+}
+html[data-forma-theme='broadcast-blue'] .catalog-card-favorite[aria-pressed='true'] { border-color: var(--broadcast-accent); }
+html[data-forma-theme='broadcast-blue'] .catalog-card-body { gap: 0.375rem; }
+html[data-forma-theme='broadcast-blue'] :is(.builder-title-meta, .home-resume-meta) { row-gap: 0.375rem; }
+
+/* Only current/selected runtime controls; ready, partial, warning and STOP stay intact. */
+html[data-forma-theme='broadcast-blue'] .rt-set-track li[data-state='current'] {
+  border-color: var(--broadcast-accent);
+  background: var(--broadcast-accent-soft);
+  box-shadow: 0 0 0 3px #2878f014;
+}
+html[data-forma-theme='broadcast-blue'] .rt-set-track li[data-state='current'] .rt-set-badge {
+  background: var(--broadcast-accent);
+  color: #fff;
+}
+html[data-forma-theme='broadcast-blue'] .rt-set-track li[data-state='current'] .rt-set-type { color: var(--broadcast-accent-light); }
+html[data-forma-theme='broadcast-blue'] .rt-screen .rt-body :is(.rt-start-point-options, .rt-calibration-mode) > .forma-button[aria-pressed='true'],
+html[data-forma-theme='broadcast-blue'] .rt-setup-screen .rt-setup-body .rt-bar-point-row > .forma-button[aria-pressed='true'] {
+  background: var(--broadcast-accent-soft);
+  color: var(--broadcast-accent-strong);
+  box-shadow: inset 0 0 0 1px var(--broadcast-accent-border);
+}
+html[data-forma-theme='broadcast-blue'] .rt-screen .rt-body .value-stepper-row > button:active:not(:disabled) {
+  background: var(--broadcast-accent-soft);
+  color: var(--broadcast-accent-strong);
+}
+html[data-forma-theme='broadcast-blue'] .rt-setup-screen .rt-setup-body .rt-bar-point-row > .rt-icon-button[data-capture] { color: var(--broadcast-accent-light); }
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-forma-theme='broadcast-blue'] :is(.forma-button, .home-resume, .catalog-card, .builder-item) { transition: none; }
+  html[data-forma-theme='broadcast-blue'] .home-resume-icon { animation: none; }
+}
+
+/* Safety controls in compact workout headers and modal dialogs. */
+html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock {
+  justify-content: flex-end; flex-wrap: wrap; gap: .4rem .55rem; max-width: 100%;
+}
+html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock > .forma-machine-status { order: 1; }
+html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock > .forma-stop { order: 2; }
+html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock .forma-machine-status-button {
+  width: auto; min-height: 44px; max-width: min(100%, 15rem); padding: .38rem .65rem;
+  border: 1px solid #9dd4ff24; border-radius: .75rem; background: #111f2a;
+}
+html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock .forma-machine-status-text {
+  position: static; width: auto; height: auto; margin: 0; overflow: visible; clip-path: none;
+  white-space: normal; overflow-wrap: anywhere; color: #d5e2ef; font-size: .75rem; line-height: 1.25;
+}
+html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock .forma-stop {
+  min-height: max(44px, calc(var(--ui-control) * .8)); padding-inline: .9rem;
+  border-radius: .8rem; background: #be211d; border: 1px solid #fa5c55; white-space: nowrap;
+}
+html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock .forma-stop:hover { background: #d12721; }
+html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock .forma-reset-block { min-height: 44px; max-width: 100%; }
+
+/* Use real dock height instead of reserving one guessed row for STOP. Keep Radix's scope and hit testing. */
+html[data-forma-theme='broadcast-blue'] .forma-dialog-root:not(:where(.wd-root, .picker-fullscreen-root, :has(> .photo-capture-panel))) {
+  display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr);
+  gap: .65rem; padding: clamp(.5rem, 1.5vw, 1.4rem);
+}
+html[data-forma-theme='broadcast-blue'] .forma-dialog-root:not(:where(.wd-root, .picker-fullscreen-root, :has(> .photo-capture-panel))) > .forma-dialog-dock {
+  grid-row: 1; position: static; justify-self: end; max-width: 100%;
+}
+html[data-forma-theme='broadcast-blue'] .forma-dialog-root:not(:where(.wd-root, .picker-fullscreen-root, :has(> .photo-capture-panel))) > .forma-dialog-panel {
+  grid-row: 2; place-self: center; min-width: 0; min-height: 0;
+  max-height: 100%; overscroll-behavior-y: contain; scrollbar-gutter: stable;
+}
+html[data-forma-theme='broadcast-blue'] .forma-dialog-dock > .forma-system-dock { background: var(--broadcast-chrome); border-color: #9dd4ff2b; border-radius: .9rem; }
+html[data-forma-theme='broadcast-blue'] .forma-dialog-panel:not(:where(.wd-panel, .picker-panel, .photo-capture-panel, .forma-danger-panel)) {
+  border-radius: 1rem; border: 1px solid #9dd4ff30;
+  border-top-color: #44aaff8c;
+  background: #0d1821; box-shadow: 0 20px 65px #0009;
+}
+html[data-forma-theme='broadcast-blue'] .forma-dialog-panel [data-variant='danger'] { border: 1px solid #ff8c7f40; }
+html[data-forma-theme='broadcast-blue'] .forma-dialog-panel [data-variant='secondary'] { background-color: #9dd4ff0d; }
+
+@media (min-width: 2400px) and (min-height: 1250px) {
+  html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock :is(.forma-stop, .forma-machine-status-button) { min-height: 64px; }
+  html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock .forma-machine-status-text { font-size: .825rem; }
+}
+@media (max-width: 899px) {
+  html[data-forma-theme='broadcast-blue'] .forma-shell:where(:has(> .forma-navigation-compact)) { padding: .65rem; gap: .6rem; }
+}
+@media (max-width: 600px) {
+  html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock .forma-machine-status { flex: 1 1 7.25rem; }
+  html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock .forma-stop span {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%);
+  }
+  html[data-forma-theme='broadcast-blue'] :where(.forma-navigation-compact, .forma-dialog-dock) .forma-system-dock .forma-stop::after { content: 'СТОП'; }
+  html[data-forma-theme='broadcast-blue'] .forma-main { scrollbar-gutter: auto; padding-inline: .125rem; }
+}

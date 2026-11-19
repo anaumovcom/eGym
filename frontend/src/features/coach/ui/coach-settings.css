@@ -1,3 +1,15 @@
+/* Broadcast chrome only: status, notes and issues keep their original colours. */
+html[data-forma-theme='broadcast-blue'] .coach-settings-panel :is(.rt-input, .rt-button) { border-color: var(--broadcast-accent-border, #58a6ff55); }
+html[data-forma-theme='broadcast-blue'] .coach-settings-panel .rt-button { background: var(--broadcast-accent-soft, #2583ff24); }
+html[data-forma-theme='broadcast-blue'] .coach-settings-panel .rt-button:hover:not(:disabled) { border-color: var(--broadcast-accent, #58a6ff); background: var(--broadcast-accent-hover, #2583ff38); }
+html[data-forma-theme='broadcast-blue'] .coach-settings-panel .rt-button-primary,
+html[data-forma-theme='broadcast-blue'] .coach-settings-panel input.coach-switch:checked { background: var(--broadcast-accent, #58a6ff); color: #071426; }
+html[data-forma-theme='broadcast-blue'] .coach-settings-panel .rt-button-primary:hover:not(:disabled) { background: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .coach-settings-panel :is(input, select, button, summary):focus-visible,
+html[data-forma-theme='broadcast-blue'] .coach-chip input:focus-visible + span { outline-color: var(--broadcast-accent, #58a6ff); }
+html[data-forma-theme='broadcast-blue'] .coach-group-title h3 { color: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .coach-chip input:checked + span { background: var(--broadcast-accent-soft, #2583ff24); border-color: var(--broadcast-accent, #58a6ff); color: var(--broadcast-accent-strong, #b8daff); }
+
 .coach-settings-panel .rt-input {
   width: 100%; min-height: 40px; padding: .45rem .7rem;
   border: 1px solid #a78bfa40; border-radius: 10px;

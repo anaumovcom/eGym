@@ -1,0 +1,629 @@
+{
+  "generator": "OpenAI ImageGen (built-in)",
+  "style": "Use case: stylized-concept. One square collectible achievement icon for the Forma gym kiosk. A single centered upright hexagonal enamel medal with crisp bevelled cool silver rim, recessed deep midnight-blue enamel field, and a playful miniature sculpted enamel subject with a splash of warm amber or seafoam. A coherent premium game pin, nearly front-on orthographic, main motif occupying 70% of the badge, strongly legible at 80 pixels, subtle upper-left light, simple silhouettes, no people, no lettering, numbers, watermark, stars indicating level or decorative writing. Entire medal visible with 6% margin on a perfectly uniform near-black navy #09131c square background. ",
+  "subjects": {
+    "start.first_workout:t1": "FIRST REAL WORKOUT / ‘the sofa has a day off’ — an unmistakable small cozy golden-yellow sofa and two bright teal lace-up training shoes already stepping away from it, one in front of the other. This friendly little joke about starting exercise is the whole story. No computer disks or technology.",
+    "start.first_workout:t2": "A pair of teal training shoes unpacking themselves from a little open mustard-yellow vintage suitcase. A loose lace curls cheerfully, bold readable shape. The second milestone is settling into the gym.",
+    "start.first_workout:t3": "A permanent blue gym membership pass in the unmistakable simple shape of a rounded card with punched lanyard hole. Its raised gold emblem is a dumbbell and a checkmark, with short teal lanyard. No text at all.",
+    "signature.reunited_pairs:t1": "Two very distinct little squat kettlebells leaning toward each other in conversation, one amber and one turquoise. Over them two overlapping ivory graphic speech bubbles, one tiny dot in each. Returning workout partners form a group chat.",
+    "return.rediscovered:t1": "A retro teal kettlebell lifted slightly from an open golden keepsake box, a little twinkle where dust was wiped off and one tiny calendar tab behind. Rediscovering a familiar exercise after a long rest. Cheerful reunion.",
+    "calendar.month_bridge:t1": "Two visibly separate flipped ring-bound calendar leaves, linked by a tiny arched amber footbridge with a teal training shoe crossing. A recurring exercise links two calendar months. Bold simple central composition.",
+    "duet.machine_stretch:t1": "A compact gold iron barbell resting across the unfurling end of a turquoise rolled exercise mat. The loose mat curves gracefully below the straight iron bar. Strength machine and stretching in one workout.",
+    "practice.reps:t1": "A beautiful working mechanical tally counter fused with a miniature barbell, three glossy amber counting wheels (plain circles or dots only, no numerals) in a teal housing with one chunky click button.",
+    "rhythm.active_days:t1": "A standing warm ivory tear-off calendar with two blue binding rings, exactly five plump turquoise or amber enamel dots stamped on its blank grid and a small marker tip. Clearly a collection of training dates.",
+    "signature.remix": "A DJ turntable where the spinning vinyl record is an unmistakable small gym weight plate, one golden tonearm, a teal swap arrow. Joke about remixing a familiar workout with one exercise substituted.",
+    "discovery.club_host": "Three small gym objects invited to a club, a central smiling teal kettlebell holding open a little velvet rope to let in two different smaller weights. Strong flat silhouettes and warm social humor.",
+    "calendar.format_relay": "Two abstract sports glove hands handing off a tightly rolled teal yoga mat like a relay baton, amber speed marks and a little calendar tab. Distinct workout formats passing the baton across a week.",
+    "duet.bodyweight_machine": "One teal athletic sneaker with its laces clasping a very clear short gold barbell, like two training partners shaking hands, bold and simple.",
+    "duet.machine_timed": "A gold barbell standing diagonally in front of one big teal stopwatch, suggesting timed exercise and machine training in one workout.",
+    "duet.bodyweight_stretch": "A single laced turquoise trainer resting on an unfurling saffron exercise mat with elegantly curled edges. Compact isolated objects and no other equipment.",
+    "duet.bodyweight_timed": "A teal sneaker propelled gently forward by a round hand-held gold stopwatch with two top buttons. Clear silhouettes of bodyweight practice and timed exercise.",
+    "duet.stretch_timed": "A golden stopwatch softening gently over the rounded edge of a teal yoga mat, like time itself is stretching. Polished, simple and cheerful.",
+    "calendar.season_0": "Two turquoise training shoes on clean fluffy snow, with bright yellow knitted mittens resting across their laces and one broad snowflake. A winter practice collectable.",
+    "calendar.season_1": "A pair of turquoise lace-up training shoes doubles as a tiny planter with three spring snowdrops and green leaves growing through the laces. Friendly sculpted enamel.",
+    "calendar.season_2": "A small golden summer sunhat with a broad brim resting on a teal dumbbell, a little summer sun flare, bold clear and funny in silhouette.",
+    "calendar.season_3": "A bright amber maple leaf caught on a turquoise training-shoe lace, a second copper leaf floating nearby. A distinct autumn sports collectable.",
+    "exercise.smith-machine-skullcrusher": "A miniature chrome straight exercise bar styled with a baguette-coloured centre grip, raised above a small flat bench; a tiny teal beret sits on the end plate. French press/triceps exercise, a friendly French accent.",
+    "muscle.lats": "A simplified turquoise athletic back-shaped emblem with two broad wings flaring from the side of the back and a tiny gold airline luggage tag. Broad back muscles as airline wings.",
+    "muscle.abdominals": "A folded ivory newspaper with a visibly sculpted six-pack abdominal motif as its large front illustration, and a tiny teal reporter microphone. No writing or faux text. A playful abdominal press office.",
+    "practice.sets": "A team of three compact enamel weight plates lined up as though arriving at a little meeting table, one tiny abstract speech balloon. A visual pun on gathering completed sets.",
+    "practice.workouts": "A little open training diary lifts an amber dumbbell made of two stacked books; teal fabric bookmark, a bookish gym mascot.",
+    "practice.exercise_sessions": "A miniature card index drawer full of little workout cards with a dumbbell symbol stamped on each, a tiny fountain pen in front.",
+    "rhythm.active_weeks": "A friendly mailbox opening to reveal an envelope carrying a small seven-column calendar page; a miniature sneaker as its postal flag.",
+    "rhythm.quarters": "A school chalkboard standing beside a tiny kettlebell wearing a graduation cap; four colored quarter-circle chalk pieces stand for quarters of a year.",
+    "chapter.90_days": "Old fashioned little television displaying a dumbbell, with a director's clapperboard and a cup of tea for a workout series.",
+    "chapter.365_days": "A detective magnifying glass and tiny detective hat on a tear-off desk calendar, a sneaker footprint is the clue.",
+    "repertoire.repertoire_months": "A painter’s palette with colourful weight plates as paint dabs and a paintbrush shaped like a small barbell.",
+    "variety.machine_days": "A recognizable miniature Smith exercise machine with a friendly golden barbell greeting a teal training shoe, crisp simple gym equipment.",
+    "plan.full_weeks": "A seven-column weekly planner snapping shut with a ribbon, several satisfyingly large mint checkmarks spring off the page.",
+    "discovery.old_and_new": "A slightly worn golden training shoe sliding its rolled mat aside to welcome a bright clean teal new shoe, a companionable meeting of generations.",
+    "discovery.seasoned": "A dumbbell holding a small umbrella below a cluster of four unmistakable seasonal symbols: a snowflake, flower, sun, and autumn leaf.",
+    "signature.same_setlist": "A compact concert microphone and an open tour setlist scroll marked with dumbbell pictograms; an amber guitar pick tips its hat.",
+    "signature.familiar_only": "A cozy gym club's keyring of two familiar house keys, both shaped like tiny dumbbells, with a welcoming member tag.",
+    "signature.trio": "A concert triangle ringing alongside a tiny sneaker and a rolled exercise mat, three different training formats forming a chamber trio.",
+    "return.homecoming": "A home key unlocking a tiny gym locker door, with friendly slippers on the threshold and a little barbell inside.",
+    "calendar.both_halves": "An open spiral-bound desk calendar doing the splits, two clearly separated leaves of the same book with one golden date dot on each, a strip of teal mat below.",
+    "calendar.season_turns": "A wardrobe rail with a winter scarf and a summer sunhat, with a pair of gym shoes under it. Changing seasons and a regular workout wardrobe.",
+    "calendar.four_colours": "Small violin where the four strings flow into a snowflake, spring flower, sun and maple leaf; the four seasons as a musical quartet.",
+    "calendar.bodyweight_weeks": "A personal season pass shaped like a small calendar with a pair of amber running shoes hanging from the green lanyard. Travel light.",
+    "calendar.machine_weeks": "Compact Smith gym machine with a bright teal weekly appointment calendar hanging on the bar. Strong readable gym outline.",
+    "calendar.stretch_weeks": "A teal yoga mat unrolls into a tidy seven-column calendar page held by an amber elastic band, weekly stretch habit.",
+    "calendar.timed_weeks": "Classic twin-bell amber alarm clock holds a tiny blue seven-column time sheet. Weekly timed practice.",
+    "discovery.bodyweight_regulars": "An open miniature theatre curtain frames a pair of amber training shoes on an otherwise empty stage. Bodyweight training needs no other props.",
+    "discovery.machine_regulars": "Two different pieces of friendly miniature gym iron, a dumbbell and a machine pulley, meet with a small mint chat bubble and handshake.",
+    "discovery.stretch_regulars": "A cat doing an exaggerated luxurious forward stretch on a rolled teal yoga mat. Clear arched back and front paws reaching out.",
+    "discovery.timed_regulars": "Three little stopwatch faces grouped like a singing choir behind a single shared music stand, generous simple silhouette.",
+    "exercise.smith-machine-upright-row": "A playful delivery parcel tied to the middle of a gym barbell, being raised on two upright rails to a crisp little shirt collar. A delivery to the chin.",
+    "muscle.front-shoulders": "Front of a sports jersey highlighting its anterior shoulder caps in amber, with a miniature front-row theatre spotlight shining on one shoulder.",
+    "muscle.glutes": "A plush armchair dressed up smartly for a job interview with a tiny kettlebell waiting beside it; a cheeky office-seat theme for glute practice.",
+    "muscle.quads": "Four tiny singing microphone heads peep out from a pair of teal athletic shorts. A quartet for the four heads of the quadriceps.",
+    "muscle.traps": "A little dark teal blazer shrugging both padded golden shoulders, tiny question-mark-like swirls without actual writing; shoulder shrug presented as a very serious office.",
+    "muscle.triceps": "A single gym shirt sleeve frames a flexed upper arm with three distinct amber stripes, topped by three friendly little councillor hats; the three heads of the triceps.",
+    "muscle.rear-shoulders": "Back view of a stylized athletic jersey with both rear shoulder patches highlighted, a director's movie camera points at the back of the shoulders.",
+    "muscle.hamstrings": "A small movie clapperboard beside the back of a pair of sporty legs with a distinct gold highlight on the rear thighs, a stunt double backstage.",
+    "muscle.obliques": "A stylized athletic torso without a head in its gym shirt, oblique diagonal stripes highlighted in amber on the sides, an architect's diagonal set square in the foreground.",
+    "muscle.traps-middle": "Rear of a sports jersey, a clear teal trapezoid between the shoulder blades, little golden drafting compass marking the central trapezius.",
+    "muscle.biceps": "A flexed golden upper arm behind a voting box with two teal ballots, two heads of one biceps both voted yes.",
+    "start.first_set": "A small hand and a tiny gym weight plate greeting one another with a playful high five above a fresh training tally.",
+    "start.three_days": "A little calendar with three bold separated amber dates, and a bright sneaker signing its autograph with the toe.",
+    "start.two_weeks": "Two weekly calendar pages greeting each other, each with a colorful sneaker print in a different square.",
+    "start.first_program": "A vintage miniature TV with control knob and dumbbell antenna playing a workout program.",
+    "rhythm.week_streak": "Three consecutive calendar pages joined in a ring by tiny linked hands, a chain of training weeks.",
+    "rhythm.two_days_week": "Two little golden dates inside a weekly planner page, side-by-side sneakers marking a pair of workout days.",
+    "rhythm.three_days_week": "A desk calendar with three highlighted dates standing on three sporty shoe-clad feet; a tripod of practice days.",
+    "practice.working_sets": "A little mechanical time clock stamping a time card punched with dumbbell marks, completed sets reporting for the shift.",
+    "practice.partial_workouts": "An open training diary with a pause-shaped golden bookmark and a partially filled progress ring. A workout can be continued.",
+    "practice.three_exercise_days": "A miniature train compartment with three different pieces of fitness gear riding together, a mat, small kettlebell and a sneaker.",
+    "practice.focus": "A large teal heart-shaped bookmark embracing a golden dumbbell. A favorite exercise.",
+    "variety.timed_days": "An antique desk clock behind the open pages of an appointment calendar, a tiny pencil pointing to a date.",
+    "variety.stretch_seconds": "A golden hourglass in a stretching pose on a teal rolled yoga mat, collecting seconds of stretching.",
+    "variety.bodyweight_sets": "A gym checklist stamped with little footprints and a pair of unladen sneakers, a pure bodyweight exercise set.",
+    "variety.mixed_kind_days": "A chef's soup pot with a kettlebell, rolled mat and stopwatch in place of ingredients, a playful recipe for mixed training.",
+    "volume.volume_days": "A golden weight plate used as the heavyweight paperweight on today's tiny calendar page.",
+    "volume.weighted_reps": "A stack of weight plates served like breakfast pancakes on a gym barbell, several repetitions of a weighted movement.",
+    "plan.exercise": "A little line item being checked off on a folded workout plan by a pencil with a tiny barbell eraser.",
+    "plan.planned_sets": "A tailor's measuring tape shaped like a checkmark beside a precisely fitted dumbbell on a workout list.",
+    "plan.plan_workouts_many": "A tall colorful stack of completed workout planners bound with a strap made from a tiny barbell.",
+    "progress.pr_days_many": "An old-fashioned sports microphone and a little press card broadcasting a personal-best trophy, a training news bulletin.",
+    "chapter.worlds": "A miniature washing machine with a little spacesuit and a pair of gym shoes drying on its door, a traveler between story worlds.",
+    "measured.rhythm_days": "A teal metronome ticking on a daily planner, the pen marks out a tiny rhythm trace.",
+    "signature.reunited_pairs:t2": "Two cute gym kettlebells having a double date with a second pair at two tiny cafe tables, the grouping of pairs must read at a glance.",
+    "signature.reunited_pairs:t3": "Two matching pairs of friendly gym weights meet at a tiny open gym locker with a towel, a reunion of training partners.",
+    "signature.reunited_pairs:t4": "A pair of perfectly matched hanging gym rings on an old Swedish wall ladder, tiny watchful eyes in the top rung.",
+    "return.rediscovered:t2": "A bright clean rack welcoming back its old golden barbell with a small mint welcome-home ribbon and a dusty footprint.",
+    "return.rediscovered:t3": "An old folded sepia training photograph showing a familiar bend exercise found beside a real little gym mat.",
+    "return.rediscovered:t4": "An opened brass gym trunk reunion with a rope, dumbbell and folded exercise mat springing out like old friends.",
+    "calendar.month_bridge:t2": "A stubby golden passport rubber stamp touching a teal rolled exercise mat on a desk calendar, crossing from one month to the next.",
+    "calendar.month_bridge:t3": "A barbell crosses a lifted little border barrier between two calendar pages, a tiny customs booth to the side.",
+    "calendar.month_bridge:t4": "A desk calendar opening two small passport booklets, each stamped with the same golden exercise-shoe print.",
+    "duet.machine_stretch:t2": "A golden steel barbell gently curves beside a weekly planner rolled into a flexible yoga mat.",
+    "duet.machine_stretch:t3": "A miniature Smith frame and a friendly rolled mat facing one another across a tiny negotiation table.",
+    "duet.machine_stretch:t4": "A steel gym bar curved into a friendly soft arch over a yoga mat, warm contrast between iron strength and flexibility.",
+    "practice.reps:t2": "A miniature abacus with its beads made from colorful weight plates, the repetition counter has warmed up.",
+    "practice.reps:t3": "A tiny pocket calculator kicking off its gym bag sleeve. A golden barbell is its large equals key.",
+    "practice.reps:t4": "Large typewriter decimal comma being gently nudged sideways by a kettlebell-shaped counter wheel, with no lettering.",
+    "practice.reps:t5": "Several zero-shaped weight plates hanging side by side in a tiny gym locker, round unmistakable hollow silhouettes.",
+    "practice.reps:t6": "A large mechanical split-flap tally scoreboard with a tiny towel and wage envelope, an overworked repetition counter.",
+    "rhythm.active_days:t2": "A plump teal marker enthusiastically places an amber dot on a wall calendar.",
+    "rhythm.active_days:t3": "A cute calendar page whose cheek-like squares are covered with amber date freckles.",
+    "rhythm.active_days:t4": "A wall covered with calendar pages and colorful practice dots trying to squeeze into the last clear square.",
+    "rhythm.active_days:t5": "A mint hole punch looks enviously at the very spotty page of a desk calendar, counted days everywhere.",
+    "rhythm.active_days:t6": "A festive calendar in a dense, legible polka-dot pattern, practice on many dates.",
+    "signature.remix:t4": "A DJ's golden weight plate spins on an elaborate but compact gym turntable, the gym bar as its tonearm. Legendary remix finale.",
+    "discovery.club_host:t4": "A small gym clubhouse entrance with a host kettlebell in a bow tie greeting three differently shaped exercise friends at a velvet rope.",
+    "calendar.format_relay:t4": "A tiny locker crossing a black-and-white finish line alongside a mat, stopwatch and sneaker, mixed movement relay week.",
+    "practice.workouts:t2": "Two anthropomorphic ribbon bookmarks holding hands out of an open little exercise diary. A workout buddy for the first bookmark.",
+    "practice.workouts:t3": "A single wooden bookshelf bowing down like a squat beneath stacked gym diaries with heavy weight-shaped bookends.",
+    "practice.workouts:t4": "A new freestanding storage rack with several orderly shelves of tiny training diaries; a compact row of dumbbell-shaped bookends.",
+    "practice.workouts:t5": "Bespectacled friendly librarian owl curling a heavy book in each wing, in front of a simple bookshelf. A librarian working out.",
+    "muscle.front-shoulders:t2": "Two front shoulder pads of a teal athletic jersey sitting in the red velvet front row at the theatre, a friendly spotlight on them.",
+    "muscle.front-shoulders:t3": "A single microphone pointed at the golden anterior shoulder patch of an athletic jersey, a playful press interview with front deltoids.",
+    "muscle.front-shoulders:t4": "A golden violin resting on the front deltoid of a teal sports jersey, the instrument of the first violin with an unmistakable amber shoulder patch.",
+    "practice.sets:t1": "Two miniature friendly weight plates introducing themselves with a handshake; a gentle first meeting for workout sets.",
+    "practice.sets:t3": "A little standing meeting of three gym weight plates around a tall central lectern, one plate proudly addressing the others.",
+    "practice.exercise_sessions:t2": "A tiny wooden card-index filing drawer flexes one big golden biceps next to protruding training index cards. Gym recordkeeping starts to show.",
+    "plan.planned_days": "A small gym planner with a golden checkmark doing a warm-up stretch, a teal pencil and tiny barbell form a compact composition.",
+    "repertoire.distinct_exercises:t1": "A restaurant tasting plate with three unmistakably different tiny exercise tools served as dishes: a kettlebell, coiled rope and tiny dumbbell at a gym buffet.",
+    "repertoire.distinct_exercises:t2": "An open restaurant menu with a gold spoon on one side and tiny dumbbell, jump rope and mat pictograms on successive pages, its page is being turned.",
+    "repertoire.distinct_exercises:t3": "An elegant tiny waiter's gloved hand offering a silver serving cloche with a gold dumbbell inside, and a little coach's whistle.",
+    "repertoire.distinct_exercises:t4": "A chef's white hat over a questioning single raised eyebrow peering at a miniature golden kettlebell served on a dish.",
+    "repertoire.distinct_exercises:t5": "An entire open restaurant menu on tiny teal running shoes, its pages show a whole buffet of distinctly different gym equipment, compact joyful motif."
+  },
+  "marks": {
+    "start.first_workout": [
+      "Sofa",
+      "Luggage",
+      "BadgeCheck"
+    ],
+    "signature.reunited_pairs": [
+      "MessagesSquare",
+      "HeartHandshake",
+      "Users",
+      "Fence"
+    ],
+    "return.rediscovered": [
+      "History",
+      "HandHelping",
+      "Album",
+      "Users"
+    ],
+    "calendar.month_bridge": [
+      "Footprints",
+      "Stamp",
+      "Flag",
+      "BookOpen"
+    ],
+    "duet.machine_stretch": [
+      "Handshake",
+      "CalendarFold",
+      "Armchair",
+      "Waves"
+    ],
+    "practice.reps": [
+      "PenLine",
+      "Calculator",
+      "SquareDashedMousePointer",
+      "Quote",
+      "CircleDot",
+      "PanelTop"
+    ],
+    "rhythm.active_days": [
+      "Paintbrush",
+      "Highlighter",
+      "ScanFace",
+      "Wallpaper",
+      "CircleDashed",
+      "Grid3X3"
+    ],
+    "signature.remix": [
+      "Guitar",
+      "Radio",
+      "MicVocal",
+      "Disc3"
+    ],
+    "discovery.club_host": [
+      "Network",
+      "Contact",
+      "UsersRound",
+      "DoorOpen"
+    ],
+    "calendar.format_relay": [
+      "Flag",
+      "Timer",
+      "UsersRound",
+      "FlagTriangleRight"
+    ],
+    "duet.bodyweight_machine": [
+      "Handshake",
+      "UserRoundPlus",
+      "KeyRound",
+      "Cake"
+    ],
+    "duet.machine_timed": [
+      "AlarmClock",
+      "CalendarClock",
+      "Gauge",
+      "Bird"
+    ],
+    "duet.bodyweight_stretch": [
+      "House",
+      "Calendar",
+      "Footprints",
+      "Cat"
+    ],
+    "duet.bodyweight_timed": [
+      "Timer",
+      "Volume2",
+      "Footprints",
+      "Feather"
+    ],
+    "duet.stretch_timed": [
+      "Hourglass",
+      "MoveRight",
+      "Cat",
+      "Waves"
+    ],
+    "calendar.season_0": [
+      "Snowflake",
+      "TreePine",
+      "Footprints",
+      "CalendarDays"
+    ],
+    "calendar.season_1": [
+      "Sprout",
+      "Droplets",
+      "Leaf",
+      "Flower2"
+    ],
+    "calendar.season_2": [
+      "Sun",
+      "Shirt",
+      "Umbrella",
+      "Ticket"
+    ],
+    "calendar.season_3": [
+      "Leaf",
+      "Umbrella",
+      "TreeDeciduous",
+      "Footprints"
+    ],
+    "exercise.smith-machine-skullcrusher": [
+      "Hand",
+      "Croissant",
+      "MessageCircle",
+      "Music2"
+    ],
+    "muscle.lats": [
+      "Luggage",
+      "Ticket",
+      "Plane",
+      "Radar"
+    ],
+    "muscle.abdominals": [
+      "Newspaper",
+      "BookOpen",
+      "Mic",
+      "RadioTower"
+    ],
+    "practice.sets": [
+      "Handshake",
+      "Users",
+      "Presentation"
+    ],
+    "practice.workouts": [
+      "Notebook",
+      "Bookmark",
+      "Library",
+      "BookOpenCheck",
+      "LibraryBig",
+      "Forklift"
+    ],
+    "practice.exercise_sessions": [
+      "PenLine",
+      "Archive",
+      "Files"
+    ],
+    "rhythm.active_weeks": [
+      "Mail",
+      "Send",
+      "Mailbox",
+      "MailCheck",
+      "Building2"
+    ],
+    "rhythm.quarters": [
+      "Pencil",
+      "GraduationCap",
+      "Signature"
+    ],
+    "chapter.90_days": [
+      "Clapperboard",
+      "Coffee",
+      "Popcorn"
+    ],
+    "chapter.365_days": [
+      "EyeOff",
+      "Search",
+      "Cake"
+    ],
+    "repertoire.repertoire_months": [
+      "Pipette",
+      "Paintbrush",
+      "Images"
+    ],
+    "variety.machine_days": [
+      "Hand",
+      "Armchair",
+      "Dumbbell"
+    ],
+    "plan.full_weeks": [
+      "CalendarCheck",
+      "ListChecks",
+      "BookCheck"
+    ],
+    "discovery.old_and_new": [
+      "MoveHorizontal",
+      "Key",
+      "Handshake",
+      "GraduationCap"
+    ],
+    "discovery.seasoned": [
+      "CloudSun",
+      "CloudSnow",
+      "Rainbow",
+      "Umbrella"
+    ],
+    "signature.same_setlist": [
+      "ListMusic",
+      "Footprints",
+      "Music2",
+      "Tickets"
+    ],
+    "signature.familiar_only": [
+      "Handshake",
+      "Phone",
+      "Footprints",
+      "DoorOpen"
+    ],
+    "signature.trio": [
+      "Key",
+      "Music",
+      "Triangle",
+      "Pencil"
+    ],
+    "return.homecoming": [
+      "KeyRound",
+      "DoorOpen",
+      "Footprints",
+      "BellRing"
+    ],
+    "calendar.both_halves": [
+      "Split",
+      "BookOpen",
+      "CalendarClock",
+      "FoldHorizontal"
+    ],
+    "calendar.season_turns": [
+      "Footprints",
+      "Sun",
+      "RotateCw",
+      "Archive"
+    ],
+    "calendar.four_colours": [
+      "Music",
+      "Repeat",
+      "Music2",
+      "Tickets"
+    ],
+    "calendar.bodyweight_weeks": [
+      "Ticket",
+      "BadgeCheck",
+      "Briefcase",
+      "Contact"
+    ],
+    "calendar.machine_weeks": [
+      "Notebook",
+      "CalendarDays",
+      "House",
+      "Stamp"
+    ],
+    "calendar.stretch_weeks": [
+      "Scroll",
+      "Calendar",
+      "FoldHorizontal",
+      "RotateCcw"
+    ],
+    "calendar.timed_weeks": [
+      "Timer",
+      "CalendarCheck",
+      "Hourglass",
+      "Bird"
+    ],
+    "discovery.bodyweight_regulars": [
+      "Drama",
+      "Footprints",
+      "Shirt",
+      "Theater"
+    ],
+    "discovery.machine_regulars": [
+      "Handshake",
+      "Contact",
+      "MessageCircle",
+      "RadioTower"
+    ],
+    "discovery.stretch_regulars": [
+      "PawPrint",
+      "ScrollText",
+      "Users",
+      "GraduationCap"
+    ],
+    "discovery.timed_regulars": [
+      "Timer",
+      "ListChecks",
+      "Music2",
+      "MicVocal"
+    ],
+    "exercise.smith-machine-upright-row": [
+      "Hand",
+      "Package",
+      "PenLine",
+      "MapPin"
+    ],
+    "muscle.front-shoulders": [
+      "Flashlight",
+      "Armchair",
+      "Mic",
+      "Music2"
+    ],
+    "muscle.glutes": [
+      "Sofa",
+      "FileText",
+      "Briefcase",
+      "Armchair"
+    ],
+    "muscle.quads": [
+      "Users",
+      "Music4",
+      "PenLine",
+      "MicVocal"
+    ],
+    "muscle.traps": [
+      "Handshake",
+      "CircleHelp",
+      "Contact",
+      "Building2"
+    ],
+    "muscle.triceps": [
+      "Hand",
+      "Utensils",
+      "Shirt",
+      "GraduationCap"
+    ],
+    "muscle.rear-shoulders": [
+      "Camera",
+      "Image",
+      "Video",
+      "Clapperboard"
+    ],
+    "muscle.hamstrings": [
+      "Clapperboard",
+      "Users",
+      "Drama",
+      "Flashlight"
+    ],
+    "muscle.obliques": [
+      "Eye",
+      "Triangle",
+      "Grid3X3",
+      "Globe"
+    ],
+    "muscle.traps-middle": [
+      "Ruler",
+      "Mic",
+      "Tent",
+      "Music2"
+    ],
+    "muscle.biceps": [
+      "CheckCheck",
+      "Users",
+      "Vote",
+      "Hand"
+    ],
+    "start.first_set": [
+      "Footprints",
+      "Hand",
+      "ListChecks"
+    ],
+    "start.three_days": [
+      "CalendarDays",
+      "Pencil",
+      "BookOpen"
+    ],
+    "start.two_weeks": [
+      "CalendarDays",
+      "Handshake",
+      "Mail"
+    ],
+    "start.first_program": [
+      "Tv",
+      "Clapperboard",
+      "Radio"
+    ],
+    "rhythm.week_streak": [
+      "CalendarDays",
+      "Link",
+      "Circle"
+    ],
+    "rhythm.two_days_week": [
+      "CalendarCheck",
+      "UserRoundPlus",
+      "Tickets"
+    ],
+    "rhythm.three_days_week": [
+      "Footprints",
+      "Key",
+      "Camera"
+    ],
+    "practice.working_sets": [
+      "Clock",
+      "ClipboardCheck",
+      "HardHat"
+    ],
+    "practice.partial_workouts": [
+      "Clapperboard",
+      "Bookmark",
+      "Pause"
+    ],
+    "practice.three_exercise_days": [
+      "Tickets",
+      "Users",
+      "TrainFront"
+    ],
+    "practice.focus": [
+      "Heart",
+      "Star",
+      "Users"
+    ],
+    "variety.timed_days": [
+      "Clock",
+      "Hourglass",
+      "BookCheck"
+    ],
+    "variety.stretch_seconds": [
+      "Timer",
+      "Hourglass",
+      "Waves"
+    ],
+    "variety.bodyweight_sets": [
+      "UserRound",
+      "Ticket",
+      "BadgeCheck"
+    ],
+    "variety.mixed_kind_days": [
+      "CookingPot",
+      "ScrollText",
+      "Utensils"
+    ],
+    "volume.volume_days": [
+      "CalendarCheck",
+      "Weight",
+      "CalendarDays"
+    ],
+    "volume.weighted_reps": [
+      "Utensils",
+      "CookingPot",
+      "Circle"
+    ],
+    "plan.exercise": [
+      "KeyRound",
+      "ClipboardCheck",
+      "LampDesk"
+    ],
+    "plan.planned_sets": [
+      "Check",
+      "Ruler",
+      "Scissors"
+    ],
+    "plan.plan_workouts_many": [
+      "PenLine",
+      "Library",
+      "Notebook"
+    ],
+    "progress.pr_days_many": [
+      "Megaphone",
+      "Mic",
+      "RadioTower"
+    ],
+    "chapter.worlds": [
+      "Shirt",
+      "Ticket",
+      "Orbit"
+    ],
+    "measured.rhythm_days": [
+      "CalendarCheck",
+      "Music2",
+      "Drum"
+    ],
+    "plan.planned_days": [
+      "Check",
+      "ClipboardCheck",
+      "ListChecks",
+      "Handshake",
+      "Notebook"
+    ],
+    "repertoire.distinct_exercises": [
+      "Utensils",
+      "BookOpen",
+      "BellRing",
+      "ChefHat",
+      "Footprints"
+    ]
+  },
+  "retain": [
+    "practice.workouts:t6",
+    "practice.exercise_sessions:t3",
+    "rhythm.active_weeks:t2",
+    "rhythm.active_weeks:t3",
+    "rhythm.active_weeks:t4",
+    "rhythm.active_weeks:t5"
+  ]
+}

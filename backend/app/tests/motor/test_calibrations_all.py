@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from app.motor.calibration.graph import BY_CODE, CATALOG, ORDER, WIZARD_STAGES, CheckResult, graph, status
+from app.motor.calibration.procedures.bus import fit_bus_timing
 from app.motor.calibration.procedures.motion import TRANSIT_UP_MM_S
 from app.motor.calibration.runner import Frame
 from app.motor.calibration.session import CalibrationSession
@@ -92,6 +93,18 @@ def test_b0_config_check_and_b1_bus_timing() -> None:
     assert bench.drives["left"].last_raw == 100  # support during the measurement
 
 
+def test_b1_marks_stable_but_slow_cycles_and_reports_axis_skew() -> None:
+    result = fit_bus_timing({
+        "t": [i * 0.076 for i in range(51)], "read_s": [0.025] * 51,
+        "read_skew": [0.013] * 50, "write_skew": [0.014] * 50, "bus_errors": 2,
+    })
+    assert result["target_period_s"] == 0.05 and not result["ok"]
+    assert result["over_target"] == 50 and result["late_frames"] == 0
+    assert result["read_skew_p99_s"] == pytest.approx(0.013)
+    assert result["write_skew_p99_s"] == pytest.approx(0.014)
+    assert result["bus_errors"] == 2
+
+
 def test_b7_absolute_zero() -> None:
     params = replace(PlantParams(), encoder_zero_counts=123_456)
     bench = _bench(params, MachineProfile())
@@ -119,6 +132,30 @@ def test_s7_height_map_recovers_slope() -> None:
             slope * (points[-1][0] - points[0][0]), abs=4
         )
     assert {"coulomb_up_n", "gravity_map"} <= {item["key"] for item in payload["changes"]}
+
+
+def test_s7_publishes_only_completed_heights_and_keeps_them_on_cancel() -> None:
+    bench = _bench(_params(weight_slope_n_per_mm=0.01), MachineProfile())
+    profile = _calibrated(bench)
+    snapshots = []
+
+    def stop_after_two_points(run: CalibrationSession) -> None:
+        data = run.current_stage.result
+        if not data.get("partial") or (snapshots and data is snapshots[-1]):
+            return
+        snapshots.append(data)
+        if len(snapshots) == 2:
+            run.cancel("Остановлено оператором")
+
+    run = _run(bench, "S7", profile, operator=stop_after_two_points)
+    assert run.status == "aborted" and len(snapshots) == 2 and run.profile == profile
+    for i, result in enumerate(snapshots, 1):
+        for side in SIDES:
+            readings = result["sides"][side]
+            assert len(readings["edges"]) == i
+            for (height, low, high), (x, weight) in zip(readings["edges"], readings["map"], strict=True):
+                assert height == x and low < weight < high and (low + high) / 2 == pytest.approx(weight)
+    assert run.to_payload()["stages"][0]["result"] == snapshots[-1]
 
 
 def test_s9_scale_and_g1_accuracy() -> None:
@@ -489,9 +526,9 @@ class _Operator:
         if self.mode == "hold":
             return {side: self.load - 0.3 * v for side in SIDES}
         if self.mode == "reps":
-            if (x > 330 and self.direction > 0) or (x < 200 and self.direction < 0):
+            if (x > self.x0 + 200 and self.direction > 0) or (x < self.x0 and self.direction < 0):
                 self.direction, self.turns = -self.direction, self.turns + 1
-            if self.turns >= 4:
+            if self.turns >= 6:
                 self.mode = "lower"
             return {side: self.load + self.direction * 25.0 + 0.3 * (self.direction * 80 - v) for side in SIDES}
         if self.mode == "lower":
@@ -528,7 +565,11 @@ class _Operator:
             session.reply(None)
         elif prompt.text.startswith("Нагрузка"):  # G3: take the bar
             kg = float(prompt.text.split()[1].replace(",", "."))
+            self.x0 = x
             self.mode, self.load = "hold", kgf_to_n(kg / 2)
+            session.reply(None)
+        elif "Уберите руки" in prompt.text:
+            self.mode, self.until = "push", 0.0
             session.reply(None)
         elif prompt.kind == "action" and "повторений" in prompt.text:
             if self.mode == "hold":
@@ -543,6 +584,27 @@ class _Operator:
                 self.force, self.until = sign * 50.0, self.bench.t + 0.3
         elif prompt.kind == "confirm":
             session.reply(None)
+
+
+class _TrackingOperator(_Operator):
+    """A hand following a 21 cm repetition with finite stiffness, damping and force."""
+
+    rep_start: float | None = None
+
+    def _hand(self, t: float, bench: TwinBench) -> dict[str, float]:
+        if self.mode not in ("hold", "reps"):
+            self.rep_start = None
+            return super()._hand(t, bench)
+        if self.rep_start is None and self.mode == "reps":
+            self.rep_start = t
+        angle = (t - self.rep_start) * math.pi / 4.5 if self.rep_start is not None else 0.0
+        height = self.x0 + 105 * (1 - math.cos(angle))
+        speed = 105 * math.pi / 4.5 * math.sin(angle)
+        effort = {}
+        for side in SIDES:
+            x, v = bench.true_state(side)
+            effort[side] = self.load + max(-100, min(100, 2 * (height - x) + 0.6 * (speed - v)))
+        return effort
 
 
 @pytest.fixture(scope="module")
@@ -748,9 +810,22 @@ def test_load_friction_and_hand_check_l3_g3(feel_ready: tuple[PlantParams, Machi
     params, profile, _sessions = feel_ready
     profile, _ = _chain(params, profile, ("L1", "L2", "L3"), referenceKg=20.0)
     assert profile.friction_load_gain.value >= 0.5  # the twin's friction really grows with the load
-    _profile, sessions = _chain(params, profile, ("F11", "G3"))
-    items = sessions["G3"].stages[0].result["items"]
-    assert [item["rating"] for item in items] == [4, 4] and all(item["frames"] > 20 for item in items)
+    profile, _ = _chain(params, profile, ("F11",))
+    bench = _bench(params, profile)
+    session = _run(bench, "G3", profile, operator=_TrackingOperator(bench, params))
+    _done(session)
+    items = session.stages[0].result["items"]
+    assert [item["rating"] for item in items] == [4, 4]
+    assert all(item["reps"] == 3 and not item["earlyRelease"] for item in items)
+
+    # A premature catch stops the light set before a rating or a heavier load is offered.
+    early = replace(profile, feel_release_force_n=Measured(125, None, "manual"))
+    bench = _bench(params, early)
+    session = _run(bench, "G3", early, operator=_TrackingOperator(bench, params))
+    items = session.stages[0].result["items"]
+    assert len(items) == 1 and items[0]["load_kgf"] == 3 and items[0]["rating"] is None
+    assert items[0]["earlyRelease"] and items[0]["reps"] < 3
+    assert session.status == "failed" and not session.to_payload()["hasChanges"]
 
 
 def test_core_feel_terms() -> None:
@@ -837,13 +912,13 @@ def test_heavy_load_pulls_down_quadrant_and_limit() -> None:
 
 def test_pull_scale_n1_and_heavy_check_n2(feel_ready: tuple[PlantParams, MachineProfile, dict[str, CalibrationSession]]) -> None:
     params, profile, _sessions = feel_ready
-    pulling = replace(params, left=replace(params.left, pull_scale=0.85), right=replace(params.right, pull_scale=0.85))
-    profile, _ = _chain(pulling, profile, ("N1",))
-    for side in SIDES:
-        assert profile.side(side).pull_scale.value == pytest.approx(0.85, abs=0.03)
-    profile, _ = _chain(pulling, profile, ("N1",))  # a second run with the scale applied stays put
-    for side in SIDES:
-        assert profile.side(side).pull_scale.value == pytest.approx(0.85, abs=0.03)
+    pulling = replace(params, left=replace(params.left, pull_scale=0.85), right=replace(params.right, pull_scale=0.95))
+    for _ in range(2):  # a second run with the new scales already applied stays put
+        profile, sessions = _chain(pulling, profile, ("N1",))
+        trace = sessions["N1"].log_payload()
+        assert max(trace["xL"] + trace["xR"]) < 5
+        for side in SIDES:
+            assert profile.side(side).pull_scale.value == pytest.approx(pulling.side(side).pull_scale, abs=0.03)
     _profile, sessions = _chain(pulling, profile, ("N2",))
     result = sessions["N2"].stages[0].result
     assert result["min_force_n"] < 0 and result["turns"]["chatter"] == 0

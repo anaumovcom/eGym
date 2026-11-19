@@ -20,7 +20,7 @@ export function EmergencyStopOverlay({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-50 bg-[#05080f]/78 backdrop-blur-sm" />
-        <SafetyDialogContent className="w-[min(40rem,calc(100vw-24px))] rounded-[32px] border border-[#eb5345]/30 bg-[#12090a] p-8 text-white shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
+        <SafetyDialogContent className="forma-danger-panel w-[min(40rem,calc(100vw-24px))] rounded-[32px] border border-[#eb5345]/30 bg-[#12090a] p-8 text-white shadow-[0_32px_80px_rgba(0,0,0,0.5)]">
           <Dialog.Title className="font-display text-3xl font-bold text-[#ffb4a7]">Аварийная остановка активна</Dialog.Title>
           <Dialog.Description className="mt-3 text-base leading-7 text-white/75">
             Движение заблокировано. Для продолжения потребуется ручная проверка статуса безопасности и приводов.
@@ -96,10 +96,10 @@ export function ActionSheet({ title, items }: { title: string; items: string[] }
 
 export function ToastNotification({ title, description, onDismiss }: { title: string; description: ReactNode; onDismiss?: () => void }) {
   return (
-    <div role="status" aria-live="polite" aria-atomic="true" className="forma-toast fixed right-6 z-50 w-[min(360px,calc(100vw-48px))] rounded-2xl border border-[#d6b05f]/25 bg-[#0c1420] p-4 pr-14 text-white shadow-2xl">
-      <div className="font-semibold text-[#f1d391]">{title}</div>
+    <div role="status" aria-live="polite" aria-atomic="true" className="forma-toast fixed right-6 z-50 w-[min(360px,calc(100vw-48px))] rounded-2xl border border-[var(--broadcast-accent,#d6b05f)]/25 bg-[#0c1420] p-4 pr-14 text-white shadow-2xl">
+      <div className="font-semibold text-[var(--broadcast-accent-light,#f1d391)]">{title}</div>
       <div className="mt-1 text-sm text-white/70">{description}</div>
-      {onDismiss ? <button type="button" aria-label="Закрыть уведомление" onClick={onDismiss} className="absolute right-1 top-1 flex min-h-12 min-w-12 items-center justify-center rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#d6b05f]"><X aria-hidden="true" className="h-5 w-5" /></button> : null}
+      {onDismiss ? <button type="button" aria-label="Закрыть уведомление" onClick={onDismiss} className="absolute right-1 top-1 flex min-h-12 min-w-12 items-center justify-center rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--broadcast-accent,#d6b05f)]"><X aria-hidden="true" className="h-5 w-5" /></button> : null}
     </div>
   )
 }

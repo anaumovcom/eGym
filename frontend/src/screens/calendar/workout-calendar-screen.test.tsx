@@ -126,13 +126,18 @@ describe('WorkoutCalendarScreen', () => {
     })
     vi.mocked(apiDelete).mockImplementation(async () => { deleted = true })
     const invalidate = vi.spyOn(client, 'invalidateQueries')
+    const catalog = ['achievements', 'catalog', 'alexey']
+    const detail = ['achievements', 'detail', 'alexey', 'start.first_workout']
+    const awards = ['workout-awards', 'alexey', 99002]
+    const other = ['achievements', 'catalog', 'elena']
+    for (const key of [catalog, detail, awards, other]) client.setQueryData(key, 'cached')
     renderCalendar()
     await user.click(await screen.findByRole('button', { name: /14 мая 2026 г\., 2 тренировки/ }))
     const dialog = screen.getByRole('dialog')
 
     await user.click(within(dialog).getByRole('button', { name: 'Удалить тренировку Фуллбоди' }))
     const confirm = within(dialog).getByRole('group', { name: 'Подтверждение удаления: Фуллбоди' })
-    expect(confirm).toHaveTextContent('Она исчезнет из календаря, прогресса и усталости мышц.')
+    expect(confirm).toHaveTextContent('Награды, для которых больше не хватает результатов, снова закроются.')
     await user.click(within(confirm).getByRole('button', { name: 'Отмена' }))
     expect(within(dialog).queryByRole('group', { name: /Подтверждение удаления/ })).not.toBeInTheDocument()
     expect(apiDelete).not.toHaveBeenCalled()
@@ -142,6 +147,8 @@ describe('WorkoutCalendarScreen', () => {
     expect(apiDelete).toHaveBeenCalledWith('/api/runtime/workouts/99001?userId=alexey')
     expect(invalidate).toHaveBeenCalledWith()
     expect(await within(dialog).findByText('1 тренировка')).toBeVisible()
+    for (const key of [catalog, detail, awards]) expect(client.getQueryData(key)).toBeUndefined()
+    expect(client.getQueryData(other)).toBe('cached')
     expect(within(dialog).getAllByRole('article').map((record) => record.getAttribute('aria-label'))).toEqual(['Ноги + кор'])
   })
 

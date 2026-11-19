@@ -107,7 +107,7 @@ def hold_under_load(ctx: Context, *, fractions: tuple[float, ...] = (0.15, 0.25,
                 rows.append((phase_index, sign, dx, frame.v_mean))
                 if sign and not yielded and sign * dx > 1.0:
                     yielded = True
-                if abs(dx) > HOLD_ABORT_MM or abs(frame.v_mean) > UNSTABLE_MM_S:
+                if any(abs(frame.x(side) - x0[side]) > HOLD_ABORT_MM for side in SIDES) or frame.max_abs_speed > UNSTABLE_MM_S:
                     aborted = True
                     break
             if sign:
@@ -119,6 +119,8 @@ def hold_under_load(ctx: Context, *, fractions: tuple[float, ...] = (0.15, 0.25,
         expected = {sign: max(load - friction[sign], 0.0) / k for sign, load in applied.items()}
         frame = yield from hold_still(balance, frame, progress=progress)
         runs.append({"k": k, "c": c, "fraction": fraction, "rows": rows, "aborted": aborted, "load": {str(key): value for key, value in applied.items()}, "expected_mm": {str(key): value for key, value in expected.items()}})
+        if aborted:
+            break
     yield from land(balance, frame, progress=0.95)
     return {"runs": runs, "k_u": k_u}
 
@@ -336,35 +338,49 @@ def sync_tuning(ctx: Context, *, shares: tuple[float, ...] = (0.0, 0.05, 0.1, 0.
         k = share * coupling
         tuned = replace(balance, sync_k=k)
         frame = yield from recenter(tuned, frame, low_mm, progress)
-        skews: list[float] = []
+        legs = []
+        for end, name in ((high_mm, "вверх"), (low_mm, "вниз")):
+            skews: list[float] = []
+            def record(f: Frame, skews: list[float] = skews) -> None:
+                if abs(f.v_mean) > 3.0 and f.skew_mm is not None:
+                    skews.append(f.skew_mm)
 
-        def record(f: Frame, skews: list[float] = skews) -> None:
-            if abs(f.v_mean) > 3.0:
-                skews.append(f.x("left") - f.x("right"))
-
-        frame = yield from observe(travel(tuned, frame, high_mm, speed_mm_s=speed_mm_s, note=f"синхронизация k = {k:.1f} Н/мм: вверх", progress_span=progress), record)
-        frame = yield from observe(travel(tuned, frame, low_mm, speed_mm_s=speed_mm_s, note=f"синхронизация k = {k:.1f} Н/мм: вниз", progress_span=progress), record)
-        if not skews:
-            raise ProcedureError("гриф не двигался")
-        avg = mean(skews)
+            move = travel(tuned, frame, end, speed_mm_s=speed_mm_s, note=f"синхронизация k = {k:.1f} Н/мм · {name}", progress_span=progress)
+            frame = yield from observe(move, record)
+            if len(skews) < 3:
+                raise ProcedureError(f"Недостаточно парных кадров движения {name}. Проверьте энкодеры и M2.")
+            avg = mean(skews)
+            legs.append({"rms": mean([s * s for s in skews]) ** 0.5, "peak": max(skews, key=abs),
+                         "oscillation": sign_changes([s - avg for s in skews], 0.3)})
         runs.append({
             "k": k,
-            "rms_mm": (sum(s * s for s in skews) / len(skews)) ** 0.5,
-            "max_mm": max(abs(s) for s in skews),
-            "oscillation": sign_changes([s - avg for s in skews], 0.3),
+            "up": legs[0], "down": legs[1],
+            "rms_mm": max(leg["rms"] for leg in legs),
+            "max_mm": max(abs(leg["peak"]) for leg in legs),
+            "oscillation": max(leg["oscillation"] for leg in legs),
         })
+        if ctx.publish_plot:
+            ctx.publish_plot({"runs": runs, "warningMm": ctx.safety.sync_warning_mm})
     yield from land(balance, frame, progress=0.95)
     return {"runs": runs, "coupling": coupling}
 
 
 def fit_sync(data: dict[str, Any], _ctx: Context) -> Outcome:
     runs = data["runs"]
-    calm = [run for run in runs if run["oscillation"] <= 6] or runs
-    floor = min(run["rms_mm"] for run in calm)
-    best = min((run for run in calm if run["rms_mm"] <= 1.1 * floor + 0.05), key=lambda run: run["k"])
-    report = [line(f"k = {run['k']:.1f} Н/мм", f"перекос СКО {run['rms_mm']:.2f} мм, макс {run['max_mm']:.2f} мм, колебаний {run['oscillation']}", run is best) for run in runs]
-    report.append(line("Выравнивание сторон", f"{best['k']:.1f} Н/мм (жёсткость грифа {data['coupling']:.0f} Н/мм)", best["max_mm"] <= 5.0))
-    return Outcome(report=report, machine={"sync_k_n_per_mm": (round(best["k"], 2), None)}, data={"runs": runs})
+    calm = [run for run in runs if run["oscillation"] <= 6 and run["max_mm"] < _ctx.safety.sync_warning_mm]
+    floor = min((run["rms_mm"] for run in calm), default=0.0)
+    best = min((run for run in calm if run["rms_mm"] <= 1.1 * floor + 0.05), key=lambda run: run["k"], default=None)
+    evidence = {"runs": runs, "warningMm": _ctx.safety.sync_warning_mm, "selectedK": best["k"] if best else None}
+    report = [line(f"k = {run['k']:.1f} Н/мм", f"Пик Л−П при подъёме {run['up']['peak']:+.2f} мм, при спуске {run['down']['peak']:+.2f} мм. Худшее СКО {run['rms_mm']:.2f} мм, смен знака до {run['oscillation']}", run is best) for run in runs]
+    if best is None:
+        return Outcome(report=report, data=evidence, error="Ни одна настройка не удержала перекос в допуске без раскачки. Проверьте ноль B7 и тугие места S8.")
+    report.append(line("Выравнивание сторон", f"{best['k']:.1f} Н/мм (жёсткость грифа {data['coupling']:.0f} Н/мм)", True))
+    return Outcome(report=report, machine={"sync_k_n_per_mm": (round(best["k"], 2), None)}, data=evidence)
+
+
+def build_sync(ctx: Context) -> tuple[Procedure, ProcedureEnvelope]:
+    low, high = ctx.working_window or (40.0, 160.0)
+    return sync_tuning(ctx, low_mm=low, high_mm=high), ProcedureEnvelope(max_x_mm=high + 40.0)
 
 
 SPECS = {
@@ -372,5 +388,5 @@ SPECS = {
     "H2": (lambda ctx: (hold_by_hand(ctx), ProcedureEnvelope(max_x_mm=180.0)), fit_hold_by_hand),
     "W1": (lambda ctx: (weightless_tuning(ctx), ProcedureEnvelope(max_x_mm=170.0)), fit_weightless),
     "W2": (lambda ctx: (weightless_by_hand(ctx), ProcedureEnvelope(max_x_mm=260.0)), fit_weightless_by_hand),
-    "X3": (lambda ctx: (sync_tuning(ctx), ProcedureEnvelope(max_x_mm=200.0)), fit_sync),
+    "X3": (build_sync, fit_sync),
 }

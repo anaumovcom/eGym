@@ -1,7 +1,7 @@
 import { coachVoice } from '../model/contracts'
 import { pickTuning, preferencesValid, type CoachPreferences } from '../model/preferences'
 
-export type CoachApiErrorCode = 'revision_conflict' | 'unauthorized' | 'rate_limited' | 'unavailable' | 'invalid_response' | 'request_failed' | 'aborted'
+export type CoachApiErrorCode = 'revision_conflict' | 'unauthorized' | 'rate_limited' | 'not_found' | 'offline' | 'unavailable' | 'invalid_response' | 'request_failed' | 'aborted'
 export class CoachApiError extends Error {
   readonly code: CoachApiErrorCode
   constructor(code: CoachApiErrorCode) { super(code); this.code = code; this.name = 'CoachApiError' }
@@ -21,17 +21,18 @@ function object(value: unknown): JsonObject {
 function preferences(value: unknown): CoachPreferences {
   const raw = object(value)
   const tuning = pickTuning(raw)
-  const p: JsonObject = { memoryEnabled: true, crossWorkoutMemory: false, fishVoiceId: '', assistantContext: '', ...raw, ...tuning }
-  if (typeof p.enabled !== 'boolean' || typeof p.historyConsent !== 'boolean' || typeof p.duringSets !== 'boolean' ||
+  const p: JsonObject = { standardPack: false, memoryEnabled: true, crossWorkoutMemory: false, fishVoiceId: '', assistantContext: '', ...raw, ...tuning }
+  if (typeof p.standardPack !== 'boolean' || typeof p.enabled !== 'boolean' || typeof p.historyConsent !== 'boolean' || typeof p.duringSets !== 'boolean' ||
       typeof p.duringRest !== 'boolean' || !['local', 'hybrid', 'text-only'].includes(String(p.mode)) ||
       !['quiet', 'companion', 'talkative', 'show'].includes(String(p.density)) || !['every', 'last-three', 'milestones', 'off'].includes(String(p.count)) ||
       !(p.voiceProfile === null || typeof p.voiceProfile === 'string') ||
       !(p.voiceVolume === null || typeof p.voiceVolume === 'number') || !preferencesValid(p as CoachPreferences)) throw new CoachApiError('invalid_response')
   // Pick only the public contract: never retain unknown server/provider fields.
-  return { schemaVersion: 1, enabled: p.enabled, consentVersion: p.consentVersion as null | 1,
-    mode: p.mode as CoachPreferences['mode'], density: p.density as CoachPreferences['density'], count: p.count as CoachPreferences['count'],
+  // A legacy text-only user never opted into audio. Switching off the old transport must not unmute them.
+  return { schemaVersion: 1, standardPack: p.standardPack, enabled: p.enabled && p.mode !== 'text-only', consentVersion: p.consentVersion as null | 1,
+    mode: 'local', density: p.density as CoachPreferences['density'], count: p.count as CoachPreferences['count'],
     voiceProfile: coachVoice(p.voiceProfile), historyConsent: p.historyConsent, revision: p.revision as number, budgetUsd: p.budgetUsd as string,
-    networkConsentVersion: p.networkConsentVersion as null | 1, voiceVolume: p.voiceVolume as number | null, fishVoiceId: p.fishVoiceId as string,
+    networkConsentVersion: null, voiceVolume: p.voiceVolume as number | null, fishVoiceId: p.fishVoiceId as string,
     style: p.style as CoachPreferences['style'], humor: p.humor as CoachPreferences['humor'],
     humorKinds: [...p.humorKinds as CoachPreferences['humorKinds']], edgyOptIn: p.edgyOptIn as boolean,
     extras: [...p.extras as CoachPreferences['extras']], address: p.address as CoachPreferences['address'],
@@ -66,7 +67,7 @@ async function request(path: string, method: string, signal: AbortSignal, body?:
     if (!response.ok) {
       // Do not read error bodies: they can contain provider secrets or request echoes.
       throw new CoachApiError(response.status === 409 ? 'revision_conflict' : response.status === 401 || response.status === 403 ? 'unauthorized' :
-        response.status === 429 ? 'rate_limited' : response.status === 404 || response.status === 503 ? 'unavailable' : 'request_failed')
+        response.status === 429 ? 'rate_limited' : response.status === 404 ? 'not_found' : response.status >= 500 ? 'unavailable' : 'request_failed')
     }
     if (response.status === 204) return null
     const value: unknown = await response.json()
@@ -76,7 +77,7 @@ async function request(path: string, method: string, signal: AbortSignal, body?:
     if (signal.aborted) throw new CoachApiError('aborted')
     if (controller.signal.aborted) throw new CoachApiError('unavailable')
     if (error instanceof CoachApiError) throw error
-    throw new CoachApiError('request_failed')
+    throw new CoachApiError(error instanceof TypeError ? 'offline' : 'request_failed')
   } finally {
     clearTimeout(timeout)
     signal.removeEventListener('abort', abort)

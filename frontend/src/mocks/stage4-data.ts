@@ -18,6 +18,13 @@ export const defaultStage4DevFlags: Stage4DevFlags = {
   offlineHours: 0,
 }
 
+// These fixtures describe photo slots, not real stored images.
+function photoSlots(takenAt: string, firstId: number): UserProfileData['photos'][number]['views'] {
+  return ([['front', 'Спереди'], ['side', 'Сбоку'], ['back', 'Сзади']] as const).map(([id, label], index) => ({
+    id, label, takenAt, photoId: firstId + index, imageUrl: '', thumbnailUrl: '', width: 0, height: 0,
+  }))
+}
+
 const baseProfiles: Record<string, UserProfileData> = {
   alexey: {
     id: 'alexey',
@@ -45,9 +52,9 @@ const baseProfiles: Record<string, UserProfileData> = {
       { date: '28 апреля 2024', weight: 94.2, waistCm: 99, chestCm: 109, hipsCm: 102, shouldersCm: 121, bicepsCm: 35.8 },
     ],
     photos: [
-      { id: '12may', date: '12 мая 2024', views: [{ id: 'front', label: 'Спереди' }, { id: 'side', label: 'Сбоку' }, { id: 'back', label: 'Сзади' }] },
-      { id: '1may', date: '1 мая 2024', views: [{ id: 'front', label: 'Спереди' }, { id: 'side', label: 'Сбоку' }, { id: 'back', label: 'Сзади' }] },
-      { id: '20apr', date: '20 апреля 2024', views: [{ id: 'front', label: 'Спереди' }, { id: 'side', label: 'Сбоку' }, { id: 'back', label: 'Сзади' }] },
+      { id: '12may', date: '12 мая 2024', views: photoSlots('2024-05-12T12:00:00Z', 1) },
+      { id: '1may', date: '1 мая 2024', views: photoSlots('2024-05-01T12:00:00Z', 4) },
+      { id: '20apr', date: '20 апреля 2024', views: photoSlots('2024-04-20T12:00:00Z', 7) },
     ],
   },
   elena: {
@@ -74,7 +81,7 @@ const baseProfiles: Record<string, UserProfileData> = {
       { date: '12 мая 2024', weight: 67.8, waistCm: 73, chestCm: 93, hipsCm: 98, shouldersCm: 107, bicepsCm: 29 },
       { date: '05 мая 2024', weight: 68.1, waistCm: 73.5, chestCm: 93, hipsCm: 98.5, shouldersCm: 107, bicepsCm: 29 },
     ],
-    photos: [{ id: '12may', date: '12 мая 2024', views: [{ id: 'front', label: 'Спереди' }, { id: 'side', label: 'Сбоку' }, { id: 'back', label: 'Сзади' }] }],
+    photos: [{ id: '12may', date: '12 мая 2024', views: photoSlots('2024-05-12T12:00:00Z', 10) }],
   },
   guest: {
     id: 'guest',

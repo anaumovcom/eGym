@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,7 +15,7 @@ class ModbusConnectionParamsSchema(BaseModel):
     data_bits: int = Field(default=8)
     parity: Literal["N", "E", "O"] = Field(default="E", description="N=None, E=Even, O=Odd")
     stop_bits: int = Field(default=1)
-    slave_id: int = Field(default=1, description="Modbus slave address (1–247)")
+    slave_id: int = Field(default=1, ge=1, le=247, description="Modbus slave address (1–247)")
     right_slave_id: int = Field(default=2, ge=1, le=247)
     timeout_ms: int = Field(default=300, ge=50, le=5000)
 
@@ -29,6 +29,7 @@ class ModbusConnectionStatusSchema(BaseModel):
     parity: str | None = None
     slave_id: int | None = None
     right_slave_id: int | None = None
+    timeout_ms: int | None = None
     last_success_at: datetime | None = None
     ok_count: int = 0
     error_count: int = 0
@@ -127,7 +128,7 @@ class DriverDiagnosticsSchema(BaseModel):
     control_mode: int | None = None
     extended_mode: int | None = None
     alarm_code: int | None = None
-    has_alarm: bool = False
+    has_alarm: bool | None = None
     motion_safe: bool = False
     status_summary: str = ""
     checked_at: datetime | None = None
@@ -215,7 +216,7 @@ class ProfileSaveRequestSchema(BaseModel):
 
 
 class ProfileCompareResultSchema(BaseModel):
-    differences: list[dict]  # [{address, name, driver_value, profile_value}]
+    differences: list[dict[str, Any]]  # [{address, name, driver_value, profile_value}]
     matching: int
     differing: int
 
@@ -246,6 +247,7 @@ class ModbusTorqueResultSchema(BaseModel):
 
 class ModbusTorqueTelemetrySchema(BaseModel):
     slave_id: int
+    read_at: datetime | None = None
     feedback_position: int | None = None
     position_mm: float | None = None
     position_error: int | None = None

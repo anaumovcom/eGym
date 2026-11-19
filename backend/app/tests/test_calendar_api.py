@@ -188,3 +188,82 @@ def test_deleting_in_progress_workout_is_rejected(client: TestClient) -> None:
     )
     workout_id = response.json()["workoutSessionId"]
     assert client.delete(f"/api/runtime/workouts/{workout_id}", params={"userId": "alexey"}).status_code == 409
+
+
+def test_calendar_deletion_recalculates_tiers_and_the_workouts_that_earned_them(client: TestClient) -> None:
+    owner = {"userId": "elena"}
+    start = datetime(2026, 3, 1, 10, tzinfo=UTC)
+    first, second, third, fourth = (
+        _save_workout(client, title="Дневник", user_id=owner["userId"], status="completed",
+                      started_at=start + timedelta(days=day), minutes=20) for day in range(4))
+    key = "start.first_workout"
+
+    def tiers_in(workout_id):
+        response = client.get(f"/api/runtime/workouts/{workout_id}/awards", params=owner)
+        assert response.status_code == 200
+        return {a["tier"]["tier"]: a for a in response.json()["awards"] if a["definitionId"] == key}
+
+    initial = tiers_in(first)[1]
+    third_award = tiers_in(third)[2]
+    other_owner = {"userId": "alexey"}
+    other_id = _save_workout(client, title="Другой профиль", user_id=other_owner["userId"], status="completed",
+                             started_at=start, minutes=20)
+    other_awards = client.get(f"/api/runtime/workouts/{other_id}/awards", params=other_owner).json()
+    media_url = third_award["tier"]["imageUrl"]
+    image = client.get(media_url)
+    assert image.status_code == 200 and "no-cache" in image.headers["cache-control"]
+    cached = {"If-None-Match": image.headers["etag"]}
+    for number in (1, 2):
+        assert client.post(f"/api/achievements/{key}/receipts/detail", params={**owner, "tier": number}).status_code == 200
+
+    assert client.delete(f"/api/runtime/workouts/{first}", params=owner).status_code == 204
+    assert client.get(f"/api/runtime/workouts/{first}/awards", params=owner).status_code == 404
+    moved = tiers_in(second)[1]
+    assert (moved["grantId"], moved["sourceWorkoutId"], moved["isNew"]) == (initial["grantId"], second, False)
+    assert datetime.fromisoformat(moved["earnedAt"]) == start + timedelta(days=1, minutes=20)
+    assert not tiers_in(third)
+    assert tiers_in(fourth)[2]["grantId"] == third_award["grantId"]
+    assert tiers_in(fourth)[2]["isNew"] is False
+    assert client.get(media_url, headers=cached).status_code == 304
+
+    assert client.delete(f"/api/runtime/workouts/{second}", params=owner).status_code == 204
+    line = client.get(f"/api/achievements/{key}", params=owner).json()
+    assert (line["currentValue"], line["highestTier"], line["nextTierId"]) == (2, 1, f"{key}:t2")
+    assert not line["tiers"][1]["earned"] and line["tiers"][1]["imageUrl"] is None
+    assert not tiers_in(fourth)
+    assert client.get(media_url, headers=cached).status_code == 404
+
+    replacement = _save_workout(client, title="Ещё одна", user_id=owner["userId"], status="completed",
+                                started_at=start + timedelta(days=5), minutes=20)
+    again = tiers_in(replacement)[2]
+    assert again["grantId"] == third_award["grantId"] and again["isNew"]
+    assert client.get(again["tier"]["imageUrl"]).status_code == 200
+    for workout_id in (third, fourth, replacement):
+        assert client.delete(f"/api/runtime/workouts/{workout_id}", params=owner).status_code == 204
+    summary = client.get("/api/achievements/overview", params=owner).json()
+    assert (summary["earnedTiers"], summary["newTiers"], summary["activeDays"], summary["recent"]) == (0, 0, 0, [])
+    assert client.get(f"/api/runtime/workouts/{other_id}/awards", params=other_owner).json() == other_awards
+
+
+def test_calendar_removal_and_achievement_correction_commit_together(client: TestClient, monkeypatch) -> None:
+    owner = {"userId": "elena"}
+    workout_id = _save_workout(client, title="Вместе", user_id=owner["userId"], status="completed",
+                               started_at=datetime(2026, 3, 1, 10, tzinfo=UTC), minutes=20)
+
+    def interrupted(*args, **kwargs):
+        raise RuntimeError("interrupted recalculation")
+
+    with monkeypatch.context() as patch:
+        patch.setattr("app.services.achievements.service.evaluate_user", interrupted)
+        with pytest.raises(RuntimeError, match="interrupted recalculation"):
+            client.delete(f"/api/runtime/workouts/{workout_id}", params=owner)
+
+    assert client.get("/api/calendar", params={**owner, "month": "2026-03"}).json()["workoutCount"] == 1
+    assert client.get(f"/api/runtime/workouts/{workout_id}/awards", params=owner).json()["awards"]
+    assert client.delete(f"/api/runtime/workouts/{workout_id}", params=owner).status_code == 204
+    assert client.get("/api/achievements/overview", params=owner).json()["earnedTiers"] == 0
+    # A new save can reuse both the SQLite workout ID and the old finish timestamp.
+    new_id = _save_workout(client, title="Заново", user_id=owner["userId"], status="completed",
+                           started_at=datetime(2026, 3, 1, 10, tzinfo=UTC), minutes=20)
+    new_awards = client.get(f"/api/runtime/workouts/{new_id}/awards", params=owner).json()["awards"]
+    assert new_awards and all(award["sourceWorkoutId"] == new_id and award["isNew"] for award in new_awards)

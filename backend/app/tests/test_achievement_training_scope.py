@@ -39,8 +39,8 @@ def test_reviewed_primary_map_works_without_legacy_roles(db_session, slug, targe
 
 def test_unmapped_muscles_are_explicitly_insufficient_not_implied(db_session):
     for muscle in ('abdominals', 'forearms', 'obliques', 'rear-shoulders'):
-        assert service._data_state(db_session, 'alexey', 'requires_primary', muscle_metric(muscle)) == 'insufficient_data'
-    assert service._data_state(db_session, 'alexey', 'requires_primary', muscle_metric('chest')) == 'available'
+        assert service.detail(db_session, 'alexey', f'muscle.{muscle}')['state'] == 'insufficient_data'
+    assert service.detail(db_session, 'alexey', 'muscle.chest')['state'] == 'available'
 
 
 def saved(db: Session, *, day=0, owner="alexey", slug=SLUG, kind="machine",

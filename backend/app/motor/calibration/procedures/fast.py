@@ -13,20 +13,22 @@ from dataclasses import replace
 from typing import Any
 
 from app.motor.calibration.fit import least_squares
-from app.motor.calibration.procedures.common import Context, Outcome, Procedure, line, mean
+from app.motor.calibration.measurement_plots import PlotUpdate
+from app.motor.calibration.procedures.common import Context, Outcome, Procedure, TransitMeasurement, line, mean, observe
 from app.motor.calibration.procedures.motion import (
     FAST_BRAKE_MM_S2,
     FAST_DOWN_MM_S,
     FAST_DRIVE_LIMIT_MM_S,
     FAST_ENVELOPE_MARGIN_MM_S,
-    FAST_TOLERANCE_MM,
     FAST_UP_MM_S,
+    START_TOLERANCE_MM,
     Balance,
     _end_bound,
     _fast,
     fast_decel,
     hold_still,
     land,
+    position_for_start,
     travel,
 )
 from app.motor.calibration.runner import Command, Frame, ProcedureEnvelope, ProcedureError
@@ -76,12 +78,18 @@ def _brake_forces(balance: Balance, frame: Frame, direction: int) -> dict:
     }
 
 
-def fast_braking(balance: Balance, *, low_mm: float, high_mm: float) -> Procedure:
+def fast_braking(balance: Balance, *, low_mm: float, high_mm: float, publish: PlotUpdate | None = None) -> Procedure:
     frame = yield Command(None, note="старт", progress=0.0)
     runs_plan = plan(balance, low_mm, high_mm)
     if not runs_plan:
         raise ProcedureError("ход слишком мал для разгона до 150 мм/с и торможения: проверьте B8 и программный предел")
     runs: list[dict[str, Any]] = []
+
+    def record(run: dict[str, Any]) -> None:
+        runs.append(run)
+        if publish:
+            publish({"runs": runs, "stopSpeedMmS": BRAKE_STOP_MM_S})
+
     total = 2 * len(runs_plan)
     index = 0
     for direction, v, start, cut, target in runs_plan:
@@ -99,7 +107,7 @@ def fast_braking(balance: Balance, *, low_mm: float, high_mm: float) -> Procedur
             frame = yield from _fast(balance, frame, target, note=label, progress=lambda _f, p=progress: p, top_mm_s=v, cut_mm=cut, stats=stats)
             run: dict[str, Any] = {"direction": direction, "target_mm_s": v, "mode": mode}
             if stats["failed"] or direction * (frame.x_mean - cut) < 0:
-                runs.append({**run, "ok": False})  # the fast move fell back: it has already braked and stopped
+                record({**run, "ok": False})  # the fast move fell back: it has already braked and stopped
                 continue
             t0, v0, x0 = frame.t, direction * frame.v_mean, frame.x_mean
             if mode == "coast":
@@ -111,7 +119,7 @@ def fast_braking(balance: Balance, *, low_mm: float, high_mm: float) -> Procedur
             if direction * frame.v_mean > BRAKE_STOP_MM_S:
                 raise ProcedureError(f"{arrow} {v:.0f} мм/с: гриф не тормозится за {BRAKE_MAX_S:.0f} с — проверьте массу (D4) и предел момента")
             coast_mm = direction * (x_brake - x0)
-            runs.append({
+            record({
                 **run,
                 "ok": True,
                 "v_mm_s": v0,
@@ -124,7 +132,7 @@ def fast_braking(balance: Balance, *, low_mm: float, high_mm: float) -> Procedur
             })
             frame = yield from hold_still(balance, frame, note=label, progress=progress)
     yield from land(balance, frame, progress=0.95)
-    return {"runs": runs}
+    return {"runs": runs, "stopSpeedMmS": BRAKE_STOP_MM_S}
 
 
 def fit_fast_braking(data: dict[str, Any], _ctx: Context) -> Outcome:
@@ -182,11 +190,12 @@ def fit_fast_braking(data: dict[str, Any], _ctx: Context) -> Outcome:
             machine[key] = (round(max(0.0, coast[d]), 0), None)
     if failed:
         report.append(line("Прогоны в медленном режиме", f"{len(failed)} из {len(runs)}", False))
-    return Outcome(report=report, machine=machine, data={"runs": runs, "lag_s": lag, "decel": {str(k): v for k, v in decel.items()}, "coast": {str(k): v for k, v in coast.items()}})
+    return Outcome(report=report, machine=machine, data={**data, "lag_s": lag, "decel": {str(k): v for k, v in decel.items()}, "coast": {str(k): v for k, v in coast.items()}})
 
 
 # ---------------------------------------------------------------- M6
-def fast_check(balance: Balance, *, low_mm: float, high_mm: float) -> Procedure:
+def fast_check(ctx: Context, *, low_mm: float, high_mm: float) -> Procedure:
+    balance = ctx.balance
     frame = yield Command(None, note="старт", progress=0.0)
     span = high_mm - low_mm
     if span < 300.0:
@@ -197,14 +206,21 @@ def fast_check(balance: Balance, *, low_mm: float, high_mm: float) -> Procedure:
         progress = (0.05 + 0.85 * index / len(targets), 0.05 + 0.85 * (index + 1) / len(targets))
         start, t0 = frame.x_mean, frame.t
         stats: dict[str, Any] = {}
-        frame = yield from travel(balance, frame, target, note=f"переезд на {target:.0f} мм ({index + 1}/{len(targets)})", progress_span=progress, fast_stats=stats)
+        trace = TransitMeasurement(target, 1 if target >= start else -1)
+        note = f"подвод к старту {target:.0f} мм ({index + 1}/{len(targets)})"
+        move = position_for_start(balance, frame, target, ctx.safety, note=note, progress=progress, stats=stats)
+        frame = yield from observe(move, trace.sample)
         moves.append({
             "from_mm": start,
             "target_mm": target,
             "error_mm": frame.x_mean - target,
             "time_s": frame.t - t0,
-            "vmax_mm_s": stats.get("vmax", 0.0),
-            "fast": bool(stats),
+            "vmax_mm_s": trace.peak_speed,
+            "limit_mm_s": stats["limit_mm_s"],
+            "side_error_mm": {side: frame.x(side) - target for side in SIDES},
+            "peak_skew_mm": trace.peak_skew,
+            "overshoot_mm": trace.overshoot_mm,
+            "fast": "vmax" in stats,
             "fallback": bool(stats.get("failed")),
             "reason": stats.get("reason"),
         })
@@ -216,12 +232,17 @@ def fit_fast_check(data: dict[str, Any], _ctx: Context) -> Outcome:
     moves = data["moves"]
 
     def ok(move: dict[str, Any]) -> bool:
-        return abs(move["error_mm"]) <= FAST_TOLERANCE_MM and not move["fallback"]
+        skew = move["peak_skew_mm"]
+        return (max(abs(v) for v in move["side_error_mm"].values()) <= START_TOLERANCE_MM
+                and skew is not None and abs(skew) < _ctx.safety.sync_warning_mm and not move["fallback"])
 
     report = [
         line(
             f"{move['from_mm']:.0f} → {move['target_mm']:.0f} мм",
-            f"{move['time_s']:.1f} с, до {move['vmax_mm_s']:.0f} мм/с, ошибка {move['error_mm']:+.1f} мм" + (f", медленный режим: {move['reason']}" if move["fallback"] else ""),
+            f"{move['time_s']:.1f} с, задание до {move['limit_mm_s']:.0f}, пик {move['vmax_mm_s']:.0f} мм/с. "
+            f"Ошибка Л {move['side_error_mm']['left']:+.1f} / П {move['side_error_mm']['right']:+.1f} мм, перелёт до {move['overshoot_mm']:.1f} мм. "
+            + (f"Перекос Л−П {move['peak_skew_mm']:+.1f} мм" if move["peak_skew_mm"] is not None else "Нет парного замера")
+            + (f", медленный режим: {move['reason']}" if move["fallback"] else ""),
             ok(move),
         )
         for move in moves
@@ -233,15 +254,15 @@ def fit_fast_check(data: dict[str, Any], _ctx: Context) -> Outcome:
     return Outcome(
         report=report,
         data={"moves": moves},
-        error=f"{len(bad)} переезд(а) с ошибкой > {FAST_TOLERANCE_MM:.0f} мм или в медленном режиме: повторите M5 (и D4)" if bad else None,
+        error=f"Подвод не подтверждён в {len(bad)} из {len(moves)} точек. Проверьте остановку каждой стороны (±{START_TOLERANCE_MM:g} мм), перекос (X3) и торможение (M5)." if bad else None,
     )
 
 
 def _range(ctx: Context) -> tuple[float, float]:
-    return LOW_MM, ctx.top_mm
+    return max(LOW_MM, ctx.safety.soft_min_mm), ctx.top_mm
 
 
 SPECS = {
-    "M5": (lambda ctx: (fast_braking(ctx.balance, low_mm=_range(ctx)[0], high_mm=_range(ctx)[1]), ProcedureEnvelope(max_x_mm=ctx.top_mm + 80.0)), fit_fast_braking),
-    "M6": (lambda ctx: (fast_check(ctx.balance, low_mm=_range(ctx)[0], high_mm=_range(ctx)[1]), ProcedureEnvelope(max_x_mm=ctx.top_mm + 80.0)), fit_fast_check),
+    "M5": (lambda ctx: (fast_braking(ctx.balance, low_mm=_range(ctx)[0], high_mm=_range(ctx)[1], publish=ctx.publish_plot), ProcedureEnvelope(max_x_mm=ctx.top_mm + 80.0)), fit_fast_braking),
+    "M6": (lambda ctx: (fast_check(ctx, low_mm=_range(ctx)[0], high_mm=_range(ctx)[1]), ProcedureEnvelope(max_x_mm=ctx.top_mm + 80.0)), fit_fast_check),
 }

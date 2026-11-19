@@ -75,23 +75,21 @@ def test_builder_session_is_not_a_completed_saved_program(db_session):
     assert FactBuilder(db_session, 'alexey').finish()['completed_programs'] == 0
 
 
-def test_progress_exposes_both_gates_instead_of_false_99_percent(db_session):
+def test_set_progress_reflects_saved_work_without_an_unrelated_day_gate(db_session):
     practice(db_session, 0)
     service.evaluate_user(db_session, 'alexey')
     line = next(row for row in service.catalog(db_session, 'alexey', limit=200)['lines']
-                if row['id'] == 'start.first_set')
+                if row['id'] == 'practice.sets')
     assert line['currentValue'] == 2
-    assert line['evidenceDays'] == 1
-    assert line['tiers'][0]['minimumEvidenceDays'] == 12
-    assert line['progressPercent'] == 8.3
+    assert line['tiers'][0]['minimumEvidenceDays'] == 0
+    assert line['progressPercent'] == 20
     assert not any(tier['earned'] for tier in line['tiers'])
 
 
-def test_twelve_days_award_opening_but_not_middle_tier(db_session):
-    for day in range(12):
-        practice(db_session, day)
-    service.evaluate_user(db_session, 'alexey')
-    line = service.detail(db_session, 'alexey', 'start.first_set')
+def test_first_real_finish_opens_the_journal(db_session):
+    row = practice(db_session, 0)
+    service.evaluate_user(db_session, 'alexey', source_workout_id=row.id)
+    line = service.detail(db_session, 'alexey', 'start.first_workout')
     assert [tier['earned'] for tier in line['tiers']] == [True, False, False]
 
 

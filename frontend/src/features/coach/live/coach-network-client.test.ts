@@ -255,27 +255,19 @@ describe('CoachNetworkClient', () => {
     f.client.dispose(); f.manager.dispose()
   })
 
-  it('keeps actual live speech through bar movement and the transition to training', async () => {
+  it.each([true, false])('keeps bar movement and set transitions offline, tab hidden=%s', hidden => {
     const f = new Fixture()
     const localBuffer = verifyLocalBuffer(f.context.asAudioContext(), f.context.createBuffer(1, RATE, RATE))
     let inputs: LiveInputs = { userId: 'u1', saved, session: session(), featureEnabled: true, hidden: false, emergency: false,
       hardware: null, connected: true, general: { soundEnabled: true, voiceHintsEnabled: true, volume: 1 } }
     const runtime = new CoachLiveRuntime({ read: () => inputs, subscribeInputs: () => () => undefined,
-      lifecycle: () => [], lifecycleRefs: () => null, network: f.client, context: () => f.context.asAudioContext(),
+      lifecycle: () => [], context: () => f.context.asAudioContext(),
       createManager: (_context, current) => { f.manager.updateScope(current); return f.manager },
-      clips: () => ({ get: () => localBuffer }), restorePack: () => undefined,
+      clips: () => ({ get: () => localBuffer }), restoreCached: () => undefined,
       beep: new RepBeepArbiter(() => f.clock.now()), now: () => f.clock.now(), setInterval: () => 1, clearInterval: () => undefined })
     try {
       runtime.start()
-      await vi.waitFor(() => expect(f.sockets).toHaveLength(1))
-      f.socket.open()
-      f.socket.push({ type: 'configured', mode: 'hybrid', text: true, voice: true, degraded: false })
-      const event = f.socket.events()[0].event
-      f.speech('moving-voice', event)
-      f.socket.push(frame('moving-voice', 0, 2, false, event.scope))
-      f.clock.advance(50, f.context)
-      expect(f.manager.snapshot().active).toBe(1)
-      inputs = { ...inputs, session: session({ view: 'exercise-session' }) }
+      inputs = { ...inputs, hidden, session: session({ view: 'exercise-session' }) }
       runtime.tick()
       for (const [index, mode] of ['start_hold', 'moving', 'training', 'training'].entries()) {
         inputs = { ...inputs, hardware: { emittedAt: new Date(1_700_000_000_000 + index * 100).toISOString(),
@@ -283,51 +275,12 @@ describe('CoachNetworkClient', () => {
           motion: { moving: mode !== 'start_hold', controlMode: mode, repetitionCount: index === 3 ? 1 : 0 },
           control: { mode, spotterActive: false, failureDetected: false, faultCode: null } } as LiveInputs['hardware'] }
         f.clock.advance(100, f.context); runtime.tick()
-        expect(f.manager.snapshot().utterances.some(item => item.id === 'moving-voice' && item.state === 'started'), mode).toBe(true)
+        expect(runtime.getSnapshot().network).toBeNull()
       }
-      f.socket.push(frame('moving-voice', 1, .2, true, event.scope))
-      expect(f.client.getSnapshot().failed).toBe(0)
+      expect(runtime.getSnapshot().lastCue).toMatchObject({ clipId: 'count-1', reason: 'admitted' })
       inputs = { ...inputs, emergency: true }; runtime.tick()
-      expect(f.manager.snapshot().utterances.some(item => item.id === 'moving-voice')).toBe(false)
-    } finally { runtime.dispose(); f.manager.dispose() }
-  })
-
-  it.each(['before speech', 'buffering', 'started'] as const)('keeps real live speech in a background tab hidden %s', async boundary => {
-    const f = new Fixture()
-    let inputs: LiveInputs = { userId: 'u1', saved, session: session(), featureEnabled: true, hidden: false, emergency: false,
-      hardware: null, connected: true, general: { soundEnabled: true, voiceHintsEnabled: true, volume: 1 } }
-    const runtime = new CoachLiveRuntime({ read: () => inputs, subscribeInputs: () => () => undefined,
-      lifecycle: () => [], lifecycleRefs: () => null, network: f.client, context: () => f.context.asAudioContext(),
-      createManager: (_context, current) => { f.manager.updateScope(current); return f.manager },
-      clips: () => ({ get: () => null }), restorePack: () => undefined,
-      beep: new RepBeepArbiter(() => f.clock.now()), now: () => f.clock.now(), setInterval: () => 1, clearInterval: () => undefined })
-    const hide = () => { inputs = { ...inputs, hidden: true }; runtime.tick() }
-    try {
-      if (boundary === 'before speech') inputs = { ...inputs, hidden: true }
-      runtime.start()
-      await vi.waitFor(() => expect(f.sockets).toHaveLength(1))
-      f.socket.open()
-      f.socket.push({ type: 'configured', mode: 'hybrid', text: true, voice: true, degraded: false })
-      const event = f.socket.events()[0].event
-      expect(f.socket.sent.find(item => item.type === 'configure')).toMatchObject({ ownerId: 'tab-test' })
-      f.speech('background-voice', event)
-      if (boundary === 'buffering') hide()
-      f.socket.push(frame('background-voice', 0, 2, false, event.scope))
-      f.clock.advance(50, f.context); runtime.tick()
-      expect(f.manager.snapshot().active).toBe(1)
-      if (boundary === 'started') hide()
-      expect(runtime.getSnapshot().active).toBe(true)
-      expect(f.manager.snapshot().active).toBe(1)
-      expect(f.context.sources.every(source => source.stop.mock.calls.length === 0)).toBe(true)
-      f.socket.push(frame('background-voice', 1, .2, true, event.scope))
-      f.clock.advance(2300, f.context)
-      f.context.sources.forEach(source => source.end())
-      f.client.observe(f.manager.snapshot())
-      expect(f.client.getSnapshot()).toMatchObject({ spoken: 1, failed: 0 })
-      expect(f.socket.types()).toContain('playback_completed')
-      expect(f.socket.types()).not.toContain('playback_failed')
-      inputs = { ...inputs, hidden: false }; runtime.tick()
-      expect(f.client.getSnapshot().spoken).toBe(1)
+      expect(runtime.getSnapshot().lastCue).toMatchObject({ clipId: 'safety-stop', reason: 'admitted' })
+      expect(f.sockets).toHaveLength(0); expect(f.requests).toHaveLength(0)
     } finally { runtime.dispose(); f.manager.dispose() }
   })
 

@@ -17,7 +17,7 @@ from app.services.hardware_service import HardwareService
 
 def runtime_fixture():
     workout, _bench = fixtures._workout()
-    runtime = HardwareRuntime.__new__(HardwareRuntime)
+    runtime = HardwareRuntime()
     runtime.workout = workout
     runtime._lock = threading.RLock()
     runtime.motion_block_reason = lambda: None

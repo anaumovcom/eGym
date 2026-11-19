@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { kioskDisplay } from './e2e/kiosk-display.mjs'
 
 // Achievement QA must never start the backend, bootstrap a DB or contact hardware.
 // The navigation fixture intercepts all /api/ HTTP and WebSocket traffic.
@@ -8,7 +9,7 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   use: { baseURL: 'http://127.0.0.1:4186', trace: 'retain-on-failure' },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'], ...kioskDisplay } }],
   webServer: {
     command: 'npm run dev -- --host=127.0.0.1 --port=4186 --strictPort',
     url: 'http://127.0.0.1:4186',

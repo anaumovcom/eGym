@@ -15,6 +15,7 @@ export type AchievementTier = {
   imageState: string
   audioState: string
   earned: boolean
+  isNew?: boolean
   earnedAt: string | null
   awardedAt: string | null
   status: string
@@ -22,6 +23,8 @@ export type AchievementTier = {
 
 export type AchievementLine = {
   id: string
+  name: string
+  archived?: boolean
   group: string
   groupName: string
   metric: string
@@ -60,6 +63,8 @@ export type AchievementAward = {
   tier: AchievementTier
   unit: string
   description: string
+  valueAtAward?: number | null
+  movements?: string[]
 }
 
 export type MediaSummary = { lines: number; tiers: number; images: number; audio: number }
@@ -76,6 +81,9 @@ export type AchievementCatalog = {
 
 export type AchievementOverview = {
   earnedTiers: number
+  newTiers: number
+  archivedTiers: number
+  archivedLines: number
   totalTiers: number
   completedLines: number
   totalLines: number
@@ -95,10 +103,10 @@ export const rarityLabels: Record<AchievementRarity, string> = {
 
 export const applicabilityLabels: Record<string, string> = {
   available: 'Сохранённые результаты',
-  requires_plan: 'Нужен исходный план',
+  requires_plan: 'Нужна тренировка по программе',
   requires_comparison: 'Нужна сопоставимая история',
   requires_reflection: 'Необязательный дневник ощущений',
   requires_story: 'Сюжетная коллекция',
   requires_sensor: 'Нужны данные тренажёра',
-  requires_primary: 'Нужна подтверждённая основная роль мышцы',
+  requires_primary: 'Нужно упражнение с основной нагрузкой на эту группу',
 }

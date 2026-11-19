@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 528 1254" data-figure="portrait" fill="currentColor">
+  <defs>
+    <mask id="heat" maskUnits="userSpaceOnUse" x="0" y="0" width="528" height="1254" style="mask-type:alpha">
+      <image href="/fatigue-atlas/front-heat.webp" width="528" height="1254"/>
+    </mask>
+  </defs>
+  <image href="/fatigue-atlas/alexey-front.webp?v=5" width="528" height="1254" pointer-events="none"/>
+  <g mask="url(#heat)">
+    <g id="traps" data-anchor="326 208">
+      <path d="M215 185 C214 194 215 201 216 207 Q203 215 187 224 Q174 221 157 218 C176 208 199 194 215 185Z"/>
+      <path d="M305 185 C306 194 305 201 304 207 Q317 215 333 224 Q346 221 363 218 C344 208 321 194 305 185Z"/>
+    </g>
+    <g id="front-shoulders" data-anchor="395 261">
+      <path d="M145 219 Q167 218 184 226 C165 246 150 266 137 288 C121 303 103 309 87 325 C82 303 82 277 92 257 Q109 220 145 219Z"/>
+      <path d="M375 219 Q353 218 336 226 C355 246 370 266 383 288 C399 303 417 309 433 325 C438 303 438 277 428 257 Q411 220 375 219Z"/>
+    </g>
+    <g id="chest" data-anchor="310 292">
+      <path d="M194 230 C215 230 240 237 254 241 Q260 244 266 241 C283 234 306 231 326 230 C344 246 362 272 370 292 Q372 298 368 305 C357 324 344 347 328 349 C303 353 281 345 265 340 Q259 338 252 341 C233 347 213 352 194 350 C178 350 158 317 149 300 Q146 295 150 286 C158 266 176 243 194 230Z"/>
+    </g>
+    <g id="biceps" data-anchor="405 365">
+      <path d="M137 299 C146 305 149 329 145 355 C141 387 125 420 109 429 C98 435 83 421 81 406 C78 385 80 356 88 335 Q103 307 137 299Z"/>
+      <path d="M383 299 C374 305 371 329 375 355 C379 387 395 420 411 429 C422 435 437 421 439 406 C442 385 440 356 432 335 Q417 307 383 299Z"/>
+    </g>
+    <g id="forearms" data-anchor="447 502">
+      <path d="M74 413 C79 427 92 441 106 434 Q114 429 116 427 C115 459 110 485 96 506 C79 531 72 555 69 575 Q52 571 36 577 C42 539 40 502 45 473 Q52 438 74 413Z"/>
+      <path d="M446 413 C441 427 428 441 414 434 Q406 429 404 427 C405 459 410 485 424 506 C441 531 448 555 451 575 Q468 571 484 577 C478 539 480 502 475 473 Q468 438 446 413Z"/>
+    </g>
+    <g id="abdominals" data-anchor="286 438">
+      <path d="M201 370 Q223 360 247 357 Q255 355 260 361 Q265 356 271 357 C290 360 308 366 317 371 C323 388 319 402 317 412 C320 439 312 495 301 526 Q260 532 220 526 C212 495 204 457 202 423 Q200 399 201 370Z"/>
+    </g>
+    <g id="obliques" data-anchor="333 454">
+      <path d="M151 371 C170 381 187 399 198 417 C201 451 209 495 215 524 Q202 524 196 519 Q181 502 166 489 C173 457 173 434 166 411 Q156 390 151 371Z"/>
+      <path d="M369 371 C350 381 333 399 322 417 C319 451 311 495 305 524 Q318 524 324 519 Q339 502 354 489 C347 457 347 434 354 411 Q364 390 369 371Z"/>
+    </g>
+    <g id="hips" data-anchor="348 563">
+      <path d="M166 535 Q186 539 206 545 C193 558 166 579 146 607 Q151 562 166 535Z"/>
+      <path d="M354 535 Q334 539 314 545 C327 558 354 579 374 607 Q369 562 354 535Z"/>
+    </g>
+    <g id="quads" data-anchor="339 737">
+      <path d="M132 649 Q185 677 245 692 C237 728 225 777 212 810 Q206 827 193 831 C184 834 179 808 163 807 Q147 805 137 825 C128 785 123 708 132 649Z"/>
+      <path d="M388 649 Q335 677 275 692 C283 728 295 777 308 810 Q314 827 327 831 C336 834 341 808 357 807 Q373 805 383 825 C392 785 397 708 388 649Z"/>
+    </g>
+    <g id="calves" data-anchor="368 971">
+      <path d="M134 862 C140 885 151 908 167 895 Q182 888 194 874 C190 906 203 940 191 971 C177 1007 165 1036 160 1081 Q138 1088 117 1079 C117 1038 107 987 108 950 Q109 910 134 862Z"/>
+      <path d="M386 862 C380 885 369 908 353 895 Q338 888 326 874 C330 906 317 940 329 971 C343 1007 355 1036 360 1081 Q382 1088 403 1079 C403 1038 413 987 412 950 Q411 910 386 862Z"/>
+    </g>
+  </g>
+<g id="side-delts" data-muscle-overlay="" opacity="0" fill="currentColor"><path transform="translate(87 222) scale(54 85)" d="M .08 .94 C .01 .62 .22 .13 .93 .05 C .6 .29 .42 .69 .08 .94 Z"/><path transform="translate(437 222) scale(-54 85)" d="M .08 .94 C .01 .62 .22 .13 .93 .05 C .6 .29 .42 .69 .08 .94 Z"/></g>
+<g id="serratus" data-muscle-overlay="" opacity="0" fill="currentColor"><path transform="translate(153 337) scale(45 64)" d="M .08 .05 Q .47 .24 .92 .25 L .77 .42 L .2 .29 Q .53 .47 .83 .51 L .65 .68 L .24 .53 Q .48 .73 .68 .76 L .46 .96 Q .12 .69 .08 .05 Z"/><path transform="translate(371 337) scale(-45 64)" d="M .08 .05 Q .47 .24 .92 .25 L .77 .42 L .2 .29 Q .53 .47 .83 .51 L .65 .68 L .24 .53 Q .48 .73 .68 .76 L .46 .96 Q .12 .69 .08 .05 Z"/></g>
+<g id="anterior-shin" data-muscle-overlay="" opacity="0" fill="currentColor"><path transform="translate(120 898) scale(49 181)" d="M .79 .02 Q .96 .18 .81 .43 Q .53 .72 .22 .98 Q .15 .81 .36 .49 Q .47 .2 .79 .02 Z"/><path transform="translate(404 898) scale(-49 181)" d="M .79 .02 Q .96 .18 .81 .43 Q .53 .72 .22 .98 Q .15 .81 .36 .49 Q .47 .2 .79 .02 Z"/></g>
+<g id="foot" data-muscle-overlay="" opacity="0" fill="currentColor"><path transform="translate(79 1119) scale(80 90)" d="M .97 .04 Q .98 .3 .77 .55 Q .54 .82 .12 .94 Q .03 .84 .12 .67 Q .41 .43 .55 .15 Q .74 .01 .97 .04 Z"/><path transform="translate(445 1119) scale(-80 90)" d="M .97 .04 Q .98 .3 .77 .55 Q .54 .82 .12 .94 Q .03 .84 .12 .67 Q .41 .43 .55 .15 Q .74 .01 .97 .04 Z"/></g>
+<g id="adductors" data-muscle-overlay="" opacity="0" fill="currentColor"><path transform="translate(211 657) scale(37 109)" d="M .12 .04 Q .52 .18 .98 .07 Q .78 .45 .21 .97 Q .29 .52 .12 .04 Z"/><path transform="translate(313 657) scale(-37 109)" d="M .12 .04 Q .52 .18 .98 .07 Q .78 .45 .21 .97 Q .29 .52 .12 .04 Z"/></g>
+<g id="hip-flexors" data-muscle-overlay="" opacity="0" fill="currentColor"><path transform="translate(183 547) scale(39 68)" d="M .09 .05 Q .53 .13 .96 .3 Q .78 .56 .59 .97 Q .37 .65 .09 .05 Z"/><path transform="translate(341 547) scale(-39 68)" d="M .09 .05 Q .53 .13 .96 .3 Q .78 .56 .59 .97 Q .37 .65 .09 .05 Z"/></g>
+</svg>

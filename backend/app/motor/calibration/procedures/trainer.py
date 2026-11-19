@@ -25,7 +25,7 @@ from app.motor.profile import MachineProfile
 from app.motor.units import SIDES, Side
 
 Probe = Callable[[Frame], float]
-STUCK_BOOST_N = 6.0  # per frame (~120 N/s) while the bar does not go the user's way
+STUCK_BOOST_N_S = 120.0
 
 
 @dataclass(frozen=True)
@@ -37,7 +37,7 @@ class Row:
     force: float  # the law's command, mean of the sides, N
     user: float  # the core's user force estimate (moving value or static upper bound), mean of the sides
     phase: str
-    skew: float  # x_left − x_right
+    skew: float | None  # x_left − x_right on a shared timestamp
 
 
 class Trainer:
@@ -140,12 +140,12 @@ def drive(
             return frame, "until"
         if x_range is not None and not x_range[0] <= frame.x_mean <= x_range[1]:
             return frame, "range"
-        if speed_cap is not None and abs(frame.v_mean) > speed_cap:
+        if speed_cap is not None and frame.max_abs_speed > speed_cap:
             return frame, "fast"
         push = probe(frame)
         forces = trainer.forces(frame)
         if rows is not None:
-            rows.append(Row(frame.t, frame.x_mean, frame.v_mean, push, mean(list(forces.values())), trainer.user, trainer.phase, frame.x("left") - frame.x("right")))
+            rows.append(Row(frame.t, frame.x_mean, frame.v_mean, push, mean(list(forces.values())), trainer.user, trainer.phase, frame.skew_mm))
         frame = yield Command({side: forces[side] + push for side in SIDES}, note=note, progress=progress)
     return frame, "time"
 
@@ -183,26 +183,42 @@ def user_gain(ctx: Context, mass_kg: float) -> float:
 
 def rep_user(
     load_n: float, low_mm: float, high_mm: float, speed_mm_s: float, *, gain: float, feed_n: float = 0.0, feed_down_n: float | None = None, limit_n: float = 80.0,
+    down_load_n: float | None = None, breakaway_n: float = 0.0, overspeed_damping: float = 0.0,
 ) -> Probe:
     """A person doing reps: holds ``load_n``, pushes ``feed_n`` with the motion (felt friction; ``feed_down_n`` going
     down, if it differs) and corrects the speed towards ±``speed_mm_s`` with ``gain`` (turns at the heights)."""
 
-    state = {"direction": 1, "boost": 0.0}
+    direction = 1
+    boost = 0.0
+    previous_t: float | None = None
+    braking_span = (high_mm - low_mm) / 4
 
     def probe(frame: Frame) -> float:
-        if frame.x_mean >= high_mm:
-            state["direction"] = -1
-        elif frame.x_mean <= low_mm:
-            state["direction"] = 1
-        direction = state["direction"]
-        # a stuck bar (start, turn) gets a growing push until it is under way, like a hand would; the extra push
-        # goes once the bar moves at a third of the speed (holding it longer throws a light bar)
+        nonlocal direction, boost, previous_t
+        dt = min(0.1, max(0.0, frame.t - previous_t)) if previous_t is not None else 0.0
+        previous_t = frame.t
+        if (direction > 0 and frame.x_mean >= high_mm) or (direction < 0 and frame.x_mean <= low_mm):
+            direction, boost = -direction, 0.0
+        remaining = high_mm - frame.x_mean if direction > 0 else frame.x_mean - low_mm
+        target = speed_mm_s * min(1.0, max(0.35, remaining / braking_span))
         along = direction * frame.v_mean
-        if along > 0.3 * speed_mm_s:
-            state["boost"] = 0.0
-        elif along < 2.0:
-            state["boost"] += STUCK_BOOST_N
-        correction = direction * ((feed_n if direction > 0 or feed_down_n is None else feed_down_n) + state["boost"]) + gain * (direction * speed_mm_s - frame.v_mean)
+        # Start taking up stiction as the bar slows into a turn. Integrating through fast reverse
+        # travel would store a large impulse and throw a low-inertia bar through its turnaround.
+        if -0.5 * speed_mm_s < along < 2.0:
+            boost = min(limit_n, max(boost, breakaway_n) + STUCK_BOOST_N_S * dt)
+        elif along > 0.3 * target:
+            boost = 0.0
+        friction = feed_down_n if direction < 0 and feed_down_n is not None else feed_n
+        correction = direction * (friction + boost) + gain * (direction * target - frame.v_mean)
+        # During final verification a virtual lifter catches a bar that outruns the prescribed
+        # pace by more than 25%. Ordinary variations around a turn must remain measurable.
+        # The cap on total hand force still applies in each direction.
+        excess = max(0.0, abs(frame.v_mean) - 1.25 * speed_mm_s)
+        correction -= overspeed_damping * excess * (1 if frame.v_mean > 0 else -1)
+        # Eccentric trials ask the virtual lifter to support more weight on descent. Base the
+        # hand's feed-forward on observed motion independently of the phase detector under test.
+        if down_load_n is not None:
+            correction += (down_load_n - load_n) * max(0.0, min(1.0, -frame.v_mean / (0.35 * speed_mm_s)))
         return load_n + max(-limit_n, min(limit_n, correction))
 
     return probe

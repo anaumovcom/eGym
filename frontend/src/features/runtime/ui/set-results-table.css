@@ -1,0 +1,8 @@
+.rt-set-results-table { width: 100%; border-collapse: collapse; color: #c7d9e4; font-size: .95rem; text-align: left; font-variant-numeric: tabular-nums; }
+.rt-set-results-table :is(th, td) { padding: .65rem .6rem; border-bottom: 1px solid #29414e; overflow-wrap: anywhere; }
+.rt-set-results-table thead th { color: #9bb6c6; font-size: .8rem; font-weight: 550; }
+.rt-set-results-table :is(th[scope='row'], strong) { color: #ecf6ff; }
+.rt-set-results-table tbody tr:last-child > * { border-bottom: 0; }
+@media (max-width: 767px) {
+  .rt-set-results-table :is(th, td) { padding-inline: .25rem; }
+}

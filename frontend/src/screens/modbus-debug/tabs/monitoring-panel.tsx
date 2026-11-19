@@ -1,85 +1,46 @@
 import { Activity, Pause, Play, RefreshCw } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import { useDriveTelemetry } from '@/features/modbus/lib/use-drive-telemetry'
 import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
-import { fetchModbusPositions } from '@/features/modbus/api/modbus-api'
-import type { ModbusPositions } from '@/features/modbus/model/types'
+import { positionFeedback } from '@/features/modbus/model/position-feedback'
 import { Button } from '@/shared/ui/button'
-import { positionFeedback, pulsesToMm } from '@/features/modbus/model/position-feedback'
-
-const MONITOR_ADDRESSES = [0x203, 0x204, 0x1BC, 0x1BD, 0x207, 0x208, 0x20B, 0x20C, 0x209, 0x20A]
-
-const MONITOR_LABELS: Record<number, string> = {
-  0x203: 'Фактическая скорость',
-  0x204: 'Фактический момент',
-  0x1BC: 'PA_1BC · Position feedback (low)',
-  0x1BD: 'PA_1BD · Position feedback (high)',
-  0x207: 'Командная позиция (low)',
-  0x208: 'Командная позиция (high)',
-  0x20B: 'Ошибка позиции (low)',
-  0x20C: 'Ошибка позиции (high)',
-  0x209: 'Заданная скорость',
-  0x20A: 'Заданный момент',
-}
 
 type AutoInterval = 500 | 1000 | 2000 | 5000
 
 export function MonitoringPanel() {
-  const { paramStates, connectionStatus, readBatch } = useModbusStore()
-  const selectedSide = useModbusStore((state) => state.selectedSide)
-  const [positions, setPositions] = useState<ModbusPositions | null>(null)
+  const { connectionStatus, paramStates, readRegister } = useModbusStore()
   const [autoRefresh, setAutoRefresh] = useState(false)
   const [interval, setInterval_] = useState<AutoInterval>(1000)
-  const [loading, setLoading] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const isConnected = connectionStatus?.connected ?? false
-
-  const refresh = async () => {
-    if (!isConnected) return
-    setLoading(true)
-    try {
-      await readBatch(MONITOR_ADDRESSES)
-      setPositions(await fetchModbusPositions())
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    if (autoRefresh && isConnected) {
-      timerRef.current = setInterval(refresh, interval)
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current)
-      timerRef.current = null
-    }
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoRefresh, interval, isConnected])
-
-  useEffect(() => {
-    if (!isConnected) { setPositions(null); return }
-    let active = true
-    void fetchModbusPositions().then((result) => { if (active) setPositions(result) }).catch(() => { if (active) setPositions(null) })
-    return () => { active = false }
-  }, [isConnected, selectedSide])
-
-  // 32-bit helpers
-  const pos32 = combine32(paramStates.get(0x1BC)?.readStatus === 'ok' ? paramStates.get(0x1BC)?.driverValue : null, paramStates.get(0x1BD)?.readStatus === 'ok' ? paramStates.get(0x1BD)?.driverValue : null)
-  const selectedPosition = positions?.[selectedSide]
-  const offset = selectedPosition?.zeroPulses
-  const relativePulses = pos32 != null && offset != null ? pos32 - offset : null
-  const cmd32 = combine32(paramStates.get(0x207)?.driverValue, paramStates.get(0x208)?.driverValue)
-  const err32 = combine32(paramStates.get(0x20B)?.driverValue, paramStates.get(0x20C)?.driverValue)
+  const frame = useDriveTelemetry(autoRefresh ? interval : false)
+  const loading = frame.isFetching
+  const data = isConnected && !frame.isError && !frame.data?.error ? frame.data : undefined
+  const message = frame.data?.error || (frame.isError ? 'Не удалось получить кадр привода' : null)
+  const when = frame.data?.readAt ? new Date(frame.data.readAt).toLocaleTimeString() : '—'
+  const low = paramStates.get(0x1B8)
+  const high = paramStates.get(0x1B9)
+  const commandPosition = isConnected && low?.readStatus === 'ok' && high?.readStatus === 'ok'
+    && low.driverValue != null && high.driverValue != null ? positionFeedback(low.driverValue, high.driverValue) : null
+  const rows = [
+    ['PA_1BC/1BD', 'Положение энкодера', data?.feedbackPosition],
+    ['PA_1BE/1BF', 'Ошибка позиции', data?.positionError],
+    ['PA_1C0', 'Заданная скорость', data?.commandSpeedRpm],
+    ['PA_1C1', 'Фактическая скорость', data?.feedbackSpeedRpm],
+    ['PA_1C3', 'Задание момента в приводе', data?.commandTorqueRaw],
+    ['PA_1C4', 'Фактический момент', data?.feedbackTorqueRaw],
+    ['PA_1C9', 'Авария', data?.alarm],
+  ] as const
 
   return (
     <div className="space-y-4">
       {/* Controls */}
-      <div className="glass-panel rounded-2xl p-4 flex flex-wrap items-center gap-3">
+      <div className="glass-panel rounded-2xl p-4 space-y-3">
+        <div><h3 className="font-semibold">Телеметрия выбранного драйвера</h3><p className="text-sm text-[#a9bece]">{isConnected ? 'Последний кадр обмена с приводом.' : 'Нет входящих данных: подключение не установлено.'}</p></div>
+        <div className="modbus-actions">
         <Button
           variant="secondary"
           iconLeft={loading ? <Activity size={14} className="animate-spin" /> : <RefreshCw size={14} />}
-          onClick={refresh}
+          onClick={() => void frame.refetch()}
           disabled={loading || !isConnected}
           className="text-xs"
         >
@@ -92,11 +53,12 @@ export function MonitoringPanel() {
           disabled={!isConnected}
           className="text-xs"
         >
-          {autoRefresh ? 'Стоп' : 'Авто'}
+          {autoRefresh ? 'Остановить опрос' : 'Автообновление'}
         </Button>
         {autoRefresh && (
           <select
             className="input-field text-xs"
+            aria-label="Интервал автообновления"
             value={interval}
             onChange={(e) => setInterval_(Number(e.target.value) as AutoInterval)}
           >
@@ -106,27 +68,36 @@ export function MonitoringPanel() {
             <option value={5000}>5 с</option>
           </select>
         )}
+        {isConnected && <span className="text-xs text-white/60">Кадр · {when}</span>}
+        {isConnected && message && <span role="status" className="text-xs text-[#ffd166]">{message}</span>}
         {autoRefresh && <span className="text-xs text-[#79de83] animate-pulse">● Обновляется</span>}
         {!isConnected && <span className="text-xs text-[#ff8f84]">⚠ Нет подключения</span>}
+        </div>
       </div>
 
       {/* 32-bit computed values */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <BigMetric label="Позиция от нуля" value={relativePulses != null ? pulsesToMm(relativePulses).toFixed(4) : '—'} unit={pos32 != null ? `мм · текущие ${pos32} имп · ноль ${offset ?? '—'} имп` : 'мм · 0,0002440 мм/имп'} addr="PA_1BD:PA_1BC" />
-        <BigMetric label="Командная позиция" value={cmd32 != null ? String(cmd32) : '—'} unit="имп" addr="0x208:0x207" />
-        <BigMetric label="Ошибка позиции" value={err32 != null ? String(err32) : '—'} unit="имп" addr="0x20C:0x20B" danger={err32 != null && Math.abs(err32) > 1000} />
+      <h3 className="font-semibold">Положение</h3>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,13rem),1fr))] gap-3">
+        <BigMetric label="Позиция от нуля" value={data?.positionMm?.toFixed(4) ?? '—'} unit="мм" addr="PA_1BC/1BD" />
+        <div>
+          <BigMetric label="Командная позиция" value={String(commandPosition ?? '—')} unit="имп" addr="PA_1B8/1B9" />
+          <Button className="text-xs" variant="secondary" disabled={!isConnected} onClick={() => void readRegister(0x1B8, 2)}>Считать командную позицию</Button>
+        </div>
+        <BigMetric label="Ошибка позиции" value={String(data?.positionError ?? '—')} unit="имп" addr="PA_1BE/1BF" />
       </div>
 
-      {/* Speed / torque row */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <MonitorCard addr={0x203} label="Фактическая скорость" unit="об/мин" />
-        <MonitorCard addr={0x209} label="Заданная скорость" unit="об/мин" />
-        <MonitorCard addr={0x204} label="Фактический момент" unit="0.1%" />
-        <MonitorCard addr={0x20A} label="Заданный момент" unit="0.1%" />
+      <h3 className="font-semibold">Скорость и момент</h3>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-3">
+        <BigMetric label="Фактическая скорость" value={String(data?.feedbackSpeedRpm ?? '—')} unit="об/мин" addr="PA_1C1" />
+        <BigMetric label="Отправленный момент" value={String(data?.torqueWrittenRaw ?? '—')} unit="0,1 %" addr="PA_12C" />
+        <BigMetric label="Задание в приводе" value={String(data?.commandTorqueRaw ?? '—')} unit="0,1 %" addr="PA_1C3" />
+        <BigMetric label="Фактический момент" value={String(data?.feedbackTorqueRaw ?? '—')} unit="0,1 %" addr="PA_1C4" />
+        <BigMetric label="Отправлено минус задание привода" value={data?.torqueWrittenRaw != null && data.commandTorqueRaw != null ? String(data.torqueWrittenRaw - data.commandTorqueRaw) : '—'} unit="0,1 %" addr="PA_12C − PA_1C3" />
+        <BigMetric label="Задание минус фактический" value={data?.commandTorqueRaw != null && data.feedbackTorqueRaw != null ? String(data.commandTorqueRaw - data.feedbackTorqueRaw) : '—'} unit="0,1 %" addr="PA_1C3 − PA_1C4" />
       </div>
 
       {/* Full register table */}
-      <div className="glass-panel rounded-2xl overflow-hidden">
+      <div className="glass-panel modbus-table-scroll rounded-2xl" role="region" aria-label="Сырые значения телеметрии" tabIndex={0}>
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-white/8 text-xs text-white/40 uppercase">
@@ -138,29 +109,20 @@ export function MonitoringPanel() {
             </tr>
           </thead>
           <tbody>
-            {MONITOR_ADDRESSES.map((addr) => {
-              const st = paramStates.get(addr)
-              const v = st?.driverValue
-              return (
-                <tr key={addr} className="border-b border-white/4 hover:bg-white/3">
-                  <td className="px-4 py-2 font-mono text-xs text-white/40">0x{addr.toString(16).toUpperCase().padStart(3, '0')}</td>
-                  <td className="px-4 py-2 text-white/70">{MONITOR_LABELS[addr] ?? `0x${addr.toString(16)}`}</td>
-                  <td className="px-4 py-2 text-right font-mono">{v != null ? v : '—'}</td>
-                  <td className="px-4 py-2 text-right font-mono text-white/40">{v != null ? `0x${v.toString(16).toUpperCase().padStart(4, '0')}` : '—'}</td>
-                  <td className="px-4 py-2 text-right text-xs text-white/30">{st?.readAt ? new Date(st.readAt).toLocaleTimeString() : '—'}</td>
-                </tr>
-              )
-            })}
+            {rows.map(([address, label, value]) => (
+              <tr key={address} className="border-b border-white/4 hover:bg-white/3">
+                <td className="px-4 py-2 font-mono text-xs text-white/40">{address}</td>
+                <td className="px-4 py-2 text-white/70">{label}</td>
+                <td className="px-4 py-2 text-right font-mono">{value ?? '—'}</td>
+                <td className="px-4 py-2 text-right font-mono">{value == null ? '—' : (address.includes('/') ? value >>> 0 : value & 0xffff).toString(16).toUpperCase().padStart(address.includes('/') ? 8 : 4, '0')}</td>
+                <td className="px-4 py-2 text-right text-xs text-white/30">{when}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>
     </div>
   )
-}
-
-function combine32(low?: number | null, high?: number | null): number | null {
-  if (low == null || high == null) return null
-  return positionFeedback(low, high)
 }
 
 function BigMetric({ label, value, unit, addr, danger }: {
@@ -170,25 +132,9 @@ function BigMetric({ label, value, unit, addr, danger }: {
     <div className={`glass-panel rounded-2xl p-4 ${danger ? 'border border-[#ff8f84]/30' : ''}`}>
       <div className="text-xs text-white/40 mb-1">{label}</div>
       <div className={`text-2xl font-mono font-bold ${danger ? 'text-[#ff8f84]' : 'text-white'}`}>{value}</div>
-      <div className="flex items-center justify-between mt-1">
+      <div className="flex flex-wrap items-center justify-between gap-1 mt-1">
         <span className="text-xs text-white/30">{unit}</span>
         <span className="text-[10px] font-mono text-white/20">{addr}</span>
-      </div>
-    </div>
-  )
-}
-
-function MonitorCard({ addr, label, unit }: { addr: number; label: string; unit: string }) {
-  const paramStates = useModbusStore((s) => s.paramStates)
-  const st = paramStates.get(addr)
-  const v = st?.driverValue
-  return (
-    <div className="glass-panel rounded-2xl p-4">
-      <div className="text-xs text-white/40 mb-1">{label}</div>
-      <div className="text-xl font-mono font-bold text-white">{v != null ? v : '—'}</div>
-      <div className="flex items-center justify-between mt-1">
-        <span className="text-xs text-white/30">{unit}</span>
-        <span className="text-[10px] font-mono text-white/20">0x{addr.toString(16).toUpperCase().padStart(3, '0')}</span>
       </div>
     </div>
   )

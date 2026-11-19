@@ -33,12 +33,12 @@ from __future__ import annotations
 import bisect
 import math
 from collections.abc import Generator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from app.motor.calibration.runner import Command, Frame, ProcedureError
-from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, Tunables
-from app.motor.units import SIDES, Side
+from app.motor.profile import DEFAULT_MOVING_MASS_KG, MachineProfile, SafetyEnvelope, Tunables
+from app.motor.units import SIDES, Side, rpm_to_mm_s
 
 Gen = Generator[Command, Frame, Any]
 STILL_MM_S = 1.0
@@ -75,6 +75,8 @@ FAST_DECEL_SHARE = 0.6  # the reference slowdown: this share of the M5 active br
 FAST_MIN_MM = 80.0  # shorter moves are governed moves
 FAST_START_MM = 3.0  # the governed start breaks the bar free (stops, stiction, M1) before the reference runs
 FAST_TOLERANCE_MM = 15.0  # farther from the target after the fast move → a governed correction
+START_TOLERANCE_MM = 8.0
+SETUP_SPEED_SCALE = 3.0
 FAST_SETTLE_S = 2.0  # after the reference arrived: the PI pulls the bar into the tolerance (stiction at the end)
 FAST_KX = 0.8  # N/mm
 FAST_KV = 0.4  # N per mm/s (≤ 0.5: m/Kv ≥ 0.12 s against the bus delay)
@@ -143,13 +145,20 @@ class Balance:
     fast_coast: dict[int, float] = field(default_factory=dict)
     fast_brake: dict[int, float] = field(default_factory=dict)
     fast_brake_lag_s: float | None = None
-    position_speed: dict[int, float] = field(default_factory=dict)  # P1/P2: the top speed of fast moves (≥ 100)
+    position_speed: dict[int, float] = field(default_factory=dict)  # P1/P2 directional transit limits
 
     def fast_top(self, direction: int) -> float:
         measured = self.position_speed.get(direction)
         if measured is not None and measured >= FAST_MIN_TOP_MM_S:
             return min(measured, FAST_DRIVE_LIMIT_MM_S - FAST_OVER_TOP_MM_S)
         return FAST_UP_MM_S if direction > 0 else FAST_DOWN_MM_S
+
+    def with_transit_limits(self, safety: SafetyEnvelope) -> Balance:
+        common = min(safety.max_speed_mm_s, rpm_to_mm_s(safety.speed_limit_rpm))
+        return replace(self, position_speed={
+            d: min(common, common if d > 0 else safety.max_descent_mm_s, self.position_speed.get(d, self.fast_top(d)))
+            for d in (1, -1)
+        })
 
     @classmethod
     def from_profile(cls, profile: MachineProfile) -> Balance:
@@ -180,7 +189,7 @@ class Balance:
             accel_mm_s2=_value(profile.accel_mm_s2),
             decel_mm_s2=_value(profile.decel_mm_s2),
             landing_speed_mm_s=_value(profile.landing_speed_mm_s),
-            sync_k=_value(profile.sync_k_n_per_mm) or DEFAULT_SYNC_K_N_PER_MM,
+            sync_k=DEFAULT_SYNC_K_N_PER_MM if profile.sync_k_n_per_mm.value is None else float(profile.sync_k_n_per_mm.value),
             mass_kg={side: _value(profile.side(side).moving_mass_kg) or DEFAULT_MOVING_MASS_KG for side in SIDES},
             viscous={side: max(0.0, _value(profile.side(side).viscous_n_per_mm_s) or 0.0) for side in SIDES},
             travel_mm=_value(profile.travel_mm) or 1400.0,
@@ -264,9 +273,10 @@ def side_speed(frame: Frame, previous: Frame | None, side: Side) -> float:
     """Speed of one side from PA_1C1; a register glitch (disagrees with its encoder by > 20 mm/s) → Δx/Δt."""
 
     v = frame.v(side)
-    if previous is None or frame.t <= previous.t:
+    dt = frame.samples[side].t - previous.samples[side].t if previous is not None else 0.0
+    if previous is None or dt <= 0:
         return v
-    v_pos = (frame.x(side) - previous.x(side)) / (frame.t - previous.t)
+    v_pos = (frame.x(side) - previous.x(side)) / dt
     return v_pos if abs(v - v_pos) > GLITCH_MM_S else v
 
 
@@ -437,14 +447,14 @@ def _governed(
                 # standing (on the stops or held by stiction): the speed is 0 by contact, not by too little force —
                 # a P kick here only makes the breakaway violent; the integrator finds the force
                 p_term = min(p_term, 0.0)
-            other: Side = "right" if side == "left" else "left"
-            sync = max(-SYNC_LIMIT_FC * friction[side], min(SYNC_LIMIT_FC * friction[side], balance.sync_k * (frame.x(other) - frame.x(side))))
+            lead_mm = (frame.skew_mm or 0.0) * (1 if side == "left" else -1)
+            sync = max(-SYNC_LIMIT_FC * friction[side], min(SYNC_LIMIT_FC * friction[side], -balance.sync_k * lead_mm))
             effective[side] = extra[side] + p_term
             offset = force_offset(frame) if force_offset else 0.0
             forces[side] = balance.edge(side, frame.x(side), direction) + direction * (extra[side] + lift + p_term) + sync + offset
             if limits is not None:
                 # racking: the side ahead waits at a crawl for the stuck one instead of running away from it
-                ahead = frame.x(side) - frame.x(other) > SKEW_SLOW_MM
+                ahead = lead_mm > SKEW_SLOW_MM
                 limits[side] = target_v * (SKEW_SLOW_SHARE if ahead else 1.0)
         if state.trace is not None:
             state.trace.append((frame.t, frame.x_mean, v, effective))
@@ -551,7 +561,7 @@ def _fast(
             v_ref = max(v_ref, min(v_bar, top))
         behind = {side: direction * (x_seen - frame.x(side)) for side in SIDES}  # > 0: the side lags the reference
         fastest = max(direction * side_v[side] for side in SIDES)
-        skew = abs(frame.x("left") - frame.x("right"))
+        skew = abs(frame.skew_mm or 0.0)
         still_since = None if abs(v_bar) > STILL_MM_S else (still_since if still_since is not None else frame.t)
         stalled = arrived_at is None and still_since is not None and frame.t - still_since > FAST_STALL_S
         v_allowed = max(v_ref, v_seen)
@@ -559,9 +569,10 @@ def _fast(
         catching_up = min(behind.values()) >= FAST_CATCH_UP_MM
         # and only if the bar can no longer stop in time: before the target (+ tolerance) and under the end-stop bound
         brake = FAST_BRAKE_SHARE * balance.fast_brake.get(direction, FAST_BRAKE_MM_S2)
-        to_go = direction * (target_mm - frame.x_mean) + FAST_TOLERANCE_MM
+        leading_height = max((frame.x(side) for side in SIDES), key=lambda height: direction * height)
+        to_go = direction * (target_mm - leading_height) + FAST_TOLERANCE_MM
         overrun = fastest * fastest / (2 * brake) + fastest * (balance.fast_brake_lag_s or FAST_SMOOTH_S) > to_go
-        unsafe = fastest > _end_bound(balance, frame.x_mean, direction) + FAST_RUNAWAY_MARGIN_MM_S
+        unsafe = fastest > _end_bound(balance, leading_height, direction) + FAST_RUNAWAY_MARGIN_MM_S
         overspeed = not catching_up and fastest > v_allowed + max(FAST_RUNAWAY_MARGIN_MM_S, FAST_RUNAWAY_SHARE * v_allowed)
         runaway = fastest > top + min(max(FAST_OVER_TOP_MM_S, FAST_OVER_TOP_SHARE * top), FAST_ENVELOPE_MARGIN_MM_S - 40.0) or unsafe or (overspeed and overrun)
         if runaway or skew > FAST_SKEW_MM or stalled:
@@ -591,12 +602,12 @@ def _fast(
                 x_ref, v_ref, a_ref, arrived_at = target_mm, 0.0, 0.0, frame.t
         forces = {}
         for side in SIDES:
-            other: Side = "right" if side == "left" else "left"
             error_x = direction * behind[side]  # up-positive tracking error
             error_v = direction * v_cmp - side_v[side]
             integral[side] = max(-friction[side], min(friction[side], integral[side] + FAST_KI * error_x * dt))
             feedback = max(-fb_max[side], min(fb_max[side], FAST_KX * error_x + FAST_KV * error_v + integral[side]))
-            sync = max(-SYNC_LIMIT_FC * friction[side], min(SYNC_LIMIT_FC * friction[side], balance.sync_k * (frame.x(other) - frame.x(side))))
+            lead_mm = (frame.skew_mm or 0.0) * (1 if side == "left" else -1)
+            sync = max(-SYNC_LIMIT_FC * friction[side], min(SYNC_LIMIT_FC * friction[side], -balance.sync_k * lead_mm))
             if v_ref <= STILL_MM_S:
                 resist = friction[side]
             else:
@@ -650,14 +661,16 @@ def travel(
     Without ``speed_mm_s`` (and ``state``) it is a transit move: a fast move (``_fast``, up to
     ``FAST_UP_MM_S`` / ``FAST_DOWN_MM_S``) if the distance is at least ``FAST_MIN_MM``; a governed move at
     ``TRANSIT_UP_MM_S`` / ``TRANSIT_DOWN_MM_S`` corrects the rest beyond ``FAST_TOLERANCE_MM`` or after a failed fast move.
-    ``speed_scale`` accelerates plain transit only, bounded by the existing fast-move speed ceiling.
-    The final correction after fast transit keeps its precision speed (also after a failed fast move).
-    Braking, acceleration and end-stop bounds remain unchanged; calibration callers default to 1.
+    Both fast transit and the governed correction respect the directional positioning limit.
+    Below the minimum fast speed, the governor handles the whole stroke. A short positioning
+    move may raise its nominal reference within these limits via ``speed_scale``.
     """
 
     drive_limit = state is None if drive_limit is None else drive_limit
     start = frame.x_mean
-    fast = speed_mm_s is None and state is None and abs(target_mm - start) >= FAST_MIN_MM
+    transit = speed_mm_s is None and state is None
+    speed_cap = balance.position_speed.get(1 if target_mm >= start else -1) if transit else None
+    fast = speed_mm_s is None and state is None and abs(target_mm - start) >= FAST_MIN_MM and (speed_cap is None or speed_cap >= FAST_MIN_TOP_MM_S)
     if isinstance(progress_span, tuple):
         p0, p1 = progress_span
         distance = abs(target_mm - start) or 1.0
@@ -674,6 +687,8 @@ def travel(
     if fast:
         direction = 1 if target_mm > start else -1
         top = min(balance.fast_top(direction) * speed_scale, FAST_DRIVE_LIMIT_MM_S - FAST_OVER_TOP_MM_S)
+        if speed_cap is not None:
+            top = min(top, speed_cap)
         frame = yield from _fast(balance, frame, target_mm, note=label_for(direction), progress=progress, stats=fast_stats, top_mm_s=top)
         if abs(target_mm - frame.x_mean) <= FAST_TOLERANCE_MM:
             return frame
@@ -681,6 +696,8 @@ def travel(
     if speed_mm_s is None:
         correction_scale = 1.0 if fast else speed_scale
         speed_mm_s = min((TRANSIT_UP_MM_S if direction > 0 else TRANSIT_DOWN_MM_S) * correction_scale, FAST_DRIVE_LIMIT_MM_S - FAST_OVER_TOP_MM_S)
+    if transit and direction in balance.position_speed:
+        speed_mm_s = min(speed_mm_s, balance.position_speed[direction])
     label = label_for(direction)
     state = state if state is not None else Motion()
 
@@ -696,6 +713,42 @@ def travel(
         )
     held = state.target_v if drive_limit and direction > 0 and state.target_v > 0 else None
     return (yield from hold_still(balance, frame, note=label, progress=progress(frame), speed_limit_mm_s=held))
+
+
+def position_for_start(balance: Balance, frame: Frame, target: float, safety: SafetyEnvelope, *,
+                       note: str, progress: tuple[float, float] | None = None, stats: dict[str, Any] | None = None) -> Gen:
+    """The same unloaded approach for P1/P2, M6 and the set. Reserve room for a precise finish."""
+    start = frame.x_mean
+    direction = 1 if target >= frame.x_mean else -1
+    balance = balance.with_transit_limits(safety)
+    top = balance.position_speed[direction]
+    if stats is not None:
+        stats["limit_mm_s"] = top
+    distance = abs(target - start)
+    finish_mm = max(2 * FAST_TOLERANCE_MM, top * (balance.fast_brake_lag_s or DEFAULT_BRAKE_LAG_S))
+    if top >= FAST_MIN_TOP_MM_S and distance >= FAST_MIN_MM + finish_mm:
+        # Brake the cruise before the actual start point. A delayed release of either side
+        # then consumes the reserved distance, not the user's exercise range.
+        p0, p1 = progress or (0.0, 1.0)
+
+        def progress_at(f: Frame) -> float:
+            share = min(1.0, max(0.0, direction * (f.x_mean - start) / distance))
+            return p0 + share * (p1 - p0)
+
+        frame = yield from _fast(balance, frame, target - direction * finish_mm, note=note, progress=progress_at,
+                                 stats=stats, top_mm_s=balance.fast_top(direction))
+        if frame.target_error(target) > START_TOLERANCE_MM:
+            final_dir = 1 if target > frame.x_mean else -1
+            final_v = TRANSIT_UP_MM_S if final_dir > 0 else TRANSIT_DOWN_MM_S
+            frame = yield from travel(balance, frame, target, speed_mm_s=min(final_v, balance.position_speed[final_dir]),
+                                      note=f"{note} · точный подвод", progress_span=(progress_at(frame), p1))
+    else:
+        frame = yield from travel(balance, frame, target, speed_scale=SETUP_SPEED_SCALE, note=note, progress_span=progress, fast_stats=stats)
+    if frame.target_error(target) > START_TOLERANCE_MM and abs(frame.x_mean - target) > 1.0:
+        correction = 1 if target > frame.x_mean else -1
+        frame = yield from travel(balance, frame, target, speed_mm_s=min(20.0, balance.position_speed[correction]),
+                                  note=f"{note} · точный подвод", progress_span=progress[1] if progress else None)
+    return frame
 
 
 def land(balance: Balance, frame: Frame, *, speed_mm_s: float | None = None, progress: float | None = None, state: Motion | None = None) -> Gen:

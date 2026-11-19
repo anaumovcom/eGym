@@ -30,7 +30,7 @@ beforeEach(() => {
     if (path.startsWith('/api/photo-progress?')) return { photos: [] } as T
     throw new Error(`Unexpected ${path}`)
   })
-  vi.stubGlobal('fetch', vi.fn(async () => new Response('<svg xmlns="http://www.w3.org/2000/svg"><g id="chest"><path d="M0 0h10v10z" /></g></svg>', { status: 200 })))
+  vi.stubGlobal('fetch', vi.fn(async () => new Response('<svg xmlns="http://www.w3.org/2000/svg" data-figure="portrait"><defs><mask id="heat"><rect width="10" height="10" fill="white"/></mask></defs><g mask="url(#heat)"><g id="chest"><path d="M0 0h10v10z" /></g></g></svg>', { status: 200 })))
 })
 afterEach(() => { cleanup(); client.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks() })
 
@@ -76,7 +76,8 @@ describe('Progress stage 6', () => {
     expect(screen.getAllByRole('main')).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: 'Аварийная остановка', exact: true })).toHaveLength(1)
     expect(document.querySelector('.fatigue-hero')).toContainElement(screen.getByRole('heading', { name: 'Карта мышечной усталости' }))
-    expect(document.querySelector('.fatigue-details')).toContainElement(screen.getByText('Рекомендация Forma'))
+    const recommendation = await screen.findByText('Рекомендация Forma')
+    expect(document.querySelector('.fatigue-details')).toContainElement(recommendation)
   })
 
   it('opens progress from the separate muscle fatigue page', async () => {
@@ -88,28 +89,65 @@ describe('Progress stage 6', () => {
     expect(location()).toBe('/progress')
   })
 
-  it('shows muscle fatigue on hover and hides the hint when the pointer leaves', async () => {
+  it('outlines a coloured muscle above its heat mask while the pointer is over it', async () => {
+    const user = userEvent.setup()
     renderScreen('/fatigue')
     const chest = await screen.findByRole('button', { name: /Грудь: .* из 100/ })
-    fireEvent.pointerEnter(chest, { pointerType: 'mouse', clientX: 100, clientY: 100 })
+    const shape = chest.querySelector('path')!
+    const svg = chest.closest('svg')!
+    const heat = chest.style.getPropertyValue('--heat-opacity')
+    await user.hover(shape)
+    const outline = svg.querySelector('.muscle-hover-outline')
+    expect(outline?.parentNode).toBe(svg)
+    expect(outline).toHaveAttribute('aria-hidden', 'true')
+    expect(outline?.firstElementChild).toHaveAttribute('d', shape.getAttribute('d'))
+    expect(chest.style.getPropertyValue('--heat-opacity')).toBe(heat)
     expect(screen.getByRole('tooltip')).toHaveTextContent('Грудь')
     expect(screen.getByRole('tooltip')).toHaveTextContent('Высокая усталость')
     expect(screen.getByRole('tooltip')).toHaveTextContent('балл. усталости')
     expect(location()).toBe('/fatigue')
-    expect(chest).toBeInTheDocument()
-    fireEvent.pointerLeave(screen.getByText('Вид спереди').parentElement!)
+    await user.unhover(shape)
+    expect(svg.querySelector('.muscle-hover-outline')).toBeNull()
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
-
   })
 
   it('shows missing fatigue data on hover', async () => {
     fatigue = { ...fatigue, muscles: fatigue.muscles.map((muscle) => muscle.id === 'chest' ? { ...muscle, status: 'no_data' } : muscle) }
     renderScreen('/fatigue')
-    const chest = await screen.findByRole('button', { name: /Грудь: .* из 100/ })
+    const chest = await screen.findByRole('button', { name: 'Грудь: Нет данных' })
+    expect(chest.style.getPropertyValue('--heat-opacity')).toBe('0')
     fireEvent.pointerEnter(chest, { pointerType: 'mouse', clientX: 100, clientY: 100 })
     expect(screen.getByRole('tooltip')).toHaveTextContent('Нет сохранённых данных о нагрузке')
     fireEvent.pointerLeave(screen.getByText('Вид спереди').parentElement!)
     expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
+  })
+
+  it('keeps a rested zone neutral and selectable from the figure', async () => {
+    const user = userEvent.setup()
+    fatigue.muscles = fatigue.muscles.map((item) => item.id === 'chest' ? { ...item, score: 0, status: 'ready' } : item)
+    renderScreen('/fatigue?mode=7d&muscle=back')
+    const chest = await screen.findByRole('button', { name: 'Грудь: Готова к нагрузке, 0 из 100' })
+    await user.hover(chest)
+    expect(chest.closest('svg')?.querySelector('.muscle-hover-outline path')).toBeInTheDocument()
+    expect(chest.style.getPropertyValue('--heat-opacity')).toBe('0')
+    await user.unhover(chest)
+    expect(chest.closest('svg')?.querySelector('.muscle-hover-outline')).toBeNull()
+    fireEvent.keyDown(chest, { key: 'Enter' })
+    expect(screen.getByRole('combobox', { name: 'Выбранная зона' })).toHaveValue('chest')
+    expect(location()).toBe('/fatigue?mode=7d&muscle=chest')
+    expect(chest).toHaveAttribute('aria-pressed', 'true')
+    expect(chest.style.getPropertyValue('--heat-opacity')).toBe('0')
+  })
+
+  it('resolves a historical muscle name and a catalog ID to one measured region', async () => {
+    const chest = fatigue.muscles.find((item) => item.id === 'chest')!
+    fatigue.muscles = [{ ...chest, id: 'Грудь', score: 0, status: 'ready' }, ...fatigue.muscles]
+    renderScreen('/fatigue?muscle=' + encodeURIComponent('Грудь'))
+    const picker = await screen.findByRole('combobox', { name: 'Выбранная зона' })
+    expect(within(picker).getAllByRole('option', { name: 'Грудь' })).toHaveLength(1)
+    expect(picker).toHaveValue('chest')
+    const measured = await screen.findByRole('button', { name: /^Грудь: Высокая усталость/ })
+    expect(Number(measured.style.getPropertyValue('--heat-opacity'))).toBeGreaterThan(0)
   })
 
   it('summarises the period with comparisons, insights, records and muscle balance', async () => {

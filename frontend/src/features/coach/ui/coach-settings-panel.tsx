@@ -1,311 +1,131 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { Sparkles } from 'lucide-react'
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react'
+import { Volume2 } from 'lucide-react'
+import { useRuntimeStore } from '@/stores/runtime-store'
 import { useStage4Store } from '@/stores/stage4-store'
-import { coachErrorMessage, coachSettingsApi } from '../lib/settings-api'
-import { isCurrentCoachScope, useCoachSettingsScope } from '../lib/settings-scope'
-import {
-  COACH_CHOICES, COACH_EXTRAS, COACH_HUMOR_KINDS, COACH_NICKNAME, COACH_STYLES, DEFAULT_COACH_PREFERENCES, FISH_VOICE_ID, effectiveCoachState, preferencesValid,
-  type CoachChoice, type CoachExtra, type CoachHumorKind, type CoachPreferences, type CoachSwitch,
-} from '../model/preferences'
-import { CoachOperatorPanel } from './coach-operator-panel'
 import { localAudioRuntime } from '../audio/local-audio-runtime'
 import { coachPackSlot } from '../audio/pack-client'
-import { CoachLocalPreview } from './coach-mini-debug'
-import { CoachVoicePackSection, COACH_VOICE_LABELS } from './coach-voice-pack'
+import { isCoachFoundationEnabled } from '../lib/runtime-observation'
+import { coachErrorMessage, coachSettingsApi } from '../lib/settings-api'
+import { loadPlaybackProfile, rememberPlaybackProfile } from '../lib/playback-profile'
+import { isCurrentCoachScope, useCoachSettingsScope } from '../lib/settings-scope'
 import { COACH_VOICES, coachVoice } from '../model/contracts'
+import { DEFAULT_COACH_PREFERENCES, effectiveCoachState, preferencesValid, type CoachPreferences } from '../model/preferences'
+import { CoachLocalPreview } from './coach-mini-debug'
+import { CoachOperatorPanel } from './coach-operator-panel'
+import { COACH_VOICE_LABELS, CoachVoicePackSection } from './coach-voice-pack'
 import './coach-settings.css'
 
-const MODE_HINTS: Record<CoachPreferences['mode'], string> = {
-  local: 'Готовые фразы, без интернета и расходов.',
-  hybrid: 'Живые реплики голосом. Нужен интернет, тратит лимит.',
-  'text-only': 'Живые реплики текстом, без звука.',
+const fishVoices = { '0a690dbeb3984a9f88cd39353880775f': 'Меллстрой', '6d23d3209d6849e0b24ddae6f734afe9': 'Екатерина' }
+function Group({ title, children }: { title: string; children: ReactNode }) {
+  return <section className="coach-group" aria-label={title}><header className="coach-group-title"><h3>{title}</h3></header><div className="coach-rows">{children}</div></section>
 }
-const STYLES: Record<CoachPreferences['style'], [string, string]> = {
-  companion: ['Напарник', 'Тёплый и энергичный, с лёгкой иронией.'],
-  calm: ['Спокойный наставник', 'Ровно и уверенно, без лишних эмоций.'],
-  strict: ['Строгий сержант', 'Коротко и требовательно, но без унижений.'],
-  showman: ['Спортивный комментатор', 'Каждый подход — как момент прямой трансляции.'],
-  stoic: ['Философ-стоик', 'Сдержанно, с короткими афоризмами о дисциплине.'],
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return <div className="coach-row"><label className="coach-row-main"><span>{label}</span>{children}</label></div>
 }
-const HUMOR_KIND_LABELS: Record<CoachHumorKind, string> = {
-  roast: 'Подколы и стёб', irony: 'Ирония', absurd: 'Абсурд', wordplay: 'Каламбуры', self: 'Самоирония тренера',
-}
-const EXTRA_LABELS: Record<CoachExtra, string> = {
-  callbacks: 'Коронные шутки', 'pop-culture': 'Отсылки к кино и спорту', trivia: 'Любопытные факты', breathing: 'Подсказки по дыханию',
-}
-const EXTRA_HINTS: Record<CoachExtra, string> = {
-  callbacks: 'Иногда возвращается к своим прошлым шуткам.',
-  'pop-culture': 'Сравнения из фильмов, спорта и мультфильмов.',
-  trivia: 'Интересное о мышцах и тренировках на отдыхе.',
-  breathing: 'На отдыхе напоминает выдохнуть и расслабить плечи.',
-}
-const GENDER_LABELS = { unspecified: 'Не указан', m: 'Мужской', f: 'Женский' } as const
-const VOICE_MODEL_HINTS: Record<CoachPreferences['voiceModel'], string> = {
-  'openai-realtime': 'Быстрый старт речи, живая интонация.',
-  'openai-tts': 'Читает текст дословно, ровная подача.',
-  'fish-drama-3': 'Выразительная актёрская подача с эмоциями. Нужен ключ Fish Audio у оператора.',
-}
-/** fish.audio library voices offered in the picker: [voice ID, label]. */
-const FISH_VOICES = [
-  ['0a690dbeb3984a9f88cd39353880775f', 'Меллстрой'],
-  ['6d23d3209d6849e0b24ddae6f734afe9', 'Екатерина'],
-] as const
-const PERSONA_HINTS: Record<CoachPreferences['persona'], string> = {
-  streamer: 'Скандальный стример-миллионер: тренировка как прямой эфир, «чат», донаты, мат и подколы. Свой голос в Fish Audio.',
-  classic: 'Тёплый энергичный напарник с лёгкой иронией.',
-}
-const CHOICE_LABELS: { [K in CoachChoice]: Record<typeof COACH_CHOICES[K][number], string> } = {
-  persona: { streamer: 'Дерзкий стример', classic: 'Классический напарник' },
-  voiceModel: { 'openai-realtime': 'OpenAI Realtime', 'openai-tts': 'OpenAI TTS', 'fish-drama-3': 'Fish Audio Drama 3' },
-  voiceEmotion: { off: 'Без эмоций', subtle: 'Сдержанно', expressive: 'Выразительно' },
-  voiceEnergy: { auto: 'По ситуации', calm: 'Спокойно', warm: 'Тепло', bright: 'Ярко' },
-  voicePace: { auto: 'По ситуации', normal: 'Обычный', brisk: 'Быстрый' },
-  pauseGap: { short: 'Короткие', normal: 'Обычные', long: 'Длинные' },
-  verbosity: { short: 'Коротко', normal: 'Обычно', detailed: 'Подробно' },
-  praise: { rare: 'Скупо', normal: 'В меру', generous: 'Щедро' },
-  goal: { none: 'Не указана', strength: 'Сила', hypertrophy: 'Рост мышц', endurance: 'Выносливость', health: 'Здоровье и тонус' },
-  experience: { beginner: 'Новичок', intermediate: 'Средний', advanced: 'Опытный' },
-  userGender: GENDER_LABELS,
-  coachGender: GENDER_LABELS,
-}
-
-function Toggle({ label, hint, checked, onChange }: { label: string; hint?: string; checked: boolean; onChange: (checked: boolean) => void }) {
-  const id = useId()
-  return <div className="coach-row">
-    <label className="coach-row-main"><span>{label}</span><input type="checkbox" role="switch" className="coach-switch" aria-describedby={hint ? id : undefined} checked={checked} onChange={event => onChange(event.target.checked)} /></label>
-    {hint && <p id={id} className="coach-row-hint">{hint}</p>}
-  </div>
-}
-function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
-  return <div className="coach-row"><label className="coach-row-main"><span>{label}</span>{children}</label>{hint && <p className="coach-row-hint">{hint}</p>}</div>
-}
-function Chips<T extends string>({ label, options, labels, titles, value, onChange }: {
-  label: string; options: readonly T[]; labels: Record<T, string>; titles?: Record<T, string>; value: readonly T[]; onChange: (next: T[]) => void
-}) {
-  return <div className="coach-row"><span className="coach-row-label">{label}</span>
-    <div role="group" aria-label={label} className="coach-chips">
-      {options.map(option => <label key={option} className="coach-chip" title={titles?.[option]}>
-        <input type="checkbox" checked={value.includes(option)} onChange={event => onChange(toggled(value, option, event.target.checked))} /><span>{labels[option]}</span>
-      </label>)}
-    </div>
-  </div>
-}
-function Group({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
-  return <section aria-label={title} className="coach-group">
-    <header className="coach-group-title"><h3>{title}</h3>{note && <span className="coach-note">{note}</span>}</header>
-    <div className="coach-rows">{children}</div>
-  </section>
-}
-function toggled<T>(list: readonly T[], value: T, on: boolean): T[] {
-  return on ? [...list.filter(item => item !== value), value] : list.filter(item => item !== value)
-}
-function problems(p: CoachPreferences): string[] {
-  const list: string[] = []
-  if (p.enabled && p.consentVersion !== 1) list.push('Чтобы включить тренера, отметьте согласие на его работу.')
-  if (p.mode !== 'local' && p.networkConsentVersion !== 1) list.push('Для облачного режима нужно согласие на отправку данных.')
-  if (!/^\d{1,3}(\.\d{1,4})?$/.test(p.budgetUsd) || !(Number(p.budgetUsd) > 0 && Number(p.budgetUsd) <= 10)) list.push('Лимит — от 0.01 до 10 $.')
-  if (p.nickname.length > 24 || !COACH_NICKNAME.test(p.nickname)) list.push('Имя: только буквы, пробел или дефис, до 24 символов.')
-  if (!FISH_VOICE_ID.test(p.fishVoiceId)) list.push('ID голоса Fish Audio — 32 символа: цифры и латинские a–f.')
-  if (p.assistantContext.length > 500) list.push('Контекст помощника — до 500 символов.')
-  return list
+function Switch({ label, checked, change }: { label: string; checked: boolean; change: (v: boolean) => void }) {
+  return <Field label={label}><input type="checkbox" role="switch" className="coach-switch" checked={checked} onChange={e => change(e.target.checked)} /></Field>
 }
 export function CoachSettingsPanel() {
   const { userId, epoch } = useCoachSettingsScope()
-  if (!userId) return <section aria-label="AI-тренер" className="rt-panel p-5">Выберите пользователя для настройки AI-тренера.</section>
-  // Key changes synchronously with the external-store epoch, even for batched A→B→A.
+  if (!userId) return <section aria-label="AI-тренер" className="rt-panel p-5">Выберите пользователя для настройки голосового тренера.</section>
   return <UserCoachSettings key={epoch} userId={userId} epoch={epoch} />
 }
+
 function UserCoachSettings({ userId, epoch }: { userId: string; epoch: number }) {
   const [saved, setSaved] = useState<CoachPreferences | null>(null)
   const [draft, setDraft] = useState<CoachPreferences>(DEFAULT_COACH_PREFERENCES)
-  const [dirty, setDirty] = useState(false)
-  const edits = useRef(0)
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [message, setMessage] = useState('')
-  const [operatorOpen, setOperatorOpen] = useState(false)
-  const alive = useRef(false)
-  const sequence = useRef(0)
-  const controller = useRef<AbortController | null>(null)
-  const general = useStage4Store(state => state.settingsSaved)
-  const effective = effectiveCoachState(saved, { soundEnabled: general.soundEnabled === true, voiceHintsEnabled: general.voiceHintsEnabled === true,
-    volume: Number(String(general.signalVolume).replace('%', '')) / 100 }, import.meta.env.VITE_COACH_ENABLED === 'true')
-
-  function change<K extends keyof CoachPreferences>(name: K, value: CoachPreferences[K]) {
-    edits.current++
-    setDraft(current => ({ ...current, [name]: value }))
-    setDirty(true)
+  const [loading, setLoading] = useState(true), [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState(''), [operator, setOperator] = useState(false)
+  const [offline, setOffline] = useState(false)
+  const edits = useRef(0), controller = useRef<AbortController | null>(null)
+  const changes = useRef<Partial<CoachPreferences>>({})
+  const dirty = edits.current > 0
+  const general = useStage4Store(s => s.settingsSaved)
+  const view = useRuntimeStore(s => s.session?.view)
+  const audio = useSyncExternalStore(localAudioRuntime.subscribe, localAudioRuntime.getSnapshot)
+  const locked = view === 'exercise-session' || view === 'rest' || audio.reason === 'hardware_active' || audio.reason === 'safety'
+  const volume = Number(String(general.signalVolume).replace('%', '')) / 100
+  const effective = effectiveCoachState(saved, { soundEnabled: general.soundEnabled === true, voiceHintsEnabled: general.voiceHintsEnabled === true, volume }, isCoachFoundationEnabled())
+  const slot = coachPackSlot(saved)
+  function change(patch: Partial<CoachPreferences>) { edits.current++; changes.current = { ...changes.current, ...patch }; setDraft(p => ({ ...p, ...patch })); setMessage('') }
+  function begin() { controller.current?.abort(); const next = new AbortController(); controller.current = next; return next.signal }
+  function current(signal: AbortSignal) { return !signal.aborted && isCurrentCoachScope(epoch) }
+  function accept(next: CoachPreferences, revision: number) {
+    localAudioRuntime.setSavedCoachPreferences(userId, next); setSaved(next)
+    if (edits.current === revision) { setDraft(next); edits.current = 0; changes.current = {} }
+    else setDraft({ ...next, ...changes.current })
   }
-  function choice<K extends CoachChoice>(name: K, label: string, hint?: string) {
-    const labels = CHOICE_LABELS[name] as Record<string, string>
-    return <Field label={label} hint={hint}><select className="rt-input" value={draft[name]} onChange={event => change(name, event.target.value as CoachPreferences[K])}>
-      {COACH_CHOICES[name].map(value => <option key={value} value={value}>{labels[value]}</option>)}
-    </select></Field>
-  }
-  function flag(name: CoachSwitch, label: string, hint?: string) {
-    return <Toggle label={label} hint={hint} checked={draft[name]} onChange={checked => change(name, checked)} />
-  }
-  async function hydrate(discard = false) {
-    controller.current?.abort()
-    const abort = new AbortController()
-    controller.current = abort
-    const id = ++sequence.current
-    const initialEdits = edits.current
-    const current = () => alive.current && isCurrentCoachScope(epoch) && sequence.current === id && !abort.signal.aborted
+  async function load() {
+    const signal = begin(), revision = edits.current
     setLoading(true); setMessage('')
     try {
-      const next = await coachSettingsApi.get(userId, abort.signal)
-      if (!current()) return
-      localAudioRuntime.setSavedCoachPreferences(userId, next)
-      setSaved(next)
-      if (edits.current === initialEdits && (discard || edits.current === 0)) { setDraft(next); setDirty(false); edits.current = 0 }
-    } catch (error) { if (current()) setMessage(coachErrorMessage(error)) }
-    finally { if (current()) setLoading(false) }
+      const result = await loadPlaybackProfile(userId, signal)
+      if (current(signal)) { accept(result.value, revision); setOffline(result.offline) }
+    }
+    catch (error) { if (current(signal)) setMessage(coachErrorMessage(error)) }
+    finally { if (current(signal)) setLoading(false) }
   }
-  useEffect(() => {
-    alive.current = true
-    void hydrate()
-    return () => { alive.current = false; ++sequence.current; controller.current?.abort() }
-  }, [userId, epoch])
-
+  useEffect(() => { void load(); return () => controller.current?.abort() }, [userId, epoch])
   async function save() {
-    if (!saved || saving || loading || !preferencesValid(draft)) return
-    controller.current?.abort()
-    const abort = new AbortController()
-    controller.current = abort
-    const id = ++sequence.current
-    const initialEdits = edits.current
-    const current = () => alive.current && isCurrentCoachScope(epoch) && sequence.current === id && !abort.signal.aborted
+    if (offline || !saved || saving || !preferencesValid(draft)) return
+    const signal = begin(), revision = edits.current
     setSaving(true); setMessage('')
     try {
-      const next = await coachSettingsApi.save(userId, { ...draft, revision: saved.revision }, saved.revision, abort.signal)
-      if (!current()) return
-      localAudioRuntime.setSavedCoachPreferences(userId, next)
-      setSaved(next)
-      if (edits.current === initialEdits) { setDraft(next); setDirty(false); edits.current = 0 }
-      setMessage('Настройки тренера сохранены.')
-    } catch (error) { if (current()) setMessage(coachErrorMessage(error)) }
-    finally { if (current()) setSaving(false) }
+      const next = await coachSettingsApi.save(userId, { ...draft, mode: 'local', networkConsentVersion: null, revision: saved.revision }, saved.revision, signal)
+      if (current(signal)) { rememberPlaybackProfile(userId, next); accept(next, revision); if (edits.current === 0) setMessage('Настройки тренера сохранены.') }
+    } catch (error) { if (current(signal)) setMessage(coachErrorMessage(error)) }
+    finally { if (current(signal)) setSaving(false) }
   }
   async function forgetMemory() {
-    controller.current?.abort()
-    const abort = new AbortController()
-    controller.current = abort
-    const id = ++sequence.current
-    const current = () => alive.current && isCurrentCoachScope(epoch) && sequence.current === id && !abort.signal.aborted
-    try {
-      await coachSettingsApi.forgetMemory(userId, abort.signal)
-      if (current()) setMessage('Память всех разговоров очищена. История результатов не изменена.')
-    } catch (error) { if (current()) setMessage(coachErrorMessage(error)) }
+    const signal = begin(); setSaving(true)
+    try { await coachSettingsApi.forgetMemory(userId, signal); if (current(signal)) setMessage('Память всех разговоров очищена. История результатов не изменена.') }
+    catch (error) { if (current(signal)) setMessage(coachErrorMessage(error)) }
+    finally { if (current(signal)) setSaving(false) }
   }
-  const cloud = draft.mode !== 'local'
   const fish = draft.voiceModel === 'fish-drama-3'
-  const issues = problems(draft)
-  const status = effective.textEnabled ? 'пишет текстом' : effective.audioEnabled ? 'говорит голосом' : 'молчит'
-  return <section aria-label="AI-тренер" className="coach-settings-panel overflow-clip rounded-2xl border border-violet-400/25 bg-gradient-to-br from-violet-500/10 via-transparent to-sky-500/5">
-    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-      <div className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-violet-400" /><h2 className="text-lg font-semibold">AI-тренер</h2></div>
-      <span className="coach-status" data-state={status === 'молчит' ? 'off' : 'on'} data-testid="coach-effective" title={status === 'молчит' ? 'Тренер выключен или в общих настройках нет звука.' : undefined}>Сейчас тренер {status}</span>
-    </header>
-    <div className="grid items-start gap-3 p-3 lg:grid-cols-2">
-      {loading && <p role="status" className="text-sm text-muted-foreground lg:col-span-2">Загрузка настроек тренера…</p>}
-      <div className="grid gap-3">
-        <Group title="Основное">
-          <Toggle label="Включить AI-тренера" checked={draft.enabled} onChange={checked => change('enabled', checked)} />
-          <Toggle label="Согласие на работу AI-тренера" checked={draft.consentVersion === 1} onChange={checked => { change('consentVersion', checked ? 1 : null); if (!checked) change('enabled', false) }} />
-          <Field label="Режим тренера" hint={MODE_HINTS[draft.mode]}><select className="rt-input" value={draft.mode} onChange={event => change('mode', event.target.value as CoachPreferences['mode'])}><option value="local">Без интернета</option><option value="hybrid">Облачный ИИ, голос</option><option value="text-only">Облачный ИИ, только текст</option></select></Field>
-          {cloud && <Toggle label="Согласие на отправку данных тренировки в облачный ИИ" hint="Уходят факты тренировки, контекст помощника и настройки характера, включая имя." checked={draft.networkConsentVersion === 1} onChange={checked => { change('networkConsentVersion', checked ? 1 : null); if (!checked) change('mode', 'local') }} />}
-          {cloud && <Field label="Лимит на тренировку, $ (до 10)"><input className="rt-input" type="number" min="0.01" max="10" step="0.01" value={draft.budgetUsd} onChange={event => change('budgetUsd', event.target.value)} /></Field>}
-          <Toggle label="Учитывать историю тренировок" checked={draft.historyConsent} onChange={checked => change('historyConsent', checked)} />
-          <Toggle label="Память текущего разговора" hint="Последние услышанные реплики и советы этого run, до 24 часов. Отключение при сохранении удаляет память, но не меняет историю результатов." checked={draft.memoryEnabled} onChange={checked => { change('memoryEnabled', checked); if (!checked) change('crossWorkoutMemory', false) }} />
-          <Toggle label="Память между тренировками — отдельное согласие" hint="Только сохранённые предпочтения манеры общения, до 7 дней в памяти сервера. Без текстов разговора и биографии; перезапуск сервера очищает эту память." checked={draft.crossWorkoutMemory} onChange={checked => { change('crossWorkoutMemory', checked); if (checked) change('memoryEnabled', true) }} />
-          <button type="button" className="rt-button" disabled={loading || saving} onClick={() => void forgetMemory()}>Удалить память тренера</button>
-        </Group>
-        <Group title="Когда говорить">
-          <Field label="Плотность общения"><select className="rt-input" value={draft.density} onChange={event => change('density', event.target.value as CoachPreferences['density'])}><option value="quiet">Только главное</option><option value="companion">Обычно</option><option value="talkative">Разговорчиво</option><option value="show">Шоу</option></select></Field>
-          <Field label="Подсчёт повторений"><select className="rt-input" value={draft.count} onChange={event => change('count', event.target.value as CoachPreferences['count'])}><option value="off">Не считать</option><option value="every">Каждое</option><option value="last-three">Последние три</option><option value="milestones">Контрольные точки</option></select></Field>
-          <Toggle label="Говорить во время подходов" checked={draft.duringSets} onChange={checked => change('duringSets', checked)} />
-          <Toggle label="Говорить во время отдыха" checked={draft.duringRest} onChange={checked => change('duringRest', checked)} />
-          {cloud && flag('scenarioPicker', 'Предлагать сценарий перед тренировкой', 'Тренер придумает три сюжета («стрим», «гонка», «боссфайт»…) и проведёт тренировку в выбранном мире. Около цента на тренировку.')}
-          {cloud && flag('coHost', 'Второй голос сюжета', 'Комментатор или «чат» из сценария изредка вставляет короткую реплику другим голосом Fish.')}
-        </Group>
-        <Group title="Голос" note="Для живой речи и готовых фраз">
-          {choice('voiceModel', 'Голосовая модель', VOICE_MODEL_HINTS[draft.voiceModel])}
-          {fish && <>
-            <Field label="Голос Fish Audio" hint="Голос из библиотеки fish.audio. «Голос персонажа» — голос выбранного персонажа."><select className="rt-input" value={draft.fishVoiceId} onChange={event => change('fishVoiceId', event.target.value)}><option value="">Голос персонажа</option>{[...FISH_VOICES, ...(draft.fishVoiceId && !FISH_VOICES.some(([id]) => id === draft.fishVoiceId) ? [[draft.fishVoiceId, draft.fishVoiceId] as const] : [])].map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></Field>
-            {choice('voiceEmotion', 'Эмоциональная окраска', 'Тренер подбирает тон под момент: поддержка, гордость за результат, игривость, строгость при безопасности. Слова не меняются.')}
-          </>}
-          {!fish && <Field label="Голос тренера"><select className="rt-input" value={coachVoice(draft.voiceProfile)} onChange={event => change('voiceProfile', coachVoice(event.target.value))}>{COACH_VOICES.map(voice => <option key={voice} value={voice}>{COACH_VOICE_LABELS[voice]}</option>)}</select></Field>}
-          {fish && flag('voiceSounds', 'Звуки в речи', 'Смех, вздохи, выдохи и паузы для комедийного тайминга (Fish drama-3).')}
-          {fish && flag('crowdEffects', 'Эффекты зала', 'Смех и реакция «зрителей» после шуток — только в сюжетах «трансляция» и «шоу».')}
-          <Field label="Громкость тренера"><select className="rt-input" value={draft.voiceVolume === null ? 'inherit' : String(draft.voiceVolume)} onChange={event => change('voiceVolume', event.target.value === 'inherit' ? null : Number(event.target.value))}><option value="inherit">Как общая</option>{[...new Set([0, 0.25, 0.5, 0.75, 1, ...(draft.voiceVolume === null ? [] : [draft.voiceVolume])])].sort((a, b) => a - b).map(volume => <option key={volume} value={volume}>{Math.round(volume * 100)}%</option>)}</select></Field>
-          <CoachVoicePackSection slot={coachPackSlot(draft)} userId={userId} budgetUsd={saved?.budgetUsd ?? '2.00'} />
-        </Group>
-        <Group title="Что озвучивать" note={cloud ? undefined : 'Только с облачным ИИ'}>
-          {flag('greeting', 'Приветствие в начале тренировки')}
-          {flag('exerciseIntro', 'Представлять упражнение')}
-          {flag('setFeedback', 'Комментировать подходы')}
-          {flag('exerciseSummary', 'Итог упражнения')}
-          {flag('workoutSummary', 'Итог тренировки')}
-          {flag('comparisons', 'Сравнивать с прошлыми тренировками', 'Нужна история тренировок и цифры.')}
-          {flag('sayNumbers', 'Называть цифры', 'Повторения, вес, время. Без цифр — только качественные оценки.')}
-          {flag('sayExerciseName', 'Называть упражнение')}
-          {flag('saySetProgress', 'Номер подхода и сколько осталось')}
-          {flag('sayWeight', 'Называть рабочий вес')}
-        </Group>
-      </div>
-      <div className="grid gap-3">
-      <Group title="Характер и юмор" note={cloud ? undefined : 'Только с облачным ИИ'}>
-        {choice('persona', 'Персонаж тренера', PERSONA_HINTS[draft.persona])}
-        <Field label="Контекст помощника" hint="Опишите обстановку и роль тренера, до 500 символов. Учитывается в живых комментариях облачного ИИ; готовые фразы не меняются. Не указывайте секретные данные.">
-          <textarea className="rt-input min-h-24" rows={3} maxLength={500} placeholder="Идёт трансляция тренировки на стриме, и тренер комментирует и подбадривает спортсмена." value={draft.assistantContext} onChange={event => change('assistantContext', event.target.value)} />
-        </Field>
-        {flag('profanity', 'Мат (18+)', 'Крепкие слова без цензуры и звёздочек. Без оскорблений внешности, тела и здоровья; при боли и риске — выключается.')}
-        <Field label="Стиль тренера" hint={STYLES[draft.style][1]}><select className="rt-input" value={draft.style} onChange={event => change('style', event.target.value as CoachPreferences['style'])}>{COACH_STYLES.map(style => <option key={style} value={style}>{STYLES[style][0]}</option>)}</select></Field>
-        <Field label="Обращение"><select className="rt-input" value={draft.address} onChange={event => change('address', event.target.value as CoachPreferences['address'])}><option value="ty">На «ты»</option><option value="vy">На «вы»</option></select></Field>
-        <Field label="Как вас называть"><input className="rt-input" type="text" maxLength={24} autoComplete="off" placeholder="Без имени" value={draft.nickname} onChange={event => change('nickname', event.target.value)} /></Field>
-        <Field label="Юмор"><select className="rt-input" value={draft.humor} onChange={event => change('humor', event.target.value as CoachPreferences['humor'])}><option value="off">Без шуток</option><option value="light">Иногда</option><option value="often">Часто</option></select></Field>
-        {draft.humor !== 'off' && <>
-          <Chips label="Виды юмора" options={COACH_HUMOR_KINDS} labels={HUMOR_KIND_LABELS} value={draft.humorKinds} onChange={next => change('humorKinds', next)} />
-          <Toggle label="Чёрный юмор (18+)" hint="Мрачные шутки о тяготах тренировки. Без шуток о боли, травмах, теле и людях." checked={draft.edgyOptIn} onChange={checked => change('edgyOptIn', checked)} />
-        </>}
-        <Chips label="Фишки" options={COACH_EXTRAS} labels={EXTRA_LABELS} titles={EXTRA_HINTS} value={draft.extras} onChange={next => change('extras', next)} />
-        {draft.extras.length > 0 && <p className="coach-row-hint">{draft.extras.map(extra => EXTRA_HINTS[extra]).join(' ')}</p>}
+  return <section aria-label="AI-тренер" className="coach-settings-panel overflow-clip rounded-2xl border border-white/15">
+    <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3"><div className="flex items-center gap-2"><Volume2 aria-hidden="true" /><h2 className="text-lg font-semibold">Голосовой тренер</h2></div>
+      <span className="coach-status" data-state={effective.audioEnabled ? 'on' : 'off'} data-testid="coach-effective">{effective.audioEnabled ? 'Голос включён' : 'Голос выключен'}</span></header>
+    <p className="px-4 pt-3 text-sm">Во время тренировки звучат только скачанные записи: счёт, советы и ключевые события. Данные упражнения не отправляются на озвучивание.</p>
+    {loading && <p role="status" className="px-4 pt-2">Загрузка настроек тренера…</p>}
+    {offline && <p role="status" className="px-4 pt-2">Сервер недоступен. Скачанные записи можно слушать; для изменений восстановите связь и загрузите настройки с сервера.</p>}
+    <div className="grid items-start gap-3 p-3 lg:grid-cols-2"><fieldset disabled={offline} className="grid min-w-0 gap-3">
+      <Group title="Сопровождение">
+        <Switch label="Включить AI-тренера" checked={draft.enabled} change={enabled => change({ enabled })} />
+        <Switch label="Согласие на работу AI-тренера" checked={draft.consentVersion === 1} change={on => change(on ? { consentVersion: 1 } : { consentVersion: null, enabled: false })} />
+        <Field label="Подсчёт повторений"><select className="rt-input" value={draft.count} onChange={e => change({ count: e.target.value as CoachPreferences['count'] })}>
+          <option value="every">Каждое повторение</option><option value="last-three">Последние три</option><option value="milestones">Контрольные точки</option><option value="off">Не считать</option></select></Field>
+        <Switch label="Советы во время подхода" checked={draft.duringSets} change={duringSets => change({ duringSets })} />
+        <Switch label="Советы в паузах отдыха" checked={draft.duringRest} change={duringRest => change({ duringRest })} />
+        <Field label="Громкость тренера"><select className="rt-input" value={draft.voiceVolume ?? 'inherit'} onChange={e => change({ voiceVolume: e.target.value === 'inherit' ? null : Number(e.target.value) })}>
+          <option value="inherit">Как общая</option>{[...new Set([0, 0.25, 0.5, 0.75, 1, ...(draft.voiceVolume === null ? [] : [draft.voiceVolume])])].sort((a,b) => a-b).map(v => <option key={v} value={v}>{Math.round(v*100)}%</option>)}</select></Field>
       </Group>
-      <Group title="Манера речи" note={cloud ? undefined : 'Только с облачным ИИ'}>
-        {choice('voiceEnergy', 'Энергия голоса', '«По ситуации» — тренер сам выбирает тон под момент.')}
-        {choice('voicePace', 'Темп речи')}
-        {choice('pauseGap', 'Паузы между репликами')}
-        {choice('verbosity', 'Длина реплик')}
-        {choice('praise', 'Похвала')}
-        {flag('slang', 'Разговорный сленг', 'Лёгкий спортзальный сленг без мата.')}
-        {choice('coachGender', 'Пол тренера', 'Для согласования слов: «рад» или «рада».')}
+      <Group title="Выбор голоса">
+        <Field label="Голосовая модель"><select className="rt-input" value={draft.standardPack ? 'ru-base' : draft.voiceModel} onChange={e => change(e.target.value === 'ru-base' ? { standardPack: true } : { standardPack: false, voiceModel: e.target.value as CoachPreferences['voiceModel'] })}>
+          <option value="ru-base">Базовый русский (бесплатно)</option>
+          <option value="fish-drama-3">Fish Audio</option><option value="openai-tts">OpenAI TTS</option><option value="openai-realtime">OpenAI Realtime (записи)</option></select></Field>
+        {draft.standardPack ? <p className="py-2">Готовый русский голос. Для скачивания не нужны ни ключ, ни вход оператора.</p> : fish ? <Field label="Голос Fish Audio"><select className="rt-input" value={draft.fishVoiceId || draft.persona} onChange={e => change(e.target.value === 'streamer' || e.target.value === 'classic' ? { fishVoiceId: '', persona: e.target.value } : { fishVoiceId: e.target.value })}>
+          <option value="streamer">Голос стримера</option><option value="classic">Голос напарника</option>{Object.entries(fishVoices).map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+          {draft.fishVoiceId && !Object.hasOwn(fishVoices, draft.fishVoiceId) && <option value={draft.fishVoiceId}>Сохранённый голос</option>}</select></Field>
+        : <Field label="Голос тренера"><select className="rt-input" value={draft.voiceProfile} onChange={e => change({ voiceProfile: coachVoice(e.target.value) })}>{COACH_VOICES.map(v => <option key={v} value={v}>{COACH_VOICE_LABELS[v]}</option>)}</select></Field>}
+        <p className="coach-row-hint py-2">Модель используется только для записи пакета в настройках. Во время упражнения другой голос не подставляется.</p>
       </Group>
-      <Group title="О спортсмене" note={cloud ? undefined : 'Только с облачным ИИ'}>
-        {choice('goal', 'Цель тренировок')}
-        {choice('experience', 'Опыт')}
-        {choice('userGender', 'Ваш пол', 'Для обращения: «молодец» или «умница», «сделал» или «сделала».')}
-      </Group>
-      </div>
-    </div>
+    </fieldset><Group title="Пакет на этом устройстве">
+      {locked ? <p className="py-3">Управление записями доступно до или после тренировки, когда тренажёр остановлен.</p> : saved && slot === coachPackSlot(draft)
+        ? <CoachVoicePackSection slot={slot} userId={offline ? undefined : userId} budgetUsd={saved.budgetUsd} volume={general.soundEnabled && volume > 0 ? (saved.voiceVolume ?? volume) : 0} />
+        : <p className="py-3">{saved ? 'Сохраните выбранный голос, чтобы скачать его пакет.' : 'Для выбора пакета нужны настройки профиля.'}</p>}
+    </Group></div>
     <footer className="coach-footer">
-      {issues.length > 0 && <ul role="alert" className="coach-issues">{issues.map(issue => <li key={issue}>{issue}</li>)}</ul>}
-      <p role="status" className="mr-auto text-sm text-muted-foreground">{message || (dirty ? 'Есть несохранённые изменения' : 'Все изменения сохранены')}</p>
-      <button className="rt-button" type="button" disabled={!saved || !dirty || saving || loading} onClick={() => { setDraft(saved!); setDirty(false); edits.current = 0 }}>Отменить изменения тренера</button>
-      <button className="rt-button rt-button-primary" type="button" disabled={!saved || !dirty || saving || loading || !preferencesValid(draft)} onClick={() => { void save() }}>Сохранить настройки тренера</button>
+      {draft.enabled && draft.consentVersion !== 1 && <p role="alert">Чтобы включить голосового тренера, отметьте согласие на его работу.</p>}
+      <p role="status" className="mr-auto text-sm">{message || (dirty ? 'Есть несохранённые изменения' : '')}</p>
+      <button className="rt-button" type="button" disabled={!saved || !dirty || saving || loading} onClick={() => { setDraft(saved!); edits.current = 0; changes.current = {}; setMessage('') }}>Отменить изменения тренера</button>
+      <button className="rt-button rt-button-primary" type="button" disabled={offline || !saved || !dirty || saving || loading || !preferencesValid(draft)} onClick={() => void save()}>Сохранить настройки тренера</button>
     </footer>
-    <div className="px-3 pb-3">
-      <details className="rounded-xl border border-white/10 px-3 py-2 text-sm">
-        <summary className="cursor-pointer text-muted-foreground">Диагностика и доступ оператора</summary>
-        <div className="mt-3 grid gap-3">
-          <CoachLocalPreview />
-          <div className="flex flex-wrap gap-3">
-            <button className="rt-button" type="button" disabled={saving || loading} onClick={() => { void hydrate(true) }}>Загрузить с сервера (заменить черновик)</button>
-            <button className="rt-button" type="button" onClick={() => setOperatorOpen(value => !value)}>{operatorOpen ? 'Закрыть доступ оператора' : 'Доступ оператора Coach'}</button>
-          </div>
-          {operatorOpen && <CoachOperatorPanel epoch={epoch} />}
-        </div>
-      </details>
-    </div>
+    <details className="m-3 rounded-xl border border-white/10 px-3 py-2 text-sm"><summary>Диагностика и доступ оператора</summary><div className="mt-3 grid gap-3">
+      <CoachLocalPreview /><div className="flex flex-wrap gap-2">
+        <button className="rt-button" type="button" disabled={saving || loading} onClick={() => void load()}>Загрузить с сервера (заменить черновик)</button>
+        <button className="rt-button" type="button" disabled={saving || loading} onClick={() => void forgetMemory()}>Удалить память тренера</button>
+        <button className="rt-button" type="button" onClick={() => setOperator(v => !v)}>{operator ? 'Закрыть доступ оператора' : 'Доступ оператора Coach'}</button></div>
+      {operator && <CoachOperatorPanel epoch={epoch} />}</div></details>
   </section>
 }

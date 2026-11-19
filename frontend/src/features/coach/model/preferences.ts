@@ -42,6 +42,7 @@ export const DEFAULT_COACH_TUNING: CoachTuning = Object.freeze<CoachTuning>({
 })
 
 export type CoachPreferences = CoachSettings & CoachTuning & Readonly<{
+  standardPack: boolean
   networkConsentVersion: null | 1; voiceVolume: number | null; fishVoiceId: string
   style: CoachStyle; humor: typeof COACH_HUMOR_LEVELS[number]; humorKinds: readonly CoachHumorKind[]
   /** Explicit 18+ dark-humor opt-in. */
@@ -50,7 +51,7 @@ export type CoachPreferences = CoachSettings & CoachTuning & Readonly<{
   memoryEnabled: boolean; crossWorkoutMemory: boolean
 }>
 export const DEFAULT_COACH_PREFERENCES: CoachPreferences = Object.freeze<CoachPreferences>({
-  ...DEFAULT_COACH_SETTINGS, ...DEFAULT_COACH_TUNING, networkConsentVersion: null, voiceVolume: null, fishVoiceId: '',
+  ...DEFAULT_COACH_SETTINGS, ...DEFAULT_COACH_TUNING, standardPack: true, networkConsentVersion: null, voiceVolume: null, fishVoiceId: '',
   // Default roast set (user decision 24.10.2026): streamer character, swearing, teasing, dark humor.
   style: 'companion', humor: 'often', humorKinds: ['roast', 'irony', 'absurd'], edgyOptIn: true, extras: [],
   address: 'ty', nickname: '', duringSets: true, duringRest: true, assistantContext: '',

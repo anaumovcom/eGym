@@ -1,0 +1,304 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "budget_usd":  10,
+    "prior_estimate_usd":  2.274591,
+    "estimate_usd":  2.578478,
+    "reservation_per_request_usd":  0.75,
+    "reference":  "reference-current.png",
+    "requests":  [
+                     {
+                         "id":  "29-profile",
+                         "name":  "Профиль",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021688,
+                         "usage":  {
+                                       "input_tokens":  1880,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  584
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2160
+                                   },
+                         "started_at":  "2026-11-17T09:33:27.9285889Z"
+                     },
+                     {
+                         "id":  "30-profile-edit",
+                         "name":  "Редактирование и ограничения",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021673,
+                         "usage":  {
+                                       "input_tokens":  1877,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  581
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2157
+                                   },
+                         "started_at":  "2026-11-17T09:33:48.2397423Z"
+                     },
+                     {
+                         "id":  "31-settings-overview",
+                         "name":  "Настройки",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021693,
+                         "usage":  {
+                                       "input_tokens":  1881,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  585
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2161
+                                   },
+                         "started_at":  "2026-11-17T09:34:07.5787636Z"
+                     },
+                     {
+                         "id":  "32-settings-safety",
+                         "name":  "Безопасность",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021703,
+                         "usage":  {
+                                       "input_tokens":  1883,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  587
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2163
+                                   },
+                         "started_at":  "2026-11-17T09:34:29.5491683Z"
+                     },
+                     {
+                         "id":  "33-settings-general",
+                         "name":  "Общие настройки",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021653,
+                         "usage":  {
+                                       "input_tokens":  1873,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  577
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2153
+                                   },
+                         "started_at":  "2026-11-17T09:34:48.3205781Z"
+                     },
+                     {
+                         "id":  "34-settings-coach",
+                         "name":  "AI-тренер",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021708,
+                         "usage":  {
+                                       "input_tokens":  1884,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  588
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2164
+                                   },
+                         "started_at":  "2026-11-17T09:35:05.9583613Z"
+                     },
+                     {
+                         "id":  "35-settings-service",
+                         "name":  "Сервис",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021693,
+                         "usage":  {
+                                       "input_tokens":  1881,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  585
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2161
+                                   },
+                         "started_at":  "2026-11-17T09:35:27.6559594Z"
+                     },
+                     {
+                         "id":  "36-modbus",
+                         "name":  "Modbus — диагностика",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021818,
+                         "usage":  {
+                                       "input_tokens":  1906,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  610
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2186
+                                   },
+                         "started_at":  "2026-11-17T09:35:47.8042621Z"
+                     },
+                     {
+                         "id":  "37-modbus-parameters",
+                         "name":  "Параметры приводов",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021668,
+                         "usage":  {
+                                       "input_tokens":  1876,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  580
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2156
+                                   },
+                         "started_at":  "2026-11-17T09:36:05.5606082Z"
+                     },
+                     {
+                         "id":  "38-modbus-monitor",
+                         "name":  "Мониторинг приводов",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021693,
+                         "usage":  {
+                                       "input_tokens":  1881,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  585
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2161
+                                   },
+                         "started_at":  "2026-11-17T09:36:24.9954955Z"
+                     },
+                     {
+                         "id":  "39-motor-calibration",
+                         "name":  "Калибровки приводов",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021728,
+                         "usage":  {
+                                       "input_tokens":  1888,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  592
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2168
+                                   },
+                         "started_at":  "2026-11-17T09:36:47.8915253Z"
+                     },
+                     {
+                         "id":  "40-calibration-result",
+                         "name":  "Результат калибровки",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021703,
+                         "usage":  {
+                                       "input_tokens":  1883,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  587
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2163
+                                   },
+                         "started_at":  "2026-11-17T09:37:07.9008774Z"
+                     },
+                     {
+                         "id":  "41-calibration-parameters",
+                         "name":  "Профиль параметров",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021693,
+                         "usage":  {
+                                       "input_tokens":  1881,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  585
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2161
+                                   },
+                         "started_at":  "2026-11-17T09:37:27.0504194Z"
+                     },
+                     {
+                         "id":  "42-emergency",
+                         "name":  "Аварийная остановка",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021773,
+                         "usage":  {
+                                       "input_tokens":  1897,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  601
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2177
+                                   },
+                         "started_at":  "2026-11-17T09:37:45.9151249Z"
+                     }
+                 ]
+}

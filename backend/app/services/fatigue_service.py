@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from math import pow, sqrt
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.analytics import MuscleFatigueEvent, MuscleFatigueSnapshot
+from app.models.analytics import ExerciseSession, MuscleFatigueEvent, MuscleFatigueSnapshot, SetResult
 from app.models.enums import FatigueEventSource, MuscleRole
-from app.services.muscle_catalog import get_muscle_definition, is_legacy_muscle_id, split_muscle_targets
+from app.models.profile import UserProfile
+from app.services.exercise_library import MuscleLoadProfile
+from app.services.muscle_catalog import LEGACY_MUSCLE_SPLITS, get_muscle_definition, split_muscle_targets
 
 ROLE_FACTORS: dict[MuscleRole, float] = {
     MuscleRole.primary: 1.0,
@@ -34,8 +36,48 @@ EQUIPMENT_FACTORS: dict[str, float] = {
 }
 
 
-def equipment_affects_fatigue(equipment: str | None) -> bool:
-    return EQUIPMENT_FACTORS.get(equipment or "", 1.0) > 0
+@dataclass
+class FatigueReference:
+    body_mass_kg: float | None = None
+    working_capacity_kg: float = 0.0
+    reps: int = 0
+    seconds: int = 0
+
+
+def exercise_references(session: Session, user_id: str, slugs: set[str], before: datetime,
+                        workout_id: int | None = None) -> dict[str, FatigueReference]:
+    """Personal benchmarks from prior finished sessions, never from the set being scored."""
+    statement = (
+        select(ExerciseSession.exercise_slug, ExerciseSession.kind, SetResult)
+        .join(SetResult, SetResult.exercise_session_id == ExerciseSession.id)
+        .where(ExerciseSession.user_id == user_id, ExerciseSession.exercise_slug.in_(slugs),
+               ExerciseSession.finished_at < before, ExerciseSession.finished_at >= before - timedelta(days=90),
+               SetResult.actual_value > 0)
+    )
+    if workout_id is not None:
+        statement = statement.where(ExerciseSession.workout_session_id.is_distinct_from(workout_id))
+    mass = session.scalar(select(UserProfile.weight_kg).where(UserProfile.user_id == user_id))
+    result = {slug: FatigueReference(body_mass_kg=float(mass) if mass and mass > 0 else None) for slug in slugs}
+    for slug, kind, row in session.execute(statement):
+        metrics = row.machine_metrics or {}
+        if metrics.get("setType") == "warmup" or metrics.get("completionStatus") == "skipped":
+            continue
+        ref = result[slug]
+        if kind in {"timed", "stretch"}:
+            ref.seconds = max(ref.seconds, row.duration_seconds or row.actual_value)
+        elif row.weight_kg and row.weight_kg > 0:
+            ref.working_capacity_kg = max(ref.working_capacity_kg, row.weight_kg * (1 + min(row.reps or row.actual_value, 30) / 30))
+        else:
+            ref.reps = max(ref.reps, row.reps or row.actual_value)
+    return result
+
+
+def effort_multiplier(effort: int | None, rir: float | None) -> float:
+    if effort is not None:
+        return 0.6 + 0.08 * max(0, min(effort, 10))
+    if rir is not None:
+        return 1.35 - 0.1 * max(0, min(rir, 6))
+    return 1.0
 
 
 @dataclass
@@ -51,9 +93,8 @@ class FatigueUpdate:
 class FatigueService:
     def migrate_legacy_muscle_data(self, session: Session, user_id: str, now: datetime | None = None) -> None:
         effective_now = now or datetime.now(UTC)
-        snapshots = list(session.scalars(select(MuscleFatigueSnapshot).where(MuscleFatigueSnapshot.user_id == user_id)))
-        legacy_snapshots = [snapshot for snapshot in snapshots if is_legacy_muscle_id(snapshot.muscle_id)]
-
+        legacy_snapshots = list(session.scalars(select(MuscleFatigueSnapshot).where(
+            MuscleFatigueSnapshot.user_id == user_id, MuscleFatigueSnapshot.muscle_id.in_(LEGACY_MUSCLE_SPLITS))))
         for snapshot in legacy_snapshots:
             self.hydrate_snapshot(snapshot, effective_now)
             for canonical_id, weight in split_muscle_targets(snapshot.muscle_id):
@@ -68,7 +109,7 @@ class FatigueService:
                     self.hydrate_snapshot(canonical_snapshot, effective_now)
                     canonical_snapshot.fatigue_score += snapshot.fatigue_score * weight
                     canonical_snapshot.last_load_at = max(
-                        [item for item in (canonical_snapshot.last_load_at, snapshot.last_load_at) if item is not None],
+                        [self.ensure_utc(item) for item in (canonical_snapshot.last_load_at, snapshot.last_load_at) if item is not None],
                         default=None,
                     )
             session.delete(snapshot)
@@ -76,15 +117,12 @@ class FatigueService:
         legacy_events = list(
             session.scalars(
                 select(MuscleFatigueEvent).where(
-                    MuscleFatigueEvent.user_id == user_id,
+                    MuscleFatigueEvent.user_id == user_id, MuscleFatigueEvent.muscle_id.in_(LEGACY_MUSCLE_SPLITS),
                 )
             )
         )
 
         for event in legacy_events:
-            if not is_legacy_muscle_id(event.muscle_id):
-                continue
-
             for canonical_id, weight in split_muscle_targets(event.muscle_id):
                 session.add(
                     MuscleFatigueEvent(
@@ -103,7 +141,7 @@ class FatigueService:
                 )
             session.delete(event)
 
-        if legacy_snapshots:
+        if legacy_snapshots or legacy_events:
             session.flush()
 
     def ensure_utc(self, value: datetime) -> datetime:
@@ -211,8 +249,12 @@ class FatigueService:
         set_type: str | None = None,
         completion_status: str | None = None,
         equipment: str | None = None,
+        profile: MuscleLoadProfile | None = None,
+        reference: FatigueReference | None = None,
+        rir: float | None = None,
+        side_factor: float = 1.0,
     ) -> list[FatigueUpdate]:
-        if EQUIPMENT_FACTORS.get(equipment or "", 1.0) <= 0 or completion_status == "skipped" or not self._has_performed_work(actual_value, reps, duration_seconds):
+        if completion_status == "skipped" or not self._has_performed_work(actual_value, reps, duration_seconds):
             return []
 
         base_load = self.set_base_load(
@@ -225,13 +267,14 @@ class FatigueService:
             subjective_effort=subjective_effort,
             discomfort_level=discomfort_level,
             set_type=set_type,
-            equipment=equipment,
+            equipment=equipment, profile=profile, reference=reference, rir=rir,
         )
 
         updates: list[FatigueUpdate] = []
-        for canonical_id, (target_factor, role) in self.target_contributions(muscle_targets).items():
+        contributions = profile.contributions() if profile else self.target_contributions(muscle_targets)
+        for canonical_id, (target_factor, role) in contributions.items():
             definition = get_muscle_definition(canonical_id)
-            delta = round(base_load * min(target_factor, 1.0), 2)
+            delta = round(base_load * min(target_factor, 1.0) * side_factor, 2)
             if delta <= 0:
                 continue
             snapshot = self.get_or_create_snapshot(
@@ -284,20 +327,35 @@ class FatigueService:
         discomfort_level: int | None = None,
         set_type: str | None = None,
         equipment: str | None = None,
+        profile: MuscleLoadProfile | None = None,
+        reference: FatigueReference | None = None,
+        rir: float | None = None,
     ) -> float:
         """Fatigue one set adds to a fully targeted muscle (role factor 1.0)."""
-        equipment_factor = EQUIPMENT_FACTORS.get(equipment or "", 1.0)
-        # A timed set has no reps: its actual value is seconds, not repetitions.
-        effective_reps = max(reps or 0, 0)
-        effective_duration = max(duration_seconds or (actual_value if reps is None else 0), 0)
-        completion_factor = min(1.25, max(actual_value / planned_value, 0.15)) if planned_value > 0 else 1.0
+        activity = profile.activity_factor if profile else EQUIPMENT_FACTORS.get(equipment or "", 1.0)
+        reference = reference or FatigueReference()
+        kg = max(0.0, weight_kg or 0.0)
+        if reps is None:
+            seconds = max(0, actual_value if duration_seconds is None else duration_seconds)
+            volume = sqrt(seconds / 60)
+            relative = sqrt(seconds / reference.seconds) if reference.seconds else 1.0
+        else:
+            volume = max(0, reps) / 10
+            relative = sqrt(max(0, reps) / reference.reps) if reference.reps and not kg else 1.0
+        if profile and profile.counterweight:
+            relative = (1 - kg / reference.body_mass_kg) if reference.body_mass_kg else 1 / (1 + kg / 60)
+        elif kg > 0:
+            if reference.working_capacity_kg > 0:
+                relative = 0.45 + kg / reference.working_capacity_kg
+            else:
+                relative = 1 + kg / (100 + kg)
+        relative = min(1.65, max(0 if profile and profile.counterweight else 0.25, relative))
+        amplitude = 90 if amplitude_percent is None else min(100, max(0, amplitude_percent))
+        # A failure label already describes effort. Avoid a second bonus for an explicit RIR/RPE.
         set_factor = SET_TYPE_FACTORS.get(str(set_type or "work"), 1.0)
-        # 60 s of work ~ one 10-rep set; longer holds add load with diminishing returns.
-        volume_factor = effective_reps / 10 + sqrt(effective_duration / 60)
-        intensity_factor = 1.0 + max((subjective_effort or 6) - 5, 0) * 0.08 + ((weight_kg or 0) / 100)
-        quality_factor = 0.9 + (amplitude_percent or 90) / 1000
-        subjective_factor = 1.0 + (discomfort_level or 0) * 0.05
-        return 8.0 * max(volume_factor, 0.35) * intensity_factor * quality_factor * subjective_factor * completion_factor * set_factor * equipment_factor
+        if set_type == "failure" and (rir is not None or subjective_effort is not None):
+            set_factor = 1.0
+        return 8 * volume * relative * effort_multiplier(subjective_effort, rir) * (0.9 + amplitude / 1000) * set_factor * activity
 
     def _has_performed_work(self, actual_value: int, reps: int | None, duration_seconds: int | None) -> bool:
         return max(actual_value, reps or 0, duration_seconds or 0) > 0

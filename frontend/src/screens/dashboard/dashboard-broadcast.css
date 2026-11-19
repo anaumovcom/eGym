@@ -1,0 +1,242 @@
+.home-broadcast-kicker, .home-broadcast-hero-art { display: none; }
+
+.forma-main:has(.home-workouts) { container-name: home-dashboard; }
+.home-workout-grid .home-workout-card { container: home-workout-card / inline-size; min-height: max-content; }
+.home-card-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: center;
+  gap: .35rem 0;
+}
+.home-card-heading .home-card-title,
+.home-card-heading .home-card-badge {
+  grid-column: 1;
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.home-card-heading .home-card-title { display: block; }
+.home-card-heading .home-card-badge { justify-self: start; }
+.home-card-equipment {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  align-self: center;
+  width: min(27cqi, 7.5rem);
+  height: min(23cqi, 4.8rem);
+  margin-inline-start: .45rem;
+  object-fit: contain;
+}
+.home-workout-grid .home-card-exercises:not(.home-card-empty) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: none;
+  gap: .2rem;
+  overflow: visible;
+}
+.home-workout-grid .home-card-exercise {
+  align-items: baseline;
+  padding: .16rem .45rem;
+  gap: .55rem;
+  line-height: 1.25;
+}
+.home-workout-grid .home-card-exercise-index { width: 1.3rem; height: 1.3rem; align-self: start; }
+.home-workout-grid .home-card-exercise-name {
+  white-space: normal;
+  overflow: visible;
+  overflow-wrap: anywhere;
+}
+.home-workout-grid .home-card-more { grid-column: 1 / -1; justify-self: start; }
+.home-workout-grid .home-card-footer { gap: .6rem; padding-top: .45rem; }
+
+@container home-workout-card (max-width: 14rem) {
+  .home-workout-grid .home-card-footer { flex-wrap: wrap; }
+}
+
+@container home-workout-card (min-width: 40rem) {
+  .home-workout-grid .home-card-exercises:not(.home-card-empty) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container home-workout-card (min-width: 18rem) {
+  .home-workout-grid:has(> .home-workout-card:nth-child(4)) .home-card-exercises:not(.home-card-empty):not(:has(> .home-card-exercise:nth-child(8))) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-workout-grid:has(> .home-workout-card:nth-child(4)) .home-card-exercise {
+    padding-inline: .2rem;
+    gap: .3rem;
+    line-height: 1.2;
+  }
+}
+
+html[data-forma-theme='broadcast-blue'] :is(.home-workouts, .home-confirm-panel) .home-broadcast-kicker {
+  display: block;
+  margin-bottom: .3rem;
+  color: var(--broadcast-accent-light);
+  font-size: .72rem;
+  font-weight: 750;
+  letter-spacing: .12em;
+}
+html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading { padding: 0 0 .65rem; border-bottom: 1px solid var(--broadcast-border); align-items: end; }
+html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading h1 { font-size: clamp(1.65rem, 2.6vw, 2.85rem); line-height: 1.1; letter-spacing: -.04em; }
+html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading p { margin-top: .35rem; font-size: .9rem; }
+html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading-actions .forma-button { border-color: var(--broadcast-accent-border); border-radius: 999px; }
+html[data-forma-theme='broadcast-blue'] .home-workouts .home-resume {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: minmax(8rem, .52fr) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 1rem;
+  min-height: 7.5rem;
+  padding: 0 1.15rem 0 0;
+  border-radius: 1rem;
+  overflow: hidden;
+  background: var(--broadcast-surface);
+  text-align: left;
+}
+html[data-forma-theme='broadcast-blue'] .home-resume .home-resume-icon { display: none; }
+html[data-forma-theme='broadcast-blue'] .home-resume .home-broadcast-hero-art {
+  position: relative;
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  min-height: 7.5rem;
+  overflow: hidden;
+  color: var(--broadcast-accent-light);
+  background: repeating-linear-gradient(125deg, transparent 0 1.4rem, var(--broadcast-accent-soft) 1.45rem 1.55rem), var(--broadcast-surface-raised);
+  border-inline-start: .3rem solid var(--broadcast-accent);
+}
+html[data-forma-theme='broadcast-blue'] .home-broadcast-hero-art > svg { width: 3.25rem; height: 3.25rem; }
+html[data-forma-theme='broadcast-blue'] .home-broadcast-hero-art > video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+html[data-forma-theme='broadcast-blue'] .home-resume .home-broadcast-hero-art[data-illustrated] {
+  background: radial-gradient(ellipse at 50% 85%, #27384d, #151c26 72%);
+}
+.home-broadcast-hero-art[data-illustrated] > svg { display: none; }
+.home-broadcast-hero-art > img { position: absolute; inset: 0; width: 100%; height: 100%; padding: .2rem; object-fit: contain; }
+html[data-forma-theme='broadcast-blue'] .home-resume .home-resume-body { grid-column: 2; padding-block: .65rem; }
+html[data-forma-theme='broadcast-blue'] .home-resume .home-resume-action { grid-column: 3; border-radius: 999px; justify-content: center; }
+html[data-forma-theme='broadcast-blue'] .home-workout-grid {
+  --home-card-min-width: 15rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(30%, var(--home-card-min-width))), 1fr));
+  grid-auto-rows: max-content;
+}
+html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-workout-card { gap: .6rem; padding: .8rem; border-radius: 1rem; border-color: var(--broadcast-border); background: var(--broadcast-surface); box-shadow: none; }
+html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-workout-card:hover { border-color: var(--broadcast-accent-border); background: var(--broadcast-surface-raised); }
+html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-card-title { font-size: 1.15rem; }
+html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-card-select { display: inline-flex; color: var(--broadcast-accent-light); background: none; padding-inline: 0; white-space: nowrap; }
+html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-card-meta svg { color: var(--broadcast-accent-light); }
+html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-card-exercise:not([data-status='completed']) .home-card-exercise-index {
+  background: var(--broadcast-accent-soft); color: var(--broadcast-accent-light);
+}
+html[data-forma-theme='broadcast-blue'] .home-workout-grid :is(.home-card-empty, .home-card-empty-icon) {
+  border-color: var(--broadcast-accent-border); background: var(--broadcast-accent-soft); color: var(--broadcast-accent-light);
+}
+html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-card-empty-icon > svg:last-child {
+  background: var(--broadcast-action); color: #fff;
+}
+@media (min-width: 2400px) and (min-height: 1250px) {
+  html[data-forma-theme='broadcast-blue'] .home-workout-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-card-exercise { font-size: .88rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workout-grid:has(> .home-workout-card:nth-child(4)) .home-card-exercise { font-size: .82rem; }
+}
+/* Budget space for the first row using the area left below the machine controls. */
+@container home-dashboard (max-height: 51rem) {
+  .forma-main .home-workouts { gap: .55rem; }
+  .home-workouts .home-workouts-layout { row-gap: .65rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading { padding-bottom: .35rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading h1 { font-size: 1.95rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading p { margin-top: .12rem; font-size: .82rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-broadcast-kicker { margin-bottom: .1rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-resume {
+    grid-template-columns: minmax(4.5rem, .25fr) minmax(0, 1fr) auto;
+    gap: .65rem; min-height: 4.8rem; padding-inline-end: .7rem;
+  }
+  html[data-forma-theme='broadcast-blue'] .home-resume .home-broadcast-hero-art { min-height: 4.8rem; }
+  html[data-forma-theme='broadcast-blue'] .home-resume .home-resume-body { padding-block: .36rem; gap: .13rem; }
+  .home-resume .home-resume-title { font-size: 1.2rem; }
+  .home-resume .home-resume-eyebrow { font-size: .7rem; }
+  .home-resume .home-resume-meta { font-size: .82rem; column-gap: .65rem; }
+  .home-resume .home-resume-progress { height: .24rem; margin-top: .14rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-workout-card { padding: .65rem; gap: .4rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-card-title { font-size: 1.05rem; }
+  .home-card-equipment { width: min(23cqi, 6.3rem); height: min(20cqi, 4.2rem); }
+  .home-card-heading { row-gap: .24rem; }
+  .home-card-heading .home-card-badge { padding-block: .12rem; }
+  .home-workout-grid .home-card-exercises:not(.home-card-empty) { margin-top: .1rem; gap: .16rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-card-exercise {
+    padding: .12rem .3rem; gap: .4rem; font-size: .86rem; line-height: 1.2;
+  }
+  .home-workout-grid .home-card-exercise-index { width: 1.18rem; height: 1.18rem; font-size: .8rem; }
+  .home-workout-grid .home-card-meta { gap: .12rem .35rem; font-size: .76rem; }
+  .home-workout-grid .home-card-meta > span { gap: .22rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workout-grid .home-card-select { padding-block: 0; font-size: .84rem; }
+  .home-workout-grid .home-card-footer { padding-top: .3rem; }
+}
+@container home-dashboard (min-width: 45rem) and (max-height: 51rem) {
+  .home-workouts .home-workouts-layout { grid-template-columns: minmax(0, 1fr) clamp(10rem, 14vw, 15rem); column-gap: .85rem; }
+}
+/* On short landscape screens the resume panel and the muscle map share the side column. */
+@container home-dashboard (min-width: 45rem) and (max-height: 43rem) {
+  .home-workouts .home-workouts-layout:has(> .home-resume) {
+    grid-template-areas: "cards resume" "cards map";
+    grid-template-columns: minmax(0, 1fr) clamp(14rem, 22%, 18rem);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  html[data-forma-theme='broadcast-blue'] .home-workout-grid {
+    --home-card-min-width: 22rem;
+  }
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-resume {
+    grid-template-columns: 3.2rem minmax(0, 1fr);
+    align-content: start; gap: .3rem .55rem; padding: .45rem .55rem .45rem 0;
+  }
+  html[data-forma-theme='broadcast-blue'] .home-resume .home-broadcast-hero-art { grid-row: 1 / 3; }
+  html[data-forma-theme='broadcast-blue'] .home-resume .home-resume-body { padding-block: 0; }
+  .home-resume .home-resume-title { font-size: 1.02rem; }
+  html[data-forma-theme='broadcast-blue'] .home-resume .home-resume-action {
+    grid-column: 2; justify-self: start; min-height: 2.4rem; padding-inline: .7rem;
+  }
+}
+
+/* Keep the load/figure tracks and their sizing rules intact. */
+html[data-forma-theme='broadcast-blue'] .home-confirm-panel:is(.wd-panel, .home-restart-panel) { background: var(--broadcast-surface); }
+html[data-forma-theme='broadcast-blue'] .wd-panel .wd-header { display: grid; grid-template-columns: minmax(0, 1fr); justify-items: start; gap: .35rem; }
+html[data-forma-theme='broadcast-blue'] .wd-panel .wd-header h2 { font-size: clamp(1.65rem, 3vw, 2.8rem); line-height: 1.12; overflow-wrap: anywhere; }
+html[data-forma-theme='broadcast-blue'] .wd-panel .wd-stats { column-gap: 1rem; }
+html[data-forma-theme='broadcast-blue'] .wd-panel .wd-stats li { border: 0; padding: 0; background: none; }
+html[data-forma-theme='broadcast-blue'] .wd-panel .wd-stats svg { color: var(--broadcast-accent-light); }
+html[data-forma-theme='broadcast-blue'] .wd-panel .wd-plan { border-color: var(--broadcast-border); border-radius: 1rem; background: var(--broadcast-surface-raised); }
+html[data-forma-theme='broadcast-blue'] .wd-plan .wd-section-title { font-size: 1rem; color: #fff; letter-spacing: 0; text-transform: none; }
+html[data-forma-theme='broadcast-blue'] .wd-panel .wd-plan-row { background: var(--broadcast-surface); min-height: 3.25rem; }
+html[data-forma-theme='broadcast-blue'] .wd-panel .wd-plan-row:not([data-status='completed']) .home-card-exercise-index { border-radius: 50%; background: var(--broadcast-accent-soft); color: var(--broadcast-accent-light); }
+html[data-forma-theme='broadcast-blue'] .wd-panel .home-confirm-actions > .forma-button { border-radius: 999px; }
+html[data-forma-theme='broadcast-blue'] .home-restart-panel { border-color: var(--broadcast-border); max-width: 41rem; }
+html[data-forma-theme='broadcast-blue'] .home-restart-panel .home-confirm-actions { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: .8rem; border-top: 1px solid var(--broadcast-border); }
+@media (max-width: 800px) {
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-resume { grid-template-columns: minmax(3.25rem, .28fr) minmax(0, 1fr); padding: 0 .8rem .65rem 0; gap: .35rem .75rem; }
+  html[data-forma-theme='broadcast-blue'] .home-resume .home-broadcast-hero-art { grid-row: 1 / 3; }
+  html[data-forma-theme='broadcast-blue'] .home-resume .home-resume-action { grid-column: 2; justify-self: start; }
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading { align-items: start; }
+}
+@media (max-width: 767px) {
+  .forma-main .home-workouts { gap: .3rem; }
+  .home-workouts .home-workouts-layout { grid-template-areas: "cards" "map"; }
+  .home-workouts .home-workouts-layout:has(> .home-resume) { grid-template-areas: "cards" "resume" "map"; }
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: .5rem;
+    padding-bottom: .15rem;
+  }
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading h1 { font-size: 1.45rem; }
+  html[data-forma-theme='broadcast-blue'] .home-workouts .home-heading .home-broadcast-kicker { display: none; }
+  html[data-forma-theme='broadcast-blue'] .home-heading-actions .forma-button {
+    width: 7.25rem;
+    min-height: 2.75rem;
+    padding: .35rem .5rem;
+    gap: .3rem;
+    font-size: .82rem;
+    line-height: 1.2;
+  }
+  .home-heading-actions .forma-button svg { width: 1rem; height: 1rem; }
+}

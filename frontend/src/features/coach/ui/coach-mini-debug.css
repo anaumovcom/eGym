@@ -1,4 +1,13 @@
 /* Same compact three-line column as the motor force readout next to it. */
+/* Diagnostics status/budget colours deliberately excluded. */
+html[data-forma-theme='broadcast-blue'] :is(.coach-mini-debug-trigger, .coach-mini-debug-popover button, .coach-journal-row):focus-visible { outline-color: var(--broadcast-accent, #58a6ff); }
+html[data-forma-theme='broadcast-blue'] :is(.coach-mini-debug-popover, .coach-local-preview) { border-color: var(--broadcast-accent-border, #58a6ff55); background: linear-gradient(145deg, #142c49, #101925); }
+html[data-forma-theme='broadcast-blue'] :is(.coach-local-reason, .coach-journal-text) { color: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .coach-journal-text { border-left-color: var(--broadcast-accent, #58a6ff); }
+html[data-forma-theme='broadcast-blue'] .coach-panel-tabs button[aria-selected='true'],
+html[data-forma-theme='broadcast-blue'] .coach-journal-steps button[aria-pressed='true'] { background: var(--broadcast-accent-soft, #2583ff24); }
+html[data-forma-theme='broadcast-blue'] .coach-journal-incoming { background: var(--broadcast-accent, #58a6ff); color: #071426; }
+
 .coach-mini-debug-trigger {
   display: flex; flex-direction: column; justify-content: center; align-items: flex-end;
   flex: 0 0 auto; min-width: 4.5rem; min-height: 44px; padding: 0 6px;

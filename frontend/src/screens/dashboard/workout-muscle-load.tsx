@@ -3,11 +3,9 @@ import { useCallback, useMemo, useState } from 'react'
 import type { DashboardWorkoutMuscleLoad } from '@/entities/dashboard/model/types'
 import type { MuscleStatus } from '@/entities/muscle/model/types'
 import { CompactBodyMapGrid, type CompactBodyMapHover } from '@/shared/ui/stage2/screen-components'
+import { fatigueColors, fatigueLabels, fatiguePaletteStyle } from '@/shared/ui/stage4/fatigue-appearance'
+import './dashboard-fatigue.css'
 
-const statusLabels: Record<MuscleStatus, string> = {
-  ready: 'готова', light: 'лёгкая усталость', medium: 'умеренная усталость',
-  high: 'высокая усталость', critical: 'перегрузка', no_data: 'нет данных',
-}
 const heavy = new Set<MuscleStatus>(['high', 'critical'])
 
 /** Bars share one scale: 100 points is the overload threshold, longer bars are clipped. */
@@ -48,7 +46,8 @@ export function WorkoutMuscleLoad({ muscles, figureGender }: { muscles: Dashboar
   const highlights = useMemo(() => muscles.map((muscle) => ({
     label: muscle.name,
     tone: muscle.projectedStatus,
-    description: `${muscle.name}: сейчас ${muscle.currentScore}, после тренировки ${muscle.projectedScore} — ${statusLabels[muscle.projectedStatus]}`,
+    score: muscle.projectedScore,
+    description: `${muscle.name}: сейчас ${muscle.currentScore}, после тренировки ${muscle.projectedScore} — ${fatigueLabels[muscle.projectedStatus].toLowerCase()}`,
   })), [muscles])
   const onHighlightHover = useCallback((hover: CompactBodyMapHover | null) => setActive(hover?.label ?? null), [])
   const focus = muscles.filter((muscle) => muscle.role === 'primary').slice(0, 3)
@@ -64,12 +63,12 @@ export function WorkoutMuscleLoad({ muscles, figureGender }: { muscles: Dashboar
 
   return (
     <>
-      <section className="wd-map" aria-label="Карта нагрузки">
+      <section className="wd-map" style={fatiguePaletteStyle} aria-label="Карта нагрузки">
         <CompactBodyMapGrid highlights={highlights} figureGender={figureGender} plainFigures showFigureTitles={false}
-          className="wd-load-map" figureContainerClassName="wd-load-figure" figureMarkupClassName="wd-load-figure-svg"
+          className="wd-load-map fatigue-compact" figureContainerClassName="wd-load-figure" figureMarkupClassName="wd-load-figure-svg"
           onHighlightHover={onHighlightHover} />
         <div className="wd-scale" aria-label="Цвет — усталость после тренировки: от готовности к перегрузке">
-          <div aria-hidden="true" /><p><span>Готова</span><span>Перегрузка</span></p>
+          <div className="fatigue-scale-ramp" aria-hidden="true" /><p><span>Готова</span><span>{fatigueLabels.critical}</span></p>
         </div>
       </section>
       <section className="wd-load" aria-labelledby="wd-load-title">
@@ -78,7 +77,7 @@ export function WorkoutMuscleLoad({ muscles, figureGender }: { muscles: Dashboar
         {focus.length ? <p className="wd-focus">Акцент: <b>{names(focus)}</b></p> : null}
         <ul className="wd-load-list" aria-label="Мышцы, которые нагрузит тренировка">
           {muscles.map((muscle) => (
-            <li key={muscle.name} data-tone={muscle.projectedStatus} data-active={active === muscle.name || undefined}
+            <li key={muscle.name} data-tone={muscle.projectedStatus} style={{ ['--recovery-tone' as string]: fatigueColors[muscle.projectedStatus] }} data-active={active === muscle.name || undefined}
               onPointerEnter={() => setActive(muscle.name)} onPointerLeave={() => setActive(null)}>
               <span className="wd-load-name">
                 <span className="recovery-dot" aria-hidden="true" />

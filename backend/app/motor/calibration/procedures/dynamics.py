@@ -24,6 +24,7 @@ from statistics import fmean as mean
 from typing import Any
 
 from app.motor.calibration.fit import LeastSquares, least_squares
+from app.motor.calibration.measurement_plots import PlotUpdate
 from app.motor.calibration.procedures.motion import FAST_VISCOUS_MAX, Balance, Motion, hold_still, land, travel
 from app.motor.calibration.runner import Command, Frame, ProcedureError
 from app.motor.units import SIDES, Side
@@ -54,7 +55,7 @@ STEADY_MIN_FRAMES = 4
 STEADY_MIN_S = 0.25
 
 
-def friction_speeds(balance: Balance, *, low_mm: float, high_mm: float, speeds: Sequence[float] = D2_SPEEDS) -> Procedure:
+def friction_speeds(balance: Balance, *, low_mm: float, high_mm: float, speeds: Sequence[float] = D2_SPEEDS, publish: PlotUpdate | None = None) -> Procedure:
     """Up and down at each speed between ``low_mm`` and ``high_mm`` by the fast-move tracker (no slow governor:
     it hunts at < 30 mm/s). The steady commanded force is the friction: F − W = ±(Fc + c·v) at a = 0.
 
@@ -85,6 +86,8 @@ def friction_speeds(balance: Balance, *, low_mm: float, high_mm: float, speeds: 
             if item is not None:
                 seen[side][direction].append((item[0], item[1]))
         probe = replace(probe, viscous={side: _viscous(seen[side]) for side in SIDES})
+        if publish and any(seen[side][direction] for side in SIDES):
+            publish({"sides": {side: {"table_up": seen[side][1], "table_down": seen[side][-1]} for side in SIDES}})
     yield from land(balance, frame, progress=0.95)
     return {"runs": runs}
 

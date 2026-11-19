@@ -1,32 +1,48 @@
-import { useSearchParams } from 'react-router-dom'
+import { ArrowLeft } from 'lucide-react'
+import { useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
-import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { CalibrationsTab } from './calibrations-tab'
 import { ParametersTab } from './parameters-tab'
+import { ExerciseObservations } from './exercise-observations'
+import { FrictionArchiveTab } from './friction-archive'
+import { MeasurementArchiveTab } from './measurement-archive'
+import './motor-calibration-screen.css'
 
-type Tab = 'calibrations' | 'parameters'
+type Tab = 'calibrations' | 'friction' | 'plots' | 'parameters' | 'observations'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'calibrations', label: 'Калибровки' },
+  { id: 'friction', label: 'Карта ШВП' },
+  { id: 'plots', label: 'Графики замеров' },
   { id: 'parameters', label: 'Параметры' },
+  { id: 'observations', label: 'Записи упражнений' },
 ]
 
+const MOTION_LABELS: Record<string, string> = {
+  idle: 'Покой', support: 'Поддержка', parked: 'На упорах', moving: 'Перемещение',
+  weightless: 'Невесомость', training: 'Тренировка', start_hold: 'Удержание на старте',
+  fixed_hold: 'Удержание высоты', calibration: 'Калибровка', fault: 'Авария',
+  estop: 'Аварийная остановка', stopped: 'Остановлен',
+}
+
 function Chip({ label, value, tone }: { label: string; value: string; tone: 'good' | 'warn' | 'bad' | 'neutral' }) {
-  const color = { good: 'text-[#79de83]', warn: 'text-[#f2cf87]', bad: 'text-[#ff8f84]', neutral: 'text-white' }[tone]
   return (
-    <div className="rounded-[16px] border border-white/8 bg-white/4 px-3 py-2">
-      <p className="text-[11px] uppercase tracking-[0.12em] text-white/35">{label}</p>
-      <p className={cn('text-sm font-medium', color)}>{value}</p>
+    <div className="cal-readout" data-tone={tone}>
+      <dt>{label}</dt>
+      <dd>{value}</dd>
     </div>
   )
 }
 
 export function MotorCalibrationScreen() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const tab: Tab = searchParams.get('tab') === 'parameters' ? 'parameters' : 'calibrations'
+  const [runLocked, setRunLocked] = useState(false)
+  const tab = TABS.find(item => item.id === searchParams.get('tab'))?.id ?? 'calibrations'
+  const reviewing = tab === 'friction' || tab === 'plots'
   const snapshot = useHardwareStore((state) => state.snapshot)
   const runCommand = useHardwareStore((state) => state.runCommand)
   const selectedUserId = useAppStore((state) => state.selectedUserId)
@@ -36,6 +52,8 @@ export function MotorCalibrationScreen() {
   const control = snapshot?.control
   const servo = control?.servo
   const servoOn = Boolean(servo?.left && servo?.right)
+  const connectionStatus = useHardwareStore((state) => state.connectionStatus)
+  const connectionLost = connectionStatus === 'disconnected' || connectionStatus === 'error'
   const estop = snapshot?.safety.state === 'emergency_stop'
   const calibrating = control?.mode === 'calibration'
 
@@ -53,55 +71,55 @@ export function MotorCalibrationScreen() {
   return (
     <FormaShell
       userName={userName}
-      machine={snapshot?.machine ?? { machineState: 'ready', machineLabel: 'Калибровка', safety: 'enabled', leftDrive: 'connected', rightDrive: 'connected', calibration: '—' }}
+      machine={snapshot?.machine ?? { machineState: 'warning', machineLabel: 'Ожидание данных тренажёра', safety: 'enabled', leftDrive: 'warning', rightDrive: 'warning', calibration: '—' }}
       onStop={() => { void runCommand({ action: 'trigger_emergency_stop', userId: selectedUserId }) }}
     >
-      <div className="flex flex-col gap-6">
-        <header className="flex flex-wrap items-start justify-between gap-4">
+      <div className="cal-console">
+        <header className={reviewing ? 'cal-hero bs-service-header' : 'cal-hero'}>
           <div>
-            <h1 className="font-display text-2xl font-bold tracking-tight text-[#f4dfb4]">Калибровки привода</h1>
-            <p className="mt-1 max-w-2xl text-sm text-white/45">
-              Измерение параметров моторов и механики. Калибровка идёт, пока вы удерживаете кнопку; результат применяется только после сохранения.
-            </p>
+            <Link to="/settings?tab=service"><ArrowLeft size={15} aria-hidden="true" /> Сервис</Link>
+            <h1>Калибровки тренажёра</h1>
+            {!reviewing && <p>Настройте вес, плавность хода и разворот грифа под ощущение обычного Смита.</p>}
           </div>
-          <div className="flex flex-wrap items-stretch gap-2">
-            <Chip label="Сервисный режим" value={serviceMode ? 'включён' : 'выключен'} tone={serviceMode ? 'good' : 'warn'} />
-            <Chip label="Приводы" value={servo ? `Л ${servo.left ? 'ON' : 'OFF'} · П ${servo.right ? 'ON' : 'OFF'}` : 'нет данных'} tone={servoOn ? 'good' : 'warn'} />
-            <Chip label="Режим" value={estop ? 'СТОП' : calibrating ? 'калибровка' : control?.mode ?? '—'} tone={estop || control?.faultCode ? 'bad' : calibrating ? 'warn' : 'neutral'} />
-            {control ? <Chip label="Положение" value={`${control.positionMm.toFixed(1)} мм`} tone="neutral" /> : null}
+          <div className="cal-tabs" role="tablist" aria-label="Разделы">
+            {TABS.map(item => <button
+              key={item.id} type="button" role="tab" id={`motor-tab-${item.id}`}
+              aria-controls="motor-tab-content" aria-selected={tab === item.id}
+              disabled={runLocked && tab !== item.id}
+              onClick={() => setSearchParams(prev => { const next = new URLSearchParams(prev); next.set('tab', item.id); return next })}
+            >{item.label}</button>)}
           </div>
         </header>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button variant="secondary" className="py-2" onClick={() => void toggleService()} disabled={calibrating}>
-            {serviceMode ? 'Выключить сервисный режим' : 'Включить сервисный режим'}
-          </Button>
-          {serviceMode ? (
-            <Button variant="secondary" className="py-2" onClick={() => void setServo(!servoOn)} disabled={calibrating}>
-              {servoOn ? 'Выключить приводы' : 'Включить приводы'}
-            </Button>
-          ) : null}
-        </div>
+        {!reviewing && <section className="cal-surface" aria-label="Состояние тренажёра">
+          <div className="cal-workspace-heading">
+            <h2>Состояние тренажёра</h2>
+            <div className="cal-actions" role="group" aria-label="Управление сервисным режимом и приводами">
+              <Button variant="secondary" className="py-2" onClick={() => void toggleService()} disabled={calibrating || runLocked}>
+                {serviceMode ? 'Выключить сервисный режим' : 'Включить сервисный режим'}
+              </Button>
+              {serviceMode && <Button variant="secondary" className="py-2" onClick={() => void setServo(!servoOn)} disabled={calibrating || runLocked}>
+                {servoOn ? 'Выключить приводы' : 'Включить приводы'}
+              </Button>}
+            </div>
+          </div>
+          {connectionLost ? <p data-tone="warn">Нет связи. Показан последний полученный снимок.</p> : !snapshot ? <p>Телеметрия ещё не получена.</p> : null}
+          <dl className="cal-readouts">
+            <Chip label="Источник данных" value={control?.adapter === 'twin' ? 'Цифровой двойник' : control?.adapter === 'modbus-torque' ? 'Приводы Modbus' : control?.adapter === 'canopen-torque' ? 'Приводы CANopen' : 'Нет данных'} tone="neutral" />
+            <Chip label="Сервисный режим" value={snapshot ? serviceMode ? 'Включён' : 'Выключен' : 'Нет данных'} tone={serviceMode ? 'good' : 'neutral'} />
+            <Chip label="Левый привод" value={servo?.left == null ? 'Нет данных' : servo.left ? 'Серво ON' : 'Серво OFF'} tone={servo?.left ? 'good' : 'neutral'} />
+            <Chip label="Правый привод" value={servo?.right == null ? 'Нет данных' : servo.right ? 'Серво ON' : 'Серво OFF'} tone={servo?.right ? 'good' : 'neutral'} />
+            <Chip label="Режим движения" value={estop ? 'СТОП' : control?.mode ? MOTION_LABELS[control.mode] ?? control.mode : '—'} tone={estop || control?.faultCode ? 'bad' : 'neutral'} />
+            <Chip label="Положение" value={control ? `${control.positionMm.toFixed(1)} мм` : '—'} tone="neutral" />
+          </dl>
+        </section>}
 
-        <div className="flex gap-1" role="tablist" aria-label="Разделы">
-          {TABS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === item.id}
-              onClick={() => setSearchParams({ tab: item.id })}
-              className={cn(
-                'rounded-xl px-5 py-2 text-sm font-medium transition',
-                tab === item.id ? 'border border-[#b5852f]/50 bg-[#b5852f]/30 text-[#f4dfb4]' : 'text-white/45 hover:bg-white/6 hover:text-white',
-              )}
-            >
-              {item.label}
-            </button>
-          ))}
+        <div className="min-w-0" id="motor-tab-content" role="tabpanel" aria-labelledby={`motor-tab-${tab}`}>
+          {tab === 'calibrations' ? <CalibrationsTab serviceMode={serviceMode} onLock={setRunLocked} /> : tab === 'observations'
+            ? <ExerciseObservations adapter={control?.adapter} /> : tab === 'friction' ? <FrictionArchiveTab activeAdapter={control?.adapter} />
+              : tab === 'plots' ? <MeasurementArchiveTab activeAdapter={control?.adapter} />
+              : <ParametersTab serviceMode={serviceMode} calibrating={calibrating} />}
         </div>
-
-        {tab === 'calibrations' ? <CalibrationsTab serviceMode={serviceMode} /> : <ParametersTab serviceMode={serviceMode} calibrating={calibrating} />}
       </div>
     </FormaShell>
   )

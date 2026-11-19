@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.schemas.modbus import (
     DriverDiagnosticsSchema,
@@ -22,9 +22,16 @@ from app.schemas.modbus import (
     ProfileSaveRequestSchema,
     SerialPortInfoSchema,
 )
+from app.services.hardware_runtime import hardware_runtime
 from app.services.modbus_service import modbus_service
 
-router = APIRouter(prefix="/modbus")
+
+def require_modbus_channel() -> None:
+    if hardware_runtime.canopen is not None:
+        raise HTTPException(409, "Активен CANopen. Канал Modbus доступен после переключения в настройках приводов.")
+
+
+router = APIRouter(prefix="/modbus", dependencies=[Depends(require_modbus_channel)])
 
 
 # ---------------------------------------------------------------------------
@@ -48,12 +55,23 @@ def get_connection_status() -> ModbusConnectionStatusSchema:
 
 @router.post("/connect", response_model=ModbusConnectionStatusSchema)
 def connect(params: ModbusConnectionParamsSchema) -> ModbusConnectionStatusSchema:
-    return modbus_service.connect(params)
+    return _change_connection(params)
 
 
 @router.post("/disconnect", response_model=ModbusConnectionStatusSchema)
 def disconnect() -> ModbusConnectionStatusSchema:
-    return modbus_service.disconnect()
+    return _change_connection(None)
+
+
+def _change_connection(params: ModbusConnectionParamsSchema | None) -> ModbusConnectionStatusSchema:
+    try:
+        with hardware_runtime._lock:
+            require_modbus_channel()
+            if hardware_runtime.modbus:
+                return hardware_runtime.configure_modbus(params)
+            return modbus_service.connect(params) if params else modbus_service.disconnect()
+    except PermissionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
 
 
 @router.post("/ping", response_model=ModbusReadResultSchema)
@@ -103,8 +121,11 @@ def set_zero_positions(left_pulses: int, right_pulses: int) -> ModbusPositionsSc
 @router.post("/torque/init", response_model=ModbusTorqueInitResultSchema)
 def initialize_torque_mode(req: ModbusTorqueInitRequestSchema | None = None) -> ModbusTorqueInitResultSchema:
     req = req or ModbusTorqueInitRequestSchema()
-    modbus_service.end_manual_torque()
-    errors = modbus_service.initialize_torque_mode(torque_limit=req.torque_limit, speed_limit_rpm=req.speed_limit_rpm)
+    if hardware_runtime.modbus:
+        errors = hardware_runtime.initialize_modbus_torque(req.torque_limit, req.speed_limit_rpm)
+    else:
+        modbus_service.end_manual_torque()
+        errors = modbus_service.initialize_torque_mode(torque_limit=req.torque_limit, speed_limit_rpm=req.speed_limit_rpm)
     return ModbusTorqueInitResultSchema(success=not errors, errors=errors)
 
 
@@ -123,8 +144,13 @@ def stop_torque() -> ModbusTorqueInitResultSchema:
 
 
 @router.get("/torque/telemetry", response_model=ModbusTorqueTelemetrySchema)
-def read_torque_telemetry(slave_id: int = Query(default=1, ge=1, le=247)) -> ModbusTorqueTelemetrySchema:
-    return ModbusTorqueTelemetrySchema(slave_id=slave_id, **modbus_service.read_torque_telemetry(slave_id, extended=True))  # type: ignore[arg-type]
+def read_torque_telemetry(slave_id: int = Query(default=1, ge=1, le=247), cached: bool = False) -> ModbusTorqueTelemetrySchema:
+    if cached and hardware_runtime.modbus:
+        data = modbus_service.cached_telemetry(slave_id, hardware_runtime.envelope.stale_frame_limit_s)
+    else:
+        # A standalone debug connection has no control loop to populate a cache.
+        data = modbus_service.read_torque_telemetry(slave_id, extended=not cached)
+    return ModbusTorqueTelemetrySchema.model_validate({"slave_id": slave_id, **data})
 
 
 # ---------------------------------------------------------------------------
@@ -132,8 +158,12 @@ def read_torque_telemetry(slave_id: int = Query(default=1, ge=1, le=247)) -> Mod
 # ---------------------------------------------------------------------------
 
 @router.get("/diagnostics", response_model=DriverDiagnosticsSchema)
-def get_driver_diagnostics(slave_id: int | None = Query(default=None, ge=1, le=247)) -> DriverDiagnosticsSchema:
-    return modbus_service.get_diagnostics(slave_id)
+def get_driver_diagnostics(slave_id: int | None = Query(default=None, ge=1, le=247), cached: bool = False) -> DriverDiagnosticsSchema:
+    if cached and not hardware_runtime.modbus:
+        selected = slave_id or modbus_service.get_status().slave_id or 1
+        modbus_service.read_torque_telemetry(selected, log=False)
+    age = hardware_runtime.envelope.stale_frame_limit_s if cached else None
+    return modbus_service.get_diagnostics(slave_id, cache_age_s=age)
 
 
 # ---------------------------------------------------------------------------

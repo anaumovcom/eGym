@@ -4,93 +4,87 @@ With the law F = W + friction + inertia − L, any load L above the bar weight W
 negative: the motor no longer carries the bar, it pulls it down, and everything the calibrations measured
 with an upward force has to hold for a downward one too:
 
-* N1 — the drive's downward force per raw relative to the upward one (``pull_scale``). The torque constant is
-  nominally symmetric, but the drive's torque loop, the PA_05E/PA_05F limits and the screw efficiency are not
-  guaranteed to be. Two force steps of the same size up and down (both down steps pull, F < 0): the bar mass and
-  the friction cancel in the difference of the accelerations, so the ratio needs no other calibration.
+* N1 — torque feedback per written drive unit in each direction, measured while the bar rests on its
+  stops. Pushing below the bar weight and pulling onto the stops allows both sides to be measured
+  independently. Loaded screw friction is measured separately by L1/L2.
 * N2 — reps and a pause with a load ~10 kgf per side heavier than the bar: the motor pulls through the whole
   set, the load stays inside what the drives can pull (``MotorCore.load_limit_n``), turns stay clean.
 """
 
 from __future__ import annotations
 
+from statistics import median
 from typing import Any
 
-from app.motor.calibration.procedures.common import Context, Gen, Outcome, Procedure, line, mean, recenter
+from app.motor.calibration.procedures.common import SIDE_LABEL, Context, Outcome, Procedure, line, recenter
 from app.motor.calibration.procedures.feel import FEEL_SPEED_MM_S, TURN_STICK_S, _end, _reps, _turns
-from app.motor.calibration.procedures.motion import hold_still, land
-from app.motor.calibration.procedures.trainer import Row, Trainer, drive, slope
-from app.motor.calibration.runner import Command, Frame, ProcedureEnvelope, ProcedureError
+from app.motor.calibration.procedures.motion import land
+from app.motor.calibration.procedures.trainer import Row, Trainer, drive
+from app.motor.calibration.runner import Command, ProcedureEnvelope, ProcedureError
 from app.motor.force.load_models import LoadSetpoint
 from app.motor.units import SIDES, kgf_to_n, n_to_kgf
 
 # ---------------------------------------------------------------- N1
-N1_PULLS_N = (3.0, 13.0)  # motor pulling down (F = −P), the bar going down
-N1_STEP_N = 10.0
-N1_PUSH_BELOW_EDGE_N = 8.0  # the push pair straddles the lower window edge: the bar keeps going down
-N1_STEP_S = 0.2
-N1_START_MM = 330.0
-N1_START_S = 0.12  # a light pull breaks the bar away; the measurement starts in motion (stiction gone)
-N1_REPEATS = 2  # push and pull runs, alternated
-
-
-def _steps(ctx: Context, frame: Frame, levels: list[dict[str, float]], note: str, progress: float) -> Gen:
-    """A light pull to start, then each level for ``N1_STEP_S`` in one descent: the acceleration of each."""
-
-    t0 = frame.t
-    while frame.t - t0 < N1_START_S:
-        frame = yield Command({side: -N1_PULLS_N[0] for side in SIDES}, note=f"{note}: трогание", progress=progress)
-    accels = []
-    for index, forces in enumerate(levels):
-        points: list[tuple[float, float]] = []
-        t0 = frame.t
-        while frame.t - t0 < N1_STEP_S:
-            frame = yield Command(dict(forces), note=f"{note}: уровень {index + 1}", progress=progress)
-            points.append((frame.t, frame.v_mean))
-        accels.append(slope(points[1:]))  # first frame: the bus delay, still the previous level
-    frame = yield from hold_still(ctx.balance, frame, progress=progress)
-    return frame, accels
+N1_LEVELS = (0.2, 0.6, -0.2, -0.6)
+N1_STEP_S = 0.8
+N1_MAX_HEIGHT_MM = 12.0
 
 
 def pull_scale(ctx: Context) -> Procedure:
-    balance = ctx.balance
-    frame = yield Command(None, note="старт", progress=0.0)
-    runs: list[dict[str, Any]] = []
-    for repeat in range(N1_REPEATS):
-        for kind in ("push", "pull"):
-            progress = 0.05 + 0.85 * (2 * repeat + (0 if kind == "push" else 1)) / (2 * N1_REPEATS)
-            frame = yield from recenter(balance, frame, N1_START_MM, progress)
-            frame = yield from hold_still(balance, frame, progress=progress)
-            if kind == "pull":
-                levels = [{side: -pull for side in SIDES} for pull in N1_PULLS_N]
-                note = "тяга вниз"
-            else:
-                # both pushes up (F > 0) around the lower window edge: the bar keeps going down slowly
-                low = {side: max(1.0, balance.edge(side, frame.x(side), -1) - N1_PUSH_BELOW_EDGE_N) for side in SIDES}
-                levels = [low, {side: low[side] + N1_STEP_N for side in SIDES}]
-                note = "толчок вверх при опускании"
-            frame, accels = yield from _steps(ctx, frame, levels, note, progress)
-            if any(a is None for a in accels):
-                raise ProcedureError(f"{note}: мало кадров — проверьте B1")
-            runs.append({"kind": kind, "accels": [round(a, 1) for a in accels], "delta": round(accels[1] - accels[0], 1)})
-    yield from land(balance, frame, progress=0.95)
-    return {"runs": runs, "step_n": N1_STEP_N}
+    weight = {side: min(w for _, w in ctx.profile.side(side).gravity_map.value) for side in SIDES}
+    frame = yield Command(None, note="проверка нижних упоров", progress=0.0)
+    rows = []
+    if any(frame.x(side) > N1_MAX_HEIGHT_MM or abs(frame.v(side)) > 5 for side in SIDES):
+        raise ProcedureError("Для N1 уложите гриф на нижние упоры и дождитесь остановки")
+    for index, level in enumerate(N1_LEVELS):
+        forces = {side: level * weight[side] for side in SIDES}
+        samples = {side: [] for side in SIDES}
+        start = frame.t
+        direction = "вверх" if level > 0 else "вниз"
+        while frame.t - start < N1_STEP_S:
+            fraction = (index + (frame.t - start) / N1_STEP_S) / len(N1_LEVELS)
+            frame = yield Command(forces, note=f"Замер {index + 1}/4 · {direction} · {abs(level):.0%} веса грифа", progress=fraction)
+            if any(frame.x(side) > N1_MAX_HEIGHT_MM or abs(frame.v(side)) > 10 for side in SIDES):
+                raise ProcedureError("Гриф сдвинулся с упоров. Проверьте ноль B7 и вес грифа S3")
+            if frame.t - start >= N1_STEP_S / 2:
+                for side in SIDES:
+                    sample = frame.samples[side]
+                    if sample.command_raw is not None:
+                        raw = sample.command_raw * ctx.profile.side(side).sign
+                        samples[side].append((raw, sample.motor_force_n))
+        if any(len(samples[side]) < 3 for side in SIDES):
+            raise ProcedureError("Недостаточно отсчётов команды и момента. Проверьте связь B1")
+        rows.append({
+            "level": level,
+            "raw": {side: median(raw for raw, _ in samples[side]) for side in SIDES},
+            "forceN": {side: median(force for _, force in samples[side]) for side in SIDES},
+        })
+    yield Command(None, note="поддержка", progress=1.0)
+    return {"rows": rows}
 
 
 def fit_pull_scale(data: dict[str, Any], _ctx: Context) -> Outcome:
-    up = [r["delta"] for r in data["runs"] if r["kind"] == "push"]
-    down = [-r["delta"] for r in data["runs"] if r["kind"] == "pull"]
-    if not up or not down or mean(up) <= 0:
-        raise ProcedureError("нет разгонов для сравнения")
-    scale = mean(down) / mean(up)
-    report = [
-        line("Опускание: +10 Н толкающей силы тормозит на", ", ".join(f"{a:.0f}" for a in up) + " мм/с²"),
-        line("Опускание: +10 Н тяги разгоняет на", ", ".join(f"{a:.0f}" for a in down) + " мм/с²"),
-        line("Тяга вниз относительно толчка вверх", f"{scale:.0%}", 0.8 <= scale <= 1.2),
-    ]
-    if not 0.6 <= scale <= 1.5:
-        return Outcome(report=report, error=f"тяга вниз {scale:.0%} от толчка: проверьте PA_05E/PA_05F и направление (B5)")
-    return Outcome(report=report, sides={side: {"pull_scale": (round(scale, 3), None)} for side in SIDES}, data={"runs": data["runs"]})
+    # Actual signed PA_12C includes the current profile compensation and any drive-side command clamp.
+    # Using its slope against PA_1C4 makes the estimate independent of the preceding calibration.
+    report = []
+    sides = {}
+    rows = data["rows"]
+    for side in SIDES:
+        gains = []
+        for low, high in ((rows[0], rows[1]), (rows[2], rows[3])):
+            delta = high["raw"][side] - low["raw"][side]
+            gain = (high["forceN"][side] - low["forceN"][side]) / delta if delta else 0
+            if gain <= 0:
+                return Outcome(report=report, data=data, error=f"{SIDE_LABEL[side]} · нет отклика момента на изменение команды. Проверьте B5, D1 и предел момента")
+            gains.append(gain)
+        scale = gains[1] / gains[0]
+        valid = 0.6 <= scale <= 1.5
+        report.append(line(f"{SIDE_LABEL[side]} · момент привода", f"вверх {gains[0]:.3f}, вниз {gains[1]:.3f} Н/ед.", valid))
+        report.append(line(f"{SIDE_LABEL[side]} · масштаб тяги вниз", f"{scale:.1%}", valid))
+        if not valid:
+            return Outcome(report=report, data=data, error=f"{SIDE_LABEL[side]} · масштаб тяги {scale:.0%} вне диапазона 60–150 %. Проверьте пределы момента PA_05E и PA_05F")
+        sides[side] = {"pull_scale": (round(scale, 3), None)}
+    return Outcome(report=report, sides=sides, data=data)
 
 
 # ---------------------------------------------------------------- N2
@@ -142,7 +136,7 @@ def fit_heavy_check(data: dict[str, Any], _ctx: Context) -> Outcome:
 
 
 SPECS = {
-    "N1": (lambda ctx: (pull_scale(ctx), ProcedureEnvelope(max_speed_mm_s=300.0, max_x_mm=N1_START_MM + 30.0)), fit_pull_scale),
+    "N1": (lambda ctx: (pull_scale(ctx), ProcedureEnvelope(max_speed_mm_s=25.0, max_x_mm=N1_MAX_HEIGHT_MM)), fit_pull_scale),
     "N2": (lambda ctx: (heavy_check(ctx), ProcedureEnvelope(max_speed_mm_s=FEEL_SPEED_MM_S, max_x_mm=340.0)), fit_heavy_check),
 }
 

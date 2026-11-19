@@ -1,8 +1,8 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import * as Popover from '@radix-ui/react-popover'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, Clock3, CloudOff, Dumbbell, Flame, Gauge, ListChecks, LoaderCircle, OctagonAlert, Plus, Repeat2, Replace, Settings2, SlidersHorizontal, Target, Timer, Trash2 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, CheckCircle2, ChevronDown, ChevronRight, Clock3, CloudOff, Dumbbell, Flame, Gauge, ListChecks, LoaderCircle, OctagonAlert, Pencil, Plus, Repeat2, Replace, Settings2, SlidersHorizontal, Target, Timer, Trash2 } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { BuilderExerciseEditor, BuilderExerciseItem, BuilderGroupKind, BuilderLoadType, BuilderWorkoutGroup, WorkoutBuilderData } from '@/entities/builder/model/types'
 import { workoutBadge } from '@/entities/dashboard/lib/workout-badge'
@@ -26,6 +26,7 @@ import { CompactBodyMapMini, ExerciseVideoPlayer } from '@/shared/ui/stage2/scre
 import { ExercisePickerModal, isRecoveryEquipment, isWeightlessEquipment } from '@/shared/ui/training/exercise-picker-modal'
 import { ValueStepper } from '@/shared/ui/training/value-stepper'
 import { useAppStore } from '@/stores/app-store'
+import './builder-broadcast.css'
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
@@ -66,6 +67,8 @@ function normalizeBuilderData(data: WorkoutBuilderData): WorkoutBuilderData {
 }
 
 export function WorkoutBuilderScreen() {
+  const groupListId = useId()
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => new Set())
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
@@ -854,6 +857,7 @@ export function WorkoutBuilderScreen() {
             <header className="builder-header">
               <Button variant="secondary" className="builder-header-button" title="Мои тренировки" iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => void handleDone()}><span className="builder-header-label">Мои тренировки</span></Button>
               <div className="builder-title">
+                <span className="builder-broadcast-kicker">РЕДАКТОР ТРЕНИРОВКИ</span>
                 <h1 id="builder-title" className="builder-title-heading font-display font-bold text-white">
                 {selectedProgram && isEditingWorkoutTitle ? (
                   <input
@@ -889,7 +893,7 @@ export function WorkoutBuilderScreen() {
                     }}
                     className="builder-title-button font-display font-bold text-white"
                   >
-                    {workoutTitle}
+                    <span>{workoutTitle}</span><Pencil className="builder-title-pencil" aria-hidden="true" />
                   </button>
                 )}
                 </h1>
@@ -914,17 +918,29 @@ export function WorkoutBuilderScreen() {
 
             <div className="builder-body">
               <aside className="builder-side" aria-label="Упражнения тренировки">
-                {groups.map((group, index) => (
+                <div className="builder-list-intro"><h2>Порядок упражнений</h2><span>Групп: {groups.length}</span></div>
+                {groups.map((group, index) => {
+                  const collapsed = collapsedGroups.has(group.id)
+                  const contentId = `${groupListId}-${index}`
+                  return (
                   <section key={group.id} className="builder-group" aria-label={`Группа ${index + 1}: ${group.title}`}>
                     <header className="builder-group-heading">
+                      <button type="button" className="builder-group-toggle" aria-label={`${collapsed ? 'Развернуть' : 'Свернуть'} группу ${group.title}`} aria-expanded={!collapsed} aria-controls={contentId} onClick={() => setCollapsedGroups((current) => {
+                        const next = new Set(current)
+                        if (next.has(group.id)) next.delete(group.id)
+                        else next.add(group.id)
+                        return next
+                      })}><ChevronDown aria-hidden="true" /></button>
                       <span className="min-w-0">
                         <small>{formatBuilderGroupKindLabel(group.kind)}</small>
                         <strong>{index + 1}. {group.title}</strong>
                       </span>
+                      <small className="builder-group-count">{exerciseCountLabel(group.items.length)}</small>
                       <button type="button" className="builder-icon-button" aria-label={`Настроить группу ${group.title}`} aria-haspopup="dialog" onClick={() => { setGroupTitleDraft(group.title); setGroupDialogId(group.id) }}>
                         <Settings2 aria-hidden="true" />
                       </button>
                     </header>
+                    <div id={contentId} className="builder-group-content" data-collapsed={collapsed}>
                     {group.items.length ? (
                       <ol className="builder-items">
                         {group.items.map((item, itemIndex) => (
@@ -942,6 +958,7 @@ export function WorkoutBuilderScreen() {
                                 <span className="builder-item-name">{item.name}</span>
                                 <span className="builder-item-summary">{formatBuilderItemSummary(item, item.id === selectedExerciseId ? editor?.strengthPlan : undefined)}</span>
                               </span>
+                              <ChevronRight className="builder-item-arrow" aria-hidden="true" />
                             </button>
                           </li>
                         ))}
@@ -959,8 +976,10 @@ export function WorkoutBuilderScreen() {
                       {group.items.length ? 'Добавить упражнение' : 'Добавь упражнения'}
                     </button>
                     {index < groups.length - 1 ? <div className="builder-group-rest">Перерыв после группы · {group.betweenRoundsRest ?? '120 сек'}</div> : null}
+                    </div>
                   </section>
-                ))}
+                  )
+                })}
                 <Button variant="secondary" className="w-full" onClick={() => void handleAddGroup()}>Добавить группу</Button>
                 {selectedProgram ? (
                   <Button variant="ghost" className="builder-delete-workout" iconLeft={<Trash2 aria-hidden="true" />} aria-haspopup="dialog" onClick={() => setDeleteDialogOpen(true)}>Удалить тренировку</Button>
@@ -992,6 +1011,7 @@ export function WorkoutBuilderScreen() {
                     </header>
 
                     {/* Editing controls first: they are what the user came here for. */}
+                    <h3 className="builder-inspector-title">Параметры упражнения</h3>
                     <div className="builder-load-switch" role="radiogroup" aria-label="Как выполнять упражнение">
                       <button type="button" role="radio" aria-checked={!timedSelected} onClick={() => { if (timedSelected) updateEditor((state) => ({ ...state, loadType: state.setParams.weight > 0 ? 'weighted' : 'bodyweight', setParams: { ...state.setParams, durationSeconds: undefined } })) }}>
                         <Repeat2 aria-hidden="true" />Повторы
@@ -1045,7 +1065,7 @@ export function WorkoutBuilderScreen() {
                       />
                     </div>
 
-                    <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                    <div className="builder-inspector-option rounded-2xl border border-white/10 bg-white/5 p-4">
                       <label className="flex cursor-pointer items-center gap-3 text-white">
                         <input
                           type="checkbox"
@@ -1088,13 +1108,14 @@ export function WorkoutBuilderScreen() {
 
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="builder-dialog" aria-busy={createPending}>
+          <SafetyDialogContent className="builder-dialog builder-local-dialog" aria-busy={createPending}>
+            <span className="builder-broadcast-kicker">МОИ ТРЕНИРОВКИ</span>
             <Dialog.Title className="font-display text-3xl font-bold">Создать новую тренировку?</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-white/70">
               Будет создана пустая тренировка для добавления упражнений. Существующие тренировки сохранятся.
             </Dialog.Description>
             {createError ? <p role="alert" className="mt-4 text-[#ffb4a7]">{createError}</p> : null}
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="builder-dialog-actions">
               <Dialog.Close asChild><Button variant="secondary" disabled={createPending}>Отмена</Button></Dialog.Close>
               <Button disabled={createPending} onClick={() => void handleCreateWorkout()}>
                 {createPending ? 'Создание…' : 'Создать тренировку'}
@@ -1107,9 +1128,10 @@ export function WorkoutBuilderScreen() {
       <Dialog.Root open={Boolean(groupDialog)} onOpenChange={(open) => { if (!open) setGroupDialogId(null) }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="builder-dialog">
+          <SafetyDialogContent className="builder-dialog builder-local-dialog">
             {groupDialog ? (
               <>
+                <span className="builder-broadcast-kicker">СТРУКТУРА ТРЕНИРОВКИ</span>
                 <Dialog.Title className="font-display text-3xl font-bold">Группа {groupDialogIndex + 1}</Dialog.Title>
                 <Dialog.Description className="mt-2 text-sm text-white/70">Название, режим выполнения и перерыв после группы.</Dialog.Description>
                 <label className="builder-field">
@@ -1152,9 +1174,10 @@ export function WorkoutBuilderScreen() {
       <Dialog.Root open={detailsOpen && Boolean(editor)} onOpenChange={setDetailsOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="builder-dialog">
+          <SafetyDialogContent className="builder-dialog builder-local-dialog">
             {editor ? (
               <>
+                <span className="builder-broadcast-kicker">ПАРАМЕТРЫ УПРАЖНЕНИЯ</span>
                 <Dialog.Title className="font-display text-3xl font-bold">Режим и комментарий</Dialog.Title>
                 <Dialog.Description className="mt-2 text-sm text-white/70">{editor.name}</Dialog.Description>
                 <div className="mt-5 space-y-5">
@@ -1197,7 +1220,8 @@ export function WorkoutBuilderScreen() {
       <Dialog.Root open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="builder-dialog">
+          <SafetyDialogContent className="builder-dialog builder-local-dialog">
+            <span className="builder-broadcast-kicker">УПРАВЛЕНИЕ ПЛАНОМ</span>
             <Dialog.Title className="font-display text-3xl font-bold">Удалить тренировку «{workoutTitle}»?</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-white/70">Тренировка исчезнет из списка и с главной. История выполнений в календаре сохранится.</Dialog.Description>
             <div className="builder-dialog-actions">
@@ -1790,13 +1814,13 @@ function StrengthModeSelector({ modes, selectedMode, selectedModeId, selectedDay
         onClick={() => setOpen((current) => !current)}
         aria-label="Выбрать режим силовой тренировки"
         title="Выбрать режим силовой тренировки"
-        className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-[#d6b05f]/24 bg-[#d6b05f]/10 px-4 py-3 text-left transition hover:border-[#d6b05f]/40 hover:bg-[#d6b05f]/14"
+        className="flex w-full items-center justify-between gap-3 rounded-[22px] border border-[var(--broadcast-accent,#d6b05f)]/24 bg-[var(--broadcast-accent,#d6b05f)]/10 px-4 py-3 text-left transition hover:border-[var(--broadcast-accent,#d6b05f)]/40 hover:bg-[var(--broadcast-accent,#d6b05f)]/14"
       >
         <div className="min-w-0">
           <div className="truncate font-display text-xl font-bold text-white">{selectedMode?.title ?? 'Базовый режим'}</div>
           <div className="mt-1 truncate text-sm text-white/52">{selectedMode?.shortDescription ?? 'Выберите структуру подходов.'}</div>
         </div>
-        <span className={cn('shrink-0 text-lg text-[#f2cf87] transition', open ? 'rotate-180' : undefined)}>⌄</span>
+        <span className={cn('shrink-0 text-lg text-[var(--broadcast-accent-light,#f2cf87)] transition', open ? 'rotate-180' : undefined)}>⌄</span>
       </button>
       {open ? (
         <div className="absolute inset-x-0 top-[calc(100%+8px)] z-40 max-h-[360px] overflow-y-auto rounded-[24px] border border-white/10 bg-[#151922] p-2 shadow-[0_22px_70px_rgba(0,0,0,0.48)]">
@@ -1812,7 +1836,7 @@ function StrengthModeSelector({ modes, selectedMode, selectedModeId, selectedDay
                 }}
                 className={cn(
                   'w-full rounded-[18px] px-3 py-3 text-left transition',
-                  active ? 'bg-[#d6b05f]/14 text-white' : 'text-white/62 hover:bg-white/7 hover:text-white',
+                  active ? 'bg-[var(--broadcast-accent,#d6b05f)]/14 text-white' : 'text-white/62 hover:bg-white/7 hover:text-white',
                 )}
               >
                 <div className="font-display text-lg font-bold tracking-[-0.03em]">{mode.title}</div>
@@ -1832,7 +1856,7 @@ function StrengthModeSelector({ modes, selectedMode, selectedModeId, selectedDay
               onClick={() => onSelect(selectedMode.id, option.id)}
               className={cn(
                 'rounded-full border px-3 py-2 text-xs transition',
-                selectedDayType === option.id ? 'border-[#d6b05f]/35 bg-[#d6b05f]/14 text-[#f2cf87]' : 'border-white/8 bg-white/4 text-white/55 hover:text-white',
+                selectedDayType === option.id ? 'border-[var(--broadcast-accent,#d6b05f)]/35 bg-[var(--broadcast-accent,#d6b05f)]/14 text-[var(--broadcast-accent-light,#f2cf87)]' : 'border-white/8 bg-white/4 text-white/55 hover:text-white',
               )}
             >
               {option.label}

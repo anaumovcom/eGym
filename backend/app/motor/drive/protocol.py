@@ -7,11 +7,13 @@ from typing import Protocol
 
 from app.motor.units import Side
 
+CONTROL_PERIOD_S = 0.05
+
 
 @dataclass(frozen=True)
 class DriveSample:
     side: Side
-    t: float  # monotonic time of the reply
+    t: float  # earliest monotonic sample time (request start on RTU)
     ok: bool
     position_mm: float = 0.0
     speed_mm_s: float = 0.0  # from PA_1C1, not differentiated
@@ -20,6 +22,9 @@ class DriveSample:
     alarm: int = 0
     error: str | None = None
     counts: int | None = None  # raw absolute encoder (PA_1BC/1BD), motor direction
+    reply_t: float | None = None
+    write_ack_t: float | None = None
+    bus_errors: int | None = None
 
     def age(self, now: float) -> float:
         return now - self.t

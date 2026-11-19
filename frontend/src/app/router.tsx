@@ -19,6 +19,8 @@ import { SystemSettingsScreen } from '@/screens/settings/system-settings-screen'
 import { UserSelectionScreen } from '@/screens/user-selection/user-selection-screen'
 import { WorkoutSummaryScreen } from '@/screens/workout-summary/workout-summary-screen'
 import { ModbusDebugScreen } from '@/screens/modbus-debug/modbus-debug-screen'
+import { ModbusSettingsScreen } from '@/screens/modbus-settings/modbus-settings-screen'
+import { DriveTransportScreen } from '@/screens/modbus-settings/drive-transport-screen'
 import { MotorCalibrationScreen } from '@/screens/motor-calibration/motor-calibration-screen'
 import { useAppStore } from '@/stores/app-store'
 import { SettingsLayout } from '@/shared/ui/layout/service-access'
@@ -41,6 +43,13 @@ function ProtectedAppRoute({ children }: { children: ReactElement }) {
 function PhotoProgressRedirect() {
   const [params] = useSearchParams()
   return <Navigate to={params.get('source') === 'profile' ? '/profile?tab=photo' : '/progress?tab=photo'} replace />
+}
+
+function ModbusEntry({ legacy = false }: { legacy?: boolean }) {
+  const [params] = useSearchParams()
+  if (params.get('tab') === 'connection') return <Navigate to="/modbus/settings" replace />
+  if (legacy) return <Navigate to={{ pathname: '/modbus', search: params.toString() }} replace />
+  return <ModbusDebugScreen />
 }
 
 export function AppRoutes() {
@@ -66,15 +75,17 @@ export function AppRoutes() {
         <Route path="/profile" element={<ProtectedAppRoute><UserProfileScreen /></ProtectedAppRoute>} />
         <Route path="/settings" element={<ProtectedAppRoute><SettingsLayout /></ProtectedAppRoute>}>
           <Route index element={<SystemSettingsScreen />} />
-          <Route path="service/modbus" element={<Navigate to="/modbus" replace />} />
+          <Route path="service/modbus" element={<ModbusEntry legacy />} />
         </Route>
-        <Route path="/modbus" element={<ProtectedAppRoute><ModbusDebugScreen /></ProtectedAppRoute>} />
+        <Route path="/modbus" element={<ProtectedAppRoute><ModbusEntry /></ProtectedAppRoute>} />
+        <Route path="/modbus/settings" element={<ProtectedAppRoute><ModbusSettingsScreen /></ProtectedAppRoute>} />
+        <Route path="/settings/drives" element={<ProtectedAppRoute><DriveTransportScreen /></ProtectedAppRoute>} />
         <Route path="/motor-calibration" element={<ProtectedAppRoute><MotorCalibrationScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-session" element={<ProtectedAppRoute><ExerciseSessionScreen /></ProtectedAppRoute>} />
         <Route path="/rest" element={<ProtectedAppRoute><RestScreen /></ProtectedAppRoute>} />
         <Route path="/exercise-summary" element={<ProtectedAppRoute><ExerciseSummaryScreen /></ProtectedAppRoute>} />
         <Route path="/workout-summary" element={<ProtectedAppRoute><WorkoutSummaryScreen /></ProtectedAppRoute>} />
-        <Route path="/modbus-debug" element={<ProtectedAppRoute><Navigate to="/modbus" replace /></ProtectedAppRoute>} />
+        <Route path="/modbus-debug" element={<ProtectedAppRoute><ModbusEntry legacy /></ProtectedAppRoute>} />
         {Object.entries(placeholderTitles).map(([path, title]) => (
           <Route key={path} path={path} element={<ProtectedAppRoute><PlaceholderScreen title={title} /></ProtectedAppRoute>} />
         ))}

@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ChevronLeft, ChevronRight, Clock3, Dumbbell, Layers, Trash2 } from 'lucide-react'
+import { CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, Dumbbell, Layers, Trash2 } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import type { CalendarDay, CalendarWorkout, WorkoutCalendarData } from '@/entities/calendar/model/types'
@@ -11,6 +11,7 @@ import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { useAppStore } from '@/stores/app-store'
+import './calendar-broadcast.css'
 
 const statusLabels: Record<CalendarWorkout['status'], string> = { completed: 'Выполнена', partial: 'Выполнена частично', aborted: 'Прервана' }
 const fallbackMachine: MachineHealth = { machineState: 'ready', machineLabel: 'Загрузка статуса', leftDrive: 'connected', rightDrive: 'connected', safety: 'enabled', calibration: 'Проверка подключения...' }
@@ -82,12 +83,22 @@ export function WorkoutCalendarScreen() {
 
 function MonthJournal({ userId, data, onMonthChange }: { userId: string; data: WorkoutCalendarData; onMonthChange: (month: string | null) => void }) {
   const [selectedDayId, setSelectedDayId] = useState<string | null>(null)
+  const [previewDayId, setPreviewDayId] = useState<string | null>(null)
   const triggerRef = useRef<HTMLElement | null>(null)
   const selectedDay = data.days.find((day) => day.id === selectedDayId && day.workouts.length > 0) ?? null
+  const previewDay = data.days.find((day) => day.id === previewDayId && day.workouts.length > 0)
+    ?? data.days.filter((day) => day.inMonth && day.workouts.length > 0).at(-1)
   const isCurrentMonth = data.month === data.today.slice(0, 7)
+
+  function openDay(dayId: string, trigger: HTMLElement) {
+    triggerRef.current = trigger
+    setPreviewDayId(dayId)
+    setSelectedDayId(dayId)
+  }
 
   return (
     <section className="calendar-journal" aria-labelledby="calendar-title">
+      <div className="calendar-month">
       <header className="calendar-header">
         <Button variant="secondary" className="calendar-nav" aria-label="Предыдущий месяц" onClick={() => onMonthChange(shiftMonth(data.month, -1))}><ChevronLeft aria-hidden="true" /></Button>
         <div className="calendar-heading">
@@ -101,10 +112,26 @@ function MonthJournal({ userId, data, onMonthChange }: { userId: string; data: W
       <div className="calendar-grid" role="grid" aria-label={`Выполненные тренировки: ${data.title}`}>
         {Array.from({ length: data.days.length / 7 }, (_, week) => (
           <div key={week} role="row" className="calendar-week">
-            {data.days.slice(week * 7, week * 7 + 7).map((day) => <DayCell key={day.id} day={day} onOpen={(element) => { triggerRef.current = element; setSelectedDayId(day.id) }} />)}
+            {data.days.slice(week * 7, week * 7 + 7).map((day) => <DayCell key={day.id} day={day} highlighted={day.id === previewDay?.id} onOpen={(element) => openDay(day.id, element)} />)}
           </div>
         ))}
       </div>
+      </div>
+      <aside className="calendar-agenda" aria-labelledby="calendar-agenda-title">
+        <span className="calendar-broadcast-kicker"><CalendarDays aria-hidden="true" /> ЖУРНАЛ ТРЕНИРОВОК</span>
+        <h2 id="calendar-agenda-title">{previewDay ? formatDayTitle(previewDay.id) : 'Нет записей'}</h2>
+        {previewDay ? <>
+          <p>{previewDay.workouts.length} {workoutsWord(previewDay.workouts.length)}</p>
+          <ul className="calendar-agenda-list">
+            {previewDay.workouts.map((workout) => <li key={workout.id}>
+              <span className="calendar-agenda-icon"><Dumbbell aria-hidden="true" /></span>
+              <span><strong>{workout.title}</strong><small>{workout.timeLabel} · {workout.duration}</small></span>
+              <span className="calendar-workout-status" data-status={workout.status}>{statusLabels[workout.status]}</span>
+            </li>)}
+          </ul>
+          <Button variant="secondary" aria-haspopup="dialog" onClick={(event) => openDay(previewDay.id, event.currentTarget)}>Смотреть записи дня <ChevronRight aria-hidden="true" /></Button>
+        </> : <p>Завершённые и прерванные тренировки появятся здесь.</p>}
+      </aside>
       <Dialog.Root open={Boolean(selectedDay)} onOpenChange={(open) => { if (!open) setSelectedDayId(null) }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
@@ -115,6 +142,7 @@ function MonthJournal({ userId, data, onMonthChange }: { userId: string; data: W
             {selectedDay ? <>
               <div className="calendar-day-heading">
                 <div>
+                  <span className="calendar-broadcast-kicker"><CalendarDays aria-hidden="true" /> ЗАПИСИ ДНЯ</span>
                   <Dialog.Title className="font-display text-3xl font-bold text-white">{formatDayTitle(selectedDay.id)}</Dialog.Title>
                   <Dialog.Description className="mt-1 text-sm text-white/60">{selectedDay.workouts.length} {workoutsWord(selectedDay.workouts.length)}</Dialog.Description>
                 </div>
@@ -131,7 +159,7 @@ function MonthJournal({ userId, data, onMonthChange }: { userId: string; data: W
   )
 }
 
-function DayCell({ day, onOpen }: { day: CalendarDay; onOpen: (element: HTMLElement) => void }) {
+function DayCell({ day, highlighted, onOpen }: { day: CalendarDay; highlighted: boolean; onOpen: (element: HTMLElement) => void }) {
   const count = day.workouts.length
   const label = `${formatDayTitle(day.id)}${count ? `, ${count} ${workoutsWord(count)}` : ''}`
   const content = <span className="calendar-day-body">
@@ -146,7 +174,7 @@ function DayCell({ day, onOpen }: { day: CalendarDay; onOpen: (element: HTMLElem
     return <div role="gridcell" aria-label={label} className="calendar-day" data-in-month={day.inMonth} data-today={day.isToday}>{content}</div>
   }
   return (
-    <div role="gridcell" className="calendar-day calendar-day-done" data-in-month={day.inMonth} data-today={day.isToday}>
+    <div role="gridcell" className="calendar-day calendar-day-done" data-in-month={day.inMonth} data-today={day.isToday} data-highlighted={highlighted}>
       <button type="button" aria-label={label} aria-haspopup="dialog" onClick={(event) => onOpen(event.currentTarget)}>{content}</button>
     </div>
   )
@@ -157,8 +185,12 @@ function WorkoutRecord({ userId, workout }: { userId: string; workout: CalendarW
   const [confirming, setConfirming] = useState(false)
   const removal = useMutation({
     mutationFn: () => apiDelete(`/api/runtime/workouts/${workout.id}?userId=${encodeURIComponent(userId)}`),
-    // History feeds the dashboard, progress, fatigue and recommendations, so every cached view is refreshed.
-    onSuccess: () => queryClient.invalidateQueries(),
+    onSuccess: () => {
+      // Opening a previously visited collection or workout must not flash a revoked award.
+      queryClient.removeQueries({ type: 'inactive', predicate: ({ queryKey: [area, resource, owner] }) =>
+        (area === 'achievements' && owner === userId) || (area === 'workout-awards' && resource === userId) })
+      return queryClient.invalidateQueries()
+    },
   })
 
   return (
@@ -170,16 +202,16 @@ function WorkoutRecord({ userId, workout }: { userId: string; workout: CalendarW
         {!confirming ? <Button variant="ghost" className="calendar-workout-delete" aria-label={`Удалить тренировку ${workout.title}`} onClick={() => setConfirming(true)}><Trash2 aria-hidden="true" /></Button> : null}
       </header>
       <ul className="calendar-workout-facts" aria-label="Итоги">
-        <li><Clock3 aria-hidden="true" />{workout.duration}</li>
-        <li><Layers aria-hidden="true" />{workout.setCount} {plural(workout.setCount, 'подход', 'подхода', 'подходов')}</li>
-        {workout.volume !== '—' ? <li><Dumbbell aria-hidden="true" />{workout.volume}</li> : null}
+        <li><Clock3 aria-hidden="true" /><small>Время</small><span>{workout.duration}</span></li>
+        <li><Layers aria-hidden="true" /><small>Объём работы</small><span>{workout.setCount} {plural(workout.setCount, 'подход', 'подхода', 'подходов')}</span></li>
+        {workout.volume !== '—' ? <li><Dumbbell aria-hidden="true" /><small>Тоннаж</small><span>{workout.volume}</span></li> : null}
       </ul>
       <ol className="calendar-workout-exercises" aria-label={`Упражнения: ${workout.title}`}>
         {workout.exercises.map((exercise, index) => <li key={`${exercise.name}-${index}`} data-status={exercise.status}><span>{exercise.name}</span><span>{exercise.result}</span></li>)}
       </ol>
       {confirming ? (
         <div className="calendar-workout-confirm" role="group" aria-label={`Подтверждение удаления: ${workout.title}`}>
-          <p>{removal.isError ? <span role="alert">Не удалось удалить тренировку. Попробуйте ещё раз.</span> : 'Удалить тренировку? Она исчезнет из календаря, прогресса и усталости мышц.'}</p>
+          <p>{removal.isError ? <span role="alert">Не удалось удалить тренировку. Попробуйте ещё раз.</span> : 'Удалить тренировку из календаря? Прогресс и усталость мышц пересчитаются. Награды, для которых больше не хватает результатов, снова закроются.'}</p>
           <Button variant="secondary" disabled={removal.isPending} onClick={() => { removal.reset(); setConfirming(false) }}>Отмена</Button>
           <Button variant="danger" disabled={removal.isPending} onClick={() => removal.mutate()}>{removal.isPending ? 'Удаление…' : 'Удалить'}</Button>
         </div>

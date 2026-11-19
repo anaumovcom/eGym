@@ -118,7 +118,7 @@ describe('runtime store per-side progression', () => {
     expect(useRuntimeStore.getState().session?.exerciseSummary?.setResults.every((set) => set.reps === undefined)).toBe(true)
   })
 
-  it('leaves unflagged progression, result metadata and legacy rebuilds unchanged', () => {
+  it('uses the selected set count without adding sides to a regular exercise', () => {
     initialize('machine', false)
     expect(useRuntimeStore.getState().session?.sessionState).toMatchObject({ setNumber: 1, totalSets: 1 })
     expect(useRuntimeStore.getState().session?.sessionState).not.toHaveProperty('side')
@@ -126,6 +126,8 @@ describe('runtime store per-side progression', () => {
     expect(useRuntimeStore.getState().session?.view).toBe('exercise-summary')
     expect(useRuntimeStore.getState().session?.exerciseSummary?.setResults[0]).not.toHaveProperty('side')
     useRuntimeStore.getState().updateLoadSettings({ sets: 1 })
+    expect(useRuntimeStore.getState().session!.exercises[0].plan.map((set) => set.setType)).toEqual(['work'])
+    useRuntimeStore.getState().updateLoadSettings({ sets: 4 })
     expect(useRuntimeStore.getState().session!.exercises[0].plan.map((set) => set.setType)).toEqual(['warmup', 'work', 'work', 'work'])
   })
 })

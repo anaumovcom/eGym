@@ -1,0 +1,586 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "budget_usd":  10,
+    "prior_estimate_usd":  0.93852500000000028,
+    "estimate_usd":  1.5245910000000005,
+    "reservation_per_request_usd":  0.75,
+    "reference":  "reference-current.png",
+    "requests":  [
+                     {
+                         "id":  "01-user-selection",
+                         "name":  "Выбор пользователя",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021653,
+                         "usage":  {
+                                       "input_tokens":  1873,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  577
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2153
+                                   },
+                         "started_at":  "2026-11-17T09:23:27.2233170Z"
+                     },
+                     {
+                         "id":  "02-dashboard",
+                         "name":  "Главная",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021683,
+                         "usage":  {
+                                       "input_tokens":  1879,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  583
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2159
+                                   },
+                         "started_at":  "2026-11-17T09:23:44.8382880Z"
+                     },
+                     {
+                         "id":  "03-workout-preview",
+                         "name":  "План выбранной тренировки",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021763,
+                         "usage":  {
+                                       "input_tokens":  1895,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  599
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2175
+                                   },
+                         "started_at":  "2026-11-17T09:24:02.7570505Z"
+                     },
+                     {
+                         "id":  "04-calendar",
+                         "name":  "Календарь тренировок",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021678,
+                         "usage":  {
+                                       "input_tokens":  1878,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  582
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2158
+                                   },
+                         "started_at":  "2026-11-17T09:24:21.5898988Z"
+                     },
+                     {
+                         "id":  "05-workout-library",
+                         "name":  "Мои тренировки",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021613,
+                         "usage":  {
+                                       "input_tokens":  1865,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  569
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2145
+                                   },
+                         "started_at":  "2026-11-17T09:24:42.2299550Z"
+                     },
+                     {
+                         "id":  "06-builder",
+                         "name":  "Редактор тренировки",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021813,
+                         "usage":  {
+                                       "input_tokens":  1905,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  609
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2185
+                                   },
+                         "started_at":  "2026-11-17T09:25:05.4265404Z"
+                     },
+                     {
+                         "id":  "07-catalog",
+                         "name":  "Каталог упражнений",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021713,
+                         "usage":  {
+                                       "input_tokens":  1885,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  589
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2165
+                                   },
+                         "started_at":  "2026-11-17T09:25:32.2572169Z"
+                     },
+                     {
+                         "id":  "08-exercise-details",
+                         "name":  "Карточка упражнения",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021793,
+                         "usage":  {
+                                       "input_tokens":  1901,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  605
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2181
+                                   },
+                         "started_at":  "2026-11-17T09:25:53.7775077Z"
+                     },
+                     {
+                         "id":  "09-exercise-technique",
+                         "name":  "Техника упражнения",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021643,
+                         "usage":  {
+                                       "input_tokens":  1871,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  575
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2151
+                                   },
+                         "started_at":  "2026-11-17T09:26:13.2063883Z"
+                     },
+                     {
+                         "id":  "10-exercise-muscles",
+                         "name":  "Мышцы упражнения",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021643,
+                         "usage":  {
+                                       "input_tokens":  1871,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  575
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2151
+                                   },
+                         "started_at":  "2026-11-17T09:26:36.5010363Z"
+                     },
+                     {
+                         "id":  "11-exercise-load-history",
+                         "name":  "Нагрузка и история упражнения",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021653,
+                         "usage":  {
+                                       "input_tokens":  1873,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  577
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2153
+                                   },
+                         "started_at":  "2026-11-17T09:26:57.6591829Z"
+                     },
+                     {
+                         "id":  "12-exercise-setup",
+                         "name":  "Подготовка и амплитуда",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021808,
+                         "usage":  {
+                                       "input_tokens":  1904,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  608
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2184
+                                   },
+                         "started_at":  "2026-11-17T09:27:16.7499000Z"
+                     },
+                     {
+                         "id":  "13-setup-fixed",
+                         "name":  "Настройка фиксированной высоты",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021698,
+                         "usage":  {
+                                       "input_tokens":  1882,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  586
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2162
+                                   },
+                         "started_at":  "2026-11-17T09:27:35.0733405Z"
+                     },
+                     {
+                         "id":  "14-exercise-session",
+                         "name":  "Выполнение упражнения",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021758,
+                         "usage":  {
+                                       "input_tokens":  1894,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  598
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2174
+                                   },
+                         "started_at":  "2026-11-17T09:27:54.1074221Z"
+                     },
+                     {
+                         "id":  "15-session-timed",
+                         "name":  "Упражнение на время",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021753,
+                         "usage":  {
+                                       "input_tokens":  1893,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  597
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2173
+                                   },
+                         "started_at":  "2026-11-17T09:28:13.6839044Z"
+                     },
+                     {
+                         "id":  "16-session-hold",
+                         "name":  "Удержание и настройка грифа",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021793,
+                         "usage":  {
+                                       "input_tokens":  1901,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  605
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2181
+                                   },
+                         "started_at":  "2026-11-17T09:28:31.9401745Z"
+                     },
+                     {
+                         "id":  "17-rest",
+                         "name":  "Отдых между подходами",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021718,
+                         "usage":  {
+                                       "input_tokens":  1886,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  590
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2166
+                                   },
+                         "started_at":  "2026-11-17T09:28:51.3773903Z"
+                     },
+                     {
+                         "id":  "18-side-change",
+                         "name":  "Смена стороны",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021658,
+                         "usage":  {
+                                       "input_tokens":  1874,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  578
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2154
+                                   },
+                         "started_at":  "2026-11-17T09:29:13.1914598Z"
+                     },
+                     {
+                         "id":  "19-exercise-summary",
+                         "name":  "Итог упражнения",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021683,
+                         "usage":  {
+                                       "input_tokens":  1879,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  583
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2159
+                                   },
+                         "started_at":  "2026-11-17T09:29:31.6859776Z"
+                     },
+                     {
+                         "id":  "20-workout-summary",
+                         "name":  "Итог тренировки",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021753,
+                         "usage":  {
+                                       "input_tokens":  1893,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  597
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2173
+                                   },
+                         "started_at":  "2026-11-17T09:29:52.4987278Z"
+                     },
+                     {
+                         "id":  "21-progress-overview",
+                         "name":  "Прогресс — обзор",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021758,
+                         "usage":  {
+                                       "input_tokens":  1894,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  598
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2174
+                                   },
+                         "started_at":  "2026-11-17T09:30:10.7408494Z"
+                     },
+                     {
+                         "id":  "22-progress-strength",
+                         "name":  "Прогресс силы",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021643,
+                         "usage":  {
+                                       "input_tokens":  1871,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  575
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2151
+                                   },
+                         "started_at":  "2026-11-17T09:30:30.6743980Z"
+                     },
+                     {
+                         "id":  "23-progress-body",
+                         "name":  "Тело и измерения",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021663,
+                         "usage":  {
+                                       "input_tokens":  1875,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  579
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2155
+                                   },
+                         "started_at":  "2026-11-17T09:30:49.6213143Z"
+                     },
+                     {
+                         "id":  "24-photo-gallery",
+                         "name":  "Фотопрогресс",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021678,
+                         "usage":  {
+                                       "input_tokens":  1878,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  582
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2158
+                                   },
+                         "started_at":  "2026-11-17T09:31:07.2747836Z"
+                     },
+                     {
+                         "id":  "25-photo-compare",
+                         "name":  "Сравнение фотографий",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021643,
+                         "usage":  {
+                                       "input_tokens":  1871,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  575
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2151
+                                   },
+                         "started_at":  "2026-11-17T09:31:25.8107698Z"
+                     },
+                     {
+                         "id":  "26-achievements",
+                         "name":  "Достижения",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021738,
+                         "usage":  {
+                                       "input_tokens":  1890,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  594
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2170
+                                   },
+                         "started_at":  "2026-11-17T09:31:43.8697554Z"
+                     },
+                     {
+                         "id":  "27-achievement-detail",
+                         "name":  "Карточка достижения",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.021673,
+                         "usage":  {
+                                       "input_tokens":  1877,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  581
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2157
+                                   },
+                         "started_at":  "2026-11-17T09:32:03.1033430Z"
+                     },
+                     {
+                         "id":  "28-fatigue",
+                         "name":  "Усталость и восстановление",
+                         "status":  "failed_or_unknown",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  null,
+                         "usage":  null,
+                         "started_at":  "2026-11-17T09:32:20.5947958Z"
+                     }
+                 ]
+}

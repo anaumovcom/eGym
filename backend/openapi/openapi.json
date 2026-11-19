@@ -1332,6 +1332,115 @@
         }
       }
     },
+    "/api/coach/packs/{slot}/regenerate": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Regenerate Pack",
+        "operationId": "regenerate_pack_api_coach_packs__slot__regenerate_post",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slot"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackRegenerate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/coach/packs/{slot}/clips/{clip_id}/regenerate": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Regenerate Clip",
+        "operationId": "regenerate_clip_api_coach_packs__slot__clips__clip_id__regenerate_post",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slot"
+            }
+          },
+          {
+            "name": "clip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Clip Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackRegenerate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/coach/packs/{slot}/plan": {
       "get": {
         "tags": [
@@ -1390,6 +1499,115 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/coach/packs/{slot}/clips/{clip_id}/approve": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Approve Pack Clip",
+        "operationId": "approve_pack_clip_api_coach_packs__slot__clips__clip_id__approve_post",
+        "parameters": [
+          {
+            "name": "slot",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Slot"
+            }
+          },
+          {
+            "name": "clip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Clip Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PackReview"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/coach/packs/ru-base/clips/{clip_id}/record": {
+      "post": {
+        "tags": [
+          "coach"
+        ],
+        "summary": "Record Starter Clip",
+        "operationId": "record_starter_clip_api_coach_packs_ru_base_clips__clip_id__record_post",
+        "parameters": [
+          {
+            "name": "clip_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Clip Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LocalPackRecording"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -1974,6 +2192,66 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/EmergencyStopResponseSchema"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/hardware/drive-transport": {
+      "get": {
+        "tags": [
+          "hardware"
+        ],
+        "summary": "Drive Transport",
+        "operationId": "drive_transport_api_hardware_drive_transport_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveTransportStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "hardware"
+        ],
+        "summary": "Change Drive Transport",
+        "operationId": "change_drive_transport_api_hardware_drive_transport_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DriveTransportSettings"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DriveTransportStatus"
                 }
               }
             }
@@ -5538,6 +5816,16 @@
               "default": 1,
               "title": "Slave Id"
             }
+          },
+          {
+            "name": "cached",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Cached"
+            }
           }
         ],
         "responses": {
@@ -5588,6 +5876,16 @@
                 }
               ],
               "title": "Slave Id"
+            }
+          },
+          {
+            "name": "cached",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Cached"
             }
           }
         ],
@@ -5874,6 +6172,129 @@
         }
       }
     },
+    "/api/motor/exercise-observations": {
+      "get": {
+        "tags": [
+          "motor"
+        ],
+        "summary": "Exercise Observations",
+        "operationId": "exercise_observations_api_motor_exercise_observations_get",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "modbus",
+                    "canopen",
+                    "twin"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 30,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Exercise Observations Api Motor Exercise Observations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/motor/exercise-observations/{record_id}": {
+      "get": {
+        "tags": [
+          "motor"
+        ],
+        "summary": "Exercise Observation",
+        "operationId": "exercise_observation_api_motor_exercise_observations__record_id__get",
+        "parameters": [
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Exercise Observation Api Motor Exercise Observations  Record Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/motor/profile/versions": {
       "get": {
         "tags": [
@@ -5987,6 +6408,23 @@
               "maxLength": 16,
               "default": "WIZARD",
               "title": "Code"
+            }
+          },
+          {
+            "name": "workingZone",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "middle",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Workingzone"
             }
           }
         ],
@@ -6163,6 +6601,23 @@
         ],
         "summary": "Abort Calibration",
         "operationId": "abort_calibration_api_motor_calibration_abort_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CalibrationSessionCommand"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6172,6 +6627,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Abort Calibration Api Motor Calibration Abort Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -6186,6 +6651,23 @@
         ],
         "summary": "Accept Calibration",
         "operationId": "accept_calibration_api_motor_calibration_accept_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CalibrationAccept"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6195,6 +6677,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Accept Calibration Api Motor Calibration Accept Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -6209,6 +6701,23 @@
         ],
         "summary": "Discard Calibration",
         "operationId": "discard_calibration_api_motor_calibration_discard_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/CalibrationSessionCommand"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Payload"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -6220,6 +6729,16 @@
                   },
                   "type": "object",
                   "title": "Response Discard Calibration Api Motor Calibration Discard Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -6246,6 +6765,23 @@
               "default": 30,
               "title": "Limit"
             }
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 16
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
           }
         ],
         "responses": {
@@ -6260,6 +6796,299 @@
                     "additionalProperties": true
                   },
                   "title": "Response Calibration Runs Api Motor Calibration Runs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/motor/calibration/friction-tracks": {
+      "get": {
+        "tags": [
+          "motor"
+        ],
+        "summary": "Friction Tracks",
+        "description": "Return S10 maps, including measured stages of series, without loading their telemetry logs.",
+        "operationId": "friction_tracks_api_motor_calibration_friction_tracks_get",
+        "parameters": [
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "modbus",
+                    "canopen",
+                    "twin",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Friction Tracks Api Motor Calibration Friction Tracks Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/motor/calibration/measurement-plots": {
+      "get": {
+        "tags": [
+          "motor"
+        ],
+        "summary": "Measurement Plots",
+        "description": "Page through runs with measurements for this stage, including stages completed inside a series.",
+        "operationId": "measurement_plots_api_motor_calibration_measurement_plots_get",
+        "parameters": [
+          {
+            "name": "stage",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "S7",
+                "D2",
+                "F3",
+                "X3",
+                "M5",
+                "G4"
+              ],
+              "type": "string",
+              "title": "Stage"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "modbus",
+                    "canopen",
+                    "twin",
+                    "unknown"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 10,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Measurement Plots Api Motor Calibration Measurement Plots Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/motor/calibration/runs/{run_id}": {
+      "get": {
+        "tags": [
+          "motor"
+        ],
+        "summary": "Calibration Record",
+        "operationId": "calibration_record_api_motor_calibration_runs__run_id__get",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Calibration Record Api Motor Calibration Runs  Run Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/motor/calibration/fault-rehearsal": {
+      "get": {
+        "tags": [
+          "motor"
+        ],
+        "summary": "Calibration Fault Rehearsal",
+        "operationId": "calibration_fault_rehearsal_api_motor_calibration_fault_rehearsal_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Calibration Fault Rehearsal Api Motor Calibration Fault Rehearsal Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/motor/calibration/speed-study": {
+      "get": {
+        "tags": [
+          "motor"
+        ],
+        "summary": "Calibration Speed Study",
+        "operationId": "calibration_speed_study_api_motor_calibration_speed_study_get",
+        "parameters": [
+          {
+            "name": "targetMmS",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number",
+              "maximum": 1500,
+              "minimum": 50,
+              "default": 1500,
+              "title": "Targetmms"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Calibration Speed Study Api Motor Calibration Speed Study Get"
                 }
               }
             }
@@ -6324,6 +7153,49 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Update Parameters Api Motor Parameters Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/motor/parameters/preview": {
+      "post": {
+        "tags": [
+          "motor"
+        ],
+        "summary": "Preview Parameters",
+        "operationId": "preview_parameters_api_motor_parameters_preview_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParametersUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Preview Parameters Api Motor Parameters Preview Post"
                 }
               }
             }
@@ -6456,6 +7328,24 @@
           "description": {
             "type": "string",
             "title": "Description"
+          },
+          "valueAtAward": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Valueataward"
+          },
+          "movements": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Movements"
           }
         },
         "type": "object",
@@ -6555,6 +7445,15 @@
             "type": "string",
             "title": "Id"
           },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "archived": {
+            "type": "boolean",
+            "title": "Archived",
+            "default": false
+          },
           "group": {
             "type": "string",
             "title": "Group"
@@ -6645,6 +7544,7 @@
         "type": "object",
         "required": [
           "id",
+          "name",
           "group",
           "groupName",
           "metric",
@@ -6693,6 +7593,18 @@
           "earnedTiers": {
             "type": "integer",
             "title": "Earnedtiers"
+          },
+          "newTiers": {
+            "type": "integer",
+            "title": "Newtiers"
+          },
+          "archivedTiers": {
+            "type": "integer",
+            "title": "Archivedtiers"
+          },
+          "archivedLines": {
+            "type": "integer",
+            "title": "Archivedlines"
           },
           "totalTiers": {
             "type": "integer",
@@ -6746,6 +7658,9 @@
         "type": "object",
         "required": [
           "earnedTiers",
+          "newTiers",
+          "archivedTiers",
+          "archivedLines",
           "totalTiers",
           "completedLines",
           "totalLines",
@@ -6918,6 +7833,11 @@
           "earned": {
             "type": "boolean",
             "title": "Earned",
+            "default": false
+          },
+          "isNew": {
+            "type": "boolean",
+            "title": "Isnew",
             "default": false
           },
           "earnedAt": {
@@ -7824,8 +8744,45 @@
         ],
         "title": "CalendarWorkoutSchema"
       },
+      "CalibrationAccept": {
+        "properties": {
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessionid"
+          },
+          "fitTravelLimit": {
+            "type": "boolean",
+            "title": "Fittravellimit",
+            "default": false
+          }
+        },
+        "type": "object",
+        "title": "CalibrationAccept"
+      },
       "CalibrationKeepalive": {
         "properties": {
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessionid"
+          },
           "intervalMs": {
             "anyOf": [
               {
@@ -7861,6 +8818,19 @@
       },
       "CalibrationReply": {
         "properties": {
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessionid"
+          },
           "value": {
             "anyOf": [
               {
@@ -7871,6 +8841,18 @@
               }
             ],
             "title": "Value"
+          },
+          "promptText": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Prompttext"
           }
         },
         "type": "object",
@@ -7998,6 +8980,25 @@
         ],
         "title": "CalibrationSaveSchema"
       },
+      "CalibrationSessionCommand": {
+        "properties": {
+          "sessionId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 64,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sessionid"
+          }
+        },
+        "type": "object",
+        "title": "CalibrationSessionCommand"
+      },
       "CalibrationStartRequest": {
         "properties": {
           "code": {
@@ -8018,8 +9019,21 @@
               }
             ],
             "title": "Referencekg"
+          },
+          "workingZone": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "middle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workingzone"
           }
         },
+        "additionalProperties": false,
         "type": "object",
         "required": [
           "code"
@@ -8157,6 +9171,577 @@
           "capturedAt"
         ],
         "title": "CalibrationSummarySchema"
+      },
+      "CanAdapterInfo": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "serial": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Serial"
+          },
+          "hardware": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hardware"
+          },
+          "firmware": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Firmware"
+          },
+          "driver": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Driver"
+          },
+          "channels": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Channels"
+          },
+          "interface_bitrate": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interface Bitrate"
+          },
+          "link_state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Link State"
+          }
+        },
+        "type": "object",
+        "title": "CanAdapterInfo"
+      },
+      "CanAxisDiagnostics": {
+        "properties": {
+          "node": {
+            "type": "integer",
+            "title": "Node"
+          },
+          "responding": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responding"
+          },
+          "last_seen_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Seen Ms"
+          },
+          "issue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue"
+          },
+          "heartbeat_state": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat State"
+          },
+          "heartbeat_age_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat Age Ms"
+          },
+          "bootups": {
+            "type": "integer",
+            "title": "Bootups"
+          },
+          "emcy": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emcy"
+          },
+          "emcy_register": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emcy Register"
+          },
+          "emcy_age_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Emcy Age Ms"
+          },
+          "objects": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/CanObjectReading"
+            },
+            "type": "object",
+            "title": "Objects"
+          },
+          "sent_controlword": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent Controlword"
+          },
+          "sent_target": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sent Target"
+          },
+          "tpdo_latency_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Tpdo Latency Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node",
+          "responding",
+          "last_seen_ms",
+          "issue",
+          "heartbeat_state",
+          "heartbeat_age_ms",
+          "bootups",
+          "emcy",
+          "emcy_register",
+          "emcy_age_ms",
+          "objects"
+        ],
+        "title": "CanAxisDiagnostics"
+      },
+      "CanObjectReading": {
+        "properties": {
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "abort": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Abort"
+          },
+          "issue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issue"
+          },
+          "age_ms": {
+            "type": "integer",
+            "title": "Age Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "value",
+          "age_ms"
+        ],
+        "title": "CanObjectReading"
+      },
+      "CanTraceFrame": {
+        "properties": {
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "elapsed_ms": {
+            "type": "number",
+            "title": "Elapsed Ms"
+          },
+          "direction": {
+            "type": "string",
+            "enum": [
+              "TX",
+              "RX"
+            ],
+            "title": "Direction"
+          },
+          "identifier": {
+            "type": "integer",
+            "title": "Identifier"
+          },
+          "data": {
+            "type": "string",
+            "title": "Data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "seq",
+          "elapsed_ms",
+          "direction",
+          "identifier",
+          "data"
+        ],
+        "title": "CanTraceFrame"
+      },
+      "CanopenDiagnostics": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "adapter_open": {
+            "type": "boolean",
+            "title": "Adapter Open"
+          },
+          "adapter": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CanAdapterInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tx": {
+            "type": "integer",
+            "title": "Tx"
+          },
+          "rx": {
+            "type": "integer",
+            "title": "Rx"
+          },
+          "sdo_timeouts": {
+            "type": "integer",
+            "title": "Sdo Timeouts"
+          },
+          "sdo_aborts": {
+            "type": "integer",
+            "title": "Sdo Aborts"
+          },
+          "axes": {
+            "items": {
+              "$ref": "#/components/schemas/CanAxisDiagnostics"
+            },
+            "type": "array",
+            "title": "Axes"
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/CanTraceFrame"
+            },
+            "type": "array",
+            "title": "Frames"
+          }
+        },
+        "type": "object",
+        "required": [
+          "stage",
+          "adapter_open",
+          "adapter",
+          "tx",
+          "rx",
+          "sdo_timeouts",
+          "sdo_aborts",
+          "axes",
+          "frames"
+        ],
+        "title": "CanopenDiagnostics"
+      },
+      "CanopenNodeStatus": {
+        "properties": {
+          "node": {
+            "type": "integer",
+            "title": "Node"
+          },
+          "mode": {
+            "type": "integer",
+            "title": "Mode"
+          },
+          "statusword": {
+            "type": "integer",
+            "title": "Statusword"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "velocity": {
+            "type": "integer",
+            "title": "Velocity"
+          },
+          "torque": {
+            "type": "integer",
+            "title": "Torque"
+          }
+        },
+        "type": "object",
+        "required": [
+          "node",
+          "mode",
+          "statusword",
+          "position",
+          "velocity",
+          "torque"
+        ],
+        "title": "CanopenNodeStatus"
+      },
+      "CanopenSettings": {
+        "properties": {
+          "operation": {
+            "type": "string",
+            "enum": [
+              "diagnostics",
+              "control"
+            ],
+            "title": "Operation",
+            "default": "control"
+          },
+          "torque_mode": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "cst",
+              "profile_torque"
+            ],
+            "title": "Torque Mode",
+            "default": "auto"
+          },
+          "driver": {
+            "type": "string",
+            "enum": [
+              "usbcanfd",
+              "socketcan"
+            ],
+            "title": "Driver",
+            "default": "usbcanfd"
+          },
+          "device": {
+            "type": "integer",
+            "maximum": 7.0,
+            "minimum": 0.0,
+            "title": "Device",
+            "default": 0
+          },
+          "channel": {
+            "type": "integer",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Channel",
+            "default": 0
+          },
+          "interface": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_.-]{1,15}$",
+            "title": "Interface",
+            "default": "can0"
+          },
+          "bitrate": {
+            "type": "integer",
+            "enum": [
+              20000,
+              50000,
+              125000,
+              250000,
+              500000,
+              750000,
+              1000000
+            ],
+            "title": "Bitrate",
+            "default": 500000
+          },
+          "cycle_ms": {
+            "type": "integer",
+            "enum": [
+              20,
+              10,
+              5
+            ],
+            "title": "Cycle Ms",
+            "default": 20
+          },
+          "left_id": {
+            "type": "integer",
+            "maximum": 32.0,
+            "minimum": 1.0,
+            "title": "Left Id",
+            "default": 1
+          },
+          "right_id": {
+            "type": "integer",
+            "maximum": 32.0,
+            "minimum": 1.0,
+            "title": "Right Id",
+            "default": 2
+          },
+          "velocity_unit": {
+            "type": "string",
+            "enum": [
+              "rpm",
+              "counts/s"
+            ],
+            "title": "Velocity Unit",
+            "default": "rpm"
+          }
+        },
+        "type": "object",
+        "title": "CanopenSettings"
+      },
+      "CanopenTiming": {
+        "properties": {
+          "intervals": {
+            "type": "integer",
+            "title": "Intervals"
+          },
+          "mean_hz": {
+            "type": "number",
+            "title": "Mean Hz"
+          },
+          "p99_ms": {
+            "type": "number",
+            "title": "P99 Ms"
+          },
+          "p99_feedback_ms": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "P99 Feedback Ms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "intervals",
+          "mean_hz",
+          "p99_ms"
+        ],
+        "title": "CanopenTiming"
       },
       "CapChange": {
         "properties": {
@@ -8515,7 +10100,7 @@
               "off"
             ],
             "title": "Count",
-            "default": "off"
+            "default": "every"
           },
           "voiceProfile": {
             "type": "string",
@@ -8550,6 +10135,11 @@
             "pattern": "^\\d{1,3}(\\.\\d{1,4})?$",
             "title": "Budgetusd",
             "default": "2.00"
+          },
+          "standardPack": {
+            "type": "boolean",
+            "title": "Standardpack",
+            "default": true
           },
           "networkConsentVersion": {
             "anyOf": [
@@ -9774,6 +11364,93 @@
         ],
         "title": "DriveTelemetrySchema"
       },
+      "DriveTransportSettings": {
+        "properties": {
+          "adapter": {
+            "type": "string",
+            "enum": [
+              "modbus",
+              "canopen",
+              "twin"
+            ],
+            "title": "Adapter"
+          },
+          "canopen": {
+            "$ref": "#/components/schemas/CanopenSettings"
+          },
+          "modbus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModbusConnectionParamsSchema"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "adapter"
+        ],
+        "title": "DriveTransportSettings"
+      },
+      "DriveTransportStatus": {
+        "properties": {
+          "config": {
+            "$ref": "#/components/schemas/DriveTransportSettings"
+          },
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/CanopenNodeStatus"
+            },
+            "type": "array",
+            "title": "Nodes"
+          },
+          "timing": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CanopenTiming"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "diagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CanopenDiagnostics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "config",
+          "connected",
+          "error"
+        ],
+        "title": "DriveTransportStatus"
+      },
       "DriverDiagnosticsSchema": {
         "properties": {
           "responding": {
@@ -9836,9 +11513,15 @@
             "title": "Alarm Code"
           },
           "has_alarm": {
-            "type": "boolean",
-            "title": "Has Alarm",
-            "default": false
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Has Alarm"
           },
           "motion_safe": {
             "type": "boolean",
@@ -11431,6 +13114,30 @@
             "type": "string",
             "title": "Action"
           },
+          "workoutRunId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workoutrunid"
+          },
+          "workoutExerciseId": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Workoutexerciseid"
+          },
           "userId": {
             "anyOf": [
               {
@@ -12285,6 +13992,43 @@
         ],
         "title": "LoadAdjustmentResponseSchema"
       },
+      "LocalPackRecording": {
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schemaversion",
+            "default": 1
+          },
+          "expectedPackVersion": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{16}$",
+            "title": "Expectedpackversion"
+          },
+          "pace": {
+            "type": "string",
+            "enum": [
+              "slow",
+              "normal",
+              "brisk"
+            ],
+            "title": "Pace"
+          },
+          "confirmLocal": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirmlocal"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expectedPackVersion",
+          "pace",
+          "confirmLocal"
+        ],
+        "title": "LocalPackRecording"
+      },
       "MachineHealthSchema": {
         "properties": {
           "machineState": {
@@ -12496,6 +14240,8 @@
           },
           "slave_id": {
             "type": "integer",
+            "maximum": 247.0,
+            "minimum": 1.0,
             "title": "Slave Id",
             "description": "Modbus slave address (1–247)",
             "default": 1
@@ -12581,6 +14327,17 @@
               }
             ],
             "title": "Right Slave Id"
+          },
+          "timeout_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timeout Ms"
           },
           "last_success_at": {
             "anyOf": [
@@ -13021,6 +14778,18 @@
             "type": "integer",
             "title": "Slave Id"
           },
+          "read_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read At"
+          },
           "feedback_position": {
             "anyOf": [
               {
@@ -13307,6 +15076,11 @@
           "syncDeltaMm": {
             "type": "number",
             "title": "Syncdeltamm"
+          },
+          "syncAvailable": {
+            "type": "boolean",
+            "title": "Syncavailable",
+            "default": true
           },
           "amplitudePercent": {
             "type": "integer",
@@ -13621,6 +15395,11 @@
             "type": "boolean",
             "const": true,
             "title": "Confirmpaid"
+          },
+          "includeOptional": {
+            "type": "boolean",
+            "title": "Includeoptional",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -13631,6 +15410,73 @@
           "confirmPaid"
         ],
         "title": "PackPrepare"
+      },
+      "PackRegenerate": {
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schemaversion",
+            "default": 1
+          },
+          "userId": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Userid"
+          },
+          "capUsd": {
+            "type": "string",
+            "pattern": "^(?:[01](?:\\.\\d{1,4})?|2(?:\\.0{1,4})?)$",
+            "title": "Capusd"
+          },
+          "confirmPaid": {
+            "type": "boolean",
+            "const": true,
+            "title": "Confirmpaid"
+          },
+          "expectedPackVersion": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{16}$",
+            "title": "Expectedpackversion"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "userId",
+          "capUsd",
+          "confirmPaid",
+          "expectedPackVersion"
+        ],
+        "title": "PackRegenerate"
+      },
+      "PackReview": {
+        "properties": {
+          "schemaVersion": {
+            "type": "integer",
+            "const": 1,
+            "title": "Schemaversion",
+            "default": 1
+          },
+          "expectedPackVersion": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{16}$",
+            "title": "Expectedpackversion"
+          },
+          "listened": {
+            "type": "boolean",
+            "const": true,
+            "title": "Listened"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "expectedPackVersion",
+          "listened"
+        ],
+        "title": "PackReview"
       },
       "PanelStatusSchema": {
         "properties": {
@@ -13950,6 +15796,18 @@
               }
             ],
             "title": "Note"
+          },
+          "baseVersion": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseversion"
           }
         },
         "type": "object",

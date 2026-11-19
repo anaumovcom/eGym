@@ -304,10 +304,14 @@ def fit_inertia_by_load(data: dict[str, Any], _ctx: Context) -> Outcome:
 F3_SPEEDS = (40.0, 80.0, 120.0, 160.0)
 
 
+def _append_speed_point(table: dict[Side, list], balance: Balance, direction: int, speed: float, extras: dict[Side, float]) -> None:
+    for side in SIDES:
+        table[side].append((round(speed, 1), round(balance.friction(side, direction) + extras[side], 1)))
+
+
 def friction_speed(ctx: Context, speeds: tuple[float, ...] = F3_SPEEDS) -> Procedure:
     balance = ctx.balance
-    low = 80.0
-    high = min(ctx.top_mm, low + 520.0)
+    low, high = ctx.working_window or (80.0, min(ctx.top_mm, 600.0))
     if high - low < 250.0:
         raise ProcedureError("для скоростей упражнения нужно ≥ 330 мм хода: выполните B8")
     viscous = {side: float(ctx.profile.side(side).viscous_n_per_mm_s.value) for side in SIDES}
@@ -316,6 +320,7 @@ def friction_speed(ctx: Context, speeds: tuple[float, ...] = F3_SPEEDS) -> Proce
     runs = []
     guess: dict[int, dict[Side, float]] = {}
     previous: dict[int, float] = {}
+    points = {str(d): {side: [] for side in SIDES} for d in (1, -1)}
     for index, speed_mm_s in enumerate(speeds):
         for direction in (1, -1):
             start = {side: balance.feed(side, direction, speed_mm_s) or 0.0 for side in SIDES}
@@ -332,6 +337,9 @@ def friction_speed(ctx: Context, speeds: tuple[float, ...] = F3_SPEEDS) -> Proce
             if len(speeds_seen) >= 4:
                 guess[direction] = {side: mean(extras[side]) for side in SIDES}
                 previous[direction] = mean(speeds_seen)
+                if ctx.publish_plot:
+                    _append_speed_point(points[str(direction)], balance, direction, previous[direction], guess[direction])
+                    ctx.publish_plot({"points": points})
     yield from land(balance, frame, progress=0.95)
     return {"runs": runs}
 
@@ -343,9 +351,8 @@ def fit_friction_speed(data: dict[str, Any], ctx: Context) -> Outcome:
         speeds, extras = steady(run["trace"], run["speed_mm_s"])
         if len(speeds) < 4:
             continue
-        v = mean(speeds)
-        for side in SIDES:
-            tables[run["direction"]][side].append((round(v, 1), round(balance.friction(side, run["direction"]) + mean(extras[side]), 1)))
+        direction = run["direction"]
+        _append_speed_point(tables[direction], balance, direction, mean(speeds), {side: mean(extras[side]) for side in SIDES})
     report, sides = [], {}
     for side in SIDES:
         up, down = sorted(tables[1][side]), sorted(tables[-1][side])
@@ -363,10 +370,21 @@ def fit_friction_speed(data: dict[str, Any], ctx: Context) -> Outcome:
 
 
 # ---------------------------------------------------------------- reps (F4, F5, F7, F11, X4, G2)
-def _reps(ctx: Context, frame: Frame, trainer: Trainer, load_n: float, *, low: float, high: float, speed_mm_s: float, seconds: float, note: str, progress: float, rows: list[Row]) -> Gen:
+def _rep_stop(why: str) -> str:
+    if why == "fast":
+        return f"проба остановлена по скорости (порог {FEEL_SPEED_MM_S - 10:g} мм/с)"
+    if why == "range":
+        return "гриф вышел из участка повторений"
+    return "проба завершена досрочно"
+
+
+def _reps(ctx: Context, frame: Frame, trainer: Trainer, load_n: float, *, low: float, high: float, speed_mm_s: float, seconds: float, note: str, progress: float, rows: list[Row], overspeed_damping: float = 0.0) -> Gen:
     mass, residual = expected(ctx, load_n, speed_mm_s=speed_mm_s, profile=trainer.core.profile, inertia=trainer.core.inertia_override)
     residual_down = expected_down(ctx, load_n, speed_mm_s=speed_mm_s, profile=trainer.core.profile)
-    user = rep_user(load_n, low, high, speed_mm_s, gain=user_gain(ctx, mass), feed_n=residual, feed_down_n=residual_down)
+    down_load = load_n * trainer.load.beta if trainer.load.mode == "eccentric" else None
+    breakaway = mean([float(ctx.profile.side(side).stribeck_extra_n.value or 0.0) for side in SIDES])
+    user = rep_user(load_n, low, high, speed_mm_s, gain=user_gain(ctx, mass), feed_n=residual, feed_down_n=residual_down,
+                    down_load_n=down_load, breakaway_n=breakaway, overspeed_damping=overspeed_damping)
     return (yield from drive(trainer, frame, user, seconds=seconds, note=note, progress=progress, rows=rows, x_range=(low - 60.0, high + 60.0), speed_cap=FEEL_SPEED_MM_S - 10))
 
 
@@ -412,11 +430,11 @@ def fit_reversal_blend(data: dict[str, Any], _ctx: Context) -> Outcome:
     runs = data["runs"]
     valid = [r for r in runs if r["why"] == "time" and r["turns"] >= 2 and r["stick_s"] is not None and r["chatter"] == 0]
     report = [
-        line(f"Сглаживание {r['blend']:g} мм/с", "прервано" if r["why"] != "time" else f"разворотов {r['turns']}, залипание {1000 * (r['stick_s'] or 0):.0f} мс, дрожание {r['chatter']}, скорость изменения силы до {r['jerk_n_s']} Н/с", r in valid)
+        line(f"Сглаживание {r['blend']:g} мм/с", _rep_stop(r["why"]) if r["why"] != "time" else f"разворотов {r['turns']}, залипание {1000 * (r['stick_s'] or 0):.0f} мс, дрожание {r['chatter']}, скорость изменения силы до {r['jerk_n_s']} Н/с", r in valid)
         for r in runs
     ]
     if not valid:
-        return Outcome(report=report, error="на всех значениях гриф дрожит на развороте: повторите V3 и W1")
+        return Outcome(report=report, data={"runs": runs}, error="Не получена устойчивая серия разворотов. Сверьте причины остановки в протоколе, затем проверьте измерение скорости и трение при трогании")
     best = min(valid, key=lambda r: (round(r["stick_s"], 2), -r["blend"]))
     report.append(line("Выбрано", f"{best['blend']:g} мм/с: залипание на развороте {1000 * best['stick_s']:.0f} мс без дрожания"))
     return Outcome(report=report, machine={"feel_blend_mm_s": (best["blend"], None)}, data={"runs": runs})
@@ -457,11 +475,12 @@ def fit_phase(data: dict[str, Any], _ctx: Context) -> Outcome:
     runs = data["runs"]
     valid = [r for r in runs if r["why"] == "time" and r["turns"] >= 2 and r["flips"] <= r["turns"] and r["transit_s"] is not None]
     report = [
-        line(f"Гистерезис {r['hysteresis']:g} мм/с", "прервано" if r["why"] != "time" else f"разворотов {r['turns']}, смен фазы {r['flips']}, переход {1000 * (r['transit_s'] or 0):.0f} мс", r in valid)
+        line(f"Гистерезис {r['hysteresis']:g} мм/с", _rep_stop(r["why"]) if r["why"] != "time" else f"разворотов {r['turns']}, смен фазы {r['flips']}, переход {1000 * (r['transit_s'] or 0):.0f} мс", r in valid)
         for r in runs
     ]
     if not valid:
-        return Outcome(report=report, error="фаза мигает на развороте при любом гистерезисе: проверьте шум скорости (V1, V2)")
+        reason = "Повторения вышли за измерительное окно. Проверьте графики скорости и хода, затем замеры трения и инерции" if all(r["why"] != "time" for r in runs) else "Не удалось различить фазы на разворотах. Проверьте измерение скорости и задержку отклика"
+        return Outcome(report=report, data={"runs": runs}, error=reason)
     best = min(valid, key=lambda r: r["hysteresis"])
     blend = round(max(0.08, min(0.4, 1.5 * best["transit_s"])), 2)
     report.append(line("Выбрано", f"гистерезис {best['hysteresis']:g} мм/с, переход нагрузки {1000 * blend:.0f} мс (1,5 × время разворота)"))
@@ -768,25 +787,69 @@ def fit_cushions(data: dict[str, Any], _ctx: Context) -> Outcome:
 # ---------------------------------------------------------------- F11
 def release_test(ctx: Context) -> Procedure:
     balance = ctx.balance
-    # just above the static friction: a let-go bar must move (a lighter one stays put — harmless, nothing to
-    # detect), but slowly enough to see the estimate for several frames
-    load = mean([balance.coulomb_down[side] for side in SIDES]) + 15.0
     frame = yield Command(None, note="старт", progress=0.0)
-    frame = yield from recenter(balance, frame, 200.0, 0.05)
-    trainer = Trainer(ctx, load=LoadSetpoint(load_n=load), inertia=0.0)
-    held: list[Row] = []
-    frame, why = yield from _reps(ctx, frame, trainer, load, low=170.0, high=250.0, speed_mm_s=40.0, seconds=8.0, note="пользователь делает повторения", progress=0.3, rows=held)
-    if why != "time":
-        raise ProcedureError("повторения прервались: проверьте F2/F4")
-    mass, _residual = expected(ctx, load, inertia=0.0)
-    gain = user_gain(ctx, mass)
-    frame, _ = yield from drive(trainer, frame, lambda f: load + max(-40.0, min(40.0, -gain * f.v_mean)), seconds=1.5, note="пользователь держит гриф", progress=0.5, rows=held)
-    released: list[Row] = []
-    frame, _ = yield from drive(trainer, frame, lambda _f: 0.0, seconds=0.8, note="пользователь отпустил гриф", progress=0.7, rows=released,
-                                until=lambda f: f.v_mean < -140.0 or f.x_mean < 110.0)
-    frame = yield from _end(balance, frame, 0.8)
+    light = kgf_to_n(3.0)  # the first load used for the hand check
+    heavy = max(light, mean([balance.coulomb_down[side] for side in SIDES]) + 15.0)
+    trials = []
+    for index, load in enumerate((light, heavy)):
+        start = index * 0.45
+        label = f"{2 * n_to_kgf(load):.1f} кг"
+        frame = yield from recenter(balance, frame, 130.0, start + 0.03)
+        trainer = Trainer(ctx, load=LoadSetpoint(load_n=load))
+        origin, begin = frame.x_mean, frame.t
+        held: list[Row] = []
+        # Two complete eight-second reps with the calibrated training inertia. A compliant hand
+        # decelerates before changing direction, including the brief unloading at real turnarounds.
+        def held_rep(f: Frame, origin: float = origin, begin: float = begin, load: float = load) -> float:
+            omega = math.pi / 4
+            angle = (f.t - begin) * omega
+            position = origin + 78 * (1 - math.cos(angle))
+            velocity = 78 * omega * math.sin(angle)
+            correction = 2.0 * (position - f.x_mean) + 0.6 * (velocity - f.v_mean)
+            return load + max(-80.0, min(80.0, correction))
+
+        frame, why = yield from drive(trainer, frame, held_rep, seconds=16.0, note=f"{label} · два повторения с разворотом",
+                                      progress=start + 0.12, rows=held, x_range=(85.0, 310.0), speed_cap=150.0)
+        if why != "time":
+            raise ProcedureError(f"{label}: {_rep_stop(why)}. Проверьте настройку трения и инерции")
+        stroke = max(row.x for row in held) - min(row.x for row in held)
+        if len(reversals(held)) < 2 or stroke < 120.0:
+            raise ProcedureError(f"{label}: получен ход {stroke:.0f} мм. Для оценки захвата нужны повторения с разворотами и ходом хотя бы 120 мм")
+        mass, _ = expected(ctx, load)
+        gain = user_gain(ctx, mass)
+        frame, _ = yield from drive(trainer, frame, lambda f, load=load, gain=gain: load + max(-40.0, min(40.0, -gain * f.v_mean)), seconds=1.5, note=f"{label} · удержание", progress=start + 0.27, rows=held)
+        # Static friction can hold a light, released bar. Test the light load on a controlled
+        # descent and the heavier load during a lift, after the hand estimate has settled.
+        direction = -1 if index == 0 else 1
+        speed = 45.0
+        frame = yield from recenter(balance, frame, 220.0 if direction < 0 else 150.0, start + 0.30)
+        frame = yield from handoff(balance, frame, direction, speed, note=f"{label} · движение перед отпусканием", progress=start + 0.31)
+        trainer = Trainer(ctx, load=LoadSetpoint(load_n=load), inertia=0.0)
+        _, friction_up = expected(ctx, load, speed_mm_s=speed, inertia=0.0)
+        friction = friction_up if direction > 0 else expected_down(ctx, load, speed_mm_s=speed)
+        steady_grip: list[Row] = []
+        def moving_hand(f: Frame, feed: float = load + direction * friction, target: float = direction * speed, gain: float = gain) -> float:
+            return feed + gain * (target - f.v_mean)
+
+        frame, why = yield from drive(trainer, frame, moving_hand, seconds=0.55, note=f"{label} · удержание в движении",
+                                      progress=start + 0.32, rows=steady_grip, x_range=(110.0, 290.0), speed_cap=130.0)
+        if why != "time" or min(direction * frame.v(s) for s in SIDES) < 10.0:
+            raise ProcedureError(f"{label}: не установилось движение обеих кареток перед отпусканием. Проверьте трогание и согласованность сторон")
+        def release_probe(f: Frame, trainer: Trainer = trainer, load: float = load) -> float:
+            # The hand is absent. Ease the drive's virtual load as the faster carriage descends
+            # from 25 to 80 mm/s. The observer knows the actual load command throughout the catch trial.
+            speed = min(f.v(s) for s in SIDES)
+            trainer.set_load(LoadSetpoint(load_n=load * max(0.0, min(1.0, (80.0 + speed) / 55.0))))
+            return 0.0
+
+        released: list[Row] = []
+        frame, _ = yield from drive(trainer, frame, release_probe, seconds=0.8, note=f"{label} · отпускание с ограничением скорости спуска", progress=start + 0.35, rows=released,
+                                    until=lambda f: min(f.v(s) for s in SIDES) < -140.0 or min(f.x(s) for s in SIDES) < 110.0)
+        trials.append({"held": [(r.t, r.user) for r in held], "moving": [(r.t, r.user) for r in steady_grip[2:]],
+                       "released": [(r.t, r.user) for r in released], "load_n": load})
+        frame = yield from _end(balance, frame, start + 0.41)
     yield from land(balance, frame, progress=0.95)
-    return {"held": [(r.t, r.user) for r in held], "released": [(r.t, r.user) for r in released], "load_n": load, "period_s": float(ctx.profile.loop_period_s.value or 0.04)}
+    return {"trials": trials, "period_s": float(ctx.profile.loop_period_s.value or 0.04)}
 
 
 def _percentile(values: list[float], share: float) -> float:
@@ -794,28 +857,48 @@ def _percentile(values: list[float], share: float) -> float:
     return ordered[min(len(ordered) - 1, max(0, int(share * (len(ordered) - 1))))]
 
 
+def _below_threshold(trace: list, threshold: float, period: float) -> list[tuple[float, float]]:
+    """Replay the production debounce on consecutive feedback frames, ignoring gaps in telemetry."""
+    elapsed = 0.0
+    windows = []
+    for (previous, _), (t, force) in zip(trace, trace[1:], strict=False):
+        dt = t - previous
+        elapsed = elapsed + dt if force < threshold and 0 < dt <= 2.5 * period else 0.0
+        windows.append((t - trace[0][0], elapsed))
+    return windows
+
+
 def fit_release(data: dict[str, Any], _ctx: Context) -> Outcome:
-    held = [u for _t, u in data["held"]]
-    released = [u for _t, u in data["released"][1:]]  # the bus delay: the first frame still shows the hand
-    if len(held) < 20 or len(released) < 3:
-        raise ProcedureError("мало кадров для сравнения")
-    held_low, released_high = _percentile(held, 0.1), _percentile(released, 0.9)
-    report = [
-        line("Усилие по оценке, пока гриф держат", f"от {held_low:.0f} Н (10 %) при нагрузке {data['load_n']:.0f} Н"),
-        line("Усилие после отпускания", f"до {released_high:.0f} Н (90 %)"),
-    ]
-    if held_low - released_high < 5.0:
-        return Outcome(report=report, error="оценка усилия не различает «держит» и «отпустил»: проверьте S3, D4 и V2")
-    threshold = (held_low + released_high) / 2
-    longest, run, previous = 0.0, 0.0, None
-    for t, u in data["held"]:
-        run = run + (t - previous) if previous is not None and u < threshold else 0.0
-        longest, previous = max(longest, run), t
-    timeout = round(max(0.2, longest + 2 * data["period_s"]), 2)
-    detect = next((t - data["released"][0][0] for t, u in data["released"][1:] if u < threshold), None)
-    report.append(line("Порог отпускания", f"{threshold:.0f} Н, держать {1000 * timeout:.0f} мс (самый долгий провал при удержании {1000 * longest:.0f} мс)"))
-    report.append(line("Отпускание замечено через", f"{1000 * (detect + timeout):.0f} мс" if detect is not None else "не замечено за 0,8 с", detect is not None))
-    return Outcome(report=report, machine={"feel_release_force_n": (round(threshold, 1), None), "feel_release_timeout_s": (timeout, None)}, data={"held_low": held_low, "released_high": released_high})
+    trials, period = data["trials"], data["period_s"]
+    held_bounds, released_bounds, report = [], [], []
+    for trial in trials:
+        if len(trial["held"]) < 20 or len(trial["moving"]) < 4 or len(trial["released"]) < 4:
+            return Outcome(report=report, error="Недостаточно кадров удержания и отпускания. Проверьте задержку шины и повторите замер")
+        held_bounds.append(min(_percentile([v for _, v in trial[part]], 0.1) for part in ("held", "moving")))
+        released_bounds.append(_percentile([v for _, v in trial["released"][1:]], 0.9))
+        report.append(line(f"{2 * n_to_kgf(trial['load_n']):.1f} кг · оценка усилия руки", f"при удержании от {held_bounds[-1]:.0f} Н (10 %), после отпускания до {released_bounds[-1]:.0f} Н (90 %)"))
+    held_low, released_high = min(held_bounds), max(released_bounds)
+    # A brief reading at a reversal is not a release. Find a contiguous band of thresholds for which
+    # replay catches both releases and none of the held samples for the full debounce time.
+    bands: list[list[tuple[int, float, list[float]]]] = [[]]
+    for candidate in range(5, min(300, int(held_low)) + 1):
+        longest = max(elapsed for trial in trials for part in ("held", "moving") for _, elapsed in _below_threshold(trial[part], candidate, period))
+        delay = round(max(0.2, longest + 2 * period), 2)
+        times = [next((t for t, elapsed in _below_threshold(trial["released"], candidate, period) if elapsed + 1e-8 >= delay), None) for trial in trials]
+        if all(t is not None for t in times):
+            bands[-1].append((candidate, delay, times))
+        elif bands[-1]:
+            bands.append([])
+    valid = max(bands, key=len)
+    if len(valid) < 6:
+        report.append(line("Различение удержания и отпускания", "нет общего диапазона порогов с запасом 5 Н", False))
+        return Outcome(report=report, error="Запись не различает удержание и отпускание на обеих нагрузках. Проверьте трение, рабочую массу и задержку, затем повторите замер")
+    threshold, timeout, times = valid[len(valid) // 2]
+    report.append(line("Порог отпускания", f"{threshold:g} Н в течение {1000 * timeout:.0f} мс"))
+    for trial, detected in zip(trials, times, strict=True):
+        report.append(line(f"{2 * n_to_kgf(trial['load_n']):.1f} кг · подтверждение захвата по записи",
+                           f"через {1000 * detected:.0f} мс", True))
+    return Outcome(report=report, machine={"feel_release_force_n": (threshold, None), "feel_release_timeout_s": (timeout, None)}, data={"held_low": held_low, "released_high": released_high})
 
 
 # ---------------------------------------------------------------- X4
@@ -836,26 +919,33 @@ def sync_train(ctx: Context, shares: tuple[float, ...] = X4_SHARES, *, speed_mm_
         rows: list[Row] = []
         frame, why = yield from _reps(ctx, frame, trainer, load, low=140.0, high=320.0, speed_mm_s=speed_mm_s, seconds=8.0, note=f"синхронизация в упражнении k = {k:g} Н/мм", progress=progress, rows=rows)
         frame = yield from _end(balance, frame, progress)
-        skews = [r.skew for r in rows if abs(r.v) > 10.0]
+        moving = [(r.v, r.skew) for r in rows if abs(r.v) > 10.0 and r.skew is not None]
+        skews = [skew for _, skew in moving]
         centre = mean(skews)
         runs.append({
             "k": k, "why": why,
-            "rms_mm": round((sum((s - centre) ** 2 for s in skews) / len(skews)) ** 0.5, 3) if skews else None,
+            "upSamples": sum(v > 0 for v, _ in moving), "downSamples": sum(v < 0 for v, _ in moving),
+            "rms_mm": round((sum(s ** 2 for s in skews) / len(skews)) ** 0.5, 3) if skews else None,
             "max_mm": round(max((abs(s) for s in skews), default=0.0), 2),
-            "swings": sign_changes([s - centre for s in skews], 0.3),
+            "swings": sign_changes([s - centre for s in skews], max(0.3, 0.2 * ctx.safety.sync_warning_mm)),
         })
     yield from land(balance, frame, progress=0.95)
     return {"runs": runs, "coupling": coupling}
 
 
 def fit_sync_train(data: dict[str, Any], _ctx: Context) -> Outcome:
-    runs = [r for r in data["runs"] if r["rms_mm"] is not None and r["why"] == "time"]
-    if not runs:
-        raise ProcedureError("повторения прервались: проверьте X3 и F2")
-    best_rms = min(r["rms_mm"] for r in runs)
-    calm = [r for r in runs if r["swings"] <= max(4, min(x["swings"] for x in runs) + 2)]
-    best = min((r for r in calm if r["rms_mm"] <= 1.1 * best_rms + 0.05), key=lambda r: r["k"], default=runs[0])
-    report = [line(f"k = {r['k']:g} Н/мм", f"перекос СКО {r['rms_mm']:.2f} мм, макс {r['max_mm']:.2f} мм, колебаний {r['swings']}", r is best or None) for r in runs]
+    runs = data["runs"]
+    usable = [r for r in runs if r["why"] == "time" and min(r["upSamples"], r["downSamples"]) >= 4
+              and r["max_mm"] < _ctx.safety.sync_warning_mm and r["swings"] <= 4]
+    report = []
+    for r in runs:
+        skew = f"СКО {r['rms_mm']:.2f} мм, пик {r['max_mm']:.2f} мм" if r["rms_mm"] is not None else "нет парных кадров"
+        detail = f"{skew}, колебаний {r['swings']}, кадров вверх / вниз {r['upSamples']} / {r['downSamples']}"
+        report.append(line(f"k = {r['k']:g} Н/мм", detail if r["why"] == "time" else f"{detail}, {_rep_stop(r['why'])}", r in usable))
+    if not usable:
+        return Outcome(report=report, data=data, error="Синхронизация в упражнении вне допуска. Проверьте ноль B7, направляющие и X3.")
+    best_rms = min(r["rms_mm"] for r in usable)
+    best = min((r for r in usable if r["rms_mm"] <= 1.1 * best_rms + 0.05), key=lambda r: r["k"])
     report.append(line("Выбрано для тренировки", f"{best['k']:g} Н/мм ({100 * best['k'] / data['coupling']:.0f} % жёсткости грифа)"))
     return Outcome(report=report, machine={"sync_k_train_n_per_mm": (best["k"], None)}, data={"runs": data["runs"]})
 
@@ -867,6 +957,9 @@ TURN_STICK_S = 0.2
 
 def feel_check(ctx: Context) -> Procedure:
     balance = ctx.balance
+    # Bound the virtual hand's additional damping by the moving mass and measured loop delay.
+    mass = min(balance.mass_kg.values())
+    catch_gain = min(0.4, 3 * user_gain(ctx, mass))
     frame = yield Command(None, note="старт", progress=0.0)
     items = []
     for index, load in enumerate(G2_LOADS_KGF):
@@ -876,7 +969,8 @@ def feel_check(ctx: Context) -> Procedure:
         load_n = kgf_to_n(load)
         trainer = Trainer(ctx, load=LoadSetpoint(load_n=load_n))
         rows: list[Row] = []
-        frame, why = yield from _reps(ctx, frame, trainer, load_n, low=150.0, high=260.0, speed_mm_s=80.0, seconds=8.0, note=f"проверка {2 * load:g} кг: повторения", progress=progress, rows=rows)
+        frame, why = yield from _reps(ctx, frame, trainer, load_n, low=150.0, high=260.0, speed_mm_s=80.0, seconds=8.0,
+                                      note=f"проверка {2 * load:g} кг: повторения", progress=progress, rows=rows, overspeed_damping=catch_gain)
         frame = yield from _end(balance, frame, progress)
         items.append({**item, "turns": _turns(rows), "reps_why": why})
     yield from land(balance, frame, progress=0.95)
@@ -898,13 +992,19 @@ def fit_feel_check(data: dict[str, Any], ctx: Context) -> Outcome:
         mass_ok = felt["mass_kg"] <= max(machine, virtual) * MASS_TOLERANCE
         friction_ok = abs(felt["residual_n"]) <= max(kgf_to_n(2.0), 0.1 * item["load_n"])
         turns = item["turns"]
-        turn_ok = item["reps_why"] == "time" and turns["chatter"] == 0 and (turns["stick_s"] or 0.0) <= TURN_STICK_S
+        stick = turns["stick_s"]
+        turn_ok = item["reps_why"] == "time" and turns["turns"] >= 2 and turns["chatter"] == 0 and stick is not None and stick <= TURN_STICK_S
         report.append(line(f"{label}: инерция", f"ощущается {felt['mass_kg']:.0f} кг на сторону: у свободного веса {virtual:g}, у машины без компенсации {machine:.0f}", mass_ok))
         report.append(line(f"{label}: лишнее трение", f"{felt['residual_n']:+.0f} Н ({n_to_kgf(felt['residual_n']):+.1f} кгс)", friction_ok))
-        report.append(line(f"{label}: разворот", f"залипание {1000 * (turns['stick_s'] or 0):.0f} мс, дрожание {turns['chatter']}", turn_ok))
+        detail = f"разворотов {turns['turns']}, дрожание {turns['chatter']}"
+        if stick is not None:
+            detail += f", залипание {1000 * stick:.0f} мс"
+        if item["reps_why"] != "time":
+            detail += f", {_rep_stop(item['reps_why'])}"
+        report.append(line(f"{label}: разворот", detail, turn_ok))
         if not (mass_ok and friction_ok and turn_ok):
             failed.append(label)
-    return Outcome(report=report, data={"items": data["items"]}, error=f"не как свободный вес: {', '.join(failed)} — повторите F2 / F3 / F4" if failed else None)
+    return Outcome(report=report, data={"items": data["items"]}, error=f"Отклик вне допуска при нагрузке {', '.join(failed)}. Проверьте отмеченные измерения, затем повторите настройку ощущения Смита" if failed else None)
 
 
 def _envelope(top: float, speed: float = FEEL_SPEED_MM_S) -> ProcedureEnvelope:
@@ -914,7 +1014,7 @@ def _envelope(top: float, speed: float = FEEL_SPEED_MM_S) -> ProcedureEnvelope:
 SPECS = {
     "F1": (lambda ctx: (inertia_limit(ctx), _envelope(400.0, 120.0)), fit_inertia_limit),
     "F2": (lambda ctx: (inertia_by_load(ctx), _envelope(320.0)), fit_inertia_by_load),
-    "F3": (lambda ctx: (friction_speed(ctx), _envelope(ctx.top_mm + 60.0, 230.0)), fit_friction_speed),
+    "F3": (lambda ctx: (friction_speed(ctx), _envelope((ctx.working_window[1] if ctx.working_window else ctx.top_mm) + 60.0, 230.0)), fit_friction_speed),
     "F4": (lambda ctx: (reversal_blend(ctx), _envelope(340.0)), fit_reversal_blend),
     "F5": (lambda ctx: (phase_tuning(ctx), _envelope(340.0)), fit_phase),
     "F6": (lambda ctx: (soft_breakaway(ctx), _envelope(320.0, 220.0)), fit_soft_breakaway),

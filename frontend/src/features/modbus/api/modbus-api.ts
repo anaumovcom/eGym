@@ -98,7 +98,7 @@ export async function writeModbusRegister(address: number, value: number, slaveI
 }
 
 export async function fetchModbusDiagnostics(slaveId?: number): Promise<DriverDiagnostics> {
-  const raw = await apiGet<Record<string, unknown>>(`/api/modbus/diagnostics${slaveId != null ? `?slave_id=${slaveId}` : ''}`)
+  const raw = await apiGet<Record<string, unknown>>(`/api/modbus/diagnostics?cached=true${slaveId != null ? `&slave_id=${slaveId}` : ''}`)
   return mapDiagnostics(raw)
 }
 
@@ -180,10 +180,13 @@ export async function stopModbusTorque(): Promise<ModbusTorqueInitResult> {
 }
 
 export async function fetchModbusTorqueTelemetry(slaveId: number): Promise<ModbusTorqueTelemetry> {
-  const raw = await apiGet<Record<string, unknown>>(`/api/modbus/torque/telemetry?slave_id=${slaveId}`)
+  const raw = await apiGet<Record<string, unknown>>(`/api/modbus/torque/telemetry?slave_id=${slaveId}&cached=true`)
   const num = (value: unknown) => (typeof value === 'number' ? value : null)
   return {
     slaveId: raw.slave_id as number,
+    readAt: (raw.read_at as string | null) ?? null,
+    feedbackPosition: num(raw.feedback_position),
+    positionError: num(raw.position_error),
     positionMm: num(raw.position_mm),
     commandSpeedRpm: num(raw.command_speed_rpm),
     feedbackSpeedRpm: num(raw.feedback_speed_rpm),
@@ -209,6 +212,7 @@ function mapStatus(r: Record<string, unknown>): ModbusConnectionStatus {
     parity: (r.parity as string | null) ?? null,
     slaveId: (r.slave_id as number | null) ?? null,
     rightSlaveId: (r.right_slave_id as number | null) ?? null,
+    timeoutMs: (r.timeout_ms as number | null) ?? null,
     lastSuccessAt: (r.last_success_at as string | null) ?? null,
     okCount: (r.ok_count as number) ?? 0,
     errorCount: (r.error_count as number) ?? 0,
@@ -256,7 +260,7 @@ function mapDiagnostics(r: Record<string, unknown>): DriverDiagnostics {
     controlMode: (r.control_mode as number | null) ?? null,
     extendedMode: (r.extended_mode as number | null) ?? null,
     alarmCode: (r.alarm_code as number | null) ?? null,
-    hasAlarm: (r.has_alarm as boolean) ?? false,
+    hasAlarm: typeof r.has_alarm === 'boolean' ? r.has_alarm : null,
     motionSafe: (r.motion_safe as boolean) ?? false,
     statusSummary: (r.status_summary as string) ?? '',
     checkedAt: (r.checked_at as string | null) ?? null,

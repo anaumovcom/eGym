@@ -1,0 +1,52 @@
+html[data-forma-theme='broadcast-blue'] .catalog-preview-media {
+  background: radial-gradient(ellipse at top left, #2878f020, transparent 62%), #0a141d;
+  border-color: #9dd4ff24;
+}
+.catalog-add-kicker, .catalog-workout-icon, .catalog-workout-arrow { display: none; }
+
+html[data-forma-theme='broadcast-blue'] .catalog-discovery { gap: .85rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-page-heading { padding: .2rem 0 .4rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-page-heading h1 { font-size: clamp(1.7rem, 3.2vw, 3.15rem); letter-spacing: -.04em; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-library-mark { display: none; }
+html[data-forma-theme='broadcast-blue'] .catalog-search-row .discovery-toolbar { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .65rem 1rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-search-row .discovery-search { min-height: 3.25rem; border-radius: 999px; background: var(--broadcast-surface-raised); }
+html[data-forma-theme='broadcast-blue'] .catalog-search-row .discovery-search input { min-height: 3.25rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-search-row .discovery-search-hint { display: none; }
+html[data-forma-theme='broadcast-blue'] .catalog-search-row .discovery-toolbar-bottom { display: contents; }
+html[data-forma-theme='broadcast-blue'] .catalog-search-row .discovery-tabs { border-radius: 999px; background: var(--broadcast-surface); }
+html[data-forma-theme='broadcast-blue'] .catalog-search-row .discovery-tabs button { border-radius: 999px; }
+html[data-forma-theme='broadcast-blue'] .catalog-search-row .discovery-tabs button[aria-pressed='true'] { background: var(--broadcast-accent-pressed); color: white; }
+html[data-forma-theme='broadcast-blue'] .catalog-search-row .discovery-count { grid-column: 1 / -1; padding-inline: .25rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-layout { grid-template-columns: clamp(12.25rem, 18vw, 17rem) minmax(0, 1fr); gap: 1rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-filters { border-color: var(--broadcast-border); background: var(--broadcast-surface); border-radius: 1rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-filter-body { padding: .75rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-filter-section { padding: .45rem 0; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-options { display: grid; grid-template-columns: minmax(0, 1fr); gap: .1rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-option { position: relative; justify-content: start; min-height: 2.75rem; padding-inline: 2.05rem .4rem; border-color: transparent; background: none; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-option::before { position: absolute; left: .5rem; width: 1rem; height: 1rem; border: 1px solid var(--broadcast-accent-border); border-radius: .25rem; content: ''; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-option[aria-pressed='true']::before { background: var(--broadcast-accent-pressed); border-color: var(--broadcast-accent); }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-option svg { position: absolute; left: .57rem; color: #fff; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-option:hover { background: var(--broadcast-accent-soft); }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr)); gap: .85rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-card { padding: .55rem; border-radius: 1rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-card > :first-child { border: 0; border-radius: .65rem; background: var(--broadcast-surface-raised); }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-card > :first-child > div { background: var(--broadcast-surface-raised); }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-card .catalog-card-body { padding: .35rem .4rem .6rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-card .catalog-card-body h3 { font-size: clamp(1rem, 1.25vw, 1.35rem); line-height: 1.2; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-card-muscles { font-size: .8rem; color: var(--broadcast-accent-strong); }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-card-favorite { background: color-mix(in srgb, var(--broadcast-surface) 90%, transparent); }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-card-favorite[aria-pressed='true'] > svg { fill: var(--broadcast-accent-light); color: var(--broadcast-accent-light); }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-card-open:focus-visible { outline-offset: -3px; }
+html[data-forma-theme='broadcast-blue'] .catalog-discovery .catalog-more .forma-button { min-width: min(100%, 18rem); border-color: var(--broadcast-accent-border); border-radius: 999px; }
+html[data-forma-theme='broadcast-blue'] .catalog-add-dialog { border-color: var(--broadcast-border); background: var(--broadcast-surface); }
+html[data-forma-theme='broadcast-blue'] .catalog-add-dialog .catalog-add-kicker { display: flex; align-items: center; gap: .45rem; margin-bottom: .6rem; color: var(--broadcast-accent-light); font-size: .72rem; font-weight: 750; letter-spacing: .1em; }
+html[data-forma-theme='broadcast-blue'] .catalog-add-kicker svg { width: 1rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-add-dialog .builder-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: .75rem; padding: .75rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-add-dialog .catalog-workout-icon { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border-radius: .6rem; background: var(--broadcast-accent-soft); color: var(--broadcast-accent-light); }
+html[data-forma-theme='broadcast-blue'] .catalog-workout-icon svg { width: 1.25rem; }
+html[data-forma-theme='broadcast-blue'] .catalog-add-dialog .catalog-workout-arrow { display: block; width: 1.05rem; color: var(--broadcast-accent-light); }
+html[data-forma-theme='broadcast-blue'] .catalog-add-dialog .builder-dialog-actions { padding-top: .85rem; border-top: 1px solid var(--broadcast-border); }
+@media (max-width: 800px) {
+  html[data-forma-theme='broadcast-blue'] .catalog-discovery .discovery-layout,
+  html[data-forma-theme='broadcast-blue'] .catalog-search-row .discovery-toolbar { grid-template-columns: minmax(0, 1fr); }
+}

@@ -1,4 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog'
+import './rest-broadcast.css'
 import { AlertTriangle, ArrowRight, Check, CheckCircle2, Pause, Play, Plus, Repeat2, Square } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -152,6 +153,9 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
         }
         await runCommand({
           action: setup.setupType === 'fixed_position' ? 'start_fixed_position' : 'start_motion',
+          workoutRunId: activeSession.id,
+          workoutExerciseId: nextExercisePlan.id,
+          warmup: upcomingPlan?.setType === 'warmup',
           userId: selectedUserId,
           exerciseSlug: nextExercisePlan.slug,
           calibrationRequired: true,
@@ -199,7 +203,7 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
         setEmergencyStopActive(true)
       }}
     >
-      <div className="rt-screen rt-rest">
+      <div className="rt-screen rt-rest" data-side-change={isSideChange}>
         <header className="rt-rest-header">
           <div className="rt-title">
             <h1 className="font-display font-bold tracking-[-0.04em] text-white">{rest.title}</h1>
@@ -207,12 +211,9 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
           </div>
           <div className="rt-rest-workout" aria-label="Место в тренировке">
             <span>Упражнение {currentExercise.order} из {activeSession.exercises.length} · Выполнено {completedCount} из {totalCount} подходов{currentExercise.perSide ? ' по сторонам' : ''}</span>
-            <div className="rt-chips">
-              {activeSession.exercises.length > 1 ? <WorkoutNavigator session={activeSession} disabled={startingNextStep} onOpenChange={setNavigatorOpen} /> : null}
-              <Button variant="ghost" disabled={startingNextStep} iconLeft={<Square aria-hidden="true" />} onClick={() => setFinishDialogOpen(true)}>
-                Завершить тренировку
-              </Button>
-            </div>
+            {activeSession.exercises.length > 1 ? <div className="rt-chips">
+              <WorkoutNavigator session={activeSession} disabled={startingNextStep} onOpenChange={setNavigatorOpen} />
+            </div> : null}
           </div>
         </header>
 
@@ -245,7 +246,7 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
             <section className="rt-rest-next" aria-label="Следующее действие">
               <span className="rt-rest-eyebrow">{isSideChange ? 'Смена стороны' : hasNextSet ? 'Следующий подход' : 'Следующее упражнение'}</span>
               <h2>{nextTitle}</h2>
-              <p className="rt-rest-set-label">{nextSetLabel}{upcomingPlan?.setType === 'warmup' ? ' · Разминка' : ''}</p>
+              <p className="rt-rest-set-label"><span>{nextSetLabel}</span>{upcomingPlan?.setType === 'warmup' ? ' · Разминка' : ''}</p>
               <div className="rt-rest-target">
                 <div><span>Цель</span><strong>{nextTarget}</strong></div>
                 {nextExercisePlan?.kind === 'machine' && nextWeight != null ? <div><span>Нагрузка</span><strong>{nextWeight} кг</strong></div> : null}
@@ -283,8 +284,11 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
         </div>
 
         <footer className="rt-rest-actions" role="group" aria-label="Действия во время отдыха">
+          <Button variant="secondary" disabled={startingNextStep} iconLeft={<Square aria-hidden="true" />} onClick={() => setFinishDialogOpen(true)}>
+            Завершить тренировку
+          </Button>
           <p>{isSideChange ? 'Сначала удобно расположитесь на другой стороне.' : 'Нужно больше времени? Добавьте 30 секунд или поставьте таймер на паузу.'}</p>
-          <Button disabled={startingNextStep || interactionBlocked} onClick={() => void handleBeginNextStep()}>
+          <Button className="rt-rest-start" disabled={startingNextStep || interactionBlocked} onClick={() => void handleBeginNextStep()}>
             {startLabel}<ArrowRight aria-hidden="true" />
           </Button>
         </footer>
@@ -293,7 +297,7 @@ function RestView({ session, rest }: { session: RuntimeWorkoutSession; rest: Run
       <Dialog.Root open={finishDialogOpen} onOpenChange={setFinishDialogOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="builder-dialog">
+          <SafetyDialogContent className="builder-dialog rt-rest-confirm">
             <Dialog.Title className="font-display text-3xl font-bold">Завершить тренировку сейчас?</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-white/70">Выполненные подходы сохранятся, оставшиеся упражнения останутся незавершёнными.</Dialog.Description>
             <div className="builder-dialog-actions">

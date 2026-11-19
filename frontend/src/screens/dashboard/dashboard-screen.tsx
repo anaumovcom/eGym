@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Check, Clock3, Flame, Layers, ListChecks, Play, Plus, RotateCcw } from 'lucide-react'
+import { ArrowRight, Check, Clock3, Dumbbell, Flame, Layers, ListChecks, Play, Plus, RotateCcw } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { DashboardBuilderWorkout, DashboardData } from '@/entities/dashboard/model/types'
@@ -21,9 +21,10 @@ import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-componen
 import { useAppStore } from '@/stores/app-store'
 import { useHardwareStore } from '@/stores/hardware-store'
 import { getNextPendingExercise, useRuntimeStore } from '@/stores/runtime-store'
-import { HomeRecovery } from '@/screens/dashboard/home-recovery'
+import { DashboardRecovery, HomeRecovery } from '@/screens/dashboard/home-recovery'
 import { WorkoutMuscleLoad } from '@/screens/dashboard/workout-muscle-load'
 import './workout-dialog.css'
+import './dashboard-broadcast.css'
 
 export type DashboardViewProps = {
   data: DashboardData
@@ -32,6 +33,24 @@ export type DashboardViewProps = {
   onStop: () => void
   onEmergencyStopChange: (open: boolean) => void
   onReorderWorkouts?: (programIds: string[]) => void
+  RecoveryMap?: typeof DashboardRecovery
+}
+
+const equipmentIllustrations = [
+  { file: 'incline-bench', matches: /incline.*bench/ },
+  { file: 'pulldown-bar', matches: /pulldown/ },
+  { file: 'barbell', matches: /^(barbell|smith-machine)-/ },
+]
+
+function equipmentArtByWorkout(workouts: DashboardBuilderWorkout[]) {
+  // Keep each illustration with the same plan when cards are dragged into a new order.
+  const byId = [...workouts].sort((a, b) => a.id.localeCompare(b.id))
+  const art = new Map<string, string>()
+  for (const { file, matches } of equipmentIllustrations) {
+    const workout = byId.find((plan) => !art.has(plan.id) && plan.exercises.some(({ slug }) => matches.test(slug)))
+    if (workout) art.set(workout.id, `/workout-art/${file}.webp`)
+  }
+  return art
 }
 
 function canResumeWorkout(session: RuntimeWorkoutSession | null, workout: DashboardBuilderWorkout) {
@@ -50,12 +69,21 @@ function isUnfinishedWorkout(session: RuntimeWorkoutSession | null, workout: Das
     && canResumeWorkout(session, workout))
 }
 
-function UnfinishedWorkoutIndicator({ session, workout, onContinue }: { session: RuntimeWorkoutSession; workout: DashboardBuilderWorkout; onContinue: () => void }) {
+function UnfinishedWorkoutIndicator({ session, workout, todayWorkout, onContinue }: { session: RuntimeWorkoutSession; workout: DashboardBuilderWorkout; todayWorkout: DashboardData['todayWorkout']; onContinue: () => void }) {
   const summary = getWorkoutResumeSummary(session)
-  const nextLabel = summary.nextLabel ?? getNextPendingExercise(session)?.name ?? null
+  const nextExercise = summary.currentExercise ?? getNextPendingExercise(session)
+  const nextLabel = summary.nextLabel ?? nextExercise?.name ?? null
+  const poster = nextExercise?.slug === 'cardio-knee-taps' ? '/workout-art/knee-taps.webp' : undefined
+  const previewVideo = nextExercise?.details?.previewVideoUrl ?? nextExercise?.summary?.previewVideoUrl
+    ?? todayWorkout?.list.find(({ slug }) => slug === nextExercise?.slug)?.previewVideoUrl
   const percent = summary.totalSets > 0 ? Math.round((summary.doneSets / summary.totalSets) * 100) : 0
   return (
     <button type="button" className="home-resume" onClick={onContinue} aria-label={`Продолжить незавершённую тренировку «${workout.title}»${nextLabel ? `: дальше ${nextLabel}` : ''}`}>
+      <span className="home-broadcast-hero-art" data-illustrated={Boolean(poster) || undefined} aria-hidden="true">
+        <Dumbbell />
+        {poster ? <img src={poster} alt="" draggable={false} />
+          : previewVideo ? <video key={previewVideo} muted playsInline preload="metadata" src={`${previewVideo}#t=0.1`} /> : null}
+      </span>
       <span className="home-resume-icon" aria-hidden="true"><Play /></span>
       <span className="home-resume-body">
         <span className="home-resume-eyebrow">Незавершённая тренировка</span>
@@ -142,22 +170,22 @@ export function DashboardScreen() {
     )
   }
 
-  return <DashboardView key={userId} data={data} userName={userName} emergencyStopActive={emergencyStopActive} onEmergencyStopChange={setEmergencyStopActive} onStop={() => setEmergencyStopActive(true)} onReorderWorkouts={(ids) => void saveWorkoutOrder(ids)} />
+  return <DashboardView key={userId} RecoveryMap={DashboardRecovery} data={data} userName={userName} emergencyStopActive={emergencyStopActive} onEmergencyStopChange={setEmergencyStopActive} onStop={() => setEmergencyStopActive(true)} onReorderWorkouts={(ids) => void saveWorkoutOrder(ids)} />
 }
 
-export function DashboardView({ data, userName, emergencyStopActive, onStop, onEmergencyStopChange, onReorderWorkouts }: DashboardViewProps) {
+export function DashboardView({ data, userName, emergencyStopActive, onStop, onEmergencyStopChange, onReorderWorkouts, RecoveryMap = HomeRecovery }: DashboardViewProps) {
   return (
     <FormaShell userName={userName} machine={data.machine} onStop={onStop}>
       {data.alerts.map((alert) => alert.tone === 'blocked'
         ? <BlockingAlert key={alert.title} title={alert.title} description={alert.description} />
         : <WarningBanner key={alert.title} title={alert.title} description={alert.description} />)}
-      <DashboardWorkoutsSection workouts={data.workouts ?? []} muscles={data.muscles} onReorder={onReorderWorkouts} />
+      <DashboardWorkoutsSection RecoveryMap={RecoveryMap} workouts={data.workouts ?? []} muscles={data.muscles} userName={userName} todayWorkout={data.todayWorkout} onReorder={onReorderWorkouts} />
       <EmergencyStopOverlay open={emergencyStopActive} onOpenChange={onEmergencyStopChange} />
     </FormaShell>
   )
 }
 
-function DashboardWorkoutsSection({ workouts, muscles, onReorder }: { workouts: DashboardBuilderWorkout[]; muscles: DashboardData['muscles']; onReorder?: (programIds: string[]) => void }) {
+function DashboardWorkoutsSection({ workouts, muscles, userName, todayWorkout, onReorder, RecoveryMap }: { RecoveryMap: typeof DashboardRecovery; workouts: DashboardBuilderWorkout[]; muscles: DashboardData['muscles']; userName: string; todayWorkout: DashboardData['todayWorkout']; onReorder?: (programIds: string[]) => void }) {
   const navigate = useNavigate()
   const selectedUserId = useAppStore((state) => state.selectedUserId)
   const setSelectedProgramId = useAppStore((state) => state.setSelectedProgramId)
@@ -167,12 +195,14 @@ function DashboardWorkoutsSection({ workouts, muscles, onReorder }: { workouts: 
   const [restarting, setRestarting] = useState(false)
   const [restartError, setRestartError] = useState<string | null>(null)
   const selectedWorkout = workouts.find((workout) => workout.id === selectedId)
+  const showWorkoutPlan = !restartConfirm && Boolean(selectedWorkout?.exercises.length)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const confirmingRef = useRef(false)
   const resumable = selectedWorkout ? canResumeWorkout(runtimeSession, selectedWorkout) : false
   const continueAvailable = resumable
   const serverProgressOnly = !resumable && (selectedWorkout?.todayStatus === 'in_progress' || selectedWorkout?.resumeAvailable === true)
   const unfinishedWorkout = workouts.find((workout) => isUnfinishedWorkout(runtimeSession, workout, selectedUserId))
+  const equipmentArt = equipmentArtByWorkout(workouts)
 
   function handleConfirm(workout: DashboardBuilderWorkout) {
     if (!workout.exercises.length || confirmingRef.current) return
@@ -224,6 +254,7 @@ function DashboardWorkoutsSection({ workouts, muscles, onReorder }: { workouts: 
     <section className="home-workouts" aria-labelledby="home-workouts-title">
       <header className="home-heading">
         <div className="min-w-0">
+          <span className="home-broadcast-kicker">ТРЕНИРОВОЧНАЯ ПАНЕЛЬ · {userName}</span>
           <h1 id="home-workouts-title" className="font-display font-bold text-white">Какую тренировку выберете?</h1>
           {workouts.length ? <p>Нажмите на карточку, чтобы посмотреть упражнения и начать. Перетащите, чтобы изменить порядок</p> : null}
         </div>
@@ -231,55 +262,60 @@ function DashboardWorkoutsSection({ workouts, muscles, onReorder }: { workouts: 
           <Button variant="secondary" iconLeft={<Plus aria-hidden="true" />} onClick={() => navigate('/builder?create=new')}>Новая тренировка</Button>
         </div>
       </header>
-      {unfinishedWorkout && runtimeSession ? (
-        <UnfinishedWorkoutIndicator
-          session={runtimeSession}
-          workout={unfinishedWorkout}
-          onContinue={() => handleConfirm(unfinishedWorkout)}
-        />
-      ) : null}
       {workouts.length === 0 ? <p className="text-center text-white/60">Тренировки не найдены. Создайте первую и добавьте упражнения.</p> : null}
       <div className="home-workouts-layout">
-      <SortableGrid className="home-workout-grid" data-count={workouts.length} ids={workouts.map((workout) => workout.id)} onReorder={(ids) => onReorder?.(ids)}>
-        {workouts.map((workout) => {
-          const badge = workoutBadge(workout, canResumeWorkout(runtimeSession, workout))
-          const count = workout.exercises.length
-          return (
-          <SortableCard
-            key={workout.id}
-            sortableId={workout.id}
-            className="home-workout-card"
-            data-tone={badge.tone}
-            aria-label={`Выбрать тренировку «${workout.title}»`}
-            aria-haspopup="dialog"
-            onClick={(event) => {
-              triggerRef.current = event.currentTarget
-              confirmingRef.current = false
-              setRestartConfirm(false)
-              setRestartError(null)
-              setSelectedId(workout.id)
-            }}
-          >
-            <span className="home-card-badge" data-tone={badge.tone}>{badge.label}</span>
-            <span className="home-card-title">{workout.title}</span>
-            <WorkoutCardExercises exercises={workout.exercises} />
-            <span className="home-card-footer">
-              <span className="home-card-meta">
-                <span><ListChecks aria-hidden="true" />{exerciseCountLabel(count)}</span>
-                {count ? <span><Clock3 aria-hidden="true" />{shortDuration(workout.duration)}</span> : null}
+        {unfinishedWorkout && runtimeSession ? (
+          <UnfinishedWorkoutIndicator
+            session={runtimeSession}
+            workout={unfinishedWorkout}
+            todayWorkout={todayWorkout}
+            onContinue={() => handleConfirm(unfinishedWorkout)}
+          />
+        ) : null}
+        <SortableGrid className="home-workout-grid" data-count={workouts.length} ids={workouts.map((workout) => workout.id)} onReorder={(ids) => onReorder?.(ids)}>
+          {workouts.map((workout) => {
+            const badge = workoutBadge(workout, canResumeWorkout(runtimeSession, workout))
+            const count = workout.exercises.length
+            const illustration = equipmentArt.get(workout.id)
+            return (
+            <SortableCard
+              key={workout.id}
+              sortableId={workout.id}
+              className="home-workout-card"
+              data-tone={badge.tone}
+              aria-label={`Выбрать тренировку «${workout.title}»`}
+              aria-haspopup="dialog"
+              onClick={(event) => {
+                triggerRef.current = event.currentTarget
+                confirmingRef.current = false
+                setRestartConfirm(false)
+                setRestartError(null)
+                setSelectedId(workout.id)
+              }}
+            >
+              <span className="home-card-heading">
+                <span className="home-card-title">{workout.title}</span>
+                <span className="home-card-badge" data-tone={badge.tone}>{badge.label}</span>
+                {illustration ? <img className="home-card-equipment" src={illustration} alt="" draggable={false} /> : null}
               </span>
-              <span className="home-card-select">{count ? 'Начать' : 'Добавить'} <ArrowRight aria-hidden="true" /></span>
-            </span>
-          </SortableCard>
-          )
-        })}
-      </SortableGrid>
-      <HomeRecovery muscles={muscles} figureGender={selectedUserId === 'elena' ? 'female' : 'male'} />
+              <WorkoutCardExercises exercises={workout.exercises} visibleCount={8} />
+              <span className="home-card-footer">
+                <span className="home-card-meta">
+                  <span><ListChecks aria-hidden="true" />{exerciseCountLabel(count)}</span>
+                  {count ? <span><Clock3 aria-hidden="true" />{shortDuration(workout.duration)}</span> : null}
+                </span>
+                <span className="home-card-select">Открыть план <ArrowRight aria-hidden="true" /></span>
+              </span>
+            </SortableCard>
+            )
+          })}
+        </SortableGrid>
+        <RecoveryMap muscles={muscles} selectedUserId={selectedUserId} figureGender={selectedUserId === 'elena' ? 'female' : 'male'} />
       </div>
       <Dialog.Root open={Boolean(selectedWorkout)} onOpenChange={(open) => { if (!open && !restarting) setSelectedId(null) }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className={restartConfirm ? 'home-confirm-panel' : 'home-confirm-panel wd-panel'} rootClassName={restartConfirm ? undefined : 'wd-root'} onOpenAutoFocus={(event) => {
+          <SafetyDialogContent className={restartConfirm ? 'home-confirm-panel home-restart-panel' : 'home-confirm-panel wd-panel'} rootClassName={restartConfirm ? undefined : 'wd-root'} onOpenAutoFocus={(event) => {
             // Start on the main action, not on the first muscle of the map.
             const primary = (event.currentTarget as HTMLElement | null)?.querySelector<HTMLButtonElement>('.home-confirm-actions [data-variant="primary"]:not(:disabled)')
             if (primary) { event.preventDefault(); primary.focus() }
@@ -290,12 +326,18 @@ function DashboardWorkoutsSection({ workouts, muscles, onReorder }: { workouts: 
           }}>
             {selectedWorkout ? <>
               <header className="wd-header">
+                <span className="home-broadcast-kicker">{restartConfirm ? 'НОВАЯ СЕССИЯ' : 'ПРЕДПРОСМОТР · ПЛАН ТРЕНИРОВКИ'}</span>
                 {!restartConfirm ? <span className="home-card-badge" data-tone={workoutBadge(selectedWorkout, resumable).tone}>{workoutBadge(selectedWorkout, resumable).label}</span> : null}
                 <Dialog.Title className="font-display text-3xl font-bold text-white">{restartConfirm ? 'Начать тренировку сначала?' : selectedWorkout.title}</Dialog.Title>
-                <Dialog.Description className="text-base text-white/60">{shortDuration(selectedWorkout.duration)} · {workoutStatus(selectedWorkout, resumable)}</Dialog.Description>
-                {!restartConfirm && selectedWorkout.exercises.length ? <WorkoutStats workout={selectedWorkout} /> : null}
+                <div className="wd-meta">
+                  <Dialog.Description className="text-base text-white/60">
+                    {!showWorkoutPlan && `${shortDuration(selectedWorkout.duration)} · `}
+                    {workoutStatus(selectedWorkout, resumable)}
+                  </Dialog.Description>
+                  {showWorkoutPlan && <WorkoutStats workout={selectedWorkout} />}
+                </div>
               </header>
-              {!restartConfirm && selectedWorkout.exercises.length ? <div className="wd-body">
+              {showWorkoutPlan ? <div className="wd-body">
                 <section className="wd-plan" aria-labelledby="wd-plan-title">
                   <h3 id="wd-plan-title" className="wd-section-title">План тренировки</h3>
                   <ol className="wd-plan-list" aria-labelledby="wd-plan-title">
@@ -312,9 +354,9 @@ function DashboardWorkoutsSection({ workouts, muscles, onReorder }: { workouts: 
                   <Button disabled={restarting} iconLeft={<RotateCcw aria-hidden="true" />} onClick={() => void handleRestart(selectedWorkout)}>{restarting ? 'Начинаем…' : 'Начать сначала'}</Button>
                 </div> : <div className="home-confirm-actions">
                   <Dialog.Close asChild><Button variant="secondary">Назад</Button></Dialog.Close>
-                  <Button disabled={!selectedWorkout.exercises.length} onClick={() => handleConfirm(selectedWorkout)}>{continueAvailable ? 'Продолжить' : 'Начать'}</Button>
                   {continueAvailable ? <Button variant="secondary" iconLeft={<RotateCcw aria-hidden="true" />} onClick={() => setRestartConfirm(true)}>Начать сначала</Button> : null}
                   <Button variant="secondary" onClick={() => navigate(`/builder?programId=${encodeURIComponent(selectedWorkout.id)}`)}>Изменить</Button>
+                  <Button disabled={!selectedWorkout.exercises.length} onClick={() => handleConfirm(selectedWorkout)}>{continueAvailable ? 'Продолжить' : 'Начать'}</Button>
                 </div>}
               </footer>
             </> : null}

@@ -25,6 +25,8 @@ class Harness {
   lifecycle: CoachEvent[] = []
   connected: boolean | undefined = undefined
   timer: SetTimerInput | null = null
+  duringSets = false
+  duringRest = false
   private emitted = 0
 
   constructor(options: InterpreterOptions = {}, session = baseSession()) {
@@ -35,7 +37,7 @@ class Harness {
     this.now += advance
     return this.interpreter.step({ nowMs: this.now, userId: this.userId, session: this.session, hardware: this.hardware,
       hardwareReceivedAtMs: this.receivedAt, emergency: this.emergency, count: this.count, lifecycle: this.lifecycle,
-      sourceConnected: this.connected, timer: this.timer })
+      sourceConnected: this.connected, timer: this.timer, duringSets: this.duringSets, duringRest: this.duringRest })
   }
 
   hw(mode: string | null, reps: number, extra: { elapsed?: number; patch?: Record<string, unknown> } = {}): InterpreterResult {
@@ -101,6 +103,23 @@ describe('local cue catalog', () => {
 })
 
 describe('CoachInterpreter machine sets', () => {
+  it.each([false, true])('uses only the applicable recorded tip after a confirmed repetition (reviewed=%s)', reviewed => {
+    const h = new Harness(); h.connected = true; h.duringSets = true; h.duringRest = true
+    const ex = h.session.exercises[0]
+    if (reviewed) Object.assign(ex, { slug: 'machine-pulldown', summary: { slug: 'machine-pulldown' }, details: { slug: 'machine-pulldown', equipment: 'Machine' }, loadSettings: { mode: 'constant' } })
+    h.enterSet(); expect(kinds(h.hw('training', 1))).toEqual(['count:1'])
+    expect(h.step(1250).cues.map(c => c.clipId)).toEqual([reviewed ? 'tip-machine-no-jerks' : 'pace-reminder'])
+    h.hw('training', 2); expect(h.step(1250).cues).toEqual([])
+    const rest = (n: number) => h.view('rest', { restState: { mode: 'between-sets', totalSeconds: 60, remainingSeconds: n, timerPaused: false } })
+    rest(56); expect(rest(55).cues.map(c => c.clipId)).toEqual([reviewed ? 'tip-machine-prepare' : 'rest-prepare'])
+  })
+  it('suppresses advice after discomfort, assistance or a counter jump', () => {
+    const h = new Harness(); h.connected = true; h.duringSets = true; h.enterSet()
+    h.hw('training', 3); expect(h.step(1300).cues).toEqual([])
+    h.hw('training', 4, { patch: { control: { mode: 'training', spotterActive: true } } }); expect(h.step(1300).cues).toEqual([])
+    h.session.completedSets.e1 = [{ discomfortLevel: 1 }] as never
+    h.hw('training', 5); expect(h.step(1300).cues).toEqual([])
+  })
   it('emits start once on an observed transition and every count once', () => {
     const h = new Harness()
     expect(all(h.enterSet())).toEqual(['start'])

@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { ShieldAlert, ShieldCheck, UserRound } from 'lucide-react'
+import { ArrowRight, CalendarDays, Dumbbell, Gauge, ShieldAlert, ShieldCheck, UserRound } from 'lucide-react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { MachineHealth } from '@/entities/machine/model/types'
 import { apiGet, apiPost } from '@/shared/api/client'
@@ -12,6 +12,7 @@ import { BlockingAlert, WarningBanner } from '@/shared/ui/status/status-componen
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { useAppStore } from '@/stores/app-store'
 import type { UserSummary } from '@/entities/user/model/types'
+import './user-selection-broadcast.css'
 
 type UsersResponse = { users: UserSummary[] }
 type SelectUserResponse = { currentUser: { id: string } }
@@ -106,6 +107,7 @@ export function UserSelectionView({
         </div>
 
         <section className="users-heading">
+          <span className="users-kicker">FORMA / ПРОФИЛИ</span>
           <h1 className="font-display font-bold tracking-[-0.06em] text-white">Кто тренируется?</h1>
           <p>Выберите профиль, чтобы загрузить личные веса, прогресс и настройки безопасности.</p>
         </section>
@@ -124,30 +126,39 @@ export function UserSelectionView({
               <div className="users-avatar" aria-hidden="true">{user.name.slice(0, 1)}</div>
               <h2>{user.name}</h2>
               <dl>
-                <div>
+                <div className="users-readiness">
+                  <Gauge className="users-stat-icon" aria-hidden="true" />
                   <dt>Готовность</dt>
                   <dd><strong>{user.readinessPercent}%</strong></dd>
                 </div>
-                <div>
+                <div className="users-last-workout">
+                  <Dumbbell className="users-stat-icon" aria-hidden="true" />
                   <dt>Последняя тренировка</dt>
                   <dd>{user.lastWorkout}</dd>
                 </div>
-                <div>
+                <div className="users-week">
+                  <CalendarDays className="users-stat-icon" aria-hidden="true" />
                   <dt>Неделя</dt>
                   <dd>{user.weekProgress}</dd>
                 </div>
               </dl>
               <Button aria-label={`Выбрать профиль ${user.name}`} onClick={() => onSelectUser(user.id)}>
-                Выбрать
+                Выбрать <ArrowRight className="users-broadcast-arrow" aria-hidden="true" />
               </Button>
             </article>
           ))}
         </section>
 
         <div className="users-footer">
-          <Button variant="secondary" iconLeft={<UserRound aria-hidden="true" />} onClick={onGuest}>
-            Гость
-          </Button>
+          <div className="users-guest">
+            <div className="users-guest-label">
+              <UserRound aria-hidden="true" />
+              <div><strong>Гость</strong><p>Тренируйтесь без личного профиля</p></div>
+            </div>
+            <Button variant="secondary" aria-label="Гость" iconLeft={<UserRound aria-hidden="true" />} onClick={onGuest}>
+              <span className="users-guest-legacy">Гость</span><span className="users-guest-choose">Выбрать <ArrowRight aria-hidden="true" /></span>
+            </Button>
+          </div>
           <span className={cn('inline-flex items-center gap-2 text-sm', emergencyStopActive ? 'text-[#ff9589]' : 'text-white/60')}>
             {emergencyStopActive ? <ShieldAlert className="h-5 w-5 text-[#eb5345]" aria-hidden="true" /> : <ShieldCheck className="h-5 w-5 text-[#f0c24f]" aria-hidden="true" />}
             {emergencyStopActive ? 'Аварийная остановка: активна' : getSafetyLabel(machine.safety)}

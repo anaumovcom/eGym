@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -13,12 +14,12 @@ from app.db.base import Base
 from app.db.seed import seed_dev_data, seed_stage7_data, seed_stage8_data
 from app.db.session import SessionLocal, engine
 from app.motor.store import ProfileBundle, load_active
-from app.schemas.modbus import ModbusConnectionParamsSchema
 from app.services.coach.request_guard import CoachRequestGuard
 from app.services.coach.schema import ensure_columns
+from app.services.drive_transport_settings import load_transport
 from app.services.exercise_library import EXERCISES_ROOT
 from app.services.hardware_runtime import hardware_runtime
-from app.services.modbus_service import modbus_service
+from app.services.motor_observations import ObservationWriter
 from app.services.scale_service import ScaleService
 
 
@@ -40,42 +41,31 @@ def bootstrap_local_data() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     bootstrap_local_data()
-    settings = get_settings()
     bundle = load_motor_profile()
-    if settings.hardware_adapter == "modbus":
-        # the first PA_12C written at startup is upward support, never 0 (R1)
-        # PA_05E from the safety envelope (as after a fault reset), not the 40 % commissioning default:
-        # tight spots need up to W + 2.6·Fc ≈ 290 N, 40 % is ≈ 283 N
-        # PA_056 from the envelope too: the 300-rpm default (160 mm/s) is a wall for a fast rep, and above it the
-        # drive does not brake a falling bar; temporary calibration limits return to this value
-        modbus_service.connect(ModbusConnectionParamsSchema(
-            port=settings.modbus_port,
-            baud_rate=settings.modbus_baud_rate,
-            slave_id=settings.modbus_left_slave_id,
-            right_slave_id=settings.modbus_right_slave_id,
-        ), initial_commands={
-            settings.modbus_left_slave_id: int(bundle.machine.left.support_raw.value) * bundle.machine.left.sign,
-            settings.modbus_right_slave_id: int(bundle.machine.right.support_raw.value) * bundle.machine.right.sign,
-        }, torque_limit=bundle.envelope.max_raw, speed_limit_rpm=bundle.envelope.speed_limit_rpm)
+    sessions = app.dependency_overrides.get(get_session_factory, get_session_factory)()
+    with sessions() as session:
+        transport = load_transport(session)
     try:
-        hardware_runtime.reset(profile=bundle.machine, envelope=bundle.envelope, tunables=bundle.tunables)
+        hardware_runtime.reset(profile=bundle.machine, envelope=bundle.envelope, tunables=bundle.tunables, transport=transport)
         await hardware_runtime.start()
-        sessions = app.dependency_overrides.get(get_session_factory, get_session_factory)()
         scale_service = ScaleService(sessions, activity_blocker=hardware_runtime.scale_monitoring_block_reason)
         app.state.scale_service = scale_service
         await scale_service.start()
+        writer = ObservationWriter(sessions, hardware_runtime)
+        writer_task = asyncio.create_task(writer.run())
         try:
             yield
         finally:
-            await scale_service.close()
+            writer.stopping.set()
+            try:
+                await writer_task
+            finally:
+                await scale_service.close()
     finally:
         try:
             await hardware_runtime.stop()
         finally:
-            if settings.hardware_adapter == "modbus":
-                # Closing the serial port must not overwrite backup support
-                # with zero, including a partially failed application startup.
-                modbus_service.disconnect(preserve_torque=True)
+            hardware_runtime.close_transport()
 
 
 def load_motor_profile() -> ProfileBundle:

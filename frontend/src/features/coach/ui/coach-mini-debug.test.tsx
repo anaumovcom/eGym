@@ -109,7 +109,7 @@ describe('CoachMiniDebug', () => {
     const popover = screen.getByRole('dialog', { name: 'Панель AI-тренера' })
     // The plain-language overview comes first; raw counters wait in the collapsed developer block.
     expect(within(popover).getByRole('region', { name: 'Состояние тренера' })).toBeVisible()
-    expect(within(popover).getByText(/Usage неизвестен/)).not.toBeVisible()
+    expect(within(popover).getByText(/Платная генерация отсутствует в локальном тесте/)).not.toBeVisible()
     expect(within(popover).queryByText(/0 tok|\$0|req/)).not.toBeInTheDocument()
     expect(fetch).not.toHaveBeenCalled()
     expect(mocks.runtime.refreshSavedPreferences).not.toHaveBeenCalled()
@@ -196,8 +196,8 @@ describe('CoachMiniDebug', () => {
     expect(screen.getByRole('button', { name: 'AI-тренер: состояние и расход' }).title).toContain('Звук заблокирован браузером')
   })
   it.each([
-    [null, 'Выкл', 'off'], [{ enabled: true, mode: 'local' }, 'Local', 'local'],
-    [{ enabled: true, mode: 'hybrid' }, 'Live', 'idle'], [{ enabled: true, mode: 'text-only' }, 'Text', 'idle'],
+    [null, 'Выкл', 'off'], [{ enabled: true, mode: 'local' }, 'Локально', 'local'],
+    [{ enabled: true, mode: 'hybrid' }, 'Локально', 'local'], [{ enabled: true, mode: 'text-only' }, 'Выкл', 'off'],
   ] as const)('shows the saved coach mode %o in the header', (saved, label, tone) => {
     mocks.runtime.getSavedPreferences.mockReturnValue(saved)
     render(<CoachMiniDebug />)

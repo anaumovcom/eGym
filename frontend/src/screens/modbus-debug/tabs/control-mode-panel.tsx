@@ -1,6 +1,7 @@
 import { AlertTriangle } from 'lucide-react'
 import { useState } from 'react'
 import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
+import { useDriveTelemetry } from '@/features/modbus/lib/use-drive-telemetry'
 import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/cn'
 import type { ControlMode } from '@/features/modbus/model/types'
@@ -18,7 +19,8 @@ export function ControlModePanel() {
 
   const modeVal = paramStates.get(0x002)?.driverValue
   const extVal = paramStates.get(0x090)?.driverValue
-  const hasAlarm = (paramStates.get(0x200)?.driverValue ?? 0) !== 0
+  const frame = useDriveTelemetry(1000)
+  const alarm = isConnected && !frame.isError && !frame.data?.error ? frame.data?.alarm : null
 
   const handleSetMode = async (mode: ControlMode) => {
     const modeCode = { position: 0, speed: 1, torque: 2 }[mode]
@@ -52,11 +54,11 @@ export function ControlModePanel() {
   return (
     <div className="space-y-4">
       <div className="glass-panel rounded-2xl p-4 space-y-2">
-        <p className="text-sm font-semibold text-[#f4dfb4]">Адресат команд управления</p>
+        <p className="text-sm font-semibold">Адресат команд управления</p>
         <div className="flex flex-wrap gap-2">
           {(['both', 'left', 'right'] as const).map((target) => (
             <button key={target} type="button" aria-pressed={controlTarget === target}
-              className={cn('rounded-xl border px-4 py-2 text-sm', controlTarget === target ? 'border-[#b5852f] bg-[#b5852f]/30 text-[#f4dfb4]' : 'border-white/10 text-white/50')}
+              className={cn('rounded-xl border px-4 py-2 text-sm', controlTarget === target ? 'border-[#2b7ab9] bg-[#123553] text-[#eaf6ff]' : 'border-white/10 text-white/65')}
               onClick={() => setControlTarget(target)}>
               {target === 'both' ? `Оба · ID ${driveAddresses.left} и ${driveAddresses.right}` : `${target === 'left' ? 'Левый' : 'Правый'} · ID ${driveAddresses[target]}`}
             </button>
@@ -113,7 +115,7 @@ export function ControlModePanel() {
 
       {/* Mode selector */}
       <div className="glass-panel rounded-2xl p-5 space-y-4">
-        <h3 className="font-semibold text-[#f4dfb4]">Режим управления</h3>
+        <h3 className="font-semibold">Режим управления</h3>
 
         <div className="flex gap-2">
           {(['position', 'speed', 'torque'] as ControlMode[]).map((m) => (
@@ -125,7 +127,7 @@ export function ControlModePanel() {
         <div className="flex flex-wrap gap-2">
           <StatusChip label="PA_002" value={modeVal != null ? `= ${modeVal}` : '?'} ok={modeVal === (['position','speed','torque'] as ControlMode[]).indexOf(activeMode)} />
           <StatusChip label="PA_090" value={extVal != null ? `= ${extVal}` : '?'} ok={extVal === 1} />
-          {hasAlarm && <StatusChip label="ALARM" value="Есть ошибка" ok={false} />}
+          {alarm !== 0 && <StatusChip label="ALARM" value={alarm == null ? 'Состояние неизвестно' : `Err ${alarm}`} ok={false} />}
         </div>
 
         <Button
@@ -161,9 +163,9 @@ export function ControlModePanel() {
 
       {/* Command panel */}
       <div className="glass-panel rounded-2xl p-4 space-y-3">
-        <h4 className="font-semibold text-[#f4dfb4] text-sm">Команды управления</h4>
+        <h4 className="font-semibold text-sm">Команды управления</h4>
         <div className="flex flex-wrap gap-2">
-          <CmdButton label="Servo ON" cmd="servo_on" accent busy={busy} disabled={!isConnected || !motorEnabled || hasAlarm} onCmd={handleCommand} />
+          <CmdButton label="Servo ON" cmd="servo_on" accent busy={busy} disabled={!isConnected || !motorEnabled || alarm !== 0} onCmd={handleCommand} />
           <CmdButton label="Servo OFF" cmd="servo_off" busy={busy} disabled={!isConnected} onCmd={handleCommand} />
           <CmdButton label="Сброс аварии" cmd="alarm_reset" busy={busy} disabled={!isConnected} onCmd={handleCommand} />
           <CmdButton label="JOG ▶" cmd="jog_start" busy={busy} disabled={!isConnected || !motorEnabled} onCmd={handleCommand} />
@@ -195,7 +197,7 @@ function ModeTab({ mode, active, onClick }: { mode: string; active: boolean; onC
       onClick={onClick}
       className={cn(
         'rounded-xl px-4 py-2 text-sm font-semibold transition',
-        active ? 'bg-[#b5852f]/40 text-[#f4dfb4] border border-[#b5852f]/60' : 'bg-white/6 text-white/50 hover:text-white',
+        active ? 'bg-[#123553] text-[#eaf6ff] border border-[#2b7ab9]' : 'bg-white/6 text-white/65 hover:text-white',
       )}
     >
       {labels[mode]}
@@ -279,7 +281,7 @@ function TorqueModeControls({ isConnected, motorEnabled }: { isConnected: boolea
   return (
     <div className="glass-panel rounded-2xl p-4 space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="text-sm font-semibold text-[#f4dfb4]">Torque Mode: PA_12C на оба привода</h4>
+        <h4 className="text-sm font-semibold">Torque Mode: PA_12C на оба привода</h4>
         <button type="button" className="text-xs text-white/50" onClick={() => { void refresh() }}>Обновить</button>
       </div>
       <p className="text-xs text-white/40">
@@ -358,7 +360,7 @@ function PositionSegmentControls({
 
   return (
     <div className="glass-panel rounded-2xl p-4 space-y-3">
-      <h4 className="text-sm font-semibold text-[#f4dfb4]">Сегменты позиции (PA_168–PA_19F)</h4>
+      <h4 className="text-sm font-semibold">Сегменты позиции (PA_168–PA_19F)</h4>
       <div className="flex items-center gap-3 flex-wrap">
         <label className="flex items-center gap-2 text-sm">
           Сегмент:
@@ -376,13 +378,13 @@ function PositionSegmentControls({
       </div>
 
       {position32 != null && (
-        <p className="font-mono text-sm text-[#f2cf87]">
+        <p className="font-mono text-sm text-[#70c9ff]">
           Позиция: {position32} имп
           <span className="text-white/30 ml-2 text-xs">(H=0x{drvHigh?.toString(16).toUpperCase()} L=0x{drvLow?.toString(16).toUpperCase()})</span>
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,8rem),1fr))] gap-2">
         <SegField label="Позиция (low)" placeholder={String(drvLow ?? 0)} value={posLow} onChange={setPosLow} />
         <SegField label="Позиция (high)" placeholder={String(drvHigh ?? 0)} value={posHigh} onChange={setPosHigh} />
         <SegField label="Скорость (об/мин)" placeholder={String(paramStates.get(speedAddr)?.driverValue ?? 500)} value={speed} onChange={setSpeed} />
@@ -408,7 +410,7 @@ function SpeedSegmentControls({ isConnected }: { isConnected: boolean }) {
 
   return (
     <div className="glass-panel rounded-2xl p-4 space-y-3">
-      <h4 className="text-sm font-semibold text-[#f4dfb4]">Сегменты скорости (PA_150–PA_16F)</h4>
+      <h4 className="text-sm font-semibold">Сегменты скорости (PA_150–PA_16F)</h4>
       <div className="flex items-center gap-3 flex-wrap">
         <label className="flex items-center gap-2 text-sm">
           Сегмент:
@@ -528,7 +530,7 @@ function ConfirmDialog({ title, body, onConfirm, onCancel, danger }: {
 }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="glass-panel rounded-2xl p-6 max-w-md w-full mx-4 space-y-4">
+      <div className="glass-panel max-h-[85dvh] max-w-md w-full mx-4 space-y-4 overflow-auto rounded-2xl p-4 sm:p-6">
         <div className="flex items-start gap-3">
           <AlertTriangle size={20} className={danger ? 'text-[#ff8f84] mt-0.5' : 'text-[#f2cf87] mt-0.5'} />
           <div>
@@ -536,7 +538,7 @@ function ConfirmDialog({ title, body, onConfirm, onCancel, danger }: {
             <p className="text-sm text-white/60 mt-1">{body}</p>
           </div>
         </div>
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-wrap gap-3 justify-end">
           <Button variant="ghost" onClick={onCancel}>Отмена</Button>
           <Button variant={danger ? 'danger' : 'primary'} onClick={onConfirm}>Подтвердить</Button>
         </div>

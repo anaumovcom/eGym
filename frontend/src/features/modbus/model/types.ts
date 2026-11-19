@@ -20,6 +20,7 @@ export type ModbusConnectionStatus = {
   parity: string | null
   slaveId: number | null
   rightSlaveId: number | null
+  timeoutMs: number | null
   lastSuccessAt: string | null
   okCount: number
   errorCount: number
@@ -78,7 +79,7 @@ export type DriverDiagnostics = {
   controlMode: number | null
   extendedMode: number | null
   alarmCode: number | null
-  hasAlarm: boolean
+  hasAlarm: boolean | null
   motionSafe: boolean
   statusSummary: string
   checkedAt: string | null
@@ -212,6 +213,9 @@ export type ModbusTorqueInitResult = {
 
 export type ModbusTorqueTelemetry = {
   slaveId: number
+  readAt: string | null
+  feedbackPosition: number | null
+  positionError: number | null
   positionMm: number | null
   commandSpeedRpm: number | null
   feedbackSpeedRpm: number | null

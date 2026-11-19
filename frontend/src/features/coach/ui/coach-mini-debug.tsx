@@ -14,29 +14,19 @@ import { networkStates, reasonLabel } from './coach-labels'
 import { CoachOverview, CoachStatusTab, coachOverview, type Tile } from './coach-panel-overview'
 import './coach-mini-debug.css'
 
-const modeLabels: Readonly<Record<CoachPreferences['mode'], string>> = { local: 'Local', hybrid: 'Live', 'text-only': 'Text' }
-const modeTitles: Readonly<Record<CoachPreferences['mode'], string>> = { local: 'локальные клипы', hybrid: 'гибрид, живой голос', 'text-only': 'только текст' }
-type ModeTone = 'off' | 'local' | 'idle' | 'pending' | 'live' | 'error'
-const networkTones: Readonly<Record<NetworkSnapshot['state'], ModeTone>> = {
-  off: 'idle', creating: 'pending', connecting: 'pending', retrying: 'pending', ready: 'live', refused: 'error',
-}
-/** Saved coach mode plus, for network modes, the live connection state as a tone. */
-function coachMode(saved: CoachPreferences | null, network: NetworkSnapshot | null | undefined) {
-  if (!saved?.enabled) return { label: 'Выкл', tone: 'off' as ModeTone, title: 'Режим: выключен' }
-  const title = `Режим: ${modeLabels[saved.mode]} (${modeTitles[saved.mode]})`
-  if (saved.mode === 'local') return { label: modeLabels.local, tone: 'local' as ModeTone, title }
-  const state = network?.state ?? 'off'
-  return { label: modeLabels[saved.mode], tone: networkTones[state], title: `${title} · сеть: ${networkStates[state]}` }
+function coachMode(saved: CoachPreferences | null) {
+  if (!saved?.enabled || saved.mode === 'text-only') return { label: 'Выкл', tone: 'off', title: 'Режим: выключен' }
+  return { label: 'Локально', tone: 'local', title: 'Режим: скачанные фразы' }
 }
 const usd = (micros: number) => `$${(micros / 1_000_000).toFixed(4)}`
 const dayUsd = (micros: number) => micros === 0 ? '$0' : micros < 1_000 ? '<$0.001' : `$${(micros / 1_000_000).toFixed(micros < 10_000_000 ? 3 : 2)}`
 const DAILY_USAGE_EVERY_MS = 60_000
 
 /** Today's paid requests (since local midnight) from the server ledger; refreshed on live usage changes and every minute. */
-function useDailyUsage(refreshKey: string): DailyUsage | null {
+function useDailyUsage(refreshKey: string, enabled: boolean): DailyUsage | null {
   const [usage, setUsage] = useState<DailyUsage | null>(null)
   useEffect(() => {
-    if (import.meta.env.VITE_COACH_ENABLED !== 'true') return
+    if (!enabled) return
     const controller = new AbortController()
     const load = () => {
       const midnight = new Date()
@@ -46,7 +36,7 @@ function useDailyUsage(refreshKey: string): DailyUsage | null {
     load()
     const timer = setInterval(load, DAILY_USAGE_EVERY_MS)
     return () => { controller.abort(); clearInterval(timer) }
-  }, [refreshKey])
+  }, [refreshKey, enabled])
   return usage
 }
 
@@ -118,7 +108,7 @@ export function CoachLocalDiagnostics({ snapshot, audio = snapshot.audio, reason
       <div><dt>Enqueued / finished / cancelled / rejected</dt><dd>{audio ? `${audio.counters.enqueued} / ${audio.counters.finished} / ${audio.counters.cancelled} / ${audio.counters.rejected}` : '—'}</dd></div>
       <div><dt>Причина менеджера</dt><dd>{audio?.reason ?? '—'}</dd></div>
     </dl>
-    <p className="coach-local-note">{live ? 'Микшер тренировки: live-речь и локальные фразы. Расход показан в разделе «Сеть».' : 'Платная генерация отсутствует в локальном тесте. Usage неизвестен для локальных клипов; расход live-тренера показан в разделе «Сеть».'}</p>
+    <p className="coach-local-note">{live ? 'Микшер тренировки воспроизводит скачанные записи. Платных запросов во время тренировки нет.' : 'Платная генерация отсутствует в локальном тесте.'}</p>
     <p className="coach-local-note">{live ? 'Старты наблюдаются по времени AudioContext, не подтверждают звук на устройстве.' : 'Старты наблюдаются по времени AudioContext, не подтверждают звук на устройстве. Только тестовые тоны, не выбранный голос.'}</p>
     {audio && audio.utterances.length > 0 && <section aria-label="Коэффициенты микшера">
       <h4>Коэффициенты микшера</h4>
@@ -170,8 +160,9 @@ export function CoachMiniDebug() {
   const runUsage = live.network?.usage
   const runId = live.network?.runId ?? null
   const usageKey = runUsage ? `${runUsage.requests}:${runUsage.settledMicros}:${runUsage.pendingMicros}` : ''
-  const daily = useDailyUsage(usageKey)
-  const coachEnabled = import.meta.env.VITE_COACH_ENABLED === 'true'
+  const inTraining = useRuntimeStore(s => !!s.session && s.session.view !== 'workout-summary')
+  const coachEnabled = !inTraining && import.meta.env.VITE_COACH_ENABLED === 'true'
+  const daily = useDailyUsage(usageKey, coachEnabled)
   const errors = useUnseenErrors(userId, runId, coachEnabled, usageKey)
   const progress = useSetProgress()
   const dailyText = daily ? `Сегодня: ${daily.requests} платн. запр. на ${dayUsd(daily.totalMicros)}${daily.pendingMicros ? ` (из них в расчёте ${dayUsd(daily.pendingMicros)})` : ''}` : null
@@ -220,7 +211,7 @@ export function CoachMiniDebug() {
   }, [open, target])
   useEffect(() => { if (target !== null) setOpen(false) }, [target])
   const locked = snapshot.reason === 'audio_locked' || (snapshot.previewAllowed && snapshot.audio?.contextState === 'suspended')
-  const mode = coachMode(localAudioRuntime.getSavedPreferences(), live.network)
+  const mode = coachMode(localAudioRuntime.getSavedPreferences())
   const latestError = errors.latest ? `Последняя ошибка: ${errorText(errors.latest.errorCode, errors.latest.httpStatus)}` : null
   const title = [mode.title, reasonLabel(locked ? 'audio_locked' : snapshot.reason), workoutText, dailyText, latestError].filter(Boolean).join(' · ')
   const journal = coachEnabled && !!userId

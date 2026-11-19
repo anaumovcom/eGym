@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
@@ -11,6 +12,16 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app.db.seed import seed_dev_data
 from app.main import create_app
+
+
+@pytest.fixture
+def isolated_coach_lifespan(monkeypatch):
+    """Coach HTTP tests need only their injected temporary DB, never machine startup or bootstrap."""
+    @asynccontextmanager
+    async def noop(app):
+        yield
+
+    monkeypatch.setattr("app.main.lifespan", noop)
 
 
 @pytest.fixture(autouse=True)

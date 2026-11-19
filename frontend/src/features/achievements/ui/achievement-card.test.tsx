@@ -10,7 +10,7 @@ vi.mock('./achievement-media', () => ({
 }))
 
 const line: AchievementLine = {
-  id: 'practice.workouts', group: 'practice', groupName: 'Практика', metric: 'qualified_workouts',
+  id: 'practice.workouts', name: 'Дневник просит второй том', group: 'journal', groupName: 'Дневник тренировок', metric: 'qualified_workouts',
   unit: 'тренировка', description: 'Подтверждённая практика в разные дни',
   thresholds: [5, 20, 50, 100, 200, 400], applicability: 'available', currentValue: 400,
   highestTier: 6, state: 'available', nextTierId: null, progressPercent: 100,
@@ -31,9 +31,8 @@ describe('achievement card', () => {
       expect(within(tier).getByText(`image:Награда ${index + 1}`)).toBeInTheDocument()
       expect(within(tier).getByText(`Награда ${index + 1}`)).toBeInTheDocument()
     })
-    expect(screen.getByText(/400 \/ 400/)).toBeInTheDocument()
     expect(screen.getByText('Все ступени получены')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Открыть достижение «Награда 6»' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Открыть достижение «Дневник просит второй том»' })).toHaveAttribute('href', '/achievements/practice.workouts')
   })
 
   it('shows only earned tiers while progressing and never names the next reward', () => {
@@ -48,15 +47,15 @@ describe('achievement card', () => {
     expect(screen.queryByText('image:?')).not.toBeInTheDocument()
   })
 
-  it('shows the independent evidence-day requirement for a started line', () => {
+  it('shows progress to the next milestone', () => {
     const progressing = {
-      ...line, highestTier: 1, currentValue: 20, evidenceDays: 1, nextTierId: line.tiers[1].id, progressPercent: 6.3,
-      tiers: line.tiers.map((tier, index) => ({ ...tier, earned: index === 0, minimumEvidenceDays: 16 })),
+      ...line, highestTier: 1, currentValue: 10, nextTierId: line.tiers[1].id, progressPercent: 33.3,
+      tiers: line.tiers.map((tier, index) => ({ ...tier, earned: index === 0 })),
     }
     render(<MemoryRouter><AchievementCard line={progressing} /></MemoryRouter>)
-    expect(screen.getByText('Подтверждённая практика: 1 / 16 разных дней')).toBeInTheDocument()
+    expect(screen.getByText(/10 \/ 20/)).toBeInTheDocument()
     expect(screen.queryByText('Все ступени получены')).not.toBeInTheDocument()
-    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '6')
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '33')
   })
 
   it('marks the latest earned line as new', () => {
@@ -64,17 +63,16 @@ describe('achievement card', () => {
     expect(screen.getByText('Новая')).toBeInTheDocument()
   })
 
-  it('renders an unknown line as a closed question mark with no description, link or titles', () => {
+  it('previews the series and its condition before it is earned', () => {
     const unknown = {
-      ...line, highestTier: 0, currentValue: 0, description: '', nextTierId: line.tiers[0].id,
+      ...line, highestTier: 0, currentValue: 0, progressPercent: 0, nextTierId: line.tiers[0].id,
       tiers: line.tiers.map((tier) => ({ ...tier, earned: false, title: '', phrase: '' })),
     }
     render(<MemoryRouter><AchievementCard line={unknown} /></MemoryRouter>)
-    expect(screen.getByText('image:?')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Неизвестное достижение' })).toBeInTheDocument()
-    expect(screen.queryByRole('link')).not.toBeInTheDocument()
-    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument()
-    expect(screen.queryByText('Подтверждённая практика в разные дни')).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: line.name })).toBeInTheDocument()
+    expect(screen.getByRole('link')).toHaveAttribute('href', '/achievements/practice.workouts')
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '0')
+    expect(screen.getByText(line.description)).toBeInTheDocument()
     expect(screen.queryByText(/Награда/)).not.toBeInTheDocument()
   })
 })

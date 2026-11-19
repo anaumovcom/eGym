@@ -5,6 +5,8 @@ import path from 'node:path'
 
 const harness = (name: string) => path.resolve(__dirname, 'e05-harness', name)
 export default defineConfig({
+  cacheDir: 'node_modules/.vite-e05',
+  optimizeDeps: { entries: ['e05-harness/index.html'] },
   define: { 'import.meta.env.VITE_E05_HARNESS': JSON.stringify('true') },
   plugins: [
     {

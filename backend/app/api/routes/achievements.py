@@ -2,9 +2,9 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
+from starlette.staticfiles import StaticFiles
 
 from app.api.dependencies import get_session
 from app.core.config import get_settings
@@ -41,14 +41,17 @@ def achievement_catalog(
 
 
 @router.get("/achievements/tiers/{tier_id}/{kind}")
-def achievement_tier_media(tier_id: str, kind: Literal["image", "audio"], user_id: str = Query(..., alias="userId"),
+def achievement_tier_media(request: Request, tier_id: str, kind: Literal["image", "audio"], user_id: str = Query(..., alias="userId"),
                            session: Session = Depends(get_session)):
     """Serve artwork/speech only for tiers the owner has earned; locked media is indistinguishable from absent."""
     path = service.earned_media_path(session, user_id, tier_id, kind)
     if path is None:
-        raise HTTPException(status_code=404, detail="Achievement media not found")
-    return FileResponse(path, media_type="audio/wav" if kind == "audio" else "image/webp",
-                        headers={"Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff"})
+        raise HTTPException(status_code=404, detail="Achievement media not found", headers={"Cache-Control": "no-store"})
+    response = StaticFiles().file_response(path, path.stat(), request.scope)
+    if response.status_code == 200:
+        response.headers["Content-Type"] = {".mp3": "audio/mpeg", ".wav": "audio/wav", ".webp": "image/webp"}[path.suffix.lower()]
+    response.headers.update({"Cache-Control": "private, no-cache", "X-Content-Type-Options": "nosniff"})
+    return response
 
 
 @router.get("/achievements/{definition_id}", response_model=AchievementLineSchema)

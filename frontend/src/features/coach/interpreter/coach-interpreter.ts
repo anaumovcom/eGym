@@ -3,6 +3,7 @@ import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import { coachRunId, type CoachEvent, type CoachPhase, type CoachReason, type CoachScope, type CoachSettings } from '../model/contracts'
 import { ASSIST_MODES, FAULT_MODES, SILENCING_MODES, TALK_THROUGH_LATCHES, silencesCoach } from '../model/safety-latches'
 import { CUE_SPECS, cueClipId, type CueKind } from './local-cues'
+import { reviewedMachineExercise } from './reviewed-machine-tips'
 
 export type CountMode = CoachSettings['count']
 export type InterpreterSkipReason = CoachReason | 'no_source' | 'ambiguous_target' | 'count_off' | 'jump' | 'save_delayed' | 'unsupported'
@@ -17,6 +18,9 @@ export type InterpreterInput = Readonly<{
   nowMs: number; userId: string | null; session: RuntimeWorkoutSession | null
   hardware: HardwareSnapshot | null; hardwareReceivedAtMs: number | null
   emergency: boolean; count: CountMode; lifecycle: readonly CoachEvent[]
+  duringSets?: boolean; duringRest?: boolean
+  /** A single explicit increment on the current screen. Never a seed, bulk edit or inferred rep. */
+  manualRep?: number
   /** Live socket state. The backend broadcasts only on change, so while connected an
    * unchanged snapshot stays current; without it freshness falls back to snapshot age. */
   sourceConnected?: boolean
@@ -82,6 +86,8 @@ export class CoachInterpreter {
   private painCounts = new Map<string, number>()
   private painLatched = false
   private restRemaining: number | null = null
+  private tipRepAtMs: number | null = null
+  private manualTipAtMs: number | null = null
   private restKey = ''
   private sequence = 0
   private phase: CoachPhase = 'disabled'
@@ -126,7 +132,7 @@ export class CoachInterpreter {
     const nextScopeKey = JSON.stringify([identity, exercise?.id ?? null, setOrdinal, session?.view ?? null])
     const scopeChanged = nextScopeKey !== this.scopeKey
     const previousView = this.view
-    if (scopeChanged) { this.scopeKey = nextScopeKey; this.epoch++ }
+    if (scopeChanged) { this.scopeKey = nextScopeKey; this.epoch++; this.tipRepAtMs = null; this.manualTipAtMs = null }
     this.view = session?.view ?? null
     this.scope = input.userId && session ? Object.freeze({ schemaVersion: 1 as const, userId: input.userId, runId: runId!,
       exerciseId: exercise?.id ?? null, setOrdinal, scopeEpoch: this.epoch }) : null
@@ -158,6 +164,7 @@ export class CoachInterpreter {
     let phase: CoachPhase
     let gate: InterpreterSkipReason | null = null
     if (!input.userId || !session || !exercise || !scope) { phase = 'disabled'; gate = 'disabled' }
+    else if (session.userId && session.userId !== input.userId) { phase = 'disabled'; gate = 'owner_mismatch' }
     else if (session.dataSource !== 'backend') { phase = 'disabled'; gate = 'mock_source' }
     else {
       const setKey = [input.userId, runId, exercise.id, setOrdinal] as const
@@ -173,8 +180,36 @@ export class CoachInterpreter {
       this.consumeLifecycle(input, emit, skip, gate)
       if (session.view === 'exercise-session') {
         phase = this.setPhase(input, session, exercise, setKey, previousView, gate, emit, consume, skip) ?? phase
+        if (!gate && phase === 'active-set' && exercise.kind !== 'timed' && Number.isSafeInteger(input.manualRep) && input.manualRep! > 0) {
+          this.countCues(input.count, exercise.plan[session.currentSetIndex], input.manualRep!, false, setKey, emit, consume, skip)
+        }
+        if (!gate && phase === 'active-set' && scopeChanged && previousView !== null && exercise.kind === 'bodyweight') this.manualTipAtMs = now
       }
-      if (session.view === 'rest') this.restMarks(session, exercise, setKey, previousView, gate, emit, consume)
+      const tipsAllowed = !gate && ![...this.latches].some(([key, active]) => active && TALK_THROUGH_LATCHES.has(key)) &&
+        !(session.completedSets[exercise.id] ?? []).some(s => s.pain || (s.discomfortLevel ?? 0) > 0)
+      const machine = exercise.kind === 'machine'
+      const machineReady = machine && !this.hardwareGate(input)
+      const reviewed = machineReady && reviewedMachineExercise(session, exercise)
+      if (this.tipRepAtMs !== null) {
+        const gap = now - this.tipRepAtMs
+        if (phase !== 'active-set' || !input.duringSets || !tipsAllowed || !machineReady ||
+            (hw?.control?.mode ?? hw?.motion?.controlMode) !== 'training' || gap > 3000) this.tipRepAtMs = null
+        else if (gap >= 1200) {
+          this.tipRepAtMs = null
+          if (!cues.length) emit(reviewed ? 'active-tip' : 'pace-reminder', exerciseKey, 0)
+        }
+      }
+      if (this.manualTipAtMs !== null) {
+        const gap = now - this.manualTipAtMs
+        if (!tipsAllowed || !input.duringSets || phase !== 'active-set' || gap > 10_000) this.manualTipAtMs = null
+        else if (gap >= 6000 && !cues.length) { this.manualTipAtMs = null; emit('pace-reminder', exerciseKey, 0) }
+      }
+      const timer = input.timer
+      if (tipsAllowed && input.duringSets && !cues.length && phase === 'active-set' && exercise.kind === 'timed' && input.count !== 'off' &&
+          timer?.running && timer.exerciseId === exercise.id && timer.setOrdinal === setOrdinal && timer.elapsedS >= 6 && timer.elapsedS < 7 &&
+          (exercise.plan[session.currentSetIndex]?.targetSeconds ?? 0) >= 30) emit('timer-reminder', exerciseKey, 0)
+      if (session.view === 'rest') this.restMarks(session, exercise, setKey, previousView, gate, emit, consume,
+        input.duringRest && tipsAllowed && (!machine || machineReady) ? (reviewed ? 'rest-tip' : 'rest-prepare') : null)
       else { this.restKey = ''; this.restRemaining = null }
       for (const [key, at] of this.pendingSaves) {
         if (now - at > this.options.saveDelayMs) { this.pendingSaves.delete(key); skip('T36', 'save_delayed') }
@@ -298,11 +333,16 @@ export class CoachInterpreter {
     }
     if (reps !== null) {
       if (track.needsBaseline || track.baseline === null) { track.baseline = reps; track.needsBaseline = false }
-      else if (reps < track.baseline) track.baseline = reps
+      else if (reps < track.baseline) { track.baseline = reps; this.tipRepAtMs = null }
       else if (reps > track.baseline) {
         const jump = reps > track.baseline + 1
         track.baseline = reps
-        if (active && !hold) this.countCues(input.count, plan, reps, jump, setKey, emit, consume, skip)
+        if (active && !hold) {
+          this.countCues(input.count, plan, reps, jump, setKey, emit, consume, skip)
+          // A short quiet window after a confirmed single rep, never a jump, catch-up or end-of-set prompt.
+          const target = exactRepTarget(plan)
+          this.tipRepAtMs = input.duringSets && !jump && (target === null || reps < target - 1) ? input.nowMs : null
+        }
         else if (!active) skip('T14', 'no_window')
       }
     }
@@ -392,16 +432,16 @@ export class CoachInterpreter {
     const elapsed = elapsedValue!, previous = track.lastElapsed
     track.lastElapsed = elapsed
     // Marks require an observed running timer: crossing between two increasing readings.
-    if (previous === null || elapsed <= previous || count === 'off') return
-    const crossed = (mark: number) => previous < mark && elapsed >= mark
-    if (target! >= 20 && crossed(target! / 2)) emit('time-half', setKey, 0)
+    if (previous === null || elapsed <= previous || count === 'off' || elapsed >= target!) return
+    const crossed = (mark: number) => previous < mark && elapsed >= mark && elapsed < mark + 1
+    for (const left of [1, 2, 3]) if (target! > left && crossed(target! - left)) { emit('countdown', setKey, left, left); return }
     if (target! >= 20 && crossed(target! - 10)) emit('ten-left', setKey, 0)
-    for (const left of [3, 2, 1]) if (target! > left && crossed(target! - left)) emit('countdown', setKey, left, left)
+    else if (target! >= 20 && crossed(target! / 2)) emit('time-half', setKey, 0)
   }
 
   private restMarks(session: RuntimeWorkoutSession, exercise: RuntimeExercisePlan, setKey: readonly unknown[], previousView: RuntimeView | null,
     gate: InterpreterSkipReason | null, emit: (kind: CueKind, keyScope: readonly unknown[], ordinal: number) => void,
-    consume: (kind: CueKind, keyScope: readonly unknown[], ordinal: number) => void): void {
+    consume: (kind: CueKind, keyScope: readonly unknown[], ordinal: number) => void, tip: 'rest-tip' | 'rest-prepare' | null): void {
     const rest = session.restState
     if (!rest) return
     const key = JSON.stringify(setKey)
@@ -415,6 +455,10 @@ export class CoachInterpreter {
     const remaining = rest.remainingSeconds, previous = this.restRemaining
     this.restRemaining = remaining
     if (previous === null || rest.timerPaused || !(remaining < previous)) return
+    // Leave the set result and the end of rest clear; one preparation tip per exercise, not per rest tick.
+    if (tip && rest.mode === 'between-sets' && remaining >= 35 && remaining === rest.totalSeconds - 5 && previous === remaining + 1) {
+      emit(tip, [setKey[0], setKey[1], exercise.id, null], 0)
+    }
     const marks: Array<[10 | 5 | 0, CueKind]> = [[10, 'rest-ten'], [5, 'rest-five'], [0, 'rest-ready']]
     for (const [mark, kind] of marks) {
       if (!this.options.restMarks.includes(mark) || !(previous > mark && remaining <= mark)) continue

@@ -1,149 +1,16 @@
 import { CircleAlert, RotateCcw, Settings2 } from 'lucide-react'
-import { memo, useCallback, useEffect, useId, useRef, useState, type CSSProperties } from 'react'
+import { useState } from 'react'
 import type { ChartPoint, FatigueMuscle, MetricCard, Stage4DevFlags } from '@/entities/stage4/model/types'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
-import { muscleIsVisibleOnView, resolveSvgIdsForMuscle, type BodyMapView, svgIdsByView } from '@/shared/ui/stage4/fatigue-muscle-map'
+import { fatigueColors } from './fatigue-appearance'
+export { MuscleMapDetailed } from './muscle-map-detailed'
 
 const toneTextClasses: Record<NonNullable<MetricCard['tone']>, string> = {
   neutral: 'text-white',
   good: 'text-[#79de83]',
   warning: 'text-[#f2cf87]',
   danger: 'text-[#ff8f84]',
-}
-
-const fatigueDotClasses: Record<string, string> = {
-  ready: 'bg-[#57c968]',
-  light: 'bg-[#a6d94f]',
-  medium: 'bg-[#f0bf43]',
-  high: 'bg-[#f08b2e]',
-  critical: 'bg-[#eb5345]',
-  no_data: 'bg-[#677084]',
-}
-
-const fatigueHoverLabels: Record<FatigueMuscle['status'], string> = {
-  ready: 'Готова к нагрузке',
-  light: 'Лёгкая усталость',
-  medium: 'Умеренная усталость',
-  high: 'Высокая усталость',
-  critical: 'Перегрузка',
-  no_data: 'Нет данных',
-}
-
-const inlineSvgCache = new Map<string, string>()
-
-type FatigueFigureGender = 'male' | 'female'
-
-const svgPathByGenderAndView: Record<FatigueFigureGender, Record<BodyMapView, string>> = {
-  male: {
-    front: '/male-muscles-front.svg',
-    back: '/male-muscles-back.svg',
-  },
-  female: {
-    front: '/female-muscles-front.svg',
-    back: '/female-muscles-back.svg',
-  },
-}
-
-function ensureFatigueSelectionAnimation() {
-  if (typeof document === 'undefined') {
-    return
-  }
-
-  const css = `
-    @keyframes fatigue-selected-fill-blink {
-      0%, 100% {
-        fill-opacity: 1;
-      }
-      50% {
-        fill-opacity: 0.78;
-      }
-    }
-  `
-  const existingStyle = document.getElementById('fatigue-selection-animation') as HTMLStyleElement | null
-
-  if (existingStyle) {
-    existingStyle.textContent = css
-    return
-  }
-
-  const style = document.createElement('style')
-  style.id = 'fatigue-selection-animation'
-  style.textContent = css
-  document.head.appendChild(style)
-}
-
-function statusTone(status: FatigueMuscle['status']) {
-  if (status === 'critical') {
-    return '#eb5345'
-  }
-
-  if (status === 'high') {
-    return '#f08b2e'
-  }
-
-  if (status === 'medium') {
-    return '#f0bf43'
-  }
-
-  if (status === 'light') {
-    return '#a6d94f'
-  }
-
-  if (status === 'no_data') {
-    return '#667287'
-  }
-
-  return '#57c968'
-}
-
-const fatigueStatusPriority: Record<FatigueMuscle['status'], number> = {
-  critical: 6,
-  high: 5,
-  medium: 4,
-  light: 3,
-  ready: 2,
-  no_data: 1,
-}
-
-function buildSvgMuscleMap(muscles: FatigueMuscle[], view: BodyMapView) {
-  const bySvgId = new Map<string, FatigueMuscle>()
-
-  for (const muscle of muscles) {
-    const svgIds = resolveSvgIdsForMuscle(muscle.id).filter((svgId) => svgIdsByView[view].includes(svgId))
-
-    for (const svgId of svgIds) {
-      const currentMuscle = bySvgId.get(svgId)
-
-      if (!currentMuscle) {
-        bySvgId.set(svgId, muscle)
-        continue
-      }
-
-      const musclePriority = fatigueStatusPriority[muscle.status]
-      const currentPriority = fatigueStatusPriority[currentMuscle.status]
-
-      if (musclePriority > currentPriority || (musclePriority === currentPriority && muscle.score > currentMuscle.score)) {
-        bySvgId.set(svgId, muscle)
-      }
-    }
-  }
-
-  return bySvgId
-}
-
-function prefixSvgMarkup(svgMarkup: string, prefix: string) {
-  return svgMarkup
-    .replace(/\sclass="([^"]*)"/g, (_match, className: string) => {
-      const sanitizedClassName = className
-        .split(/\s+/)
-        .filter((token) => token && token !== 'bodymap' && !token.startsWith('text-mw-') && !token.startsWith('active:text-mw-') && !token.startsWith('lg:hover:text-mw-'))
-        .join(' ')
-
-      return sanitizedClassName ? ` class="${sanitizedClassName}"` : ''
-    })
-    .replace(/id="([^"]+)"/g, (_match, id: string) => `id="${prefix}${id}"`)
-    .replace(/url\(#([^\)]+)\)/g, (_match, id: string) => `url(#${prefix}${id})`)
 }
 
 function buildPolyline(points: ChartPoint[]) {
@@ -183,9 +50,10 @@ export function PeriodSwitcher({ periods, active, onChange }: { periods: Array<{
           key={period.id}
           type="button"
           onClick={() => onChange(period.id)}
+          aria-pressed={active === period.id}
           className={cn(
             'inline-flex min-h-11 items-center rounded-[18px] px-4 text-sm transition',
-            active === period.id ? 'border border-[#d6b05f]/40 bg-[#3b2b11] text-[#f3d18b]' : 'text-white/58 hover:bg-white/4 hover:text-white',
+            active === period.id ? 'border border-[var(--broadcast-accent,#d6b05f)]/40 bg-[var(--broadcast-accent-soft,#3b2b11)] text-[var(--broadcast-accent-light,#f3d18b)]' : 'text-white/58 hover:bg-white/4 hover:text-white',
           )}
         >
           {period.label}
@@ -205,7 +73,7 @@ export function TabStrip({ tabs, active, onChange }: { tabs: Array<{ id: string;
           onClick={() => onChange(tab.id)}
           className={cn(
             'rounded-[18px] px-4 py-2 text-sm transition',
-            active === tab.id ? 'bg-[#20170b] text-[#f1d391] shadow-[inset_0_-1px_0_rgba(214,176,95,0.7)]' : 'text-white/55 hover:bg-white/4 hover:text-white',
+            active === tab.id ? 'bg-[var(--broadcast-accent-soft,#20170b)] text-[var(--broadcast-accent-light,#f1d391)] shadow-[inset_0_-1px_0_var(--broadcast-accent,rgba(214,176,95,0.7))]' : 'text-white/55 hover:bg-white/4 hover:text-white',
           )}
         >
           {tab.label}
@@ -320,272 +188,8 @@ export function BarChartCard({ title, subtitle, points }: { title: string; subti
   )
 }
 
-export function ToneBadge({ status }: { status: string }) {
-  return <span className={cn('inline-flex h-3 w-3 rounded-full', fatigueDotClasses[status] ?? fatigueDotClasses.no_data)} />
-}
-
-export function MuscleMapDetailed({
-  muscles,
-  selectedId,
-  onSelect,
-  figureGender = 'male',
-}: {
-  muscles: FatigueMuscle[]
-  selectedId: string
-  onSelect: (id: string) => void
-  figureGender?: FatigueFigureGender
-}) {
-  const [hovered, setHovered] = useState<{ view: BodyMapView; id: string } | null>(null)
-  const onFrontHover = useCallback((id: string | null) => setHovered((current) => id
-    ? current?.view === 'front' && current.id === id ? current : { view: 'front', id }
-    : current?.view === 'front' ? null : current), [])
-  const onBackHover = useCallback((id: string | null) => setHovered((current) => id
-    ? current?.view === 'back' && current.id === id ? current : { view: 'back', id }
-    : current?.view === 'back' ? null : current), [])
-  const front = muscles.filter((muscle) => muscleIsVisibleOnView(muscle.id, 'front'))
-  const back = muscles.filter((muscle) => muscleIsVisibleOnView(muscle.id, 'back'))
-
-  return (
-    <div className="grid gap-4 xl:grid-cols-2">
-      <MuscleFigure title="Вид спереди" view="front" figureGender={figureGender} muscles={front} selectedId={selectedId} onSelect={onSelect}
-        hoveredId={hovered?.view === 'front' ? hovered.id : null} onHover={onFrontHover} />
-      <MuscleFigure title="Вид сзади" view="back" figureGender={figureGender} muscles={back} selectedId={selectedId} onSelect={onSelect}
-        hoveredId={hovered?.view === 'back' ? hovered.id : null} onHover={onBackHover} />
-    </div>
-  )
-}
-
-const FatigueFigureSvg = memo(function FatigueFigureSvg({ containerId, markup }: { containerId: string; markup: string }) {
-  return <div id={containerId} className="min-h-[420px] [&_svg]:mx-auto [&_svg]:h-auto [&_svg]:max-h-[620px] [&_svg]:w-full" dangerouslySetInnerHTML={{ __html: markup }} />
-})
-
-function MuscleFigure({
-  title,
-  view,
-  figureGender,
-  muscles,
-  selectedId,
-  onSelect,
-  hoveredId,
-  onHover,
-}: {
-  title: string
-  view: BodyMapView
-  figureGender: FatigueFigureGender
-  muscles: FatigueMuscle[]
-  selectedId: string
-  onSelect: (id: string) => void
-  hoveredId: string | null
-  onHover: (id: string | null) => void
-}) {
-  const [markup, setMarkup] = useState<string | null>(null)
-  const [loadError, setLoadError] = useState(false)
-  const figureRef = useRef<HTMLDivElement>(null)
-  const [hover, setHover] = useState<{ muscle: FatigueMuscle; left: number; top: number } | null>(null)
-  const svgIdPrefix = `${useId().replace(/:/g, '')}-`
-  const containerId = `${svgIdPrefix}${view}-figure`
-
-  useEffect(() => {
-    let cancelled = false
-    const svgPath = svgPathByGenderAndView[figureGender][view]
-    const cachedMarkup = inlineSvgCache.get(svgPath)
-
-    if (cachedMarkup) {
-      setMarkup(prefixSvgMarkup(cachedMarkup, svgIdPrefix))
-      setLoadError(false)
-      return () => {
-        cancelled = true
-      }
-    }
-
-    fetch(svgPath)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Unable to load ${svgPath}`)
-        }
-
-        return response.text()
-      })
-      .then((svgMarkup) => {
-        if (cancelled) {
-          return
-        }
-
-        inlineSvgCache.set(svgPath, svgMarkup)
-        setMarkup(prefixSvgMarkup(svgMarkup, svgIdPrefix))
-        setLoadError(false)
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setLoadError(true)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [figureGender, svgIdPrefix, view])
-
-  useEffect(() => {
-    const container = document.getElementById(containerId)
-
-    if (!container || !markup) {
-      return
-    }
-
-    ensureFatigueSelectionAnimation()
-
-    const svgRoot = container.querySelector<SVGSVGElement>('svg')
-    const bodyModel = container.querySelector<SVGElement>(`[id="${svgIdPrefix}body"]`)
-
-    if (svgRoot) {
-      svgRoot.style.color = '#5f6b7b'
-      svgRoot.style.display = 'block'
-    }
-
-    if (bodyModel) {
-      bodyModel.style.opacity = '0.88'
-
-      bodyModel.querySelectorAll<SVGElement>('path, line, ellipse').forEach((element) => {
-        if (element.hasAttribute('stroke')) {
-          element.setAttribute('stroke', '#596273')
-        }
-      })
-    }
-
-    const clearups: Array<() => void> = []
-
-    for (const svgId of svgIdsByView[view]) {
-      const element = container.querySelector<SVGElement>(`[id="${svgIdPrefix}${svgId}"]`)
-
-      if (!element) {
-        continue
-      }
-
-      element.style.color = '#4f5867'
-      element.style.opacity = '0.42'
-      element.style.filter = 'none'
-      element.style.animation = 'none'
-      element.style.cursor = 'default'
-      element.removeAttribute('role')
-      element.removeAttribute('tabindex')
-      element.removeAttribute('aria-label')
-      element.removeAttribute('aria-pressed')
-
-      element.querySelectorAll<SVGElement>('path, ellipse, polygon').forEach((child) => {
-        child.style.stroke = ''
-        child.style.strokeWidth = ''
-        child.style.paintOrder = ''
-        child.style.fillOpacity = ''
-        child.style.animation = 'none'
-      })
-    }
-
-    for (const [svgId, muscle] of buildSvgMuscleMap(muscles, view)) {
-      const element = container.querySelector<SVGElement>(`[id="${svgIdPrefix}${svgId}"]`)
-
-      if (!element) {
-        continue
-      }
-
-      const selected = selectedId === muscle.id
-      const activate = () => { setHover(null); onHover(null); onSelect(muscle.id) }
-      const showHover = (event: PointerEvent) => {
-        if (event.pointerType === 'touch') return
-        const bounds = figureRef.current?.getBoundingClientRect()
-        if (!bounds) return
-        const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
-        const width = Math.min(16 * rem, bounds.width - 16)
-        setHover({
-          muscle,
-          left: Math.max(8, Math.min(event.clientX - bounds.left + 16, bounds.width - width - 8)),
-          top: Math.max(8, Math.min(event.clientY - bounds.top + 16, bounds.height - 9 * rem)),
-        })
-        onHover(muscle.id)
-      }
-      const clearHover = () => { setHover(null); onHover(null) }
-      const handleKeyDown = (event: KeyboardEvent) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          activate()
-        }
-      }
-
-      element.style.color = statusTone(muscle.status)
-      element.style.opacity = selected ? '1' : '0.88'
-      element.style.filter = selected ? 'brightness(1.16) contrast(1.08) saturate(1.08) drop-shadow(0 0 16px rgba(243,209,139,0.34))' : 'none'
-      element.style.animation = 'none'
-      element.style.cursor = 'pointer'
-      element.style.transition = 'color 160ms ease, opacity 160ms ease, filter 160ms ease'
-      element.setAttribute('role', 'button')
-      element.setAttribute('tabindex', '0')
-      element.setAttribute('aria-label', `${muscle.name}: ${muscle.score} из 100`)
-      element.setAttribute('aria-pressed', selected ? 'true' : 'false')
-
-      element.querySelectorAll<SVGElement>('path, ellipse, polygon').forEach((child) => {
-        const fill = child.getAttribute('fill')
-
-        if (!selected || !fill || fill === 'none') {
-          child.style.stroke = ''
-          child.style.strokeWidth = ''
-          child.style.paintOrder = ''
-          child.style.fillOpacity = ''
-          child.style.animation = 'none'
-          return
-        }
-
-        child.style.fillOpacity = '1'
-        child.style.animation = 'fatigue-selected-fill-blink 1.2s ease-in-out infinite'
-      })
-
-      element.addEventListener('click', activate)
-      element.addEventListener('keydown', handleKeyDown)
-      element.addEventListener('pointerenter', showHover)
-      element.addEventListener('pointermove', showHover)
-      element.addEventListener('pointerleave', clearHover)
-
-      clearups.push(() => {
-        element.removeEventListener('click', activate)
-        element.removeEventListener('keydown', handleKeyDown)
-        element.removeEventListener('pointerenter', showHover)
-        element.removeEventListener('pointermove', showHover)
-        element.removeEventListener('pointerleave', clearHover)
-      })
-    }
-
-    return () => {
-      clearups.forEach((clearup) => clearup())
-    }
-  }, [containerId, markup, muscles, onHover, onSelect, selectedId, svgIdPrefix, view])
-
-  return (
-    <div ref={figureRef} onPointerLeave={() => { setHover(null); onHover(null) }} className="relative rounded-[30px] border border-white/8 bg-[#111419] p-5">
-      <div className="mb-4 text-sm uppercase tracking-[0.24em] text-white/35">{title}</div>
-      <div className="overflow-hidden rounded-[26px] border border-dashed border-white/10 bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.12),transparent_34%),linear-gradient(180deg,#161a20,#0b0e12)] p-3">
-        {loadError ? (
-          <div className="flex min-h-[420px] items-center justify-center rounded-[22px] border border-[#eb5345]/20 bg-[#160f10] px-6 text-center text-sm text-[#ffb4a7]">
-            Не удалось загрузить SVG-карту мышц.
-          </div>
-        ) : markup ? (
-          <FatigueFigureSvg containerId={containerId} markup={markup} />
-        ) : (
-          <div className="flex min-h-[420px] items-center justify-center text-sm text-white/45">
-            Загрузка SVG-карты…
-          </div>
-        )}
-      </div>
-      {hover && hoveredId === hover.muscle.id ? (
-        <div role="tooltip" className="home-recovery-hint fatigue-hint" data-tone={hover.muscle.status}
-          style={{ top: hover.top, left: hover.left, '--recovery-tone': statusTone(hover.muscle.status) } as CSSProperties}>
-          <strong>{hover.muscle.name}</strong>
-          <p><span className="recovery-dot" aria-hidden="true" />{fatigueHoverLabels[hover.muscle.status]}</p>
-          {hover.muscle.status !== 'no_data'
-            ? <div className="home-recovery-score">{hover.muscle.score}<span> балл. усталости</span></div>
-            : <p>Нет сохранённых данных о нагрузке</p>}
-        </div>
-      ) : null}
-    </div>
-  )
+export function ToneBadge({ status }: { status: FatigueMuscle['status'] }) {
+  return <span aria-hidden="true" className="inline-flex h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: fatigueColors[status] }} />
 }
 
 export function MuscleSelectionPanel({ muscle }: { muscle: FatigueMuscle }) {

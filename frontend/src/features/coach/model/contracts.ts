@@ -56,7 +56,7 @@ export type CoachSettings = Readonly<{
 }>
 export const DEFAULT_COACH_SETTINGS: CoachSettings = Object.freeze({
   schemaVersion: 1, enabled: false, consentVersion: null, mode: 'local', density: 'companion',
-  count: 'off', voiceProfile: DEFAULT_COACH_VOICE, historyConsent: false, revision: 0, budgetUsd: '2.00',
+  count: 'every', voiceProfile: DEFAULT_COACH_VOICE, historyConsent: false, revision: 0, budgetUsd: '2.00',
 })
 export type CoachRun = Readonly<{
   schemaVersion: 1; scope: CoachScope; workoutSessionId: number | null

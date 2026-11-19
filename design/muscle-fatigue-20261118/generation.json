@@ -1,0 +1,66 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "quality":  "medium",
+    "size":  "1536x864",
+    "budget_usd":  10,
+    "estimate_usd":  0.067929,
+    "requests":  [
+                     {
+                         "id":  "01-muscle-atlas",
+                         "status":  "completed",
+                         "reserved_usd":  0,
+                         "estimate_usd":  0.022973,
+                         "usage":  {
+                                       "input_tokens":  2137,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  841
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2417
+                                   }
+                     },
+                     {
+                         "id":  "02-zone-priority",
+                         "status":  "completed",
+                         "reserved_usd":  0,
+                         "estimate_usd":  0.022618,
+                         "usage":  {
+                                       "input_tokens":  2066,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  770
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2346
+                                   }
+                     },
+                     {
+                         "id":  "03-dashboard-card",
+                         "status":  "completed",
+                         "reserved_usd":  0,
+                         "estimate_usd":  0.022338,
+                         "usage":  {
+                                       "input_tokens":  2010,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  714
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2290
+                                   }
+                     }
+                 ]
+}

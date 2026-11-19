@@ -55,7 +55,7 @@ def test_typescript_vocabulary_matches_backend():
         assert tuple(re.findall(r"'([^']+)'", block)) == expected
     assert CoachSettings().model_dump(by_alias=True) == {
         "schemaVersion": 1, "enabled": False, "consentVersion": None, "mode": "local",
-        "density": "companion", "count": "off", "voiceProfile": "ash", "historyConsent": False,
+        "density": "companion", "count": "every", "voiceProfile": "ash", "historyConsent": False,
         "revision": 0, "budgetUsd": "2.00",
     }
     voices = source.split("export const COACH_VOICES = [", 1)[1].split("] as const", 1)[0]

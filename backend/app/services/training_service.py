@@ -80,9 +80,9 @@ from app.services.exercise_settings import (
     store_profile,
     tempo_rule,
 )
-from app.services.fatigue_service import FatigueService, equipment_affects_fatigue
+from app.services.fatigue_service import FatigueService
 from app.services.machine_service import MachineService
-from app.services.muscle_catalog import CANONICAL_MUSCLE_DEFINITIONS
+from app.services.muscle_catalog import CANONICAL_MUSCLE_DEFINITIONS, get_muscle_definition
 from app.services.progress_insights import estimate_one_rep_max
 from app.services.workout_duration import DurationEstimate, estimate_workout_duration
 
@@ -209,11 +209,11 @@ MUSCLE_TRANSLATIONS = {
     "glutes": "Ягодицы",
     "quads": "Квадрицепсы",
     "hamstrings": "Бицепс бедра",
-    "adductors": "Приводящие",
+    "adductors": "Приводящие мышцы бедра",
     "abductors": "Отводящие",
     "calves": "Икры",
     "forearms": "Предплечья",
-    "neck": "Шея",
+    "neck": "Мышцы шеи",
     "core": "Кор",
     "serratus_anterior": "Передняя зубчатая",
     "hip_flexors": "Сгибатели бедра",
@@ -363,8 +363,11 @@ class TrainingService:
             )
             for video in exercise.videos
         ]
-        primary_muscles = [self._translate_muscle(item) for item in exercise.muscles[:2]]
-        secondary_muscles = [self._translate_muscle(item) for item in exercise.muscles[2:4]]
+        contributions = exercise.load_profile.contributions()
+        primary_muscles = [self._translate_muscle(key) for key, (_, role) in contributions.items() if role == "primary"]
+        secondary_muscles = [self._translate_muscle(key) for key, (_, role) in contributions.items() if role in {"secondary", "assisting"}]
+        stabilizers = [self._translate_muscle(key) for key, (_, role) in contributions.items() if role == "stabilizer"]
+        load_description = ", ".join(f"{self._translate_muscle(key)} × {weight:g}" for key, weight in exercise.load_profile.weights.items())
         return ExerciseDetailsSchema(
             **summary.model_dump(),
             description=self._description(exercise),
@@ -379,8 +382,9 @@ class TrainingService:
             videos=videos,
             primary_muscles=primary_muscles,
             secondary_muscles=secondary_muscles,
-            stabilizers=["Кор", "Плечевой пояс"],
-            muscle_role_text=f"{summary.name} нагружает {' и '.join(primary_muscles).lower() or 'целевые мышцы'} и использует {', '.join(secondary_muscles).lower() or 'стабилизаторы корпуса'} как вспомогательную группу.",
+            stabilizers=stabilizers,
+            muscle_role_text=(f"Оценочное участие мышц: {load_description}." if exercise.load_profile.activity_factor
+                              else "Восстановительное упражнение. Баллы усталости не начисляются."),
             compatibility=compatibility,
             load_settings=load_settings,
             history=history,
@@ -1013,7 +1017,7 @@ class TrainingService:
                     item.model_copy(
                         update={
                             "muscles": [self._translate_muscle(muscle) for muscle in exercise.muscles],
-                            "affects_fatigue": equipment_affects_fatigue(exercise.equipment),
+                            "affects_fatigue": exercise.load_profile.activity_factor > 0,
                             "preview_video_url": self._preview_video_url(exercise, user_id),
                             "load_type": load_type,
                             "per_side": item.per_side,
@@ -1807,10 +1811,10 @@ class TrainingService:
     def _exercise_muscle_cards(self, session: Session, user_id: str, exercise: ImportedExercise) -> list[MuscleCardSchema]:
         snapshots = {item.muscle_id: item for item in self.fatigue_service.list_current_scores(session, user_id)}
         cards = []
-        for muscle in exercise.muscles[:4]:
+        for muscle in exercise.muscles:
             snapshot = snapshots.get(muscle)
             if snapshot is None:
-                cards.append(MuscleCardSchema(name=self._translate_muscle(muscle), status="light", score=22))
+                cards.append(MuscleCardSchema(name=self._translate_muscle(muscle), status="ready", score=0))
                 continue
             cards.append(
                 MuscleCardSchema(
@@ -1857,7 +1861,7 @@ class TrainingService:
             return translated
         if value in CANONICAL_MUSCLE_DEFINITIONS:
             return CANONICAL_MUSCLE_DEFINITIONS[value].name
-        return value.replace("_", " ").replace("-", " ").title()
+        return get_muscle_definition(value).name
 
     def _translate_equipment(self, value: str) -> str:
         return EQUIPMENT_TRANSLATIONS.get(value, value)

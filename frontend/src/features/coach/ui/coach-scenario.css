@@ -1,3 +1,13 @@
+/* Coordinated navy surfaces; completed stages retain their green status. */
+html[data-forma-theme='broadcast-blue'] :is(.coach-scenario-dialog, .coach-episode) { border-color: var(--broadcast-accent-border, #58a6ff55); background: radial-gradient(circle at top left, #173b65, #101925 65%); }
+html[data-forma-theme='broadcast-blue'] :is(.coach-scenario-dialog > header svg, .coach-scenario-card svg, .coach-scenario-eyebrow, .coach-preparation-story > svg, .coach-preparation-status > svg, .coach-scenario-chip svg, .coach-episode > header svg) { color: var(--broadcast-accent, #58a6ff); }
+html[data-forma-theme='broadcast-blue'] :is(.coach-scenario-card em, .coach-episode-finale) { color: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .coach-scenario-card:hover,
+html[data-forma-theme='broadcast-blue'] .coach-scenario-card:focus-visible { border-color: var(--broadcast-accent, #58a6ff); background: var(--broadcast-accent-soft, #2583ff24); }
+html[data-forma-theme='broadcast-blue'] :is(.coach-preparation-story, .coach-scenario-chip, .coach-episode-achievements span) { border-color: var(--broadcast-accent-border, #58a6ff55); background: var(--broadcast-accent-soft, #2583ff24); color: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .coach-preparation-stages li[data-state='current'] { background: var(--broadcast-accent-soft, #2583ff24); border-color: var(--broadcast-accent-border, #58a6ff55); }
+html[data-forma-theme='broadcast-blue'] .coach-preparation-stages li[data-state='current'] .coach-preparation-step { color: var(--broadcast-accent-strong, #b8daff); background: var(--broadcast-accent-soft, #2583ff24); border-color: var(--broadcast-accent, #58a6ff); }
+
 .coach-scenario-backdrop { position: fixed; inset: auto 0 0; z-index: 60; background: #050912b8; backdrop-filter: blur(6px); }
 .coach-scenario-dialog {
   position: fixed; z-index: 61; left: 50%; transform: translateX(-50%);

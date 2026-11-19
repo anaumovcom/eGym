@@ -39,6 +39,8 @@ from app.schemas.analytics import (
 )
 from app.schemas.machine import MachineHealthSchema
 from app.schemas.user import BodyMeasurementSchema
+from app.services.achievements.collection import collection
+from app.services.achievements.service import catalog as achievement_catalog
 from app.services.exercise_library import get_imported_exercise
 from app.services.fatigue_service import FatigueService
 from app.services.muscle_catalog import get_muscle_definition
@@ -273,16 +275,13 @@ class ProgressService:
         )
 
     def list_achievements(self, session: Session, *, user_id: str) -> AchievementsResponseSchema:
-        workouts = self._workout_rows(session, user_id, None)
-        photos = self._photo_rows(session, user_id)
-        history = self._exercise_history_rows(session, user_id, None)
-        achievements = [
-            AchievementSchema(id="first-workout", title="Первая тренировка", description="Сохранена хотя бы одна тренировка", unlocked=bool(workouts), unlocked_at=self._as_utc(workouts[0].finished_at).isoformat() if workouts and workouts[0].finished_at else None),
-            AchievementSchema(id="five-workouts", title="5 тренировок", description="Выполнено пять тренировок", unlocked=len(workouts) >= 5, unlocked_at=self._as_utc(workouts[4].finished_at).isoformat() if len(workouts) >= 5 and workouts[4].finished_at else None),
-            AchievementSchema(id="first-photo", title="Первая фотофиксация", description="Сохранено хотя бы одно фото прогресса", unlocked=bool(photos), unlocked_at=self._as_utc(photos[0].taken_at).isoformat() if photos else None),
-            AchievementSchema(id="volume-10000", title="10 000 кг объёма", description="Суммарный объём по истории превысил 10 000 кг", unlocked=sum(item.volume_kg for item in history) >= 10000, unlocked_at=None),
-        ]
-        return AchievementsResponseSchema(achievements=achievements)
+        lines = achievement_catalog(session, user_id, limit=len(collection()))["lines"]
+        return AchievementsResponseSchema(achievements=[
+            AchievementSchema(id=line["id"], title=line["name"], description=line["description"],
+                              unlocked=bool(line["highestTier"]),
+                              unlocked_at=next((tier["earnedAt"] for tier in line["tiers"] if tier["earned"]), None))
+            for line in lines
+        ])
 
     def _period_start(self, period: str) -> datetime | None:
         now = datetime.now(UTC)

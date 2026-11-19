@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { generateCoachPack } from './pack-generation'
+import { generateCoachPack, recordStarterClip } from './pack-generation'
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers() })
 
@@ -21,10 +21,23 @@ describe('explicit pack generation', () => {
     vi.stubGlobal('fetch', fetch)
     const progress = vi.fn()
     await generateCoachPack('fish-streamer', 'alexey', '0.50', new AbortController().signal, progress)
-    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ userId: 'alexey', capUsd: '0.50', confirmPaid: true })
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ userId: 'alexey', capUsd: '0.50', confirmPaid: true, includeOptional: true })
     expect(fetch.mock.calls[1][1].headers['X-Coach-Run-Token']).toBe('secret-token')
     expect(fetch.mock.calls.every(([url]) => !url.includes('secret-token'))).toBe(true)
     expect(progress).toHaveBeenCalledWith(56, 56)
+  })
+
+  it('sends exactly one version-bound clip request for a replacement, with no bulk fallback', async () => {
+    const fetch = vi.fn().mockResolvedValueOnce(Response.json({ detail: 'pack_changed' }, { status: 409 }))
+    vi.stubGlobal('fetch', fetch)
+    const target = { clipId: 'count-1', expectedPackVersion: '0000000000000001' }
+    await expect(generateCoachPack('ash', 'u', '0.50', new AbortController().signal, vi.fn(), target)).rejects.toThrow('другая версия')
+    expect(fetch.mock.calls.map(([url]) => url)).toEqual(['/api/coach/packs/ash/clips/count-1/regenerate'])
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ userId: 'u', capUsd: '0.50', confirmPaid: true, expectedPackVersion: target.expectedPackVersion })
+    fetch.mockResolvedValueOnce(Response.json({ packVersion: '0000000000000002' }))
+    await recordStarterClip(target, 'slow', new AbortController().signal)
+    expect(fetch.mock.calls[1][0]).toBe('/api/coach/packs/ru-base/clips/count-1/record')
+    expect(JSON.parse(fetch.mock.calls[1][1].body)).toEqual({ confirmLocal: true, pace: 'slow', expectedPackVersion: target.expectedPackVersion })
   })
 
   it('requires operator login and never displays a provider error body', async () => {

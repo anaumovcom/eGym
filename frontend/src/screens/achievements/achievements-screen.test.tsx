@@ -6,7 +6,7 @@ import type { AchievementLine } from '@/entities/achievement/model/types'
 import { useAppStore } from '@/stores/app-store'
 import { AchievementsScreen } from './achievements-screen'
 
-const api = vi.hoisted(() => ({ catalog: vi.fn(), overview: vi.fn() }))
+const api = vi.hoisted(() => ({ catalog: vi.fn() }))
 
 vi.mock('@/features/achievements/lib/achievements-api', () => ({ achievementsApi: api }))
 vi.mock('@/features/achievements/ui/achievement-media', () => ({
@@ -18,7 +18,7 @@ vi.mock('@/shared/ui/overlays/surface-components', () => ({ EmergencyStopOverlay
 
 function make(id: string, group: string, groupName: string, earned: boolean, isNew = false): AchievementLine {
   return {
-    id, group, groupName, metric: 'm', unit: 'подход', description: earned ? 'Открытое условие' : '',
+    id, name: `Серия ${id}`, group, groupName, metric: 'm', unit: 'подход', description: earned ? 'Открытое условие' : 'Другая цель',
     thresholds: [1, 5], applicability: 'available', currentValue: earned ? 1 : 0, highestTier: earned ? 1 : 0,
     state: 'available', nextTierId: `${id}:t2`, progressPercent: 10, isNew,
     tiers: [1, 2].map((tier) => ({
@@ -39,35 +39,36 @@ function renderScreen() {
 
 beforeEach(() => {
   useAppStore.setState({ selectedUserId: 'alexey', emergencyStopActive: false })
-  api.overview.mockResolvedValue({ earnedTiers: 1, totalTiers: 6, completedLines: 0, totalLines: 3, activeDays: 12, recent: [], upcoming: [], computedThrough: null, isRebuilding: false, media: { lines: 3, tiers: 6, images: 1, audio: 1 } })
   api.catalog.mockResolvedValue({ lines, total: 3, nextCursor: null, computedThrough: null, isRebuilding: false, groups: [{ id: 'start', name: 'Начало пути' }, { id: 'practice', name: 'Практика' }], media: { lines: 3, tiers: 6, images: 1, audio: 1 } })
 })
 afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 describe('achievements collection screen', () => {
-  it('requests the whole collection once and keeps unknown lines closed', async () => {
+  it('shows conditions before earning the first tier and counts the entire catalog', async () => {
     renderScreen()
-    expect(await screen.findByText('Награда start.one')).toBeInTheDocument()
+    const spotlight = await screen.findByRole('region', { name: 'Личная витрина' })
+    expect(within(spotlight).getByRole('link', { name: /Последняя находка/ })).toHaveAttribute('href', '/achievements/start.one?tier=1')
     expect(api.catalog).toHaveBeenCalledTimes(1)
     expect(api.catalog).toHaveBeenCalledWith('alexey', { limit: 200 })
-    expect(screen.getAllByRole('heading', { name: 'Неизвестное достижение' })).toHaveLength(2)
-    expect(screen.getByRole('status')).toHaveTextContent('Найдено: 3')
+    expect(screen.getAllByText('Другая цель')).toHaveLength(2)
+    expect(screen.getByRole('status')).toHaveTextContent('3 серии')
     const tabs = screen.getByRole('group', { name: 'Подборка достижений' })
-    expect(within(tabs).getByRole('button', { name: /Неизвестные/ })).toHaveTextContent('2')
+    expect(within(tabs).getByRole('button', { name: /Не открыты/ })).toHaveTextContent('2')
     expect(within(tabs).getByRole('button', { name: /Новые/ })).toHaveTextContent('1')
   })
 
   it('filters by tab, section and hidden text without leaking unknown lines', async () => {
     renderScreen()
-    await screen.findByText('Награда start.one')
-    fireEvent.click(screen.getByRole('button', { name: /Полученные/ }))
-    expect(screen.queryByRole('heading', { name: 'Неизвестное достижение' })).not.toBeInTheDocument()
+    await screen.findByRole('region', { name: 'Личная витрина' })
+    fireEvent.click(screen.getByRole('button', { name: /Мои награды/ }))
+    expect(screen.getByRole('link', { name: 'Открыть награду «Награда start.one»' })).toHaveAttribute('href', '/achievements/start.one?tier=1')
+    expect(screen.queryByText('Другая цель')).not.toBeInTheDocument()
     fireEvent.click(screen.getByRole('button', { name: /^Все/ }))
     fireEvent.change(screen.getByRole('searchbox', { name: 'Поиск достижений' }), { target: { value: 'открытое' } })
-    expect(screen.getByRole('status')).toHaveTextContent('Найдено: 1')
+    expect(screen.getByRole('status')).toHaveTextContent('1 серия')
     fireEvent.change(screen.getByRole('searchbox', { name: 'Поиск достижений' }), { target: { value: '' } })
     fireEvent.click(screen.getByRole('button', { name: /^Практика/ }))
-    expect(screen.getByRole('status')).toHaveTextContent('Найдено: 1')
+    expect(screen.getByRole('status')).toHaveTextContent('1 серия')
     expect(screen.queryByText('Награда start.one')).not.toBeInTheDocument()
   })
 })

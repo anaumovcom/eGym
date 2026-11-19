@@ -1,0 +1,312 @@
+{
+  "prompt": "Use case: scientific-educational. Create ONE square nine-panel illustrated service-manual plate for a motorized Smith exercise machine. A mathematically regular 3 by 3 contact sheet of nine equally sized square cells, read across each row. All nine drawings independent fully contained in their cells with generous empty margin around each; identical clean warm-white canvas, near-invisible or no dividers. No lettering, no numbers, no captions, no logos. Crisp physical technical illustrations, charcoal steel twin vertical guide columns carrying a horizontal silver bar between rectangular moving carriages, teal blue for left movement, amber for right or change. Orthographic close-ups, restrained product manual style, simple arrows, no background clutter. Mechanically plausible and legible at 140px thumbnail. Do not combine cells. Specific scenes in row-major order: ",
+  "individual": {
+    "H3": "Use case: scientific-educational. One square technical service-manual illustration for the H3 fixed-height calibration of a motorized Smith exercise machine. Front orthographic detail: two charcoal steel vertical guide columns, a single straight silver unloaded bar running horizontally between rectangular left and right carriages, halfway up the columns. Fine teal dashed horizontal datum line at both ends aligned with the bar center. A small amber downward arrow above the middle of the bar, and a small amber upward arrow below it suggesting a brief diagnostic force while holding a position. Crisp physical technical illustration, generous margin, clean warm white background, restrained warm grey metallic shading, teal left carriage outline, amber right cue. Clear at a 160px thumbnail. Empty machine without a person, plates, hands, hooks, lock, padlock or brake. No text, digits, logos, scale labels, watermark, border, or panels."
+  },
+  "plates": {
+    "baseline": [
+      [
+        "B0",
+        "Two stationary servo controllers and matching connections to the paired columns"
+      ],
+      [
+        "B1",
+        "a still bar and a small oscilloscope showing regular communication pulses"
+      ],
+      [
+        "B5",
+        "an upward movement arrow and encoder wheel with rotation arrow"
+      ],
+      [
+        "B7",
+        "both bar ends resting exactly on lower mechanical stops, datum markers"
+      ],
+      [
+        "S3",
+        "two opposing upward and downward force arrows on a floating empty bar at mid height"
+      ],
+      [
+        "M1",
+        "bar breaking away from lower mechanical stops with a tiny gap"
+      ],
+      [
+        "M2",
+        "bar moving steadily up and down on short smooth arrows at middle height"
+      ],
+      [
+        "M3",
+        "moving bar coasting to a stop; fading consecutive bar positions approach a target"
+      ],
+      [
+        "M4",
+        "a few distinct stop heights picked out as small dots alongside the twin guide rails"
+      ]
+    ],
+    "mechanics": [
+      [
+        "M5",
+        "fast carriage braking at mid height; long then progressively shorter movement arrows"
+      ],
+      [
+        "M6",
+        "repeated rapid travel between several marked positions"
+      ],
+      [
+        "S7",
+        "the same empty bar measured at five distinct heights along the column"
+      ],
+      [
+        "S9",
+        "a known reference mass attached centrally and symmetrically to a level bar"
+      ],
+      [
+        "D2",
+        "same bar driven in both directions with graduated velocity arrows"
+      ],
+      [
+        "D4",
+        "motor rotor and translating bar connected by a lead screw with acceleration arrow"
+      ],
+      [
+        "C1",
+        "bar oscillating a tiny distance on either side of its hold point"
+      ],
+      [
+        "C3",
+        "supported empty bar descends slowly with a small downward arrow"
+      ],
+      [
+        "G1",
+        "hanging reference mass next to a weighing scale for comparison"
+      ]
+    ],
+    "sensors": [
+      [
+        "B3",
+        "command pulse on scope followed by delayed bar movement at the encoder"
+      ],
+      [
+        "B8",
+        "level bar approaching paired upper hard stops and a vertical stroke dimension"
+      ],
+      [
+        "X2",
+        "one carriage slightly lifted while the other stays fixed, magnified deflection at coupling"
+      ],
+      [
+        "Q1",
+        "empty level bar resting at both lower stops, healthy controller check symbols"
+      ],
+      [
+        "B2",
+        "bar seated on lower stops, command and delayed torque pulse on scope"
+      ],
+      [
+        "D1",
+        "small command stepping across the zero mark on motor torque indicator"
+      ],
+      [
+        "B6",
+        "tape measure held vertically alongside the guide with two witness marks"
+      ],
+      [
+        "S5",
+        "stationary carriage after a dwell, clock and a small breakaway arrow"
+      ],
+      [
+        "S6",
+        "close-up of lead screw and carriage, one complete turn highlighted by a ring"
+      ]
+    ],
+    "motion": [
+      [
+        "S8",
+        "localized sticky patch in one guide marked by two colored brackets"
+      ],
+      [
+        "P1",
+        "carriage positioning upward to a horizontal target marker"
+      ],
+      [
+        "P2",
+        "carriage positioning downward to a horizontal target marker"
+      ],
+      [
+        "A1",
+        "smooth acceleration away from a central start, gradually wider ghost positions"
+      ],
+      [
+        "A2",
+        "smooth deceleration toward a central stop, progressively closer ghost positions"
+      ],
+      [
+        "A3",
+        "gentle landing of the horizontal bar on twin bottom stops"
+      ],
+      [
+        "R1",
+        "a vertical movement reversal at mid height with a rounded return arrow"
+      ],
+      [
+        "E1",
+        "emergency stop mushroom button beside a stopping carriage; no hands near machine"
+      ],
+      [
+        "H1",
+        "level stationary bar resisting a downward load at mid height"
+      ]
+    ],
+    "control": [
+      [
+        "H2",
+        "close detail of a hand gently pressing a stationary gripped bar at mid height"
+      ],
+      [
+        "W1",
+        "empty mid-height bar balancing, paired opposing force arrows"
+      ],
+      [
+        "W2",
+        "operator hands gently guiding a level unloaded bar up and down from outside the guides"
+      ],
+      [
+        "X3",
+        "paired carriages realigned to the same horizontal dashed target"
+      ],
+      [
+        "L1",
+        "centrally suspended reference mass rising with the bar"
+      ],
+      [
+        "L2",
+        "centrally suspended reference mass descending with the bar"
+      ],
+      [
+        "V1",
+        "rotating motor encoder wheel and a second travel measurement alongside the guide"
+      ],
+      [
+        "V2",
+        "stationary bar with small jitter visible as a trace on a scope"
+      ],
+      [
+        "V3",
+        "motion of a carriage and predicted forward position shown as a dashed outline"
+      ]
+    ],
+    "feel": [
+      [
+        "S10",
+        "two vertical guide tracks with separate small colored friction peaks at different heights"
+      ],
+      [
+        "F3",
+        "bar in midstroke with a fan of fast and slow arrows in opposite directions"
+      ],
+      [
+        "F1",
+        "equivalent motor inertia, rotor and moving bar with controlled acceleration"
+      ],
+      [
+        "F2",
+        "barbell weight and driven guide bar moving together through aligned ghost positions"
+      ],
+      [
+        "F4",
+        "smooth reversal of a mid-height carriage with a rounded U-shaped arrow"
+      ],
+      [
+        "F5",
+        "an upstroke changing to a downstroke with two different load arrows"
+      ],
+      [
+        "F6",
+        "a stationary bar starting gently, a clock and short upward trail"
+      ],
+      [
+        "F7",
+        "leadscrew closeup with periodic corrugation becoming a smooth motion trace"
+      ],
+      [
+        "F8",
+        "motor torque passing through the center of a symmetric zero-centered gauge"
+      ]
+    ],
+    "training": [
+      [
+        "F9",
+        "small vibration on an otherwise stationary carriage, short symmetric arrows"
+      ],
+      [
+        "F10",
+        "both ends of guide travel have soft shaded braking bands"
+      ],
+      [
+        "F11",
+        "two hand outlines, one holding and one opening away from a supported bar"
+      ],
+      [
+        "X4",
+        "two carriages on a level bar moving together during repeated strokes"
+      ],
+      [
+        "L3",
+        "loaded lead screw with friction indicated at the moving nut"
+      ],
+      [
+        "D5",
+        "bar oscillating gently with a reference mass hanging from its center"
+      ],
+      [
+        "N1",
+        "two drive units applying a downward force to a level bar"
+      ],
+      [
+        "N2",
+        "heavily resisted bar with paired downward force arrows and visible travel reserve"
+      ],
+      [
+        "G2",
+        "a reference free bar and guided bar side by side with corresponding motion arcs"
+      ]
+    ],
+    "setup": [
+      [
+        "G3",
+        "a person standing centrally, hands resting symmetrically on a Smith machine bar, comparing how the bar moves"
+      ],
+      [
+        "G4",
+        "three overlapping travel paths on one guide with repeat markers at the same height"
+      ],
+      [
+        "WIZARD",
+        "front view of complete twin-column trainer with empty horizontal bar resting on the lower stops"
+      ],
+      [
+        "AUTO_GUIDES",
+        "both columns with separate friction locations at varying heights"
+      ],
+      [
+        "AUTO_MOTION",
+        "smooth bar acceleration, braking and landing on stops shown with ghost positions"
+      ],
+      [
+        "AUTO_SIGNAL",
+        "servo controller and encoder with a neat diagnostic signal trace"
+      ],
+      [
+        "AUTO_WEIGHT",
+        "a single reference weight hanging centrally on the level bar for a second measurement"
+      ],
+      [
+        "AUTO_FEEL",
+        "a moving guided bar in the middle range with soft rounded return arrows"
+      ],
+      [
+        "REFERENCE",
+        "detail of a level bar and two healthy guide carriages"
+      ]
+    ]
+  }
+}

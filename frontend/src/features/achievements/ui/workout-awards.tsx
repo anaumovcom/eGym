@@ -1,74 +1,153 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronRight, Sparkles, Trophy } from 'lucide-react'
-import { useState } from 'react'
+import * as Dialog from '@radix-ui/react-dialog'
+import { skipToken, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ChevronLeft, ChevronRight, Trophy, X } from 'lucide-react'
+import { useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import type { AchievementAward } from '@/entities/achievement/model/types'
 import { achievementsApi } from '@/features/achievements/lib/achievements-api'
+import { achievementUnit } from '@/features/achievements/lib/achievement-units'
+import { plural } from '@/shared/lib/ru-format'
+import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { AchievementAudioButton, AchievementImage, RarityBadge } from './achievement-media'
+import { AwardFacts } from './award-facts'
 
-const INITIAL_COUNT = 4
+const PREVIEW_COUNT = 4
 
 export function WorkoutAwards({ userId, workoutId }: { userId: string | null; workoutId: number | undefined }) {
-  const queryClient = useQueryClient()
-  const [expanded, setExpanded] = useState(false)
-  const { mutate: recordAudioReceipt } = useMutation({
-    mutationFn: ({ definitionId, tier }: { definitionId: string; tier: number }) =>
-      achievementsApi.recordReceipt(userId ?? 'alexey', definitionId, 'audio', tier),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['achievements'] }),
-  })
-  const query = useQuery({
+  const { data } = useQuery({
     queryKey: ['workout-awards', userId, workoutId],
-    queryFn: () => achievementsApi.workoutAwards(userId ?? 'alexey', workoutId!),
-    enabled: Boolean(userId && workoutId),
+    queryFn: userId && workoutId ? () => achievementsApi.workoutAwards(userId, workoutId) : skipToken,
     refetchInterval: (current) => current.state.data?.isRebuilding ? 1500 : false,
   })
-  if (!query.data || query.data.awards.length === 0) {
-    return query.data?.isRebuilding
-      ? <section className="ach-workout-awards" aria-label="Достижения"><p className="ach-pending" role="status">Сохранили тренировку. Обновляем достижения…</p></section>
+  if (!userId || !data?.awards.length) {
+    return data?.isRebuilding
+      ? <section className="ach-workout-awards" aria-label="Достижения"><p role="status">Обновляем достижения…</p></section>
       : null
   }
-  const awards = query.data.awards
-  const visible = expanded ? awards : awards.slice(0, INITIAL_COUNT)
-  const hiddenCount = awards.length - visible.length
-  const newCount = awards.filter((award) => award.isNew).length
+  return <EarnedWorkoutAwards key={`${userId}:${workoutId}`} userId={userId} awards={data.awards} />
+}
+
+function AwardLabel({ award }: { award: AchievementAward }) {
+  return <><AchievementImage tier={award.tier} decorative /><span className="ach-award-name">{award.tier.title}</span></>
+}
+
+function AwardDetails({ award, wasNew, onPlay }: { award: AchievementAward; wasNew?: boolean; onPlay: () => void }) {
+  const { tier, description, unit, earnedAt, awardedAt } = award
   return (
-    <section className="ach-workout-awards" aria-labelledby="workout-awards-title">
-      <header className="ach-workout-awards-head">
-        <div className="ach-workout-awards-heading">
-          <span className="ach-workout-awards-icon" aria-hidden="true"><Trophy /></span>
-          <div className="ach-workout-awards-copy">
-            <h2 id="workout-awards-title">Новые достижения</h2>
-            <p>{newCount > 0 ? 'Заслужены по итогам этой тренировки' : 'Получены по итогам этой тренировки'}</p>
+    <article className="ach-award ach-award-detail" data-rarity={tier.rarity} aria-labelledby="selected-award-title">
+      <div className="ach-award-hero">
+        <AchievementImage tier={tier} decorative eager />
+        <div>
+          <div className="ach-award-meta">
+            <RarityBadge rarity={tier.rarity} />
+            {wasNew && <span className="ach-new-badge">Новая</span>}
           </div>
+          <h3 id="selected-award-title">{tier.title}</h3>
+          <p>Ступень {tier.tier} · {tier.tierName}</p>
+          <AchievementAudioButton tier={tier} onPlaybackStart={onPlay} />
         </div>
-        <span className="ach-workout-awards-count" aria-label={`Всего достижений: ${awards.length}`}>
-          <Sparkles aria-hidden="true" />+{awards.length}
-        </span>
-      </header>
-      <div className="ach-award-grid">
-        {visible.map((award, index) => (
-          <article className="ach-award" data-rarity={award.tier.rarity} style={{ animationDelay: `${Math.min(index, 8) * 70}ms` }} key={award.grantId}>
-            {award.isNew && <span className="ach-new-badge">Новая</span>}
-            <AchievementImage tier={award.tier} />
-            <div className="ach-award-copy">
-              <div className="ach-award-meta">
-                <RarityBadge rarity={award.tier.rarity} />
-                <span className="ach-award-tier">Ступень {award.tier.tier} · {award.tier.tierName}</span>
-              </div>
-              <h3>{award.tier.title}</h3>
-              <p>{award.tier.phrase}</p>
-              <AchievementAudioButton tier={award.tier} compact onPlaybackStart={() => recordAudioReceipt({ definitionId: award.definitionId, tier: award.tier.tier })} />
-            </div>
-          </article>
-        ))}
       </div>
-      <footer className="ach-workout-awards-foot">
-        {hiddenCount > 0 && (
-          <button type="button" className="ach-foot-action" onClick={() => setExpanded(true)}>
-            Показать ещё {hiddenCount}<ChevronDown aria-hidden="true" />
+      {tier.phrase && <blockquote>«{tier.phrase}»</blockquote>}
+      <Dialog.Description>{description}</Dialog.Description>
+      {(award.movements?.length || award.valueAtAward != null) ? <div className="ach-workout-proof">
+        <span>В момент открытия</span>
+        {award.valueAtAward != null && <strong>{award.valueAtAward.toLocaleString('ru-RU', { maximumFractionDigits: 1 })} {achievementUnit(unit, award.valueAtAward)}</strong>}
+        {!!award.movements?.length && <p>{award.movements.join(' · ')}</p>}
+      </div> : null}
+      <AwardFacts tier={tier} unit={unit} earnedAt={earnedAt ?? awardedAt} />
+    </article>
+  )
+}
+
+function EarnedWorkoutAwards({ userId, awards }: { userId: string; awards: AchievementAward[] }) {
+  const [openedAward, setOpenedAward] = useState<AchievementAward | null>(null)
+  const opener = useRef<HTMLButtonElement>(null)
+  const queryClient = useQueryClient()
+  const { mutate: recordReceipt } = useMutation({
+    mutationFn: ({ award, surface }: { award: AchievementAward; surface: 'detail' | 'audio' }) =>
+      achievementsApi.recordReceipt(userId, award.definitionId, surface, award.tier.tier),
+    onSuccess: () => Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['workout-awards', userId] }),
+      queryClient.invalidateQueries({ queryKey: ['achievements'] }),
+    ]),
+  })
+  const position = awards.findIndex(award => award.grantId === openedAward?.grantId)
+  const selected = awards[position]
+
+  function selectAward(award: AchievementAward, trigger?: HTMLButtonElement) {
+    if (trigger) opener.current = trigger
+    if (award.grantId === openedAward?.grantId) return
+    setOpenedAward(award)
+    if (award.isNew) recordReceipt({ award, surface: 'detail' })
+  }
+
+  return (
+    <Dialog.Root open={Boolean(selected)} onOpenChange={open => { if (!open) setOpenedAward(null) }}>
+      <section className="ach-workout-awards" aria-labelledby="workout-awards-title">
+        <div><h2 id="workout-awards-title"><Trophy aria-hidden="true" />{awards.some(award => award.isNew) ? 'Новые достижения' : 'Достижения тренировки'}</h2>
+          <small className="ach-workout-count">{awards.length} {plural(awards.length, 'награда', 'награды', 'наград')} за занятие</small></div>
+        <div className="ach-award-preview">
+          {awards.slice(0, PREVIEW_COUNT).map(award => (
+            <button type="button" className="ach-award" data-rarity={award.tier.rarity} aria-haspopup="dialog"
+              key={award.grantId} onClick={event => selectAward(award, event.currentTarget)}>
+              <AwardLabel award={award} />
+            </button>
+          ))}
+        </div>
+        {awards.length > PREVIEW_COUNT && (
+          <button type="button" className="ach-foot-action" aria-haspopup="dialog" aria-label={`Все достижения тренировки, ${awards.length}`}
+            onClick={event => selectAward(awards[0], event.currentTarget)}>
+            Все {awards.length}<ChevronRight aria-hidden="true" />
           </button>
         )}
-        <Link className="ach-foot-action" to="/achievements">Вся коллекция<ChevronRight aria-hidden="true" /></Link>
-      </footer>
-    </section>
+      </section>
+
+      {selected && (
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+          <SafetyDialogContent className="ach-awards-dialog" onCloseAutoFocus={event => {
+            event.preventDefault()
+            opener.current?.focus({ preventScroll: true })
+          }}>
+            <header className="ach-awards-dialog-head">
+              <Dialog.Title>Достижения тренировки</Dialog.Title>
+              <div>
+                <Link className="ach-foot-action" to="/achievements">Вся коллекция<ChevronRight aria-hidden="true" /></Link>
+                <Dialog.Close className="ach-foot-action"><X aria-hidden="true" />Закрыть</Dialog.Close>
+              </div>
+            </header>
+            <div className="ach-awards-dialog-body">
+              <div className="ach-award-stage">
+                <AwardDetails key={selected.grantId} award={selected} wasNew={openedAward?.isNew}
+                  onPlay={() => recordReceipt({ award: selected, surface: 'audio' })} />
+                <footer className="ach-award-detail-actions">
+                  <Link className="ach-foot-action" to={`/achievements/${encodeURIComponent(selected.definitionId)}?tier=${selected.tier.tier}`}>В коллекцию наград<ChevronRight aria-hidden="true" /></Link>
+                  {awards.length > 1 && <nav className="ach-scene-controls" aria-label="Просмотр наград тренировки">
+                    <button type="button" className="ach-foot-action" disabled={position === 0} aria-label="Предыдущая награда"
+                      onClick={() => selectAward(awards[position - 1])}><ChevronLeft aria-hidden="true" /></button>
+                    <span aria-live="polite">Награда {position + 1} из {awards.length}</span>
+                    <button type="button" className="ach-foot-action" disabled={position === awards.length - 1} aria-label="Следующая награда"
+                      onClick={() => selectAward(awards[position + 1])}><ChevronRight aria-hidden="true" /></button>
+                  </nav>}
+                </footer>
+              </div>
+              {awards.length > 1 && (
+                <section className="ach-award-picker" aria-labelledby="workout-award-list-title">
+                  <h3 id="workout-award-list-title">Все награды <span>{awards.length}</span></h3>
+                  <div className="ach-award-list">
+                    {awards.map(award => (
+                      <button type="button" className="ach-award" data-rarity={award.tier.rarity} key={award.grantId}
+                        aria-pressed={award.grantId === selected.grantId} onClick={() => selectAward(award)}>
+                        <AwardLabel award={award} />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+            </div>
+          </SafetyDialogContent>
+        </Dialog.Portal>
+      )}
+    </Dialog.Root>
   )
 }

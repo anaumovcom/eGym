@@ -6,7 +6,7 @@ import { FakeClock, FakeContext } from '@/features/coach/audio/audio-test-fakes'
 import { LocalCoachAudioManager } from '@/features/coach/audio/local-coach-audio-manager'
 import { createTestClipBuffer } from '@/features/coach/audio/test-clips'
 import type { CoachAudio, CoachScope } from '@/features/coach/model/contracts'
-import { playExerciseEventSound, useExerciseEventSounds } from './exercise-event-sounds'
+import { exerciseSoundSources as sounds, playExerciseEventSound, useExerciseEventSounds } from './exercise-event-sounds'
 
 const play = vi.fn().mockResolvedValue(undefined)
 class FakeAudio extends EventTarget {
@@ -63,7 +63,7 @@ describe('exercise event sounds', () => {
     playExerciseEventSound('lower')
     playExerciseEventSound('error')
     playExerciseEventSound('success')
-    expect(audio.mock.calls.map(([src]) => src)).toEqual(['/audio/pop-up.mp3', '/audio/pop-down.mp3', '/audio/error-notification.mp3', '/audio/success.mp3'])
+    expect(audio.mock.calls.map(([src]) => src)).toEqual([sounds.upper, sounds.lower, sounds.error, sounds.success])
     for (const instance of instances.slice(0, 2)) expect(instance.volume).toBeCloseTo(0.7 * 0.5)
     for (const instance of instances.slice(2)) expect(instance.volume).toBeCloseTo(0.7 * 0.12)
     expect(contextConstructor).not.toHaveBeenCalled()
@@ -231,7 +231,7 @@ describe('exercise event sounds', () => {
     rerender({ ...initial, position: 'upper' })
     rerender({ ...initial, position: 'neutral' })
     rerender(initial)
-    expect(audio.mock.calls.map(([src]) => src)).toEqual(['/audio/pop-up.mp3', '/audio/pop-down.mp3'])
+    expect(audio.mock.calls.map(([src]) => src)).toEqual([sounds.upper, sounds.lower])
     rerender({ ...initial, scope: 'set-2', position: 'upper' })
     expect(audio).toHaveBeenCalledTimes(2)
   })
@@ -239,7 +239,7 @@ describe('exercise event sounds', () => {
   it('prioritizes new problems and partial reps, without repeating unchanged warnings', () => {
     const { rerender } = renderHook(useSounds, { initialProps: initial })
     rerender({ ...initial, position: 'upper', problems: ['fault'] })
-    expect(audio).toHaveBeenLastCalledWith('/audio/error-notification.mp3')
+    expect(audio).toHaveBeenLastCalledWith(sounds.error)
     rerender({ ...initial, position: 'upper', problems: ['fault'] })
     expect(audio).toHaveBeenCalledTimes(1)
     rerender({ ...initial, problems: ['fault', 'network'] })
@@ -248,6 +248,6 @@ describe('exercise event sounds', () => {
     rerender({ ...initial, problems: ['fault'] })
     rerender({ ...initial, problems: ['fault'], partialReps: 1 })
     expect(audio).toHaveBeenCalledTimes(4)
-    expect(audio.mock.calls.every(([src]) => src === '/audio/error-notification.mp3')).toBe(true)
+    expect(audio.mock.calls.every(([src]) => src === sounds.error)).toBe(true)
   })
 })

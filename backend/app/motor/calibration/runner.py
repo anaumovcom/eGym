@@ -9,10 +9,11 @@ a timeout aborts the procedure and puts both drives on support.
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any, Literal
 
 from app.motor.drive.protocol import DriveSample, TorqueDrive
+from app.motor.supervisor.pair import MotionFault, PairMonitor
 from app.motor.units import SIDES, Side, mm_s_to_rpm
 
 
@@ -20,6 +21,7 @@ from app.motor.units import SIDES, Side, mm_s_to_rpm
 class Frame:
     t: float
     samples: dict[Side, DriveSample]
+    skew_mm: float | None = None  # signed, aligned by the runner before delivery to a procedure
 
     def x(self, side: Side) -> float:
         return self.samples[side].position_mm
@@ -34,6 +36,13 @@ class Frame:
     @property
     def v_mean(self) -> float:
         return (self.v("left") + self.v("right")) / 2
+
+    @property
+    def max_abs_speed(self) -> float:
+        return max(abs(self.v(side)) for side in SIDES)
+
+    def target_error(self, target: float) -> float:
+        return max(abs(self.x(side) - target) for side in SIDES)
 
 
 @dataclass(frozen=True)
@@ -70,6 +79,7 @@ class Command:
     speed_limit_mm_s: dict[Side, float] | None = None
     # fast transit (motion._fast): the envelope speed limit rises to this, at most FAST_CEILING_MM_S
     max_speed_mm_s: float | None = None
+    hold_target_mm: float | None = None  # while the fixed-position law is actually engaged
 
 
 LIFTOFF_SPEED_MM_S = 150.0
@@ -90,6 +100,8 @@ class ProcedureEnvelope:
     min_x_mm: float = -5.0
     max_x_mm: float = 1500.0
     max_force_n: float = 600.0
+    critical_skew_mm: float | None = None
+    stale_s: float = 0.15
 
 
 @dataclass
@@ -98,6 +110,8 @@ class RunResult:
     data: dict[str, Any] = field(default_factory=dict)
     reason: str | None = None
     log: list[tuple[float, float, float, float, float, float, float]] = field(default_factory=list)
+    drive_write_failed: bool = False
+    abort_code: str | None = None
 
 
 class CalibrationRunner:
@@ -109,11 +123,16 @@ class CalibrationRunner:
         tick: Callable[[], float] | None = None,
         envelope: ProcedureEnvelope | None = None,
         dead_man: Callable[[], bool] = lambda: True,
+        speed_caps: tuple[float, float] | None = None,  # positive magnitudes up / down
+        drive_limit_rpm: int | None = None,
     ) -> None:
         self.drives = drives
         self.tick = tick
         self.envelope = envelope or ProcedureEnvelope()
         self.dead_man = dead_man
+        self.speed_caps = speed_caps
+        self.drive_limit_rpm = drive_limit_rpm
+        self.pair = PairMonitor()
         self._procedure: Procedure | None = None
         self._command = Command()
         self._result = RunResult("done")
@@ -139,12 +158,15 @@ class CalibrationRunner:
     def result(self) -> RunResult:
         return self._result
 
-    def _check(self, frame: Frame, envelope: ProcedureEnvelope) -> str | None:
+    def _check(self, frame: Frame, envelope: ProcedureEnvelope) -> MotionFault | None:
         """Envelope check. A speed spike (PA_1C1 glitch while the bar is still) is not an abort: overspeed
         must be confirmed by the encoder (Δx/Δt ≥ half the limit) or last three frames."""
 
         if not self.dead_man():
-            return "нет связи с экраном калибровки (закрыт, свёрнут или потеряна сеть)"
+            return MotionFault("heartbeat", "нет связи с экраном калибровки (закрыт, свёрнут или потеряна сеть)")
+        fault = self.pair.check(frame.samples, frame.t, envelope.stale_s, envelope.critical_skew_mm)
+        if fault:
+            return fault
         previous = self._previous
         self._previous = frame
         liftoff = self._command.liftoff and all(sample.position_mm <= LIFTOFF_ZONE_MM for sample in frame.samples.values())
@@ -152,24 +174,25 @@ class CalibrationRunner:
         if self._command.max_speed_mm_s is not None:
             speed_limit = max(speed_limit, min(self._command.max_speed_mm_s, FAST_CEILING_MM_S))
         for side, sample in frame.samples.items():
-            if not sample.ok:
-                return f"{side}: {sample.error}"
             if not envelope.min_x_mm <= sample.position_mm <= envelope.max_x_mm:
-                return f"{side}: позиция {sample.position_mm:.0f} мм вне огибающей"
-            if abs(sample.speed_mm_s) <= speed_limit:
+                return MotionFault("position", f"{side}: позиция {sample.position_mm:.0f} мм вне огибающей")
+            hard_limit = self.speed_caps[0 if sample.speed_mm_s >= 0 else 1] if self.speed_caps else None
+            limit = min(speed_limit, hard_limit) if hard_limit is not None else speed_limit
+            if abs(sample.speed_mm_s) <= limit:
                 self._overspeed[side] = 0
                 continue
             self._overspeed[side] += 1
-            dt = frame.t - previous.t if previous is not None else 0.0
+            dt = sample.t - previous.samples[side].t if previous is not None else 0.0
             moved = abs(sample.position_mm - previous.x(side)) / dt if previous is not None and dt > 0 else 0.0
-            if self._overspeed[side] >= 3 or moved > 0.5 * speed_limit:
-                return f"{side}: скорость {sample.speed_mm_s:.0f} мм/с вне огибающей"
+            if self._overspeed[side] >= 3 or moved > 0.5 * limit:
+                code = "machine_speed" if hard_limit is not None and abs(sample.speed_mm_s) > hard_limit else "move_speed"
+                return MotionFault(code, f"{side}: скорость {sample.speed_mm_s:.0f} мм/с вне огибающей")
             self.glitches += 1
         return None
 
     def _write(self, command: Command) -> dict[Side, str]:
         errors: dict[Side, str] = {}
-        for side in SIDES:
+        for side in reversed(SIDES):
             drive = self.drives[side]
             # the limit first: a lower limit must be in place before a larger force
             error = self._limit(side, None if command.speed_limit_mm_s is None else command.speed_limit_mm_s[side])
@@ -190,6 +213,8 @@ class CalibrationRunner:
     def _limit(self, side: Side, speed_mm_s: float | None) -> str | None:
         applied = self._limit_rpm[side]
         wanted = None if speed_mm_s is None else max(MIN_LIMIT_RPM, round(mm_s_to_rpm(speed_mm_s)))
+        if wanted is not None and self.drive_limit_rpm is not None:
+            wanted = min(wanted, self.drive_limit_rpm)
         if wanted == applied:
             return None
         if wanted is not None and applied is not None and abs(wanted - applied) < max(3, LIMIT_HYSTERESIS * applied):
@@ -226,6 +251,7 @@ class CalibrationRunner:
         self.note = ""
         self.progress = 0.0
         self._previous = None
+        self.pair = PairMonitor()
         self._overspeed = {side: 0 for side in SIDES}
         self.glitches = 0
         try:
@@ -243,6 +269,7 @@ class CalibrationRunner:
             self.progress = max(0.0, min(1.0, command.progress))
         errors = self._write(command)
         if errors:
+            self._result.drive_write_failed = True
             return self._finish("failed", "запись PA_12C: " + "; ".join(f"{side}: {error}" for side, error in errors.items()))
         return None
 
@@ -257,14 +284,16 @@ class CalibrationRunner:
             shown = {side: float(command.raw[side]) for side in SIDES}
         else:
             shown = command.forces_n or {side: 0.0 for side in SIDES}
-        self._result.log.append((frame.t, frame.x("left"), frame.x("right"), frame.v("left"), frame.v("right"), shown["left"], shown["right"]))
         reason = self._check(frame, self._run_envelope)
+        if all(side in frame.samples and frame.samples[side].ok for side in SIDES):
+            self._result.log.append((frame.t, frame.x("left"), frame.x("right"), frame.v("left"), frame.v("right"), shown["left"], shown["right"]))
         if reason:
-            return self._finish("aborted", reason)
+            self._result.abort_code = reason.code
+            return self._finish("aborted", reason.message)
         if frame.t - self._t0 > self._max_s:
             return self._finish("failed", "превышено время процедуры")
         try:
-            command = self._procedure.send(frame)
+            command = self._procedure.send(replace(frame, skew_mm=self.pair.delta_mm))
         except StopIteration as stop:
             self._procedure = None
             self._restore_limits()

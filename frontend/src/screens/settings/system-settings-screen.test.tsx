@@ -52,7 +52,7 @@ function expectNormalTabs() {
 }
 
 beforeEach(() => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }))
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }))
   localStorage.clear()
   useAppStore.setState({ selectedUserId: 'alexey', emergencyStopActive: false })
   useStage4Store.setState(originalStage4State, true)
@@ -60,8 +60,8 @@ beforeEach(() => {
   const settings = buildSystemSettingsData(defaultStage4DevFlags)
   loadSettings.mockReset().mockResolvedValue(settings)
   runCommand.mockClear()
-  loadPorts.mockClear()
-  loadStatus.mockClear()
+  loadPorts.mockReset().mockResolvedValue(undefined)
+  loadStatus.mockReset().mockResolvedValue(undefined)
   useHardwareStore.setState({ settings, snapshot: null, errorMessage: null, loadSettings, runCommand })
   useModbusStore.setState({ ...originalModbusState, loadPorts, loadStatus }, true)
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -106,8 +106,8 @@ describe('System settings service access', () => {
   })
 
   it.each([
-    ['mechanics', 'Механика готова к работе'],
-    ['diagnostics', 'Диагностика завершена успешно'],
+    ['mechanics', 'Состояние механики'],
+    ['diagnostics', 'Сводка диагностики'],
     ['calibrations', 'Сохранённые калибровки'],
     ['service', 'Текущие позиции'],
     ['journal', 'Журнал событий'],
@@ -170,6 +170,15 @@ describe('System settings service access', () => {
     expect(runCommand).toHaveBeenLastCalledWith({ action: 'toggle_service_mode', userId: 'alexey', serviceMode: true })
   })
 
+  it.each([
+    ['service', 'Калибровки привода'],
+    ['calibrations', 'Настроить механику тренажёра'],
+  ])('links %s to the calibration workbench without moving a drive', (tab, label) => {
+    renderSettings(`/settings?tab=${tab}`)
+    expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', '/motor-calibration')
+    expect(runCommand).not.toHaveBeenCalled()
+  })
+
   it('links the service section to the standalone Modbus page', async () => {
     const user = userEvent.setup()
     renderSettings('/settings?tab=service')
@@ -185,14 +194,15 @@ describe('System settings service access', () => {
     expect(screen.getByRole('heading', { name: /Lichuan A6/ })).toBeVisible()
     expect(screen.getAllByRole('main')).toHaveLength(1)
     expect(screen.getAllByRole('button', { name: 'Аварийная остановка', exact: true })).toHaveLength(1)
-    expect(loadPorts).toHaveBeenCalledTimes(1)
+    expect(loadPorts).not.toHaveBeenCalled()
+    expect(screen.getByRole('link', { name: 'Настройки Modbus' })).toHaveAttribute('href', '/modbus/settings')
     expect(loadStatus).toHaveBeenCalledTimes(1)
     expect(screen.getByTestId('location')).toHaveTextContent('/modbus')
     expect(runCommand).not.toHaveBeenCalled()
   })
 
-  it('redirects the legacy nested Modbus URL to the standalone page', () => {
-    renderSettings('/settings/service/modbus')
+  it('redirects the legacy nested Modbus URL to the standalone page', async () => {
+    await act(async () => { renderSettings('/settings/service/modbus') })
     expect(screen.getByTestId('location')).toHaveTextContent('/modbus')
     expect(screen.getByRole('heading', { name: /Lichuan A6/ })).toBeVisible()
     expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()

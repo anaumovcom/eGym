@@ -106,7 +106,9 @@ export function shouldSaveSetResult(result: RuntimeSetResult) {
 }
 
 export function toBackendSetPayload(exercise: RuntimeExercise, result: RuntimeSetResult) {
-  const open = exercise.plan[result.setNumber - 1]?.setType === 'failure'
+  const plan = exercise.plan[result.setNumber - 1]
+  const plannedRir = plan?.rirLabel?.match(/\d+/)?.[0]
+  const open = plan?.setType === 'failure'
   return {
     setNumber: result.setNumber,
     plannedValue: open ? 0 : result.plannedValue,
@@ -128,6 +130,7 @@ export function toBackendSetPayload(exercise: RuntimeExercise, result: RuntimeSe
     syncLabel: result.syncLabel,
     machineMetrics: {
       ...(exercise.loadSettings.mode === 'Обычный вес' || exercise.loadSettings.mode === 'constant' ? { loadMode: 'constant' } : {}),
+      ...(plannedRir && exercise.kind !== 'timed' ? { plannedRir: Number(plannedRir) } : {}),
       ...(open ? { targetType: 'open' } : {}),
       trainingMode: exercise.strengthMode.id,
       trainingDayType: exercise.strengthMode.dayType,

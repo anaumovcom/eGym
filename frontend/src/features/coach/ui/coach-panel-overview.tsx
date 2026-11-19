@@ -35,7 +35,7 @@ export function coachOverview(input: OverviewInput): Overview {
     detail: `${overview.detail} Тренажёр сообщает: ${[...new Set(errors.map(latchLabel))].join(', ')} — тренер при этом продолжает говорить.` }
 }
 
-function baseOverview({ liveBuild, saved, reason, network, workout, latches = [] }: OverviewInput): Overview {
+function baseOverview({ saved, reason, workout, latches = [] }: OverviewInput): Overview {
   // What blocks speech outright comes first: the user must know why the coach is silent.
   if (reason === 'safety') {
     const causes = latches.map(latchLabel)
@@ -46,28 +46,14 @@ function baseOverview({ liveBuild, saved, reason, network, workout, latches = []
   if (reason === 'preferences_loading') return { tone: 'info', title: 'Загружаю настройки тренера…', detail: 'Это займёт пару секунд.' }
   if (reason === 'preferences_unavailable') return { tone: 'error', title: 'Не удалось загрузить настройки тренера',
     detail: 'Сервер не ответил. Проверьте, что бэкенд запущен, и обновите страницу.' }
-  if (!saved?.enabled) return { tone: 'off', title: 'Тренер выключен', detail: 'Включите его в настройках AI-тренера.' }
+  if (!saved?.enabled || saved.mode === 'text-only') return { tone: 'off', title: 'Тренер выключен', detail: 'Включите его в настройках AI-тренера.' }
   if (reason === 'no_consent') return { tone: 'off', title: 'Нужно согласие', detail: 'Подтвердите согласие в настройках AI-тренера, чтобы он заговорил.' }
   if (reason === 'audio_locked') return { tone: 'warn', title: 'Браузер не разрешил звук', detail: 'Нажмите в любом месте страницы — после этого тренер сможет говорить.' }
   if (reason === 'mute') return { tone: 'info', title: 'Звук тренера выключен', detail: 'Тренер следит за тренировкой, но не говорит. Включите звук в шапке или настройках.' }
+  if (reason === 'missing_clip') return { tone: 'warn', title: 'Нет скачанной записи', detail: 'Откройте Настройки → AI-тренер и скачайте пакет выбранного голоса. На тренировке записи не догружаются.' }
   if (reason === 'hidden') return { tone: 'info', title: 'Вкладка скрыта', detail: 'Пока вкладка в фоне, тренер молчит.' }
-  if (saved.mode === 'local') return { tone: 'ok', title: workout ? 'Тренер работает локально' : 'Тренер готов (локально)',
-    detail: 'Звучат заранее подготовленные фразы — без платных запросов.' }
-  if (!liveBuild) return { tone: 'info', title: 'Живой тренер не подключён в этой сборке',
-    detail: 'Звучат только локальные фразы. Живому голосу нужны COACH_ENABLED на сервере и VITE_COACH_ENABLED в интерфейсе.' }
-  const state = network?.state ?? 'off'
-  if (state === 'refused') return { tone: 'error', title: 'Сервер не принял подключение тренера',
-    detail: network?.reason ? reasonLabel(network.reason) : 'Причина не сообщена. Звучат локальные фразы.' }
-  if (state === 'creating' || state === 'connecting') return { tone: 'info', title: 'Подключаю живого тренера…', detail: 'Пока звучат локальные фразы.' }
-  if (state === 'retrying') return { tone: 'warn', title: 'Связь с сервером прервалась, переподключаюсь',
-    detail: network?.reason ? reasonLabel(network.reason) : 'Пока звучат локальные фразы.' }
-  if (state === 'ready') {
-    const spoken = network?.spoken ?? 0
-    const failed = network?.failed ?? 0
-    return { tone: network?.degraded ? 'warn' : 'ok', title: network?.degraded ? 'Тренер на связи, экономит бюджет' : 'Тренер на связи',
-      detail: [`Сказано реплик: ${spoken}`, failed ? `сбоев: ${failed}` : null].filter(Boolean).join(' · ') }
-  }
-  return { tone: 'ok', title: 'Тренер готов', detail: workout ? 'Живой тренер подключится к тренировке.' : 'Начните тренировку — тренер подключится сам.' }
+  return { tone: 'ok', title: workout ? 'Тренер работает локально' : 'Локальный голос включён',
+    detail: 'Для сопровождения нужен скачанный голосовой пакет. Во время тренировки нет платных запросов.' }
 }
 
 export type Tile = Readonly<{ label: string; value: string; hint?: string; tone?: OverviewTone; onClick?: () => void }>

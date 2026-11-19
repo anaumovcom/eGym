@@ -1,4 +1,5 @@
 import { expect, test as base, type Page } from '@playwright/test'
+import { DEFAULT_COACH_PREFERENCES } from '../../src/features/coach/model/preferences'
 import type { HardwareSnapshot } from '../../src/features/hardware/model/types'
 import { FALLBACK_STRENGTH_MODES } from '../../src/features/strength/lib/strength-plan'
 import { buildDashboardScenario, machineScenarios, mockUsers } from '../../src/mocks/data'
@@ -11,8 +12,8 @@ export const primaryNavigation = [
   ['Каталог', '/catalog'],
   ['Календарь', '/calendar'],
   ['Прогресс', '/progress'],
+  ['Достижения', '/achievements'],
   ['Усталость мышц', '/fatigue'],
-  ['Modbus', '/modbus'],
 ] as const
 
 async function installNavigationApi(page: Page) {
@@ -64,6 +65,11 @@ async function installNavigationApi(page: Page) {
     const request = route.request()
     const { pathname: path, search, searchParams } = new URL(request.url())
     const method = request.method()
+    // The scale provider renews a transient lease on every page, including during navigation.
+    if (method === 'PUT' && path === '/api/scales/activity') {
+      await route.fulfill({ json: { enabled: false } })
+      return
+    }
     requests.push({ method, path, search })
 
     // Both selection-screen and persisted-selection sync are fulfilled locally.
@@ -87,7 +93,12 @@ async function installNavigationApi(page: Page) {
       '/api/hardware/status': snapshot,
       '/api/hardware/settings': settings,
       '/api/hardware/calibrations/current': null,
+      '/api/scales/status': { enabled: false, scanning: false, devices: [], lastMeasurement: null },
+      '/api/scales/measurements': { measurements: [] },
+      '/api/scales/measurements/latest': null,
+      '/api/runtime/exercises/settings': null,
       '/api/dashboard': buildDashboardScenario(),
+      '/api/coach/users/alexey/settings': DEFAULT_COACH_PREFERENCES,
       '/api/builder': builder,
       '/api/calendar': getWorkoutCalendarData(searchParams.get('month') ?? undefined),
       '/api/exercises': { items: [exercise, excludedExercise], total: 2, availableFilters: { muscles: [...new Set([...exercise.muscles, ...excludedExercise.muscles])], equipment: [...new Set([exercise.equipment, excludedExercise.equipment])], difficulty: ['Beginner', 'Intermediate', 'Advanced'], force: ['Push', 'Pull', 'Static', 'Stretch'], mechanic: ['Compound', 'Isolation', 'Mobility'], grips: [...new Set([exercise.grips, excludedExercise.grips])] } },
@@ -99,6 +110,16 @@ async function installNavigationApi(page: Page) {
       '/api/body-measurements': { measurements: [] },
       '/api/photo-progress': { photos: [] },
       '/api/achievements': { achievements: [] },
+      '/api/achievements/catalog': { lines: [], total: 0, nextCursor: null, isRebuilding: false, groups: [] },
+      '/api/achievements/start.first_set': {
+        id: 'start.first_set', name: 'Первые подходы', group: 'start', groupName: 'Начало пути', unit: 'подход',
+        highestTier: 0, currentValue: 0, progressPercent: 0, nextTierId: 'start.first_set:t1',
+        tiers: [{ id: 'start.first_set:t1', tier: 1, tierName: 'Старт', rarity: 'common', threshold: 1, earned: false }],
+      },
+      '/api/motor/calibrations': [],
+      '/api/motor/calibration/session': { session: null, preconditions: [], profileVersion: null },
+      '/api/motor/calibration/runs': [],
+      '/api/motor/parameters': { groups: [], version: null, runtimeVersion: null },
       // The Modbus page is read-only here: no port list, no connection, simulation flag off.
       '/api/modbus/ports': [],
       '/api/modbus/status': { connected: false, port: null, baud_rate: null, parity: null, slave_id: null, last_success_at: null, ok_count: 0, error_count: 0, error_message: null, simulation_mode: false },

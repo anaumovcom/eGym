@@ -22,6 +22,7 @@ from app.motor.calibration.procedures.trainer import Row, Trainer, drive, handof
 from app.motor.calibration.runner import Command, Frame, ProcedureEnvelope, ProcedureError, Prompt
 from app.motor.force.load_models import LoadSetpoint
 from app.motor.supervisor.modes import Mode
+from app.motor.supervisor.reps import RepCounter
 from app.motor.units import SIDES, kgf_to_n
 
 SIDE_LABEL = {"left": "Л", "right": "П"}
@@ -155,11 +156,12 @@ REPS_TIMEOUT_S = 120.0
 
 def hand_feel(ctx: Context, loads: tuple[float, ...] = G3_LOADS_KGF) -> Procedure:
     balance = ctx.balance
+    start_mm = ctx.working_window[0] + 40.0 if ctx.working_window else 250.0
     frame = yield Command(None, note="старт", progress=0.0)
     items = []
     for index, load in enumerate(loads):
         progress = 0.05 + 0.85 * index / len(loads)
-        frame = yield from recenter(balance, frame, 250.0, progress)
+        frame = yield from recenter(balance, frame, start_mm, progress)
         holder = Trainer(ctx, mode="hold")
         prompt = Prompt(f"Нагрузка {2 * load:g} кг на гриф. Нажмите «Готово», затем за 3 с возьмитесь за гриф обеими руками")
         frame, _ = yield from ask(ctx.operator, prompt, holder.forces, frame, progress=progress)
@@ -167,54 +169,92 @@ def hand_feel(ctx: Context, loads: tuple[float, ...] = G3_LOADS_KGF) -> Procedur
         trainer = Trainer(ctx, load=LoadSetpoint(load_n=0.0), release=True)
         target = kgf_to_n(load)
         rows: list[Row] = []
+        reps = RepCounter(start_mm, start_mm + 200.0)
         state = {"t0": frame.t, "still": 0.0, "t": frame.t}
 
-        def law(f: Frame, trainer: Trainer = trainer, target: float = target, rows: list[Row] = rows, state: dict[str, float] = state) -> dict[str, float]:
+        def law(f: Frame, trainer: Trainer = trainer, target: float = target, rows: list[Row] = rows, state: dict[str, float] = state, reps: RepCounter = reps) -> dict[str, float]:
             trainer.set_load(LoadSetpoint(load_n=target * min(1.0, (f.t - state["t0"]) / 1.0)))  # the load comes in over 1 s
             forces = trainer.forces(f)
+            if trainer.core.supervisor.mode == Mode.TRAINING and state.get("counting"):
+                reps.update(f.x_mean)
+            elif trainer.core.supervisor.mode == Mode.HOLD:
+                state.setdefault("released_at", f.t)
             rows.append(Row(f.t, f.x_mean, f.v_mean, 0.0, mean(list(forces.values())), trainer.user, trainer.phase, f.x("left") - f.x("right")))
             state["still"] = state["still"] + (f.t - state["t"]) if abs(f.v_mean) < 1.0 else 0.0
             state["t"] = f.t
             return forces
 
-        def finished(f: Frame, trainer: Trainer = trainer, state: dict[str, float] = state) -> bool:
+        def finished(f: Frame, trainer: Trainer = trainer, state: dict[str, float] = state, reps: RepCounter = reps) -> bool:
             resting_low = f.x_mean < ctx.safety.soft_min_mm + 5.0
-            released = trainer.core.supervisor.mode == Mode.HOLD
-            return (resting_low or released) and state["still"] >= 1.0 and f.t - state["t0"] > 2.0
+            return (reps.full >= 3 or trainer.core.supervisor.mode == Mode.HOLD or f.t - state["t0"] >= REPS_TIMEOUT_S
+                    or (resting_low and state["still"] >= 1.0 and f.t - state["t0"] > 2.0))
 
-        action = Prompt("Сделайте 3–5 спокойных повторений вверх-вниз на 20–30 см, затем опустите гриф до упоров и отпустите", kind="action")
-        frame, _ = yield from ask(ctx.operator, action, law, frame, progress=progress + 0.1, done=finished, timeout_s=REPS_TIMEOUT_S)
+        # The operator is still holding the bar. Finish applying the load before inviting the first rep.
+        while frame.t - state["t0"] < 1.0:
+            frame = yield Command(law(frame), note="Держите гриф на месте, нагрузка плавно включается", progress=progress + 0.08)
+        state["counting"] = 1.0
+        section = f" в пределах {ctx.working_window[0]:.0f}–{ctx.working_window[1]:.0f} мм" if ctx.working_window else ""
+        action = Prompt(f"Сделайте три спокойных повторения вверх-вниз на 20–25 см{section}. После трёх полных повторений включится удержание. Дождитесь приглашения убрать руки.", kind="action")
+        frame, _ = yield from ask(ctx.operator, action, law, frame, progress=progress + 0.1, done=finished,
+                                  note=lambda r=reps: f"полных повторений {r.full} из 3", timeout_s=REPS_TIMEOUT_S)
+        early_release = reps.full < 3 and trainer.core.supervisor.mode == Mode.HOLD
         if frame.x_mean > 30.0:
+            if trainer.core.supervisor.mode == Mode.TRAINING:
+                trainer.core.command("pause")
+            message = "Удержание включилось до третьего повторения." if early_release else "Подход завершён."
+            clear = Prompt(f"{message} Тренажёр удерживает гриф. Уберите руки и подтвердите, когда можно опустить гриф на упоры.")
+            frame, _ = yield from ask(ctx.operator, clear, trainer.forces, frame, progress=progress + 0.2)
             frame = yield from hold_still(balance, frame, progress=progress + 0.2)
         frame = yield from land(balance, frame, progress=progress + 0.25)
-        rating_prompt = Prompt(f"Насколько {2 * load:g} кг ощущались как свободный вес? 1 — совсем не похоже, 5 — не отличить", kind="input", label="Оценка", unit="балл", min=1, max=5)
-        frame, rating = yield from ask(ctx.operator, rating_prompt, resting(balance), frame, progress=progress + 0.3)
-        up = [r.user for r in rows if r.v > 20.0]
-        down = [r.user for r in rows if r.v < -20.0]
+        rating = None
+        if reps.full >= 3:
+            rating_prompt = Prompt(f"Насколько {2 * load:g} кг похожи на обычный тренажёр Смита при трогании, подъёме и развороте? Оцените от 1 до 5.", kind="input", label="Оценка", unit="балл", min=1, max=5)
+            frame, rating = yield from ask(ctx.operator, rating_prompt, resting(balance), frame, progress=progress + 0.3)
+        # Compare the legs of the loaded rep, excluding the load ramp, release catch and return to the stops.
+        measured = [r for r in rows if state["t0"] + 1 <= r.t < state.get("released_at", frame.t) and start_mm <= r.x <= start_mm + 250]
+        positions = [r.x for r in rows if state["t0"] + 1 <= r.t < state.get("released_at", frame.t)]
+        up = [r.user for r in measured if r.v > 20.0]
+        down = [r.user for r in measured if r.v < -20.0]
         items.append({
-            "load_kgf": load, "rating": rating, "turns": len(reversals(rows)), "frames": len(rows),
+            "load_kgf": load, "rating": rating, "turns": len(reversals(rows)), "reps": reps.full, "frames": len(rows),
+            "earlyRelease": early_release,
+            "excursionMm": round(max(positions) - min(positions)) if positions else 0,
             "speed_max_mm_s": round(max((abs(r.v) for r in rows), default=0.0)),
             "felt_up_n": round(mean(up), 1) if up else None, "felt_down_n": round(mean(down), 1) if down else None,
         })
+        if reps.full < 3:
+            break
     return {"items": items}
 
 
 def fit_hand_feel(data: dict[str, Any], _ctx: Context) -> Outcome:
-    report, low = [], []
+    report, low, incomplete = [], [], []
     for item in data["items"]:
         label = f"{2 * item['load_kgf']:g} кг на гриф"
         rating = item["rating"]
-        reps = item["turns"] // 2
-        report.append(line(f"{label}: оценка", f"{rating:g} из 5" if rating is not None else "нет оценки", rating is not None and rating >= 3))
+        reps = item["reps"]
+        if rating is not None:
+            report.append(line(f"{label} · оценка", f"{rating:g} из 5", rating >= 3))
         felt = ", ".join(f"{name} ≈ {value:.0f} Н" for name, value in (("подъём", item["felt_up_n"]), ("опускание", item["felt_down_n"])) if value is not None)
-        report.append(line(f"{label}: движение", f"повторений ≈ {reps}, скорость до {item['speed_max_mm_s']} мм/с" + (f"; усилие по модели: {felt} (нагрузка {kgf_to_n(item['load_kgf']):.0f} Н)" if felt else "")))
+        report.append(line(f"{label} · полные повторения", f"{reps} из 3 необходимых, скорость до {item['speed_max_mm_s']} мм/с", reps >= 3))
+        if felt:
+            report.append(line(f"{label} · расчётное усилие руки на одну сторону", felt))
+        if reps < 3:
+            incomplete.append(label)
+            if item["earlyRelease"]:
+                report.append(line(f"{label} · захват", "удержание включилось до третьего повторения. Проверьте различение удержания и отпускания грифа (F11)", False))
+            elif "excursionMm" in item:
+                report.append(line(f"{label} · пройденный участок", f"{item['excursionMm']} мм при целевом ходе 200 мм. Если гриф заедал, проверьте карту трения направляющих", False))
         if rating is None or rating < 3:
             low.append(label)
-    return Outcome(report=report, data=data, error=f"оценка ниже 3 ({', '.join(low)}): повторите F2, F3, F4 и G2" if low else None)
+    error = f"оценка ниже 3 ({', '.join(low)}): повторите F2, F3, F4 и G2" if low else None
+    if incomplete:
+        error = f"Записано меньше трёх полных повторений ({', '.join(incomplete)}). Проверка остановлена на этой нагрузке"
+    return Outcome(report=report, data=data, error=error)
 
 
 SPECS = {
     "D5": (lambda ctx: (mass_reference(ctx), ProcedureEnvelope(max_x_mm=360.0, max_speed_mm_s=160.0)), fit_mass_reference),
     "L3": (lambda ctx: (load_friction(ctx), ProcedureEnvelope(max_x_mm=400.0, max_speed_mm_s=120.0)), fit_load_friction),
-    "G3": (lambda ctx: (hand_feel(ctx), ProcedureEnvelope(max_x_mm=ctx.top_mm + 60.0, max_speed_mm_s=400.0)), fit_hand_feel),
+    "G3": (lambda ctx: (hand_feel(ctx), ProcedureEnvelope(max_x_mm=(ctx.working_window[1] if ctx.working_window else ctx.top_mm) + 60.0, max_speed_mm_s=400.0)), fit_hand_feel),
 }

@@ -1,0 +1,173 @@
+{
+  "version": "workout-1",
+  "profiles": {
+    "cardio": {
+      "equipment": [
+        "Cardio",
+        "Кардио"
+      ],
+      "variants": {
+        "timed": "timer"
+      },
+      "activeControl": null
+    },
+    "smith": {
+      "equipment": [
+        "Smith-Machine",
+        "Smith Machine",
+        "Машина Смита"
+      ],
+      "variants": {
+        "machine": "constant"
+      },
+      "activeControl": "training"
+    },
+    "incline": {
+      "equipment": [
+        "Smith-Machine",
+        "Smith Machine",
+        "Машина Смита"
+      ],
+      "variants": {
+        "bodyweight": "unloaded",
+        "machine": "constant"
+      },
+      "activeControl": "training"
+    },
+    "inverted": {
+      "equipment": [
+        "Smith-Machine",
+        "Smith Machine",
+        "Машина Смита"
+      ],
+      "variants": {
+        "machine": "constant"
+      },
+      "activeControl": "fixed_hold"
+    },
+    "pulldown": {
+      "equipment": [
+        "Machine",
+        "Тренажёр"
+      ],
+      "variants": {
+        "machine": "constant"
+      },
+      "activeControl": "training"
+    }
+  },
+  "motivation": [
+    "support-breather",
+    "support-one-step",
+    "support-rest",
+    "support-your-pace",
+    "support-small-wins",
+    "support-credit",
+    "support-reset",
+    "support-focus"
+  ],
+  "movements": [
+    {
+      "slug": "butt-kick",
+      "key": "heel-flick",
+      "label": "Захлёст голени",
+      "profile": "cardio"
+    },
+    {
+      "slug": "cardio-knee-taps",
+      "key": "knee-taps",
+      "label": "Касания коленей",
+      "profile": "cardio"
+    },
+    {
+      "slug": "cardio-quick-feet",
+      "key": "quick-feet",
+      "label": "Быстрые шаги",
+      "profile": "cardio"
+    },
+    {
+      "slug": "smith-machine-seated-overhead-press",
+      "key": "seated-press",
+      "label": "Жим над головой сидя",
+      "profile": "smith"
+    },
+    {
+      "slug": "underhand-pulldown",
+      "key": "underhand-pull",
+      "label": "Тяга верхнего блока обратным хватом",
+      "profile": "pulldown"
+    },
+    {
+      "slug": "smith-machine-narrow-stance-squat",
+      "key": "narrow-squat",
+      "label": "Присед с узкой постановкой ног",
+      "profile": "smith"
+    },
+    {
+      "slug": "smith-machine-close-grip-bench-press",
+      "key": "close-press",
+      "label": "Жим лёжа узким хватом",
+      "profile": "smith"
+    },
+    {
+      "slug": "smith-machine-romanian-deadlift",
+      "key": "romanian",
+      "label": "Румынская тяга",
+      "profile": "smith"
+    },
+    {
+      "slug": "smith-machine-incline-bench-press",
+      "key": "incline-press",
+      "label": "Жим на наклонной скамье",
+      "profile": "incline"
+    },
+    {
+      "slug": "smith-machine-inverted-row",
+      "key": "inverted-row",
+      "label": "Австралийские подтягивания",
+      "profile": "inverted"
+    },
+    {
+      "slug": "smith-machine-drag-curl",
+      "key": "drag-curl",
+      "label": "Сгибание рук вдоль тела",
+      "profile": "smith"
+    },
+    {
+      "slug": "smith-machine-skullcrusher",
+      "key": "lying-extension",
+      "label": "Французский жим лёжа",
+      "profile": "smith"
+    },
+    {
+      "slug": "smith-machine-bench-press",
+      "key": "bench-press",
+      "label": "Жим лёжа",
+      "profile": "smith"
+    },
+    {
+      "slug": "smith-machine-overhand-row",
+      "key": "overhand-row",
+      "label": "Тяга в наклоне прямым хватом",
+      "profile": "smith"
+    },
+    {
+      "slug": "smith-machine-squat",
+      "key": "squat",
+      "label": "Присед в тренажёре Смита",
+      "profile": "smith"
+    },
+    {
+      "slug": "smith-machine-upright-row",
+      "key": "upright-row",
+      "label": "Тяга к подбородку",
+      "profile": "smith"
+    },
+    {
+      "slug": "smith-machine-calf-raise",
+      "key": "calf-raise",
+      "label": "Подъём на носки",
+      "profile": "smith"
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import { useAppStore } from '@/stores/app-store'
 import { ActivityHeatmap, SessionTrendChart, Sparkline, VolumeTimeline, type SessionMetric } from './progress-charts'
 import { daysAgo, formatDay, formatNumber, plural } from './progress-format'
 import { ProgressPhotoGallery, type ProgressPhoto } from './progress-photo-gallery'
+import './broadcast-records.css'
 import './progress-screen.css'
 
 type ProgressTab = 'overview' | 'strength' | 'body' | 'photo'
@@ -80,22 +81,22 @@ export function ProgressScreen() {
 
   return (
     <FormaShell userName={userName} machine={data?.machine ?? fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
-      <section className="progress-center" aria-labelledby="progress-title">
+      <section className="progress-center records-screen" aria-labelledby="progress-title">
         <header className="progress-heading">
           <div>
+            <span className="hidden progress-kicker" aria-hidden="true">Аналитика тренировок</span>
             <h1 id="progress-title" className="font-display font-bold text-white">Прогресс</h1>
             <p>{days ? `${days} ${plural(days, 'тренировочный день', 'тренировочных дня', 'тренировочных дней')} ${periodPhrase[period]}` : 'Результаты тренировок, изменения тела и фото.'}</p>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: '0.75rem' }}>
-            <Button asChild variant="secondary" iconLeft={<Trophy aria-hidden="true" />}><Link to="/achievements">Достижения</Link></Button>
-            {showPeriod ? (
+        </header>
+        <div className="progress-controls">
+          <nav className="progress-tabs" aria-label="Разделы прогресса">{tabs.map((item) => <button key={item.id} type="button" aria-current={tab === item.id ? 'page' : undefined} onClick={() => update({ tab: item.id === 'overview' ? null : item.id })}>{item.label}</button>)}</nav>
+          {showPeriod ? (
             <div className="pv-periods" role="group" aria-label="Период прогресса">
               {periods.map((item) => <button key={item.id} type="button" aria-pressed={period === item.id} onClick={() => update({ period: item.id === '30d' ? null : item.id })}>{item.label}</button>)}
             </div>
-            ) : null}
-          </div>
-        </header>
-        <nav className="progress-tabs" aria-label="Разделы прогресса">{tabs.map((item) => <button key={item.id} type="button" aria-current={tab === item.id ? 'page' : undefined} onClick={() => update({ tab: item.id === 'overview' ? null : item.id })}>{item.label}</button>)}</nav>
+          ) : null}
+        </div>
         {tab === 'body' ? (
           <BodyWeightPanel key={userId} userId={userId} userName={userName} heightCm={currentUser.data?.profile?.heightCm}>
             {bodyQuery.data ? <BodyMeasurementsView key={`body-${userId}`} userId={userId} measurements={bodyQuery.data} metrics={['waistCm', 'chestCm', 'hipsCm', 'bodyFatPercent']} mode="summary" title="Объёмы тела" description="Талия, грудь, бёдра и процент жира. Нажмите на показатель, чтобы увидеть его график." /> : bodyQuery.isError ? <div className="forma-state" role="alert"><p>Не удалось загрузить измерения.</p><Button onClick={() => void bodyQuery.refetch()}>Повторить</Button></div> : null}

@@ -11,7 +11,7 @@ vi.mock('@/shared/ui/stage2/screen-components', () => ({
     <div data-testid="map" data-gender={figureGender} data-plain={plainFigures} data-titles={showFigureTitles}>
       {highlights.map(({ label, tone, description }) => (
         <button key={label} type="button" aria-label={description}
-          onPointerEnter={() => onHighlightHover?.({ label, tone, anchor: { top: 40, left: 100 } })}
+          onPointerEnter={() => onHighlightHover?.({ label, tone, anchor: { top: 40, bottom: 60 } })}
           onFocus={() => onHighlightHover?.({ label, tone })}
           onClick={() => onHighlightHover?.({ label, tone })}
           onPointerLeave={() => onHighlightHover?.(null)} onBlur={() => onHighlightHover?.(null)}>
@@ -32,6 +32,19 @@ afterEach(() => {
 })
 
 describe('HomeRecovery', () => {
+  it('keeps the more fatigued record when two API IDs have the same display name', () => {
+    show([{ name: 'Пресс', status: 'critical', score: 120 }, { name: 'Пресс', status: 'high', score: 85 }])
+    const region = screen.getByRole('button', { name: 'Пресс: Перегрузка, 120 балл.' })
+    fireEvent.click(region)
+    expect(screen.getByRole('tooltip')).toHaveAttribute('data-tone', 'critical')
+  })
+
+  it('distinguishes an unmapped measurement from absent measurements', () => {
+    show([{ name: 'Неизвестная группа', status: 'high', score: 75 }])
+    expect(screen.getByText('Для этих мышц нет области на карте')).toBeVisible()
+    expect(screen.queryByText('Пока нет данных о нагрузке')).toBeNull()
+  })
+
   it('always shows the map with all supplied descriptions, without a summary or dialog', () => {
     const muscles: MuscleCard[] = [
       { name: 'Спина', score: 0, status: 'no_data' }, { name: 'Икры', score: 10, status: 'ready' },
@@ -41,6 +54,7 @@ describe('HomeRecovery', () => {
     const original = structuredClone(muscles)
     show(muscles)
     expect(screen.getByTestId('map')).toBeVisible()
+    expect(screen.getByRole('link', { name: 'Открыть атлас' })).toHaveAttribute('href', '/fatigue')
     expect(screen.getByTestId('map')).toHaveAttribute('data-gender', 'male')
     expect(screen.getByTestId('map')).toHaveAttribute('data-plain', 'true')
     expect(screen.getByTestId('map')).toHaveAttribute('data-titles', 'false')

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
 import { FakeClock, FakeContext } from '../audio/audio-test-fakes'
@@ -7,24 +7,15 @@ import { createTestClipBuffer } from '../audio/test-clips'
 import { REQUIRED_LOCAL_CLIPS } from '../interpreter/local-cues'
 import type { CoachEvent } from '../model/contracts'
 import { DEFAULT_COACH_PREFERENCES, type CoachPreferences } from '../model/preferences'
-import { CoachLiveRuntime, type LiveInputs, type LiveRuntimeDependencies } from './coach-live-runtime'
-import type { NetworkSnapshot, NetworkTick } from './coach-network-client'
+import { CoachLiveRuntime, type LiveInputs } from './coach-live-runtime'
 import { RepBeepArbiter, type ClipSource } from './local-cue-player'
 
-const saved: CoachPreferences = { ...DEFAULT_COACH_PREFERENCES, enabled: true, consentVersion: 1, count: 'every' }
+const saved: CoachPreferences = { ...DEFAULT_COACH_PREFERENCES, standardPack: false, enabled: true, consentVersion: 1, count: 'every' }
 const exercise = (id: string, sets = 2) => ({ id, kind: 'machine', plan: Array.from({ length: sets }, () => ({ targetReps: 3, restSeconds: 30, weightLabel: '' })) })
 const session = () => ({ id: 's', runId: 'run-1', dataSource: 'backend', view: 'exercise-setup', currentExerciseId: 'e1', currentSetIndex: 0,
   exercises: [exercise('e1'), exercise('e2', 1)], completedSets: {} }) as unknown as RuntimeWorkoutSession
 
 const liveSaved: CoachPreferences = { ...saved, mode: 'hybrid', networkConsentVersion: 1 }
-function networkPort(patch: Partial<NetworkSnapshot> = {}): NonNullable<LiveRuntimeDependencies['network']> {
-  const snapshot: NetworkSnapshot = { state: 'ready', reason: null, mode: 'hybrid', voiceId: 'ash', text: true, voice: true,
-    degraded: false, eventsSent: 0, streams: 0, spoken: 0, failed: 0, decisions: [], reasons: {}, usage: null,
-    lastText: null, firstAudioMs: null, firstAudioMsLabel: 'voice-only', latencies: {}, serverTimings: {},
-    telemetry: { classified: 0, missingClassification: 0, pendingClassification: 0, retained: 0 }, ...patch }
-  return { tick: () => undefined, observe: () => undefined, dispose: () => undefined,
-    subscribe: () => () => undefined, getSnapshot: () => snapshot }
-}
 
 class Fixture {
   readonly clock = new FakeClock()
@@ -39,7 +30,7 @@ class Fixture {
   private emitted = 0
   readonly runtime: CoachLiveRuntime
 
-  constructor(network: LiveRuntimeDependencies['network'] = null) {
+  constructor() {
     this.clock.time = 1000
     this.inputs = { userId: 'u1', featureEnabled: true, hidden: false, emergency: false, session: session(), hardware: null, connected: true,
       general: { soundEnabled: true, voiceHintsEnabled: true, volume: 0.7 }, saved }
@@ -51,8 +42,8 @@ class Fixture {
       createManager: (context, scope) => {
         const manager = new LocalCoachAudioManager({ context, scope, clock: this.clock }); this.managers.push(manager); return manager
       },
-      clips: () => clips, restorePack: slot => { this.restored.push(slot) }, beep: this.beep, now: () => this.clock.now(),
-      setInterval: () => 1, clearInterval: () => undefined, allowEmulator: false, network,
+      clips: () => clips, restoreCached: slot => { this.restored.push(slot) }, beep: this.beep, now: () => this.clock.now(),
+      setInterval: () => 1, clearInterval: () => undefined, allowEmulator: false,
     })
   }
 
@@ -108,8 +99,8 @@ describe('CoachLiveRuntime', () => {
     ['exercise_finalized', 'completed', 'exercise-done'], ['exercise_finalized', 'partial', 'exercise-partial'],
     ['exercise_finalized', 'skipped', 'exercise-skipped'],
     ['workout_finalized', 'completed', 'workout-done'], ['workout_finalized', 'partial', 'workout-partial'],
-  ] as const)('immediately plays local %s / %s even with a ready live voice, without replay', (event, outcome, kind) => {
-    const f = new Fixture(networkPort()); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
+  ] as const)('immediately plays local %s / %s for a legacy hybrid profile, without replay', (event, outcome, kind) => {
+    const f = new Fixture(); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
     f.complete(event, outcome)
     expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind, reason: 'admitted' })
     expect(f.runtime.getSnapshot().counters).toMatchObject({ cues: 1, admitted: 1, suppressed: 0 })
@@ -121,13 +112,9 @@ describe('CoachLiveRuntime', () => {
   })
 
   it.each([
-    ['offline', { state: 'retrying' }, liveSaved],
-    ['connecting', { state: 'connecting' }, liveSaved],
-    ['no live voice', { voice: false, degraded: true }, liveSaved],
-    ['local mode', {}, saved],
-    ['set feedback disabled', {}, { ...liveSaved, setFeedback: false }],
-  ] as const)('keeps one local set completion with %s', (_label, snapshot, preferences) => {
-    const f = new Fixture(networkPort(snapshot)); fixtures.push(f)
+    ['legacy hybrid', liveSaved], ['local mode', saved], ['legacy live feedback disabled', { ...liveSaved, setFeedback: false }],
+  ] as const)('keeps one local set completion with %s', (_label, preferences) => {
+    const f = new Fixture(); fixtures.push(f)
     f.inputs = { ...f.inputs, saved: preferences }; f.runtime.start(); f.complete('set_stopped')
     expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'set-end', reason: 'admitted' })
     expect(f.runtime.getSnapshot().counters.admitted).toBe(1)
@@ -136,13 +123,13 @@ describe('CoachLiveRuntime', () => {
   it.each([
     ['exercise_finalized', { exerciseSummary: false }], ['workout_finalized', { workoutSummary: false }],
   ] as const)('keeps the local %s when live summary is disabled', (event, tuning) => {
-    const f = new Fixture(networkPort()); fixtures.push(f)
+    const f = new Fixture(); fixtures.push(f)
     f.inputs = { ...f.inputs, saved: { ...liveSaved, ...tuning } }; f.runtime.start(); f.complete(event)
     expect(f.runtime.getSnapshot().counters.admitted).toBe(1)
   })
 
   it('does not replace skipped-set, counting or safety cues with live speech', () => {
-    const f = new Fixture(networkPort()); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
+    const f = new Fixture(); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
     f.complete('set_stopped', 'skipped')
     expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'set-skipped', reason: 'admitted' })
     f.view('exercise-session'); f.hw('training', 0); f.hw('training', 1)
@@ -151,8 +138,8 @@ describe('CoachLiveRuntime', () => {
     expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'safety-stop', reason: 'admitted' })
   })
 
-  it('plays the last-set-remaining fact locally even with live feedback ready', () => {
-    const f = new Fixture(networkPort()); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
+  it('plays the last-set-remaining fact locally', () => {
+    const f = new Fixture(); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
     f.view('rest', { restState: { mode: 'between-sets', totalSeconds: 30, remainingSeconds: 30, timerPaused: false } })
     expect(f.runtime.getSnapshot().lastCue).toMatchObject({ kind: 'last-set-next', reason: 'admitted' })
     expect(f.runtime.getSnapshot().counters.admitted).toBe(1)
@@ -169,19 +156,21 @@ describe('CoachLiveRuntime', () => {
     expect(f.runtime.getSnapshot().counters.missingClip).toBe(1)
   })
 
-  it.each(['timeout', 'pipeline_busy', 'validation_failed', 'budget', 'no_useful_content', 'network'])
-  ('never loses or replays local completion when live reports %s', reason => {
-    const f = new Fixture(networkPort({ reason, reasons: { [reason]: 1 } })); fixtures.push(f)
-    f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start(); f.complete('set_stopped')
-    f.clock.advance(100, f.context)
-    expect(f.started).toBe(1)
-    f.change({}); f.change({})
-    expect(f.runtime.getSnapshot().counters).toMatchObject({ cues: 1, admitted: 1 })
+  it('counts an explicit manual +1 without bar telemetry; ignores edits, stale screens and repeats', () => {
+    const f = make(); const ex = { ...f.inputs.session!.exercises[0], kind: 'bodyweight' }
+    f.view('exercise-session', { exercises: [ex] })
+    const active = f.inputs.session!
+    f.runtime.noteManualRep('u1', active, 0, 1)
+    expect(f.runtime.getSnapshot().lastCue).toMatchObject({ clipId: 'count-1', reason: 'admitted' })
+    const cues = f.runtime.getSnapshot().counters.cues
+    f.runtime.noteManualRep('u1', active, 0, 1); f.runtime.noteManualRep('u1', active, 1, 5)
+    f.runtime.noteManualRep('u2', active, 1, 2); f.runtime.noteManualRep('u1', { ...active, currentSetIndex: 1 }, 1, 2)
+    expect(f.runtime.getSnapshot().counters.cues).toBe(cues)
   })
 
   it.each(['mute', 'missing_clip', 'scope_changed'] as const)
   ('explains a completion cancellation/failure from %s without later replay', reason => {
-    const f = new Fixture(networkPort()); fixtures.push(f)
+    const f = new Fixture(); fixtures.push(f)
     f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
     if (reason === 'missing_clip') f.available.delete('set-end')
     if (reason === 'mute') f.inputs = { ...f.inputs, general: { ...f.inputs.general, soundEnabled: false } }
@@ -194,18 +183,6 @@ describe('CoachLiveRuntime', () => {
     f.available.add('set-end')
     f.change({ hidden: false, general: { ...f.inputs.general, soundEnabled: true } })
     expect(f.runtime.getSnapshot().counters.cues).toBe(count)
-  })
-
-  it('publishes the exact local catalog meaning before forwarding saved completion, not missing/muted cues', () => {
-    const ticks: NetworkTick[] = []
-    const port = { ...networkPort(), tick: (tick: NetworkTick) => { ticks.push(tick) } }
-    const f = new Fixture(port); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
-    f.complete('set_stopped')
-    const persisted = { ...f.lifecycle[0], kind: 'set_persisted' as const }
-    expect(ticks.at(-1)!.localCompletion?.(persisted)).toEqual({ cueIds: ['set-end'], acknowledged: ['set_closed'] })
-    expect(ticks.at(-1)!.localCompletion?.({ ...persisted, scope: { ...persisted.scope, setOrdinal: 2 } })).toBeNull()
-    f.change({ userId: 'u2' })
-    expect(ticks.at(-1)!.localCompletion?.(persisted)).toBeNull()
   })
 
   it('keeps interpreting while muted and never replays on unmute', () => {
@@ -255,10 +232,10 @@ describe('CoachLiveRuntime', () => {
     expect(f.runtime.getSnapshot().reason).toBe('audio_locked')
   })
 
-  it('restores the prepared voice pack once audio runs, once per voice', () => {
+  it('restores only the preinstalled cache even before audio unlock, once per voice', () => {
     const f = new Fixture(); fixtures.push(f); f.context.setState('suspended'); f.runtime.start()
     f.view('exercise-setup')
-    expect(f.restored).toEqual([]) // decoding waits for the user-unlocked context
+    expect(f.restored).toEqual(['fish-streamer'])
     f.context.setState('running'); f.view('exercise-session'); f.hw('training', 0)
     expect(f.restored).toEqual(['fish-streamer'])
     f.change({ saved: { ...saved, voiceProfile: 'cedar' } })
@@ -279,20 +256,16 @@ describe('CoachLiveRuntime', () => {
     expect(f.managers[0].snapshot().utterances.every(item => item.id === f.managers[0].snapshot().utterances.at(-1)!.id)).toBe(true)
   })
 
-  it('passes interpreter state to the network port and shares the mixer', () => {
-    const ticks: NetworkTick[] = []
-    const observed: unknown[] = []
-    const network = { tick: (input: NetworkTick) => { ticks.push(input) }, observe: (audio: unknown) => { observed.push(audio) },
-      dispose: () => undefined, subscribe: () => () => undefined, getSnapshot: () => null as never }
-    const f = new Fixture(network); fixtures.push(f); f.runtime.start()
-    f.view('exercise-setup'); f.view('exercise-session'); f.hw('start_hold', 0); f.hw('training', 0); f.hw('training', 2)
-    const last = ticks.at(-1)!
-    expect(last).toMatchObject({ featureEnabled: true, phase: 'active-set', reps: 2, latched: false, gate: null, userId: 'u1' })
-    expect(last.scope).toMatchObject({ runId: 'run-1', exerciseId: 'e1', setOrdinal: 1 })
-    expect(last.mixer()).toBe(f.managers[0])
-    expect(observed.length).toBeGreaterThan(0)
-    f.change({ featureEnabled: false })
-    expect(ticks.at(-1)).toMatchObject({ featureEnabled: false })
+  it('never requests a run, stream or missing audio from workout events (including legacy hybrid)', () => {
+    const http = vi.fn(), socket = vi.fn()
+    vi.stubGlobal('fetch', http); vi.stubGlobal('WebSocket', socket)
+    try {
+      const f = new Fixture(); fixtures.push(f); f.inputs = { ...f.inputs, saved: liveSaved }; f.runtime.start()
+      f.view('exercise-session'); f.hw('training', 0); f.hw('training', 1)
+      f.available.clear(); f.hw('training', 2); f.complete('workout_finalized')
+      expect(f.runtime.getSnapshot()).toMatchObject({ network: null, lastCue: { reason: 'missing_clip' } })
+      expect(http).not.toHaveBeenCalled(); expect(socket).not.toHaveBeenCalled()
+    } finally { vi.unstubAllGlobals() }
   })
 
   it('does nothing when the feature flag is off', () => {

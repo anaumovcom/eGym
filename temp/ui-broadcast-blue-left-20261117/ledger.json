@@ -1,0 +1,31 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "budget_usd":  10,
+    "prior_estimate_usd":  0.89725900000000025,
+    "estimate_usd":  0.91776700000000022,
+    "reservation_per_request_usd":  0.75,
+    "reference":  "reference-current.png",
+    "requests":  [
+                     {
+                         "id":  "01-broadcast-blue-left",
+                         "name":  "Синий — видео слева",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.020508,
+                         "usage":  {
+                                       "input_tokens":  1644,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  348
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  1924
+                                   },
+                         "started_at":  "2026-11-17T08:09:03.4741849Z"
+                     }
+                 ]
+}

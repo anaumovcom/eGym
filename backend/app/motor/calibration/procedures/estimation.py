@@ -20,8 +20,9 @@ import math
 import statistics
 from typing import Any
 
-from app.motor.calibration.procedures.common import Context, Outcome, Procedure, line, mean, observe, steady
-from app.motor.calibration.procedures.motion import Motion, land, travel
+from app.motor.calibration.procedures.bus import ZERO_DRIFT_LIMIT_MM
+from app.motor.calibration.procedures.common import Context, Outcome, Procedure, line, mean, observe
+from app.motor.calibration.procedures.motion import land, travel
 from app.motor.calibration.runner import Command, Frame, ProcedureEnvelope, ProcedureError
 from app.motor.estimation.friction import interpolate
 from app.motor.estimation.observer import AlphaBetaObserver
@@ -196,59 +197,141 @@ def fit_prediction(data: dict[str, Any], ctx: Context) -> Outcome:
 
 
 # ---------------------------------------------------------------- S10
+TRACK_BIN_MM = 20.0
+
+
+def _track_keys(low: float, high: float, bin_mm: float) -> range:
+    margin = min(40.0, 0.1 * (high - low))
+    return range(math.ceil((low + margin) / bin_mm), math.floor((high - margin) / bin_mm))
+
+
+def _track_bin(elapsed: float, x: float, speed: float, extra: float, target: float, bin_mm: float) -> int | None:
+    if elapsed >= 0.6 and math.isfinite(x) and math.isfinite(extra) and 0.6 * target <= speed <= 1.4 * target:
+        return math.floor(x / bin_mm)
+    return None
+
+
 def friction_track(ctx: Context, *, low_mm: float = 40.0, speed_mm_s: float = 30.0) -> Procedure:
     balance = ctx.balance
     top = ctx.top_mm
+    expected = _track_keys(low_mm, top, TRACK_BIN_MM)
+    heights = [(k + 0.5) * TRACK_BIN_MM for k in expected]
+    coverage = {s: [0] * len(expected) for s in SIDES}
+    ctx.friction_coverage = {"heightsMm": heights, "sides": coverage}
     frame = yield Command(None, note="старт", progress=0.0)
     frame = yield from travel(balance, frame, low_mm, progress_span=(0.0, 0.03))
-    up, down = Motion(trace=[]), Motion(trace=[])
-    frame = yield from travel(balance, frame, top, speed_mm_s=speed_mm_s, state=up, note=f"подъём по всему ходу {speed_mm_s:.0f} мм/с", progress_span=(0.03, 0.45))
-    frame = yield from travel(balance, frame, low_mm, speed_mm_s=speed_mm_s, state=down, note=f"опускание по всему ходу {speed_mm_s:.0f} мм/с", progress_span=(0.45, 0.9))
+    data = {"low_mm": low_mm, "high_mm": top, "speed_mm_s": speed_mm_s}
+    for name, direction, target, span in (("up", 1, top, (0.03, 0.45)), ("down", -1, low_mm, (0.45, 0.90))):
+        traces = {side: [] for side in SIDES}
+        counts = {side: {} for side in SIDES}
+        start = frame.t
+
+        def record(sample: Frame, start: float = start, direction: int = direction, traces: dict = traces, counts: dict = counts) -> None:
+            nonlocal coverage
+            for side in SIDES:
+                x = sample.x(side)
+                extra = direction * (sample.samples[side].motor_force_n - balance.edge(side, x, direction))
+                row = (sample.t - start, x, direction * sample.v(side), extra)
+                traces[side].append(row)
+                k = _track_bin(*row, speed_mm_s, TRACK_BIN_MM)
+                if k is not None and k in expected:
+                    counts[side][k] = counts[side].get(k, 0) + 1
+                    if counts[side][k] == 3:
+                        # Publish immutable snapshots: a response may be encoded after releasing the motor lock.
+                        marks = coverage[side].copy()
+                        marks[k - expected.start] |= 1 if direction > 0 else 2
+                        coverage = {**coverage, side: marks}
+                        ctx.friction_coverage = {"heightsMm": heights, "sides": coverage}
+
+        note = "Карта усилия · подъём" if direction > 0 else "Карта усилия · опускание"
+        frame = yield from observe(travel(balance, frame, target, speed_mm_s=speed_mm_s, note=note, progress_span=span), record)
+        data[name] = traces
     yield from land(balance, frame, progress=0.95)
-    return {"up": up.trace or [], "down": down.trace or [], "speed_mm_s": speed_mm_s}
+    return data
 
 
-def _bins(trace: list[Any], target: float, bin_mm: float) -> dict[Side, dict[int, float]]:
-    speeds, _ = steady(trace, target)
-    if len(speeds) < 20:
-        raise ProcedureError("скорость не держалась на проходе по ходу — повторите M2")
-    t_first = trace[0][0] if trace else 0.0
-    out: dict[Side, dict[int, list[float]]] = {side: {} for side in SIDES}
-    for t, x, v, extra in trace:
-        if t - t_first < 0.6 or abs(v - target) > 0.6 * target:
-            continue
-        for side in SIDES:
-            out[side].setdefault(int(x // bin_mm), []).append(extra[side])
-    return {side: {key: mean(values) for key, values in bins.items() if len(values) >= 2} for side, bins in out.items()}
+def _bins(trace: list, target: float, bin_mm: float) -> dict[int, float]:
+    bins: dict[int, list[float]] = {}
+    for elapsed, x, speed, extra in trace:
+        k = _track_bin(elapsed, x, speed, extra, target, bin_mm)
+        if k is not None:
+            bins.setdefault(k, []).append(extra)
+    return {key: statistics.median(values) for key, values in bins.items() if len(values) >= 3}
 
 
-def fit_friction_track(data: dict[str, Any], ctx: Context, *, bin_mm: float = 20.0) -> Outcome:
+def fit_friction_track(data: dict[str, Any], ctx: Context, *, bin_mm: float = TRACK_BIN_MM) -> Outcome:
+    # Exclude acceleration and braking at the ends. A long hole would turn into invented friction
+    # when the production interpolator joins the samples on either side.
+    low, high = data["low_mm"], data["high_mm"]
+    expected = _track_keys(low, high, bin_mm)
+    if len(expected) < 5:
+        raise ProcedureError("Слишком короткий участок для карты трения")
     target = data["speed_mm_s"]
-    up, down = _bins(data["up"], target, bin_mm), _bins(data["down"], target, bin_mm)
-    sides: dict[Side, dict[str, tuple[Any, float | None]]] = {}
-    report = []
+    track = {"heightsMm": [(k + 0.5) * bin_mm for k in expected], "sides": {}, "summary": {},
+             "binMm": bin_mm, "speedMmS": target, "zeroToleranceMm": ZERO_DRIFT_LIMIT_MM,
+             "directionalN": {}, "reference": {}, "coverageOk": {}}
+    sides, report, incomplete = {}, [], []
     for side in SIDES:
-        keys = sorted(set(up[side]) & set(down[side]))
-        if len(keys) < 5:
-            raise ProcedureError("мало участков хода, пройденных в обе стороны")
-        friction = {k: (up[side][k] + down[side][k]) / 2 for k in keys}
-        weight = {k: (up[side][k] - down[side][k]) / 2 for k in keys}
-        f0, w0 = statistics.median(friction.values()), statistics.median(weight.values())
-        points = [((k + 0.5) * bin_mm, round(friction[k] - f0, 1)) for k in keys]
-        worst = max(points, key=lambda p: abs(p[1]))
-        bumps = [p for p in points if p[1] > max(4.0, 0.1 * ctx.balance.coulomb_up[side])]
-        residual = max(abs(weight[k] - w0) for k in keys)
+        up, down = (_bins(data[leg][side], target, bin_mm) for leg in ("up", "down"))
+        # The trace is relative to the directional edge W ± Fc. Adding Fc back gives
+        # the measured drive effort relative to balance, positive against the motion.
+        fc_up, fc_down = ctx.balance.coulomb_up[side], ctx.balance.coulomb_down[side]
+        track["directionalN"][side] = {
+            "up": [round(up[k] + fc_up, 1) if k in up else None for k in expected],
+            "down": [round(down[k] + fc_down, 1) if k in down else None for k in expected],
+        }
+        profile = ctx.profile.side(side)
+        track["reference"][side] = {"zeroCounts": profile.zero_counts.value, "mmPerPulse": profile.mm_per_pulse.value,
+                                    "nPerRaw": profile.n_per_raw_value, "sign": profile.sign}
+        keys = [k for k in expected if k in up and k in down]
+        coverage = len(keys) / len(expected)
+        measured_keys = set(keys)
+        gap = longest = 0
+        for k in expected:
+            gap = 0 if k in measured_keys else gap + 1
+            longest = max(longest, gap)
+        ok = len(keys) >= 5 and coverage >= 0.8 and longest <= 3
+        track["coverageOk"][side] = ok
+        name = SIDE_LABEL[side]
+        report.append(line(f"{name} · покрытие в обоих направлениях", f"{len(keys)} из {len(expected)} участков, наибольшой пропуск {longest * bin_mm:g} мм", ok))
+        if not ok:
+            incomplete.append(name)
+        friction = {k: (up[k] + down[k]) / 2 for k in keys}
+        baseline = statistics.median(friction.values()) if keys else 0
+        values = {k: round(friction[k] - baseline, 1) for k in keys}
+        track["sides"][side] = [values.get(k) for k in expected]
+        if not keys:
+            continue
+        points = [((k + 0.5) * bin_mm, values[k]) for k in keys]
+        peak_x, peak = max(points, key=lambda p: p[1])
+        mad = statistics.median(abs(v - baseline) for v in friction.values())
+        threshold = round(max(4.0, 0.1 * fc_up, 3 * 1.4826 * mad), 1)
+        report.append(line(f"{name} · самый тугой участок", f"{peak_x:g} мм, на {peak:.1f} Н выше обычного" if peak > threshold else "выраженного пика не обнаружено"))
+        weight = [(up[k] - down[k]) / 2 for k in keys]
+        middle = statistics.median(weight)
+        residual = max(abs(w - middle) for w in weight)
+        weight_ok = residual <= max(3.0, 0.03 * ctx.balance.weight(side, 100.0))
+        report.append(line(f"{name} · остаток веса по высоте", f"до {residual:.1f} Н", weight_ok))
+        track["summary"][side] = {"peakMm": peak_x if peak > threshold else None, "peakN": peak if peak > threshold else None,
+                                  "typicalN": round(baseline + (fc_up + fc_down) / 2, 1), "thresholdN": threshold,
+                                  "weightResidualN": round(residual, 1), "weightWithinTolerance": weight_ok}
         sides[side] = {"friction_map": (points, None)}
-        report.append(line(f"{SIDE_LABEL[side]}: трение по ходу", f"{points[0][0]:.0f}…{points[-1][0]:.0f} мм, наибольшее отклонение {worst[1]:+.1f} Н на {worst[0]:.0f} мм"))
-        report.append(line(f"{SIDE_LABEL[side]}: тугие участки", ", ".join(f"{x:.0f} мм (+{f:.0f} Н)" for x, f in bumps[:6]) if bumps else "нет", not bumps))
-        report.append(line(f"{SIDE_LABEL[side]}: остаток веса по высоте (проверка S7)", f"до {residual:.1f} Н", residual <= max(3.0, 0.03 * ctx.balance.weight(side, 100.0))))
-    report.append(line("Применение", "компенсируется в тренировке с коэффициентом F7 (сглаживание хода)"))
-    return Outcome(report=report, sides=sides, data={"bins": len(keys)})
+    error = None
+    if incomplete:
+        error = f"Карта трения неполная ({', '.join(incomplete)}). Осмотрите направляющие на высотах с пропусками, проверьте перемещение M2 и повторите замер"
+    return Outcome(report=report, sides={} if error else sides, error=error, data={"track": track, "bins": len(expected)})
+
+
+def _observer_moves(ctx: Context, start: float, legs: list[tuple[float, float]], rest_s: float = 0.0) -> tuple[Procedure, ProcedureEnvelope]:
+    low = ctx.working_window[0] if ctx.working_window else start
+    plan = [(low + distance, speed) for distance, speed in legs]
+    high = max(target for target, _ in plan)
+    return _moves(ctx, plan, start_mm=low, rest_s=rest_s), ProcedureEnvelope(max_x_mm=high + 60.0)
 
 
 SPECS = {
-    "V1": (lambda ctx: (_moves(ctx, [(240.0, 25.0), (40.0, 25.0), (240.0, 50.0), (40.0, 50.0)], start_mm=40.0), ProcedureEnvelope(max_x_mm=300.0)), fit_speed),
-    "V2": (lambda ctx: (_moves(ctx, [(320.0, 40.0), (120.0, 40.0), (320.0, 70.0), (120.0, 70.0)], start_mm=120.0, rest_s=2.5), ProcedureEnvelope(max_x_mm=380.0, max_speed_mm_s=120.0)), fit_accel),
-    "V3": (lambda ctx: (_moves(ctx, [(165.0, 30.0), (130.0, 30.0), (165.0, 30.0), (130.0, 30.0), (300.0, 60.0), (130.0, 60.0)], start_mm=130.0), ProcedureEnvelope(max_x_mm=360.0, max_speed_mm_s=120.0)), fit_prediction),
+    "V1": (lambda ctx: _observer_moves(ctx, 40, [(200, 25), (0, 25), (200, 50), (0, 50)]), fit_speed),
+    "V2": (lambda ctx: _observer_moves(ctx, 120, [(200, 40), (0, 40), (200, 70), (0, 70)], rest_s=2.5), fit_accel),
+    "V3": (lambda ctx: _observer_moves(ctx, 130, [(35, 30), (0, 30), (35, 30), (0, 30), (170, 60), (0, 60)]), fit_prediction),
     "S10": (lambda ctx: (friction_track(ctx), ProcedureEnvelope(max_x_mm=ctx.top_mm + 60.0)), fit_friction_track),
 }

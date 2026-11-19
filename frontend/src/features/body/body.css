@@ -1,4 +1,18 @@
 /* Body data: weight panel, measurement cards, charts and dialogs. One gold hue for data; green/red only for deltas. */
+/* Scoped to measurement UI, never muscle-map/recovery containers. */
+html[data-forma-theme='broadcast-blue'] :is(.bw, .body-view, .body-dialog) { --b-gold: var(--broadcast-accent, #58a6ff); --b-gold-soft: var(--broadcast-accent-soft, #2583ff24); }
+html[data-forma-theme='broadcast-blue'] .bw-hero { border-color: var(--broadcast-accent-border, #58a6ff55); background: radial-gradient(120% 80% at 100% 0%, var(--broadcast-accent-soft, #2583ff24), transparent 60%), var(--b-surface); }
+html[data-forma-theme='broadcast-blue'] .bw-weight:not(.bw-weight-empty),
+html[data-forma-theme='broadcast-blue'] .bw-history li > strong { color: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .bw-status[data-live] { border-color: var(--broadcast-accent-border, #58a6ff55); color: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .bw-periods button[aria-pressed='true'] { color: var(--broadcast-accent-strong, #b8daff); box-shadow: inset 0 0 0 1px var(--broadcast-accent-border, #58a6ff55); }
+html[data-forma-theme='broadcast-blue'] :is(.bw-more, .body-more, .body-link) { color: var(--broadcast-accent, #58a6ff); }
+html[data-forma-theme='broadcast-blue'] .body-card[aria-pressed='true'] { border-color: var(--broadcast-accent-border, #58a6ff55); background: linear-gradient(160deg, var(--broadcast-accent-soft, #2583ff24), var(--b-surface) 70%); }
+html[data-forma-theme='broadcast-blue'] .body-chart-point { fill: var(--broadcast-accent, #58a6ff); }
+html[data-forma-theme='broadcast-blue'] .body-chart-point[data-last] { fill: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .body-dialog { border-color: var(--broadcast-accent-border, #58a6ff55); background: #101925; }
+html[data-forma-theme='broadcast-blue'] .body-field:not([data-invalid]) input:focus { border-color: var(--broadcast-accent, #58a6ff); }
+
 :root { --b-surface: #111925; --b-line: #ffffff14; --b-gold: #d7b15d; --b-gold-soft: #d7b15d24; --b-good: #6ed36d; --b-bad: #f07b6f; --b-info: #9fb6d6; --b-muted: #8f9bab; }
 .bw { display: flex; flex-direction: column; gap: 1.25rem; color: white; }
 .bw-top { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.4fr); gap: 1.25rem; }

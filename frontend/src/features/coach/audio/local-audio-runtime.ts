@@ -4,7 +4,8 @@ import { useRuntimeStore } from '@/stores/runtime-store'
 import { useStage4Store } from '@/stores/stage4-store'
 import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import type { HardwareSnapshot } from '@/features/hardware/model/types'
-import { coachSettingsApi } from '../lib/settings-api'
+import { loadPlaybackProfile } from '../lib/playback-profile'
+import { isCoachFoundationEnabled } from '../lib/runtime-observation'
 import { coachRunId, type CoachScope } from '../model/contracts'
 import { effectiveCoachState, preferencesValid, type CoachPreferences } from '../model/preferences'
 import { LocalClipPreparer } from './fixture-pack-storage'
@@ -43,7 +44,7 @@ const defaultDependencies: LocalAudioRuntimeDependencies = {
   read: () => {
     const app = useAppStore.getState(), general = useStage4Store.getState().settingsSaved
     return { userId: app.selectedUserId, emergency: app.emergencyStopActive,
-      featureEnabled: import.meta.env.VITE_COACH_ENABLED === 'true', hidden: typeof document !== 'undefined' && document.hidden,
+      featureEnabled: isCoachFoundationEnabled(), hidden: typeof document !== 'undefined' && document.hidden,
       session: useRuntimeStore.getState().session, hardware: useHardwareStore.getState().snapshot,
       general: { soundEnabled: general.soundEnabled === true, voiceHintsEnabled: general.voiceHintsEnabled === true,
         volume: Number(String(general.signalVolume).replace('%', '')) / 100 } }
@@ -56,7 +57,7 @@ const defaultDependencies: LocalAudioRuntimeDependencies = {
   },
   unlock: unlockSharedAudioContext, context: getSharedAudioContext,
   createManager: (context, scope) => new LocalCoachAudioManager({ context, scope }),
-  createPreparer: context => new LocalClipPreparer(context), getPreferences: coachSettingsApi.get,
+  createPreparer: context => new LocalClipPreparer(context), getPreferences: async (user, signal) => (await loadPlaybackProfile(user, signal)).value,
   now: () => performance.now(),
 }
 

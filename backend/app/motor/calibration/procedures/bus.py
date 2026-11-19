@@ -8,11 +8,12 @@ from typing import Any
 from app.motor.calibration.fit import percentile, stat
 from app.motor.calibration.procedures.motion import Balance, hold_still, land, travel
 from app.motor.calibration.runner import Command, Frame, ProcedureError
-from app.motor.drive.protocol import TorqueDrive
+from app.motor.drive.protocol import CONTROL_PERIOD_S, TorqueDrive
 from app.motor.units import SIDES, Side
 
 Procedure = Generator[Command, Frame, dict[str, Any]]
 REST_NOISE_LIMIT_MM = 0.05
+ZERO_DRIFT_LIMIT_MM = 1.0
 
 
 # ---------------------------------------------------------------- B0
@@ -37,22 +38,32 @@ def fit_config(data: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------- B1
-def bus_timing(frames: int = 200) -> Procedure:
+def bus_timing(frames: int = 200, *, target_period_s: float = CONTROL_PERIOD_S) -> Procedure:
     """The bar rests on support; every tick is a full read + write cycle; frame times are recorded."""
 
     frame = yield Command(None, note="замер цикла", progress=0.0)
     ts = [frame.t]
     reads = [frame.t - min(sample.t for sample in frame.samples.values())]
+    read_skew: list[float] = []
+    write_skew: list[float] = []
+    initial_errors = frame.samples["right"].bus_errors
     xs: dict[Side, list[float]] = {side: [frame.x(side)] for side in SIDES}
     vs: dict[Side, list[float]] = {side: [frame.v(side)] for side in SIDES}
     for index in range(frames):
         frame = yield Command(None, note=f"замер цикла {index + 1}/{frames}", progress=index / frames)
         ts.append(frame.t)
         reads.append(frame.t - min(sample.t for sample in frame.samples.values()))
+        left, right = frame.samples["left"], frame.samples["right"]
+        if left.reply_t is not None and right.reply_t is not None:
+            read_skew.append(abs(right.reply_t - left.reply_t))
+        if left.write_ack_t is not None and right.write_ack_t is not None:
+            write_skew.append(abs(right.write_ack_t - left.write_ack_t))
         for side in SIDES:
             xs[side].append(frame.x(side))
             vs[side].append(frame.v(side))
-    return {"t": ts, "read_s": reads, "x": xs, "v": vs}
+    last_errors = frame.samples["right"].bus_errors
+    return {"t": ts, "target_period_s": target_period_s, "read_s": reads, "x": xs, "v": vs, "read_skew": read_skew, "write_skew": write_skew,
+            "bus_errors": last_errors - initial_errors if last_errors is not None and initial_errors is not None else None}
 
 
 def fit_bus_timing(data: dict[str, Any]) -> dict[str, Any]:
@@ -73,7 +84,15 @@ def fit_bus_timing(data: dict[str, Any]) -> dict[str, Any]:
         "late_frames": sum(1 for p in periods if p > 2 * p50),
         "cycles": len(periods),
     }
-    result["ok"] = result["p99_s"] < 2 * p50
+    target = data.get("target_period_s", CONTROL_PERIOD_S)
+    result["target_period_s"] = target
+    result["over_target"] = sum(p > target + 1e-9 for p in periods)
+    result["ok"] = result["p99_s"] <= target + 1e-9 and result["p99_s"] < 2 * p50
+    for key in ("read_skew", "write_skew"):
+        if data.get(key):
+            result[key + "_p99_s"] = percentile(data[key], 0.99)
+    if data.get("bus_errors") is not None:
+        result["bus_errors"] = data["bus_errors"]
     if "x" in data:
         result["noise_mm"] = max(stat(data["x"][side]).std for side in SIDES)
         result["noise_mm_s"] = max(stat(data["v"][side]).std for side in SIDES)

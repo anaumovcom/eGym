@@ -25,7 +25,7 @@ vi.mock('@/shared/api/client', async () => ({
 
 vi.mock('@/shared/ui/stage2/screen-components', async () => ({
   ...await vi.importActual<typeof import('@/shared/ui/stage2/screen-components')>('@/shared/ui/stage2/screen-components'),
-  CompactBodyMapGrid: () => <div data-testid="recovery-map" />,
+  CompactBodyMapGrid: ({ portraitUserId }: { portraitUserId?: string | null }) => <div data-testid="recovery-map" data-profile={portraitUserId} />,
 }))
 
 vi.mock('react-router-dom', async () => {
@@ -110,6 +110,13 @@ afterEach(() => {
 describe('DashboardView', () => {
   afterEach(() => {
     expect(apiGet).not.toHaveBeenCalled()
+  })
+
+  it.each([null, 'guest', 'elena', 'alexey'] as const)('passes the actual profile %s, not the dashboard display-name fallback', (selectedUserId) => {
+    useAppStore.setState({ selectedUserId })
+    renderDashboard(dashboardStoryScenarios.default)
+    expect(screen.getByTestId('recovery-map').getAttribute('data-profile')).toBe(selectedUserId)
+    expect(screen.getByRole('link', { name: 'Открыть атлас' })).toHaveAttribute('href', '/fatigue')
   })
 
   it('renders no-workout state', () => {

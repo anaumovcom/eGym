@@ -41,7 +41,7 @@ export function ScaleActivitySync() {
   const view = useRuntimeStore(state => state.session?.view)
   const route = pathname.replace(/\/+$/, '')
   const routePhase = workoutPhases[route.slice(1)]
-  const phase: ScaleActivityPhase = ['/motor-calibration', '/modbus', '/modbus-debug', '/settings/service/modbus'].includes(route)
+  const phase: ScaleActivityPhase = ['/motor-calibration', '/modbus', '/modbus/settings', '/modbus-debug', '/settings/service/modbus'].includes(route)
     ? 'setup'
     : routePhase ? (view && workoutPhases[view]) || routePhase : 'idle'
 

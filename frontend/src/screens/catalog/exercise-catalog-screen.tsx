@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowUp, Dumbbell, LibraryBig, SearchX } from 'lucide-react'
+import { ArrowUp, ChevronRight, Dumbbell, LibraryBig, ListPlus, SearchX } from 'lucide-react'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -19,6 +19,7 @@ import { ExerciseDetailsModal, ExercisePreviewCard } from '@/shared/ui/stage2/sc
 import { ExerciseDiscoveryActiveFilters, ExerciseDiscoveryFilters, ExerciseDiscoveryToolbar } from '@/shared/ui/training/exercise-discovery'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
+import './catalog-broadcast.css'
 
 const PAGE_SIZE = 24
 const SCROLL_STORAGE_KEY = 'egym-catalog-position'
@@ -55,6 +56,7 @@ export function ExerciseCatalogScreen() {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
   const [showBackToTop, setShowBackToTop] = useState(false)
   const sentinelRef = useRef<HTMLDivElement | null>(null)
+  const previewTriggerRef = useRef<HTMLButtonElement | null>(null)
   const restoredRef = useRef(false)
   const favoritesScrollRef = useRef<{ scrollTop: number; visibleCount: number } | null>(null)
 
@@ -193,10 +195,12 @@ export function ExerciseCatalogScreen() {
           <div><div className="discovery-eyebrow"><LibraryBig aria-hidden="true" /> БИБЛИОТЕКА ДВИЖЕНИЯ</div><h1 id="catalog-title" className="font-display font-bold text-white">Каталог упражнений</h1><p>Найдите своё движение. Изучайте технику и собирайте тренировку под себя.</p></div>
           <span className="discovery-library-mark" aria-hidden="true"><Dumbbell /></span>
         </header>
+        <div className="catalog-search-row">
+          <ExerciseDiscoveryToolbar search={search} onSearch={(value) => updateParams((next) => { if (value) next.set('search', value); else next.delete('search') })} favoritesOnly={favoritesOnly} onFavoritesChange={toggleFavoritesOnly} favoriteCount={favoriteExerciseSlugs.length} count={items.length} loading={isPending} />
+        </div>
         <div className="discovery-layout">
           <ExerciseDiscoveryFilters selected={selected} available={data?.availableFilters} onToggle={toggleFilter} onClear={clearFilters} />
           <div className="discovery-content">
-          <ExerciseDiscoveryToolbar search={search} onSearch={(value) => updateParams((next) => { if (value) next.set('search', value); else next.delete('search') })} favoritesOnly={favoritesOnly} onFavoritesChange={toggleFavoritesOnly} favoriteCount={favoriteExerciseSlugs.length} count={items.length} loading={isPending} />
           <ExerciseDiscoveryActiveFilters selected={selected} onToggle={toggleFilter} onClear={clearFilters} />
         {isError ? (
           <div className="forma-state" role="alert">
@@ -217,7 +221,10 @@ export function ExerciseCatalogScreen() {
             <ExercisePreviewCard
               key={exercise.slug}
               exercise={exercise}
-              onOpen={() => updateParams((next) => next.set('selected', exercise.slug))}
+              onOpen={(event) => {
+                previewTriggerRef.current = event.currentTarget
+                updateParams((next) => next.set('selected', exercise.slug))
+              }}
               onFavorite={() => toggleFavoriteExercise(exercise.slug)}
             />
           ))}
@@ -243,6 +250,13 @@ export function ExerciseCatalogScreen() {
           exercise={details}
           open={Boolean(selectedSlug)}
           onOpenChange={(open) => { if (!open) updateParams((next) => next.delete('selected')) }}
+          onCloseAutoFocus={(event) => {
+            const trigger = previewTriggerRef.current
+            previewTriggerRef.current = null
+            if (!trigger?.isConnected) return
+            event.preventDefault()
+            trigger.focus({ preventScroll: true })
+          }}
           onStart={() => {
             // a start from the catalog is a new workout: the same exercise done earlier today must not be resumed
             useRuntimeStore.getState().resetSession()
@@ -273,7 +287,8 @@ function AddToWorkoutDialog({ slug, userId, onOpenChange }: { slug: string | nul
     <Dialog.Root open={Boolean(slug)} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-        <SafetyDialogContent className="builder-dialog">
+        <SafetyDialogContent className="builder-dialog catalog-add-dialog">
+          <span className="catalog-add-kicker"><ListPlus aria-hidden="true" /> ДОБАВЛЕНИЕ УПРАЖНЕНИЯ</span>
           <Dialog.Title className="font-display text-3xl font-bold text-white">В какую тренировку добавить?</Dialog.Title>
           <Dialog.Description className="mt-2 text-sm text-white/60">Откроется редактор тренировки с настройкой подходов для этого упражнения.</Dialog.Description>
           <div className="catalog-workouts">
@@ -281,7 +296,9 @@ function AddToWorkoutDialog({ slug, userId, onOpenChange }: { slug: string | nul
             {isError ? <p role="alert" className="text-[#ffb4a7]">Не удалось загрузить список тренировок.</p> : null}
             {data?.programs.map((program) => (
               <button key={program.id} type="button" className="builder-item" onClick={() => navigate(`/builder?programId=${encodeURIComponent(program.id)}&add=${encoded}`)}>
+                <span className="catalog-workout-icon"><Dumbbell aria-hidden="true" /></span>
                 <span className="builder-item-body"><span className="builder-item-name">{program.name}</span><span className="builder-item-summary">{program.subtitle}</span></span>
+                <ChevronRight className="catalog-workout-arrow" aria-hidden="true" />
               </button>
             ))}
             {data && !data.programs.length ? <p className="text-white/60">Тренировок пока нет — создайте первую, и упражнение добавится в неё.</p> : null}

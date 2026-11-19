@@ -33,6 +33,19 @@ class CalibrationRun(Base):
     operator_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
 
 
+class MotorSetObservation(Base):
+    __tablename__ = "motor_set_observations"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    source: Mapped[str] = mapped_column(String(16), nullable=False)
+    profile_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    exercise_slug: Mapped[str | None] = mapped_column(String(160))
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    summary: Mapped[dict] = mapped_column(JSON, nullable=False)
+    trace: Mapped[dict] = mapped_column(JSON, nullable=False)
+
+
 class ExerciseFeelProfile(TimestampMixin, Base):
     __tablename__ = "exercise_feel_profiles"
     __table_args__ = (UniqueConstraint("user_id", "exercise_slug", name="uq_exercise_feel_user_slug"),)

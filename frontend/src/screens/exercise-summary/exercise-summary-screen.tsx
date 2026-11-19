@@ -1,4 +1,5 @@
 import * as Dialog from '@radix-ui/react-dialog'
+import './exercise-summary-broadcast.css'
 import { ArrowRight, CheckCircle2, CircleAlert, Dumbbell, ListChecks, Play, Repeat2, SkipForward, Sparkles, TrendingDown, TrendingUp, Trophy } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
@@ -7,7 +8,8 @@ import { adjustExerciseLoadOnBackend } from '@/features/runtime/lib/runtime-pers
 import { getRuntimeResumeView, runtimeViewPath } from '@/features/runtime/lib/runtime-day'
 import { getRuntimeInitOptions, withSearch } from '@/features/runtime/lib/runtime-query'
 import { WorkoutNavigator } from '@/features/runtime/ui/workout-navigator'
-import { getBestSetLabel, getSetTypeLabel } from '@/features/strength/lib/strength-plan'
+import { SetResultsTable } from '@/features/runtime/ui/set-results-table'
+import { getBestSetLabel } from '@/features/strength/lib/strength-plan'
 import { Button } from '@/shared/ui/button'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
@@ -78,6 +80,8 @@ export function ExerciseSummaryScreen() {
   const hasWarning = summary.setResults.some((result) => result.pain || result.techniqueBreakdown || (result.discomfortLevel ?? 0) >= 5)
   const currentLoadLabel = summary.currentLoad ?? '—'
   const nextLoadLabel = summary.nextLoad ?? summary.currentLoad ?? '—'
+  const kind = summary.kind ?? currentExercise?.kind
+  const timed = kind === 'timed' || kind === 'stretch'
   const metrics = [
     { label: 'Подходы', value: summary.totals.setsCompleted, icon: ListChecks },
     { label: 'Повторы / время', value: summary.totals.repsOrTime, icon: Repeat2 },
@@ -140,6 +144,7 @@ export function ExerciseSummaryScreen() {
             {session.exercises.length > 1 ? <WorkoutNavigator session={session} disabled={pendingAdjustment !== null} /> : null}
           </div>
           <div className="rt-title">
+            <span className="rt-exercise-result-kicker">Итог упражнения</span>
             <h1 className="font-display font-bold tracking-[-0.04em] text-white">{summary.title}</h1>
             <p><span>{summary.subtitle}</span></p>
           </div>
@@ -162,54 +167,62 @@ export function ExerciseSummaryScreen() {
           </div>
 
           <section className="rt-summary-guidance" aria-label="Рекомендации и следующая нагрузка">
-          {saveError ? (
-            <div className="rt-alert" data-tone="danger" role="alert">
-              <CircleAlert aria-hidden="true" />
-              <div>
-                <strong>Не удалось изменить нагрузку</strong>
-                <p>{saveError}</p>
+            {saveError ? (
+              <div className="rt-alert" data-tone="danger" role="alert">
+                <CircleAlert aria-hidden="true" />
+                <div>
+                  <strong>Не удалось изменить нагрузку</strong>
+                  <p>{saveError}</p>
+                </div>
+                <Button variant="secondary" onClick={() => setSaveError(null)}>Скрыть</Button>
               </div>
-              <Button variant="secondary" onClick={() => setSaveError(null)}>Скрыть</Button>
-            </div>
-          ) : hasWarning ? (
-            <div className="rt-alert" data-tone="danger" role="alert">
-              <CircleAlert aria-hidden="true" />
-              <div>
-                <strong>Отмечена боль или потеря техники</strong>
-                <p>Не увеличивайте вес на следующей тренировке.</p>
+            ) : hasWarning ? (
+              <div className="rt-alert" data-tone="danger" role="alert">
+                <CircleAlert aria-hidden="true" />
+                <div>
+                  <strong>Отмечена боль или потеря техники</strong>
+                  <p>Не увеличивайте вес на следующей тренировке.</p>
+                </div>
+                <span />
               </div>
-              <span />
-            </div>
-          ) : (
-            <div className="rt-alert" role="note">
-              <Sparkles aria-hidden="true" />
-              <div>
-                <strong>Рекомендация Forma</strong>
-                <p>{adjustmentRecommendation ?? summary.recommendation}</p>
+            ) : (
+              <div className="rt-alert" role="note">
+                <Sparkles aria-hidden="true" />
+                <div>
+                  <strong>Рекомендация Forma</strong>
+                  <p>{adjustmentRecommendation ?? summary.recommendation}</p>
+                </div>
+                <span />
               </div>
-              <span />
-            </div>
-          )}
+            )}
 
-          <div className="rt-load">
-            <div className="rt-load-value">
-              <span>Нагрузка в следующий раз</span>
-              <strong>{nextLoadLabel}</strong>
-              <span>Сейчас: {currentLoadLabel}</span>
+            <div className="rt-load">
+              <div className="rt-load-value">
+                <span>Нагрузка в следующий раз</span>
+                <strong>{nextLoadLabel}</strong>
+                <span>Сейчас: {currentLoadLabel}</span>
+              </div>
+              <div className="rt-load-actions" role="group" aria-label="Изменить следующую нагрузку">
+                <Button variant="secondary" iconLeft={<TrendingDown aria-hidden="true" />} disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('decrease')}>
+                  {pendingAdjustment === 'decrease' ? 'Сохраняю…' : 'Снизить'}
+                </Button>
+                <Button variant="secondary" iconLeft={<TrendingUp aria-hidden="true" />} disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('increase')}>
+                  {pendingAdjustment === 'increase' ? 'Сохраняю…' : 'Увеличить'}
+                </Button>
+              </div>
             </div>
-            <div className="rt-load-actions" role="group" aria-label="Изменить следующую нагрузку">
-              <Button variant="secondary" iconLeft={<TrendingDown aria-hidden="true" />} disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('decrease')}>
-                {pendingAdjustment === 'decrease' ? 'Сохраняю…' : 'Снизить'}
-              </Button>
-              <Button variant="secondary" iconLeft={<TrendingUp aria-hidden="true" />} disabled={!summary.exerciseSlug || pendingAdjustment !== null} onClick={() => void handleAdjustLoad('increase')}>
-                {pendingAdjustment === 'increase' ? 'Сохраняю…' : 'Увеличить'}
-              </Button>
-            </div>
-          </div>
           </section>
+
+          {summary.setResults.length > 0 && (
+            <section className="rt-result-sets" aria-label="Подходы">
+              <h2>Результаты подходов</h2>
+              <SetResultsTable results={summary.setResults} timed={timed} />
+            </section>
+          )}
 
           {returnableExercises.length > 0 ? (
             <section className="rt-summary-list" aria-label="Пропущенные упражнения">
+              <h2 className="rt-exercise-resume-title">Остались подходы</h2>
               {returnableExercises.map((exercise) => {
                 const doneSets = session.completedSets[exercise.id]?.length ?? 0
                 const remainingSets = exercise.plan.length - doneSets
@@ -232,7 +245,7 @@ export function ExerciseSummaryScreen() {
           ) : null}
         </div>
 
-        <div className="rt-actions" role="group" aria-label="Действия после упражнения">
+        <footer className="rt-actions" role="group" aria-label="Действия после упражнения">
           <div className="rt-actions-group">
             <Button variant="secondary" iconLeft={<ListChecks aria-hidden="true" />} onClick={() => setDetailsOpen(true)}>
               Подробно
@@ -251,31 +264,19 @@ export function ExerciseSummaryScreen() {
           <Button className="rt-primary" iconLeft={<ArrowRight aria-hidden="true" />} onClick={handleContinue}>
             {nextStepLabel}
           </Button>
-        </div>
+        </footer>
       </div>
 
       <Dialog.Root open={detailsOpen} onOpenChange={setDetailsOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="rt-details-panel">
+          <SafetyDialogContent className="rt-details-panel rt-exercise-result-dialog">
             <Dialog.Title className="font-display text-3xl font-bold">Подробно: {summary.title}</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-white/70">Все подходы, план и факт, темп и амплитуда.</Dialog.Description>
             <div className="rt-details-body">
               <section aria-label="Подходы">
                 <h3>Подходы</h3>
-                <div className="rt-table">
-                  <div><span>Сет</span><span>Тип</span><span>План</span><span>Факт</span><span>Вес / объём</span><span>Качество</span></div>
-                  {summary.setResults.map((result) => (
-                    <div key={result.setNumber}>
-                      <strong>{result.side ? `Подход ${result.roundNumber} · ${result.side === 'left' ? 'Левая сторона' : 'Правая сторона'}` : `#${result.setNumber}`}</strong>
-                      <span>{getSetTypeLabel(result.setType)}</span>
-                      <span>{formatSummaryPlan(result)}</span>
-                      <strong>{result.reps ?? result.actualValue}{typeof result.rir === 'number' ? ` • RIR ${result.rir}` : ''}</strong>
-                      <span>{result.weightKg ? `${result.weightKg} кг` : '—'}{result.volumeKg ? ` • ${Math.round(result.volumeKg)} кг` : ''}</span>
-                      <span>{result.tempoLabel}{result.amplitudePercent ? ` • ${result.amplitudePercent}%` : ''}{result.pain ? ' • боль' : ''}{result.techniqueBreakdown ? ' • техника' : ''}</span>
-                    </div>
-                  ))}
-                </div>
+                <SetResultsTable results={summary.setResults} timed={timed} />
               </section>
               <section aria-label="План и факт">
                 <h3>План и факт</h3>
@@ -311,14 +312,6 @@ export function ExerciseSummaryScreen() {
       />
     </FormaShell>
   )
-}
-
-function formatSummaryPlan(result: { targetMinReps?: number | null; targetMaxReps?: number | null; plannedValue: number }) {
-  if (result.targetMinReps && result.targetMaxReps && result.targetMinReps !== result.targetMaxReps) {
-    return `${result.targetMinReps}–${result.targetMaxReps}`
-  }
-
-  return `${result.targetMaxReps ?? result.plannedValue}`
 }
 
 function pluralizeSets(count: number) {

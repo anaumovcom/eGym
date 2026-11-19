@@ -14,13 +14,24 @@ import logging
 import math
 import time
 import uuid
+from bisect import bisect_right
 from collections.abc import Mapping
+from copy import deepcopy
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Any, Literal
 
-from app.motor.calibration.graph import BY_CODE, RUNNABLE, WIZARD
+from app.motor.calibration.graph import AUTO_STAGES, BY_CODE, EMPTY_SERIES, RUN_SPECS, RUNNABLE
+from app.motor.calibration.middle_zone import (
+    D4_HIGH_MM,
+    MIDDLE_CODES,
+    REQUIRED_MIDDLE,
+    TRAVEL_MARGIN_MM,
+    confirmed_bounds,
+    middle_window,
+)
 from app.motor.calibration.procedures.bus import (
+    ZERO_DRIFT_LIMIT_MM,
     absolute_zero,
     bus_timing,
     config_check,
@@ -45,6 +56,7 @@ from app.motor.calibration.procedures.estimation import SPECS as ESTIMATION_SPEC
 from app.motor.calibration.procedures.fast import SPECS as FAST_SPECS
 from app.motor.calibration.procedures.feel import SPECS as FEEL_SPECS
 from app.motor.calibration.procedures.feel_operator import SPECS as FEEL_OPERATOR_SPECS
+from app.motor.calibration.procedures.fixed import build_fixed, fit_fixed
 from app.motor.calibration.procedures.friction_map import SPECS as FRICTION_SPECS
 from app.motor.calibration.procedures.heavy import SPECS as HEAVY_SPECS
 from app.motor.calibration.procedures.heightmap import fit_height_map, height_map, map_heights
@@ -64,6 +76,7 @@ from app.motor.calibration.procedures.moves import (
 from app.motor.calibration.procedures.positioning import SPECS as POSITIONING_SPECS
 from app.motor.calibration.procedures.reference import fit_accuracy, fit_scale, loaded_window, weight_shift
 from app.motor.calibration.procedures.relay import fit_relay, relay_test
+from app.motor.calibration.procedures.smith import build_repeatability, fit_repeatability
 from app.motor.calibration.procedures.statics import balance_and_friction, fit_balance
 from app.motor.calibration.procedures.support import fit_support, support_descent
 from app.motor.calibration.procedures.travel import fit_travel, travel_range
@@ -77,9 +90,9 @@ from app.motor.calibration.runner import (
     RunResult,
 )
 from app.motor.calibration.wizard import DIRECTION_ENVELOPE, _measured
-from app.motor.drive.protocol import TorqueDrive
+from app.motor.drive.protocol import CONTROL_PERIOD_S, TorqueDrive
 from app.motor.parameters import BY_KEY, _measured_payload
-from app.motor.profile import MachineProfile, Measured, SafetyEnvelope
+from app.motor.profile import MachineProfile, Measured, SafetyEnvelope, Tunables
 from app.motor.units import SIDES, Side, n_to_kgf
 
 SessionStatus = Literal["running", "done", "aborted", "failed"]
@@ -107,6 +120,8 @@ _RESCALED_MACHINE = (
 EXTENDED: dict[str, tuple[Build, Fit]] = {
     **DRIVE_SPECS, **FRICTION_SPECS, **POSITIONING_SPECS, **HOLDING_SPECS, **LOADED_SPECS,
     **ESTIMATION_SPECS, **FEEL_SPECS, **FEEL_OPERATOR_SPECS, **HEAVY_SPECS, **FAST_SPECS,
+    "G4": (build_repeatability, fit_repeatability),
+    "H3": (build_fixed, fit_fixed),
 }
 EXTRA_PATHS = {
     "S3": ("left.stribeck_extra_n", "right.stribeck_extra_n"),
@@ -116,7 +131,6 @@ EXTRA_PATHS = {
 }
 STRIBECK_MIN_N = 2.0  # a smaller static − kinetic difference is noise: no split
 D2_LOW_MM = 100.0
-D4_HIGH_MM = 700.0
 _SIDE_LABEL = {"left": "Л", "right": "П"}
 
 
@@ -128,7 +142,8 @@ def _scaled(item: Measured, ratio: float) -> Measured:
     if item.value is None:
         return item
     if isinstance(item.value, list):
-        value: Any = [(float(x), float(w) * ratio) for x, w in item.value]
+        # Curves carry (position, force), tight-spot intervals carry (start, end, force).
+        value: Any = [(*point[:-1], float(point[-1]) * ratio) for point in item.value]
     else:
         value = float(item.value) * ratio
     ci95 = item.ci95 * ratio if item.ci95 is not None and math.isfinite(item.ci95) else item.ci95
@@ -147,10 +162,21 @@ class Stage:
     progress: float = 0.0
     note: str = ""
     reason: str | None = None
+    fault_code: str | None = None
     result: dict[str, Any] = field(default_factory=dict)
+    log_start: int = 0
+    log_end: int | None = None
+    zone: tuple[float, float] | None = None
+    last_frame_at: float | None = None
+    frames: int = 0
+
+    def publish_plot(self, evidence: dict[str, Any]) -> None:
+        # A finished pass is useful even after an abort. Freeze its small numeric summary for concurrent readers.
+        self.result = {**deepcopy(evidence), "partial": True}
 
     def to_payload(self) -> dict[str, Any]:
-        return {"code": self.code, "title": self.title, "status": self.status, "progress": round(self.progress, 3), "note": self.note, "reason": self.reason, "result": self.result}
+        return {"code": self.code, "title": self.title, "verification": not BY_CODE[self.code].produces, "status": self.status, "progress": round(self.progress, 3), "note": self.note, "reason": self.reason, "faultCode": self.fault_code, "result": self.result,
+                "workingZone": {"lowMm": self.zone[0], "highMm": self.zone[1]} if self.zone else None, "frames": self.frames}
 
 
 def _set_profiles(drives: dict[Side, TorqueDrive], profile: MachineProfile) -> None:
@@ -176,6 +202,8 @@ class CalibrationSession:
         *,
         options: Mapping[str, Any] | None = None,
         safety: SafetyEnvelope | None = None,
+        tunables: Tunables | None = None,
+        adapter: str | None = None,
         dead_man_timeout_s: float = DEAD_MAN_TIMEOUT_S,
     ) -> None:
         if code not in RUNNABLE:
@@ -186,9 +214,17 @@ class CalibrationSession:
             if not isinstance(reference, int | float) or not REFERENCE_KG[0] <= reference <= REFERENCE_KG[1]:
                 raise ValueError(f"Укажите массу эталонного груза на грифе: {REFERENCE_KG[0]:.0f}–{REFERENCE_KG[1]:.0f} кг")
         self.safety = safety or SafetyEnvelope()
+        self.tunables = tunables or Tunables()
+        self.adapter = adapter
+        if code in EMPTY_SERIES:
+            confirmed_bounds(profile, self.safety)
+            for stage in RUNNABLE[code]:
+                if stage in MIDDLE_CODES:
+                    middle_window(stage, profile, self.safety)
+        self._middle_zone: tuple[float, float] | None = middle_window(code, profile, self.safety) if code in REQUIRED_MIDDLE or self.options.get("workingZone") == "middle" else None
         self.id = f"{code}-{uuid.uuid4().hex[:8]}"
         self.code = code
-        self.title = WIZARD.title if code == "WIZARD" else BY_CODE[code].title
+        self.title = RUN_SPECS[code].title
         self.drives = drives
         self.base = profile
         self.profile = profile  # candidate
@@ -200,9 +236,13 @@ class CalibrationSession:
         self.saved_version: int | None = None
         self.persisted_status: str | None = None
         self.log: list[tuple[float, float, float, float, float, float, float]] = []
+        self._log_breaks: list[int] = []
+        self._paired_log: list[tuple[float | None, float | None]] = []
         self.dead_man_timeout_s = dead_man_timeout_s
         self.keepalive_at = time.monotonic()
-        self.runner = CalibrationRunner(drives, None, dead_man=self._dead_man_held)
+        self.runner = CalibrationRunner(drives, None, dead_man=self._dead_man_held,
+                                        speed_caps=(self.safety.max_speed_mm_s, min(self.safety.max_speed_mm_s, self.safety.max_descent_mm_s)),
+                                        drive_limit_rpm=self.safety.speed_limit_rpm)
         self._index = 0
         self._relay_attempt = 0
         self._window: dict[Side, tuple[float, float]] | None = None
@@ -265,21 +305,32 @@ class CalibrationSession:
         if not self.running:
             return True
         stage = self.stages[self._index]
+        target = self.runner.command.hold_target_mm
         result = self.runner.feed(frame)
-        if self.runner.result.log:
-            self.log.append(self.runner.result.log[-1])
+        # The runner's command log mixes PA_12C raw, requested newtons and support.
+        # For the operator record use synchronously sampled PA_1C4 feedback in newtons.
+        if all(side in frame.samples and frame.samples[side].ok and all(math.isfinite(v) for v in
+               (frame.x(side), frame.v(side), frame.samples[side].motor_force_n)) for side in SIDES):
+            stage.frames += 1
+            stage.last_frame_at = time.monotonic()
+            if self.log and frame.t - self.log[-1][0] > self.safety.stale_frame_limit_s:
+                self._log_breaks.append(len(self.log))
+            self.log.append((frame.t, frame.x("left"), frame.x("right"), frame.v("left"), frame.v("right"),
+                             frame.samples["left"].motor_force_n, frame.samples["right"].motor_force_n))
+            self._paired_log.append((self.runner.pair.delta_mm, target))
         stage.note = self.runner.note
         stage.progress = self.runner.progress
         if result is not None:
             self._stage_finished(result)
         return not self.running
 
-    def cancel(self, reason: str, *, support: bool = True) -> None:
+    def cancel(self, reason: str, *, support: bool = True, fault_code: str | None = None) -> None:
         if not self.running:
             return
         self.runner.cancel(reason, support=support)
         stage = self.stages[self._index]
         stage.status, stage.reason = "aborted", reason
+        stage.fault_code = fault_code
         self._finish("aborted", reason)
 
     # --------------------------------------------------------------- stages
@@ -295,26 +346,37 @@ class CalibrationSession:
         if code == "B0":
             return config_check(self.drives), None
         if code == "B1":
-            return bus_timing(), None
+            return bus_timing(target_period_s=getattr(self.drives["left"], "control_period_s", CONTROL_PERIOD_S)), None
         self._balance = Balance.from_profile(self.profile)
         if code in EXTENDED:
-            self._context = Context(self.profile, self._balance, self.safety, self.options, self.operator, self.drives)
+            self._context = Context(self.profile, self._balance, self.safety, self.options, self.operator, self.drives, self._middle_zone,
+                                    self.tunables, publish_plot=self.current_stage.publish_plot)
             return EXTENDED[code][0](self._context)
         if code == "B7":
             return absolute_zero(self._balance), None
         if code == "S7":
             heights = map_heights(30.0, self._top_mm())
-            return height_map(self._balance, heights), ProcedureEnvelope(max_x_mm=heights[-1] + 60.0)
+            return height_map(self._balance, heights, publish=self.current_stage.publish_plot), ProcedureEnvelope(max_x_mm=heights[-1] + 60.0)
         if code in ("S9", "G1"):
             start = {side: self._balance.edge(side, 0.0, -1) for side in SIDES}
             return loaded_window(start), ProcedureEnvelope(max_x_mm=80.0)
         if code == "D2":
-            # B8 measured: the whole working travel; else up to 400 mm (the top is unknown)
-            top = self._top_mm() if self.profile.travel_mm.provenance == "measured" else min(400.0, self._top_mm())
-            return friction_speeds(self._balance, low_mm=D2_LOW_MM, high_mm=top), ProcedureEnvelope(max_x_mm=top + 100.0)
+            if self._middle_zone is not None:
+                low_mm, high_mm = self._middle_zone
+            else:
+                # B8 measured: the whole working travel; else up to 400 mm (the top is unknown)
+                high_mm = self._top_mm() if self.profile.travel_mm.provenance == "measured" else min(400.0, self._top_mm())
+                low_mm = D2_LOW_MM
+            ceiling = min(high_mm + 100.0, self.safety.soft_max_mm) if self._middle_zone else high_mm + 100.0
+            return friction_speeds(self._balance, low_mm=low_mm, high_mm=high_mm, publish=self.current_stage.publish_plot), ProcedureEnvelope(max_x_mm=ceiling)
         if code == "D4":
-            top = min(self._top_mm(), D4_HIGH_MM) if self.profile.travel_mm.provenance == "measured" else min(400.0, self._top_mm())
-            return moving_mass_fast(self._balance, low_mm=D2_LOW_MM, high_mm=top), ProcedureEnvelope(max_x_mm=top + 100.0)
+            if self._middle_zone is not None:
+                low_mm, high_mm = self._middle_zone
+            else:
+                high_mm = min(self._top_mm(), D4_HIGH_MM) if self.profile.travel_mm.provenance == "measured" else min(400.0, self._top_mm())
+                low_mm = D2_LOW_MM
+            ceiling = min(high_mm + 100.0, self.safety.soft_max_mm) if self._middle_zone else high_mm + 100.0
+            return moving_mass_fast(self._balance, low_mm=low_mm, high_mm=high_mm), ProcedureEnvelope(max_x_mm=ceiling)
         if code == "C3":
             npr = {side: self.profile.side(side).n_per_raw_value for side in SIDES}
             signs = {side: self.profile.side(side).sign for side in SIDES}
@@ -352,9 +414,18 @@ class CalibrationSession:
 
     def _start_stage(self) -> None:
         stage = self.stages[self._index]
+        if self.code in AUTO_STAGES:
+            self._middle_zone = middle_window(stage.code, self.profile, self.safety) if stage.code in MIDDLE_CODES else None
+        if stage.status == "pending":
+            stage.log_start = len(self.log)
+        stage.zone = self._middle_zone
         stage.status = "running"
         stage.progress = 0.0
         procedure, envelope = self._build(stage.code)
+        aligned = all(self.profile.side(s).zero_counts.provenance == "measured" for s in SIDES) and stage.code not in ("B0", "B1", "B5", "B7")
+        envelope = envelope or ProcedureEnvelope()
+        envelope = replace(envelope, critical_skew_mm=self.safety.sync_critical_mm if aligned else None,
+                           stale_s=self.safety.stale_frame_limit_s, max_force_n=min(envelope.max_force_n, self.safety.max_force_n_per_side))
         result = self.runner.begin(procedure, max_s=MAX_S.get(stage.code, 600.0), envelope=envelope)
         stage.note = self.runner.note
         if result is not None:
@@ -362,8 +433,10 @@ class CalibrationSession:
 
     def _stage_finished(self, result: RunResult) -> None:
         stage = self.stages[self._index]
+        stage.log_end = len(self.log)
         if result.status != "done":
             stage.status, stage.reason = result.status, result.reason
+            stage.fault_code = result.abort_code
             self._finish(result.status, f"{stage.code}: {result.reason}")
             return
         try:
@@ -374,6 +447,7 @@ class CalibrationSession:
             self._finish("failed", f"{stage.code}: {error}")
             return
         if retry:
+            stage.log_end = None
             self._start_stage()
             return
         stage.status, stage.progress = "done", 1.0
@@ -464,6 +538,10 @@ class CalibrationSession:
 
     def _fit_extended(self, stage: Stage, outcome: Outcome) -> None:
         stage.result = {**outcome.data, "report": outcome.report}
+        if self._middle_zone:
+            low, high = self._middle_zone
+            stage.result["working_zone"] = {"low_mm": low, "high_mm": high}
+            outcome.report.append(_line("Рабочая зона (середина хода)", f"{low:.0f}…{high:.0f} мм"))
         if outcome.error:
             raise ProcedureError(outcome.error)
         for side, values in outcome.sides.items():
@@ -496,6 +574,12 @@ class CalibrationSession:
             _line("Период цикла (среднее)", ms(r["loop_period_s"])),
             _line("Медиана / p95 / p99", f"{ms(r['p50_s'])} / {ms(r['p95_s'])} / {ms(r['p99_s'])}", r["ok"]),
             _line("Максимальный цикл", ms(r["max_s"])),
+            _line(f"Циклы дольше {ms(r['target_period_s'])}", f"{r['over_target']} из {r['cycles']}"),
+            *[_line(label, ms(r[key])) for key, label in (
+                ("read_skew_p99_s", "Интервал между ответами осей (p99)"),
+                ("write_skew_p99_s", "Интервал между подтверждениями команд осей (p99)"),
+            ) if key in r],
+            *([_line("Ошибки обмена, включая исправленные повтором", str(r["bus_errors"]), r["bus_errors"] == 0)] if "bus_errors" in r else []),
             _line("Джиттер p95", ms(r["jitter_p95_s"])),
             _line("Среднее чтение шины", ms(r["read_mean_s"])),
             _line("Опоздавшие циклы (> 2× медианы)", f"{r['late_frames']} из {r['cycles']}", r["late_frames"] == 0),
@@ -513,7 +597,7 @@ class CalibrationSession:
             report.append(_line(f"{_SIDE_LABEL[side]}: ноль энкодера", f"{item['zero_counts']} имп."))
             report.append(_line(f"{_SIDE_LABEL[side]}: положение на упорах по текущему нулю", f"{item['offset_mm']:+.2f} мм", abs(item["offset_mm"]) < 2.0))
             if item["drift_mm"] is not None:
-                report.append(_line(f"{_SIDE_LABEL[side]}: сдвиг относительно сохранённого нуля", f"{item['drift_mm']:+.2f} мм", abs(item["drift_mm"]) < 1.0))
+                report.append(_line(f"{_SIDE_LABEL[side]}: сдвиг относительно сохранённого нуля", f"{item['drift_mm']:+.2f} мм", abs(item["drift_mm"]) < ZERO_DRIFT_LIMIT_MM))
         stage.result = {"sides": r, "report": report}
 
     def _fit_s7(self, stage: Stage, data: dict[str, Any]) -> None:
@@ -536,7 +620,7 @@ class CalibrationSession:
             report.append(_line(f"{_SIDE_LABEL[side]}: трение вверх / вниз", f"{up.mean:.1f} / {down.mean:.1f} Н"))
         stage.result = {
             "heights_mm": r["heights_mm"],
-            "sides": {side: {"map": r[side]["map"], "slope_n_per_m": r[side]["slope_n_per_m"], "max_deviation_n": r[side]["max_deviation_n"]} for side in SIDES},
+            "sides": {side: {key: r[side][key] for key in ("map", "edges", "slope_n_per_m", "max_deviation_n")} for side in SIDES},
             "report": report,
         }
 
@@ -613,7 +697,12 @@ class CalibrationSession:
         fallbacks = [run for run in data["runs"] if run["fallback"]]
         if fallbacks:
             report.append(_line("Прогоны в медленном режиме", "; ".join(f"{run['speed_mm_s']:.0f} мм/с {'↑' if run['direction'] > 0 else '↓'}: {run['reason']}" for run in fallbacks), False))
-        stage.result = {"sides": sides, "report": report}
+        result: dict[str, Any] = {"sides": sides}
+        if self._middle_zone is not None:
+            low_mm, high_mm = self._middle_zone
+            result["working_zone"] = {"low_mm": low_mm, "high_mm": high_mm}
+            report.append(_line("Рабочая зона (середина хода)", f"{low_mm:.0f}…{high_mm:.0f} мм"))
+        stage.result = result | {"report": report}
 
     def _fit_d4(self, stage: Stage, data: dict[str, Any]) -> None:
         assert self._balance is not None
@@ -628,7 +717,12 @@ class CalibrationSession:
             sides[side] = {key: value for key, value in item.items() if key != "rows"}
             report.append(_line(f"{_SIDE_LABEL[side]}: подвижная масса", f"{item['mass_kg']:.1f} ± {item['ci95']:.1f} кг", item["ci95"] < 0.3 * item["mass_kg"]))
             report.append(_line(f"{_SIDE_LABEL[side]}: невязка / задержка", f"{item['rmse_n']:.1f} Н / {item['lag_frames']} кадр. ({item['rows']} точек)"))
-        stage.result = {"sides": sides, "report": report}
+        result: dict[str, Any] = {"sides": sides}
+        if self._middle_zone is not None:
+            low_mm, high_mm = self._middle_zone
+            result["working_zone"] = {"low_mm": low_mm, "high_mm": high_mm}
+            report.append(_line("Рабочая зона (середина хода)", f"{low_mm:.0f}…{high_mm:.0f} мм"))
+        stage.result = result | {"report": report}
 
     def _fit_c3(self, stage: Stage, data: dict[str, Any]) -> None:
         r = fit_support(data)
@@ -665,17 +759,22 @@ class CalibrationSession:
 
     def _fit_b8(self, stage: Stage, data: dict[str, Any]) -> None:
         r = fit_travel(data)
-        self.profile = replace(self.profile, travel_mm=_measured(round(r["travel_mm"], 1), None, self.id))
-        soft_ok = self.safety.soft_max_mm <= r["travel_mm"] - 20.0
-        stage.result = {**r, "report": [
+        measured = round(r["travel_mm"], 1)
+        suggested = math.floor(measured - TRAVEL_MARGIN_MM)
+        soft_ok = self.safety.soft_max_mm <= measured - TRAVEL_MARGIN_MM
+        skew_ok = abs(r["skew_mm"]) <= self.safety.sync_warning_mm
+        stage.result = {**r, "suggestedSoftMaxMm": suggested if not soft_ok and suggested > self.safety.soft_min_mm else None, "report": [
             _line("Рабочий ход", f"{r['travel_mm']:.0f} мм"),
-            _line("Верхний упор Л / П", f"{r['top']['left']:.1f} / {r['top']['right']:.1f} мм", abs(r["skew_mm"]) < 3.0),
+            _line("Верхний упор Л / П", f"{r['top']['left']:.1f} / {r['top']['right']:.1f} мм, допуск перекоса {self.safety.sync_warning_mm:g} мм", skew_ok),
             _line(
                 "Верхний программный предел",
-                f"{self.safety.soft_max_mm:.0f} мм" + ("" if soft_ok else f" — выше хода − 20 мм: уменьшите до {r['travel_mm'] - 20:.0f} мм в «Параметрах»"),
+                f"{self.safety.soft_max_mm:.0f} мм" + ("" if soft_ok else f". По измеренному ходу верхняя граница не выше {suggested} мм. Проверьте, что обе каретки дошли до верхних упоров."),
                 soft_ok,
             ),
         ]}
+        if not skew_ok:
+            raise ProcedureError("Каретки остановились на разной высоте. Проверьте направляющие и верхние упоры с обеих сторон, затем повторите замер хода")
+        self.profile = replace(self.profile, travel_mm=_measured(measured, None, self.id))
 
     def _fit_x2(self, stage: Stage, data: dict[str, Any]) -> None:
         r = fit_coupling(data)
@@ -807,21 +906,34 @@ class CalibrationSession:
             })
         return items
 
-    def _log_payload(self) -> dict[str, list[float]]:
-        log = self.log
-        stride = max(1, math.ceil(len(log) / LOG_POINTS))
-        rows = log[::stride]
-        if log and rows[-1] is not log[-1]:
-            rows.append(log[-1])
+    def log_payload(self, stage: Stage | None = None, limit: int = LOG_POINTS) -> dict[str, Any]:
+        log = self.log[stage.log_start:stage.log_end] if stage else self.log
+        stride = max(1, math.ceil(len(log) / limit))
+        indexes = list(range(0, len(log), stride))
+        if log and indexes[-1] != len(log) - 1:
+            indexes.append(len(log) - 1)
+        rows = [log[i] for i in indexes]
         t0 = log[0][0] if log else 0.0
         names = ("t", "xL", "xR", "vL", "vR", "fL", "fR")
-        return {name: [round(row[i] - (t0 if i == 0 else 0.0), 3 if i == 0 else 2) for row in rows] for i, name in enumerate(names)}
+        columns = {name: [round(row[i] - (t0 if i == 0 else 0.0), 3 if i == 0 else 2) for row in rows] for i, name in enumerate(names)}
+        offset = stage.log_start if stage else 0
+        if len(self._paired_log) == len(self.log):
+            paired = [self._paired_log[offset + i] for i in indexes]
+            columns["skewMm"] = [round(delta, 2) if delta is not None else None for delta, _ in paired]
+            if any(target is not None for _, target in paired):
+                columns["holdTargetMm"] = [target for _, target in paired]
+        return {**columns, "cycleMs": [round(1000 * (log[i][0] - log[i - 1][0]), 2) if i else None for i in indexes],
+                "segment": [bisect_right(self._log_breaks, offset + i) for i in indexes]}
+
+    @property
+    def working_zone(self) -> dict[str, float] | None:
+        return {"lowMm": self._middle_zone[0], "highMm": self._middle_zone[1]} if self._middle_zone else None
 
     def to_payload(self) -> dict[str, Any]:
         end = self._finished_monotonic or time.monotonic()
-        done = sum(1 for stage in self.stages if stage.status == "done")
         current = self.current_stage
-        progress = 1.0 if self.status == "done" else (done + (current.progress if current.status == "running" else 0.0)) / len(self.stages)
+        weights = [BY_CODE[stage.code].duration_s or 1 for stage in self.stages]
+        progress = sum(weight * stage.progress for weight, stage in zip(weights, self.stages, strict=True)) / sum(weights)
         changes = self.changes() if self.status == "done" else []
         return {
             "id": self.id,
@@ -837,9 +949,14 @@ class CalibrationSession:
             "note": current.note if self.running else "",
             "prompt": self.prompt.to_dict() if self.prompt else None,
             "deadManHeld": self.running and time.monotonic() - self.keepalive_at <= self.dead_man_timeout_s,
+            "frameAgeS": round(max(0, time.monotonic() - current.last_frame_at), 3) if current.last_frame_at is not None else None,
+            "staleAfterS": self.safety.stale_frame_limit_s,
             "stages": [stage.to_payload() for stage in self.stages],
             "changes": changes,
             "hasChanges": any(item["changed"] for item in changes),
             "savedVersion": self.saved_version,
-            "log": self._log_payload(),
+            "workingZone": self.working_zone,
+            "log": self.log_payload(),
+            "stageLog": self.log_payload(current, 300) if self.status != "done" and len(self.stages) > 1 else None,
+            "frictionCoverage": self._context.friction_coverage if self.running and current.code == "S10" and self._context else None,
         }

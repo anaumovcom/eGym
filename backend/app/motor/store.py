@@ -6,7 +6,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import Literal
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
 from app.models.motor import MachineProfileRecord
@@ -57,7 +57,15 @@ def load_active(session: Session) -> ProfileBundle:
 
 def save_version(
     session: Session, bundle: ProfileBundle, *, note: str | None = None, source_run_id: str | None = None, extra: dict[str, object] | None = None,
+    expected_version: int | None = None,
 ) -> int:
+    if expected_version is not None:
+        # Claim the reviewed version in the same transaction that inserts its replacement.
+        claimed = session.scalar(update(MachineProfileRecord)
+                                 .where(MachineProfileRecord.active.is_(True), MachineProfileRecord.version == expected_version)
+                                 .values(active=False).returning(MachineProfileRecord.version))
+        if claimed is None and (expected_version != 0 or load_active(session).machine.version != 0):
+            raise ValueError("Активный профиль изменился. Проверьте правки на текущей версии.")
     version = int(session.scalar(select(func.max(MachineProfileRecord.version))) or 0) + 1
     for record in session.scalars(select(MachineProfileRecord).where(MachineProfileRecord.active.is_(True))):
         record.active = False

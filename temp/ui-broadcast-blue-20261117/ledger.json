@@ -1,0 +1,31 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "budget_usd":  10,
+    "prior_estimate_usd":  0.87692600000000009,
+    "estimate_usd":  0.89725900000000014,
+    "reservation_per_request_usd":  0.75,
+    "reference":  "reference-current.png",
+    "requests":  [
+                     {
+                         "id":  "01-broadcast-blue",
+                         "name":  "Спортивная трансляция — синий",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.020333,
+                         "usage":  {
+                                       "input_tokens":  1609,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  313
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  1889
+                                   },
+                         "started_at":  "2026-11-17T06:06:40.1226926Z"
+                     }
+                 ]
+}

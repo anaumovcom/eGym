@@ -16,3 +16,4 @@ frontend/test-results/e05-results.json
 backend/.env.local
 backend/coach_packs/
 backend/models/
+/backend/media/local-portraits/

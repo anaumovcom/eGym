@@ -24,16 +24,28 @@ from app.motor.calibration.procedures.common import (
     Context,
     Outcome,
     Procedure,
+    TransitMeasurement,
     line,
     mean,
+    observe,
     recenter,
     sign_changes,
     steady,
 )
-from app.motor.calibration.procedures.motion import Balance, Motion, _governed, hold_still, land, speed, travel
+from app.motor.calibration.procedures.motion import (
+    Balance,
+    Motion,
+    _governed,
+    hold_still,
+    land,
+    position_for_start,
+    speed,
+    travel,
+)
 from app.motor.calibration.procedures.moves import _Steady
 from app.motor.calibration.runner import Command, Frame, ProcedureEnvelope, ProcedureError
-from app.motor.units import SIDES, Side
+from app.motor.profile import SafetyEnvelope
+from app.motor.units import SIDES, Side, rpm_to_mm_s
 
 SIDE_LABEL = {"left": "Л", "right": "П"}
 STOP_TOLERANCE_MM = 2.0
@@ -49,25 +61,30 @@ FAST_LOW_MM = 100.0
 
 def positioning(
     balance: Balance, direction: int, *, speeds: tuple[float, ...] = (20.0, 50.0), low_mm: float = 40.0, high_mm: float = 180.0,
-    fast_high_mm: float | None = None,
+    fast_high_mm: float | None = None, fast_low_mm: float = FAST_LOW_MM,
+    safety: SafetyEnvelope = SafetyEnvelope(),
 ) -> Procedure:
-    """Slow governed moves (the force table of the governor), then fast moves between ``FAST_LOW_MM`` and
-    ``fast_high_mm`` at rising top speeds: the fastest one that stops within ``FAST_STOP_MM`` becomes the
-    positioning speed — the top speed of all fast moves."""
+    """Measure the force table slowly, then compare elapsed transit times on the longer stroke.
 
-    from app.motor.calibration.procedures.motion import _fast
+    Each fast candidate must stop both sides accurately and stay within the skew warning.
+    Times within one bus period tie at the lower commanded speed.
+    """
 
     frame = yield Command(None, note="старт", progress=0.0)
     start, end = (low_mm, high_mm) if direction > 0 else (high_mm, low_mm)
-    fast = FAST_SPEEDS[direction] if fast_high_mm is not None and fast_high_mm - FAST_LOW_MM >= 300.0 else ()
+    limit = min(safety.max_speed_mm_s, safety.max_descent_mm_s if direction < 0 else safety.max_speed_mm_s, rpm_to_mm_s(safety.speed_limit_rpm))
+    fast = [v for v in FAST_SPEEDS[direction] if v <= limit] if fast_high_mm is not None and fast_high_mm - fast_low_mm >= 300.0 else []
+    speeds = tuple(v for v in speeds if v <= limit)
     total = len(speeds) + len(fast)
     runs = []
     for index, v in enumerate(speeds):
         progress = 0.05 + 0.85 * index / total
         frame = yield from recenter(balance, frame, start, progress)
         state = Motion(trace=[])
-        frame = yield from travel(balance, frame, end, speed_mm_s=v, state=state, note=f"{'подъём' if direction > 0 else 'опускание'} на {end:.0f} мм со скоростью {v:.0f} мм/с", progress_span=progress)
-        peak = max((direction * (x - end) for _t, x, _v, _e in state.trace or []), default=0.0)
+        t0 = frame.t
+        trace = TransitMeasurement(end, direction)
+        move = travel(balance, frame, end, speed_mm_s=v, state=state, note=f"{'подъём' if direction > 0 else 'опускание'} на {end:.0f} мм со скоростью {v:.0f} мм/с", progress_span=progress)
+        frame = yield from observe(move, trace.sample)
         error = frame.x_mean - end
         speeds_ok, extras = steady(state.trace or [], v)
         runs.append({
@@ -76,21 +93,26 @@ def positioning(
             "extra": {side: mean(values) for side, values in extras.items()} if speeds_ok else None,
             "samples": len(speeds_ok),
             "error_mm": error,
-            "overshoot_mm": max(0.0, peak, direction * error),
-            "time_s": (state.trace[-1][0] - state.trace[0][0]) if state.trace and len(state.trace) > 1 else 0.0,
+            "worst_error_mm": frame.target_error(end),
+            "overshoot_mm": trace.overshoot_mm, "peak_skew_mm": trace.peak_skew,
+            "time_s": frame.t - t0,
         })
     fast_runs = []
     for index, v in enumerate(fast):
         progress = 0.05 + 0.85 * (len(speeds) + index) / total
-        f_start, f_end = (FAST_LOW_MM, fast_high_mm) if direction > 0 else (fast_high_mm, FAST_LOW_MM)
+        f_start, f_end = (fast_low_mm, fast_high_mm) if direction > 0 else (fast_high_mm, fast_low_mm)
         assert f_start is not None and f_end is not None
         frame = yield from recenter(balance, frame, f_start, progress)
         stats: dict[str, Any] = {}
         t0 = frame.t
         note = f"{'подъём' if direction > 0 else 'опускание'} на {f_end:.0f} мм со скоростью до {v:.0f} мм/с"
-        frame = yield from _fast(balance, frame, f_end, note=note, progress=lambda _f, p=progress: p, top_mm_s=v, stats=stats)
+        trace = TransitMeasurement(f_end, direction)
+        candidate = replace(balance, position_speed={**balance.position_speed, direction: v})
+        move = position_for_start(candidate, frame, f_end, safety, note=note, progress=(progress, progress), stats=stats)
+        frame = yield from observe(move, trace.sample)
         fast_runs.append({
-            "speed_mm_s": v, "vmax_mm_s": stats.get("vmax", 0.0), "error_mm": frame.x_mean - f_end, "time_s": frame.t - t0,
+            "speed_mm_s": v, "vmax_mm_s": trace.peak_speed, "error_mm": frame.x_mean - f_end, "time_s": frame.t - t0,
+            "worst_error_mm": frame.target_error(f_end), "peak_skew_mm": trace.peak_skew, "overshoot_mm": trace.overshoot_mm,
             "distance_mm": abs(f_end - f_start), "fallback": bool(stats.get("failed")), "reason": stats.get("reason"),
         })
         if stats.get("failed") and index > 0 and fast_runs[-2]["fallback"]:
@@ -105,27 +127,41 @@ def fit_positioning(data: dict[str, Any], _ctx: Context) -> Outcome:
     table = [run for run in runs if run["extra"] is not None and run["samples"] >= 4]
     if len(table) < 2:
         raise ProcedureError("скорость не установилась хотя бы на двух уровнях: повторите M2/M3")
-    good = [run for run in runs if abs(run["error_mm"]) <= STOP_TOLERANCE_MM and run["overshoot_mm"] <= OVERSHOOT_MM]
-    best = max(good, key=lambda run: run["speed_mm_s"]) if good else None
+
+    def skew_ok(run: dict[str, Any]) -> bool:
+        return run["peak_skew_mm"] is not None and abs(run["peak_skew_mm"]) < _ctx.safety.sync_warning_mm
+
+    def quickest(candidates: list[dict[str, Any]]) -> dict[str, Any] | None:
+        if not candidates:
+            return None
+        tie = min(run["time_s"] for run in candidates) + float(_ctx.profile.loop_period_s.value)
+        return min((run for run in candidates if run["time_s"] <= tie), key=lambda run: run["speed_mm_s"])
+
+    good = [run for run in runs if run["worst_error_mm"] <= STOP_TOLERANCE_MM and run["overshoot_mm"] <= OVERSHOOT_MM and skew_ok(run)]
+    best = quickest(good)
     key = "up" if direction > 0 else "down"
     report = [
         line(
             f"{run['speed_mm_s']:.0f} мм/с",
-            f"ошибка {run['error_mm']:+.1f} мм, перелёт {run['overshoot_mm']:.1f} мм, {run['time_s']:.1f} с"
+            f"ошибка худшей стороны {run['worst_error_mm']:.1f} мм, перелёт {run['overshoot_mm']:.1f} мм, {run['time_s']:.1f} с"
+            + (f", перекос Л−П {run['peak_skew_mm']:+.1f} мм" if run["peak_skew_mm"] is not None else ", нет парного замера")
             + ("" if run["extra"] is None else f"; сила сверх окна Л {run['extra']['left']:+.1f} / П {run['extra']['right']:+.1f} Н"),
-            abs(run["error_mm"]) <= STOP_TOLERANCE_MM and run["overshoot_mm"] <= OVERSHOOT_MM,
+            run in good,
         )
         for run in runs
     ]
     fast_runs = data.get("fast_runs", [])
 
     def fast_ok(run: dict[str, Any]) -> bool:
-        return not run["fallback"] and abs(run["error_mm"]) <= FAST_STOP_MM
+        return not run["fallback"] and max(run["worst_error_mm"], run["overshoot_mm"]) <= FAST_STOP_MM and skew_ok(run)
 
     for run in fast_runs:
-        text = f"до {run['vmax_mm_s']:.0f} мм/с, {run['distance_mm']:.0f} мм за {run['time_s']:.1f} с, ошибка {run['error_mm']:+.1f} мм"
+        skew = run["peak_skew_mm"]
+        text = (f"пик {run['vmax_mm_s']:.0f} мм/с, {run['distance_mm']:.0f} мм за {run['time_s']:.1f} с, "
+                f"ошибка худшей стороны {run['worst_error_mm']:.1f} мм, перелёт {run['overshoot_mm']:.1f} мм, "
+                + (f"перекос Л−П {skew:+.1f} мм" if skew is not None else "нет парного замера"))
         report.append(line(f"быстро {run['speed_mm_s']:.0f} мм/с", text + (f"; медленный режим: {run['reason']}" if run["fallback"] else ""), fast_ok(run)))
-    fast_best = max((run for run in fast_runs if fast_ok(run)), key=lambda run: run["speed_mm_s"], default=None)
+    fast_best = quickest([run for run in fast_runs if fast_ok(run)])
     chosen = fast_best["speed_mm_s"] if fast_best else best["speed_mm_s"] if best else None
     report.append(line(
         "Скорость позиционирования",
@@ -361,9 +397,19 @@ def _fast_top(ctx: Context) -> float:
     return max(240.0, min(900.0, top))
 
 
+def build_positioning(ctx: Context, direction: int) -> tuple[Procedure, ProcedureEnvelope]:
+    if ctx.working_window:
+        low, high = ctx.working_window
+        middle = (low + high) / 2
+        return (positioning(ctx.balance, direction, low_mm=middle - 70, high_mm=middle + 70, fast_low_mm=low, fast_high_mm=high, safety=ctx.safety),
+                _envelope(min(ctx.safety.soft_max_mm, high + 80)))
+    high = _fast_top(ctx)
+    return positioning(ctx.balance, direction, fast_high_mm=high, safety=ctx.safety), _envelope(high + 100)
+
+
 SPECS = {
-    "P1": (lambda ctx: (positioning(ctx.balance, +1, fast_high_mm=_fast_top(ctx)), _envelope(_fast_top(ctx) + 100.0)), fit_positioning),
-    "P2": (lambda ctx: (positioning(ctx.balance, -1, fast_high_mm=_fast_top(ctx)), _envelope(_fast_top(ctx) + 100.0)), fit_positioning),
+    "P1": (lambda ctx: build_positioning(ctx, 1), fit_positioning),
+    "P2": (lambda ctx: build_positioning(ctx, -1), fit_positioning),
     "A1": (lambda ctx: (accel_test(ctx.balance), _envelope(250.0)), fit_accel),
     "A2": (lambda ctx: (decel_test(ctx.balance), _envelope(250.0)), fit_decel),
     "A3": (lambda ctx: (landing_test(ctx.balance), _envelope(120.0)), fit_landing),

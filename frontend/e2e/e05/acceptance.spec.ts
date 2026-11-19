@@ -1,11 +1,12 @@
 import { test as base, expect, type Page, type TestInfo } from '@playwright/test'
+import { kioskDisplay } from '../kiosk-display.mjs'
 import { writeFile } from 'node:fs/promises'
 import type { acceptance } from '../../e05-harness/main'
 import type { LocalAudioSnapshot } from '../../src/features/coach/audio/local-coach-audio-manager'
 
 declare global { interface Window { e05: typeof acceptance } }
 const entry = '/e05-harness/index.html'
-const aiName = 'AI-тренер: локальная диагностика'
+const aiName = 'AI-тренер: состояние и расход'
 // Narrow production CSS contributes the visible ::after text to the name.
 const stopName = /^Аварийная остановка(?: СТОП)?$/
 const test = base.extend<{ isolation: void }>({
@@ -152,7 +153,7 @@ test('real AudioContext: trusted gestures, verified fixtures, overlap, mute and 
   expect(await page.evaluate(() => window.e05.contextState())).toBeNull()
   const ai = page.getByRole('button', { name: aiName, exact: true })
   await ai.click()
-  await expect(page.getByLabel('Локальная диагностика AI-тренера', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Панель AI-тренера', { exact: true })).toBeVisible()
   expect(await page.evaluate(() => window.e05.contextState())).toBeNull()
   await page.keyboard.press('Escape')
   await expect(ai).toBeFocused()
@@ -209,23 +210,16 @@ test('real AudioContext: trusted gestures, verified fixtures, overlap, mute and 
     fixtures: await page.evaluate(() => window.e05.fixtureCatalog) })
 })
 
-for (const zoom of [false, true]) for (const physicalWidth of [360, 722, 1024, 1920, 3840]) for (const scale of [1, 1.25, 1.5]) for (const compact of [false, true]) {
-  test.describe(`${zoom ? 'zoom emulation' : 'rem scale'} ${physicalWidth}/${scale}/${compact}`, () => {
-  // Desktop zoom equivalence: fixed physical output, reduced CSS viewport,
-  // increased device pixel ratio. This is not Chromium's menu zoom control.
-  test.use({ deviceScaleFactor: zoom ? scale : 1 })
-  test(`actual shell + AI popover: ${physicalWidth}px scale ${scale} ${compact ? 'compact' : 'normal'}`, async ({ page }, info) => {
-    const physicalHeight = physicalWidth >= 3840 ? 2160 : physicalWidth >= 1920 ? 1080 : 900
-    const width = zoom ? Math.floor(physicalWidth / scale) : physicalWidth
-    const height = zoom ? Math.floor(physicalHeight / scale) : physicalHeight
-    await page.setViewportSize({ width, height })
-    await open(page, `?scale=${zoom ? 1 : scale}&compact=${compact ? 1 : 0}`)
+for (const compact of [false, true]) {
+  test(`kiosk shell + AI popover (${compact ? 'compact' : 'normal'})`, async ({ page }, info) => {
+    const { width, height } = kioskDisplay.viewport
+    await open(page, `?compact=${compact ? 1 : 0}`)
     await assertStop(page, width, height)
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(width + 1)
     const ai = page.getByRole('button', { name: aiName, exact: true })
     await expect(ai).toBeInViewport()
     await ai.focus(); await page.keyboard.press('Enter')
-    const popover = page.getByLabel('Локальная диагностика AI-тренера', { exact: true })
+    const popover = page.getByLabel('Панель AI-тренера', { exact: true })
     await expect(popover).toBeVisible()
     await assertStop(page, width, height)
     await assertMotors(page, width, height)
@@ -241,26 +235,6 @@ for (const zoom of [false, true]) for (const physicalWidth of [360, 722, 1024, 1
     expect(box.x + box.width).toBeLessThanOrEqual(width + 1)
     expect(await popover.evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1)
     await page.screenshot({ path: info.outputPath('ai-popover.png') })
-    if (zoom && physicalWidth === 360 && scale === 1.5) {
-      // Reflow the already-open native portal, without close/reopen masking
-      // stale geometry or a trigger-only anchor on wrapped headers.
-      await page.setViewportSize({ width: width + 120, height: height - 60 })
-      await expect.poll(async () => {
-        const panel = (await popover.boundingBox())!
-        const bottom = await ai.evaluate(node => node.closest('header')!.getBoundingClientRect().bottom)
-        return panel.y >= bottom + 7 && panel.y + panel.height <= height - 71
-      }).toBe(true)
-      await assertStop(page, width + 120, height - 60)
-      await assertMotors(page, width + 120, height - 60)
-      await expect(popover).toBeVisible()
-      await page.setViewportSize({ width, height })
-      await expect.poll(async () => {
-        const panel = (await popover.boundingBox())!
-        return panel.x >= 0 && panel.x + panel.width <= width + 1 && panel.y + panel.height <= height - 11
-      }).toBe(true)
-      await assertStop(page, width, height)
-      await assertMotors(page, width, height)
-    }
     await page.keyboard.press('Escape')
     await expect(popover).toHaveCount(0); await expect(ai).toBeFocused()
     // Open safety while AI is open, without an outside click pre-closing it.
@@ -285,9 +259,6 @@ for (const zoom of [false, true]) for (const physicalWidth of [360, 722, 1024, 1
     expect(await page.evaluate(() => window.e05.contextState())).toBeNull()
     expect(await page.evaluate(() => window.e05.commands)).toEqual([])
     await assertStop(page, width, height)
-    await attachJson(info, 'layout.json', { width, height, physicalWidth, physicalHeight, scale, compact,
-      scaleMethod: zoom ? 'desktop zoom emulation: CSS viewport / scale, deviceScaleFactor = scale' : 'root rem font scale',
-      rootFontSize: await page.evaluate(() => getComputedStyle(document.documentElement).fontSize), protectedBottom, popover: box })
-  })
+    await attachJson(info, 'layout.json', { ...kioskDisplay, compact, protectedBottom, popover: box })
   })
 }

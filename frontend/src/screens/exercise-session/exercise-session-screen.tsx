@@ -1,6 +1,6 @@
 ﻿import { useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
-import { AlertTriangle, CheckCircle2, Dumbbell, Minus, Pause, Play, Plus, RotateCcw, SkipForward, Timer, Undo2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Minus, Pause, Play, Plus, RotateCcw, SkipForward, SwitchCamera, Undo2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { ExerciseDetails } from '@/entities/exercise/model/types'
@@ -19,7 +19,7 @@ import { stepWeightKg } from '@/shared/lib/value-steps'
 import { WorkoutNavigator } from '@/features/runtime/ui/workout-navigator'
 import { getExerciseSettingsSnapshot, ownsExerciseSettingsSession, useExerciseSettings } from '@/features/runtime/lib/use-exercise-settings'
 import { captureRuntimeLifecycle, coachLifecycle, coachSetTimer } from '@/features/coach/lib/runtime-observation'
-import { CoachScenarioChip } from '@/features/coach/ui/coach-scenario-picker'
+import { coachLiveRuntime } from '@/features/coach/live/coach-live-runtime'
 import { playExerciseEventSound, useExerciseEventSounds } from '@/features/runtime/lib/exercise-event-sounds'
 import { getSetTypeLabel } from '@/features/strength/lib/strength-plan'
 import { useHardwareStore } from '@/stores/hardware-store'
@@ -31,9 +31,11 @@ import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { FormaState } from '@/shared/ui/status/forma-state'
 import { ExerciseVideoPlayer } from '@/shared/ui/stage2/screen-components'
+import { ExerciseTechniqueSteps } from '@/shared/ui/training/exercise-technique-steps'
 import { ValueStepper } from '@/shared/ui/training/value-stepper'
 import { useAppStore } from '@/stores/app-store'
 import { useRuntimeStore } from '@/stores/runtime-store'
+import './exercise-session-broadcast.css'
 
 type CompletionStatus = 'completed' | 'partial' | 'skipped'
 type ExerciseVideoGender = RuntimeWorkoutSession['exercises'][number]['details']['videos'][number]['gender']
@@ -45,13 +47,12 @@ type SavedSetResponse = { setId: number; exerciseSessionId: number }
 type MotionRailTone = 'lower' | 'neutral' | 'upper'
 type MotionRail = {
   lowerLabel: string
-  currentLabel: string
   upperLabel: string
-  currentPercent: number
   lowerPercent: number
   upperPercent: number
-  currentTone: MotionRailTone
+  current: { label: string; percent: number; tone: MotionRailTone } | null
 }
+type ConsoleMetric = { label: string; value: string; tone: 'good' | 'warning' | 'neutral'; percent?: number }
 const FAST_PULSE_CLASS = 'animate-[pulse_700ms_ease-in-out_infinite]'
 const RAIL_LOWER_PERCENT = 10
 const RAIL_UPPER_PERCENT = 90
@@ -233,12 +234,12 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   const isMachineExercise = supportsFixedBarSetup(exercise) || hasMovableMachineLoad(exercise) || isFixedExercise
   const preferredVideoGender = getPreferredVideoGender(selectedUserId)
   const sessionVideoSequence = resolveExerciseVideoSequence(exercise.details.videos, preferredVideoGender)
-  const sessionVideo = sessionVideoSequence[sessionVideoIndex]
+  const sessionVideo = sessionVideoSequence[sessionVideoIndex] ?? sessionVideoSequence[0]
     ?? (exercise.summary.previewVideoUrl ? { url: exercise.summary.previewVideoUrl, label: `${exercise.name} · превью` } : null)
   const liveMotion = isMachineExercise ? snapshot?.motion : null
   const barMoving = snapshot?.control?.mode === 'moving' || snapshot?.motion.moving === true
   const canAdjustCalibration = Boolean(activeCalibration && selectedUserId && supportsFixedBarSetup(exercise) && !pendingAction)
-  const syncDeltaMm = liveMotion ? liveMotion.syncDeltaMm ?? Math.abs(liveMotion.leftPositionMm - liveMotion.rightPositionMm) : null
+  const syncDeltaMm = liveMotion && liveMotion.syncAvailable !== false ? liveMotion.syncDeltaMm ?? liveMotion.leftPositionMm - liveMotion.rightPositionMm : null
   const plannedValue = getPlannedValue(state, setPlan)
   const targetText = `${getTargetText(state, setPlan)}${exercise.perSide ? ' на сторону' : ''}`
   const correctedLiveRepetitionCount = liveMotion && !isFixedExercise
@@ -255,27 +256,32 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     : correctedLiveRepetitionCount != null
       ? correctedLiveRepetitionCount
       : actualReps
-  const taskValue = isTimed ? formatTimedSeconds(plannedValue) : targetText
   const progressPercent = isTimed
     ? Math.round((timerElapsedSeconds / Math.max(1, plannedValue)) * 100)
     : correctedLiveRepetitionCount != null && liveMotion
       ? Math.round((correctedLiveRepetitionCount / Math.max(1, plannedValue)) * 100)
       : Math.round((factValue / Math.max(1, plannedValue)) * 100)
-  const liveMetrics = liveMotion
-    ? [
-        isFixedExercise
-          ? { label: 'Высота фиксации', value: `${Math.round(activeCalibration?.fixedPositionMm ?? liveMotion.barPositionMm)} мм`, tone: 'good' as const }
-          : { label: 'Амплитуда', value: `${liveMotion.amplitudePercent}%`, tone: liveMotion.amplitudePercent >= 70 ? 'good' as const : 'warning' as const },
-        { label: 'Позиция', value: `${Math.round(liveMotion.barPositionMm)} мм`, tone: 'neutral' as const },
-        { label: 'Синхронность', value: `${syncDeltaMm?.toFixed(1) ?? '0.0'} мм`, tone: (syncDeltaMm ?? 0) <= 5 ? 'good' as const : 'warning' as const },
-      ]
-    : isTimed
-      // The goal is under the clock and the set number in the header: only the elapsed time is new here.
-      ? [
-          { label: 'Прошло', value: formatTimerClock(timerElapsedSeconds), tone: timerElapsedSeconds >= plannedValue ? 'good' as const : 'neutral' as const },
-        ]
-      : state.metrics
   const motionRail = isMachineExercise && !isFixedExercise ? buildMotionRail(liveMotion, activeCalibration) : null
+  const liveMetrics: ConsoleMetric[] = []
+  if (liveMotion) {
+    const fixedHeight = activeCalibration?.fixedPositionMm ?? liveMotion.fixedPositionMm
+    if (isFixedExercise && fixedHeight != null && Number.isFinite(fixedHeight)) {
+      liveMetrics.push({ label: 'Высота фиксации', value: `${Math.round(fixedHeight)} мм`, tone: 'neutral' })
+    } else if (!isFixedExercise && Number.isFinite(liveMotion.amplitudePercent)) {
+      const percent = liveMotion.amplitudePercent
+      liveMetrics.push({ label: 'Амплитуда', value: `${percent}%`, tone: percent >= 70 ? 'good' : 'warning', percent })
+    }
+    if (!motionRail?.current && Number.isFinite(liveMotion.barPositionMm)) {
+      liveMetrics.push({ label: 'Положение грифа', value: `${Math.round(liveMotion.barPositionMm)} мм`, tone: 'neutral' })
+    }
+    if (syncDeltaMm != null && Number.isFinite(syncDeltaMm)) {
+      const status = snapshot?.control?.syncStatus
+      const inRange = status ? status === 'ok' || status === 'norm' : Math.abs(syncDeltaMm) < 5
+      liveMetrics.push({ label: 'Синхронность', value: `${syncDeltaMm.toFixed(1)} мм`, tone: inRange ? 'good' : 'warning' })
+    } else if (liveMotion.syncAvailable === false) {
+      liveMetrics.push({ label: 'Синхронность', value: 'Нет парного замера', tone: 'warning' })
+    }
+  }
   const showWeightControl = isMachineExercise || actualWeight > 0
 
   function changeExerciseWeight(weight: number) {
@@ -503,6 +509,9 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       if (!await exerciseSettings.flush()) return
       await runCommand({
         action: fixed ? 'start_fixed_position' : 'start_motion',
+        workoutRunId: activeSession.id,
+        workoutExerciseId: exercise.id,
+        warmup: (state.setType ?? setPlan.setType) === 'warmup',
         userId: selectedUserId,
         exerciseSlug: exercise.slug,
         calibrationRequired: true,
@@ -560,6 +569,9 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         if (!await exerciseSettings.flush()) return
         await runCommand({
           action: 'start_motion',
+          workoutRunId: activeSession.id,
+          workoutExerciseId: exercise.id,
+          warmup: (state.setType ?? setPlan.setType) === 'warmup',
           userId: selectedUserId,
           exerciseSlug: exercise.slug,
           calibrationRequired: true,
@@ -784,6 +796,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
     }
 
     setActualReps(bounded)
+    if (!isTimed) coachLiveRuntime.noteManualRep(selectedUserId, activeSession, actualReps, bounded)
   }
 
   function handleFinishSet() {
@@ -816,7 +829,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
   )
   useExerciseEventSounds(
     `${selectedUserId}:${session.runId}:${exercise.id}:${state.setNumber}`,
-    hasSoundBounds && !editingPoint && !pendingAction && !emergencyStopActive && !machineHold ? motionRail?.currentTone ?? null : null,
+    hasSoundBounds && !editingPoint && !pendingAction && !emergencyStopActive && !machineHold ? motionRail?.current?.tone ?? null : null,
     soundProblems,
     partialReps,
   )
@@ -840,32 +853,21 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
         setEmergencyStopActive(true)
       }}
     >
-      <div className="rt-screen">
+      <div className="rt-screen rt-broadcast-session">
         <header className="rt-header">
           <div className="rt-chips" style={{ justifyContent: 'flex-start' }} aria-label="Место в тренировке">
             <span className="rt-chip">Упражнение {exercise.order} из {session.exercises.length}</span>
             <span className="rt-chip">{exercise.strengthMode.title}</span>
             {navigatorAvailable ? <WorkoutNavigator session={activeSession} /> : null}
-            <CoachScenarioChip exerciseId={exercise.id} />
           </div>
-          <div className="rt-title">
-            <h1 className="font-display font-bold tracking-[-0.04em] text-white">{exercise.name}</h1>
-            <p>
-              <span>Подход {exercise.perSide ? state.roundNumber ?? setPlan.roundNumber : state.setNumber} из {exercise.perSide ? state.totalRounds ?? exercise.plan.length / 2 : state.totalSets}</span>
-              {setTypeLabel ? <span>{setTypeLabel}</span> : null}
-            </p>
-          </div>
-          <div className="rt-chips" aria-label="Текущий подход">
-            {exercise.perSide ? <strong className="rt-chip text-xl" data-tone="good">{(state.side ?? setPlan.side) === 'left' ? 'Левая сторона' : 'Правая сторона'}</strong> : null}
-            {isTimed
-              ? <span className="rt-chip" data-tone="good"><Timer aria-hidden="true" />{taskValue}</span>
-              : <span className="rt-chip" data-tone="good"><Dumbbell aria-hidden="true" />{state.weightLabel}</span>}
-          </div>
+          {exercise.perSide ? <div className="rt-chips" aria-label="Текущий подход">
+            <strong className="rt-chip text-xl" data-tone="good">{(state.side ?? setPlan.side) === 'left' ? 'Левая сторона' : 'Правая сторона'}</strong>
+          </div> : null}
         </header>
 
         <div className="rt-body rt-session-body" data-rail={Boolean(motionRail)}>
           <div className="rt-media">
-            <div className="rt-media-frame">
+            <div className="rt-media-frame" data-has-video={Boolean(sessionVideo)}>
               {sessionVideo ? (
                 <button
                   type="button"
@@ -874,22 +876,32 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
                       setSessionVideoIndex((currentIndex) => (currentIndex + 1) % sessionVideoSequence.length)
                     }
                   }}
-                  className={cn('block w-full text-left', sessionVideoSequence.length > 1 ? 'cursor-pointer' : 'cursor-default')}
+                  className={cn('rt-session-video block w-full text-left', sessionVideoSequence.length > 1 ? 'cursor-pointer' : 'cursor-default')}
                   aria-label={sessionVideoSequence.length > 1 ? 'Переключить видео упражнения' : sessionVideo.label}
                   disabled={sessionVideoSequence.length <= 1}
                 >
-                  <ExerciseVideoPlayer videoUrl={sessionVideo.url} videoLabel={sessionVideo.label} wrapperClassName="rounded-[var(--ui-radius)] border border-white/8" />
+                  <ExerciseVideoPlayer videoUrl={sessionVideo.url} videoLabel={sessionVideo.label} wrapperClassName="rt-session-video-frame rounded-[var(--ui-radius)] border border-white/8" />
+                  <span className="rt-session-angle" aria-hidden="true">
+                    {sessionVideoSequence.length > 1 && <SwitchCamera />}
+                    {sessionVideo.label}
+                  </span>
                 </button>
               ) : (
-                <div className="flex aspect-video items-center justify-center rounded-[var(--ui-radius)] border border-white/8 bg-[#0b1017] text-white/45">Видео упражнения недоступно</div>
+                exercise.details.shortSteps?.length
+                  ? <ExerciseTechniqueSteps steps={exercise.details.shortSteps} />
+                  : <p className="rt-session-no-video">Видео упражнения недоступно</p>
               )}
+              <div className="rt-title rt-broadcast-caption">
+                <h1 className="font-display font-bold tracking-[-0.04em] text-white">{exercise.name}</h1>
+                <p>
+                  <span>Подход {exercise.perSide ? state.roundNumber ?? setPlan.roundNumber : state.setNumber} из {exercise.perSide ? state.totalRounds ?? exercise.plan.length / 2 : state.totalSets}</span>
+                  {setTypeLabel ? <span>{setTypeLabel}</span> : null}
+                </p>
+              </div>
             </div>
           </div>
 
-          <section className="rt-panel rt-session-center" data-compact={Boolean(editingPoint || machineHold || motorIdle || partialReps > 0)} aria-label="Текущий подход">
-            {exercise.plan.length > 1 ? (
-              <SetPlanTrack exercise={exercise} currentIndex={activeSession.currentSetIndex} results={activeSession.completedSets[exercise.id]} label="Подходы упражнения" />
-            ) : null}
+          <section className="rt-panel rt-session-center" data-compact={Boolean(canAdjustCalibration || editingPoint || machineHold || motorIdle || partialReps > 0)} aria-label="Текущий подход">
             {isTimed ? (
               <TimedSetClock
                 remainingSeconds={Math.max(0, plannedValue - timerElapsedSeconds)}
@@ -911,26 +923,6 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
             {isFixedExercise && !isTimed ? <p className="rt-actions-note">Введите количество повторов вручную и нажмите «Завершить подход».</p> : null}
             <div className="rt-progress" role="progressbar" aria-label="Прогресс подхода" aria-valuemin={0} aria-valuemax={100} aria-valuenow={clamp(progressPercent, 0, 100)}>
               <div style={{ width: `${clamp(progressPercent, 0, 100)}%` }} />
-            </div>
-            <div className="rt-session-secondary">
-              {showWeightControl && !editingPoint ? (
-                <ValueStepper
-                  label="Вес"
-                  unit="кг"
-                  value={actualWeight}
-                  decimals={1}
-                  onChange={(delta) => changeExerciseWeight(stepWeightKg(actualWeight, delta))}
-                  onValueCommit={(value) => changeExerciseWeight(Math.max(0, value ?? 0))}
-                />
-              ) : null}
-              <div className="rt-metrics" aria-label="Показатели движения">
-                {liveMetrics.slice(0, 3).map((metric) => (
-                  <div key={metric.label} data-tone={metric.tone}>
-                    <span>{metric.label}</span>
-                    <strong>{metric.value}</strong>
-                  </div>
-                ))}
-              </div>
             </div>
             {motorIdle && activeCalibration ? (
               <div className="rt-alert" data-tone="warning" role="status" aria-label="Тренажёр не запущен">
@@ -968,7 +960,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
             ) : null}
             {canAdjustCalibration && !editingPoint ? (
               <>
-                <p role="status" aria-label="Текущее направление нагрузки">Текущий подход: {liveMotion?.loadDirection === 'up' ? 'Тяга вверх' : 'Нагрузка вниз'}</p>
+                {liveMotion?.loadDirection ? <p className="rt-live-direction" role="status" aria-label="Текущее направление нагрузки">Текущий подход: {liveMotion.loadDirection === 'up' ? 'Тяга вверх' : 'Нагрузка вниз'}</p> : null}
                 <LoadDirectionSelector value={activeCalibration?.loadDirection ?? 'down'} disabled={startPointSaving || calibrationBusy}
                   nextSet={motorSetActive} onChange={(next) => void changeLoadDirection(next)} />
               </>
@@ -1028,37 +1020,64 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
             ) : null}
           </section>
 
-          {motionRail ? <MachinePositionRail rail={motionRail} amplitudePercent={liveMotion?.amplitudePercent} syncDeltaMm={syncDeltaMm} /> : null}
+          <aside className="rt-broadcast-plan" aria-label="План упражнения">
+            <h2>План подходов</h2>
+            <SetPlanTrack exercise={exercise} currentIndex={activeSession.currentSetIndex} results={activeSession.completedSets[exercise.id]} label="Подходы упражнения" />
+            {sessionVideo && !isMachineExercise && Boolean(exercise.details.shortSteps?.length) && (
+              <ExerciseTechniqueSteps steps={exercise.details.shortSteps} />
+            )}
+          </aside>
+          {motionRail ? <MachinePositionRail rail={motionRail} /> : null}
         </div>
 
-        <div className="rt-actions" role="group" aria-label="Действия с подходом">
-          <div className="rt-actions-group">
-            {previousExercise ? (
-              <Button variant="secondary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy || restartingPrevious} iconLeft={<Undo2 aria-hidden="true" />} onClick={() => setPreviousDialogOpen(true)}>
-                {restartingPrevious ? 'Возвращаюсь…' : 'Предыдущее упражнение'}
-              </Button>
-            ) : null}
-            <Button variant="secondary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy || restartingPrevious} iconLeft={<SkipForward aria-hidden="true" />} onClick={() => setSkipDialogOpen(true)}>
-              {pendingAction === 'skipped' ? 'Сохраняю…' : 'Пропустить упражнение'}
+        <div className="rt-broadcast-footer" data-has-metrics={Boolean((showWeightControl && !editingPoint) || liveMetrics.length)} role="group" aria-label="Действия с подходом">
+          <div className="rt-broadcast-dock">
+            <div className="rt-session-secondary" data-weight={showWeightControl && !editingPoint} data-metrics={liveMetrics.length > 0}>
+              {showWeightControl && !editingPoint ? (
+                <ValueStepper label="Вес" unit="кг" value={actualWeight} decimals={1}
+                  onChange={(delta) => changeExerciseWeight(stepWeightKg(actualWeight, delta))}
+                  onValueCommit={(value) => changeExerciseWeight(Math.max(0, value ?? 0))} />
+              ) : null}
+              {liveMetrics.length > 0 ? <div className="rt-metrics" role="group" aria-label="Показатели подхода">
+                {liveMetrics.map((metric) => (
+                  <div key={metric.label} data-tone={metric.tone}>
+                    <span>{metric.label}</span><strong>{metric.value}</strong>
+                    {metric.percent != null ? <div className="rt-console-meter" aria-hidden="true"><i style={{ width: `${clamp(metric.percent, 0, 100)}%` }} /></div> : null}
+                  </div>
+                ))}
+              </div> : null}
+            </div>
+            <Button className="rt-primary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy || restartingPrevious} iconLeft={<CheckCircle2 aria-hidden="true" />} onClick={() => void handleFinishSet()}>
+              {pendingAction && pendingAction !== 'skipped' ? 'Сохраняю…' : 'Завершить подход'}
             </Button>
           </div>
-          <div className="rt-actions-note">
-            {state.setWarning ?? state.setNote ?? <>
-              {isTimed ? null : <>{state.rirLabel ?? '1–3 повтора в запасе'} · </>}{nextSetPlan
-                ? <>дальше отдых <strong>{setPlan.restSeconds} с</strong>, затем <strong>{describeSetPlan(nextSetPlan)}</strong></>
-                : nextExercise ? <>последний подход · дальше <strong>{nextExercise.name}</strong></> : <>последний подход упражнения</>}
-            </>}
+
+          <div className="rt-actions">
+            <div className="rt-actions-group">
+              {previousExercise ? (
+                <Button variant="secondary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy || restartingPrevious} iconLeft={<Undo2 aria-hidden="true" />} onClick={() => setPreviousDialogOpen(true)}>
+                  {restartingPrevious ? 'Возвращаюсь…' : 'Предыдущее упражнение'}
+                </Button>
+              ) : null}
+              <Button variant="secondary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy || restartingPrevious} iconLeft={<SkipForward aria-hidden="true" />} onClick={() => setSkipDialogOpen(true)}>
+                {pendingAction === 'skipped' ? 'Сохраняю…' : 'Пропустить упражнение'}
+              </Button>
+            </div>
+            <div className="rt-actions-note">
+              {state.setWarning ?? state.setNote ?? <>
+                {!isTimed && state.rirLabel ? <>{state.rirLabel} · </> : null}{nextSetPlan
+                  ? <>дальше отдых <strong>{setPlan.restSeconds} с</strong>, затем <strong>{describeSetPlan(nextSetPlan)}</strong></>
+                  : nextExercise ? <>последний подход · дальше <strong>{nextExercise.name}</strong></> : <>последний подход упражнения</>}
+              </>}
+            </div>
           </div>
-          <Button className="rt-primary" disabled={pendingAction !== null || editingPoint !== null || calibrationBusy || restartingPrevious} iconLeft={<CheckCircle2 aria-hidden="true" />} onClick={() => void handleFinishSet()}>
-            {pendingAction && pendingAction !== 'skipped' ? 'Сохраняю…' : 'Завершить подход'}
-          </Button>
         </div>
       </div>
 
       <Dialog.Root open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="builder-dialog">
+          <SafetyDialogContent className="builder-dialog rt-session-confirm">
             <Dialog.Title className="font-display text-3xl font-bold">Пропустить упражнение?</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-white/70">Выполненные подходы сохранятся, оставшиеся будут пропущены.</Dialog.Description>
             <div className="builder-dialog-actions">
@@ -1080,7 +1099,7 @@ function ExerciseSessionView({ session, state }: { session: RuntimeWorkoutSessio
       <Dialog.Root open={previousDialogOpen} onOpenChange={setPreviousDialogOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="builder-dialog">
+          <SafetyDialogContent className="builder-dialog rt-session-confirm">
             <Dialog.Title className="font-display text-3xl font-bold">Вернуться к предыдущему упражнению?</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-white/70">
                 «{previousExercise?.name}» будет выполнено заново с первого подхода, его прежние подходы удалятся. Текущее упражнение начнётся сначала после него.
@@ -1129,6 +1148,7 @@ function TimedSetClock({ remainingSeconds, elapsedSeconds, plannedSeconds, runni
         </Button>
         <Button variant="secondary" disabled={disabled || !started} iconLeft={<RotateCcw aria-hidden="true" />} onClick={onReset}>Сбросить</Button>
       </div>
+      <p className="rt-timer-elapsed">Прошло <strong>{formatTimerClock(elapsedSeconds)}</strong></p>
     </div>
   )
 }
@@ -1152,15 +1172,16 @@ function RepCounter({ label, value, targetText, onChange }: { label: string; val
     }
   }
 
+  const displayedValue = isEditing ? draft : String(value)
   return (
-    <div className="rt-counter" role="group" aria-label={label}>
+    <div className="rt-counter" role="group" aria-label={label} data-digits={Math.min(displayedValue.length, 3)}>
       <button type="button" aria-label={`Уменьшить: ${label}`} onClick={() => onChange(value - 1)} disabled={value <= 0}><Minus aria-hidden="true" /></button>
       <label className="rt-counter-value">
         <input
           type="text"
           inputMode="numeric"
           aria-label={label}
-          value={isEditing ? draft : String(value)}
+          value={displayedValue}
           onFocus={(event) => { setIsEditing(true); event.currentTarget.select() }}
           onBlur={() => { setIsEditing(false); commitDraft() }}
           onChange={(event) => setDraft(event.target.value.replace(/[^\d]/g, ''))}
@@ -1169,35 +1190,36 @@ function RepCounter({ label, value, targetText, onChange }: { label: string; val
             if (event.key === 'Escape') { setDraft(String(value)); event.currentTarget.blur() }
           }}
         />
-        <span>{label.toLowerCase()} · цель <strong>{targetText}</strong></span>
       </label>
       <button type="button" aria-label={`Увеличить: ${label}`} onClick={() => onChange(value + 1)}><Plus aria-hidden="true" /></button>
+      <p className="rt-counter-target col-span-full text-center text-sm text-white/75">{label.toLowerCase()} · цель <strong>{targetText}</strong></p>
     </div>
   )
 }
 
-function MachinePositionRail({ rail, amplitudePercent, syncDeltaMm }: { rail: MotionRail; amplitudePercent?: number; syncDeltaMm: number | null }) {
-  const currentStyle = currentRailStyles[rail.currentTone]
+function MachinePositionRail({ rail }: { rail: MotionRail }) {
+  const current = rail.current
+  const currentStyle = current ? currentRailStyles[current.tone] : null
 
   return (
     <section className="rt-rail" aria-label="Положение грифа">
       <div className="relative flex h-full min-h-0 flex-col items-center">
-        <div className="mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-white/55">Положение · мм</div>
+        <div className="rt-rail-title mb-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-white/55">Положение · мм</div>
         <div className="rt-rail-track w-full">
-          <div className="absolute top-0 bottom-0 left-1/2 w-5 -translate-x-1/2 rounded-full border border-white/12 bg-white/7 shadow-[inset_0_0_18px_rgba(255,255,255,0.08)]">
-            <div className={cn('absolute right-0 left-0 rounded-full transition-colors duration-200', currentStyle.fill)} style={{ bottom: `${Math.min(rail.lowerPercent, rail.currentPercent)}%`, height: `${Math.abs(rail.currentPercent - rail.lowerPercent)}%` }} />
+          <div className="rt-rail-channel absolute top-0 bottom-0 left-1/2 w-5 -translate-x-1/2 rounded-full border border-white/12 bg-white/7 shadow-[inset_0_0_18px_rgba(255,255,255,0.08)]">
+            {current && currentStyle ? <div className={cn('rt-rail-fill absolute right-0 left-0 rounded-full transition-colors duration-200', currentStyle.fill)} data-tone={current.tone} style={{ bottom: `${Math.min(rail.lowerPercent, current.percent)}%`, height: `${Math.abs(current.percent - rail.lowerPercent)}%` }} /> : null}
           </div>
           <RailLimitMarker positionPercent={rail.upperPercent} tone="upper" value={rail.upperLabel} />
           <RailLimitMarker positionPercent={rail.lowerPercent} tone="lower" value={rail.lowerLabel} />
-          <div data-rail-position="current" className="absolute inset-x-0 z-20 grid translate-y-1/2 grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-center" style={{ bottom: `${rail.currentPercent}%` }}>
-            <div className={cn('col-start-1 mr-2 min-w-0 rounded-xl border px-1 py-1 text-center', currentStyle.badge)} aria-label={`Гриф · ${rail.currentLabel}`}>
+          {current && currentStyle ? <div data-rail-position="current" data-tone={current.tone} className="absolute inset-x-0 z-20 grid translate-y-1/2 grid-cols-[minmax(0,1fr)_32px_minmax(0,1fr)] items-center" style={{ bottom: `${current.percent}%` }}>
+            <div className={cn('rt-rail-badge col-start-1 mr-2 min-w-0 rounded-xl border px-1 py-1 text-center', currentStyle.badge)} aria-label={`Гриф · ${current.label}`}>
               <span className="block text-[10px] font-semibold uppercase tracking-[0.08em]">Гриф</span>
-              <strong className={cn('block whitespace-nowrap font-display text-[12px] font-semibold tabular-nums', currentStyle.value)}>{rail.currentLabel.replace(/ мм$/, '')}</strong>
+              <strong className={cn('block whitespace-nowrap font-display text-[12px] font-semibold tabular-nums', currentStyle.value)}>{current.label.replace(/ мм$/, '')}</strong>
             </div>
-            <div className={cn('col-start-2 mx-auto h-5 w-5 rounded-full border-2 transition-all duration-200', currentStyle.knob)} aria-hidden="true" />
-          </div>
+            <div className={cn('rt-rail-knob col-start-2 mx-auto h-5 w-5 rounded-full border-2 transition-all duration-200', currentStyle.knob)} aria-hidden="true" />
+          </div> : null}
         </div>
-        <div className="mt-3 grid w-full grid-cols-2 gap-2 text-center text-xs text-white/52"><div className="rounded-2xl border border-white/8 bg-white/4 px-2 py-2">Ампл. {amplitudePercent ?? '—'}%</div><div className="rounded-2xl border border-white/8 bg-white/4 px-2 py-2">Синхр. {syncDeltaMm?.toFixed(1) ?? '—'} мм</div></div>
+        {!current ? <p className="mt-2 text-center text-xs text-white/65">Нет сигнала положения</p> : null}
       </div>
     </section>
   )
@@ -1220,10 +1242,6 @@ function RailLimitMarker({ positionPercent, tone, value }: { positionPercent: nu
 
 function parseWeightLabel(value: string) {
   return Number(value.replace(',', '.').match(/\d+(?:\.\d+)?/)?.[0] ?? '0')
-}
-
-function parseRirLabel(value?: string) {
-  return Number(value?.match(/\d+/)?.[0] ?? '2')
 }
 
 function getPlannedValue(state: NonNullable<RuntimeWorkoutSession['sessionState']>, setPlan: RuntimeWorkoutSession['exercises'][number]['plan'][number]) {
@@ -1272,23 +1290,26 @@ function resolveExerciseVideoSequence(videos: ExerciseVideoAsset[], preferredVid
   return sequence
 }
 
-function buildMotionRail(liveMotion: HardwareMotionTelemetry | null | undefined, calibration: HardwareCalibration | null): MotionRail {
+function buildMotionRail(liveMotion: HardwareMotionTelemetry | null | undefined, calibration: HardwareCalibration | null): MotionRail | null {
   // Without a planned set the runtime reports 0/0 bounds: the saved calibration points are the real ones then.
   const liveLower = liveMotion?.lowerBoundMm
   const liveUpper = liveMotion?.upperBoundMm
   const liveBoundsValid = liveLower != null && liveUpper != null && liveUpper > liveLower
-  const exerciseLowerValue = (liveBoundsValid ? liveLower : null) ?? calibration?.lowerPointMm ?? 640
-  const exerciseUpperValue = (liveBoundsValid ? liveUpper : null) ?? calibration?.upperPointMm ?? 1320
-  const currentValue = liveMotion?.barPositionMm ?? calibration?.zeroPositionMm ?? (exerciseLowerValue + exerciseUpperValue) / 2
+  const exerciseLowerValue = liveBoundsValid ? liveLower : calibration?.lowerPointMm
+  const exerciseUpperValue = liveBoundsValid ? liveUpper : calibration?.upperPointMm
+  if (exerciseLowerValue == null || exerciseUpperValue == null || !Number.isFinite(exerciseLowerValue) || !Number.isFinite(exerciseUpperValue) || exerciseUpperValue <= exerciseLowerValue) return null
+  const currentValue = liveMotion?.barPositionMm
   const range = Math.max(1, exerciseUpperValue - exerciseLowerValue)
   return {
     lowerLabel: `${Math.round(exerciseLowerValue)} мм`,
-    currentLabel: `${Math.round(currentValue)} мм`,
     upperLabel: `${Math.round(exerciseUpperValue)} мм`,
-    currentPercent: clamp(RAIL_LOWER_PERCENT + ((currentValue - exerciseLowerValue) / range) * (RAIL_UPPER_PERCENT - RAIL_LOWER_PERCENT), 4, 96),
     lowerPercent: RAIL_LOWER_PERCENT,
     upperPercent: RAIL_UPPER_PERCENT,
-    currentTone: currentValue >= exerciseUpperValue ? 'upper' : currentValue <= exerciseLowerValue ? 'lower' : 'neutral',
+    current: currentValue != null && Number.isFinite(currentValue) ? {
+      label: `${Math.round(currentValue)} мм`,
+      percent: clamp(RAIL_LOWER_PERCENT + ((currentValue - exerciseLowerValue) / range) * (RAIL_UPPER_PERCENT - RAIL_LOWER_PERCENT), 4, 96),
+      tone: currentValue >= exerciseUpperValue ? 'upper' : currentValue <= exerciseLowerValue ? 'lower' : 'neutral',
+    } : null,
   }
 }
 
@@ -1319,7 +1340,7 @@ function buildCurrentSetResult({ state, setPlan, liveMotion, actualReps, actualW
     targetMaxReps: state.targetMaxReps ?? setPlan.targetMaxReps ?? setPlan.targetReps,
     reps: state.kind === 'timed' ? null : actualValue,
     weightKg,
-    rir: isSkipped ? null : isPartial ? 0 : parseRirLabel(state.rirLabel),
+    rir: null,
     subjectiveEffort: null,
     discomfortLevel: null,
     pain: false,
@@ -1328,7 +1349,7 @@ function buildCurrentSetResult({ state, setPlan, liveMotion, actualReps, actualW
     volumeKg: state.kind === 'timed' ? 0 : weightKg * actualValue,
     amplitudePercent: liveMotion?.amplitudePercent,
     tempoLabel: isSkipped ? 'пропуск' : isPartial ? 'частично' : 'хорошо',
-    syncLabel: liveMotion ? `${(liveMotion.syncDeltaMm ?? Math.abs(liveMotion.leftPositionMm - liveMotion.rightPositionMm)).toFixed(1)} мм` : undefined,
+    syncLabel: liveMotion && liveMotion.syncAvailable !== false ? `${(liveMotion.syncDeltaMm ?? liveMotion.leftPositionMm - liveMotion.rightPositionMm).toFixed(1)} мм` : undefined,
   }
 }
 

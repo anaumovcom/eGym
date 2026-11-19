@@ -1,0 +1,6 @@
+.home-recovery .home-atlas-link { display: inline-flex; align-items: center; min-height: 2rem; color: #94c9ff; font-size: .82rem; font-weight: 650; }
+.home-recovery .home-atlas-link:hover { color: white; text-decoration: underline; }
+:is(.home-recovery, .wd-map) :is(.home-recovery-figure-svg, .wd-load-figure-svg):has(> [data-figure='portrait']) {
+  display: flex; justify-content: center; max-width: 100%; height: 100%;
+}
+:is(.home-recovery, .wd-map) :is(.home-recovery-figure-svg, .wd-load-figure-svg) > svg[data-figure='portrait'] { width: 100%; height: 100%; }

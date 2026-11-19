@@ -1,0 +1,102 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "budget_usd":  10,
+    "reservation_per_request_usd":  2,
+    "requests":  [
+                     {
+                         "id":  "01-focus",
+                         "status":  "completed",
+                         "reserved_usd":  2,
+                         "started_at":  "2026-11-16T15:00:36.4142750Z",
+                         "usage":  {
+                                       "input_tokens":  327,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  0,
+                                                                    "text_tokens":  327
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  607
+                                   }
+                     },
+                     {
+                         "id":  "02-studio",
+                         "status":  "completed",
+                         "reserved_usd":  2,
+                         "started_at":  "2026-11-16T15:00:54.4397885Z",
+                         "usage":  {
+                                       "input_tokens":  334,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  0,
+                                                                    "text_tokens":  334
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  614
+                                   }
+                     },
+                     {
+                         "id":  "03-performance",
+                         "status":  "completed",
+                         "reserved_usd":  2,
+                         "started_at":  "2026-11-16T15:01:05.6050488Z",
+                         "usage":  {
+                                       "input_tokens":  367,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  0,
+                                                                    "text_tokens":  367
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  647
+                                   }
+                     },
+                     {
+                         "id":  "04-coach",
+                         "status":  "completed",
+                         "reserved_usd":  2,
+                         "started_at":  "2026-11-16T15:01:17.1851662Z",
+                         "usage":  {
+                                       "input_tokens":  345,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  0,
+                                                                    "text_tokens":  345
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  625
+                                   }
+                     },
+                     {
+                         "id":  "05-stage",
+                         "status":  "completed",
+                         "reserved_usd":  2,
+                         "started_at":  "2026-11-16T15:01:28.4515136Z",
+                         "usage":  {
+                                       "input_tokens":  349,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  0,
+                                                                    "text_tokens":  349
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  629
+                                   }
+                     }
+                 ]
+}

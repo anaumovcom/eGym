@@ -1,4 +1,15 @@
 /* Shared exercise browser: a quiet filter rail and a spacious results canvas. */
+/* Explicit UI accents only; no descendant-wide SVG or muscle-map recolouring. */
+html[data-forma-theme='broadcast-blue'] :is(.discovery-eyebrow, .discovery-filter-heading svg, .catalog-discovery .forma-state > svg, .picker-empty > svg) { color: var(--broadcast-accent, #58a6ff); }
+html[data-forma-theme='broadcast-blue'] :is(.discovery-library-mark, .discovery-active button:not(.discovery-reset), .picker-favorite[aria-pressed='true']) { border-color: var(--broadcast-accent-border, #58a6ff55); background: var(--broadcast-accent-soft, #2583ff24); color: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] :is(.discovery-filter-section > summary > b, .discovery-tabs button[aria-pressed='true']) { color: var(--broadcast-accent-strong, #b8daff); background: var(--broadcast-accent-soft, #2583ff24); }
+html[data-forma-theme='broadcast-blue'] .discovery-option[aria-pressed='true'] { background: var(--broadcast-accent-soft, #2583ff24); color: var(--broadcast-accent-strong, #b8daff); border-color: var(--broadcast-accent, #58a6ff); }
+html[data-forma-theme='broadcast-blue'] .discovery-search:focus-within { border-color: var(--broadcast-accent, #58a6ff); box-shadow: 0 0 0 3px var(--broadcast-accent-soft, #2583ff24); }
+html[data-forma-theme='broadcast-blue'] .discovery-tabs button[aria-pressed='true'] > svg,
+html[data-forma-theme='broadcast-blue'] .picker-steps li[aria-current='step'] { color: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .picker-steps li[aria-current='step'] > span { background: var(--broadcast-accent-soft, #2583ff24); border-color: var(--broadcast-accent-border, #58a6ff55); }
+html[data-forma-theme='broadcast-blue'] .picker-result-row:hover { border-color: var(--broadcast-accent-border, #58a6ff55); background: #14283f; }
+
 .discovery-eyebrow { display: flex; align-items: center; gap: .5rem; color: #d9b76c; font-size: .7rem; font-weight: 700; letter-spacing: .16em; margin-bottom: .6rem; }
 .discovery-eyebrow svg { width: 1rem; height: 1rem; }
 .discovery-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .5rem 0 1.5rem; }

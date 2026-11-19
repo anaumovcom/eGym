@@ -1,14 +1,14 @@
 import { useEffect, useRef } from 'react'
 import { useStage4Store } from '@/stores/stage4-store'
 import { getCoachAudibleCount, subscribeAudioPriority } from '@/shared/lib/audio-priority'
+import upper from '../../../../public/audio/pop-up.mp3?inline'
+import lower from '../../../../public/audio/pop-down.mp3?inline'
+import error from '../../../../public/audio/error-notification.mp3?inline'
+import success from '../../../../public/audio/success.mp3?inline'
 
 type ExerciseSound = 'upper' | 'lower' | 'error' | 'success'
-const sources: Record<ExerciseSound, string> = {
-  upper: '/audio/pop-up.mp3',
-  lower: '/audio/pop-down.mp3',
-  error: '/audio/error-notification.mp3',
-  success: '/audio/success.mp3',
-}
+// Small non-speech signals arrive with the app, before the first repetition (no HTTP on play).
+export const exerciseSoundSources: Readonly<Record<ExerciseSound, string>> = { upper, lower, error, success }
 
 // Preserve the user's signal-volume multiplier and mute. Endpoint feedback
 // has its own fixed 50% channel, independent of coach/count playback.
@@ -35,7 +35,7 @@ export function playExerciseEventSound(kind: ExerciseSound) {
   let cleanup = () => {}
   try {
     if (activeEffects.size >= MAX_EFFECTS) activeEffects.values().next().value?.()
-    const audio = new Audio(sources[kind])
+    const audio = new Audio(exerciseSoundSources[kind])
     let closed = false
     let offPriority = () => {}
     let offSettings = () => {}

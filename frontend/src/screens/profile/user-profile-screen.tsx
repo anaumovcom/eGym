@@ -19,6 +19,7 @@ import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
 import { PhotoCaptureDialog } from '@/shared/ui/photo/photo-capture-dialog'
 import { useAppStore } from '@/stores/app-store'
+import '@/screens/progress/broadcast-records.css'
 import './user-profile-screen.css'
 
 type ProfileTab = 'overview' | 'measurements' | 'photo' | 'restrictions'
@@ -127,12 +128,13 @@ export function UserProfileScreen() {
 
   return (
     <FormaShell userName={userName} machine={fallbackMachine} onStop={() => setEmergencyStopActive(true)}>
-      <section className="profile-center" aria-labelledby="profile-name">
+      <section className="profile-center records-screen" aria-labelledby="profile-name">
         <header className="profile-hero">
           <div className="profile-avatar">
             {profile.user.profile?.photoUrl ? <img src={resolveApiAssetUrl(profile.user.profile.photoUrl) ?? profile.user.profile.photoUrl} alt="Фотография пользователя" /> : <span aria-hidden="true">{profile.user.name.charAt(0).toUpperCase()}</span>}
           </div>
           <div className="profile-identity">
+            <span className="hidden profile-kicker" aria-hidden="true">Персональный профиль</span>
             <h1 id="profile-name" className="font-display font-bold text-white">{profile.user.name}</h1>
             <ul className="profile-chips" aria-label="Персональные данные">
               {age != null ? <li>{age} {plural(age, 'год', 'года', 'лет')}</li> : null}
@@ -143,7 +145,7 @@ export function UserProfileScreen() {
             </ul>
             <div className="profile-goal"><span className="profile-goal-icon" aria-hidden="true"><Target /></span><div><span>Основная цель</span><strong>{primaryGoal?.label ?? 'Поддержание активности'}</strong><small>Ближайший ориентир: {target}</small></div></div>
           </div>
-          <Button variant="secondary" iconLeft={<Pencil aria-hidden="true" />} onClick={openEdit} disabled={userId === 'guest'}>Редактировать</Button>
+          <Button className="profile-edit" variant="secondary" iconLeft={<Pencil aria-hidden="true" />} onClick={openEdit} disabled={userId === 'guest'}>Редактировать</Button>
         </header>
 
         <nav className="profile-tabs" aria-label="Разделы профиля">
@@ -259,7 +261,33 @@ function ProfileEmpty({ text, action, icon }: { text: string; action?: ReactNode
 function EditProfileDialog({ open, onOpenChange, draft, setDraft, pending, error, onSave }: { open: boolean; onOpenChange: (open: boolean) => void; draft: EditDraft | null; setDraft: Dispatch<SetStateAction<EditDraft | null>>; pending: boolean; error: string | null; onSave: () => Promise<void> }) {
   if (!draft) return null
   const field = (key: keyof EditDraft, label: string, type = 'text') => <label className="profile-field"><span>{label}</span><input type={type} value={draft[key]} onChange={(event) => setDraft((current) => current ? { ...current, [key]: event.target.value } : current)} /></label>
-  return <Dialog.Root open={open} onOpenChange={(next) => { if (!pending) onOpenChange(next) }}><Dialog.Portal><Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" /><SafetyDialogContent className="profile-dialog"><Dialog.Title className="font-display text-3xl font-bold">Редактировать профиль</Dialog.Title><Dialog.Description className="mt-2 text-sm text-white/60">Основные данные и ближайший измеримый ориентир.</Dialog.Description><div className="profile-form">{field('name', 'Имя')}{field('birthDate', 'Дата рождения', 'date')}{field('heightCm', 'Рост, см', 'number')}{field('weightKg', 'Вес, кг', 'number')}{field('goalLabel', 'Основная цель')}{field('targetValue', 'Целевое значение', 'number')}{field('targetUnit', 'Единица цели')}<label className="profile-field profile-field-wide"><span>Заметки</span><textarea value={draft.notes} onChange={(event) => setDraft((current) => current ? { ...current, notes: event.target.value } : current)} /></label></div>{error ? <p role="alert" className="text-[#ffb4a7]">{error}</p> : null}<div className="profile-dialog-actions"><Dialog.Close asChild><Button variant="secondary" disabled={pending}>Отмена</Button></Dialog.Close><Button disabled={pending || !draft.name.trim() || !draft.goalLabel.trim()} onClick={() => void onSave()}>{pending ? 'Сохранение…' : 'Сохранить'}</Button></div></SafetyDialogContent></Dialog.Portal></Dialog.Root>
+  return (
+    <Dialog.Root open={open} onOpenChange={(next) => { if (!pending) onOpenChange(next) }}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
+        <SafetyDialogContent className="profile-dialog">
+          <header className="profile-dialog-heading">
+            <Dialog.Title className="font-display text-3xl font-bold">Редактировать профиль</Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm text-white/60">Основные данные и ближайший измеримый ориентир.</Dialog.Description>
+          </header>
+          <div className="profile-form">
+            <fieldset className="profile-form-group">
+              <legend>Персональные данные</legend>
+              {field('name', 'Имя')}{field('birthDate', 'Дата рождения', 'date')}{field('heightCm', 'Рост, см', 'number')}{field('weightKg', 'Вес, кг', 'number')}
+            </fieldset>
+            <fieldset className="profile-form-group">
+              <legend>Цель тренировки</legend>
+              <div className="profile-field-wide">{field('goalLabel', 'Основная цель')}</div>
+              {field('targetValue', 'Целевое значение', 'number')}{field('targetUnit', 'Единица цели')}
+            </fieldset>
+            <label className="profile-field profile-field-wide"><span>Заметки</span><textarea value={draft.notes} onChange={(event) => setDraft((current) => current ? { ...current, notes: event.target.value } : current)} /></label>
+          </div>
+          {error ? <p role="alert" className="text-[#ffb4a7]">{error}</p> : null}
+          <div className="profile-dialog-actions"><Dialog.Close asChild><Button variant="secondary" disabled={pending}>Отмена</Button></Dialog.Close><Button disabled={pending || !draft.name.trim() || !draft.goalLabel.trim()} onClick={() => void onSave()}>{pending ? 'Сохранение…' : 'Сохранить'}</Button></div>
+        </SafetyDialogContent>
+      </Dialog.Portal>
+    </Dialog.Root>
+  )
 }
 
 function asTab(value: string | null): ProfileTab { return value === 'measurements' || value === 'photo' || value === 'restrictions' ? value : 'overview' }

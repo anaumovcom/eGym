@@ -23,7 +23,7 @@ export function ExerciseDetailsDialog({
   preferredVideoGender?: ExerciseVideoGender
   onOpenFullScreen?: () => void
 }) {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isError } = useQuery({
     queryKey: ['exercise-details-dialog', userId, exerciseSlug],
     queryFn: () => apiGet<ExerciseDetails>(`/api/exercises/${encodeURIComponent(exerciseSlug ?? '')}?userId=${encodeURIComponent(userId)}`),
     enabled: open && Boolean(exerciseSlug),

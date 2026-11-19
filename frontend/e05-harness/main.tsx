@@ -21,9 +21,6 @@ window.EventSource = class { constructor() { forbidden() } } as unknown as typeo
 navigator.sendBeacon = forbidden
 
 const params = new URLSearchParams(location.search)
-const scale = Number(params.get('scale') ?? 1)
-const nativeSize = parseFloat(getComputedStyle(document.documentElement).fontSize)
-document.documentElement.style.fontSize = `${nativeSize * scale}px`
 
 function Harness() {
   const [safety, setSafety] = useState(false)

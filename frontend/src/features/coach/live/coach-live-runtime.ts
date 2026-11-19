@@ -8,15 +8,12 @@ import { localAudioRuntime } from '../audio/local-audio-runtime'
 import { LocalCoachAudioManager, type AudioReason, type LocalAudioSnapshot } from '../audio/local-coach-audio-manager'
 import { peekSharedAudioContext, unlockSharedAudioContext } from '../audio/shared-audio-context'
 import { CoachInterpreter, type InterpreterSnapshot, type LocalCue, type SetTimerInput } from '../interpreter/coach-interpreter'
-import { coachLifecycle, coachSetTimer, isCoachFoundationEnabled, setLifecycleVersionReader } from '../lib/runtime-observation'
+import { coachLifecycle, coachSetTimer, isCoachFoundationEnabled } from '../lib/runtime-observation'
 import { coachRunId, type CoachEvent, type CoachScope } from '../model/contracts'
 import { effectiveCoachState, type CoachPreferences, type GeneralCoachAudio } from '../model/preferences'
 import { coachRepBeep, playCue, type ClipSource, type CueManager, type RepBeepArbiter } from './local-cue-player'
 import { coachPackClient, coachPackSlot, type PackSlot } from '../audio/pack-client'
-import type { LifecycleRefs } from '../lib/lifecycle-observer'
 import { CoachNetworkClient, type NetworkSnapshot } from './coach-network-client'
-import { LocalCompletions } from './local-completion'
-import { ASSIST_LATCHES } from '../model/safety-latches'
 
 export type LiveInputs = Readonly<{
   userId: string | null; featureEnabled: boolean; hidden: boolean; emergency: boolean
@@ -30,19 +27,16 @@ export type LiveRuntimeSnapshot = Readonly<{
   counters: Readonly<{ cues: number; admitted: number; missingClip: number; suppressed: number; skips: number }>
   network: NetworkSnapshot | null
 }>
-type Manager = CueManager & Pick<LocalCoachAudioManager, 'updateScope' | 'setVolume' | 'subscribe' | 'dispose' | 'beginStream' | 'pushStream' | 'cancelStream'>
-export type NetworkPort = Pick<CoachNetworkClient, 'tick' | 'observe' | 'dispose' | 'getSnapshot' | 'subscribe'>
+type Manager = CueManager & Pick<LocalCoachAudioManager, 'updateScope' | 'setVolume' | 'subscribe' | 'dispose'>
 export type LiveRuntimeDependencies = Readonly<{
   read: () => LiveInputs
   subscribeInputs: (listener: () => void) => () => void
   lifecycle: () => readonly CoachEvent[]
-  lifecycleRefs: (eventId: string) => LifecycleRefs | null
-  network: NetworkPort | null
   context: () => AudioContext | null
   createManager: (context: AudioContext, scope: CoachScope) => Manager
-  clips: () => ClipSource
-  /** Loads the published voice pack (cache or free GET); once per voice while audio runs. */
-  restorePack: (slot: PackSlot) => void
+  clips: (slot: PackSlot | null) => ClipSource
+  /** Re-pin an already installed browser pack, also after a kiosk reload. Cache reads only. */
+  restoreCached: (slot: PackSlot, signal: AbortSignal) => void
   beep: RepBeepArbiter
   now: () => number
   setInterval: (callback: () => void, ms: number) => unknown
@@ -69,12 +63,10 @@ const defaults: LiveRuntimeDependencies = {
     return () => { unsubscribes.forEach(item => item()); if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', listener) }
   },
   lifecycle: () => coachLifecycle.snapshot(),
-  lifecycleRefs: id => coachLifecycle.refs(id),
-  network: null,
   context: peekSharedAudioContext,
   createManager: (context, scope) => new LocalCoachAudioManager({ context, scope }),
-  clips: () => coachPackClient.clipsFor(coachPackSlot(localAudioRuntime.getSavedPreferences())),
-  restorePack: slot => { void coachPackClient.restore(slot, { downloadPrepared: true }) },
+  clips: slot => coachPackClient.clipsFor(slot),
+  restoreCached: (slot, signal) => { void coachPackClient.restore(slot, { signal }).catch(() => {}) },
   beep: coachRepBeep,
   now: () => performance.now(),
   setInterval: (callback, ms) => globalThis.setInterval(callback, ms),
@@ -84,15 +76,13 @@ const defaults: LiveRuntimeDependencies = {
 
 /** E06 live local cue path: interpreter → prepared clip → local mixer.
  * The interpreter runs even while muted so unmuting never replays old events.
- * E10: an optional network port forwards semantic events and streams backend speech
- * into the same mixer. No provider keys or hardware command access here.
+ * There is no workout transport or preparation fallback, even for legacy hybrid preferences.
  */
 export class CoachLiveRuntime {
   private readonly deps: LiveRuntimeDependencies
   private interpreter: CoachInterpreter
   private readonly listeners = new Set<() => void>()
   private unsubscribe: (() => void) | null = null
-  private networkUnsubscribe: (() => void) | null = null
   private interval: unknown = null
   private manager: Manager | null = null
   private managerUnsubscribe: (() => void) | null = null
@@ -105,8 +95,7 @@ export class CoachLiveRuntime {
   private snapshotValue: LiveRuntimeSnapshot
   private unlockListener: (() => void) | null = null
   private ticking = false
-  private restoredSlot: PackSlot | null = null
-  private completions = new LocalCompletions()
+  private preflight: { slot: PackSlot; controller: AbortController } | null = null
 
   constructor(dependencies: Partial<LiveRuntimeDependencies> = {}) {
     this.deps = { ...defaults, ...dependencies }
@@ -120,15 +109,13 @@ export class CoachLiveRuntime {
   start(): void {
     if (this.unsubscribe) return
     this.unsubscribe = this.deps.subscribeInputs(this.tick)
-    this.networkUnsubscribe = this.deps.network?.subscribe(() => this.publish(this.snapshotValue.active)) ?? null
     this.interval = this.deps.setInterval(this.tick, 200)
     this.tick()
   }
 
   dispose(): void {
     this.unsubscribe?.(); this.unsubscribe = null
-    this.networkUnsubscribe?.(); this.networkUnsubscribe = null
-    this.deps.network?.dispose()
+    this.stopPreflight()
     if (this.interval !== null) this.deps.clearInterval(this.interval)
     this.interval = null
     this.removeUnlock(); this.disposeManager('disposed'); this.publish(false); this.listeners.clear()
@@ -140,10 +127,20 @@ export class CoachLiveRuntime {
     try { this.run() } finally { this.ticking = false }
   }
 
-  private run(): void {
+  /** Consume the button gesture immediately; never retain manual reps for another run or set. */
+  noteManualRep(user: string | null, screen: RuntimeWorkoutSession, previous: number, next: number): void {
+    if (!this.unsubscribe || this.ticking || !Number.isSafeInteger(previous) || previous < 0 || next !== previous + 1) return
+    const { userId, session } = this.deps.read()
+    if (!user || user !== userId || !session || session.id !== screen.id || session.runId !== screen.runId || session.view !== 'exercise-session' ||
+        session.currentExerciseId !== screen.currentExerciseId || session.currentSetIndex !== screen.currentSetIndex) return
+    this.ticking = true
+    try { this.run(next) } finally { this.ticking = false }
+  }
+
+  private run(manualRep?: number): void {
     const inputs = this.deps.read(), now = this.deps.now()
     if (!inputs.featureEnabled) {
-      this.stopNetwork(inputs, now)
+      this.stopPreflight()
       this.removeUnlock(); this.disposeManager('disabled'); this.reason = 'disabled'; this.publish(false); return
     }
     if (inputs.hardware !== this.hardware) { this.hardware = inputs.hardware; this.hardwareAtMs = inputs.hardware ? now : null }
@@ -151,22 +148,26 @@ export class CoachLiveRuntime {
     if (identity !== this.identity) {
       this.identity = identity
       this.interpreter = new CoachInterpreter({ allowEmulator: this.deps.allowEmulator })
-      this.completions.clear()
       this.disposeManager('scope_changed'); this.deps.beep.clear()
     }
     const lifecycle = this.deps.lifecycle()
     const result = this.interpreter.step({ nowMs: now, userId: inputs.userId, session: inputs.session, hardware: this.hardware,
       hardwareReceivedAtMs: this.hardwareAtMs, sourceConnected: inputs.connected, emergency: inputs.emergency, timer: inputs.timer ?? null,
-      count: inputs.saved?.count ?? 'off', lifecycle })
+      count: inputs.saved?.count ?? 'off', duringSets: inputs.saved?.duringSets, duringRest: inputs.saved?.duringRest, lifecycle, manualRep })
     this.counters.skips += result.skips.length
     const gate = this.gate(inputs)
     const slot = coachPackSlot(inputs.saved)
-    // Decoding needs the running (user-unlocked) context; the cues below find no clips until it finishes.
-    if (!gate && slot && slot !== this.restoredSlot) { this.restoredSlot = slot; this.deps.restorePack(slot) }
+    if (inputs.userId && !inputs.emergency && slot && (!gate || gate === 'audio_locked')) {
+      if (this.preflight?.slot !== slot) {
+        this.stopPreflight()
+        this.preflight = { slot, controller: new AbortController() }
+        this.deps.restoreCached(slot, this.preflight.controller.signal)
+      }
+    } else this.stopPreflight()
     if (result.scope) this.manager?.updateScope(result.scope)
-    if (result.latched) this.manager?.cancelAll('safety')
-    else if (gate) this.manager?.cancelAll(gate === 'audio_locked' ? 'audio_locked' : gate)
-    if (gate === 'audio_locked' && result.scope) this.armUnlock(); else this.removeUnlock()
+    if (gate) this.manager?.cancelAll(gate)
+    else if (result.latched && this.manager?.snapshot().utterances.some(u => u.localPlayback?.action !== 'safety')) this.manager.cancelAll('safety')
+    if (gate === 'audio_locked' && !inputs.emergency) this.armUnlock(); else this.removeUnlock()
     // Every completion is local-first, independent of readiness, budget or live voice.
     const setCompleted = result.cues.some(cue => cue.kind === 'set-end' || cue.kind === 'set-partial' || cue.kind === 'set-skipped')
     for (const cue of result.cues) {
@@ -174,35 +175,12 @@ export class CoachLiveRuntime {
         this.counters.cues++; this.counters.suppressed++; this.record(cue, 'completion_coalesced')
       } else this.play(cue, inputs, gate, now)
     }
-    this.deps.network?.tick({ nowMs: now, userId: inputs.userId, saved: inputs.saved, session: inputs.session, featureEnabled: true,
-      phase: result.phase, scope: result.scope, latched: result.latched, gate, reps: this.interpreter.snapshot().baseline,
-      assist: this.interpreter.snapshot().machineNotices.some(key => ASSIST_LATCHES.has(key)),
-      partialReps: this.hardware?.motion?.partialReps ?? null, timer: inputs.timer ?? null, lifecycle, refs: this.deps.lifecycleRefs,
-      telemetry: this.telemetry(now),
-      localCompletion: event => this.completions.forEvent(event), mixer: () => this.networkMixer() })
     if (!result.cues.length && gate) this.reason = gate
-    if (this.manager) this.deps.network?.observe(this.manager.snapshot())
-    this.publish(!gate)
+    this.publish(!!result.scope && !gate)
   }
 
-  /** V2: the bar sample the rep tracker needs; only real (fresh) machine control telemetry. */
-  private telemetry(now: number) {
-    const control = this.hardware?.control
-    if (!control || this.hardwareAtMs === null || now - this.hardwareAtMs > 1_000 || !Number.isFinite(control.velocityMmPerSec)) return null
-    return { atMs: this.hardwareAtMs, positionMm: control.positionMm, velocityMmPerSec: control.velocityMmPerSec,
-      loadDirection: control.loadDirection === 'up' ? 'up' as const : 'down' as const }
-  }
-
-  private stopNetwork(inputs: LiveInputs, now: number): void {
-    this.deps.network?.tick({ nowMs: now, userId: inputs.userId, saved: inputs.saved, session: inputs.session, featureEnabled: false,
-      phase: 'disabled', scope: null, latched: false, gate: 'disabled', reps: null, partialReps: null, lifecycle: [], refs: () => null, mixer: () => null })
-  }
-
-  /** Network speech joins the same mixer; created lazily like local cues, with the current scope. */
-  private networkMixer(): Manager | null {
-    const inputs = this.deps.read(), scope = this.interpreter.snapshot().scope
-    if (!scope || this.gate(inputs)) return null
-    return this.ensureManager(inputs, scope)
+  private stopPreflight(): void {
+    this.preflight?.controller.abort(); this.preflight = null
   }
 
   private ensureManager(inputs: LiveInputs, scope: CoachScope): Manager | null {
@@ -212,7 +190,6 @@ export class CoachLiveRuntime {
       this.manager = this.deps.createManager(context, scope)
       const manager = this.manager
       this.managerUnsubscribe = manager.subscribe(() => {
-        this.deps.network?.observe(manager.snapshot())
         this.publish(this.snapshotValue.active)
       })
     }
@@ -227,14 +204,13 @@ export class CoachLiveRuntime {
     if (!this.ensureManager(inputs, cue.scope)) { this.counters.suppressed++; this.record(cue, 'audio_locked'); return }
     const manager = this.manager!
     const scope = cue.scope
-    const outcome = playCue(manager, this.deps.clips(), cue, now, () => {
+    const outcome = playCue(manager, this.deps.clips(coachPackSlot(inputs.saved)), cue, now, () => {
       const current = this.interpreter.snapshot()
       return current.scope?.scopeEpoch === scope.scopeEpoch && current.scope.runId === scope.runId &&
         (cue.priority === 'safety' || (!current.latches.length && !current.pain)) && !this.gate(this.deps.read())
     })
     if (outcome.admitted) {
       this.counters.admitted++
-      this.completions.note(cue)
       if (cue.kind === 'count' && cue.value !== null) this.deps.beep.noteVoiceCount(cue.value)
     } else if (outcome.reason === 'missing_clip') this.counters.missingClip++
     else this.counters.suppressed++
@@ -244,6 +220,7 @@ export class CoachLiveRuntime {
   private gate(inputs: LiveInputs): AudioReason | null {
     // Visibility is not ownership: background tabs retain unlocked coach audio.
     const saved = inputs.saved
+    if (!inputs.userId || (inputs.session?.userId && inputs.session.userId !== inputs.userId)) return 'owner_mismatch'
     if (!saved || !saved.enabled) return 'disabled'
     if (saved.consentVersion !== 1) return 'no_consent'
     if (!effectiveCoachState(saved, inputs.general, inputs.featureEnabled).audioEnabled) return 'mute'
@@ -276,15 +253,13 @@ export class CoachLiveRuntime {
 
   private disposeManager(reason: AudioReason): void {
     this.managerUnsubscribe?.(); this.managerUnsubscribe = null
-    const had = !!this.manager
     this.manager?.cancelAll(reason); this.manager?.dispose(); this.manager = null
-    if (had) this.deps.network?.observe(null)
   }
 
   private makeSnapshot(active: boolean): LiveRuntimeSnapshot {
     return Object.freeze({ active, reason: this.reason, interpreter: this.unsubscribe ? this.interpreter.snapshot() : null,
       audio: this.manager?.snapshot() ?? null, lastCue: this.lastCue, counters: Object.freeze({ ...this.counters }),
-      network: this.deps.network?.getSnapshot() ?? null })
+      network: null })
   }
 
   private publish(active: boolean): void {
@@ -293,12 +268,11 @@ export class CoachLiveRuntime {
   }
 }
 
+// Legacy diagnostics/scenario UI reads this idle client; it receives no workout or mixer.
 export const coachNetworkClient = new CoachNetworkClient()
-setLifecycleVersionReader(current => coachNetworkClient.captureVersions(current, useRuntimeStore.getState().session,
-  localAudioRuntime.getSavedPreferences()))
-export const coachLiveRuntime = new CoachLiveRuntime({ network: coachNetworkClient })
+export const coachLiveRuntime = new CoachLiveRuntime()
 
-/** Idempotent; a no-op unless VITE_COACH_ENABLED=true. */
+/** Idempotent; no-op when the coach is explicitly disabled in the build. */
 export function startCoachLiveRuntime(): void {
   if (isCoachFoundationEnabled()) coachLiveRuntime.start()
 }

@@ -31,9 +31,10 @@ from app.core.config import get_settings
 from app.models.coach import CoachAttempt, CoachJob
 from app.schemas.coach import COACH_VOICES, CoachScope
 from app.schemas.coach_control import Pricing, ReportedUsage, UsageBounds
-from app.services.coach import ledger
+from app.services.coach import ledger, starter_voice, workout_guidance
 from app.services.coach.facts import number_words
 from app.services.coach.personas import PERSONAS, persona
+from app.services.coach.tips import TIPS, ReviewedTip
 from app.services.coach.voice import (
     AUDIO_INPUT_ALLOWANCE,
     COUNT_INSTRUCTIONS,
@@ -46,13 +47,13 @@ from app.services.coach.voice import (
     verify_transcript,
 )
 
-CATALOG_VERSION = "coach-pack-catalog-0.1"
+CATALOG_VERSION = "coach-pack-catalog-0.4"
 STYLE_VERSION = "coach-pack-style-0.3"  # 0.3: low phrase onset (coach-voice-0.5) + onset-pitch take selection.
 LOCALE = "ru-RU"
 SCHEMA_VERSION = 1
 # One pack per provider voice: the pack slot IS the voice ID (same timbre as live speech).
 SLOTS = COACH_VOICES
-Group = Literal["count", "countdown", "lifecycle", "time", "outcome", "rest", "safety"]
+Group = Literal["count", "countdown", "lifecycle", "time", "outcome", "rest", "safety", "technique", "guidance", "motivation"]
 REQUIRED_COUNT = 30
 MAX_COUNT = 100
 MAX_CLIP_BYTES = 2_880_000  # Resource guard, not a phrase-duration requirement.
@@ -76,7 +77,7 @@ def safe_error_reason(error: BaseException) -> str:
                "wav_edge_silence", "wav_clipping", "wav_loudness", "fingerprint", "voice_mismatch",
                "usage_unavailable", "unknown_clip", "lease_lost", "transcript_mismatch", "takes_exhausted",
                "provider_failed", "provider_malformed", "budget", "operator_budget", "paid_adapter_unavailable",
-               "provider_circuit", "stale_run", "stale_attempt", "pipeline_busy", "strict_cap_unprovable"}
+               "provider_circuit", "stale_run", "stale_attempt", "pipeline_busy", "strict_cap_unprovable", "pack_changed", "checksum"}
     if isinstance(value, str) and (value in allowed or re.fullmatch(r"http-[1-5][0-9]{2}", value)):
         return value
     return "cancelled" if isinstance(error, asyncio.CancelledError) else "timeout" if isinstance(error, TimeoutError) else "internal_error"
@@ -97,6 +98,18 @@ class ClipSpec:
     max_seconds: float = 3.0  # Generation token-budget estimate only; never an audio acceptance limit.
     # Safety texts are released only after a human listened (approval of the catalog version).
     needs_approval: bool = False
+    tip: ReviewedTip | None = None
+    movement_tip: tuple[workout_guidance.Movement, workout_guidance.Phase] | None = None
+
+    def catalogue_fields(self) -> dict:
+        if self.movement_tip:
+            movement, phase = self.movement_tip
+            return {"text": self.text, "tip": movement.metadata(phase)}
+        if not self.tip:
+            return {"text": self.text}
+        return {"text": self.text, "tip": {"exerciseSlugs": list(self.tip.applicable_variants), "kind": "machine",
+            "loadModes": list(self.tip.load_modes), "phases": list(self.tip.phases),
+            "prerequisites": list(self.tip.prerequisites), "exclusions": list(self.tip.exclusions), "version": self.tip.version}}
 
 
 def _catalog() -> dict[str, ClipSpec]:
@@ -120,6 +133,9 @@ def _catalog() -> dict[str, ClipSpec]:
         ("rest-ten", "Через десять секунд продолжаем.", "rest"),
         ("rest-five", "Пять секунд.", "rest"),
         ("rest-ready", "Готовимся к подходу.", "rest"),
+        ("pace-reminder", "Двигайся в своём темпе, не спеши за счётом.", "guidance"),
+        ("timer-reminder", "Ориентируйся на таймер, я подскажу, когда время будет на исходе.", "guidance"),
+        ("rest-prepare", "Пока отдыхаешь, посмотри цель следующего подхода.", "guidance"),
         ("exercise-done", "Упражнение выполнено.", "outcome"),
         ("exercise-partial", "Упражнение выполнено частично.", "outcome"),
         ("exercise-skipped", "Упражнение пропущено.", "outcome"),
@@ -131,15 +147,20 @@ def _catalog() -> dict[str, ClipSpec]:
         ClipSpec("safety-stop", "Стоп. Остановись.", "safety", True, max_seconds=3.0, needs_approval=True),
         ClipSpec("pain-stop", "Остановись. Если больно — не продолжай.", "safety", True, max_seconds=4.0, needs_approval=True),
     ]
+    clips.extend(ClipSpec(f"tip-{tip.tip_id}", tip.text, "technique", True, max_seconds=5, tip=tip) for tip in TIPS)
+    # Optional for existing provider packs: this release never forces a paid rebuild.
+    clips.extend(ClipSpec(m.clip_id(p), getattr(m, p), "technique", False, max_seconds=6, movement_tip=(m, p))
+                 for m in workout_guidance.MOVEMENTS for p in workout_guidance.PHASES)
+    clips.extend(ClipSpec(key, text, "motivation", False, max_seconds=4) for key, text in workout_guidance.MOTIVATION.items())
     return {clip.id: clip for clip in clips}
 
 
 CATALOG: dict[str, ClipSpec] = _catalog()
-# Set to CATALOG_VERSION only after the user listened to the safety clips of the chosen voice (approved 08.10.2026, ash).
-APPROVED_SAFETY_CATALOG: str | None = CATALOG_VERSION
 
 
 def provider_voice(slot: str) -> str:
+    if slot == starter_voice.SLOT:
+        return starter_voice.VOICE
     if slot in SLOTS:
         return slot
     if slot.startswith("tts-") and slot[4:] in SLOTS:
@@ -158,7 +179,14 @@ def pack_kind(slot: str) -> str:
     return "fish" if slot.startswith("fish-") else "tts" if slot.startswith("tts-") else "realtime"
 
 
+def storage_slot(slot: str) -> str:
+    voice = provider_voice(slot)
+    return f"fish-{voice}" if slot.startswith("fish-") and voice != "default" else slot
+
+
 def pack_model(slot: str | None = None) -> str:
+    if slot == starter_voice.SLOT:
+        return starter_voice.MODEL
     cfg = get_settings()
     kind = pack_kind(slot) if slot is not None else cfg.coach_pack_adapter
     return {"realtime": cfg.coach_voice_realtime_model, "tts": cfg.coach_voice_tts_model,
@@ -302,6 +330,9 @@ class PackStore:
     def read_artifact(self, spec: ClipSpec, fp: str) -> WavCheck | None:
         path = self.artifact_path(fp)
         if not path.is_file():
+            if fp == fingerprint(spec, starter_voice.VOICE, starter_voice.MODEL):
+                data = starter_voice.recording(fp)
+                return verify_wav(data) if data else None
             return None
         return verify_wav(path.read_bytes())
 
@@ -312,7 +343,7 @@ class PackStore:
 
     def manifest(self, slot: str, version: str | None = None) -> dict | None:
         voice = provider_voice(slot)
-        candidates = [slot]
+        candidates = [storage_slot(slot), slot]
         if slot.startswith("fish-"):
             if re.fullmatch(r"[a-f0-9]{32}", voice):
                 candidates.append(f"fish-{voice}")
@@ -324,48 +355,85 @@ class PackStore:
                 pointer = base / "current.json"
                 if not pointer.is_file():
                     continue
-                selected_version = json.loads(pointer.read_text())["packVersion"]
+                selected_version = json.loads(pointer.read_text(encoding="utf-8"))["packVersion"]
             if not PACK_VERSION_RE.match(str(selected_version)):
                 continue
             path = base / f"{selected_version}.json"
             if not path.is_file():
                 continue
-            manifest = json.loads(path.read_text())
-            if candidate != slot and (manifest.get("voice") != voice or manifest.get("model") != pack_model(slot)):
+            manifest = json.loads(path.read_text(encoding="utf-8"))
+            if candidate != slot and manifest.get("voice") != voice:
                 continue
             # Alias and explicit ID identify the same voice, but clients pin the requested slot.
             return {**manifest, "slot": slot}
+        if slot == starter_voice.SLOT:
+            base = starter_voice.manifest()
+            if version is None or base["packVersion"] == version:
+                return base
         return None
 
-    def publish(self, slot: str, voice: str, model: str) -> dict | None:
+    def compatible(self, slot: str, voice: str, model: str) -> dict | None:
+        current = self.manifest(slot)
+        return current if current and current.get("voice") == voice and current.get("model") == model else None
+
+    def resolve(self, spec: ClipSpec, recipe: str, current: dict | None) -> tuple[str, WavCheck | None]:
+        """Prefer the published take for this recipe, including after a targeted replacement."""
+        entry = (current or {}).get("clips", {}).get(spec.id, {})
+        if entry.get("recipeFingerprint", entry.get("fingerprint")) == recipe:
+            fp = entry["fingerprint"]
+            check = self.read_artifact(spec, fp)
+            if check and check.sha256 != entry["sha256"]:
+                raise PackError("checksum")
+            return fp, check
+        return recipe, self.read_artifact(spec, recipe)
+
+    @staticmethod
+    def entry(spec: ClipSpec, fp: str, check: WavCheck) -> dict:
+        return {"fingerprint": fp, "sha256": check.sha256, "bytes": check.bytes, "durationMs": check.duration_ms,
+                "sampleRate": check.sample_rate, "peakDbfs": check.peak_dbfs if math.isfinite(check.peak_dbfs) else None,
+                "rmsDbfs": check.rms_dbfs if math.isfinite(check.rms_dbfs) else None,
+                "required": spec.required, "group": spec.group,
+                "approved": not spec.needs_approval,
+                **spec.catalogue_fields()}
+
+    def publish(self, slot: str, voice: str, model: str, *, updates: dict | None = None) -> dict | None:
         """Publishes only a complete, verified pack; a partial result never replaces the current pointer."""
         clips = {}
+        current = self.compatible(slot, voice, model)
         for spec in CATALOG.values():
-            fp = fingerprint(spec, voice, model)
+            if updates and spec.id in updates:
+                clips[spec.id] = updates[spec.id]
+                continue
+            recipe = fingerprint(spec, voice, model)
             try:
-                check = self.read_artifact(spec, fp)
+                fp, check = self.resolve(spec, recipe, current)
             except PackError:
                 check = None
             if check is None:
                 if spec.required:
                     return None
                 continue
-            clips[spec.id] = {"fingerprint": fp, "sha256": check.sha256, "bytes": check.bytes, "durationMs": check.duration_ms,
-                              "sampleRate": check.sample_rate, "peakDbfs": check.peak_dbfs, "rmsDbfs": check.rms_dbfs,
-                              "required": spec.required, "group": spec.group,
-                              "approved": not spec.needs_approval or APPROVED_SAFETY_CATALOG == CATALOG_VERSION}
+            clips[spec.id] = self.entry(spec, fp, check)
+            old = (current or {}).get("clips", {}).get(spec.id, {})
+            if old.get("fingerprint") == fp and old.get("sha256") == check.sha256:
+                clips[spec.id]["approved"] = old["approved"]
+            if fp != recipe:
+                clips[spec.id]["recipeFingerprint"] = recipe
+        return self.publish_entries(slot, voice, model, clips)
+
+    def publish_entries(self, slot: str, voice: str, model: str, clips: dict) -> dict:
         version = sha256(json.dumps(clips, sort_keys=True).encode()).hexdigest()[:16]
         manifest = {"schemaVersion": SCHEMA_VERSION, "slot": slot, "packVersion": version, "complete": True,
                     "catalogVersion": CATALOG_VERSION, "styleVersion": STYLE_VERSION, "locale": LOCALE, "model": model,
                     "voice": voice, "createdAt": time.time(), "clips": clips}
-        base = self.root / "packs" / slot
+        base = self.root / "packs" / storage_slot(slot)
         if not (base / f"{version}.json").is_file():
             _atomic_write(base / f"{version}.json", json.dumps(manifest, ensure_ascii=False, sort_keys=True).encode())
         else:
-            manifest = json.loads((base / f"{version}.json").read_text())
+            manifest = json.loads((base / f"{version}.json").read_text(encoding="utf-8"))
         # Older manifests stay on disk: a pinned run keeps its compatible pack until the next run.
         _atomic_write(base / "current.json", json.dumps({"packVersion": version}).encode())
-        return manifest
+        return {**manifest, "slot": slot}
 
 
 # ---------- Dry-run plan ----------
@@ -373,13 +441,15 @@ class PackStore:
 def plan(store: PackStore, slot: str, model: str) -> dict:
     voice = provider_voice(slot)
     rows, missing, corrupt = [], [], []
+    current = store.compatible(slot, voice, model)
     ready_required = ready_optional = ready_bytes = chars = 0
+    groups: dict[str, dict[str, int]] = {}
     for spec in CATALOG.values():
         fp = fingerprint(spec, voice, model) if voice else None
         status = "unselected"
         if fp:
             try:
-                check = store.read_artifact(spec, fp)
+                _, check = store.resolve(spec, fp, current)
                 status = "ready" if check else "missing"
                 ready_bytes += check.bytes if check else 0
             except PackError:
@@ -390,9 +460,17 @@ def plan(store: PackStore, slot: str, model: str) -> dict:
         elif status in {"missing", "corrupt", "unselected"}:
             (corrupt if status == "corrupt" else missing).append(spec.id)
             chars += len(spec.text)
-        rows.append({"clipId": spec.id, "required": spec.required, "group": spec.group, "status": status, "fingerprint": fp})
+        entry = (current or {}).get("clips", {}).get(spec.id)
+        group = groups.setdefault(spec.group, {"total": 0, "generated": 0, "published": 0, "playable": 0})
+        playable = bool(entry and entry["approved"] and status == "ready"
+                and entry.get("recipeFingerprint", entry["fingerprint"]) == fp)
+        group["total"] += 1
+        group["generated"] += status == "ready"
+        group["published"] += entry is not None
+        group["playable"] += playable
+        rows.append({"clipId": spec.id, "required": spec.required, "group": spec.group, "status": status,
+                 "fingerprint": fp, "published": entry is not None, "playable": playable, **spec.catalogue_fields()})
     required_total = sum(spec.required for spec in CATALOG.values())
-    current = store.manifest(slot)
     plan_fp = sha256(json.dumps([[row["clipId"], row["fingerprint"]] for row in rows]).encode()).hexdigest()
     return {"schemaVersion": SCHEMA_VERSION, "slot": slot, "voice": voice, "voiceSelected": bool(voice), "model": model,
             "catalogVersion": CATALOG_VERSION, "planFingerprint": plan_fp,
@@ -401,9 +479,10 @@ def plan(store: PackStore, slot: str, model: str) -> dict:
             "missing": missing, "corrupt": corrupt, "generatedBytes": ready_bytes,
             # Pricing is unverified until E08.1: no fake estimate in dollars.
             "estimate": {"clips": len(missing) + len(corrupt), "characters": chars, "usd": None, "priced": False},
-            "safetyApproved": APPROVED_SAFETY_CATALOG == CATALOG_VERSION,
+            "safetyApproved": all((current or {}).get("clips", {}).get(s.id, {}).get("approved", False)
+                                  for s in CATALOG.values() if s.needs_approval),
             "current": {"packVersion": current["packVersion"], "complete": current["complete"]} if current else None,
-            "clips": rows}
+            "groups": groups, "clips": rows}
 
 
 # ---------- Resumable capped generation ----------
@@ -516,7 +595,7 @@ class PackJobRunner:
             db.commit()
             return True
 
-    async def run(self, job_id: str, owner: str, generation: int) -> dict | None:
+    async def run(self, job_id: str, owner: str, generation: int, *, replace_version: str | None = None) -> dict | None:
         if not self.voice:
             raise HTTPException(409, "voice_not_selected")
         if job_id in self.tasks:
@@ -534,18 +613,36 @@ class PackJobRunner:
                 if job.failures >= 3:
                     raise HTTPException(409, "provider_circuit")
                 items, done, run_id = job.items[:], set(job.completed), job.run_id
+            current = self.store.compatible(self.slot, self.voice, self.model)
+            if replace_version and (current or {}).get("packVersion") != replace_version:
+                raise PackError("pack_changed")
+            updates = {}
             for item in items:
                 stage = "read_artifact"
                 spec = CATALOG.get(item)
                 if spec is None:
                     raise PackError("unknown_clip")
-                if item in done:
-                    continue
-                fp = fingerprint(spec, self.voice, self.model)
+                recipe = fingerprint(spec, self.voice, self.model)
+                published = (current or {}).get("clips", {}).get(item)
+                if published and not replace_version:
+                    try:
+                        _, ready = self.store.resolve(spec, recipe, current)
+                    except PackError:
+                        ready = None
+                    if ready:
+                        if item not in done and not self._complete(job_id, item):
+                            return None
+                        continue
+                # Never write new PCM at a path referenced by an immutable manifest. Even repair of a
+                # corrupt published file creates a new take. A job-specific path is reusable on resume.
+                staged = bool(replace_version or published)
+                fp = sha256(f"{recipe}:{job_id}".encode()).hexdigest() if staged else recipe
                 try:
                     existing = self.store.read_artifact(spec, fp)
                 except PackError:
-                    existing = None  # Corrupt artifact: an explicit item in a paid job may replace it.
+                    existing = None
+                if not staged and item in done and existing:
+                    continue
                 if existing is None:
                     best: tuple[float, bytes, int] | None = None
                     for take in range(MAX_TAKES):
@@ -592,21 +689,32 @@ class PackJobRunner:
                     if best is None:
                         raise PackError("takes_exhausted")
                     stage = "save_artifact"
-                    self.store.save_artifact(spec, fp, best[1])
+                    existing = self.store.save_artifact(spec, fp, best[1])
                 else:
                     logger.info("pack_clip_cached job=%s clip=%s", job_id, item)
+                if staged:
+                    updates[item] = {**self.store.entry(spec, fp, existing), "recipeFingerprint": recipe,
+                                     "approved": not spec.needs_approval}
                 stage = "complete_clip"
-                if not self._complete(job_id, item):
+                if item not in done and not self._complete(job_id, item):
                     return None
                 logger.info("pack_clip_complete job=%s clip=%s", job_id, item)
-            with self.sessions() as db:
+            # Serialize pointer updates with other workers and cancellation; publish before reporting success.
+            with self.sessions() as db, ledger.atomic(db):
                 job = db.get(CoachJob, job_id, populate_existing=True)
-                if job.state != "queued":
+                if job.state != "queued" or ledger.get_run(db, run_id).generation != generation:
                     return None
+                stage = "publish"
+                if replace_version:
+                    latest = self.store.compatible(self.slot, self.voice, self.model)
+                    if latest is None or latest["packVersion"] != replace_version:
+                        raise PackError("pack_changed")
+                    manifest = self.store.publish_entries(self.slot, self.voice, self.model, {**latest["clips"], **updates})
+                else:
+                    manifest = self.store.publish(self.slot, self.voice, self.model, updates=updates)
+                    if job.idempotency_key == "prepare" and manifest is None:
+                        raise PackError("pack_changed")
                 job.state = "completed"
-                db.commit()
-            stage = "publish"
-            manifest = self.store.publish(self.slot, self.voice, self.model)
             logger.info("pack_job_complete job=%s slot=%s published=%s elapsed_s=%.2f",
                         job_id, self.slot, manifest is not None, time.monotonic() - started)
             return manifest

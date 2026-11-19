@@ -107,7 +107,7 @@ export function LogPanel() {
         {logEntries.length === 0 ? (
           <div className="p-8 text-center text-white/30 text-sm">Журнал пуст</div>
         ) : (
-          <div className="overflow-x-auto max-h-[60vh] overflow-y-auto">
+          <div className="modbus-table-scroll max-h-[60vh]" role="region" aria-label="Таблица обмена Modbus" tabIndex={0}>
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-[#1a1207] z-10">
                 <tr className="border-b border-white/8 text-white/30 uppercase tracking-wide">
@@ -182,7 +182,7 @@ function DirectionFilter({
     <button
       className={cn(
         'rounded-xl px-3 py-1.5 text-xs font-medium transition',
-        active ? 'bg-[#b5852f]/30 text-[#f2cf87]' : 'bg-white/6 text-white/40 hover:text-white',
+        active ? 'bg-[#123553] text-[#70c9ff]' : 'bg-white/6 text-white/65 hover:text-white',
       )}
       onClick={() => onChange(active ? undefined : value)}
     >

@@ -55,7 +55,7 @@ def scale_weight(weight: float, factor: float) -> int | float:
 
 
 def builder_load_type(exercise: ImportedExercise | None) -> str:
-    if exercise and exercise.force == "Static":
+    if exercise and exercise.measured_in_seconds:
         return "timed"
     if exercise and exercise.equipment in {"Bodyweight", "Stretches", "Recovery"}:
         return "bodyweight"

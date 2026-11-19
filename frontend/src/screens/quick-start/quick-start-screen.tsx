@@ -191,7 +191,6 @@ export function QuickStartScreen() {
                 <ExercisePreviewCard
                   key={exercise.slug}
                   exercise={exercise}
-                  listMode
                   onOpen={() => setSelectedExerciseSlug(exercise.slug)}
                   onFavorite={() => toggleFavoriteExercise(exercise.slug)}
                 />

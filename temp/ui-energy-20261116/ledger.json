@@ -1,0 +1,220 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "budget_usd":  10,
+    "prior_estimate_usd":  0.539615,
+    "estimate_usd":  0.77981499999999981,
+    "reservation_per_request_usd":  0.75,
+    "reference":  "reference-current.png",
+    "requests":  [
+                     {
+                         "id":  "01-volt",
+                         "name":  "Volt",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024029,
+                         "usage":  {
+                                       "input_tokens":  2221,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  713
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2501
+                                   },
+                         "started_at":  "2026-11-16T15:33:36.8656364Z"
+                     },
+                     {
+                         "id":  "02-coral",
+                         "name":  "Coral",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.023994,
+                         "usage":  {
+                                       "input_tokens":  2214,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  706
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2494
+                                   },
+                         "started_at":  "2026-11-16T15:33:54.6280860Z"
+                     },
+                     {
+                         "id":  "03-cobalt",
+                         "name":  "Cobalt",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.023999,
+                         "usage":  {
+                                       "input_tokens":  2215,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  707
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2495
+                                   },
+                         "started_at":  "2026-11-16T15:34:12.3514216Z"
+                     },
+                     {
+                         "id":  "04-track",
+                         "name":  "Track",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024034,
+                         "usage":  {
+                                       "input_tokens":  2222,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  714
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2502
+                                   },
+                         "started_at":  "2026-11-16T15:34:30.5084536Z"
+                     },
+                     {
+                         "id":  "05-pop",
+                         "name":  "Pop",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024034,
+                         "usage":  {
+                                       "input_tokens":  2222,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  714
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2502
+                                   },
+                         "started_at":  "2026-11-16T15:34:48.5426474Z"
+                     },
+                     {
+                         "id":  "06-lime",
+                         "name":  "Lime",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024004,
+                         "usage":  {
+                                       "input_tokens":  2216,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  708
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2496
+                                   },
+                         "started_at":  "2026-11-16T15:35:04.6373756Z"
+                     },
+                     {
+                         "id":  "07-cyan",
+                         "name":  "Cyan",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.023999,
+                         "usage":  {
+                                       "input_tokens":  2215,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  707
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2495
+                                   },
+                         "started_at":  "2026-11-16T15:35:20.4620789Z"
+                     },
+                     {
+                         "id":  "08-violet",
+                         "name":  "Violet",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024029,
+                         "usage":  {
+                                       "input_tokens":  2221,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  713
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2501
+                                   },
+                         "started_at":  "2026-11-16T15:35:36.8611106Z"
+                     },
+                     {
+                         "id":  "09-sunrise",
+                         "name":  "Sunrise",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024034,
+                         "usage":  {
+                                       "input_tokens":  2222,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  714
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2502
+                                   },
+                         "started_at":  "2026-11-16T15:35:53.8744597Z"
+                     },
+                     {
+                         "id":  "10-arena",
+                         "name":  "Arena",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024044,
+                         "usage":  {
+                                       "input_tokens":  2224,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  716
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2504
+                                   },
+                         "started_at":  "2026-11-16T15:36:10.1048098Z"
+                     }
+                 ]
+}

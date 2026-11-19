@@ -1,0 +1,59 @@
+.modbus-console {
+  --mb-line: #263c4a;
+  --mb-muted: #a9bece;
+  --mb-blue: #70c9ff;
+  display: grid;
+  min-width: 0;
+  gap: 1rem;
+  color: #f0f8ff;
+  overflow-wrap: anywhere;
+}
+.modbus-hero, .modbus-targets {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: clamp(.85rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--mb-line);
+  border-radius: 15px;
+  background: #0a161e;
+}
+.modbus-hero { background: linear-gradient(105deg, #102b40, #081218 70%); border-inline-start: 4px solid #168eff; border-start-start-radius: 0; border-end-start-radius: 0; }
+.modbus-hero h1 { font-size: clamp(1.6rem, 4vw, 2.6rem); font-weight: 750; line-height: 1.12; margin: .35rem 0; }
+.modbus-hero p, .modbus-targets p, .modbus-safety-note { color: var(--mb-muted); font-size: .88rem; }
+.modbus-hero a { display: inline-flex; gap: .45rem; align-items: center; color: var(--mb-blue); font-size: .85rem; }
+.modbus-link-status { display: flex; align-items: center; gap: .7rem; padding: .55rem .8rem; border-radius: 10px; border: 1px solid var(--mb-line); background: #081218; color: #ffd28a; }
+.modbus-link-status[data-state='online'] { color: #83e7aa; }
+.modbus-link-status[data-state='simulated'] { color: var(--mb-blue); }
+.modbus-link-status small, .modbus-target-list span { display: block; color: var(--mb-muted); font-size: .77rem; }
+.modbus-targets > div { min-width: 0; }
+.modbus-targets h2 { font-weight: 700; font-size: 1rem; }
+.modbus-target-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr)); flex: 1 1 23rem; max-width: 44rem; gap: .5rem; }
+.modbus-target-list button, .modbus-nav button { padding: .5rem .75rem; min-height: 42px; border: 1px solid var(--mb-line); border-radius: 9px; background: #0c1b26; text-align: start; color: #d2e3f1; }
+.modbus-target-list button:hover, .modbus-nav button:hover { background: #132a3c; }
+.modbus-target-list [aria-pressed='true'], .modbus-nav [aria-current] { background: #113452; border-color: #2b7ab9; color: #e4f6ff; }
+.modbus-workspace { display: grid; gap: 1rem; min-width: 0; align-items: start; }
+.modbus-nav { display: flex; flex-wrap: wrap; gap: .4rem; padding: .55rem; background: #091319; border: 1px solid var(--mb-line); border-radius: 12px; }
+.modbus-nav button { font-size: .87rem; }
+.modbus-content { min-width: 0; }
+.modbus-content > h2 { margin-bottom: .65rem; font-size: 1.3rem; font-weight: 700; }
+.modbus-console .modbus-content .glass-panel { min-width: 0; background: #0d1922; border: 1px solid var(--mb-line); box-shadow: none; }
+.modbus-console .modbus-content .input-field { max-width: 100%; min-width: 0; background: #071219; border-color: #3b5669; color: #edf7ff; }
+.modbus-console :is(button, a, select, input, summary, [tabindex='0']):focus-visible { outline: 2px solid var(--mb-blue); outline-offset: 2px; }
+.modbus-table-scroll { overflow: auto; }
+.modbus-table-scroll table { min-width: 36rem; }
+.modbus-register-table { min-width: 55rem !important; }
+.modbus-table-scroll thead { background: #0a141d; }
+.modbus-table-scroll th { color: #b1c7d7; }
+.modbus-safety-note { color: #ffd28a; border-inline-start: 2px solid #b37e36; padding: .3rem .65rem; }
+.modbus-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .55rem; border-top: 1px solid var(--mb-line); padding-top: .8rem; }
+.modbus-action-label { color: var(--mb-muted); font-size: .77rem; text-transform: uppercase; letter-spacing: .09em; flex-basis: 100%; }
+.modbus-connection-layout { display: grid; min-width: 0; gap: 1rem; align-items: start; }
+@media (min-width: 1050px) {
+  .modbus-workspace { grid-template-columns: 10.75rem minmax(0, 1fr); }
+  .modbus-nav { display: grid; }
+}
+@media (min-width: 1360px) {
+  .modbus-connection-layout { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+}

@@ -93,13 +93,17 @@ function getCurrentExercise(session: RuntimeWorkoutSession) {
 }
 
 // Exercises already done or skipped are not offered again after a return to a skipped one.
-export function getNextPendingExercise(session: RuntimeWorkoutSession) {
+export function getUpcomingExercises(session: RuntimeWorkoutSession) {
   if (session.source === 'quick-start' || session.source === 'catalog') {
-    return undefined
+    return []
   }
 
   const currentIndex = session.exercises.indexOf(getCurrentExercise(session))
-  return session.exercises.slice(currentIndex + 1).find((exercise) => !session.completedExerciseIds.includes(exercise.id))
+  return session.exercises.slice(currentIndex + 1).filter((exercise) => !session.completedExerciseIds.includes(exercise.id))
+}
+
+export function getNextPendingExercise(session: RuntimeWorkoutSession): RuntimeWorkoutSession['exercises'][number] | undefined {
+  return getUpcomingExercises(session)[0]
 }
 
 // Skipped or unfinished exercises whose remaining sets can still be done in this workout.
@@ -299,7 +303,13 @@ export const useRuntimeStore = create<RuntimeStore>()(
       const exercises = state.session.exercises.map((exercise) => ({
         ...exercise,
         summary: { ...exercise.summary, previewVideoUrl: details.previewVideoUrl },
-        details: { ...exercise.details, videos: details.videos, previewVideoUrl: details.previewVideoUrl },
+        details: {
+          ...exercise.details,
+          shortSteps: details.shortSteps,
+          muscles: details.muscles,
+          videos: details.videos,
+          previewVideoUrl: details.previewVideoUrl,
+        },
       }))
       return { session: { ...state.session, exercises } }
     }),
@@ -703,7 +713,7 @@ export const useRuntimeStore = create<RuntimeStore>()(
         }
       })
       const appendedExercises = summary.exercises
-        .filter((exercise, index) => !currentExercisesByKey.has(incomingKeys[index]))
+        .filter((_, index) => !currentExercisesByKey.has(incomingKeys[index]))
         .map((exercise, index) => {
           const current = currentExercisesByKey.get(incomingKeys[index])
           return {

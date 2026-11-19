@@ -5,12 +5,12 @@ from datetime import UTC, datetime
 from math import isfinite
 from typing import Literal
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.models.achievement import AchievementGrant
 from app.models.analytics import ExerciseSession, MuscleFatigueEvent, MuscleFatigueSnapshot, SetResult, WorkoutSession
-from app.models.coach import CoachLedgerRun
+from app.models.coach import CoachEpisode, CoachLedgerRun
 from app.models.enums import (
     DiscomfortLevel,
     ExerciseSessionStatus,
@@ -23,7 +23,6 @@ from app.models.enums import (
 from app.models.profile import UserProfile
 from app.models.training import ExerciseHistoryRecord, UserExerciseState
 from app.models.user import User
-from app.services.achievements import service as achievements
 from app.schemas.runtime import (
     ExerciseSessionCreateSchema,
     ExerciseSessionsResetRequestSchema,
@@ -46,11 +45,13 @@ from app.schemas.runtime import (
     SetResultSaveSchema,
     WorkoutSessionCreateSchema,
 )
+from app.services.achievements import service as achievements
 from app.services.coach.lifecycle import RuntimeObservationBuffer, runtime_observations
-from app.services.coach.workout_plan import persist_plan
+from app.services.coach.workout_plan import load_plan, persist_plan
 from app.services.exercise_library import get_imported_exercise
 from app.services.exercise_settings import merge_settings, read_profile, remembered_settings, store_profile
-from app.services.fatigue_service import FatigueService, FatigueUpdate, equipment_affects_fatigue
+from app.services.fatigue_service import FatigueService, FatigueUpdate, effort_multiplier, exercise_references
+from app.services.muscle_catalog import get_muscle_definition, split_muscle_targets
 from app.services.training_service import TrainingService
 
 
@@ -123,6 +124,22 @@ class RuntimeService:
             row.discomfort_level if prior else None)
         metrics.update(explicitFeedbackVersion=1, explicitFeedbackAtMs=now.timestamp() * 1000)
         row.machine_metrics = metrics
+        baseline = metrics.get("fatigueBeforeEffort")
+        if payload.subjective_effort is not None and isinstance(baseline, dict):
+            events = session.scalars(select(MuscleFatigueEvent).where(MuscleFatigueEvent.set_result_id == set_id))
+            for event in events:
+                if event.muscle_id not in baseline:
+                    continue
+                revised = round(baseline[event.muscle_id] * effort_multiplier(payload.subjective_effort, None), 2)
+                change = revised - event.fatigue_delta
+                event.fatigue_delta = revised
+                snapshot = session.scalar(select(MuscleFatigueSnapshot).where(
+                    MuscleFatigueSnapshot.user_id == exercise.user_id, MuscleFatigueSnapshot.muscle_id == event.muscle_id))
+                if snapshot and snapshot.last_load_at and change:
+                    self.fatigue_service.hydrate_snapshot(snapshot, now)
+                    age = max(0, (now - self.fatigue_service.ensure_utc(event.occurred_at)).total_seconds() / 3600)
+                    remaining = self.fatigue_service.decay_score(abs(change), age, event.recovery_half_life_hours)
+                    snapshot.fatigue_score = max(0, snapshot.fatigue_score + (remaining if change > 0 else -remaining))
         session.commit()
         return SetFeedbackSchema(user_id=payload.user_id, subjective_effort=row.subjective_effort,
                                  discomfort_level=row.discomfort_level)
@@ -201,30 +218,35 @@ class RuntimeService:
         )
         session.add(set_result)
         session.flush()
-        if exercise and not equipment_affects_fatigue(exercise.equipment):
-            updates = []
-        else:
-            updates = self.fatigue_service.build_set_updates(
-                session,
-                user_id=exercise_session.user_id,
-                workout_session_id=exercise_session.workout_session_id,
-                exercise_session_id=exercise_session.id,
-                set_result_id=set_result.id,
-                occurred_at=occurred_at,
-                exercise_name=exercise_session.exercise_name,
-                muscle_targets=[self._normalize_target(item) for item in exercise_session.muscle_targets],
-                planned_value=payload.planned_value,
-                actual_value=payload.actual_value,
-                reps=payload.reps,
-                weight_kg=payload.weight_kg,
-                duration_seconds=payload.duration_seconds,
-                amplitude_percent=payload.amplitude_percent,
-                subjective_effort=payload.subjective_effort,
-                discomfort_level=payload.discomfort_level,
-                set_type=payload.set_type,
-                completion_status=str(machine_metrics.get("completionStatus")) if machine_metrics.get("completionStatus") is not None else None,
-                equipment=exercise.equipment if exercise else None,
-            )
+        reference = exercise_references(session, exercise_session.user_id, {exercise_session.exercise_slug},
+                                        exercise_session.started_at, exercise_session.workout_session_id)
+        partial = machine_metrics.get("completionStatus") == "partial"
+        planned_rir = machine_metrics.get("plannedRir")
+        rir = payload.rir if not partial or machine_metrics.get("rirSource") == "reported" else None
+        if rir is None and not partial and isinstance(planned_rir, int | float):
+            rir = planned_rir
+        timed = exercise_session.kind in {"timed", "stretch"}
+        updates = self.fatigue_service.build_set_updates(
+            session, user_id=exercise_session.user_id, workout_session_id=exercise_session.workout_session_id,
+            exercise_session_id=exercise_session.id, set_result_id=set_result.id, occurred_at=occurred_at,
+            exercise_name=exercise_session.exercise_name,
+            muscle_targets=[self._normalize_target(item) for item in exercise_session.muscle_targets],
+            planned_value=payload.planned_value, actual_value=payload.actual_value,
+            reps=None if timed else (payload.actual_value if payload.reps is None else payload.reps),
+            weight_kg=payload.weight_kg, duration_seconds=payload.duration_seconds,
+            amplitude_percent=payload.amplitude_percent, subjective_effort=payload.subjective_effort,
+            discomfort_level=payload.discomfort_level, set_type=payload.set_type,
+            completion_status=machine_metrics.get("completionStatus"),
+            profile=exercise.load_profile if exercise else None,
+            reference=reference.get(exercise_session.exercise_slug), rir=rir,
+            side_factor=0.5 if exercise_session.per_side and machine_metrics.get("side") in {"left", "right"} else 1.0,
+        )
+        initial_effort = effort_multiplier(payload.subjective_effort, rir)
+        if payload.set_type == "failure" and payload.subjective_effort is None and rir is None:
+            initial_effort = 1.2
+        set_result.machine_metrics = {**machine_metrics, "fatigueBeforeEffort": {
+            update.muscle_id: update.delta / initial_effort for update in updates
+        }}
         return set_result, updates
 
     def reset_exercise_sessions(
@@ -264,6 +286,11 @@ class RuntimeService:
         commit: bool = True,
     ) -> ExerciseSaveResult:
         status = ExerciseSessionStatus(payload.status)
+        exercise = get_imported_exercise(payload.exercise_slug)
+        targets = [
+            {"muscle_id": key, "name": get_muscle_definition(key).name, "role": role.value, "weight": weight}
+            for key, (weight, role) in exercise.load_profile.contributions().items()
+        ] if exercise else [target.model_dump() for target in payload.muscles]
         if payload.exercise_session_id is not None:
             exercise_session = session.get(ExerciseSession, payload.exercise_session_id)
             if exercise_session is None or exercise_session.user_id != payload.user_id:
@@ -289,7 +316,7 @@ class RuntimeService:
             exercise_session.training_mode = payload.training_mode
             exercise_session.training_day_type = payload.training_day_type
             exercise_session.recommendation = payload.recommendation
-            exercise_session.muscle_targets = [target.model_dump() for target in payload.muscles]
+            exercise_session.muscle_targets = targets
         else:
             exercise_session = ExerciseSession(
                 workout_session_id=payload.workout_session_id,
@@ -309,7 +336,7 @@ class RuntimeService:
                 training_mode=payload.training_mode,
                 training_day_type=payload.training_day_type,
                 recommendation=payload.recommendation,
-                muscle_targets=[target.model_dump() for target in payload.muscles],
+                muscle_targets=targets,
             )
             session.add(exercise_session)
         session.flush()
@@ -350,10 +377,14 @@ class RuntimeService:
         return ExerciseSaveResult(exercise_session=exercise_session, summary=summary, coach_notices=tuple(pending_notices))
 
     def save_workout_session(self, session: Session, payload: WorkoutSessionCreateSchema) -> RuntimeWorkoutSummarySchema:
+        if payload.status != WorkoutSessionStatus.in_progress and payload.finished_at is not None:
+            achievements.lock_owner(session, payload.user_id)
+        previously_finished = False
         if payload.workout_session_id is not None:
-            workout_session = session.get(WorkoutSession, payload.workout_session_id)
+            workout_session = session.get(WorkoutSession, payload.workout_session_id, with_for_update=True)
             if workout_session is None or workout_session.user_id != payload.user_id:
                 raise LookupError("Workout session not found")
+            previously_finished = workout_session.status != WorkoutSessionStatus.in_progress and workout_session.finished_at is not None
             workout_session.source = RuntimeFlowSource(payload.source)
             workout_session.title = payload.title
             workout_session.subtitle = payload.subtitle
@@ -414,13 +445,15 @@ class RuntimeService:
             "kind": "workout_finalized", "user_id": workout_session.user_id,
             "workout_session_id": workout_session.id, "outcome": workout_session.status.value,
         }
-        if workout_session.status != WorkoutSessionStatus.in_progress:
+        finished = workout_session.status != WorkoutSessionStatus.in_progress and workout_session.finished_at is not None
+        if finished and not previously_finished:
             achievements.enqueue(session, user_id=workout_session.user_id, source_type="workout",
-                                 source_id=str(workout_session.id), source_revision=str(workout_session.updated_at),
+                                 source_id=str(workout_session.id), source_revision=workout_session.finished_at.isoformat(),
                                  event_type="workout_finalized")
         session.commit()
-        if workout_session.status != WorkoutSessionStatus.in_progress:
-            achievements.process_outbox(session, limit=1)
+        if finished:
+            achievements.process_outbox(session, user_id=payload.user_id, source_type="workout",
+                                        source_id=str(workout_session.id) if previously_finished else None)
         for nested_notice in nested_exercise_notices:
             self.coach_observer.record(**nested_notice)
         if payload.status != "in_progress":
@@ -522,7 +555,8 @@ class RuntimeService:
 
     def delete_workout_session(self, session: Session, *, workout_session_id: int, user_id: str) -> None:
         """Remove a finished workout from history together with everything derived from it."""
-        workout_session = session.get(WorkoutSession, workout_session_id)
+        achievements.lock_owner(session, user_id)
+        workout_session = session.get(WorkoutSession, workout_session_id, with_for_update=True)
         if workout_session is None or workout_session.user_id != user_id:
             raise LookupError("Workout session not found")
         if workout_session.status == WorkoutSessionStatus.in_progress:
@@ -541,17 +575,25 @@ class RuntimeService:
 
         self._delete_exercise_history(session, user_id, exercises)
         session.execute(update(CoachLedgerRun).where(CoachLedgerRun.workout_id == workout_session.id).values(workout_id=None))
+        # These workout inputs also feed achievements. SQLite installations can have FK cascades disabled.
+        session.execute(delete(CoachEpisode).where(CoachEpisode.user_id == user_id, CoachEpisode.workout_id == workout_session.id))
+        plan = load_plan(session, workout_session.id)
+        if plan is not None and plan.user_id == user_id:
+            session.delete(plan)
         # SQLite does not enforce FK ON DELETE SET NULL here, so detach any grant that
         # references the workout being removed; re-evaluation below revokes what it must.
-        session.execute(update(AchievementGrant).where(AchievementGrant.source_workout_id == workout_session.id)
+        session.execute(update(AchievementGrant).where(AchievementGrant.user_id == user_id,
+                                                      AchievementGrant.source_workout_id == workout_session.id)
                         .values(source_workout_id=None))
         session.delete(workout_session)
         session.flush()
         self._refresh_exercise_states(session, user_id, exercises)
-        achievements.enqueue(session, user_id=user_id, source_type="workout_deleted", source_id=str(workout_session_id),
-                             source_revision=datetime.now(UTC).isoformat(), event_type="workout_deleted")
-        session.commit()
-        achievements.process_outbox(session, limit=1)
+        try:
+            achievements.reconcile_deleted_workout(session, workout_session)
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
 
     def _delete_exercise_history(self, session: Session, user_id: str, exercises: list[ExerciseSession]) -> None:
         # History rows have no FK to the exercise session; _sync_training_state stamps them with
@@ -687,7 +729,7 @@ class RuntimeService:
             for item in (self._performed_results(exercise.set_results) if self._exercise_is_sided(exercise) else exercise.set_results)
         )
         total_volume = int(round(sum((item.weight_kg or 0) * (item.reps or item.actual_value or 0) for item in set_results)))
-        muscle_load = self._build_workout_muscle_load(exercises)
+        muscle_load = self._build_workout_muscle_load(session, workout_session)
         outcome = workout_session.status.value if workout_session.status != WorkoutSessionStatus.in_progress else "partial"
         if outcome == "completed" and any(exercise.status in {ExerciseSessionStatus.partial, ExerciseSessionStatus.skipped, ExerciseSessionStatus.aborted} for exercise in exercises):
             outcome = "partial"
@@ -768,21 +810,21 @@ class RuntimeService:
             label="энергия", value=f"≈ {kcal} ккал", hint=f"{work_label} · {method}",
         )
 
-    def _build_workout_muscle_load(self, exercises: list[ExerciseSession]) -> list[RuntimeWorkoutMuscleSchema]:
+    def _build_workout_muscle_load(self, session: Session, workout: WorkoutSession) -> list[RuntimeWorkoutMuscleSchema]:
         totals: dict[str, float] = {}
-        for exercise in exercises:
-            exercise_volume = sum((result.weight_kg or 0) * (result.reps or result.actual_value or 0) for result in exercise.set_results)
-            target_count = max(len(exercise.muscle_targets), 1)
-            for target in exercise.muscle_targets:
-                role_factor = {"primary": 1.0, "secondary": 0.6, "assisting": 0.35, "stabilizer": 0.2}.get(str(target.get("role", "secondary")), 0.6)
-                totals[str(target.get("name", target.get("muscle_id", "Мышца")))] = totals.get(str(target.get("name", target.get("muscle_id", "Мышца"))), 0.0) + max(exercise_volume / max(target_count, 1), 20) * role_factor / 20
+        rows = session.execute(
+            select(MuscleFatigueEvent.muscle_id, func.sum(MuscleFatigueEvent.fatigue_delta))
+            .where(MuscleFatigueEvent.workout_session_id == workout.id, MuscleFatigueEvent.user_id == workout.user_id,
+                   MuscleFatigueEvent.source == FatigueEventSource.exercise_set)
+            .group_by(MuscleFatigueEvent.muscle_id)
+        )
+        for muscle_id, delta in rows:
+            for canonical_id, share in split_muscle_targets(muscle_id):
+                name = get_muscle_definition(canonical_id).name
+                totals[name] = totals.get(name, 0.0) + delta * share
         return [
-            RuntimeWorkoutMuscleSchema(
-                name=name,
-                score=min(100, int(round(value))),
-                status="high" if value >= 60 else "medium" if value >= 35 else "light" if value >= 10 else "ready",
-            )
-            for name, value in sorted(totals.items(), key=lambda item: item[1], reverse=True)
+            RuntimeWorkoutMuscleSchema(name=name, score=round(value), status=self.fatigue_service.fatigue_status(value))
+            for name, value in sorted(totals.items(), key=lambda pair: (-pair[1], pair[0]))
         ]
 
     def _format_exercise_result(self, exercise: ExerciseSession) -> str:

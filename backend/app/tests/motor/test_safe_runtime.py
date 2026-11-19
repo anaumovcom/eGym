@@ -8,10 +8,13 @@ from types import SimpleNamespace
 import pytest
 
 from app.core.config import get_settings
+from app.motor.calibration.session import CalibrationSession
 from app.motor.profile import MachineProfile, Measured
 from app.motor.units import passport_mm_per_pulse
+from app.schemas.modbus import ModbusConnectionParamsSchema
 from app.services import hardware_runtime as runtime_module
 from app.services.hardware_runtime import HardwareRuntime
+from app.services.modbus_service import ModbusService
 from app.tests.motor.fakes import FakeModbusService
 
 
@@ -109,12 +112,14 @@ def test_support_attempts_both_sides(modbus_runtime) -> None:
     runtime._force_write = True
     runtime.tick()
     assert (2, 100) in service.writes
-    assert runtime.latch == "fault"
+    assert runtime.latch == "drive_wait"
     assert "left" in runtime.write_errors
 
 
 def test_read_failure_latches_fault_and_keeps_support(modbus_runtime) -> None:
     runtime, service = modbus_runtime
+    runtime._manage_drives = True
+    runtime.workout.mode = "training"
     service.read_fail_slaves = {2}
     service.writes.clear()
     runtime.tick()
@@ -123,8 +128,178 @@ def test_read_failure_latches_fault_and_keeps_support(modbus_runtime) -> None:
     service.read_fail_slaves = set()
     runtime.tick()
     assert runtime.latch == "fault"  # latched until reset
+    assert not runtime.workout.active and service.recovery_attempts == 0
     runtime.reset_fault()
     assert runtime.latch is None
+
+
+def test_drives_powered_after_start_recover_as_a_pair(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    runtime._manage_drives = True
+    service.connected = False
+    service.read_fail_slaves = {1, 2}
+    runtime.tick()
+    assert runtime.state.machine_label == "Ожидание приводов"
+    runtime.tick()
+    assert service.recovery_attempts == 1
+    service.read_fail_slaves.remove(1)
+    runtime._next_drive_recovery = 0
+    runtime.tick()
+    assert runtime.latch == "drive_wait" and service.servo_calls == []
+    service.read_fail_slaves.clear()
+    service.alarm[2] = 16
+    runtime._next_drive_recovery = 0
+    runtime.tick()
+    assert runtime.latch == "drive_wait" and service.servo_calls == []
+    assert runtime.state.machine_label == "Авария привода" and runtime.state.drives["right"].error_code == "E-DRIVE-16"
+    assert "Правый: Err 16" in runtime.state.safety_message
+    service.alarm.clear()
+    runtime._next_drive_recovery = 0
+    service.writes.clear()
+    runtime.tick()
+    assert runtime.latch is None and runtime.fault_reason is None and not runtime.state.service_mode
+    assert runtime.servo_states() == {"left": True, "right": True}
+    assert service.writes[:2] == [(1, 100), (2, 100)]
+    assert all(writes >= 2 for _, _, writes in service.servo_calls)
+    assert all(d.error_code is None for d in runtime.state.drives.values())
+    runtime.tick()
+    assert len(service.servo_calls) == 2
+
+
+def test_automatic_arm_rolls_back_and_respects_operator_off(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    runtime._manage_drives = True
+    service.servo_fail_slaves = {2}
+    runtime.tick()
+    assert runtime.latch == "drive_wait" and service.servo == {1: False, 2: False}
+    service.servo_fail_slaves.clear()
+    runtime._next_drive_recovery = 0
+    runtime.tick()
+    assert runtime.latch is None and all(service.servo.values())
+    runtime.set_service_mode(True)
+    runtime.set_servo(False)
+    runtime.set_service_mode(False)
+    service.read_fail_slaves = {1}
+    runtime.tick()
+    service.read_fail_slaves.clear()
+    runtime._next_drive_recovery = 0
+    runtime.tick()
+    assert runtime.latch is None and service.servo == {1: False, 2: False}
+
+
+def test_calibration_write_failure_stays_latched_after_estop_release(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    runtime._manage_drives = True
+    runtime.calibration = CalibrationSession("B1", runtime.drives, runtime.profile)
+    runtime.calibration.begin()
+    service.fail_slaves.add(2)
+    runtime.tick()
+    assert runtime.calibration.status == "failed" and runtime.latch == "fault"
+    service.fail_slaves.clear()
+    runtime.trigger_emergency_stop()
+    runtime.clear_emergency_stop()
+    runtime.tick()
+    assert runtime.latch == "fault" and not service.servo_calls
+
+
+def test_estop_blocks_late_auto_enable(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    runtime._manage_drives = True
+    runtime.trigger_emergency_stop()
+    runtime.tick()
+    assert runtime.latch == "estop" and service.servo_calls == []
+
+
+def test_panel_stop_between_servo_commands_rolls_back_pair(modbus_runtime, monkeypatch) -> None:
+    runtime, service = modbus_runtime
+    runtime._manage_drives = True
+    state = runtime.panel.state
+    state.enabled = state.connected = state.handshake_complete = state.input_healthy = True
+    state.last_rx_monotonic, state.fault_code = time.monotonic(), "none"
+    switch = service.set_servo
+
+    def stop_after_left(slave, on):
+        result = switch(slave, on)
+        if slave == 1 and on:
+            state.buttons["stop"] = True
+        return result
+
+    monkeypatch.setattr(service, "set_servo", stop_after_left)
+    runtime.tick()
+    assert runtime.latch == "drive_wait"
+    assert service.servo == {1: False, 2: False}
+    assert [(slave, on) for slave, on, _ in service.servo_calls] == [(1, True), (1, False)]
+
+
+def test_auto_enable_failure_keeps_already_enabled_axis_support(modbus_runtime) -> None:
+    runtime, service = modbus_runtime
+    runtime._manage_drives = True
+    service.servo[1] = True
+    service.servo_fail_slaves = {2}
+    runtime.tick()
+    assert runtime.latch == "drive_wait" and service.servo == {1: True, 2: False}
+    assert (1, False) not in [(slave, on) for slave, on, _ in service.servo_calls]
+    assert (1, 100) in service.writes
+
+
+def test_telemetry_must_still_be_fresh_after_writing_preload(modbus_runtime, monkeypatch) -> None:
+    runtime, service = modbus_runtime
+    runtime._manage_drives = True
+    write_support = runtime._write_safe_output
+
+    def preload():
+        errors = write_support()
+        runtime.samples = {side: replace(sample, t=sample.t - 1) for side, sample in runtime.samples.items()}
+        return errors
+
+    monkeypatch.setattr(runtime, "_write_safe_output", preload)
+    runtime.tick()
+    assert runtime.latch == "drive_wait" and not service.servo_calls
+
+
+def test_start_waits_for_power_and_enables_both_without_operator(modbus_runtime, monkeypatch) -> None:
+    runtime, service = modbus_runtime
+    service.connected = False
+    service.read_fail_slaves = {1, 2}
+    monkeypatch.setattr(runtime_module, "DRIVE_RECONNECT_S", 0.05)
+
+    async def lifecycle():
+        await runtime.start()
+        try:
+            async with asyncio.timeout(2):
+                while runtime.latch != "drive_wait" or service.recovery_attempts == 0:
+                    await asyncio.sleep(0.01)
+                assert runtime._panel_machine_state() == "warning" and not service.servo_calls
+                service.read_fail_slaves.clear()
+                while runtime.latch or not all(runtime.servo_states().values()):
+                    await asyncio.sleep(0.01)
+                assert not runtime.state.service_mode and service.recovery_attempts >= 2
+        finally:
+            await runtime.stop()
+
+    asyncio.run(lifecycle())
+
+
+def test_manual_connection_uses_configured_support_and_new_axis_ids(modbus_runtime, monkeypatch) -> None:
+    runtime, _ = modbus_runtime
+    service = ModbusService()
+    monkeypatch.setattr(runtime_module, "modbus_service", service)
+    for drive in runtime.drives.values():
+        drive.service = service
+    runtime._manage_drives = True
+    assert runtime.configure_modbus(ModbusConnectionParamsSchema(port="SIM://", slave_id=7, right_slave_id=11)).connected
+    assert all(service._registers_by_slave[i][0x12C] == 100 for i in (7, 11))
+    runtime.tick()
+    assert runtime.latch is None and all(runtime.servo_states().values())
+    runtime.workout.mode = "training"
+    with pytest.raises(PermissionError):
+        runtime.configure_modbus(None)
+    assert service.get_status().connected
+    runtime.workout.mode = "idle"
+    assert not runtime.configure_modbus(None).connected
+    runtime.tick()
+    assert not service.get_status().connected
+    assert all(service._registers_by_slave[i][0x12C] == 100 for i in (7, 11))
 
 
 def test_tick_exception_latches_fault_with_support(modbus_runtime) -> None:

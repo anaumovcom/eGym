@@ -32,7 +32,26 @@ CANONICAL_MUSCLE_DEFINITIONS: dict[str, MuscleDefinition] = {
 }
 
 
+# Manifest targets with display metadata only; not achievement or training groups.
+_SUPPLEMENTAL_DISPLAY_DEFINITIONS = {
+    "adductors": MuscleDefinition("adductors", "Приводящие мышцы бедра", "front", "lower", (), ()),
+    "hip-flexors": MuscleDefinition("hip-flexors", "Сгибатели бедра", "front", "lower", (), ()),
+    "side-delts": MuscleDefinition("side-delts", "Средние дельты", "front", "upper", (), ()),
+    "neck": MuscleDefinition("neck", "Мышцы шеи", "back", "upper", (), ()),
+    "anterior-shin": MuscleDefinition("anterior-shin", "Передняя группа голени", "front", "lower", (), ()),
+    "foot": MuscleDefinition("foot", "Мышцы стопы", "front", "lower", (), ()),
+    "rotator-cuff": MuscleDefinition("rotator-cuff", "Ротаторная манжета", "back", "upper", (), ()),
+    "serratus": MuscleDefinition("serratus", "Передняя зубчатая мышца", "front", "middle", (), ()),
+    "hips": MuscleDefinition("hips", "Тазобедренные мышцы", "front", "lower", (), ()),
+    "lowerback": MuscleDefinition("lowerback", "Низ спины", "back", "middle", (), ()),
+}
+
+
 LEGACY_MUSCLE_SPLITS: dict[str, tuple[tuple[str, float], ...]] = {
+    # Older runtime clients persisted translated display names as database IDs.
+    **{item.name: ((item.id, 1.0),) for item in
+       (*CANONICAL_MUSCLE_DEFINITIONS.values(), *_SUPPLEMENTAL_DISPLAY_DEFINITIONS.values())},
+    "Шея": (("neck", 1.0),),
     "abs": (("abdominals", 1.0),),
     "front-delta": (("front-shoulders", 1.0),),
     "rear-delta": (("rear-shoulders", 1.0),),
@@ -52,7 +71,7 @@ def is_legacy_muscle_id(muscle_id: str) -> bool:
 
 
 def get_muscle_definition(muscle_id: str) -> MuscleDefinition:
-    definition = CANONICAL_MUSCLE_DEFINITIONS.get(muscle_id)
+    definition = CANONICAL_MUSCLE_DEFINITIONS.get(muscle_id) or _SUPPLEMENTAL_DISPLAY_DEFINITIONS.get(muscle_id)
 
     if definition is not None:
         return definition

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
@@ -15,8 +15,9 @@ describe('ExerciseSummaryScreen', () => {
     ], 'completed')
     render(<MemoryRouter><ExerciseSummaryScreen /></MemoryRouter>)
     await userEvent.setup().click(screen.getByRole('button', { name: 'Подробно' }))
-    expect(screen.getByText('Подход 1 · Левая сторона')).toBeInTheDocument()
-    expect(screen.getByText('Подход 1 · Правая сторона')).toBeInTheDocument()
+    const details = within(screen.getByRole('dialog'))
+    expect(details.getByText('Подход 1 · Левая сторона')).toBeInTheDocument()
+    expect(details.getByText('Подход 1 · Правая сторона')).toBeInTheDocument()
   })
 
   beforeEach(() => {

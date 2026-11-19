@@ -20,13 +20,23 @@ from collections.abc import Callable, Generator
 from dataclasses import dataclass, replace
 from typing import Any, Literal
 
-from app.motor.calibration.procedures.motion import FAST_MIN_MM, Balance, _governed, hold_still, land, travel
-from app.motor.calibration.runner import CalibrationRunner, Command, Frame, ProcedureEnvelope
-from app.motor.core import CoreOutput, MotorCore
+from app.motor.calibration.procedures.motion import (
+    FAST_MIN_MM,
+    SETUP_SPEED_SCALE,
+    START_TOLERANCE_MM,
+    Balance,
+    _governed,
+    hold_still,
+    land,
+    position_for_start,
+)
+from app.motor.calibration.runner import CalibrationRunner, Command, Frame, ProcedureEnvelope, ProcedureError
+from app.motor.core import FIXED_STILL_DEADBAND_MM, CoreOutput, MotorCore
 from app.motor.drive.protocol import TorqueDrive
 from app.motor.force.load_models import LoadDirection, LoadMode, LoadSetpoint
 from app.motor.profile import MachineProfile, Measured, SafetyEnvelope, Tunables
 from app.motor.supervisor.modes import Mode
+from app.motor.supervisor.pair import MotionFault, PairMonitor
 from app.motor.supervisor.reps import RepCounter
 from app.motor.units import SIDES, G, Side, clamp
 
@@ -36,7 +46,6 @@ Gen = Generator[Command, Frame, Any]
 logger = logging.getLogger(__name__)
 
 ABORT_RAW = 100  # the core's overspeed "zero" output: no brake, 0 would drop the bar (R5)
-SETUP_SPEED_SCALE = 3.0
 JOG_SPEED_MM_S = 40.0 * SETUP_SPEED_SCALE
 JOG_TIMEOUT_S = 0.6  # no keepalive (every 0.2 s) this long → the jog stops
 JOG_LIMIT_MARGIN_MM = 5.0
@@ -46,7 +55,6 @@ GRIP_S = 0.2
 LIFTED_GRIP_MOVE_MM = 40.0  # the bar pushed above the upper start point: taken down past the point this far
 STILL_MM_S = 2.0
 CAPTURE_STILL_S = 0.3
-START_TOLERANCE_MM = 8.0  # closer to the start point: no move
 ON_STOPS_MM = 15.0
 DEFAULT_CUSHION_MM = 120.0  # F10 not measured: still brake fast motion near the ends of the travel
 MOVE_MAX_S = 120.0
@@ -107,9 +115,11 @@ def _with_cushions(profile: MachineProfile) -> MachineProfile:
 
 
 # ---------------------------------------------------------------- scripted moves
-def _goto(balance: Balance, frame0: Frame, target_mm: float, note: str) -> Gen:
+def _goto(balance: Balance, frame0: Frame, target_mm: float, note: str, safety: SafetyEnvelope) -> Gen:
     frame = yield Command(balance.mid(frame0), note=note)
-    yield from travel(balance, frame, target_mm, note=note, speed_scale=SETUP_SPEED_SCALE)
+    frame = yield from position_for_start(balance, frame, target_mm, safety, note=note)
+    if frame.target_error(target_mm) > START_TOLERANCE_MM:
+        raise ProcedureError(f"Подвод к {target_mm:.0f} мм · Л {frame.x('left'):.1f}, П {frame.x('right'):.1f} мм. Проверьте M6.")
     return {}
 
 
@@ -128,7 +138,7 @@ def _jog(balance: Balance, frame0: Frame, direction: int, active: Callable[[Fram
 
     if direction * (limit_mm - frame.x_mean) > 0:
         frame = yield from _governed(
-            balance, frame, direction, JOG_SPEED_MM_S, done, note=note, progress=lambda _f: None,
+            balance, frame, direction, min(JOG_SPEED_MM_S, balance.position_speed.get(direction, JOG_SPEED_MM_S)), done, note=note, progress=lambda _f: None,
             remaining=lambda f: max(0.0, direction * (limit_mm - f.x_mean)), drive_limit=direction > 0,
         )
     yield from hold_still(balance, frame, note="остановка")
@@ -160,6 +170,8 @@ class WorkoutController:
         self._rest_since: float | None = None
         self._rest_catch = False
         self._start_arrived: Callable[[], None] | None = None
+        self.pair = PairMonitor()
+        self._pair_fault: MotionFault | None = None
         self.configure(profile, tunables, envelope)
 
     # ------------------------------------------------------------ state
@@ -169,7 +181,7 @@ class WorkoutController:
         self.profile = _with_cushions(profile)
         self.tunables = tunables
         self.envelope = envelope
-        self.balance = Balance.from_profile(profile)
+        self.balance = Balance.from_profile(profile).with_transit_limits(envelope)
 
     @property
     def active(self) -> bool:
@@ -193,6 +205,14 @@ class WorkoutController:
     def target_load_n(self) -> float:
         return self.plan.load_n if self.plan is not None else 0.0
 
+    @property
+    def observing_work(self) -> bool:
+        return self.mode in ("training", "fixed_hold") and self._unloaded is None
+
+    @property
+    def approaching_start(self) -> bool:
+        return self._moving and self._start_arrived is not None and self._after is self._start_arrived
+
     def user_force_n(self) -> float:
         if self.output is None or not self.output.user_force:
             return 0.0
@@ -213,6 +233,8 @@ class WorkoutController:
             raise WorkoutError("Точку можно зафиксировать в невесомости или при удержании грифа")
         if self.still_s < CAPTURE_STILL_S:
             raise WorkoutError("Гриф ещё движется: остановите его и повторите")
+        if self.pair.delta_mm is None or abs(self.pair.delta_mm) >= self.envelope.sync_warning_mm:
+            raise WorkoutError("Для записи точки выровняйте обе каретки и дождитесь парного замера")
         return round(frame.x_mean, 1)
 
     def jog_start(self, jog_id: str, direction: int) -> None:
@@ -252,22 +274,26 @@ class WorkoutController:
             raise WorkoutError("Точки и нагрузка должны быть конечными, нагрузка — неотрицательной")
         if plan.fixed_mm is not None and not math.isfinite(plan.fixed_mm):
             raise WorkoutError("Точка фиксации должна быть конечной")
+        if plan.fixed_mm is not None and not self.envelope.soft_min_mm <= plan.fixed_mm <= self.envelope.soft_max_mm:
+            raise WorkoutError("Точка фиксации вне программного хода. Запишите доступную высоту.")
         if plan.start_point not in ("lower", "upper") or plan.load_mode not in ("constant", "assist_up", "eccentric", "curve", "bodyweight"):
             raise WorkoutError("Неизвестная стартовая точка или режим нагрузки")
         if self.mode == "training" and self.core is not None and plan.load_direction != self.core.load.load_direction:
             raise WorkoutError("Перед сменой направления нагрузки поставьте подход на паузу")
         if plan.fixed_mm is None and not plan.lower_mm < plan.upper_mm:
             raise WorkoutError("Нижняя точка амплитуды должна быть ниже верхней: повторите настройку грифа")
-        start = clamp(plan.start_mm, self.envelope.soft_min_mm, self.envelope.soft_max_mm)
         self.plan = plan
         self.reps = RepCounter(plan.lower_mm, plan.upper_mm, self.tunables.reps_full_percent, self.tunables.reps_partial_percent, self.tunables.reps_hysteresis_mm)
         self.reason = None
+        self._position_set(plan)
 
+    def _position_set(self, plan: SetPlan) -> None:
+        start = clamp(plan.start_mm, self.envelope.soft_min_mm, self.envelope.soft_max_mm)
         def arrived() -> None:
             self._to_core(Mode.HOLD, "paused" if plan.fixed_mm is not None else "start_hold")
             frame = self._require_frame()
-            if abs(frame.v_mean) <= MOVE_START_MM_S and self.core is not None:
-                self.core.hold_at({side: frame.x(side) for side in SIDES})
+            if frame.max_abs_speed <= MOVE_START_MM_S and self.core is not None:
+                self.core.hold_at({side: start if plan.fixed_mm is not None else frame.x(side) for side in SIDES})
             if plan.fixed_mm is not None:
                 self._begin_fixed()
             else:
@@ -277,10 +303,10 @@ class WorkoutController:
 
         def go() -> None:
             frame = self._require_frame()
-            if abs(frame.x_mean - start) <= START_TOLERANCE_MM:
+            if frame.target_error(start) <= START_TOLERANCE_MM and frame.max_abs_speed <= STILL_MM_S:
                 arrived()
             else:
-                self._move(lambda f: _goto(self.balance, f, start, f"к стартовой точке {start:.0f} мм"), after=arrived)
+                self._move(lambda f: _goto(self.balance, f, start, f"к стартовой точке {start:.0f} мм", self.envelope), after=arrived)
 
         self._cancel_move()
         self._unload_then(go)
@@ -308,8 +334,7 @@ class WorkoutController:
             self.set_load(weight_kg)
         self.reason = None
         if self.plan.fixed_mm is not None:
-            self._to_core(Mode.HOLD, "paused")
-            self._begin_fixed()
+            self._position_set(self.plan)
         else:
             self._to_core(Mode.HOLD, "start_hold")
             self._grip_since, self._lifted = None, False
@@ -329,7 +354,7 @@ class WorkoutController:
 
         frame = self._require_frame()
         self._rest_since = frame.t
-        if abs(frame.v_mean) > REST_CATCH_MM_S:
+        if frame.max_abs_speed > REST_CATCH_MM_S:
             self._to_core(Mode.HOLD, "paused")
             self._rest_catch = True
         else:
@@ -365,10 +390,14 @@ class WorkoutController:
         dt = 0.0 if self._t is None else max(frame.t - self._t, 0.0)
         self._t = frame.t
         self.frame = frame
-        moving = abs(frame.v_mean) > STILL_MM_S
+        self._pair_fault = self.pair.check(frame.samples, frame.t, self.envelope.stale_frame_limit_s, self.envelope.sync_critical_mm)
+        moving = self._pair_fault is not None or frame.max_abs_speed > STILL_MM_S
         self._still_since = None if moving else (self._still_since if self._still_since is not None else frame.t)
         if not self.active:
             return None
+        if self._pair_fault:
+            self.abort(self._pair_fault.message)
+            return self._pair_fault.message
         if self.core is not None:
             self.output = self.core.step(frame.samples, frame.t)
             if self.output.mode in (Mode.FAULT, Mode.ESTOP):
@@ -381,7 +410,7 @@ class WorkoutController:
                 return None
             last = self.runner.command.forces_n
             self.runner = None
-            if result.status != "done" and not (result.status == "aborted" and self._taken_at_start(frame)):
+            if result.status != "done" and not (result.abort_code == "move_speed" and self._taken_at_start(frame)):
                 reason = f"Перемещение грифа прервано: {result.reason}"
                 self.abort(reason)
                 return reason
@@ -392,7 +421,10 @@ class WorkoutController:
             if self.core is not None:
                 # the move put PA_056 back to the connect value: training needs the envelope limit
                 for side in SIDES:
-                    self.drives[side].limit_speed_rpm(self.envelope.speed_limit_rpm)
+                    if error := self.drives[side].limit_speed_rpm(self.envelope.speed_limit_rpm):
+                        reason = f"Предел скорости после переезда не восстановлен ({side}): {error}"
+                        self.abort(reason)
+                        return reason
             if self.core is not None and last is not None:
                 self.core.previous = dict(last)  # the core continues from the force the move left in the drives
             after, self._after = self._after, None
@@ -401,8 +433,12 @@ class WorkoutController:
             return None  # the drives keep the move's last command for this frame
         assert self.core is not None and self.output is not None
         if self._rest_catch and self.mode == "paused" and self._rest_since is not None:
-            if abs(frame.v_mean) <= REST_CATCH_MM_S or frame.t - self._rest_since >= SETTLE_MAX_S:
+            if frame.max_abs_speed <= REST_CATCH_MM_S:
                 self._to_core(Mode.WEIGHTLESS, "weightless")
+            elif frame.t - self._rest_since >= SETTLE_MAX_S:
+                reason = "Каретки продолжают двигаться после окончания подхода. Проверьте удержание H1."
+                self.abort(reason)
+                return reason
         if self.mode != "weightless" and not self._rest_catch:
             self._rest_since = None
         elif self._rest_since is not None and frame.t - self._rest_since >= REST_PARK_S and self._pending is None:
@@ -411,9 +447,13 @@ class WorkoutController:
             return None  # a landing writes from the next frame; parked on the stops: the runtime writes support
         if self._pending is not None:
             factory, deadline = self._pending
-            if abs(frame.v_mean) <= MOVE_START_MM_S or frame.t >= deadline:
+            if frame.max_abs_speed <= MOVE_START_MM_S:
                 self._launch(factory, frame)
                 return None  # the move writes from the next frame; the drives keep the hold output
+            if frame.t >= deadline:
+                reason = "Каретки не остановились перед переездом. Проверьте удержание H1."
+                self.abort(reason)
+                return reason
             return self._write(self.output)
         self._advance(frame, dt)
         return self._write(self.output)
@@ -471,7 +511,7 @@ class WorkoutController:
             # nor does the hold's rebound when the lifted bar is let go (it overshoots below the point for a moment)
             if max(offsets, default=0.0) > GRIP_MOVE_MM:
                 self._lifted = True
-            elif self._lifted and abs(frame.v_mean) <= STILL_MM_S:
+            elif self._lifted and frame.max_abs_speed <= STILL_MM_S:
                 # back from the lift: the hold stays where the bar came to rest (friction may stop it short of the point)
                 self._lifted = False
                 core.hold_at({side: frame.x(side) for side in SIDES})
@@ -509,6 +549,8 @@ class WorkoutController:
     def _require_frame(self) -> Frame:
         if self.frame is None:
             raise WorkoutError("Нет данных о положении грифа")
+        if self._pair_fault:
+            raise WorkoutError(self._pair_fault.message)
         return self.frame
 
     def _ensure_core(self) -> MotorCore:
@@ -559,7 +601,7 @@ class WorkoutController:
 
         frame = self._require_frame()
         self._after = after
-        if abs(frame.v_mean) > MOVE_START_MM_S:
+        if frame.max_abs_speed > MOVE_START_MM_S:
             self._to_core(Mode.HOLD, "moving")
             self._pending = (factory, frame.t + SETTLE_MAX_S)
             return
@@ -585,10 +627,16 @@ class WorkoutController:
             min_x_mm=-5.0, max_x_mm=top + MOVE_MARGIN_MM, max_force_n=self.envelope.max_force_n_per_side,
             max_speed_mm_s=min(self.envelope.max_speed_mm_s, speed_limit),
         )
-        self.runner = CalibrationRunner(self.drives, envelope=envelope)
+        self.runner = CalibrationRunner(self.drives, envelope=envelope,
+                                       speed_caps=(self.envelope.max_speed_mm_s, min(self.envelope.max_descent_mm_s, self.envelope.max_speed_mm_s)),
+                                       drive_limit_rpm=self.envelope.speed_limit_rpm)
         result = self.runner.begin(factory(frame), max_s=MOVE_MAX_S, envelope=envelope)
         if result is not None:  # ended at once
             self.runner = None
+            if result.status != "done":
+                reason = result.reason or "Не удалось начать перемещение грифа"
+                self.abort(reason)
+                raise WorkoutError(reason)
             after_, self._after = self._after, None
             if after_ is not None:
                 after_()
@@ -598,6 +646,8 @@ class WorkoutController:
 
         plan = self.plan
         if plan is None or plan.fixed_mm is not None or self._after is None or self._after is not self._start_arrived:
+            return False
+        if self.pair.delta_mm is None or abs(self.pair.delta_mm) >= self.envelope.sync_warning_mm:
             return False
         lo = max(plan.lower_mm - MOVE_MARGIN_MM, self.envelope.soft_min_mm)
         hi = min(plan.upper_mm + MOVE_MARGIN_MM, self.envelope.soft_max_mm)
@@ -640,7 +690,7 @@ class WorkoutController:
             self.mode = "parked"
 
         frame = self._require_frame()
-        if frame.x_mean <= ON_STOPS_MM:
+        if all(frame.x(side) <= ON_STOPS_MM for side in SIDES) and frame.max_abs_speed <= STILL_MM_S:
             parked()
             return
         self._move(lambda f: _park(self.balance, f), after=parked)
@@ -651,7 +701,7 @@ class WorkoutController:
 
     def _write(self, output: CoreOutput) -> str | None:
         errors = []
-        for side in SIDES:
+        for side in reversed(SIDES):  # read left/right, then write right/left on the shared RTU bus
             drive = self.drives[side]
             if output.kind == "support":
                 error = drive.support()
@@ -681,6 +731,11 @@ class WorkoutController:
         return self.reps.full, self.reps.partial
 
     def message(self) -> str | None:
+        if self.mode == "fixed_hold" and self.plan and self.plan.fixed_mm is not None and self.frame:
+            target = self.plan.fixed_mm
+            frame = self.frame
+            if frame.target_error(target) > FIXED_STILL_DEADBAND_MM or frame.max_abs_speed > STILL_MM_S:
+                return f"Приводы удерживают {target:.0f} мм · отклонение Л {frame.x('left') - target:+.1f} / П {frame.x('right') - target:+.1f} мм"
         if self.reason:
             return self.reason
         return {

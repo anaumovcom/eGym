@@ -1,0 +1,277 @@
+.cal-console {
+  --cal-line: #273d4a;
+  --cal-muted: #a9bece;
+  --cal-blue: #75cdff;
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  color: #edf7ff;
+  overflow-wrap: anywhere;
+}
+.cal-guide { display: grid; grid-template-columns: clamp(96px, 15vw, 162px) minmax(0, 1fr); align-items: center; gap: clamp(.75rem, 2vw, 1.4rem); margin: .85rem 0; padding: .65rem; background: #132530; border: 1px solid var(--cal-line); border-radius: 12px; }
+.cal-guide img { display: block; width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; background: #faf8f2; border-radius: 7px; }
+.cal-guide figcaption { max-width: 62ch; padding-right: .4rem; font-size: .93rem; line-height: 1.54; }
+.cal-monitor-status { display: flex; align-items: baseline; flex-wrap: wrap; justify-content: space-between; gap: .4rem 1rem; padding: .65rem .9rem; border-left: 3px solid currentColor; background: #142935; border-radius: 3px 9px 9px 3px; }
+.cal-monitor-status span, .cal-quality { font-size: .83rem; color: var(--cal-muted); }
+.cal-observer-dock { position: sticky; z-index: 8; bottom: max(.5rem, env(safe-area-inset-bottom)); display: flex; gap: .55rem; align-items: stretch; padding: .45rem; background: #0c1821; border: 1px solid #416274; border-radius: 12px; box-shadow: 0 3px 18px #060e16aa; }
+.cal-observer-dock .cal-monitor-status { flex: 1; justify-content: flex-start; align-items: center; }
+.cal-run-stop { min-height: 48px; min-width: 92px; border: 1px solid #ff918a; background: #a82f2b; border-radius: 9px; font-weight: 800; letter-spacing: .06em; color: white; }
+.cal-run-stop:hover { background: #c33833; }
+#calibration-operator-prompt, .cal-result { scroll-margin-top: 9rem; }
+.cal-signal-readings > p { color: var(--cal-muted); font-size: .82rem; margin-bottom: .4rem; }
+.cal-signal-readings dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); gap: 1px; background: var(--cal-line); border: 1px solid var(--cal-line); border-radius: 10px; overflow: hidden; }
+.cal-signal-readings dl > div { min-width: 0; padding: .55rem .8rem; background: #10212c; }
+.cal-signal-readings dt { font-size: .79rem; color: var(--cal-muted); }
+.cal-signal-readings dd { margin: .25rem 0 0; font-variant-numeric: tabular-nums; font-weight: 650; }
+.cal-stop-reason { border-left: 3px solid #ffb07a; border-radius: 3px 9px 9px 3px; background: #312620; padding: .75rem .9rem; color: #ffe3c8; margin: .6rem 0; }
+.cal-stop-reason a { color: var(--cal-blue); text-decoration: underline; }
+.cal-stop-reason p { margin-top: .3rem; }
+.cal-set-detail, .cal-audit { display: grid; align-content: start; gap: .8rem; }
+.cal-audit h2, .cal-sidebar > h2 { font-size: 1.08rem; font-weight: 700; }
+.cal-audit p, .cal-audit li { font-size: .9rem; line-height: 1.5; }
+.cal-audit details summary { color: #ffc478; cursor: pointer; }
+.cal-audit li { margin: .45rem 0; }
+.cal-map-values { max-height: 14rem; overflow: auto; font-size: .85rem; }
+.cal-map-values table { width: 100%; margin: .4rem 0; font-variant-numeric: tabular-nums; }
+.cal-map-values th, .cal-map-values td { text-align: left; padding: .24rem; border-bottom: 1px solid var(--cal-line); }
+.cal-map-values summary { color: var(--cal-blue); cursor: pointer; }
+.cal-set-list { display: grid; gap: .4rem; margin: .65rem 0; }
+.cal-set-list button { display: grid; gap: .2rem; width: 100%; text-align: left; padding: .6rem .8rem; border: 1px solid var(--cal-line); border-radius: 9px; }
+.cal-set-list button[aria-pressed="true"] { border-color: var(--cal-blue); background: #142f40; }
+.cal-set-list button span, .cal-set-list button small { font-size: .8rem; color: var(--cal-muted); }
+.cal-pages { display: flex; justify-content: space-between; }
+.cal-encoder-check { font-size: .88rem; color: var(--cal-muted); }
+.cal-encoder-check summary { color: var(--cal-blue); cursor: pointer; }
+.cal-encoder-check p { margin-top: .4rem; }
+@media (max-width: 440px) {
+  .cal-guide { grid-template-columns: 84px minmax(0, 1fr); gap: .55rem; }
+  .cal-guide figcaption { font-size: .82rem; }
+}
+.cal-hero, .cal-surface {
+  min-width: 0;
+  padding: clamp(.85rem, 2vw, 1.5rem);
+  border: 1px solid var(--cal-line);
+  border-radius: 15px;
+  background: #0c1821;
+}
+.cal-hero { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; background: linear-gradient(105deg, #102b40, #081218 70%); border-inline-start: 4px solid #168eff; border-start-start-radius: 0; border-end-start-radius: 0; }
+.cal-hero h1 { font-size: clamp(1.65rem, 4vw, 2.6rem); font-weight: 750; line-height: 1.12; margin: .35rem 0; }
+.cal-hero a { display: inline-flex; align-items: center; gap: .45rem; color: var(--cal-blue); font-size: .85rem; }
+.cal-hero p, .cal-workspace-heading p { color: var(--cal-muted); font-size: .9rem; }
+.cal-workspace-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .3rem .65rem; margin-bottom: .7rem; }
+.cal-workspace-heading h2, .cal-workspace-heading h3 { font-size: 1.05rem; font-weight: 700; }
+.cal-readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.5rem), 1fr)); gap: .55rem; }
+.cal-readout { min-width: 0; padding: .55rem .7rem; background: #09131b; border: 1px solid var(--cal-line); border-radius: 10px; }
+.cal-readout dt { color: var(--cal-muted); font-size: .78rem; }
+.cal-readout dd { font-weight: 650; font-variant-numeric: tabular-nums; }
+.cal-console [data-tone='good'] { color: #83e7aa; }
+.cal-console [data-tone='warn'] { color: #ffd28a; }
+.cal-console [data-tone='bad'] { color: #ff9e96; }
+.cal-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.cal-tabs { display: flex; flex-wrap: wrap; gap: .4rem; padding: .55rem; border: 1px solid var(--cal-line); border-radius: 12px; background: #091319; }
+.cal-tabs button { min-height: 42px; padding: .5rem .9rem; border: 1px solid transparent; border-radius: 9px; color: #bfceda; font-size: .88rem; }
+.cal-tabs button:hover { background: #142738; }
+.cal-tabs [aria-selected='true'] { color: #e4f6ff; background: #113452; border-color: #2b7ab9; }
+.cal-console :is(button, a, input, summary, [tabindex='0']):focus-visible { outline: 2px solid var(--cal-blue); outline-offset: 2px; }
+.cal-workspace { display: grid; grid-template-areas: 'catalog' 'detail'; min-width: 0; align-items: start; gap: 1rem; }
+.cal-workspace > aside { grid-area: catalog; }
+.cal-workspace > div { grid-area: detail; }
+.cal-catalog { max-height: 23rem; overflow: auto; padding: .2rem .45rem .25rem .2rem; scrollbar-color: #42627a #0b1921; }
+.cal-catalog button { flex-wrap: wrap; }
+.cal-catalog button > span:nth-child(2) { flex: 1 1 10rem; }
+.cal-catalog button > span:last-child { margin-inline-start: auto; }
+.cal-checks li { border: 1px solid var(--cal-line); border-radius: 10px; padding: .6rem .7rem; background: #09141c; }
+.cal-start { width: 100%; min-height: 46px; padding: .65rem 1rem; border: 1px solid #359cfa; border-radius: 10px; background: linear-gradient(#087ad4, #045fae); text-align: center; color: white; font-weight: 700; }
+.cal-start:enabled:hover { background: #116ebc; }
+.cal-start:disabled { cursor: not-allowed; background: #172934; color: #9fb4c2; border-color: var(--cal-line); }
+.cal-table-scroll { overflow: auto; border: 1px solid var(--cal-line); border-radius: 10px; }
+.cal-table-scroll table { min-width: 31rem; }
+.cal-table-scroll thead { background: #09141c; }
+.cal-table-scroll th, .cal-table-scroll td { padding-inline: .65rem; }
+.cal-profile-actions { background: #0c202e; border-color: #326788; }
+@media (min-width: 1000px) {
+  .cal-workspace { grid-template-areas: 'catalog detail'; grid-template-columns: minmax(18rem, .85fr) minmax(0, 2fr); }
+  .cal-catalog { max-height: 60vh; }
+}
+
+.cal-lab, .cal-detail, .cal-archived { display: grid; gap: 1rem; min-width: 0; align-content: start; }
+.cal-scenarios { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.cal-scenarios button, .cal-speed-direction { min-width: 0; border: 1px solid var(--cal-line); border-radius: 12px; background: #0d1c26; padding: .8rem; text-align: left; }
+.cal-scenarios button { display: grid; align-content: space-between; gap: .6rem; }
+.cal-scenarios button[aria-pressed=true], .cal-procedures button[aria-pressed=true] { background: #11334a; border-color: #3484b4; }
+.cal-scenarios button:enabled:hover, .cal-procedures button:enabled:hover { border-color: #72aece; }
+.cal-scenarios button:disabled { opacity: .6; }
+.cal-scenario-top, .cal-plot figcaption, .cal-speed-direction h4 { display: flex; align-items: center; justify-content: space-between; gap: .4rem; flex-wrap: wrap; }
+.cal-scenario-top { color: var(--cal-blue); }
+.cal-scenario-top small, .cal-workspace-heading > span, .cal-workspace-heading label, .cal-archived > p, .cal-history time, .cal-speed-direction dt { color: var(--cal-muted); font-size: .8rem; }
+.cal-scenarios strong { font-size: .98rem; line-height: 1.2; }
+.cal-meter, .cal-limit-track { position: relative; display: block; border-radius: 3px; background: #263943; height: 4px; }
+.cal-meter i, .cal-limit-track i { display: block; height: 100%; background: #6ac9cd; border-radius: inherit; }
+.cal-sidebar { display: grid; gap: .65rem; }
+.cal-sidebar .cal-workspace-heading { margin: 0; }
+.cal-sidebar > p, .cal-zone p, .cal-speed-study > p, .cal-empty, .cal-plot figure > p { color: var(--cal-muted); font-size: .88rem; line-height: 1.5; }
+.cal-link { color: var(--cal-blue); font-size: .85rem; text-decoration: underline; text-underline-offset: .17em; }
+.cal-sidebar input, .cal-zone select { width: 100%; border: 1px solid #395465; border-radius: 8px; padding: .55rem .7rem; background: #08141b; color: #ebf7ff; }
+.cal-zone select { width: auto; max-width: 100%; }
+.cal-procedures { max-height: min(56vh, 34rem); overflow-y: auto; scrollbar-color: #46637a #0d1c26; padding: 3px; display: grid; gap: .25rem; }
+.cal-procedures button { width: 100%; min-width: 0; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: .65rem; padding: .65rem; border: 1px solid transparent; border-radius: 8px; text-align: left; }
+.cal-procedures strong, .cal-procedures small { display: block; }
+.cal-procedures strong { font-size: .9rem; line-height: 1.3; }
+.cal-procedures small { margin-top: .2rem; color: var(--cal-muted); font-size: .75rem; }
+.cal-procedures i { width: .65rem; height: .65rem; border-width: 1px; border-radius: 50%; }
+.cal-code { min-width: 2.6rem; text-align: center; font-family: monospace; color: var(--cal-blue); font-size: .84rem; }
+.cal-priority-tag { display: inline-flex; align-items: center; gap: .27rem; width: max-content; padding: .13rem .43rem; border: 1px solid; border-radius: 5px; font-size: .73rem; font-weight: 650; line-height: 1.35; white-space: nowrap; }
+.cal-priority-tag svg { flex: none; }
+.cal-priority-tag[data-priority=critical] { color: #ffc1b5; background: #3b2324; border-color: #98574e; }
+.cal-priority-tag[data-priority=important] { color: #ffdc95; background: #332a1a; border-color: #8f713b; }
+.cal-priority-tag[data-priority=refinement] { color: #b5daff; background: #192e43; border-color: #527c9e; }
+.cal-procedure-meta, .cal-stage-title, .cal-priority-note { display: flex; align-items: center; flex-wrap: wrap; gap: .25rem .5rem; }
+.cal-procedure-meta { margin-top: .22rem; }
+.cal-procedures .cal-procedure-meta small { margin-top: 0; }
+.cal-priority-note { margin-top: .55rem; }
+.cal-priority-note p { flex: 1 1 16rem; color: var(--cal-muted); font-size: .86rem; line-height: 1.45; }
+.cal-priority-legend { font-size: .82rem; color: var(--cal-muted); }
+.cal-priority-legend summary { width: fit-content; color: var(--cal-blue); padding: .22rem 0; cursor: pointer; }
+.cal-priority-legend dl { display: grid; gap: .5rem; margin: .45rem 0; }
+.cal-priority-legend dl > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: .2rem .55rem; }
+.cal-priority-legend dd { flex: 1 1 9rem; margin: 0; }
+
+.cal-value-source, .cal-map-readout, .cal-evidence-legend, .cal-review-actions { display: flex; align-items: center; flex-wrap: wrap; gap: .45rem 1rem; }
+.cal-value-source { margin-top: .45rem; color: var(--cal-muted); font-size: .8rem; }
+.cal-param-evidence { grid-column: 1 / -1; min-width: 0; }
+.cal-side-difference { grid-column: 1 / -1; font-size: .86rem; color: var(--cal-muted); font-variant-numeric: tabular-nums; }
+.cal-source-record, .cal-map-compare[open] { padding: .8rem 1rem; background: #0b1c27; border: 1px solid var(--cal-line); border-radius: 10px; }
+.cal-map-compare { margin-block: .3rem; container-type: inline-size; }
+.cal-map-compare > summary { color: var(--cal-blue); cursor: pointer; width: fit-content; font-size: .91rem; }
+.cal-evidence-plot { max-width: 62rem; margin: .65rem 0 .2rem; font-variant-numeric: tabular-nums; }
+.cal-evidence-plot figcaption { display: flex; justify-content: space-between; align-items: center; }
+.cal-evidence-plot svg { width: 100%; height: 9rem; background: #08141d; }
+.cal-evidence-plot [data-series="0"] { color: #79cdff; }
+.cal-evidence-plot [data-series="1"] { color: #ffc67c; }
+.cal-evidence-plot input[type="range"] { width: 100%; height: 2rem; accent-color: #70c8ff; }
+.cal-map-readout, .cal-evidence-plot > p { font-size: .88rem; color: var(--cal-muted); margin-top: .35rem; }
+.cal-map-readout strong, .cal-source-record h4 { color: #edf6fc; font-weight: 650; }
+@container (min-width: 52rem) {
+  .cal-evidence-plot { max-width: none; display: grid; grid-template-columns: minmax(0, 2.25fr) minmax(12rem, 1fr); column-gap: 1.6rem; }
+  .cal-evidence-plot > :is(figcaption, .cal-plot-body, .cal-time-axis, input) { grid-column: 1; }
+  .cal-evidence-plot > .cal-map-readout { grid-column: 2; grid-row: 2; align-self: center; display: grid; border-left: 2px solid #41647b; padding-left: 1rem; }
+  .cal-evidence-plot > p { grid-column: 2; grid-row: 3 / span 2; align-self: start; max-width: 36ch; }
+}
+.cal-review-dock { position: sticky; bottom: 1rem; z-index: 10; border: 1px solid #48748d; border-radius: 14px; padding: .8rem 1.1rem; background: #102532; box-shadow: 0 .6rem 2.2rem #0007; }
+.cal-review-panel { max-height: 43vh; overflow: auto; padding: .25rem .25rem .85rem; margin-bottom: .65rem; border-bottom: 1px solid #426075; font-size: .9rem; }
+.cal-review-panel h3, .cal-review-panel h4 { color: #e9f6ff; font-weight: 650; margin-bottom: .35rem; }
+.cal-review-panel table { width: 100%; margin: .6rem 0; text-align: left; }
+.cal-review-panel :is(th, td) { padding: .45rem .75rem; border-bottom: 1px solid #304759; vertical-align: top; }
+.cal-review-panel thead, .cal-review-panel small { color: #b2c8d6; }
+.cal-review-panel small { display: block; }
+.cal-findings { border-left: 3px solid #e9af60; border-radius: 4px 10px 10px 4px; background: #28261e; padding: .7rem 1rem; }
+.cal-findings h4 { color: #ffdc9c; font-weight: 700; }
+.cal-findings > div { margin-top: .5rem; font-size: .93rem; }
+.cal-findings ul { list-style: disc; padding-left: 1.35rem; }
+.cal-findings p { margin-top: .25rem; color: #d7cdc0; }
+.cal-next { border-block-start: 1px solid var(--cal-line); padding-top: .6rem; text-align: left; font-size: .88rem; color: var(--cal-blue); }
+.cal-zone { border-top: 1px solid var(--cal-line); margin-top: 1rem; padding-top: 1rem; }
+.cal-zone > strong { color: #83dec5; font-variant-numeric: tabular-nums; }
+.cal-zone-scale { margin: .4rem 0; }
+.cal-zone-scale > div { position: relative; height: .65rem; border-radius: 1rem; background: #243e49; overflow: hidden; }
+.cal-zone-scale i { position: absolute; inset-block: 0; border-inline: 2px solid #bbffee; background: #438d82; }
+.cal-zone-scale small { display: flex; justify-content: space-between; margin-top: .2rem; color: var(--cal-muted); }
+.cal-comparison-caption { color: var(--cal-muted); font-size: .8rem; }
+.cal-comparison { display: block; position: relative; width: 9rem; height: .4rem; margin: .4rem 0 .2rem auto; border-radius: .2rem; background: #253947; }
+.cal-comparison::after { content: ''; position: absolute; left: 66.667%; inset-block: -.15rem; width: 1px; background: #e2eaf1; }
+.cal-comparison i { display: block; height: 100%; border-radius: inherit; background: #68caa0; }
+.cal-comparison i[data-exceeded='true'] { background: #fb9589; }
+.cal-plot { min-width: 0; padding: .8rem; border: 1px solid var(--cal-line); border-radius: 12px; background: #09151e; }
+.cal-plot-tools { display: flex; flex-wrap: wrap; gap: .3rem; margin-bottom: .8rem; }
+.cal-plot-tools button { border: 1px solid var(--cal-line); border-radius: 6px; padding: .3rem .65rem; color: var(--cal-muted); font-size: .82rem; }
+.cal-plot-tools button[aria-pressed=true] { color: #daf5ff; border-color: #3d95be; background: #10324a; }
+.cal-plot figcaption { font-size: .9rem; }
+.cal-plot-legend { display: flex; flex-wrap: wrap; gap: .7rem; font-variant-numeric: tabular-nums; }
+.cal-plot-body { display: flex; gap: .5rem; margin-top: .55rem; }
+.cal-plot-scale { display: flex; min-width: 3rem; flex-direction: column; justify-content: space-between; align-items: flex-end; font-variant-numeric: tabular-nums; }
+.cal-plot-scale, .cal-time-axis { color: var(--cal-muted); font-size: .72rem; }
+.cal-plot-body svg { display: block; min-width: 0; width: 100%; height: clamp(7.5rem, 15vh, 13rem); background: #0c1b25; }
+.cal-time-axis { display: flex; margin-left: 3.5rem; justify-content: space-between; }
+.cal-plot figure > p { font-size: .75rem; margin-top: .45rem; }
+.cal-speed-study { display: grid; gap: .8rem; }
+.cal-speed-study .cal-workspace-heading { margin: 0; }
+.cal-speed-input { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: .4rem; color: var(--cal-muted); }
+.cal-speed-input strong { color: #dff6ff; font-size: 1.65rem; font-variant-numeric: tabular-nums; }
+.cal-speed-input small { font-size: .9rem; }
+.cal-speed-input input { grid-column: 1 / -1; width: 100%; accent-color: #5ec5fa; }
+.cal-speed-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 15rem), 1fr)); gap: .6rem; }
+.cal-speed-direction h4 { font-size: 1rem; font-weight: 700; }
+.cal-speed-direction h4 span, .cal-speed-direction p { font-size: .77rem; font-weight: 500; }
+.cal-limit-track { margin: 1rem .15rem; height: 5px; }
+.cal-limit-track b { position: absolute; top: -4px; transform: translateX(-50%); width: 3px; height: 13px; background: #ffc478; }
+.cal-speed-direction dl > div { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem; padding: .3rem 0; border-top: 1px solid var(--cal-line); }
+.cal-speed-direction dd { font-size: .85rem; font-variant-numeric: tabular-nums; }
+.cal-speed-direction p { margin-top: .5rem; }
+.cal-speed-study details { border-top: 1px solid var(--cal-line); padding-top: .7rem; }
+.cal-speed-study summary { cursor: pointer; font-weight: 650; }
+.cal-replay { display: grid; gap: .6rem; margin-top: .6rem; }
+.cal-replay figcaption { display: flex; align-items: baseline; gap: .5rem 1rem; flex-wrap: wrap; font-size: .8rem; }
+.cal-replay figcaption span:nth-child(2) { color: #6fc9ff; }
+.cal-replay figcaption span:nth-child(3) { color: #ffc478; }
+.cal-replay svg { width: 100%; height: 7rem; }
+.cal-plot-cursor { display: flex; flex-wrap: wrap; gap: .45rem .8rem; align-items: center; margin-block: .5rem; font-size: .8rem; }
+.cal-plot-cursor label { flex: 1 1 14rem; display: flex; align-items: center; gap: .6rem; font-variant-numeric: tabular-nums; }
+.cal-plot-cursor input { flex: 1; min-width: 3rem; accent-color: #70caff; }
+.cal-history > li { border-top: 1px solid var(--cal-line); }
+.cal-history button[aria-expanded] { display: flex; align-items: center; flex-wrap: wrap; gap: .5rem 1rem; width: 100%; text-align: left; padding: .75rem 0; }
+.cal-history button[aria-expanded] strong { flex: 1 1 12rem; font-size: .93rem; }
+.cal-history > li > p { font-size: .85rem; padding-bottom: .5rem; color: var(--cal-muted); }
+.cal-archived { padding: .3rem 0 1rem; }
+.cal-console progress { width: 100%; accent-color: #69c6ec; }
+.cal-monitor { width: min(100%, 76rem); margin-inline: auto; }
+.cal-route-count { font-size: .92rem; font-weight: 700; }
+.cal-route-help, .cal-up-next, .cal-friction-map p, .cal-stage-select { color: var(--cal-muted); font-size: .84rem; line-height: 1.45; }
+.cal-sidebar progress { display: block; height: .45rem; margin: .5rem 0; }
+.cal-route-list { display: grid; gap: .15rem; margin-top: .6rem; max-height: min(56vh, 36rem); overflow: auto; padding: 3px; scrollbar-color: #46637a #0d1c26; }
+.cal-route-list button { display: grid; grid-template-columns: 1.8rem 1fr; align-items: center; gap: .65rem; width: 100%; padding: .55rem .45rem; border: 1px solid transparent; border-radius: 8px; text-align: left; }
+.cal-route-list button:hover, .cal-route-list button:focus-visible { border-color: #42677c; }
+.cal-route-list button[aria-current=step] { border-color: #4798bd; background: #123348; }
+.cal-route-index { display: grid; place-items: center; height: 1.8rem; background: #172c39; border: 1px solid #375362; color: #bcd1de; border-radius: 50%; font-variant-numeric: tabular-nums; font-size: .8rem; }
+.cal-route-index[data-done=true] { background: #17392f; color: #99e4bb; border-color: #387351; }
+.cal-route-list strong, .cal-route-list small { display: block; }
+.cal-route-list strong { font-size: .9rem; }
+.cal-route-list small { color: var(--cal-muted); font-size: .77rem; }
+.cal-checkpoint-heading { display: grid; gap: .5rem; }
+.cal-checkpoint-heading > span { color: var(--cal-blue); font-size: .8rem; font-weight: 650; }
+.cal-checkpoint-heading h2 { font-size: clamp(1.2rem, 2vw, 1.65rem); line-height: 1.2; font-weight: 700; }
+.cal-checkpoint-heading p { max-width: 65ch; }
+.cal-technical { margin-top: .85rem; border-top: 1px solid var(--cal-line); padding-top: .7rem; }
+.cal-detail summary, .cal-monitor summary { cursor: pointer; color: #bed4e2; font-size: .88rem; }
+.cal-technical[open] > summary { margin-bottom: .85rem; }
+.cal-friction-map { display: grid; gap: .4rem; padding: .85rem; border: 1px solid var(--cal-line); border-radius: 10px; background: #09151e; }
+.cal-friction-map figcaption { display: flex; flex-wrap: wrap; align-items: baseline; gap: .3rem .7rem; }
+.cal-friction-map figcaption span { color: var(--cal-muted); font-size: .8rem; }
+.cal-track-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); gap: .5rem; font-size: .8rem; }
+.cal-track-legend > div { display: grid; gap: .1rem; border-top: 1px solid var(--cal-line); padding-top: .4rem; }
+.cal-track-legend small { color: var(--cal-muted); }
+.cal-friction-map .cal-track-advisory { color: #f3cf93; }
+.cal-stage-select { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin: .65rem 0; }
+.cal-stage-select select { max-width: 100%; border: 1px solid #395465; border-radius: 6px; padding: .4rem .6rem; background: #08141b; color: #ebf7ff; }
+.cal-limit-proposal { border-inline-start: 3px solid #dfab56; background: #30281e; color: #f7e5bc; padding: .65rem .9rem; }
+.cal-previous-attempt { margin-top: .65rem; color: #f4c4b7; font-size: .88rem; }
+.cal-setup-complete { display: grid; gap: .45rem; border-color: #377565; }
+.cal-setup-complete h2 { color: #9be5c6; font-size: 1.2rem; font-weight: 700; }
+.cal-setup-complete .cal-link { justify-self: start; }
+@media (min-width: 1180px) { .cal-scenarios { grid-template-columns: repeat(7, minmax(0, 1fr)); } }
+.cal-fault { display: grid; gap: .65rem; }
+.cal-fault select { display: block; margin-top: .25rem; }
+.cal-fault-limits, .cal-fault-trace figcaption, .cal-fault-cursor { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem 1rem; }
+.cal-fault-trace { display: grid; gap: .4rem; border: 1px solid var(--cal-line); background: #0b1922; padding: .8rem; border-radius: 10px; font-variant-numeric: tabular-nums; }
+.cal-fault-trace svg { width: 100%; height: 8rem; }
+.cal-fault-trace figcaption i { display: inline-block; width: 1.15rem; vertical-align: middle; }
+.cal-fault-aligned { border-top: 2px solid #73d2fb; }
+.cal-fault-raw { border-top: 3px dashed #f5bf7e; }
+.cal-fault-cursor input { flex: 1; min-width: 8rem; accent-color: var(--cal-blue); }
+.cal-fault-limits, .cal-fault-cursor { font-size: .84rem; color: var(--cal-muted); }
+.cal-fault-outcome { border-left: 3px solid var(--cal-blue); padding-left: .65rem; }
+@media (max-width: 580px) {
+  .cal-scenarios { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cal-procedures { max-height: 15rem; }
+  .cal-route-list { max-height: 12rem; }
+  .cal-plot-legend { font-size: .8rem; }
+}

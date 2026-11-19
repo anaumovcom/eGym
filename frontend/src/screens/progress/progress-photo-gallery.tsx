@@ -82,7 +82,7 @@ export function ProgressPhotoGallery({ photos, loading, error, onRetry, onPhoto,
     {loading ? <div className="photo-gallery-state" role="status">Загрузка фотографий…</div> : error ? <div className="photo-gallery-state" role="alert"><ImageOff aria-hidden="true" /><h3>Не удалось загрузить фотографии</h3><Button variant="secondary" onClick={onRetry}>Повторить</Button></div> : groups.length ? <>
       <PhotoStats groups={groups} onPhoto={onPhoto} />
       {mode === 'progress' ? <PhotoCompare photos={photos} measurements={measurements} onPhoto={onPhoto} /> : null}
-      <div className="photo-gallery-meta"><span>Все фото <b>{photos.length}</b><span className="photo-gallery-meta-divider" /> По дате · сначала новые</span>{mode === 'progress' ? <Link to="/profile?tab=photo">Управление снимками <ChevronRight aria-hidden="true" /></Link> : <Link to="/progress?tab=photo">Сравнить до и после <ChevronRight aria-hidden="true" /></Link>}</div>
+      <div className="photo-gallery-meta"><div><h3>Все фото <b>{photos.length}</b></h3><small>По дате · сначала новые</small></div>{mode === 'progress' ? <Link to="/profile?tab=photo">Управление снимками <ChevronRight aria-hidden="true" /></Link> : <Link to="/progress?tab=photo">Сравнить до и после <ChevronRight aria-hidden="true" /></Link>}</div>
       <div className="photo-gallery-timeline">{groups.map((group, groupIndex) => <section className="photo-gallery-session" key={group.day} aria-label={group.date}>
         <header className="photo-gallery-date"><div><CalendarDays aria-hidden="true" /><h3>{group.date}</h3>{groupIndex === 0 ? <span className="photo-gallery-latest">Последняя съёмка</span> : null}</div><span>{group.count} фото</span></header>
         {group.rows.map((row, rowIndex) => <div className="photo-gallery-grid" key={rowIndex}>{photoViews.map((view, index) => {
@@ -103,7 +103,7 @@ export function ProgressPhotoGallery({ photos, loading, error, onRetry, onPhoto,
       <Dialog.Title>Удалить фото?</Dialog.Title>
       <Dialog.Description>{deleteTarget ? `${photoViews.find((view) => view.id === deleteTarget.view)!.label} · ${dateFormat.format(new Date(deleteTarget.takenAt))}. ` : ''}Снимок будет удалён из галереи и профиля. Остальные фото сохранятся.</Dialog.Description>
       {deleteError ? <p role="alert">{deleteError}</p> : null}
-      <div className="photo-gallery-delete-actions"><Dialog.Close asChild><Button ref={cancelDeleteRef} variant="secondary" disabled={deleting}>Отмена</Button></Dialog.Close><Button className="photo-gallery-delete-confirm" iconLeft={<Trash2 aria-hidden="true" />} disabled={deleting} onClick={() => void confirmDelete()}>{deleting ? 'Удаление…' : 'Удалить фото'}</Button></div>
+      <div className="photo-gallery-delete-actions"><Dialog.Close asChild><Button ref={cancelDeleteRef} variant="secondary" disabled={deleting}>Отмена</Button></Dialog.Close><Button variant="danger" className="photo-gallery-delete-confirm" iconLeft={<Trash2 aria-hidden="true" />} disabled={deleting} onClick={() => void confirmDelete()}>{deleting ? 'Удаление…' : 'Удалить фото'}</Button></div>
     </SafetyDialogContent></Dialog.Portal></Dialog.Root>
   </section>
 }

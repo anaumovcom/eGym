@@ -282,7 +282,9 @@ describe('ExerciseSetupScreen', () => {
 
     renderScreen()
 
-    expect(await screen.findByRole('heading', { name: 'Настройка упражнения' })).toBeVisible()
+    const heading = await screen.findByRole('heading', { level: 1 })
+    expect(heading).toHaveTextContent(useRuntimeStore.getState().session!.exercises[0].name)
+    expect(screen.getByText('Настройка упражнения')).toBeVisible()
     expect(await screen.findByRole('button', { name: 'Запустить упражнение' })).toBeEnabled()
     expect(useRuntimeStore.getState().session?.view).toBe('exercise-setup')
     expect(navigateMock).not.toHaveBeenCalled()
@@ -404,9 +406,13 @@ describe('ExerciseSetupScreen', () => {
 
     const { container } = renderScreen()
     await waitFor(() => expect([...container.querySelectorAll('.rt-setup-media video source')].map((node) => node.getAttribute('src'))).toEqual([sideUrl, frontUrl]))
-    const media = container.querySelector('.rt-setup-media')
+    const media = screen.getByRole('region', { name: 'Техника движения', exact: true })
     expect(media).toHaveAttribute('data-video-count', '2')
-    expect(media?.querySelectorAll(':scope > .rt-media')).toHaveLength(2)
+    expect(media.querySelectorAll(':scope > .rt-media')).toHaveLength(2)
+    for (const angle of ['Мужчина · Сбоку', 'Мужчина · Спереди']) {
+      expect(within(media).getByLabelText(angle, { selector: 'video' })).toBeInTheDocument()
+      expect(within(media).queryByText(angle)).not.toBeInTheDocument()
+    }
     expect(screen.getByRole('region', { name: 'Настройка грифа', exact: true })).toBeVisible()
   })
 

@@ -89,8 +89,6 @@ export function TodayWorkoutScreen() {
       current
         ? {
             ...current,
-            id: details.slug,
-            ...current,
             slug: details.slug,
             name: details.name,
             muscles: primaryMuscles.join(', '),

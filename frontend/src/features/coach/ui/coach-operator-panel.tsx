@@ -8,7 +8,7 @@ const checkLabels: Readonly<Record<string, string>> = {
 }
 const PROVIDERS: readonly CredentialProvider[] = ['openai', 'fish']
 const PROVIDER_LABELS: Record<CredentialProvider, { name: string; placeholder: string; hint: string }> = {
-  openai: { name: 'OpenAI', placeholder: 'sk-…', hint: 'Обязателен: текст тренера и голоса OpenAI.' },
+  openai: { name: 'OpenAI', placeholder: 'sk-…', hint: 'Нужен для платной подготовки пакетов на сервере. Для скачивания и воспроизведения готовых записей ключ не нужен.' },
   fish: { name: 'Fish Audio', placeholder: 'ключ fish.audio', hint: 'Нужен только для голосовой модели Fish Audio Drama 3.' },
 }
 type ByProvider<T> = Record<CredentialProvider, T>
@@ -17,7 +17,7 @@ const NO_KEYS: ByProvider<string> = { openai: '', fish: '' }
 /** The single next action for the operator, so the panel reads as a short checklist. */
 function nextStep(credential: CredentialStatus): string {
   if (!credential.configured) return 'Шаг 1 из 3: вставьте API-ключ OpenAI (начинается с sk-) и нажмите «Сохранить ключ».'
-  if (credential.lastCheckStatus === 'auth_ok_models_not_verified') return 'Готово. Шаг 3 из 3: выше включите оба согласия и «Включить AI-тренера», выберите режим «Гибридный (сеть)» и нажмите «Сохранить настройки тренера».'
+  if (credential.lastCheckStatus === 'auth_ok_models_not_verified') return 'Шаг 3 из 3: выберите и сохраните голос. Нажмите «Скачать голосовой пакет». Создание или замена записей оплачиваются только при явном подтверждении.'
   if (credential.lastCheckStatus === 'auth_failed') return 'Провайдер не принял ключ: вставьте другой ключ и сохраните его.'
   if (credential.lastCheckStatus === 'provider_unavailable') return 'Провайдер не ответил: проверьте интернет и повторите проверку.'
   return 'Шаг 2 из 3: нажмите «Проверить ключ» — это бесплатно, генерация не запускается.'
@@ -159,16 +159,17 @@ export function CoachOperatorPanel({ epoch }: { epoch: number }) {
     </div>
   }
   return <section aria-label="Оператор Coach" className="rounded-2xl border border-white/10 bg-black/10 p-5">
-    <h3 className="text-lg font-semibold">Доступ к провайдеру</h3>
+    <h3 className="text-lg font-semibold">Доступ оператора</h3>
     <p className="mt-2 text-sm text-muted-foreground">Только оператор сервера. Не пользовательский PIN. Серверная HttpOnly cookie-сессия: 15 минут. Ключ хранится только в server vault.</p>
     {message && <p role="status" className="mt-3 text-sm">{message}</p>}
     {!session ? <p className="mt-3">{busy ? 'Проверяем доступ…' : 'Настройте операторский доступ и защищённый vault на сервере, затем откройте панель снова. Локального хранения ключа нет.'}</p> :
-      !session.setupAvailable ? <p className="mt-3">Настройте пароль оператора и защищённый vault на сервере. Plaintext fallback не поддерживается.</p> :
+      !session.setupAvailable ? <p className="mt-3">Для замены общих записей настройте пароль оператора на сервере. Хранилище API-ключей нужно только для платных голосов.</p> :
       !session.authorized ? <form className="mt-4 flex flex-wrap items-end gap-3" onSubmit={event => { event.preventDefault(); void login() }}>
         <label className="grid gap-2 text-sm">Пароль оператора<input aria-label="Пароль оператора" className="rt-input" type="password" autoComplete="off" maxLength={256} value={password} disabled={busy} onChange={event => setPassword(event.target.value)} /></label>
         <button className="rt-button" type="submit" disabled={busy || !password}>Войти как оператор</button>
       </form> : <div className="mt-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><span>Оператор авторизован</span><button className="rt-button" type="button" onClick={() => { void logout() }}>Выйти из оператора</button></div>
+        <p className="text-sm text-muted-foreground">Базовый русский голос можно перезаписывать без API-ключей. Для него достаточно этого входа.</p>
         {PROVIDERS.map(credentialBlock)}
       </div>}
   </section>

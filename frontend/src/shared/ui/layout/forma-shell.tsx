@@ -1,10 +1,9 @@
 import * as Popover from '@radix-ui/react-popover'
-import { Activity, CalendarDays, CircleAlert, CircleCheck, CircleX, Cpu, Dumbbell, House, ListChecks, OctagonAlert, RotateCcw, Settings, TrendingUp, UserRound } from 'lucide-react'
-import { useEffect, useState, type PropsWithChildren, type ReactNode } from 'react'
+import { Activity, CalendarDays, CircleAlert, CircleCheck, CircleX, Cpu, Dumbbell, House, ListChecks, OctagonAlert, RotateCcw, Settings, TrendingUp, Trophy, UserRound } from 'lucide-react'
+import { useEffect, useLayoutEffect, useRef, useState, type PropsWithChildren, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { NavLink } from 'react-router-dom'
 import { CoachMiniDebug } from '@/features/coach/ui/coach-mini-debug'
-import { CoachScenarioPicker } from '@/features/coach/ui/coach-scenario-picker'
 import { localAudioRuntime } from '@/features/coach/audio/local-audio-runtime'
 import { startCoachLiveRuntime } from '@/features/coach/live/coach-live-runtime'
 import { useAppStore } from '@/stores/app-store'
@@ -22,6 +21,7 @@ const navigationIcons = {
   '/catalog': Dumbbell,
   '/calendar': CalendarDays,
   '/progress': TrendingUp,
+  '/achievements': Trophy,
   '/fatigue': Activity,
 }
 
@@ -97,66 +97,58 @@ export function TopNavigationMenu({ userName, systemBar }: { userName: string; s
   const [profileMenuOpen, setProfileMenuOpen] = useState(false)
 
   return (
-    <header className="forma-navigation forma-header glass-panel rounded-[28px] p-3">
-      <div className="forma-header-brand flex items-center gap-3">
-        <div aria-hidden="true" className="flex h-12 w-12 items-center justify-center rounded-2xl bg-linear-to-br from-[#edcb86] to-[#9b6f22] text-2xl font-black text-[#100a00]">
-          F
+    <div className="forma-menu-band">
+      <header className="forma-navigation forma-header">
+        <div className="forma-header-brand flex items-center">
+          <div aria-hidden="true" className="forma-brand-mark flex items-center justify-center font-black">F</div>
+          <div className="forma-header-wordmark font-display font-bold tracking-[-0.04em]">Forma</div>
         </div>
-        <div className="forma-header-wordmark font-display text-[32px] font-bold tracking-[-0.04em] text-[#f4dfb4]">Forma</div>
-      </div>
+        <nav aria-label="Основная навигация" className="forma-header-nav">
+          {navigationItems.map((item) => {
+            const Icon = navigationIcons[item.path]
 
-      <nav aria-label="Основная навигация" className="forma-header-nav flex flex-wrap justify-center gap-2">
-        {navigationItems.map((item) => {
-          const Icon = navigationIcons[item.path]
-
-          return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              title={item.label}
-              className={({ isActive }) =>
-                cn(
-                  'flex min-h-14 items-center gap-3 rounded-2xl border px-4 text-base font-medium transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f4dfb4]',
-                  isActive
-                    ? 'border-[#d9ba71]/60 bg-[#d9ba71]/8 text-white shadow-[0_0_0_1px_rgba(217,186,113,0.1)]'
-                    : 'border-transparent bg-transparent text-white/65 hover:border-white/10 hover:bg-white/4 hover:text-white',
-                )
-              }
-            >
-              <Icon className="h-5 w-5" aria-hidden="true" />
-              <span className="forma-nav-label">{item.label}</span>
-            </NavLink>
-          )
-        })}
-      </nav>
-      <div className="forma-header-side">
-        <Popover.Root open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
-          <Popover.Trigger asChild>
-            <button type="button" aria-label={`Меню профиля: ${userName}`} className="flex min-h-14 items-center gap-3 rounded-2xl border border-white/15 px-3 text-white hover:bg-white/6 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#f4dfb4]">
-              <span aria-hidden="true" className="flex h-10 w-10 items-center justify-center rounded-full bg-[#d6b05f]/20 text-xl font-bold text-[#f4dfb4]">{userName.trim().charAt(0)}</span>
-            </button>
-          </Popover.Trigger>
-          <Popover.Portal>
-            <Popover.Content aria-label="Профиль и настройки" align="end" sideOffset={12} className="z-40 w-72 rounded-2xl border border-white/15 bg-[#111925] p-3 text-white shadow-2xl">
-              <div className="px-4 py-3 text-lg font-semibold">{userName}</div>
-              <nav aria-label="Меню пользователя" className="space-y-2">
-                {[
-                  { path: '/profile', label: 'Профиль', icon: UserRound },
-                  { path: '/settings', label: 'Настройки', icon: Settings },
-                  { path: '/modbus', label: 'Modbus', icon: Cpu },
-                ].map((item) => (
-                  <NavLink key={item.path} to={item.path} onClick={() => setProfileMenuOpen(false)} className="flex min-h-14 items-center gap-3 rounded-xl px-4 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-[#f4dfb4]">
-                    <item.icon className="h-5 w-5" aria-hidden="true" />
-                    {item.label}
-                  </NavLink>
-                ))}
-              </nav>
-            </Popover.Content>
-          </Popover.Portal>
-        </Popover.Root>
-        {systemBar}
-      </div>
-    </header>
+            return (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                title={item.label}
+                className="flex items-center font-medium transition"
+              >
+                <Icon className="h-5 w-5" aria-hidden="true" />
+                <span className="forma-nav-label">{item.label}</span>
+              </NavLink>
+            )
+          })}
+        </nav>
+        <div className="forma-header-side">
+          <Popover.Root open={profileMenuOpen} onOpenChange={setProfileMenuOpen}>
+            <Popover.Trigger asChild>
+              <button type="button" aria-label={`Меню профиля: ${userName}`} className="forma-profile-trigger flex items-center border text-white hover:bg-white/6">
+                <span aria-hidden="true" className="forma-profile-avatar flex items-center justify-center rounded-full font-bold">{userName.trim().charAt(0)}</span>
+              </button>
+            </Popover.Trigger>
+            <Popover.Portal>
+              <Popover.Content aria-label="Профиль и настройки" align="end" sideOffset={12} className="forma-system-popover z-40 w-72 rounded-2xl border border-white/15 bg-[#111925] p-3 text-white shadow-2xl">
+                <div className="px-4 py-3 text-lg font-semibold">{userName}</div>
+                <nav aria-label="Меню пользователя" className="space-y-2">
+                  {[
+                    { path: '/profile', label: 'Профиль', icon: UserRound },
+                    { path: '/settings', label: 'Настройки', icon: Settings },
+                    { path: '/modbus', label: 'Modbus', icon: Cpu },
+                  ].map((item) => (
+                    <NavLink key={item.path} to={item.path} onClick={() => setProfileMenuOpen(false)} className="flex min-h-14 items-center gap-3 rounded-xl px-4 hover:bg-white/8 focus-visible:outline-2 focus-visible:outline-[#f4dfb4]">
+                      <item.icon className="h-5 w-5" aria-hidden="true" />
+                      {item.label}
+                    </NavLink>
+                  ))}
+                </nav>
+              </Popover.Content>
+            </Popover.Portal>
+          </Popover.Root>
+          {systemBar}
+        </div>
+      </header>
+    </div>
   )
 }
 
@@ -181,12 +173,18 @@ export function ResetBlockButton({ machine }: { machine?: MachineHealth }) {
   const snapshot = useHardwareStore((state) => state.snapshot)
   const setEmergencyStopActive = useAppStore((state) => state.setEmergencyStopActive)
   const [pending, setPending] = useState(false)
-  // A physical panel may confirm clear_stop later via telemetry, after the command returned pending.
+  const safetyState = snapshot?.safety.state
+  const hardwareStopped = safetyState === 'emergency_stop' || snapshot?.control?.mode === 'estop'
+  const observedStop = useRef(hardwareStopped)
+  // The dock remounts inside dialogs. Only a confirmed stop-to-ready transition dismisses the overlay.
   useEffect(() => {
-    if (snapshot?.safety.state === 'enabled' && snapshot.control?.mode !== 'estop') {
+    if (hardwareStopped) {
+      observedStop.current = true
+    } else if (observedStop.current && safetyState === 'enabled') {
+      observedStop.current = false
       setEmergencyStopActive(false)
     }
-  }, [snapshot?.safety.state, snapshot?.control?.mode, setEmergencyStopActive])
+  }, [hardwareStopped, safetyState, setEmergencyStopActive])
   const blocked = machine?.machineState === 'blocked' || machine?.safety === 'emergency_stop' || machine?.leftDrive === 'error' || machine?.rightDrive === 'error'
   if (!blocked) return null
 
@@ -198,8 +196,7 @@ export function ResetBlockButton({ machine }: { machine?: MachineHealth }) {
       title="Снять СТОП и сбросить ошибку приводов, блокирующую тренажёр"
       onClick={() => {
         setPending(true)
-        const emergencyStop = machine?.safety === 'emergency_stop'
-          || snapshot?.safety.state === 'emergency_stop' || snapshot?.control?.mode === 'estop'
+        const emergencyStop = machine?.safety === 'emergency_stop' || hardwareStopped
         // E-stop has a separate guarded clear path; reset_fault intentionally refuses an active STOP.
         void runCommand({ action: emergencyStop ? 'clear_emergency_stop' : 'reset_fault' })
           .then((response) => {
@@ -261,7 +258,6 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
   const dock = (
     <div role="group" className="forma-system-dock" style={{ pointerEvents: 'auto' }} aria-label="Состояние тренажёра и безопасность">
       <CoachMiniDebug />
-      <CoachScenarioPicker />
       <MotorForceReadout />
       <DisableServiceModeButton />
       <ResetBlockButton machine={machine} />
@@ -274,7 +270,7 @@ export function TopSystemBar({ machine, onStop }: { machine?: MachineHealth; onS
             </button>
           </Popover.Trigger>
           <Popover.Portal container={target ?? undefined}>
-            <Popover.Content side="bottom" align="end" sideOffset={12} className="z-[110] max-h-[50vh] w-[min(90vw,32rem)] overflow-auto rounded-2xl border border-white/15 bg-[#111925] p-5 text-white shadow-2xl">
+            <Popover.Content side="bottom" align="end" sideOffset={12} className="forma-system-popover z-[110] max-h-[50vh] w-[min(90vw,32rem)] overflow-auto rounded-2xl border border-white/15 bg-[#111925] p-5 text-white shadow-2xl">
               <div className="font-semibold">Состояние тренажёра</div>
               {connectionLost ? <p className="mt-3 text-sm text-amber-500">Нет связи. Последние полученные данные могут быть неактуальны.</p> : null}
               <ul className="mt-3 space-y-3 text-sm">
@@ -303,6 +299,7 @@ export function EmergencyStopButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
+      aria-label="Аварийная остановка"
       onClick={onClick}
       className="forma-stop inline-flex items-center justify-center gap-2 bg-linear-to-r from-[#891610] via-[#d52f22] to-[#a61612] font-extrabold text-white"
     >
@@ -312,12 +309,22 @@ export function EmergencyStopButton({ onClick }: { onClick: () => void }) {
   )
 }
 
-export function FormaShell({ children, userName, machine, onStop, hideNavigation = false }: PropsWithChildren<{ userName: string; machine: MachineHealth; onStop: () => void; hideNavigation?: boolean }>) {
+export function FormaShell({ children, userName, machine, onStop, hideNavigation = false, legacy = false }: PropsWithChildren<{ userName: string; machine: MachineHealth; onStop: () => void; hideNavigation?: boolean; legacy?: boolean }>) {
+  useLayoutEffect(() => {
+    const root = document.documentElement
+    const previous = root.getAttribute('data-forma-theme')
+    if (legacy) root.removeAttribute('data-forma-theme')
+    else root.setAttribute('data-forma-theme', 'broadcast-blue')
+    return () => {
+      if (previous === null) root.removeAttribute('data-forma-theme')
+      else root.setAttribute('data-forma-theme', previous)
+    }
+  }, [legacy])
   const liveMachine = useHardwareStore((state) => state.snapshot?.machine)
   const systemBar = <TopSystemBar machine={liveMachine ?? machine} onStop={onStop} />
 
   return (
-    <div className="forma-shell">
+    <div className={cn('forma-shell', !hideNavigation && 'forma-shell-with-menu')}>
       {hideNavigation
         ? <header className="forma-navigation forma-navigation-compact">{systemBar}</header>
         : <TopNavigationMenu key={userName} userName={userName} systemBar={systemBar} />}

@@ -1,0 +1,49 @@
+.drive-transport-form { display: grid; gap: 1rem; max-width: 62rem; }
+.drive-transport-form fieldset { display: grid; gap: .85rem; min-width: 0; border: 1px solid var(--mb-line); background: #0c1822; border-radius: 12px; padding: 1.1rem 1.4rem 1.3rem; }
+.drive-transport-form legend { padding-inline: .4rem; font-weight: 700; }
+.drive-transport-form label { display: grid; gap: .35rem; color: #dbe7ef; }
+.drive-transport-form :is(select, input) { min-height: 44px; width: 100%; padding: .5rem .7rem; border: 1px solid #405666; border-radius: 7px; background: #081219; color: #edf7ff; }
+.drive-transport-form .mb-field-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.drive-transport-form .mb-mode-pair { grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
+.modbus-console .drive-transport-heading { padding-block: .8rem; }
+.drive-transport-form .mb-apply { display: flex; align-items: center; gap: 1rem; }
+.drive-transport-form .mb-apply button { flex: 0 0 auto; white-space: nowrap; }
+.can-wiring summary { min-height: 44px; align-content: center; cursor: pointer; color: var(--mb-blue); }
+.can-wiring p { margin: .3rem 0; }
+.drive-transport-form .mb-hint { color: var(--mb-muted); font-size: .88rem; }
+.drive-transport-form a { color: var(--mb-blue); }
+.drive-transport-form .mb-error { color: #ffb1a8; }
+.drive-transport-layout { display: grid; grid-template-columns: minmax(0, 62rem) minmax(0, 1fr); gap: 1.2rem; align-items: start; }
+.drive-transport-feedback { display: grid; gap: .8rem; }
+.drive-transport-feedback section, .drive-transport-feedback > p { padding: 1rem; border: 1px solid var(--mb-line); background: #0c1822; border-radius: 12px; }
+.drive-transport-feedback > p { color: #ffd28a; overflow-wrap: anywhere; }
+.drive-transport-feedback h2 { font-weight: 700; margin-bottom: .8rem; }
+.drive-transport-feedback dl div { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; padding-block: .25rem; }
+.drive-transport-feedback dt { color: var(--mb-muted); }
+.drive-transport-feedback dd { font-variant-numeric: tabular-nums; }
+.drive-transport-layout:has(.can-diag) { grid-template-columns: minmax(30rem, .8fr) minmax(0, 1.7fr); }
+.can-diag { min-width: 0; font-size: .92rem; line-height: 1.35; }
+.can-section-head, .can-tabs { display: flex; gap: .6rem; align-items: center; }
+.can-section-head { justify-content: space-between; }
+.can-diag .can-section-head h2 { margin: 0; }
+.can-diag :is(button, select) { min-height: 44px; color: #dbe7ef; background: #102330; border: 1px solid #405666; border-radius: 7px; padding: .45rem .8rem; }
+.can-diag button[aria-pressed="true"] { border-color: var(--mb-blue); color: #e8f7ff; background: #17405a; }
+.can-summary, .can-axes { display: grid; gap: .75rem; }
+.can-summary { grid-template-columns: 1fr .85fr 1.7fr; }
+.can-summary > div { display: grid; align-content: start; gap: .2rem; padding: .65rem .85rem; border-left: 3px solid #3e718a; background: #0e202c; }
+.can-summary small, .can-diag th, .can-note, .can-diag td small { color: var(--mb-muted); }
+.can-axes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.can-axes dl div { gap: .65rem; border-top: 1px solid #243744; padding: .18rem 0; }
+.can-axes dd { text-align: right; }
+.can-diag .can-note { font-size: .86rem; margin: .5rem 0 0; }
+.can-diag > .can-note { background: transparent; border: 0; padding: 0; color: var(--mb-muted); }
+.can-diag .can-issue { color: #ffd28a; margin-top: .4rem; }
+.can-select { display: flex; align-items: center; gap: 1rem; }
+.can-table-scroll { max-height: 40vh; overflow: auto; margin-top: .7rem; }
+.can-diag table { width: 100%; border-collapse: collapse; text-align: left; font-variant-numeric: tabular-nums; }
+.can-diag thead { position: sticky; top: 0; background: #142733; }
+.can-diag td, .can-diag th { padding: .45rem .55rem; border-bottom: 1px solid #263c49; }
+.can-diag td small { display: block; }
+.can-diag code { white-space: nowrap; }
+.can-link-detail p + p { margin-top: .4rem; }
+.can-diag .can-link-detail h2 { margin-bottom: .3rem; }

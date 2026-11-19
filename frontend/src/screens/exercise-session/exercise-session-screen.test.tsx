@@ -416,6 +416,30 @@ describe('ExerciseSessionScreen', () => {
     expect(within(rail).getByLabelText('Гриф · 295 мм')).toBeInTheDocument()
   })
 
+  it('does not invent a range or metrics for a disconnected trainer', () => {
+    renderScreen()
+
+    expect(screen.queryByRole('region', { name: 'Положение грифа' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Показатели подхода' })).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Повторы' })).toBeEnabled()
+  })
+
+  it('shows saved boundaries without presenting the calibration zero as live position', () => {
+    useHardwareStore.setState({ currentCalibration: {
+      id: 9, userId: 'alexey', exerciseSlug: 'barbell-floor-press', setupType: 'bar_range',
+      lowerPointMm: 550, upperPointMm: 945, fixedPositionMm: null,
+      zeroPositionMm: 747, movementRangeConfirmed: true, calibrationRequired: true,
+      isActive: true, capturedAt: new Date().toISOString(), expiresAt: null,
+    } })
+    renderScreen()
+
+    const rail = within(screen.getByRole('region', { name: 'Положение грифа' }))
+    expect(rail.getByLabelText('Низ · 550 мм')).toBeInTheDocument()
+    expect(rail.getByLabelText('Верх · 945 мм')).toBeInTheDocument()
+    expect(rail.getByText('Нет сигнала положения')).toBeInTheDocument()
+    expect(rail.queryByLabelText(/Гриф ·/)).not.toBeInTheDocument()
+  })
+
   it('shows weight and live bar telemetry for a zero-weight machine exercise', () => {
     const slug = 'smith-machine-close-grip-bench-press'
     currentSearch = `?source=catalog&slug=${slug}`
@@ -434,7 +458,10 @@ describe('ExerciseSessionScreen', () => {
 
     expect(screen.getByRole('group', { name: 'Вес' })).toBeInTheDocument()
     expect(within(screen.getByRole('region', { name: 'Положение грифа' })).getByLabelText('Гриф · 450 мм')).toBeInTheDocument()
-    expect(screen.getByText('450 мм')).toBeInTheDocument()
+    const metrics = within(screen.getByRole('group', { name: 'Показатели подхода' }))
+    expect(metrics.getByText('40%')).toBeInTheDocument()
+    expect(metrics.queryByText('450 мм')).not.toBeInTheDocument()
+    expect(metrics.queryByText('Темп')).not.toBeInTheDocument()
   })
 
   it('connects endpoint positions and runtime problems to event sounds independently of rep counting', () => {

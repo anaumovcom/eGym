@@ -4,7 +4,8 @@ import type { RuntimeWorkoutSession } from '@/entities/runtime/model/types'
 import { coachRunId, type CoachSource } from '../model/contracts'
 import { CoachLifecycleObserver, type LifecycleContext, type LifecycleVersions } from './lifecycle-observer'
 
-export const isCoachFoundationEnabled = () => import.meta.env.VITE_COACH_ENABLED === 'true'
+// Local-only playback is available unless the build explicitly disables the feature.
+export const isCoachFoundationEnabled = () => import.meta.env.VITE_COACH_ENABLED === undefined || import.meta.env.VITE_COACH_ENABLED === 'true'
 let scopeEpoch = 0
 let readLifecycleVersions: (current: LifecycleContext) => LifecycleVersions | null = () => null
 /** Registers a coach-only, synchronous read. No workout writes or async capture. */

@@ -1,6 +1,6 @@
 import * as Dialog from '@radix-ui/react-dialog'
 import { CalendarDays, ChevronRight, CircleAlert, Dumbbell, Flame, Grid2x2, List, LoaderCircle, Play, Search, ShieldAlert, Star, X } from 'lucide-react'
-import { memo, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import type { ExerciseDetails, ExerciseLoadSettings, ExerciseSummary } from '@/entities/exercise/model/types'
 import type { MuscleCard } from '@/entities/muscle/model/types'
 import type { ProgramDetails, ProgramSummary } from '@/entities/program/model/types'
@@ -10,6 +10,9 @@ import { cn } from '@/shared/lib/cn'
 import { SECONDS_STEP, WEIGHT_STEP_KG } from '@/shared/lib/value-steps'
 import { Button } from '@/shared/ui/button'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
+import { fatigueColors, muscleHeatOpacity } from '@/shared/ui/stage4/fatigue-appearance'
+import { useBodyFigure, type FigureGender as CompactFigureGender } from '@/shared/ui/stage4/use-body-figure'
+import { useMuscleHover } from '@/shared/ui/stage4/use-muscle-hover'
 import { resolveSvgIdsForBodyMapLabel, svgIdsByView, type BodyMapView } from '@/shared/ui/stage4/fatigue-muscle-map'
 
 const toneClasses = {
@@ -28,35 +31,22 @@ const muscleDotClasses: Record<MuscleCard['status'], string> = {
   no_data: 'bg-[#677084]',
 }
 
-type CompactFigureGender = 'male' | 'female'
 type CompactMapTone = MuscleCard['status'] | 'primary' | 'secondary' | 'stabilizer'
-type CompactMapHighlight = { label: string; tone: CompactMapTone; description?: string }
-export type CompactBodyMapHover = { label: string; tone: CompactMapTone; anchor?: { top: number; left: number } }
-
-const compactInlineSvgCache = new Map<string, string>()
+type CompactMapHighlight = { label: string; tone: CompactMapTone; score?: number; description?: string }
+export type CompactBodyMapHover = { label: string; tone: CompactMapTone; anchor?: Pick<DOMRect, 'top' | 'bottom'> }
 
 const compactToneColors: Record<CompactMapTone, string> = {
   primary: '#d6b05f',
   secondary: '#8da4c8',
   stabilizer: '#7fae90',
-  ready: '#57c968',
-  light: '#a6d94f',
-  medium: '#f0bf43',
-  high: '#f08b2e',
-  critical: '#eb5345',
-  no_data: '#667287',
+  ...fatigueColors,
 }
 
 const compactToneHoverColors: Record<CompactMapTone, string> = {
   primary: '#e4c980',
   secondary: '#a9bcda',
   stabilizer: '#97c3a7',
-  ready: '#78df84',
-  light: '#bae56c',
-  medium: '#f5cf67',
-  high: '#f5a04f',
-  critical: '#f07064',
-  no_data: '#7a869a',
+  ...fatigueColors,
 }
 
 const compactTonePriority: Record<CompactMapTone, number> = {
@@ -69,31 +59,6 @@ const compactTonePriority: Record<CompactMapTone, number> = {
   secondary: 3,
   stabilizer: 2,
   no_data: 1,
-}
-
-const compactSvgPathByGenderAndView: Record<CompactFigureGender, Record<BodyMapView, string>> = {
-  male: {
-    front: '/male-muscles-front.svg',
-    back: '/male-muscles-back.svg',
-  },
-  female: {
-    front: '/female-muscles-front.svg',
-    back: '/female-muscles-back.svg',
-  },
-}
-
-function prefixCompactSvgMarkup(svgMarkup: string, prefix: string) {
-  return svgMarkup
-    .replace(/\sclass="([^"]*)"/g, (_match, className: string) => {
-      const sanitizedClassName = className
-        .split(/\s+/)
-        .filter((token) => token && token !== 'bodymap' && !token.startsWith('text-mw-') && !token.startsWith('active:text-mw-') && !token.startsWith('lg:hover:text-mw-'))
-        .join(' ')
-
-      return sanitizedClassName ? ` class="${sanitizedClassName}"` : ''
-    })
-    .replace(/id="([^"]+)"/g, (_match, id: string) => `id="${prefix}${id}"`)
-    .replace(/url\(#([^\)]+)\)/g, (_match, id: string) => `url(#${prefix}${id})`)
 }
 
 function buildHighlightToneMap(highlights: CompactMapHighlight[]) {
@@ -123,12 +88,14 @@ function buildHighlightDataMap(highlights: CompactMapHighlight[]) {
   return bySvgId
 }
 
-function applyCompactHighlightStyle(element: SVGElement, tone: CompactMapTone | undefined, hovered = false) {
+function applyCompactHighlightStyle(element: SVGElement, tone: CompactMapTone | undefined, hovered = false, score?: number) {
   const hasTone = Boolean(tone)
 
   element.style.color = tone ? hovered ? compactToneHoverColors[tone] : compactToneColors[tone] : '#4f5867'
   element.style.opacity = hasTone ? '0.92' : '0.26'
-  element.style.filter = hasTone ? 'drop-shadow(0 0 10px rgba(214,176,95,0.16))' : 'none'
+  const fatigueTone = tone && tone !== 'primary' && tone !== 'secondary' && tone !== 'stabilizer'
+  if (fatigueTone) element.style.setProperty('--heat-opacity', String(muscleHeatOpacity(tone, score)))
+  element.style.filter = hasTone && !fatigueTone ? 'drop-shadow(0 0 10px rgba(214,176,95,0.16))' : 'none'
   element.style.transition = 'none'
   // Lets a map's stylesheet animate only the highlighted muscles.
   if (tone) element.setAttribute('data-map-tone', tone)
@@ -150,7 +117,7 @@ export function SectionIntro({ eyebrow, title, description, actions }: { eyebrow
 
 export function SearchField({ value, placeholder, onChange }: { value: string; placeholder: string; onChange: (value: string) => void }) {
   return (
-    <label className="flex min-h-14 items-center gap-3 rounded-[24px] border border-white/8 bg-[#0b0f15] px-4 text-white/70 focus-within:border-[#d6b05f]/45">
+    <label className="flex min-h-14 items-center gap-3 rounded-[24px] border border-white/8 bg-[#0b0f15] px-4 text-white/70 focus-within:border-[var(--broadcast-accent,#d6b05f)]/45">
       <Search className="h-5 w-5 text-white/35" />
       <input
         value={value}
@@ -170,7 +137,7 @@ export function FilterChip({ label, active, onClick }: { label: string; active?:
       className={cn(
         'inline-flex min-h-11 items-center rounded-2xl border px-4 text-sm font-medium transition',
         active
-          ? 'border-[#d6b05f]/50 bg-[#281e0f] text-[#f5d998]'
+          ? 'border-[var(--broadcast-accent,#d6b05f)]/50 bg-[var(--broadcast-accent-soft,#281e0f)] text-[var(--broadcast-accent-light,#f5d998)]'
           : 'border-white/8 bg-white/4 text-white/68 hover:border-white/14 hover:bg-white/6 hover:text-white',
       )}
     >
@@ -181,11 +148,11 @@ export function FilterChip({ label, active, onClick }: { label: string; active?:
 
 export function ViewModeToggle({ mode, onChange }: { mode: 'grid' | 'list'; onChange: (mode: 'grid' | 'list') => void }) {
   return (
-    <div className="inline-flex rounded-[22px] border border-[#d6b05f]/20 bg-white/4 p-1">
+    <div className="inline-flex rounded-[22px] border border-[var(--broadcast-accent,#d6b05f)]/20 bg-white/4 p-1">
       <button
         type="button"
         onClick={() => onChange('grid')}
-        className={cn('inline-flex min-h-11 items-center gap-2 rounded-[18px] px-4 text-sm transition', mode === 'grid' ? 'bg-[#3b2b11] text-[#f3d18b]' : 'text-white/58')}
+        className={cn('inline-flex min-h-11 items-center gap-2 rounded-[18px] px-4 text-sm transition', mode === 'grid' ? 'bg-[var(--broadcast-accent-soft,#3b2b11)] text-[var(--broadcast-accent-light,#f3d18b)]' : 'text-white/58')}
       >
         <Grid2x2 className="h-4 w-4" />
         Плитки
@@ -193,7 +160,7 @@ export function ViewModeToggle({ mode, onChange }: { mode: 'grid' | 'list'; onCh
       <button
         type="button"
         onClick={() => onChange('list')}
-        className={cn('inline-flex min-h-11 items-center gap-2 rounded-[18px] px-4 text-sm transition', mode === 'list' ? 'bg-[#3b2b11] text-[#f3d18b]' : 'text-white/58')}
+        className={cn('inline-flex min-h-11 items-center gap-2 rounded-[18px] px-4 text-sm transition', mode === 'list' ? 'bg-[var(--broadcast-accent-soft,#3b2b11)] text-[var(--broadcast-accent-light,#f3d18b)]' : 'text-white/58')}
       >
         <List className="h-4 w-4" />
         Список
@@ -445,7 +412,7 @@ function resolveExerciseVideoSequence(exercise: ExerciseDetails, preferredVideoG
   return sequence
 }
 
-export function ExercisePreviewCard({ exercise, onOpen, onFavorite }: { exercise: ExerciseSummary; onOpen?: () => void; onFavorite?: () => void }) {
+export function ExercisePreviewCard({ exercise, onOpen, onFavorite }: { exercise: ExerciseSummary; onOpen?: (event: MouseEvent<HTMLButtonElement>) => void; onFavorite?: () => void }) {
   return (
     <article className="catalog-card" aria-label={exercise.name}>
       <ExerciseMedia
@@ -586,7 +553,9 @@ export function MuscleStatusList({ muscles }: { muscles: MuscleCard[] }) {
 
 export const CompactBodyMapGrid = memo(function CompactBodyMapGrid({
   highlights,
-  figureGender = 'male',
+  figureGender,
+  portraitUserId,
+  onHighlightSelect,
   onHighlightHover,
   showFigureTitles = true,
   plainFigures = false,
@@ -596,6 +565,8 @@ export const CompactBodyMapGrid = memo(function CompactBodyMapGrid({
 }: {
   highlights: CompactMapHighlight[]
   figureGender?: CompactFigureGender
+  portraitUserId?: string | null
+  onHighlightSelect?: (label: string) => void
   onHighlightHover?: (highlight: CompactBodyMapHover | null) => void
   showFigureTitles?: boolean
   plainFigures?: boolean
@@ -608,13 +579,13 @@ export const CompactBodyMapGrid = memo(function CompactBodyMapGrid({
 
   return (
     <div className={cn('grid items-start gap-4 [grid-template-columns:repeat(auto-fit,minmax(220px,1fr))]', className)}>
-      <CompactBodyMapFigure title="Передняя цепь" view="front" figureGender={figureGender} highlightToneMap={highlightToneMap} highlightDataMap={highlightDataMap} onHighlightHover={onHighlightHover} showTitle={showFigureTitles} plain={plainFigures} containerClassName={figureContainerClassName} markupClassName={figureMarkupClassName} />
-      <CompactBodyMapFigure title="Задняя цепь" view="back" figureGender={figureGender} highlightToneMap={highlightToneMap} highlightDataMap={highlightDataMap} onHighlightHover={onHighlightHover} showTitle={showFigureTitles} plain={plainFigures} containerClassName={figureContainerClassName} markupClassName={figureMarkupClassName} />
+      <CompactBodyMapFigure title="Передняя цепь" view="front" figureGender={figureGender} portraitUserId={portraitUserId} highlightToneMap={highlightToneMap} highlightDataMap={highlightDataMap} onHighlightSelect={onHighlightSelect} onHighlightHover={onHighlightHover} showTitle={showFigureTitles} plain={plainFigures} containerClassName={figureContainerClassName} markupClassName={figureMarkupClassName} />
+      <CompactBodyMapFigure title="Задняя цепь" view="back" figureGender={figureGender} portraitUserId={portraitUserId} highlightToneMap={highlightToneMap} highlightDataMap={highlightDataMap} onHighlightSelect={onHighlightSelect} onHighlightHover={onHighlightHover} showTitle={showFigureTitles} plain={plainFigures} containerClassName={figureContainerClassName} markupClassName={figureMarkupClassName} />
     </div>
   )
 })
 
-export function MuscleMapCompact({ primary, secondary, stabilizers, figureGender = 'male' }: { primary: string[]; secondary: string[]; stabilizers: string[]; figureGender?: CompactFigureGender }) {
+export function MuscleMapCompact({ primary, secondary, stabilizers, figureGender }: { primary: string[]; secondary: string[]; stabilizers: string[]; figureGender?: CompactFigureGender }) {
   const highlights: CompactMapHighlight[] = [
     ...primary.map((label) => ({ label, tone: 'primary' as const })),
     ...secondary.map((label) => ({ label, tone: 'secondary' as const })),
@@ -638,7 +609,7 @@ export function MuscleMapCompact({ primary, secondary, stabilizers, figureGender
 
 export function CompactBodyMapMini({
   muscles,
-  figureGender = 'male',
+  figureGender,
   label = 'Мышцы упражнения',
   className,
   figureContainerClassName = 'h-[84px] p-0',
@@ -656,7 +627,7 @@ export function CompactBodyMapMini({
   const highlightToneMap = useMemo(() => buildHighlightToneMap(highlights), [highlights])
 
   return (
-    <div aria-label={label} className={cn('grid grid-cols-2 gap-1 rounded-[16px] border border-white/8 bg-[#0b1017] p-1', className)}>
+    <div aria-label={label} className={cn('muscle-map-mini grid grid-cols-2 gap-1 rounded-[16px] border border-white/8 bg-[#0b1017] p-1', className)}>
       <CompactBodyMapFigure title="Передняя цепь" view="front" figureGender={figureGender} highlightToneMap={highlightToneMap} highlightDataMap={highlightDataMap} showTitle={false} plain containerClassName={figureContainerClassName} markupClassName={figureMarkupClassName} />
       <CompactBodyMapFigure title="Задняя цепь" view="back" figureGender={figureGender} highlightToneMap={highlightToneMap} highlightDataMap={highlightDataMap} showTitle={false} plain containerClassName={figureContainerClassName} markupClassName={figureMarkupClassName} />
     </div>
@@ -685,6 +656,8 @@ function CompactBodyMapFigure({
   figureGender,
   highlightToneMap,
   highlightDataMap,
+  portraitUserId,
+  onHighlightSelect,
   onHighlightHover,
   showTitle = true,
   plain = false,
@@ -693,60 +666,20 @@ function CompactBodyMapFigure({
 }: {
   title: string
   view: BodyMapView
-  figureGender: CompactFigureGender
+  figureGender?: CompactFigureGender
   highlightToneMap: Map<string, CompactMapTone>
   highlightDataMap: Map<string, CompactMapHighlight>
+  portraitUserId?: string | null
+  onHighlightSelect?: (label: string) => void
   onHighlightHover?: (highlight: CompactBodyMapHover | null) => void
   showTitle?: boolean
   plain?: boolean
   containerClassName?: string
   markupClassName?: string
 }) {
-  const [markup, setMarkup] = useState<string | null>(null)
-  const [loadError, setLoadError] = useState(false)
-  const svgIdPrefix = `${useId().replace(/:/g, '')}-compact-`
+  const { markup, prefix: svgIdPrefix, loadError } = useBodyFigure(view, figureGender, portraitUserId)
+  const hoverHost = useMuscleHover<HTMLDivElement>()
   const containerId = `${svgIdPrefix}${view}`
-
-  useEffect(() => {
-    let cancelled = false
-    const svgPath = compactSvgPathByGenderAndView[figureGender][view]
-    const cachedMarkup = compactInlineSvgCache.get(svgPath)
-
-    if (cachedMarkup) {
-      setMarkup(prefixCompactSvgMarkup(cachedMarkup, svgIdPrefix))
-      setLoadError(false)
-      return () => {
-        cancelled = true
-      }
-    }
-
-    fetch(svgPath)
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error(`Unable to load ${svgPath}`)
-        }
-
-        return response.text()
-      })
-      .then((svgMarkup) => {
-        if (cancelled) {
-          return
-        }
-
-        compactInlineSvgCache.set(svgPath, svgMarkup)
-        setMarkup(prefixCompactSvgMarkup(svgMarkup, svgIdPrefix))
-        setLoadError(false)
-        })
-      .catch(() => {
-        if (!cancelled) {
-          setLoadError(true)
-        }
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [figureGender, svgIdPrefix, view])
 
   useLayoutEffect(() => {
     const container = document.getElementById(containerId)
@@ -817,7 +750,7 @@ function CompactBodyMapFigure({
       }
 
       const tone = highlightToneMap.get(svgId)
-      applyCompactHighlightStyle(element, tone)
+      applyCompactHighlightStyle(element, tone, false, highlightDataMap.get(svgId)?.score)
     }
   })
 
@@ -841,7 +774,7 @@ function CompactBodyMapFigure({
           continue
         }
 
-        applyCompactHighlightStyle(relatedElement, highlightToneMap.get(relatedSvgId))
+        applyCompactHighlightStyle(relatedElement, highlightToneMap.get(relatedSvgId), false, highlightDataMap.get(relatedSvgId)?.score)
       }
     }
     const handlePointerLeave = () => {
@@ -855,7 +788,7 @@ function CompactBodyMapFigure({
         const element = container.querySelector<SVGElement>(`[id="${svgIdPrefix}${svgId}"]`)
 
         if (element) {
-          applyCompactHighlightStyle(element, tone)
+          applyCompactHighlightStyle(element, tone, false, highlightDataMap.get(svgId)?.score)
         }
       }
     }
@@ -880,14 +813,14 @@ function CompactBodyMapFigure({
           const relatedElement = container.querySelector<SVGElement>(`[id="${svgIdPrefix}${relatedSvgId}"]`)
 
           if (relatedElement) {
-            applyCompactHighlightStyle(relatedElement, highlightToneMap.get(relatedSvgId), true)
+            applyCompactHighlightStyle(relatedElement, highlightToneMap.get(relatedSvgId), true, highlightDataMap.get(relatedSvgId)?.score)
           }
         }
 
         onHighlightHover({
           label: highlight.label,
           tone: highlight.tone,
-          anchor: { top: element.getBoundingClientRect().top, left: element.getBoundingClientRect().left },
+          anchor: element.getBoundingClientRect(),
         })
       }
 
@@ -895,10 +828,14 @@ function CompactBodyMapFigure({
         resetHighlightStyles(highlight)
         if (highlight.description) onHighlightHover(null)
       }
+      const selectHighlight = () => {
+        handlePointerEnter()
+        onHighlightSelect?.(highlight.label)
+      }
       const handleKeyDown = (event: KeyboardEvent) => {
         if (event.key === 'Enter' || event.key === ' ') {
           event.preventDefault()
-          handlePointerEnter()
+          selectHighlight()
         }
       }
 
@@ -912,7 +849,7 @@ function CompactBodyMapFigure({
         element.setAttribute('aria-label', highlight.description)
         element.addEventListener('focus', handlePointerEnter)
         element.addEventListener('blur', handlePointerOut)
-        element.addEventListener('click', handlePointerEnter)
+        element.addEventListener('click', selectHighlight)
         element.addEventListener('keydown', handleKeyDown)
       }
       cleanupCallbacks.push(() => {
@@ -924,7 +861,7 @@ function CompactBodyMapFigure({
           element.removeAttribute('aria-label')
           element.removeEventListener('focus', handlePointerEnter)
           element.removeEventListener('blur', handlePointerOut)
-          element.removeEventListener('click', handlePointerEnter)
+          element.removeEventListener('click', selectHighlight)
           element.removeEventListener('keydown', handleKeyDown)
         }
       })
@@ -933,13 +870,13 @@ function CompactBodyMapFigure({
     return () => {
       cleanupCallbacks.forEach((cleanup) => cleanup())
     }
-  }, [containerId, highlightDataMap, markup, onHighlightHover, svgIdPrefix, view])
+  }, [containerId, highlightDataMap, highlightToneMap, markup, onHighlightHover, onHighlightSelect, svgIdPrefix, view])
 
   return (
     <div className={plain ? '' : 'rounded-[24px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.18),transparent_35%)] p-4'}>
       {showTitle ? <div className="mb-4 text-sm uppercase tracking-[0.24em] text-white/35">{title}</div> : null}
-      <div id={containerId} className={cn(plain ? 'flex h-[360px] items-center justify-center overflow-hidden p-0' : 'flex h-[360px] items-center justify-center overflow-hidden rounded-[20px] border border-dashed border-white/10 bg-[#0d1116]/50 p-4', containerClassName)}>
-        {markup ? <div className={cn('w-full max-w-[180px] text-[#5f6b7b]', markupClassName)} dangerouslySetInnerHTML={{ __html: markup }} /> : <div className="text-sm text-white/35">{loadError ? 'Карта недоступна' : 'Загрузка карты...'}</div>}
+      <div ref={hoverHost} id={containerId} className={cn(plain ? 'flex h-[360px] items-center justify-center overflow-hidden p-0' : 'flex h-[360px] items-center justify-center overflow-hidden rounded-[20px] border border-dashed border-white/10 bg-[#0d1116]/50 p-4', containerClassName)}>
+        {markup ? <div className={cn('muscle-figure-art w-full max-w-[180px] text-[#5f6b7b]', markupClassName)} dangerouslySetInnerHTML={{ __html: markup }} /> : <div className="text-sm text-white/35">{loadError ? 'Карта недоступна' : 'Загрузка карты...'}</div>}
       </div>
     </div>
   )
@@ -949,6 +886,7 @@ export function ExerciseDetailsModal({
   exercise,
   open,
   onOpenChange,
+  onCloseAutoFocus,
   onStart,
   onAdd,
   onOpenFullScreen,
@@ -957,6 +895,7 @@ export function ExerciseDetailsModal({
   exercise: ExerciseDetails
   open: boolean
   onOpenChange: (open: boolean) => void
+  onCloseAutoFocus?: (event: Event) => void
   onStart?: () => void
   onAdd?: () => void
   onOpenFullScreen?: () => void
@@ -977,7 +916,7 @@ export function ExerciseDetailsModal({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm" />
-        <SafetyDialogContent className="fixed left-1/2 top-1/2 z-50 w-[min(1280px,calc(100vw-24px))] max-h-[calc(100vh-24px)] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-[34px] border border-white/10 bg-[#0c0f14] p-6 text-white shadow-[0_30px_100px_rgba(0,0,0,0.55)] xl:p-8">
+        <SafetyDialogContent onCloseAutoFocus={onCloseAutoFocus} className="catalog-preview-panel w-[min(1280px,calc(100vw-24px))] rounded-[34px] border border-white/10 bg-[#0c0f14] p-6 text-white shadow-[0_30px_100px_rgba(0,0,0,0.55)] xl:p-8">
           <Dialog.Close aria-label="Закрыть модальное окно" title="Закрыть модальное окно" className="absolute right-6 top-6 inline-flex h-[var(--ui-control)] w-[var(--ui-control)] items-center justify-center rounded-full border border-white/10 bg-white/4 text-white/65 xl:right-8 xl:top-8">
             <X className="h-4 w-4" />
           </Dialog.Close>
@@ -990,10 +929,10 @@ export function ExerciseDetailsModal({
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-[30px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.16),transparent_36%),linear-gradient(180deg,#12161d,#090b0f)] p-3 md:p-4">
+              <div className="catalog-preview-media overflow-hidden rounded-[30px] border border-white/8 bg-[radial-gradient(circle_at_top,rgba(214,176,95,0.16),transparent_36%),linear-gradient(180deg,#12161d,#090b0f)] p-3 md:p-4">
                 <ExerciseMedia
                   title={exercise.name}
-                  accent="ring-1 ring-[#d6b05f]/18"
+                  accent="ring-1 ring-[var(--broadcast-accent-border,#d6b05f)]/35"
                   videoUrl={activeVideo?.url}
                   videoLabel={activeVideo?.label}
                   onClick={videoSequence.length > 1 ? () => setActiveVideoIndex((current) => (current + 1) % videoSequence.length) : undefined}
@@ -1010,13 +949,13 @@ export function ExerciseDetailsModal({
               <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
                 <div className="rounded-[28px] border border-white/8 bg-white/4 p-5">
                   <div className="flex items-center gap-3 text-sm uppercase tracking-[0.24em] text-white/35">
-                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[#d6b05f]/18 bg-[#18140b] text-[#f2cf87]">
+                    <span className="inline-flex h-9 w-9 items-center justify-center rounded-2xl border border-[var(--broadcast-accent-border,#d6b05f)]/40 bg-[var(--broadcast-accent-soft,#18140b)] text-[var(--broadcast-accent-light,#f2cf87)]">
                       <Flame className="h-4 w-4" />
                     </span>
                     Фокус упражнения
                   </div>
                   <div className="mt-3 text-base leading-8 text-white/76">{exercise.description}</div>
-                  <div className="mt-4 rounded-[22px] border border-[#d6b05f]/16 bg-[#18140b] px-4 py-4 text-sm leading-7 text-[#f2cf87]">{exercise.muscleRoleText}</div>
+                  <div className="mt-4 rounded-[22px] border border-[var(--broadcast-accent-border,#d6b05f)]/40 bg-[var(--broadcast-accent-soft,#18140b)] px-4 py-4 text-sm leading-7 text-[var(--broadcast-accent-light,#f2cf87)]">{exercise.muscleRoleText}</div>
                 </div>
 
                 <div className="rounded-[28px] border border-white/8 bg-white/4 p-5">
@@ -1024,12 +963,12 @@ export function ExerciseDetailsModal({
                   <ol className="mt-4 space-y-3 text-sm leading-7 text-white/72">
                     {exercise.shortSteps.map((step, index) => (
                       <li key={step} className="flex gap-3">
-                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#d6b05f]/28 text-xs text-[#f1d391]">{index + 1}</span>
+                        <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[var(--broadcast-accent-border,#d6b05f)]/60 text-xs text-[var(--broadcast-accent-light,#f1d391)]">{index + 1}</span>
                         {step}
                       </li>
                     ))}
                   </ol>
-                  {onOpenFullScreen ? <button type="button" onClick={onOpenFullScreen} className="mt-4 text-sm text-[#f2cf87] underline-offset-4 hover:underline">Подробнее о технике</button> : null}
+                  {onOpenFullScreen ? <button type="button" onClick={onOpenFullScreen} className="mt-4 text-sm text-[var(--broadcast-accent-light,#f2cf87)] underline-offset-4 hover:underline">Подробнее о технике</button> : null}
                 </div>
               </div>
             </div>

@@ -1,3 +1,4 @@
+import { kioskViewport as viewport } from './kiosk-display.mjs'
 import { expect, type Page } from '@playwright/test'
 import { expectPrimaryNavigation, openAppAsAlexey, primaryNavigation, savedBrowserState, test } from './fixtures/navigation'
 
@@ -23,9 +24,8 @@ test('primary tabs navigate without starting a workout or changing saved data', 
     await expectPrimaryNavigation(page)
     await expect(link).toHaveAttribute('aria-current', 'page')
     await expect(page.getByRole('main')).toHaveCount(1)
-    if (path === '/modbus') {
-      await expect(page.getByRole('heading', { name: /Lichuan A6/ })).toBeVisible()
-      await expect(page.getByRole('button', { name: 'Аварийная остановка', exact: true })).toHaveCount(1)
+    if (path === '/achievements') {
+      await expect(page.getByRole('heading', { name: 'Достижения', exact: true })).toBeVisible()
     }
   }
 
@@ -51,9 +51,10 @@ test('avatar menu opens profile and settings outside the primary tabs', async ({
   const avatar = page.getByRole('button', { name: 'Меню профиля: Алексей' })
   await expect(menu).toHaveCount(0)
   await avatar.click()
-  await expect(menu.getByRole('link')).toHaveCount(2)
+  await expect(menu.getByRole('link')).toHaveCount(3)
   await expect(menu.getByRole('link', { name: 'Профиль', exact: true })).toHaveAttribute('href', '/profile')
   await expect(menu.getByRole('link', { name: 'Настройки', exact: true })).toHaveAttribute('href', '/settings')
+  await expect(menu.getByRole('link', { name: 'Modbus', exact: true })).toHaveAttribute('href', '/modbus')
   await page.keyboard.press('Escape')
   await expect(menu).toHaveCount(0)
 
@@ -156,33 +157,30 @@ test('service access requires checkbox and confirm, then resets after reload and
   await expectLockedService(page)
 })
 
-for (const viewport of [{ width: 3840, height: 2160 }, { width: 1920, height: 1080 }]) {
-  test(`muscle fatigue map fits the first screen at ${viewport.width}x${viewport.height}`, async ({ page }) => {
-    await page.setViewportSize(viewport)
-    await openAppAsAlexey(page)
-    await page.getByRole('navigation', { name: 'Основная навигация' }).getByRole('link', { name: 'Усталость мышц', exact: true }).click()
-    await expect(page).toHaveURL(/\/fatigue$/)
-    await expect(page.getByText('Карта мышечной усталости', { exact: true })).toBeVisible()
-    await expect(page.locator('.fatigue-map svg')).toHaveCount(2)
-    const figures = await page.locator('.fatigue-map svg').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().bottom))
-    expect(Math.max(...figures)).toBeLessThanOrEqual(viewport.height)
-    const sizeBeforeHover = await page.locator('.fatigue-map svg').first().boundingBox()
-    await page.locator('g[aria-label^="Грудь:"] path').first().hover()
-    await expect(page.getByRole('tooltip')).toBeVisible()
-    const sizeAfterHover = await page.locator('.fatigue-map svg').first().boundingBox()
-    expect(sizeAfterHover?.width).toBeCloseTo(sizeBeforeHover!.width, 0)
-    expect(sizeAfterHover?.height).toBeCloseTo(sizeBeforeHover!.height, 0)
-    const detailsTop = await page.locator('.fatigue-details').evaluate((node) => node.getBoundingClientRect().top)
-    const mainBottom = await page.getByRole('main').evaluate((node) => node.getBoundingClientRect().bottom)
-    expect(detailsTop).toBeGreaterThanOrEqual(mainBottom - 2)
-    await expect(page.getByRole('main')).toHaveCount(1)
-    await expect(page.getByRole('navigation', { name: 'Основная навигация' })).toHaveCount(1)
-    await expectPrimaryNavigation(page)
-    const stop = page.getByRole('button', { name: 'Аварийная остановка', exact: true })
-    await expect(stop).toHaveCount(1)
-    await expect(stop).toBeInViewport()
-    const navigation = page.getByRole('navigation', { name: 'Основная навигация' })
-    for (const link of await navigation.getByRole('link').all()) await expect(link).toBeInViewport()
-    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width)
-  })
-}
+test('muscle fatigue map fits the first screen', async ({ page }) => {
+  await openAppAsAlexey(page)
+  await page.getByRole('navigation', { name: 'Основная навигация' }).getByRole('link', { name: 'Усталость мышц', exact: true }).click()
+  await expect(page).toHaveURL(/\/fatigue$/)
+  await expect(page.getByText('Карта мышечной усталости', { exact: true })).toBeVisible()
+  await expect(page.locator('.fatigue-map svg')).toHaveCount(2)
+  const figures = await page.locator('.fatigue-map svg').evaluateAll((nodes) => nodes.map((node) => node.getBoundingClientRect().bottom))
+  expect(Math.max(...figures)).toBeLessThanOrEqual(viewport.height)
+  const sizeBeforeHover = await page.locator('.fatigue-map svg').first().boundingBox()
+  await page.locator('g[aria-label^="Грудь:"] path').first().hover()
+  await expect(page.getByRole('tooltip')).toBeVisible()
+  const sizeAfterHover = await page.locator('.fatigue-map svg').first().boundingBox()
+  expect(sizeAfterHover?.width).toBeCloseTo(sizeBeforeHover!.width, 0)
+  expect(sizeAfterHover?.height).toBeCloseTo(sizeBeforeHover!.height, 0)
+  const detailsTop = await page.locator('.fatigue-details').evaluate((node) => node.getBoundingClientRect().top)
+  const mainBottom = await page.getByRole('main').evaluate((node) => node.getBoundingClientRect().bottom)
+  expect(detailsTop).toBeGreaterThanOrEqual(mainBottom - 2)
+  await expect(page.getByRole('main')).toHaveCount(1)
+  await expect(page.getByRole('navigation', { name: 'Основная навигация' })).toHaveCount(1)
+  await expectPrimaryNavigation(page)
+  const stop = page.getByRole('button', { name: 'Аварийная остановка', exact: true })
+  await expect(stop).toHaveCount(1)
+  await expect(stop).toBeInViewport()
+  const navigation = page.getByRole('navigation', { name: 'Основная навигация' })
+  for (const link of await navigation.getByRole('link').all()) await expect(link).toBeInViewport()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width)
+})

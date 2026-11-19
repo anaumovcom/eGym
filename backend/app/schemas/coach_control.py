@@ -9,6 +9,7 @@ from app.schemas.coach import CoachModel, CoachSettings
 
 
 class CoachPreferences(CoachSettings):
+    standard_pack: bool = True
     consent_version: Literal[1] | None = None
     network_consent_version: Literal[1] | None = None
     voice_volume: float | None = Field(default=None, ge=0, le=1)
@@ -152,10 +153,29 @@ class PackJobCreate(CoachModel):
     clip_ids: tuple[str, ...] = Field(min_length=1, max_length=256)
 
 
-class PackPrepare(CoachModel):
+class PackPaidAction(CoachModel):
     user_id: str = Field(min_length=1, max_length=120)
     cap_usd: str = Field(pattern=r"^(?:[01](?:\.\d{1,4})?|2(?:\.0{1,4})?)$")
     confirm_paid: Literal[True]
+
+
+class PackPrepare(PackPaidAction):
+    include_optional: bool = False
+
+
+class PackRegenerate(PackPaidAction):
+    expected_pack_version: str = Field(pattern=r"^[a-f0-9]{16}$")
+
+
+class PackReview(CoachModel):
+    expected_pack_version: str = Field(pattern=r"^[a-f0-9]{16}$")
+    listened: Literal[True]
+
+
+class LocalPackRecording(CoachModel):
+    expected_pack_version: str = Field(pattern=r"^[a-f0-9]{16}$")
+    pace: Literal["slow", "normal", "brisk"]
+    confirm_local: Literal[True]
 
 
 class Pricing(CoachModel):

@@ -1,4 +1,4 @@
-"""Owner-scoped workout normalization and deterministic fact aggregation for all 120 lines."""
+"""Owner-scoped workout normalization and deterministic achievement metrics."""
 
 from __future__ import annotations
 
@@ -10,12 +10,13 @@ from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.models.analytics import CoachWorkoutPlan, ExerciseSession, SetResult, WorkoutSession
 from app.models.coach import CoachEpisode, CoachScenario
 from app.models.enums import WorkoutSessionStatus
+from app.services.achievements.patterns import movement_patterns, workout_stories
 from app.services.achievements.rules import RULES
 from app.services.achievements.training_scope import EXCLUDED_SOURCES, TrainingScopeCounter
 
@@ -90,6 +91,11 @@ class WorkoutFacts:
     plan: CoachWorkoutPlan | None
     episode: CoachEpisode | None
     scenario: CoachScenario | None
+    practice: TrainingScopeCounter
+
+    @property
+    def finish_key(self) -> tuple[datetime, int]:
+        return utc(self.row.finished_at), self.row.id
 
     @property
     def qualified(self) -> bool:
@@ -97,23 +103,36 @@ class WorkoutFacts:
 
 
 class FactBuilder:
-    def __init__(self, session: Session, user_id: str):
+    def __init__(self, session: Session, user_id: str, *, collection_only: bool = False,
+                 through: WorkoutSession | None = None):
         self.db = session
         self.user_id = user_id
-        self.training_scope = TrainingScopeCounter(user_id)
-        self.workouts = self._load()
-        self.sets = [item for workout in self.workouts for item in workout.sets]
-        self.days = {workout.day for workout in self.workouts if workout.qualified}
-        self.weeks = {week(day) for day in self.days}
-        self.months = {month(day) for day in self.days}
-        self.values: dict[str, float] = defaultdict(float)
-        self.evidence_days: dict[str, set[date]] = {}
-        self._build()
+        self.collection_only = collection_only
+        self.workouts = self._load(through)
+        self._metrics = _WorkoutMetrics(self.workouts, user_id, collection_only)
 
-    def _load(self) -> list[WorkoutFacts]:
-        rows = list(self.db.scalars(select(WorkoutSession).where(WorkoutSession.user_id == self.user_id)
-                                    .order_by(WorkoutSession.started_at, WorkoutSession.id)))
-        exercises = list(self.db.scalars(select(ExerciseSession).where(ExerciseSession.user_id == self.user_id)))
+    @property
+    def training_scope(self) -> TrainingScopeCounter:
+        return self._metrics.training_scope
+
+    def finish(self) -> dict[str, float]:
+        return self._metrics.finish()
+
+    def values_through(self, cutoff: tuple[datetime, int]) -> dict[str, float]:
+        workouts = [workout for workout in self.workouts if workout.finish_key <= cutoff]
+        if len(workouts) == len(self.workouts):
+            return self.finish()
+        return _WorkoutMetrics(workouts, self.user_id, self.collection_only).finish()
+
+    def _load(self, through: WorkoutSession | None) -> list[WorkoutFacts]:
+        query = select(WorkoutSession).where(WorkoutSession.user_id == self.user_id,
+                                             WorkoutSession.status.in_(DONE), WorkoutSession.finished_at.is_not(None))
+        if through is not None and through.finished_at is not None:
+            query = query.where(or_(WorkoutSession.finished_at < through.finished_at, and_(
+                WorkoutSession.finished_at == through.finished_at, WorkoutSession.id <= through.id)))
+        rows = list(self.db.scalars(query.order_by(WorkoutSession.started_at, WorkoutSession.id)))
+        exercises = list(self.db.scalars(select(ExerciseSession).where(ExerciseSession.user_id == self.user_id)
+                                         .order_by(ExerciseSession.order_index, ExerciseSession.id)))
         exercise_map: dict[int, list[ExerciseSession]] = defaultdict(list)
         for exercise in exercises:
             if exercise.workout_session_id is not None:
@@ -126,17 +145,16 @@ class FactBuilder:
         plans = {row.workout_id: row for row in self.db.scalars(select(CoachWorkoutPlan)
                  .where(CoachWorkoutPlan.user_id == self.user_id))} if self.db.get_bind().dialect.has_table(
                      self.db.connection(), CoachWorkoutPlan.__tablename__) else {}
-        episodes = {row.workout_id: row for row in self.db.scalars(select(CoachEpisode)
-                    .where(CoachEpisode.user_id == self.user_id))}
-        scenarios = {row.run_id: row for row in self.db.scalars(select(CoachScenario)
-                     .where(CoachScenario.user_id == self.user_id))}
+        episodes = {} if self.collection_only else {row.workout_id: row for row in self.db.scalars(
+            select(CoachEpisode).where(CoachEpisode.user_id == self.user_id))}
+        scenarios = {} if self.collection_only else {row.run_id: row for row in self.db.scalars(
+            select(CoachScenario).where(CoachScenario.user_id == self.user_id))}
         result = []
         for workout in rows:
-            if workout.status not in DONE or workout.finished_at is None:
-                continue
             normalized = []
+            practice = TrainingScopeCounter(self.user_id)
             for exercise in exercise_map.get(workout.id, []):
-                self.training_scope.add_exercise(workout, exercise, sets_map.get(exercise.id, []), training_day)
+                practice.add_exercise(workout, exercise, sets_map.get(exercise.id, []), training_day)
                 for row in sets_map.get(exercise.id, []):
                     item = self._set(row, exercise, workout)
                     if item is not None:
@@ -144,13 +162,14 @@ class FactBuilder:
             episode = episodes.get(workout.id)
             scenario = scenarios.get(episode.run_id) if episode and episode.run_id else None
             result.append(WorkoutFacts(workout, training_day(workout.started_at), normalized,
-                                       plans.get(workout.id), episode, scenario))
+                                       plans.get(workout.id), episode, scenario, practice))
         return result
 
     @staticmethod
     def _set(row: SetResult, exercise: ExerciseSession, workout: WorkoutSession) -> FactSet | None:
         metrics = row.machine_metrics if isinstance(row.machine_metrics, dict) else {}
-        if (row.actual_value <= 0 or metrics.get("completionStatus") not in {'completed', 'partial'}
+        # Older saved sets predate completionStatus. Their explicit positive rep/time result is evidence.
+        if (row.actual_value <= 0 or metrics.get("completionStatus", "completed") not in {'completed', 'partial'}
                 or exercise.status not in {'completed', 'partial', 'aborted'}):
             return None
         if (metrics.get("sourceClass") in EXCLUDED_SOURCES
@@ -159,6 +178,8 @@ class FactBuilder:
             return None
         kind = str(exercise.kind)
         if kind not in {'machine', 'bodyweight', *TIMED}:
+            return None
+        if "completionStatus" not in metrics and (row.duration_seconds if kind in TIMED else row.reps) is None:
             return None
         reps = max(0, min(row.reps, row.actual_value) if row.reps is not None else row.actual_value) if kind not in TIMED else 0
         seconds = max(0, min(row.duration_seconds, row.actual_value) if row.duration_seconds is not None else row.actual_value) if kind in TIMED else 0
@@ -169,6 +190,23 @@ class FactBuilder:
                        utc(row.created_at or exercise.started_at), row.set_number, row.actual_value, reps, seconds,
                        weight, metrics, exercise.per_side, exercise.training_mode,
                        exercise.status.value if hasattr(exercise.status, "value") else str(exercise.status))
+
+class _WorkoutMetrics:
+    """Apply the same rules to the complete history or to an already loaded prefix."""
+
+    def __init__(self, workouts: list[WorkoutFacts], user_id: str, collection_only: bool):
+        self.workouts = workouts
+        self.collection_only = collection_only
+        self.training_scope = TrainingScopeCounter(user_id)
+        for workout in workouts:
+            self.training_scope.include_workout(workout.practice)
+        self.sets = [item for workout in workouts for item in workout.sets]
+        self.days = {workout.day for workout in workouts if workout.qualified}
+        self.weeks = {week(day) for day in self.days}
+        self.months = {month(day) for day in self.days}
+        self.values: dict[str, float] = defaultdict(float)
+        self.evidence_days: dict[str, set[date]] = {}
+        self._build()
 
     def add(self, metric: str, value: float) -> None:
         self.values[metric] += value
@@ -203,14 +241,16 @@ class FactBuilder:
         self._build_days(sets)
         self._build_rhythm(qualified)
         self._build_repertoire(sets)
-        self._build_reflection(qualified)
         self._build_plans(qualified)
-        self._build_stories(qualified)
-        self._build_progress(sets)
-        self._build_measured(sets)
+        self.values.update(movement_patterns(qualified))
+        self.values.update(workout_stories(qualified)[0])
+        if not self.collection_only:
+            self._build_reflection(qualified)
+            self._build_stories(qualified)
+            self._build_progress(sets)
+            self._build_measured(sets)
+            self._build_evidence(qualified)
         self._build_chapters()
-
-        self._build_evidence(qualified)
 
     def _build_evidence(self, qualified: list[WorkoutFacts]) -> None:
         practice = self.training_scope.qualifying_days()
@@ -261,9 +301,13 @@ class FactBuilder:
         self.values["active_months"] = sum(len(days) >= 2 for days in by_month.values())
         self.values["active_quarters"] = sum(len(days) >= 6 for days in by_quarter.values())
         self.values["best_week_streak"] = longest_consecutive(sorted(self.weeks), weeks_consecutive)
-        week_volume = {key: sum(s.volume_grams for s in sets if week(s.day) == key) for key in self.weeks}
+        week_volume: Counter[tuple[int, int]] = Counter()
+        month_volume: Counter[tuple[int, int]] = Counter()
+        for day, rows in by_day.items():
+            volume = sum(s.volume_grams for s in rows)
+            week_volume[week(day)] += volume
+            month_volume[month(day)] += volume
         self.values["volume_weeks"] = sum(value >= 500_000 for value in week_volume.values())
-        month_volume = {key: sum(s.volume_grams for s in sets if month(s.day) == key) for key in self.months}
         self.values["volume_months"] = sum(value >= 5_000_000 for value in month_volume.values())
 
     def _build_rhythm(self, qualified: list[WorkoutFacts]) -> None:
@@ -285,11 +329,13 @@ class FactBuilder:
     def _build_repertoire(self, sets: list[FactSet]) -> None:
         slug_days: dict[str, set[date]] = defaultdict(set)
         slug_weeks: dict[str, set[tuple[int, int]]] = defaultdict(set)
+        month_slugs: dict[tuple[int, int], set[str]] = defaultdict(set)
         first_day: dict[str, date] = {}
         for item in sorted(sets, key=lambda row: (row.day, row.id)):
             slug_days[item.slug].add(item.day)
             slug_weeks[item.slug].add(week(item.day))
             first_day.setdefault(item.slug, item.day)
+            month_slugs[month(item.day)].add(item.slug)
         self.values["best_exercise_days"] = max((len(days) for days in slug_days.values()), default=0)
         self.values["best_exercise_weeks"] = max((len(days) for days in slug_weeks.values()), default=0)
         self.values["familiar_exercises"] = sum(len(days) >= 3 for days in slug_days.values())
@@ -299,8 +345,7 @@ class FactBuilder:
             familiar_days.update(sorted(days)[3:])
         self.values["familiar_days"] = len(familiar_days)
         self.values["new_exercise_months"] = len({month(day) for day in first_day.values()})
-        self.values["repertoire_months"] = len({month(day) for day in self.days
-                                                if len({s.slug for s in sets if month(s.day) == month(day)}) >= 3})
+        self.values["repertoire_months"] = sum(len(slugs) >= 3 for slugs in month_slugs.values())
 
     def _build_reflection(self, qualified: list[WorkoutFacts]) -> None:
         reflection_days = {w.day for w in qualified if w.row.feeling is not None or w.row.discomfort is not None}
@@ -550,7 +595,7 @@ class FactBuilder:
         values.update(self.training_scope.values())
         # Public volume is kg; the internal sum stays integer gram-reps until this boundary.
         values["volume_grams"] = values.get("volume_grams", 0) / 1000
-        result = {rule["metric"]: values.get(rule["metric"], 0.0) for rule in RULES}
+        result = {**values, **{rule["metric"]: values.get(rule["metric"], 0.0) for rule in RULES}}
         result.update({rule['evidenceMetric']: values.get(rule['evidenceMetric'], 0.0) for rule in RULES})
         result['practice_evidence_days'] = values.get('practice_evidence_days', 0.0)
         return result

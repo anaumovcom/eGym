@@ -1,25 +1,27 @@
 import { AlertTriangle, RefreshCw, RotateCcw, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { useModbusStore } from '@/features/modbus/lib/use-modbus-store'
+import { useDriveTelemetry } from '@/features/modbus/lib/use-drive-telemetry'
 import { ALARM_CODES } from '@/features/modbus/model/parameter-catalog'
 import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/cn'
 
 export function ErrorsPanel() {
-  const { paramStates, connectionStatus, readRegister, runCommand } = useModbusStore()
+  const { connectionStatus, runCommand } = useModbusStore()
   const [busy, setBusy] = useState<string | null>(null)
   const [confirmClear, setConfirmClear] = useState(false)
   const [lastResult, setLastResult] = useState<string | null>(null)
 
   const isConnected = connectionStatus?.connected ?? false
-  const alarmCode = paramStates.get(0x200)?.driverValue ?? null
+  const frame = useDriveTelemetry(1000)
+  const alarmCode = isConnected && !frame.isError && !frame.data?.error ? frame.data?.alarm ?? null : null
   const alarmInfo = alarmCode != null ? (ALARM_CODES[alarmCode] ?? null) : null
   const hasAlarm = alarmCode != null && alarmCode !== 0
 
   const handleReadAlarm = async () => {
     setBusy('read')
     try {
-      await readRegister(0x200)
+      await frame.refetch()
     } finally {
       setBusy(null)
     }
@@ -51,7 +53,7 @@ export function ErrorsPanel() {
       {/* Current alarm */}
       <div className="glass-panel rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-[#f4dfb4]">Текущая ошибка (UN_200)</h3>
+          <h3 className="font-semibold">Авария привода · PA_1C9</h3>
           <Button
             variant="secondary"
             className="text-xs"
@@ -64,7 +66,7 @@ export function ErrorsPanel() {
         </div>
 
         {alarmCode == null ? (
-          <p className="text-sm text-white/40">Нажмите «Читать» для получения кода ошибки.</p>
+          <p className="text-sm text-white/40">{isConnected ? frame.data?.error || 'Состояние аварии неизвестно' : 'Ожидание подключения приводов'}</p>
         ) : !hasAlarm ? (
           <div className="flex items-center gap-3 rounded-xl bg-[#0d2d0f] border border-[#79de83]/20 p-4">
             <span className="text-[#79de83] text-2xl">✓</span>
@@ -83,7 +85,7 @@ export function ErrorsPanel() {
                     {alarmInfo?.label ?? `Неизвестная ошибка`}
                   </span>
                   <span className="font-mono text-xs text-white/40">
-                    0x{alarmCode.toString(16).toUpperCase().padStart(4, '0')}
+                    Err {alarmCode}
                   </span>
                 </div>
                 {alarmInfo && (
@@ -94,7 +96,7 @@ export function ErrorsPanel() {
                 )}
               </div>
             </div>
-            {alarmInfo?.canReset && (
+            {connectionStatus?.simulationMode && alarmInfo && (
               <Button
                 variant="secondary"
                 iconLeft={<RotateCcw size={14} />}
@@ -115,7 +117,7 @@ export function ErrorsPanel() {
 
       {/* Alarm code reference */}
       <div className="glass-panel rounded-2xl p-5 space-y-3">
-        <h4 className="font-semibold text-[#f4dfb4] text-sm">Справочник кодов ошибок</h4>
+        <h4 className="font-semibold text-sm">Справочник кодов ошибок</h4>
         <div className="space-y-1">
           {Object.entries(ALARM_CODES).filter(([code]) => Number(code) !== 0).map(([code, info]) => (
             <div
@@ -130,9 +132,6 @@ export function ErrorsPanel() {
                 <p className="text-sm text-white/90 font-medium">{info.label}</p>
                 <p className="text-xs text-white/40">{info.causes}</p>
               </div>
-              {!info.canReset && (
-                <span className="shrink-0 text-[10px] rounded bg-[#3d1010] text-[#ff8f84] px-1.5 py-0.5">Не сбрасывается</span>
-              )}
             </div>
           ))}
         </div>

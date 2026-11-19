@@ -9,9 +9,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
+from math import isfinite
 from typing import Any, Literal
 
-from app.motor.profile import Measured, SafetyEnvelope, Tunables
+from app.motor.profile import Measured, SafetyEnvelope, Tunables, calibrated_sources
 from app.motor.store import ProfileBundle
 from app.motor.units import SIDES, Side, rpm_to_mm_s
 
@@ -52,7 +53,8 @@ PARAMS: tuple[ParamSpec, ...] = (
     # ---------------------------------------------------------------- drive
     ParamSpec("side", "direction_sign", "drive", "Направление момента", "Знак команды момента, который поднимает сторону. Неверный знак — поддержка давит гриф вниз. Меняется только калибровкой B5.", kind="sign", editable=False, produced_by=("B5",)),
     ParamSpec("side", "n_per_raw", "drive", "Масштаб силы", "Сколько ньютонов на грифе даёт одна единица команды PA_12C (0,1 % номинального момента). Паспортное значение ±15 %; точно — эталонным грузом (S9). Ручная правка не пересчитывает остальные силы — для этого запустите S9.", "Н/ед.", min=0.1, max=5.0, step=0.01, produced_by=("S9",)),
-    ParamSpec("side", "mm_per_pulse", "drive", "Ход на импульс энкодера", "Шаг винта 32 мм / 2¹⁷ импульсов на оборот (паспорт). Связь с приводом считает положение по этому же значению; сверка рулеткой (B6) пока не реализована.", "мм", editable=False),
+    ParamSpec("side", "mm_per_pulse", "drive", "Ход на импульс энкодера", "Паспортный шаг винта 32 мм на 2¹⁷ импульсов. B6 сверяет перемещение с рулеткой и показывает расхождение.", "мм", editable=False),
+    ParamSpec("machine", "support_holds", "drive", "Поддержка удерживает пустой гриф", "C3 проверяет, может ли пустой гриф плавно опускаться. «Да» означает, что из-за трения для этой машины выбрано удержание. «Нет» означает плавное опускание.", kind="bool", editable=False, produced_by=("C3",)),
     ParamSpec("side", "support_raw", "drive", "Момент поддержки", "Команда PA_12C, которую приводы держат вне тренировки и при СТОП: гриф должен медленно опускаться (~15 мм/с), а не висеть и не падать. Если плавного опускания нет (C3), поддержка удерживает гриф на месте.", "ед.", kind="int", min=0, max=400, step=1, produced_by=("C3",)),
     ParamSpec("side", "zero_counts", "drive", "Абсолютный ноль", "Показание абсолютного энкодера на нижних упорах (B7). После сохранения положение считается от упоров, даже если при включении гриф был поднят.", "имп.", kind="counts", editable=False, produced_by=("B7",)),
     ParamSpec("machine", "travel_mm", "drive", "Рабочий ход", "Ход грифа от нижних до верхних упоров (B8). Верхний программный предел должен быть ниже хода минимум на 20 мм.", "мм", min=100, max=2000, step=10, produced_by=("B8",)),
@@ -95,8 +97,8 @@ PARAMS: tuple[ParamSpec, ...] = (
     ParamSpec("machine", "fast_brake_lag_s", "motion", "Задержка быстрого торможения", "Время от команды торможения до начала замедления на высокой скорости (шина, нарастание момента). Быстрые переезды начинают замедление на v·τ раньше.", "с", min=0, max=1, step=0.005, produced_by=("M5",)),
     ParamSpec("side", "travel_table_up", "motion", "Сила подъёма по скоростям", "Таблица «скорость → сила сверх окна» для подъёма (P1): регулятор скорости сразу выходит на заданную скорость.", "Н", kind="table", editable=False, produced_by=("P1",)),
     ParamSpec("side", "travel_table_down", "motion", "Сила опускания по скоростям", "То же для опускания (P2).", "Н", kind="table", editable=False, produced_by=("P2",)),
-    ParamSpec("machine", "position_speed_up_mm_s", "motion", "Скорость позиционирования вверх", "Самая быстрая скорость подъёма, при которой гриф встаёт в точку (P1): быстрый переезд ±10 мм, медленный ±2 мм. От 100 мм/с — предел скорости всех быстрых переездов вверх.", "мм/с", min=5, max=410, step=1, produced_by=("P1",)),
-    ParamSpec("machine", "position_speed_down_mm_s", "motion", "Скорость позиционирования вниз", "То же для опускания (P2): от 100 мм/с — предел скорости быстрых переездов вниз.", "мм/с", min=5, max=410, step=1, produced_by=("P2",)),
+    ParamSpec("machine", "position_speed_up_mm_s", "motion", "Скорость позиционирования вверх", "Предел задания для подвода пустого грифа вверх. P1 сравнивает полное время проезда, точность обеих кареток и перекос. При пределе ниже 100 мм/с подвод выполняется в медленном режиме.", "мм/с", min=5, max=410, step=1, produced_by=("P1",)),
+    ParamSpec("machine", "position_speed_down_mm_s", "motion", "Скорость позиционирования вниз", "Предел задания для спуска пустого грифа и подвода сверху. P2 учитывает время, перекос и точность остановки обеих кареток. Последнюю посадку на упоры задаёт A3.", "мм/с", min=5, max=410, step=1, produced_by=("P2",)),
     ParamSpec("machine", "accel_mm_s2", "motion", "Плавный разгон", "Рампа скорости в начале автоматического перемещения (A1): без рывка после трогания.", "мм/с²", min=10, max=5000, step=10, produced_by=("A1",)),
     ParamSpec("machine", "decel_mm_s2", "motion", "Плавная остановка", "Рампа замедления к точке остановки (A2): гриф подходит к точке медленно и встаёт без перелёта.", "мм/с²", min=10, max=5000, step=10, produced_by=("A2",)),
     ParamSpec("machine", "landing_speed_mm_s", "motion", "Скорость посадки на упоры", "Скорость опускания на нижние упоры с мягким касанием (A3).", "мм/с", min=2, max=60, step=1, produced_by=("A3",)),
@@ -116,8 +118,8 @@ PARAMS: tuple[ParamSpec, ...] = (
     ParamSpec("machine", "predict_horizon_s", "feel", "Упреждение задержки", "Компенсация трения считается для скорости v + a·h — той, что будет, когда команда дойдёт до привода (V3).", "с", min=0, max=0.5, step=0.005, produced_by=("V3",)),
     ParamSpec("machine", "inertia_ratio_max", "feel", "Предел компенсации инерции", "Какую долю массы машины мотор может снять без раскачки (F1, 80 % от устойчивой). Используется, пока нет таблицы F2.", "×", min=0, max=1, step=0.01, produced_by=("F1",)),
     ParamSpec("machine", "inertia_table", "feel", "Компенсация инерции по нагрузке", "Таблица «нагрузка на сторону → доля снятой лишней массы» (F2): чтобы гриф ощущался массой L/g, как свободный вес.", kind="table", editable=False, produced_by=("F2",)),
-    ParamSpec("side", "friction_table_up", "feel", "Трение вверх на скоростях упражнения", "Таблица «скорость → сила трения» 40…160 мм/с (F3); заменяет сухое + вязкое трение в компенсации.", "Н", kind="table", editable=False, produced_by=("F3",)),
-    ParamSpec("side", "friction_table_down", "feel", "Трение вниз на скоростях упражнения", "То же для опускания (F3).", "Н", kind="table", editable=False, produced_by=("F3",)),
+    ParamSpec("side", "friction_table_up", "feel", "Трение вверх на скоростях упражнения", "D2 строит исходную таблицу скорости и силы при подъёме. F3 уточняет её на скоростях упражнения.", "Н", kind="table", editable=False, produced_by=("F3", "D2")),
+    ParamSpec("side", "friction_table_down", "feel", "Трение вниз на скоростях упражнения", "D2 строит исходную таблицу скорости и силы при спуске. F3 уточняет её на скоростях упражнения.", "Н", kind="table", editable=False, produced_by=("F3", "D2")),
     ParamSpec("side", "friction_map", "feel", "Карта трения по высоте", "Отклонение трения от обычного на каждых 20 мм хода (S10); компенсируется с коэффициентом F7.", "Н", kind="table", editable=False, produced_by=("S10",)),
     ParamSpec("machine", "feel_blend_mm_s", "feel", "Сглаживание трения на развороте", "Подобрано на повторениях (F4); если измерено — заменяет «Сглаживание трения» в поведении.", "мм/с", min=0.5, max=50, step=0.5, produced_by=("F4",)),
     ParamSpec("machine", "feel_phase_hysteresis_mm_s", "feel", "Гистерезис фазы (подобран)", "Наименьший без «мигания» фазы на развороте (F5).", "мм/с", min=1, max=100, step=1, produced_by=("F5",)),
@@ -169,13 +171,13 @@ PARAMS: tuple[ParamSpec, ...] = (
     ParamSpec("envelope", "max_raw", "safety", "Предел момента привода (PA_05E)", "Ограничение команды PA_12C и предел момента в приводе.", "ед.", kind="int", min=100, max=3000, step=10, restart=True),
     ParamSpec("envelope", "speed_limit_rpm", "safety", "Предел скорости привода (PA_056)", "Ограничение скорости в режиме момента, записывается в привод (1 об/мин ≈ 0,53 мм/с). Не тормозит опускание под весом. Должен быть выше максимальной скорости грифа и ниже аварийной.", "об/мин", kind="int", min=50, max=3000, step=10, restart=True),
     ParamSpec("envelope", "overspeed_rpm_alarm", "safety", "Аварийная скорость", "Выше этой скорости на оба привода подаётся безопасное усилие 100 (гриф медленно опускается) и тренажёр блокируется (1 об/мин ≈ 0,53 мм/с). Должна быть выше предела привода PA_056.", "об/мин", min=50, max=3000, step=10),
-    ParamSpec("envelope", "max_speed_mm_s", "safety", "Максимальная скорость грифа", "Предел скорости в тренировке; не выше предела привода PA_056 и критической скорости винта (~500 мм/с).", "мм/с", min=50, max=1000, step=10),
+    ParamSpec("envelope", "max_speed_mm_s", "safety", "Максимальная скорость грифа", "Программный предел тренировки. Его сверяют с настройкой PA_056. Тормозной запас и фактически измеренные скорости показаны в сценарии скорости.", "мм/с", min=50, max=1000, step=10),
     ParamSpec("envelope", "max_descent_mm_s", "safety", "Максимальная скорость опускания", "Предел скорости вниз; не выше максимальной скорости грифа.", "мм/с", min=20, max=1000, step=10),
     ParamSpec("envelope", "soft_min_mm", "safety", "Нижний программный предел", "Ниже этой высоты нагрузка снимается, гриф мягко садится на упоры.", "мм", min=0, max=500, step=1),
     ParamSpec("envelope", "soft_max_mm", "safety", "Верхний программный предел", "Выше этой высоты нагрузка не прикладывается. Минимум на 20 мм ниже рабочего хода (B8).", "мм", min=100, max=2000, step=10),
     ParamSpec("envelope", "max_rate_n_per_s", "safety", "Скорость изменения силы", "Ограничение скачков команды силы.", "Н/с", min=100, max=10000, step=50),
     ParamSpec("envelope", "sync_warning_mm", "safety", "Перекос: предупреждение", "Разница высот сторон, при которой выдаётся предупреждение.", "мм", min=1, max=50, step=0.5),
-    ParamSpec("envelope", "sync_critical_mm", "safety", "Перекос: остановка", "Разница высот сторон, при которой движение останавливается.", "мм", min=2, max=100, step=0.5),
+    ParamSpec("envelope", "sync_critical_mm", "safety", "Перекос: остановка", "Перекос одного знака в двух последовательных парных кадрах останавливает упражнение или движение после привязки нуля. При двойном пороге достаточно одного кадра.", "мм", min=2, max=100, step=0.5),
     ParamSpec("envelope", "stale_frame_limit_s", "safety", "Устаревание телеметрии", "Кадр старше этого времени считается потерянным.", "с", min=0.05, max=2, step=0.01),
     ParamSpec("envelope", "comm_freeze_frames", "safety", "Потерь до заморозки", "Сколько подряд потерянных кадров замораживает команду.", "кадров", kind="int", min=1, max=20, step=1),
     ParamSpec("envelope", "comm_fault_frames", "safety", "Потерь до ошибки", "Сколько подряд потерянных кадров вызывает ошибку и поддержку.", "кадров", kind="int", min=2, max=50, step=1),
@@ -185,24 +187,37 @@ PARAMS: tuple[ParamSpec, ...] = (
 BY_KEY: dict[tuple[Scope, str], ParamSpec] = {(spec.scope, spec.key): spec for spec in PARAMS}
 
 
+def _number(value: Any) -> bool:
+    return isinstance(value, float | int) and not isinstance(value, bool) and isfinite(value)
+
+
+def _pairs(value: Any) -> bool:
+    return isinstance(value, list | tuple) and all(isinstance(row, list | tuple) and len(row) == 2
+                                                   and all(_number(x) for x in row) for row in value)
+
+
 def _measured_payload(measured: Measured, kind: Kind) -> dict[str, Any]:
     value = measured.value
     points = None
-    if kind == "weight":
-        points = len(value or [])
-        value = float(value[0][1]) if points == 1 else None
-    elif kind == "table":
-        points = len(value) if value is not None else None
+    rows = None
+    if kind in ("weight", "table"):
+        rows = value if _pairs(value) else None
+        points = len(rows) if rows is not None else None
+        value = rows[0][1] if kind == "weight" and points == 1 else None
+    elif not (_number(value) or isinstance(value, bool)):
         value = None
-    return {"value": value, "ci95": measured.ci95, "provenance": measured.provenance, "runId": measured.run_id, "measuredAt": measured.measured_at, "points": points}
+    return {"value": value, "ci95": measured.ci95 if _number(measured.ci95) else None, "provenance": measured.provenance,
+            "runId": measured.run_id, "measuredAt": measured.measured_at, "points": points, "rows": rows}
 
 
 def _plain_payload(value: Any, default: Any) -> dict[str, Any]:
-    return {"value": value, "ci95": None, "provenance": "default" if value == default else "manual", "runId": None, "measuredAt": None, "points": None}
+    return {"value": value if _number(value) or isinstance(value, bool) else None, "ci95": None,
+            "provenance": "default" if value == default else "manual", "runId": None, "measuredAt": None, "points": None}
 
 
 def describe(bundle: ProfileBundle) -> dict[str, Any]:
     tunables_default, envelope_default = Tunables(), SafetyEnvelope()
+    effective = calibrated_sources(bundle.machine)
     groups = []
     for group_id, title, description in GROUPS:
         items = []
@@ -219,11 +234,58 @@ def describe(bundle: ProfileBundle) -> dict[str, Any]:
                 item["value"] = _measured_payload(getattr(bundle.machine, spec.key), spec.kind)
             elif spec.scope == "tunables":
                 item["value"] = _plain_payload(getattr(bundle.tunables, spec.key), getattr(tunables_default, spec.key))
+                if spec.key in effective:
+                    path, measured = effective[spec.key]
+                    source = BY_KEY["machine", path]
+                    item["effective"] = {**_measured_payload(measured, source.kind), "label": source.label, "key": path,
+                                         "procedure": source.produced_by[0] if source.produced_by else None}
             else:
                 item["value"] = _plain_payload(getattr(bundle.envelope, spec.key), getattr(envelope_default, spec.key))
             items.append(item)
         groups.append({"id": group_id, "title": title, "description": description, "items": items})
-    return {"version": bundle.machine.version, "groups": groups}
+    return {"version": bundle.machine.version, "groups": groups, "audit": audit_parameters(bundle)}
+
+
+def audit_parameters(bundle: ProfileBundle) -> dict[str, Any]:
+    issues, missing = [], 0
+    pending = []
+    count = 0
+    sources = {"machine": bundle.machine, "tunables": bundle.tunables, "envelope": bundle.envelope}
+    for spec in PARAMS:
+        unset_count = 0
+        owners = [(s, bundle.machine.side(s)) for s in SIDES] if spec.scope == "side" else [(None, sources[spec.scope])]
+        for side, owner in owners:
+            count += 1
+            entry = getattr(owner, spec.key)
+            value = entry.value if isinstance(entry, Measured) else entry
+            if value is None:
+                missing += 1
+                unset_count += 1
+                continue
+            error = None
+            if spec.kind in ("table", "weight"):
+                if not _pairs(value) or (not value and spec.key != "tight_spots"):
+                    error = "Ожидаются пары конечных чисел."
+                elif spec.key != "tight_spots" and any(a[0] >= b[0] for a, b in zip(value, value[1:], strict=False)):
+                    error = "Точки должны идти по возрастанию без повторов."
+                elif spec.kind == "weight" and any(not spec.min <= y <= spec.max for _, y in value):
+                    error = "Сила в карте веса выходит за диапазон настройки."
+            elif spec.kind == "bool":
+                if not isinstance(value, bool):
+                    error = "Ожидается значение «да» или «нет»."
+            elif not _number(value) or (spec.kind in ("int", "counts") and int(value) != value) or (spec.kind == "sign" and value not in (-1, 1)):
+                error = "Значение не соответствует типу параметра."
+            elif (spec.min is not None and value < spec.min) or (spec.max is not None and value > spec.max):
+                error = f"Значение {value:g} вне диапазона настройки {spec.min}…{spec.max} {spec.unit}."
+            if isinstance(entry, Measured) and entry.ci95 is not None and (not _number(entry.ci95) or entry.ci95 < 0):
+                error = "Для доверительного интервала ожидается конечное неотрицательное число."
+            if error:
+                issues.append({"label": spec.label, "side": side, "detail": error})
+        if unset_count and spec.produced_by:
+            pending.append({"key": spec.key, "label": spec.label, "values": unset_count, "procedure": spec.produced_by[0]})
+    for _, message in _conflicts(bundle):
+        issues.append({"label": "Согласованность параметров", "side": None, "detail": message})
+    return {"definitions": len(PARAMS), "values": count, "unset": missing, "pending": pending, "issues": issues}
 
 
 def _coerce(spec: ParamSpec, value: Any) -> Any:
@@ -279,24 +341,35 @@ def apply_changes(bundle: ProfileBundle, changes: list[dict[str, Any]]) -> Profi
             tunables = replace(tunables, **{spec.key: value})
         else:
             envelope = replace(envelope, **{spec.key: value})
-    if envelope.soft_min_mm >= envelope.soft_max_mm:
-        raise ValueError("Нижний программный предел должен быть ниже верхнего")
+    updated = ProfileBundle(machine, tunables, envelope)
     keys = {change.get("key") for change in changes}
-    if keys & {"soft_max_mm", "travel_mm"} and envelope.soft_max_mm > float(machine.travel_mm.value) - TRAVEL_MARGIN_MM:
-        raise ValueError(f"Верхний программный предел должен быть ниже рабочего хода минимум на {TRAVEL_MARGIN_MM:.0f} мм (ход {float(machine.travel_mm.value):.0f} мм)")
-    if keys & {"max_speed_mm_s", "max_descent_mm_s", "speed_limit_rpm", "overspeed_rpm_alarm"}:
-        drive_mm_s, alarm_mm_s = rpm_to_mm_s(envelope.speed_limit_rpm), rpm_to_mm_s(envelope.overspeed_rpm_alarm)
-        if envelope.max_descent_mm_s > envelope.max_speed_mm_s:
-            raise ValueError("Скорость опускания не может быть выше максимальной скорости грифа")
-        if envelope.max_speed_mm_s > drive_mm_s:
-            raise ValueError(f"Максимальная скорость грифа выше предела привода PA_056 ({drive_mm_s:.0f} мм/с)")
-        if envelope.speed_limit_rpm >= envelope.overspeed_rpm_alarm:
-            raise ValueError(f"Аварийная скорость ({alarm_mm_s:.0f} мм/с) должна быть выше предела привода PA_056 ({drive_mm_s:.0f} мм/с), иначе авария срабатывает на штатной скорости")
+    for relevant, message in _conflicts(updated):
+        if not relevant or keys & relevant:
+            raise ValueError(message)
+    return updated
+
+
+def _conflicts(bundle: ProfileBundle):
+    envelope = bundle.envelope
+    if envelope.soft_min_mm >= envelope.soft_max_mm:
+        yield set(), "Нижний программный предел должен быть ниже верхнего"
+    travel = bundle.machine.travel_mm.value
+    if _number(travel) and envelope.soft_max_mm > travel - TRAVEL_MARGIN_MM:
+        yield {"soft_max_mm", "travel_mm"}, f"Верхний программный предел должен быть ниже рабочего хода минимум на {TRAVEL_MARGIN_MM:.0f} мм (ход {travel:.0f} мм)"
+    speed_keys = {"max_speed_mm_s", "max_descent_mm_s", "speed_limit_rpm", "overspeed_rpm_alarm"}
+    drive_mm_s = rpm_to_mm_s(envelope.speed_limit_rpm)
+    if envelope.max_descent_mm_s > envelope.max_speed_mm_s:
+        yield speed_keys, "Скорость опускания не может быть выше максимальной скорости грифа"
+    if envelope.max_speed_mm_s > drive_mm_s:
+        yield speed_keys, f"Максимальная скорость грифа выше предела привода PA_056 ({drive_mm_s:.0f} мм/с)"
+    if envelope.speed_limit_rpm >= envelope.overspeed_rpm_alarm:
+        yield speed_keys, f"Аварийная скорость должна быть выше предела привода PA_056 ({drive_mm_s:.0f} мм/с)"
     if envelope.sync_warning_mm >= envelope.sync_critical_mm:
-        raise ValueError("Порог предупреждения о перекосе должен быть меньше порога остановки")
+        yield set(), "Порог предупреждения о перекосе должен быть меньше порога остановки"
     if envelope.comm_freeze_frames >= envelope.comm_fault_frames:
-        raise ValueError("Потерь до заморозки должно быть меньше, чем потерь до ошибки")
-    return ProfileBundle(machine, tunables, envelope)
+        yield set(), "Потерь до заморозки должно быть меньше, чем потерь до ошибки"
+    if bundle.tunables.reps_partial_percent >= bundle.tunables.reps_full_percent:
+        yield {"reps_partial_percent", "reps_full_percent"}, "Порог частичного повторения должен быть ниже порога полного"
 
 
 __all__ = ["GROUPS", "PARAMS", "ParamSpec", "apply_changes", "describe"]

@@ -34,7 +34,7 @@ def load_preferences(db: Session, user_id: str) -> CoachPreferences:
     try:
         if row.value.get("schemaVersion") != 1:
             raise ValueError("unknown_schema")
-        return CoachPreferences.model_validate({**migrate_characters(row.value), "revision": row.revision})
+        return CoachPreferences.model_validate({"standardPack": False, **migrate_characters(row.value), "revision": row.revision})
     except (ValidationError, ValueError):
         # Fail-closed migration from unsupported/incomplete legacy values, preserving CAS revision.
         return CoachPreferences(revision=row.revision)

@@ -1,0 +1,220 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "budget_usd":  10,
+    "prior_estimate_usd":  0.296335,
+    "estimate_usd":  0.53961500000000007,
+    "reservation_per_request_usd":  0.75,
+    "reference":  "reference-current.png",
+    "requests":  [
+                     {
+                         "id":  "01-central-counter",
+                         "name":  "Центральный счётчик",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024309,
+                         "usage":  {
+                                       "input_tokens":  2277,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  769
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2557
+                                   },
+                         "started_at":  "2026-11-16T15:16:57.9847239Z"
+                     },
+                     {
+                         "id":  "02-video-center",
+                         "name":  "Видео в центре",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024274,
+                         "usage":  {
+                                       "input_tokens":  2270,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  762
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2550
+                                   },
+                         "started_at":  "2026-11-16T15:17:17.1581592Z"
+                     },
+                     {
+                         "id":  "03-horizontal-bands",
+                         "name":  "Горизонтальные полосы",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024299,
+                         "usage":  {
+                                       "input_tokens":  2275,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  767
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2555
+                                   },
+                         "started_at":  "2026-11-16T15:17:33.0315263Z"
+                     },
+                     {
+                         "id":  "04-left-command",
+                         "name":  "Управление слева",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024359,
+                         "usage":  {
+                                       "input_tokens":  2287,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  779
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2567
+                                   },
+                         "started_at":  "2026-11-16T15:17:49.0238405Z"
+                     },
+                     {
+                         "id":  "05-bottom-console",
+                         "name":  "Нижняя консоль",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024339,
+                         "usage":  {
+                                       "input_tokens":  2283,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  775
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2563
+                                   },
+                         "started_at":  "2026-11-16T15:18:04.4531767Z"
+                     },
+                     {
+                         "id":  "06-workout-spine",
+                         "name":  "Левая лента подходов",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024339,
+                         "usage":  {
+                                       "input_tokens":  2283,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  775
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2563
+                                   },
+                         "started_at":  "2026-11-16T15:18:21.9747194Z"
+                     },
+                     {
+                         "id":  "07-telemetry-bottom",
+                         "name":  "Нижняя полоса телеметрии",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024299,
+                         "usage":  {
+                                       "input_tokens":  2275,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  767
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2555
+                                   },
+                         "started_at":  "2026-11-16T15:18:38.4968581Z"
+                     },
+                     {
+                         "id":  "08-instrument-center",
+                         "name":  "Гриф в центре",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024314,
+                         "usage":  {
+                                       "input_tokens":  2278,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  770
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2558
+                                   },
+                         "started_at":  "2026-11-16T15:18:55.5295105Z"
+                     },
+                     {
+                         "id":  "09-asymmetric-grid",
+                         "name":  "Асимметричная сетка",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024364,
+                         "usage":  {
+                                       "input_tokens":  2288,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  780
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2568
+                                   },
+                         "started_at":  "2026-11-16T15:19:14.1090812Z"
+                     },
+                     {
+                         "id":  "10-centered-stack",
+                         "name":  "Вертикальный фокус",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024384,
+                         "usage":  {
+                                       "input_tokens":  2292,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  784
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2572
+                                   },
+                         "started_at":  "2026-11-16T15:19:29.9773273Z"
+                     }
+                 ]
+}

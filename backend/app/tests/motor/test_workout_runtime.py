@@ -394,14 +394,47 @@ def test_jog_stops_without_keepalive(runtime: HardwareRuntime) -> None:
     assert abs(_x(runtime) - x) < 10
 
 
+def test_set_observation_follows_real_work_and_survives_an_emergency_stop(runtime: HardwareRuntime, session_factory) -> None:
+    from app.api.routes.motor import exercise_observation
+    from app.services.motor_observations import ObservationWriter
+
+    writer = ObservationWriter(session_factory, runtime)
+    runtime.workout_command("start_motion", {"weight_kg": 5, "exercise_slug": "barbell-floor-press", "target_set": 2}, RANGE_PLAN)
+    assert _ticks(runtime, 40, lambda: runtime.control_mode == "start_hold")
+    item = runtime.observation
+    assert item is not None and item.valid == 0
+    bench = runtime.bench
+    assert bench is not None
+    bench.user = lifter(5, 325, 675, start_s=bench.t)
+    assert _ticks(runtime, 30, lambda: runtime.workout.repetitions()[0] > 0)
+    runtime.workout_command("pause", {})
+    frames = item.valid
+    _ticks(runtime, 1)
+    assert item.valid == frames > 0
+    writer.flush()
+    runtime.trigger_emergency_stop()
+    writer.flush()
+    with session_factory() as db:
+        r = exercise_observation(item.id, db)
+        assert r["status"] == "interrupted" and r["reason"]
+        assert r["fullReps"] >= 1 and r["upMmS"][0] > 0 and r["downMmS"][1] > 0
+        assert r["source"] == "twin" and r["profileVersion"] == runtime.profile.version
+        assert r["approach"]["status"] == "hold" and r["approach"]["targetMm"] == 300
+        assert r["approach"]["peakMmS"] > 0 and max(map(abs, r["approach"]["errorsMm"])) <= 8
+        assert {len(values) for values in r["trace"].values()} == {len(r["trace"]["t"])}
+        assert len(r["trace"]["t"]) >= 2 and r["minHeightMm"] > 200
+
+
 def test_fixed_position_holds_stiff(runtime: HardwareRuntime) -> None:
     runtime.workout_command("start_fixed_position", {"weight_kg": 20}, FIXED_PLAN)
     assert _ticks(runtime, 40, lambda: runtime.control_mode == "fixed_hold"), runtime.workout.message()
+    assert runtime.workout.core.hold_target == {"left": 500, "right": 500}
     bench = runtime.bench
     assert bench is not None
     x = _x(runtime)
     bench.user = users.constant(150.0, start_s=bench.t, stop_s=bench.t + 1.5)
     _ticks(runtime, 1.4)
+    assert max(runtime.observation.payload()["summary"]["fixedPeakErrorMm"]) > 0
     assert abs(_x(runtime) - x) < 60  # the user pushes 2×150 N, the bar yields only the spring travel
     _ticks(runtime, 2.5)
     settled = []
@@ -410,6 +443,46 @@ def test_fixed_position_holds_stiff(runtime: HardwareRuntime) -> None:
         settled.append(_x(runtime))
     assert max(settled) - min(settled) < 5 and abs(settled[-1] - x) < 40  # no ringing on the stiff spring
     assert runtime.state.motion.repetition_count == 0  # force/position changes never count fixed-hold reps
+
+
+def test_confirmed_skew_interrupts_fixed_hold_and_latches_both_drives(runtime: HardwareRuntime, monkeypatch) -> None:
+    runtime.workout_command("start_fixed_position", {}, FIXED_PLAN)
+    assert _ticks(runtime, 40, lambda: runtime.control_mode == "fixed_hold")
+    original = runtime.drives["right"].read
+    def skewed():
+        s = original()
+        return replace(s, position_mm=s.position_mm - 18)
+    monkeypatch.setattr(runtime.drives["right"], "read", skewed)
+    runtime.tick()
+    assert runtime.latch is None
+    runtime.tick()
+    assert runtime.latch == "fault" and "левая выше правой" in runtime.fault_reason
+    assert all(d.last_raw == ABORT_SUPPORT_RAW * d.profile.sign for d in runtime.drives.values())
+    with pytest.raises(WorkoutError):
+        runtime.workout_command("start_fixed_position", {}, FIXED_PLAN)
+
+
+def test_fixed_resume_returns_to_the_prescribed_height_after_repositioning(runtime: HardwareRuntime) -> None:
+    runtime.workout_command("start_fixed_position", {}, FIXED_PLAN)
+    assert _ticks(runtime, 40, lambda: runtime.control_mode == "fixed_hold")
+    runtime.workout_command("pause", {})
+    bench = runtime.bench
+    for state in bench.plant.state.values():
+        state.x_mm = 540
+    runtime.tick()
+    runtime.workout_command("resume", {})
+    assert runtime.control_mode == "moving"
+    assert _ticks(runtime, 40, lambda: runtime.control_mode == "fixed_hold")
+    assert runtime.workout.core.hold_target == {"left": 500, "right": 500}
+
+
+def test_position_envelope_failure_at_exercise_start_cannot_be_taken_as_a_grip(runtime: HardwareRuntime) -> None:
+    runtime.workout_command("start_motion", {}, RANGE_PLAN)
+    assert _ticks(runtime, 40, lambda: _x(runtime) > 270)
+    runner = runtime.workout.runner
+    runner._run_envelope = replace(runner._run_envelope, max_x_mm=260)
+    runtime.tick()
+    assert runtime.latch == "fault" and "позиция" in runtime.fault_reason
 
 
 def test_estop_aborts_the_set_with_slow_lowering(runtime: HardwareRuntime) -> None:

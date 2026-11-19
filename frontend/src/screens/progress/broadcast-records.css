@@ -1,0 +1,122 @@
+/* Shared by Profile and Progress. Keep the safety dock and semantic status colors out of these rules. */
+html[data-forma-theme='broadcast-blue'] :is(.profile-center, .progress-center) {
+  --record-panel: #0b171f;
+  --record-inset: #0e202a;
+  --record-line: #9dd4ff22;
+  --record-muted: #a6b9cb;
+  --record-link: var(--broadcast-accent-light, #98c2ff);
+  --record-selected: linear-gradient(180deg, #0875ef, #064cbd);
+  gap: 1rem;
+}
+
+html[data-forma-theme='broadcast-blue'] :is(.profile-tabs, .progress-tabs) {
+  display: flex;
+  flex-wrap: wrap;
+  width: fit-content;
+  max-width: 100%;
+  gap: .25rem;
+  padding: .25rem;
+  border-color: var(--record-line);
+  border-radius: 1rem;
+  background: var(--record-panel);
+}
+
+html[data-forma-theme='broadcast-blue'] :is(.profile-tabs, .progress-tabs) button {
+  flex: 1 0 auto;
+  min-height: 2.75rem;
+  padding-inline: clamp(.7rem, 1.5vw, 1.55rem);
+  border-radius: .75rem;
+}
+
+html[data-forma-theme='broadcast-blue'] :is(.profile-tabs, .progress-tabs) button[aria-current='page'] {
+  color: #fff;
+  background: var(--record-selected);
+  box-shadow: inset 0 0 0 1px #ffffff26;
+  font-weight: 650;
+}
+
+html[data-forma-theme='broadcast-blue'] :is(.profile-center, .progress-center) :is(.body-view, .bw, .profile-body-cards) {
+  --b-surface: var(--record-panel);
+  --b-line: var(--record-line);
+  --b-muted: var(--record-muted);
+  --b-gold: var(--broadcast-accent, #58a6ff);
+  --b-gold-soft: var(--broadcast-accent-soft, #2583ff24);
+}
+
+html[data-forma-theme='broadcast-blue'] :is(.profile-center, .progress-center) :is(.body-view-head, .body-panel > header, .bw-top article > header, .bw-history > header) {
+  padding-bottom: .8rem;
+  border-bottom: 1px solid var(--record-line);
+}
+
+html[data-forma-theme='broadcast-blue'] :is(.profile-center, .progress-center) .body-view-head {
+  align-items: center;
+  padding: .8rem 1rem;
+  border: 1px solid var(--record-line);
+  border-radius: .85rem;
+  background: var(--record-panel);
+}
+
+html[data-forma-theme='broadcast-blue'] :is(.profile-center, .progress-center) .body-cards {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9.75rem), 1fr));
+  gap: .55rem;
+}
+
+html[data-forma-theme='broadcast-blue'] :is(.profile-center, .progress-center) .body-card {
+  padding: .85rem;
+  border-radius: .75rem;
+}
+
+html[data-forma-theme='broadcast-blue'] :is(.profile-center, .progress-center) .body-card[aria-pressed='true'] {
+  box-shadow: inset 0 3px var(--broadcast-accent, #58a6ff);
+}
+
+html[data-forma-theme='broadcast-blue'] .progress-center .bw-top {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr);
+  gap: .85rem;
+}
+
+html[data-forma-theme='broadcast-blue'] .progress-center :is(.bw-hero, .bw-chart-card, .bw-history, .bw-settings, .body-panel),
+html[data-forma-theme='broadcast-blue'] .profile-center .body-panel { border-radius: .9rem; }
+
+html[data-forma-theme='broadcast-blue'] .progress-center .bw-chart-card { justify-content: space-between; }
+html[data-forma-theme='broadcast-blue'] .progress-center .bw-stats { gap: .5rem; }
+html[data-forma-theme='broadcast-blue'] .progress-center .bw-stats > div { padding: .65rem .75rem; border-radius: .65rem; background: var(--record-inset); }
+html[data-forma-theme='broadcast-blue'] .progress-center .bw-periods { flex-wrap: wrap; }
+html[data-forma-theme='broadcast-blue'] .progress-center .bw-weight:not(.bw-weight-empty) { color: #f4f8ff; }
+
+html[data-forma-theme='broadcast-blue'] :is(.profile-center, .progress-center) :is(.body-table, .bw-history) :is(tbody tr, li):nth-child(odd) { background: #9dd4ff08; }
+html[data-forma-theme='broadcast-blue'] :is(.profile-center, .progress-center) :is(.body-link, .body-more, .bw-more) { color: var(--record-link); }
+html[data-forma-theme='broadcast-blue'] :is(.profile-center, .progress-center) :is(button, a, summary):focus-visible { outline: 2px solid var(--record-link); outline-offset: 2px; }
+
+/* Shared measurement dialogs are portalled; these rules only apply while either records screen is mounted. */
+html[data-forma-theme='broadcast-blue'] body:has(.records-screen) .body-dialog.forma-dialog-panel {
+  padding: clamp(1rem, 3vw, 1.65rem);
+  border: 1px solid #9dd4ff30;
+  border-radius: 1rem;
+  background: #0b171f;
+}
+
+html[data-forma-theme='broadcast-blue'] body:has(.records-screen) .body-dialog :is(.body-form, .body-dialog-actions) {
+  padding-top: 1rem;
+  border-top: 1px solid #9dd4ff22;
+}
+
+html[data-forma-theme='broadcast-blue'] body:has(.records-screen) .body-dialog .body-field { min-width: 0; }
+html[data-forma-theme='broadcast-blue'] body:has(.records-screen) .body-dialog .body-field input { min-width: 0; border-radius: .65rem; }
+
+/* Existing weigh-in confirmation has no dedicated class; scope its old utility to the body view. */
+html[data-forma-theme='broadcast-blue'] body:has(.progress-center .bw) .forma-dialog-panel[class~='border-[#d6b05f]/25'] {
+  width: min(100%, 32rem);
+  border-color: #9dd4ff30;
+  border-radius: 1rem;
+  background: #0b171f;
+}
+html[data-forma-theme='broadcast-blue'] body:has(.progress-center .bw) .forma-dialog-panel[class~='border-[#d6b05f]/25'] > div:last-child {
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid #9dd4ff22;
+}
+
+@media (max-width: 1050px) {
+  html[data-forma-theme='broadcast-blue'] .progress-center .bw-top { grid-template-columns: minmax(0, 1fr); }
+}

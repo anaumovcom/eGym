@@ -2,6 +2,7 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { App } from '@/app/app'
 import '@/app/styles.css'
+import '@/app/broadcast-blue.css'
 
 async function prepareMocks() {
   if (import.meta.env.DEV && import.meta.env.VITE_ENABLE_MSW === 'true') {

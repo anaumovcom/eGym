@@ -1,16 +1,22 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { CoachPackClient, type PackSnapshot } from '../audio/pack-client'
+import { CoachPackClient, type PackSnapshot, type PackClipEntry } from '../audio/pack-client'
 import { CoachVoicePackSection } from './coach-voice-pack'
-import { generateCoachPack } from '../audio/pack-generation'
+import { generateCoachPack, recordStarterClip } from '../audio/pack-generation'
+import { previewPackClip } from '../audio/pack-preview'
 
-vi.mock('../audio/pack-generation', () => ({ generateCoachPack: vi.fn() }))
+vi.mock('../audio/pack-generation', () => ({ generateCoachPack: vi.fn(), recordStarterClip: vi.fn(), approveCoachClip: vi.fn() }))
+vi.mock('../audio/pack-preview', () => ({ previewPackClip: vi.fn() }))
 
-afterEach(cleanup)
+afterEach(() => { cleanup(); vi.clearAllMocks() })
 
 function fakeClient(initial: Partial<PackSnapshot> = {}) {
   const client = new CoachPackClient({ fetch: vi.fn(), openCache: async () => null, deleteCache: vi.fn(async () => {}), context: () => null })
   let value: PackSnapshot = { ...client.snapshot(), ...initial }
+  const version = '0000000000000001'
+  const entry = (text: string): PackClipEntry => ({ text, group: 'count', sha256: 'a'.repeat(64), fingerprint: 'a'.repeat(64), durationMs: 300, bytes: 12000, required: true, approved: true, sampleRate: 8000 })
+  vi.spyOn(client, 'installed').mockImplementation(slot => slot && slot === value.slot && value.state === 'ready' ? { slot: value.slot!, packVersion: version,
+    complete: true, missingClips: 0, clips: { 'count-1': entry('Раз.'), 'count-2': entry('Два.') } } : null)
   const listeners = new Set<() => void>()
   const set = (next: Partial<PackSnapshot>) => { value = { ...value, ...next }; listeners.forEach(listener => listener()) }
   Object.defineProperty(client, 'snapshot', { value: () => value })
@@ -29,8 +35,8 @@ describe('CoachVoicePackSection', () => {
       return f.client.snapshot()
     })
     render(<CoachVoicePackSection slot="fish-streamer" client={f.client} />)
-    await waitFor(() => expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Готово · Подготовлено 56/56'))
-    expect(f.restore).toHaveBeenCalledWith('fish-streamer')
+    await waitFor(() => expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Готово к воспроизведению: 56/56'))
+    expect(f.restore).toHaveBeenCalledWith('fish-streamer', { signal: expect.any(AbortSignal) })
     expect(f.prepare).not.toHaveBeenCalled()
   })
 
@@ -40,11 +46,11 @@ describe('CoachVoicePackSection', () => {
     vi.mocked(generateCoachPack).mockImplementationOnce(async (_slot, _user, _cap, _signal, progress) => { progress(4, 56) })
     render(<CoachVoicePackSection slot="fish-streamer" userId="alexey" budgetUsd="0.50" client={f.client} />)
     expect(generateCoachPack).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Подготовить частые фразы' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Скачать голосовой пакет' }))
     const create = await screen.findByRole('button', { name: 'Создать недостающие фразы (до 0.50 $)' })
     expect(generateCoachPack).not.toHaveBeenCalled()
     fireEvent.click(create)
-    await waitFor(() => expect(generateCoachPack).toHaveBeenCalledWith('fish-streamer', 'alexey', '0.50', expect.any(AbortSignal), expect.any(Function)))
+    await waitFor(() => expect(generateCoachPack).toHaveBeenCalledWith('fish-streamer', 'alexey', '0.50', expect.any(AbortSignal), expect.any(Function), undefined))
     await waitFor(() => expect(f.prepare).toHaveBeenCalledTimes(2))
     expect(screen.queryByRole('button', { name: /Создать недостающие/ })).not.toBeInTheDocument()
   })
@@ -54,7 +60,7 @@ describe('CoachVoicePackSection', () => {
     f.prepare.mockImplementationOnce(async slot => ({ ...f.client.snapshot(), slot, reason: 'no_pack' }))
     vi.mocked(generateCoachPack).mockRejectedValueOnce(new Error('Войдите в доступ оператора'))
     render(<CoachVoicePackSection slot="fish-streamer" userId="alexey" client={f.client} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Подготовить частые фразы' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Скачать голосовой пакет' }))
     fireEvent.click(await screen.findByRole('button', { name: /Создать недостающие/ }))
     expect(await screen.findByText('Войдите в доступ оператора')).toBeInTheDocument()
   })
@@ -68,7 +74,7 @@ describe('CoachVoicePackSection', () => {
       await new Promise<void>(resolve => abort.addEventListener('abort', () => resolve(), { once: true }))
     })
     const view = render(<CoachVoicePackSection slot="fish-streamer" userId="alexey" client={f.client} />)
-    fireEvent.click(screen.getByRole('button', { name: 'Подготовить частые фразы' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Скачать голосовой пакет' }))
     fireEvent.click(await screen.findByRole('button', { name: /Создать недостающие/ }))
     await waitFor(() => expect(signal).toBeDefined())
     view.rerender(<CoachVoicePackSection slot="tts-ash" userId="alexey" client={f.client} />)
@@ -79,31 +85,50 @@ describe('CoachVoicePackSection', () => {
   it('needs a selected voice and never prepares on mount', () => {
     const f = fakeClient()
     render(<CoachVoicePackSection slot={null} client={f.client} />)
-    expect(screen.getByText(/Выберите голос/)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Подготовить частые фразы' })).toBeDisabled()
+    expect(screen.getByText(/Выберите и сохраните голос/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Скачать голосовой пакет' })).not.toBeInTheDocument()
     expect(f.prepare).not.toHaveBeenCalled()
-    expect(screen.getByText(/Скачивает готовые фразы/)).toBeInTheDocument()
   })
 
   it('prepares only on click and shows progress, size and pending safety approval', async () => {
     const f = fakeClient()
     render(<CoachVoicePackSection slot="ash" client={f.client} />)
-    expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Не подготовлено')
-    fireEvent.click(screen.getByRole('button', { name: 'Подготовить частые фразы' }))
-    await waitFor(() => expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Готово · Подготовлено 54/54 · 3.0 MB'))
-    expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('фраз безопасности ждут прослушивания: 2')
-    expect(f.prepare).toHaveBeenCalledWith('ash')
-    fireEvent.click(screen.getByRole('button', { name: 'Удалить локальные файлы' }))
+    expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Не скачан')
+    fireEvent.click(screen.getByRole('button', { name: 'Скачать голосовой пакет' }))
+    await waitFor(() => expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Готово к воспроизведению: 54/54 · 3.0 МБ'))
+    expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('На проверке: 2')
+    expect(f.prepare).toHaveBeenCalledWith('ash', expect.any(AbortSignal))
+    fireEvent.click(screen.getByRole('button', { name: 'Удалить с устройства' }))
     await waitFor(() => expect(f.remove).toHaveBeenCalledOnce())
-    expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Не подготовлено')
+    expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Не скачан')
   })
 
   it('does not show another voice pack as prepared', () => {
     const f = fakeClient({ slot: 'ash', state: 'ready', prepared: 54, required: 54 })
     render(<CoachVoicePackSection slot="cedar" client={f.client} />)
-    expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Не подготовлено')
+    expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Не скачан')
     expect(screen.getByTestId('coach-pack-status')).not.toHaveTextContent('54')
     act(() => f.set({ slot: 'cedar', state: 'failed', reason: 'no_audio', prepared: 0, required: 0 }))
-    expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Ошибка подготовки · звук браузера недоступен')
+    expect(screen.getByTestId('coach-pack-status')).toHaveTextContent('Не удалось установить пакет · звук в браузере недоступен')
+  })
+
+  it.each(['ru-base', 'ash'] as const)('auditions the actual selected clip locally; replaces only that clip after confirmation (%s)', async slot => {
+    const f = fakeClient({ slot, state: 'ready' })
+    vi.mocked(previewPackClip).mockResolvedValue(true)
+    render(<CoachVoicePackSection slot={slot} client={f.client} budgetUsd="1.00" userId="u" />)
+    fireEvent.change(screen.getByLabelText(/Фраза пакета/), { target: { value: 'count-2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Прослушать' }))
+    await waitFor(() => expect(previewPackClip).toHaveBeenCalledWith(f.client, slot, 'count-2', 1, expect.any(AbortSignal)))
+    expect(f.prepare).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'Перегенерировать фразу' }))
+    expect(screen.getByRole('group', { name: 'Подтверждение замены' })).toHaveTextContent('«Два.»')
+    expect(generateCoachPack).not.toHaveBeenCalled(); expect(recordStarterClip).not.toHaveBeenCalled()
+    if (slot === 'ru-base') fireEvent.change(screen.getByLabelText(/Темп новой записи/), { target: { value: 'slow' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Подтвердить замену' }))
+    const target = { clipId: 'count-2', expectedPackVersion: '0000000000000001' }
+    if (slot === 'ru-base') {
+      expect(recordStarterClip).toHaveBeenCalledWith(target, 'slow', expect.any(AbortSignal)); expect(generateCoachPack).not.toHaveBeenCalled()
+    } else expect(generateCoachPack).toHaveBeenCalledWith(slot, 'u', '1.00', expect.any(AbortSignal), expect.any(Function), target)
+    await waitFor(() => expect(f.prepare).toHaveBeenCalledOnce())
   })
 })

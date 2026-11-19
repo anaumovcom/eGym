@@ -218,7 +218,7 @@ export function PhotoProgressScreen() {
   }
 
   function handleTakePhoto() {
-    if (captureInFlight) {
+    if (captureInFlight || !photoState || !currentShot) {
       return
     }
 

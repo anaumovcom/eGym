@@ -11,7 +11,9 @@ import logging
 import threading
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import UTC, datetime
 from typing import Any, TypeVar
 
@@ -52,8 +54,8 @@ _DEFAULT_REGISTERS: dict[int, int] = {
     0x001: 0,
     # PA_002 – control mode: 0=Position, 1=Speed, 2=Torque, 3=CANopen (project runs in Torque Mode)
     0x002: 2,
-    # PA_003 – rotation direction
-    0x003: 0,
+    # PA_003 = 1: PA_05E limits both torque directions
+    0x003: 1,
     # PA_00D – RS485 baud rate code: 0=2400, 1=4800, 2=9600, 3=19200, 4=38400, 5=57600, 6=115200
     0x00D: 6,
     # PA_090 – extended/communication mode: 0=standard, 1=extended
@@ -172,6 +174,20 @@ _INTER_SLAVE_GAP_S = 0.010  # quiet time on the RS-485 bus when the next frame g
 # After a failed transaction a late reply may still be on the wire and would be
 # read as the answer to the next request ("Wrong return slave address").
 _STALE_DRAIN_S = 0.030
+_CONTROL_RESPONSE_S = 0.050
+_control_deadline: ContextVar[float | None] = ContextVar("modbus_control_deadline", default=None)
+
+
+@contextmanager
+def control_bus_deadline(deadline: float | None) -> Iterator[None]:
+    """Expiration of commands derived from one frame, local to the control thread."""
+    token = _control_deadline.set(deadline)
+    try:
+        yield
+    finally:
+        _control_deadline.reset(token)
+
+
 T = TypeVar("T")
 _REG_CONTROL_MODE = 0x002
 _REG_SPEED_LIMIT = 0x056
@@ -184,12 +200,21 @@ _REG_ALARM = 0x1C9
 class ModbusService:
     """Stateful singleton Modbus service."""
 
+    _instr: Any  # Present only while the physical serial port is open.
+
     def __init__(self) -> None:
         self._lock = threading.RLock()
         self._connected = False
         self._params: ModbusConnectionParamsSchema | None = None
+        self._connection_requested = False
+        self._servo_held_off: set[int] = set()
+        self._serial_timeouts: tuple[float | None, float | None] | None = None
+        self._bus_last_slave: int | None = None
+        self._telemetry: dict[int, tuple[float, dict[str, Any]]] = {}
+        self._diagnostic_parameters: dict[int, dict[int, int]] = {}
         self._ok_count = 0
         self._error_count = 0
+        self._rtu_errors = 0
         self._last_success_at: datetime | None = None
         self._connection_error: str | None = None
         self._log: deque[ExchangeLogEntrySchema] = deque(maxlen=_MAX_LOG_ENTRIES)
@@ -266,42 +291,65 @@ class ModbusService:
 
     def _select_slave(self, slave_id: int) -> None:
         """Select a separate simulated bank and the RTU address while holding the lock."""
-        self._registers = self._registers_by_slave.setdefault(slave_id, {**_DEFAULT_REGISTERS, 0x000: slave_id})
+        if slave_id not in self._registers_by_slave:
+            self._registers_by_slave[slave_id] = {**_DEFAULT_REGISTERS, 0x000: slave_id}
+        self._registers = self._registers_by_slave[slave_id]
         if hasattr(self, "_instr"):
-            last_slave = getattr(self, "_bus_last_slave", None)
-            if last_slave is not None and last_slave != slave_id:
-                rest = _INTER_SLAVE_GAP_S - (time.monotonic() - getattr(self, "_bus_last_end", 0.0))
-                if rest > 0:
-                    time.sleep(rest)
             self._instr.address = slave_id
-            if getattr(self, "_bus_dirty", False):
-                self._drain_stale()
 
-    def _drain_stale(self) -> None:
-        rest = _STALE_DRAIN_S - (time.monotonic() - getattr(self, "_bus_last_end", 0.0))
+    def _prepare_transaction(self, slave_id: int, deadline: float | None) -> None:
+        dirty = getattr(self, "_bus_dirty", False)
+        gap = _INTER_SLAVE_GAP_S if getattr(self, "_bus_last_slave", None) != slave_id else 0.0
+        rest = max(gap, _STALE_DRAIN_S if dirty else 0.0) - (time.monotonic() - getattr(self, "_bus_last_end", 0.0))
+        if deadline is not None and time.monotonic() + max(0.0, rest) >= deadline:
+            raise TimeoutError("Истёк срок обмена Modbus")
         if rest > 0:
             time.sleep(rest)
-        try:
-            self._instr.serial.reset_input_buffer()  # type: ignore[attr-defined]
-        except Exception:  # noqa: BLE001
-            pass
-        self._bus_dirty = False
+        if dirty:
+            self._instr.serial.reset_input_buffer()
+            self._bus_dirty = False
+        self._instr.address = slave_id
 
     def _bus_transaction(self, slave_id: int, call: Callable[[], T]) -> T:
-        """Run one real-bus request; on failure drop late/stale bytes and retry once (reads and register writes are idempotent)."""
+        """Bound each attempt by the remaining frame lifetime, including the retry and bus turnaround."""
+        from minimalmodbus import SlaveReportedException  # type: ignore[import-untyped]
+
+        deadline = _control_deadline.get()
+        port = self._instr.serial
         for attempt in (1, 2):
+            self._prepare_transaction(slave_id, deadline)
+            if deadline is not None:
+                if self._serial_timeouts is None:
+                    self._serial_timeouts = port.timeout, port.write_timeout
+                remaining = deadline - time.monotonic() - 0.002  # allow the library's inter-frame silence
+                if remaining <= 0:
+                    raise TimeoutError("Истёк срок обмена Modbus")
+                timeout = min(remaining, _CONTROL_RESPONSE_S)
+            if self._serial_timeouts is not None:
+                read_timeout, write_timeout = self._serial_timeouts
+                if deadline is not None:
+                    read_timeout = min(timeout, read_timeout) if read_timeout is not None else timeout
+                    write_timeout = min(timeout, write_timeout) if write_timeout is not None else timeout
+                # pySerial reconfigures the device on assignment. Keep stable settings between cyclic requests.
+                if port.timeout != read_timeout:
+                    port.timeout = read_timeout
+                if port.write_timeout != write_timeout:
+                    port.write_timeout = write_timeout
+            if deadline is not None and time.monotonic() + 0.002 >= deadline:
+                raise TimeoutError("Истёк срок обмена Modbus")
             try:
-                result = call()
+                return call()
+            except SlaveReportedException:
+                # Valid RTU exception response, including illegal address/data. No stale bytes or blind retry.
+                self._rtu_errors += 1
+                raise
             except Exception:
+                self._rtu_errors += 1
                 self._bus_dirty = True
-                self._bus_done(slave_id)
                 if attempt == 2:
                     raise
-                self._drain_stale()
-                self._instr.address = slave_id  # type: ignore[attr-defined]
-                continue
-            self._bus_done(slave_id)
-            return result
+            finally:
+                self._bus_done(slave_id)
         raise AssertionError("unreachable")
 
     def _bus_done(self, slave_id: int) -> None:
@@ -310,6 +358,8 @@ class ModbusService:
 
     def _simulate_read(self, address: int) -> tuple[int, str | None]:
         """Return (value, error_or_None) from the simulated register bank."""
+        if address in (0x1D2, 0x1D3):
+            return self._registers[0x201 if address == 0x1D2 else 0x202], None
         if address in self._registers:
             return self._normalize_register_value(address, self._registers[address]), None
         return 0, f"Unknown register 0x{address:03X}"
@@ -370,9 +420,52 @@ class ModbusService:
     # Connection
     # ------------------------------------------------------------------
 
+    def request_connection(self, params: ModbusConnectionParamsSchema) -> None:
+        """Arm startup discovery without opening the serial port on the API thread."""
+        with self._lock:
+            if self._connected and self._params != params:
+                self.disconnect(preserve_torque=True)
+            self._params = params
+            self._connection_requested = True
+            self._servo_held_off.clear()
+
+    def recover_pair(self, initial_commands: dict[int, int], torque_limit: int, speed_limit_rpm: int) -> list[str]:
+        with self._lock:
+            params = self._params
+            if not self._connection_requested or params is None:
+                return ["Соединение Modbus отключено оператором"]
+            if set(initial_commands) != {params.slave_id, params.right_slave_id}:
+                return ["Адреса подключения отличаются от адресов осей тренажёра"]
+            if self._manual_torque:
+                return ["Активен ручной момент"]
+            zeros = self.left_zero_pulses, self.right_zero_pulses
+            try:
+                if self._connected:
+                    alarms = {}
+                    for slave in initial_commands:
+                        with control_bus_deadline(time.monotonic() + 2 * _CONTROL_RESPONSE_S):
+                            alarms[slave] = self._read_single_locked(_REG_ALARM, slave, log=False)
+                    # Keep the port and the healthy side's support whenever either axis responds.
+                    if any(value is not None for value, _ in alarms.values()):
+                        errors = [f"ID{slave}: {error or f'авария PA_1C9={value}'}" for slave, (value, error) in alarms.items() if value != 0]
+                        if errors:
+                            self._connection_error = "; ".join(errors)
+                            return errors
+                        return self.initialize_torque_mode(initial_commands=initial_commands, torque_limit=torque_limit, speed_limit_rpm=speed_limit_rpm)
+                # Reopening also recovers an unplugged USB adapter that returned with the same name.
+                status = self.connect(params, initial_commands=initial_commands, torque_limit=torque_limit, speed_limit_rpm=speed_limit_rpm, discovery=True)
+                if not status.connected:
+                    return [status.error_message or "Нет связи с приводами"]
+                return [f"ID{slave}: {why}" for slave, why in self._init_error.items()]
+            finally:
+                if zeros[0] is not None:
+                    self.left_zero_pulses = zeros[0]
+                if zeros[1] is not None:
+                    self.right_zero_pulses = zeros[1]
+
     def connect(
         self, params: ModbusConnectionParamsSchema, *, initial_commands: dict[int, int] | None = None, torque_limit: int = DEFAULT_TORQUE_LIMIT,
-        speed_limit_rpm: int = DEFAULT_SPEED_LIMIT_RPM,
+        speed_limit_rpm: int = DEFAULT_SPEED_LIMIT_RPM, discovery: bool = False,
     ) -> ModbusConnectionStatusSchema:
         with self._lock:
             if params.slave_id == params.right_slave_id:
@@ -388,14 +481,13 @@ class ModbusService:
                 del self._instr
 
             self._params = params
+            self._connection_requested = True
             self._left_slave_id = params.slave_id
             self._right_slave_id = params.right_slave_id
             self.left_zero_pulses = None
             self.right_zero_pulses = None
             self._clear_torque_state()
-            if hasattr(self, "_instr"):
-                self._instr.address = self._left_slave_id
-
+            previous_error = self._connection_error
             self._connection_error = None
             is_sim = params.port == "SIM://"
 
@@ -412,22 +504,20 @@ class ModbusService:
                 return self._build_status(simulation_mode=True)
 
             try:
-                import minimalmodbus  # type: ignore[import-untyped]
+                import minimalmodbus
                 instr = minimalmodbus.Instrument(params.port, params.slave_id)
-                try:
-                    # A second backend (e.g. a duplicate watcher) must not share the RS-485 bus: interleaved frames corrupt replies.
-                    instr.serial.exclusive = True
-                except Exception:
-                    instr.serial.close()
-                    minimalmodbus._serialports.pop(params.port, None)
-                    raise
+                self._instr = instr
+                instr.serial.exclusive = True
                 instr.serial.baudrate = params.baud_rate
                 instr.serial.parity = params.parity
                 instr.serial.stopbits = params.stop_bits
                 instr.serial.bytesize = params.data_bits
                 instr.serial.timeout = params.timeout_ms / 1000.0
-                instr.read_register(0)
-                self._instr = instr
+                if discovery:
+                    with control_bus_deadline(time.monotonic() + 2 * _CONTROL_RESPONSE_S):
+                        self._bus_transaction(params.slave_id, lambda: instr.read_register(0))
+                else:
+                    instr.read_register(0)
                 self._connected = True
                 self._ok_count = 0
                 self._error_count = 0
@@ -439,22 +529,28 @@ class ModbusService:
                     self._log_info("SYNC_ERR", self._connection_error)
                 return self._build_status(simulation_mode=False)
             except Exception as exc:  # noqa: BLE001
+                if hasattr(self, "_instr"):
+                    try:
+                        self._instr.serial.close()
+                    except OSError:
+                        pass
+                    finally:
+                        minimalmodbus._serialports.pop(params.port, None)
+                        del self._instr
                 self._connected = False
                 self._connection_error = str(exc)
                 self._error_count += 1
-                self._log_info("CONNECT_ERR", str(exc))
-                logger.error("Modbus connect to %s failed: %s", params.port, exc)
-                return ModbusConnectionStatusSchema(
-                    connected=False,
-                    port=params.port,
-                    baud_rate=params.baud_rate,
-                    slave_id=params.slave_id,
-                    error_message=str(exc),
-                    error_count=self._error_count,
-                )
+                if not discovery or self._connection_error != previous_error:
+                    self._log_info("CONNECT_ERR", str(exc))
+                    logger.log(logging.INFO if discovery else logging.ERROR, "Modbus connect to %s failed: %s", params.port, exc)
+                return self._build_status()
 
     def _clear_torque_state(self) -> None:
         self._bus_last_slave = None
+        self._serial_timeouts = None
+        self._bus_dirty = False
+        self._telemetry.clear()
+        self._diagnostic_parameters.clear()
         self._manual_torque = False
         self._torque_ready.clear()
         self._init_error.clear()
@@ -466,6 +562,7 @@ class ModbusService:
 
     def disconnect(self, *, preserve_torque: bool = False) -> ModbusConnectionStatusSchema:
         with self._lock:
+            self._connection_requested = False
             if self._connected and not preserve_torque:
                 # never leave a torque reference behind on the drives
                 self.stop_all_torque()
@@ -494,21 +591,22 @@ class ModbusService:
             parity=self._params.parity if self._params else None,
             slave_id=self._params.slave_id if self._params else None,
             right_slave_id=self._right_slave_id if self._params else None,
+            timeout_ms=self._params.timeout_ms if self._params else None,
             last_success_at=self._last_success_at,
             ok_count=self._ok_count,
             error_count=self._error_count,
-            error_message=self._connection_error if not self._connected else None,
+            error_message=self._connection_error,
             simulation_mode=simulation_mode or (self._params is not None and self._params.port == "SIM://"),
         )
 
     def _real_serial_available(self) -> bool:
         try:
-            import minimalmodbus  # type: ignore[import-untyped]  # noqa: F401
+            import minimalmodbus  # noqa: F401
             return True
         except ImportError:
             pass
         try:
-            import serial  # type: ignore[import-untyped]  # noqa: F401
+            import serial  # noqa: F401
             return True
         except ImportError:
             pass
@@ -549,15 +647,16 @@ class ModbusService:
                     address=addr, address_hex=f"0x{addr:03X}", value=val, error=err, read_at=self._now(),
                 ))
             raw_resp = "[SIM] " + " ".join(f"{(r.value & 0xFFFF):04X}" for r in results)
+            error = next((r.error for r in results if r.error), None)
         else:
             try:
                 if req.count > 1:
                     raw_values = [int(v) & 0xFFFF for v in self._bus_transaction(
-                        slave_id, lambda: self._instr.read_registers(req.address, req.count),  # type: ignore[attr-defined]
+                        slave_id, lambda: self._instr.read_registers(req.address, req.count),
                     )]
                 else:
                     val = self._bus_transaction(
-                        slave_id, lambda: self._instr.read_register(req.address, signed=self._is_signed_register(req.address)),  # type: ignore[attr-defined]
+                        slave_id, lambda: self._instr.read_register(req.address, signed=self._is_signed_register(req.address)),
                     )
                     raw_values = [val & 0xFFFF]
                 for i, val in enumerate(raw_values):
@@ -571,7 +670,6 @@ class ModbusService:
             except Exception as exc:  # noqa: BLE001
                 error = str(exc)
                 raw_resp = None
-            self._bus_done(slave_id)
         elapsed = (time.monotonic() - t0) * 1000
         if error:
             self._error_count += 1
@@ -593,11 +691,21 @@ class ModbusService:
 
     def write_register(self, req: ModbusWriteRequestSchema) -> ModbusWriteResultSchema:
         with self._lock:
+            slave_id = req.slave_id or (self._params.slave_id if self._params else 1)
+            if req.address == PA_VIRTUAL_DI and not req.value & 1:
+                self._servo_held_off.add(slave_id)
             if not self._connected:
                 return ModbusWriteResultSchema(success=False, address=req.address, value=req.value, error="Not connected")
-            slave_id = req.slave_id or (self._params.slave_id if self._params else 1)
-            self._select_slave(slave_id)
-            return self._write_register_locked(req.address, req.value, slave_id)
+            result = self._write_register_locked(req.address, req.value, slave_id)
+            if result.success and req.address == PA_VIRTUAL_DI and req.value & 1:
+                self._servo_held_off.discard(slave_id)
+            if result.success and req.address in COMMISSIONING_EXPECTED:
+                self._diagnostic_parameters.setdefault(slave_id, {})[req.address] = req.value
+                label, mask, expected = COMMISSIONING_EXPECTED[req.address]
+                if req.value & mask != expected:
+                    self._torque_ready[slave_id] = False
+                    self._init_error[slave_id] = f"{label}, сейчас {req.value}"
+            return result
 
     def _write_register_locked(self, address: int, value: int, slave_id: int, *, log: bool = True) -> ModbusWriteResultSchema:
         self._select_slave(slave_id)
@@ -610,13 +718,12 @@ class ModbusService:
             raw_resp = "[SIM] OK" if error is None else f"[SIM] ERR: {error}"
         else:
             try:
-                self._bus_transaction(slave_id, lambda: self._instr.write_register(address, value, signed=signed))  # type: ignore[attr-defined]
+                self._bus_transaction(slave_id, lambda: self._instr.write_register(address, value, signed=signed))
                 self._registers[address] = value if signed else value & 0xFFFF
                 raw_resp = "ACK"
             except Exception as exc:  # noqa: BLE001
                 error = str(exc)
                 raw_resp = f"ERR: {error}"
-            self._bus_done(slave_id)
         elapsed = (time.monotonic() - t0) * 1000
         if error:
             self._error_count += 1
@@ -625,6 +732,8 @@ class ModbusService:
             self._last_success_at = self._now()
             if address == PA_VIRTUAL_DI:  # also tracks writes from the debug panel
                 self._servo_on[slave_id] = bool(value & 1)
+            if address == _REG_TORQUE_COMMAND:
+                self._torque_command[slave_id] = value
         if log or error:
             self._append_log(ExchangeLogEntrySchema(
                 id=self._next_log_id(), ts=self._now(), direction="TX", slave_id=slave_id,
@@ -660,10 +769,11 @@ class ModbusService:
             right, right_error = self._read_position(right_id)
         if capture_zero and left is not None and right is not None:
             self.left_zero_pulses, self.right_zero_pulses = left, right
+            self._telemetry.clear()
             self._log_info("ZERO", f"Software encoder zero captured for slaves {left_id} and {right_id}")
         zeroed = self.left_zero_pulses is not None and self.right_zero_pulses is not None
-        left_mm = (left - self.left_zero_pulses) * _MM_PER_PULSE if left is not None and zeroed else None
-        right_mm = (right - self.right_zero_pulses) * _MM_PER_PULSE if right is not None and zeroed else None
+        left_mm = (left - self.left_zero_pulses) * _MM_PER_PULSE if zeroed and left is not None and self.left_zero_pulses is not None else None
+        right_mm = (right - self.right_zero_pulses) * _MM_PER_PULSE if zeroed and right is not None and self.right_zero_pulses is not None else None
         return ModbusPositionsSchema(
             connected=self._connected, simulation_mode=self._params is not None and self._params.port == "SIM://", zeroed=zeroed,
             left_zero_pulses=self.left_zero_pulses, right_zero_pulses=self.right_zero_pulses,
@@ -693,6 +803,7 @@ class ModbusService:
         with self._lock:
             self.left_zero_pulses = left_pulses
             self.right_zero_pulses = right_pulses
+            self._telemetry.clear()
             return self._positions_locked()
 
     def _read_single_locked(self, address: int, slave_id: int, *, log: bool = True) -> tuple[int | None, str | None]:
@@ -724,30 +835,26 @@ class ModbusService:
             return "Привод не инициализирован в Torque Mode: сначала initialize_torque_mode()"
         return None
 
-    def _read_init_register(self, address: int, slave_id: int, attempts: int = 3) -> tuple[int | None, str | None]:
-        """Read during init; the first request to a drive after a bus switch may time out once."""
-        value, error = self._read_single_locked(address, slave_id)
-        for _ in range(attempts - 1):
-            if value is not None:
-                break
-            value, error = self._read_single_locked(address, slave_id)
-        return value, error
-
     def _init_torque_drive_locked(
         self, slave_id: int, *, torque_limit: int, speed_limit_rpm: int, initial_command: int = 0,
     ) -> str | None:
         """Verify Torque Mode without dropping restart support to zero."""
         self._torque_ready[slave_id] = False
-        alarm, error = self._read_init_register(_REG_ALARM, slave_id)
+        alarm, error = self._read_single_locked(_REG_ALARM, slave_id)
         if alarm is None:
             return error or "Нет связи с приводом"
         if alarm:
             return f"Авария привода PA_1C9={alarm}"
+        checked = self._diagnostic_parameters[slave_id] = {0x000: slave_id}
+        baud_code, _ = self._read_single_locked(0x00D, slave_id)
+        if baud_code is not None:
+            checked[0x00D] = baud_code
         mismatches: list[str] = []
         for address, (label, mask, expected) in COMMISSIONING_EXPECTED.items():
-            value, error = self._read_init_register(address, slave_id)
+            value, error = self._read_single_locked(address, slave_id)
             if value is None:
                 return error or f"Нет ответа PA_{address:03X}"
+            checked[address] = value
             if value & mask != expected:
                 mismatches.append(f"{label}, сейчас {value}")
         if mismatches:
@@ -755,7 +862,7 @@ class ModbusService:
                 "пусконаладка драйвера не выполнена: " + "; ".join(mismatches)
                 + ". Выставить вручную, сохранить в EEPROM и перезапустить питание (софт эти параметры не пишет)"
             )
-        segment, error = self._read_init_register(_REG_TORQUE_SEGMENT, slave_id)
+        segment, error = self._read_single_locked(_REG_TORQUE_SEGMENT, slave_id)
         if segment is None:
             return error or "Нет ответа PA_093"
         if segment != 0:
@@ -766,11 +873,14 @@ class ModbusService:
             written = self._write_register_locked(address, value, slave_id)
             if not written.success:
                 return f"{name}: {written.error}"
+            actual, error = self._read_single_locked(address, slave_id)
+            if actual != value:
+                return f"{name}: {error or f'ожидалось {value}, прочитано {actual}'}"
         initial_command = max(-torque_limit, min(torque_limit, initial_command))
         referenced = self._write_register_locked(_REG_TORQUE_COMMAND, initial_command, slave_id)
         if not referenced.success:
             return f"PA_12C: {referenced.error}"
-        di_state, error = self._read_init_register(PA_VIRTUAL_DI, slave_id)
+        di_state, error = self._read_single_locked(PA_VIRTUAL_DI, slave_id)
         if di_state is None:
             return error or "Нет ответа PA_1A4"
         self._servo_on[slave_id] = bool(di_state & 1)
@@ -800,19 +910,19 @@ class ModbusService:
             if not self._connected:
                 return [{"register": "bus", "label": "Связь Modbus", "value": None, "ok": False, "detail": "Modbus не подключён"}]
             items: list[dict[str, Any]] = []
-            alarm, error = self._read_init_register(_REG_ALARM, slave_id)
+            alarm, error = self._read_single_locked(_REG_ALARM, slave_id)
             items.append(item(_REG_ALARM, "PA_1C9 авария (нужно 0)", alarm, alarm == 0, error))
             for address, (label, mask, expected) in COMMISSIONING_EXPECTED.items():
-                value, error = self._read_init_register(address, slave_id)
+                value, error = self._read_single_locked(address, slave_id)
                 items.append(item(address, label, value, value is not None and value & mask == expected, error))
             limits = (
                 (_REG_TORQUE_SEGMENT, "PA_093 сегмент момента (нужно 0)", 0),
                 (_REG_TORQUE_LIMIT, "PA_05E предел момента (записан при подключении)", self._torque_limit.get(slave_id)),
                 (_REG_SPEED_LIMIT, "PA_056 предел скорости (записан при подключении)", self._speed_limit_rpm.get(slave_id)),
             )
-            for address, label, expected in limits:
-                value, error = self._read_init_register(address, slave_id)
-                items.append(item(address, label, value, value is not None and expected is not None and value == expected, error or (None if expected is not None else "привод не инициализирован")))
+            for address, label, expected_limit in limits:
+                value, error = self._read_single_locked(address, slave_id)
+                items.append(item(address, label, value, value is not None and value == expected_limit, error or (None if expected_limit is not None else "привод не инициализирован")))
             return items
 
     def initialize_torque_mode(
@@ -841,6 +951,7 @@ class ModbusService:
                     errors.append(f"ID{slave_id}: {error}")
                 else:
                     self._init_error.pop(slave_id, None)
+            self._connection_error = "; ".join(errors) or None
             return errors
 
     def torque_ready(self, slave_id: int) -> bool:
@@ -852,6 +963,22 @@ class ModbusService:
         with self._lock:
             return self._servo_on.get(slave_id) if self._connected else None
 
+    def auto_servo_allowed(self) -> bool:
+        with self._lock:
+            return not self._servo_held_off
+
+    def check_servo_pair(self) -> bool:
+        """Catch a power cycle that happened entirely between two control frames."""
+        with self._lock:
+            for slave in (self._left_slave_id, self._right_slave_id):
+                with control_bus_deadline(time.monotonic() + _CONTROL_RESPONSE_S):
+                    value, _ = self._read_single_locked(PA_VIRTUAL_DI, slave, log=False)
+                if value is None:
+                    self._servo_on.pop(slave, None)
+                    return False
+                self._servo_on[slave] = bool(value & 1)
+            return all(self._servo_on[slave] for slave in (self._left_slave_id, self._right_slave_id))
+
     def set_servo(self, slave_id: int, on: bool) -> str | None:
         """SRV-ON through virtual DI0: PA_1A4 bit0 (routed by PA_1A0 bit0). Read-modify-write, verified by readback."""
         with self._lock:
@@ -859,7 +986,7 @@ class ModbusService:
                 return "Modbus не подключён"
             if on and (error := self._torque_drive_ready(slave_id)):
                 return error
-            current, error = self._read_init_register(PA_VIRTUAL_DI, slave_id)
+            current, error = self._read_single_locked(PA_VIRTUAL_DI, slave_id)
             if current is None:
                 return error or "Нет ответа PA_1A4"
             value = current | 1 if on else current & 0xFFFE
@@ -867,12 +994,14 @@ class ModbusService:
                 written = self._write_register_locked(PA_VIRTUAL_DI, value, slave_id)
                 if not written.success:
                     return f"PA_1A4: {written.error}"
-            readback, error = self._read_init_register(PA_VIRTUAL_DI, slave_id)
+            readback, error = self._read_single_locked(PA_VIRTUAL_DI, slave_id)
             if readback is None:
                 return error or "Нет ответа PA_1A4"
             self._servo_on[slave_id] = bool(readback & 1)
             if bool(readback & 1) != on:
                 return f"PA_1A4 = {readback}: SRV-ON не {'включился' if on else 'выключился'}"
+            if on:
+                self._servo_held_off.discard(slave_id)
             self._log_info("SERVO", f"slave {slave_id}: SRV-ON = {int(on)}")
             return None
 
@@ -979,19 +1108,43 @@ class ModbusService:
         with self._lock:
             if not self._connected:
                 return {"error": "Modbus не подключён"}
-            return self._read_torque_telemetry_locked(slave_id, extended=extended, log=log)
+            started = time.monotonic()
+            data = self._read_torque_telemetry_locked(slave_id, extended=extended, log=log)
+            data["read_at"] = self._now().isoformat()
+            data["bus_errors"] = self._rtu_errors
+            self._telemetry[slave_id] = started, data
+            return data
+
+    def cached_telemetry(self, slave_id: int, max_age_s: float) -> dict[str, Any]:
+        with self._lock:
+            if not self._connected:
+                return {"error": "Modbus не подключён"}
+            cached = self._telemetry.get(slave_id)
+            if cached is None:
+                return {"error": "Ожидание первого кадра привода"}
+            started, data = cached
+            if not data.get("error") and time.monotonic() - started > max_age_s:
+                return {"read_at": data["read_at"], "error": "Кадр привода устарел"}
+            return dict(data)
 
     # ------------------------------------------------------------------
     # Diagnostics
     # ------------------------------------------------------------------
 
-    def get_diagnostics(self, slave_id: int | None = None) -> DriverDiagnosticsSchema:
+    def get_diagnostics(self, slave_id: int | None = None, *, cache_age_s: float | None = None) -> DriverDiagnosticsSchema:
         with self._lock:
             if not self._connected:
                 return DriverDiagnosticsSchema(responding=False, status_summary="Not connected")
-            self._select_slave(slave_id or (self._params.slave_id if self._params else 1))
+            slave_id = slave_id or (self._params.slave_id if self._params else 1)
+            cached = self.cached_telemetry(slave_id, cache_age_s) if cache_age_s is not None else None
+            if cached is None:
+                self._select_slave(slave_id)
 
             def _r(addr: int) -> int | None:
+                if cached is not None:
+                    if addr == _REG_ALARM:
+                        return cached.get("alarm")
+                    return self._diagnostic_parameters.get(slave_id, {}).get(addr)
                 val, err = (self._simulate_read(addr) if not hasattr(self, "_instr") else self._real_read(addr))
                 return val if err is None else None
 
@@ -1000,19 +1153,19 @@ class ModbusService:
             control_mode_val = _r(0x002)
             extended_mode_val = _r(0x090)
             alarm_code_val = _r(0x1C9)
-            if alarm_code_val is None:
-                alarm_code_val = _r(0x200)
 
-            responding = slave_id_val is not None
-            has_alarm = bool(alarm_code_val)
-            motion_safe = responding and not has_alarm and extended_mode_val == 1
+            responding = (not cached.get("error")) if cached is not None else slave_id_val is not None
+            has_alarm = None if alarm_code_val is None else alarm_code_val != 0
+            motion_safe = responding and alarm_code_val == 0 and extended_mode_val == 1 and control_mode_val == 2 and self.torque_ready(slave_id)
 
             summary_parts: list[str] = []
             if not responding:
-                summary_parts.append("Драйвер не отвечает")
+                summary_parts.append(str(cached.get("error")) if cached is not None else "Драйвер не отвечает")
             else:
                 summary_parts.append("Связь есть")
-                if has_alarm:
+                if alarm_code_val is None:
+                    summary_parts.append("Состояние аварии неизвестно")
+                elif has_alarm:
                     summary_parts.append(f"Активная ошибка: {alarm_code_val:#06x}")
                 if extended_mode_val != 1:
                     summary_parts.append("Расширенный режим выключен")
@@ -1033,8 +1186,8 @@ class ModbusService:
     def _real_read(self, addr: int) -> tuple[int | None, str | None]:
         try:
             val = self._bus_transaction(
-                self._instr.address,  # type: ignore[attr-defined]
-                lambda: self._instr.read_register(addr, signed=self._is_signed_register(addr)),  # type: ignore[attr-defined]
+                self._instr.address,
+                lambda: self._instr.read_register(addr, signed=self._is_signed_register(addr)),
             )
             return val, None
         except Exception as exc:  # noqa: BLE001
@@ -1149,7 +1302,7 @@ class ModbusService:
             profile = next((p for p in self._profiles if p.id == profile_id), None)
             if profile is None:
                 return ProfileCompareResultSchema(differences=[], matching=0, differing=0)
-            diffs: list[dict] = []
+            diffs: list[dict[str, Any]] = []
             matching = 0
             for pv in profile.parameters:
                 driver_val = self._registers.get(pv.address)

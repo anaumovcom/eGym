@@ -7,10 +7,11 @@ from collections.abc import Callable, Generator, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.motor.calibration.measurement_plots import PlotUpdate
 from app.motor.calibration.procedures.motion import Balance, Motion, hold_still
 from app.motor.calibration.runner import Command, Frame, ProcedureEnvelope, ProcedureError, Prompt
 from app.motor.drive.protocol import TorqueDrive
-from app.motor.profile import MachineProfile, SafetyEnvelope
+from app.motor.profile import MachineProfile, SafetyEnvelope, Tunables
 from app.motor.units import SIDES, Side
 
 Gen = Generator[Command, Frame, Any]
@@ -38,6 +39,10 @@ class Context:
     options: dict[str, Any]
     operator: Operator
     drives: dict[Side, TorqueDrive]
+    working_window: tuple[float, float] | None = None
+    tunables: Tunables = field(default_factory=Tunables)
+    friction_coverage: dict[str, Any] | None = None
+    publish_plot: PlotUpdate | None = None
 
     @property
     def top_mm(self) -> float:
@@ -74,6 +79,7 @@ def ask(
     *,
     progress: float | None = None,
     done: Callable[[Frame], bool] | None = None,
+    note: Callable[[], str] | None = None,
     timeout_s: float = PROMPT_TIMEOUT_S,
 ) -> Generator[Command, Frame, tuple[Frame, float | None]]:
     """Show ``prompt`` and keep commanding ``forces`` until the operator answers (or ``done`` detects the action).
@@ -91,7 +97,7 @@ def ask(
                 return frame, None
             if frame.t - start > timeout_s:
                 raise ProcedureError(f"нет ответа оператора за {timeout_s / 60:.0f} мин: {prompt.text}")
-            frame = yield Command(forces(frame), note=prompt.text, progress=progress, prompt=prompt)
+            frame = yield Command(forces(frame), note=note() if note else prompt.text, progress=progress, prompt=prompt)
     finally:
         operator.prompt = None
 
@@ -187,6 +193,22 @@ def observe(gen: Gen, on_frame: Callable[[Frame], None]) -> Gen:
             command = gen.send(frame)
         except StopIteration as stop:
             return stop.value
+
+
+class TransitMeasurement:
+    def __init__(self, target_mm: float, direction: int) -> None:
+        self.target_mm = target_mm
+        self.direction = direction
+        self.overshoot_mm = 0.0
+        self.peak_skew: float | None = None
+        self.peak_speed = 0.0
+
+    def sample(self, frame: Frame) -> None:
+        self.peak_speed = max(self.peak_speed, frame.max_abs_speed)
+        self.overshoot_mm = max(self.overshoot_mm, *(self.direction * (frame.x(side) - self.target_mm) for side in SIDES))
+        delta = frame.skew_mm
+        if delta is not None and (self.peak_skew is None or abs(delta) > abs(self.peak_skew)):
+            self.peak_skew = delta
 
 
 def recenter(balance: Balance, frame: Frame, x_mm: float, progress: float | None, tolerance_mm: float = 8.0) -> Gen:

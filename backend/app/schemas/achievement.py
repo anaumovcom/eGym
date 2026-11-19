@@ -2,6 +2,8 @@
 
 from typing import Literal
 
+from pydantic import Field
+
 from app.schemas.base import SchemaModel
 
 
@@ -20,6 +22,7 @@ class AchievementTierSchema(SchemaModel):
     image_state: str
     audio_state: str
     earned: bool = False
+    is_new: bool = False
     earned_at: str | None = None
     awarded_at: str | None = None
     status: str
@@ -27,6 +30,8 @@ class AchievementTierSchema(SchemaModel):
 
 class AchievementLineSchema(SchemaModel):
     id: str
+    name: str
+    archived: bool = False
     group: str
     group_name: str
     metric: str
@@ -87,10 +92,15 @@ class AchievementAwardSchema(SchemaModel):
     tier: AchievementTierSchema
     unit: str
     description: str
+    value_at_award: float | None = None
+    movements: list[str] = Field(default_factory=list)
 
 
 class AchievementOverviewResponseSchema(SchemaModel):
     earned_tiers: int
+    new_tiers: int
+    archived_tiers: int
+    archived_lines: int
     total_tiers: int
     completed_lines: int
     total_lines: int

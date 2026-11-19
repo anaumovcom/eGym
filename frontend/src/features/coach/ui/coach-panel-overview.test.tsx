@@ -20,28 +20,22 @@ describe('coachOverview — one plain sentence for every state', () => {
 
   it('reports a machine error but says the coach keeps talking (D-V12.7)', () => {
     const fault = coachOverview({ ...base, network: net('ready', { spoken: 3 }), machineNotices: ['faultCode'] })
-    expect(fault).toMatchObject({ tone: 'warn', title: 'Тренер на связи' })
+    expect(fault).toMatchObject({ tone: 'warn', title: 'Локальный голос включён' })
     expect(fault.detail).toMatch(/ошибка тренажёра — тренер при этом продолжает говорить/)
   })
 
-  it('says plainly when the live coach is not part of this build, without jargon', () => {
-    const off = coachOverview({ ...base, liveBuild: false })
-    expect(off).toMatchObject({ tone: 'info', title: 'Живой тренер не подключён в этой сборке' })
-    expect(off.detail).toMatch(/локальные фразы/)
-    expect(coachOverview({ ...base, liveBuild: false, saved: { ...hybrid, mode: 'local' } }).tone).toBe('ok')
+  it('explains how to fix a missing recording without a workout download', () => {
+    expect(coachOverview({ ...base, reason: 'missing_clip' })).toMatchObject({ tone: 'warn', title: 'Нет скачанной записи' })
   })
 
-  it('follows the live connection: connecting, refused with its reason, on air with what was said', () => {
-    expect(coachOverview({ ...base, network: net('connecting') }).title).toBe('Подключаю живого тренера…')
-    expect(coachOverview({ ...base, network: net('refused', { reason: 'budget' }) })).toMatchObject({ tone: 'error', detail: 'Лимит бюджета' })
-    expect(coachOverview({ ...base, network: net('ready', { spoken: 12, failed: 1 }) }))
-      .toEqual({ tone: 'ok', title: 'Тренер на связи', detail: 'Сказано реплик: 12 · сбоев: 1' })
+  it('does not present historical live state as a workout mode', () => {
+    for (const state of ['connecting', 'refused', 'ready'] as const) expect(coachOverview({ ...base, network: net(state), workout: true }).title).toBe('Тренер работает локально')
   })
 
   it('renders the sentence as a status and the numbers as tiles', () => {
     render(<CoachOverview overview={coachOverview({ ...base, network: net('ready') })}
       tiles={[{ label: 'новых ошибок', value: '2', tone: 'error', onClick: () => undefined }]} />)
-    expect(screen.getByRole('status')).toHaveTextContent('Тренер на связи')
+    expect(screen.getByRole('status')).toHaveTextContent('Локальный голос включён')
     expect(screen.getByRole('button', { name: /2\s*новых ошибок/ })).toBeInTheDocument()
   })
 })

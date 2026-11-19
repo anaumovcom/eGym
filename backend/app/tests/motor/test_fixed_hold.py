@@ -36,6 +36,18 @@ def original_core():
         sys.modules.pop(name, None)
 
 
+def test_fast_feedback_can_query_the_command_before_the_measured_delay():
+    core = MotorCore(MachineProfile(loop_delay_s=Measured(0.120)))
+    for i in range(201):
+        core.previous.update(left=float(i), right=-float(i))
+        core._record_commands(i / 200)
+    # At 200 Hz this still-fresh sample refers to a command older than 16 ticks.
+    feedback_time = 0.901
+    assert core._command_at("left", feedback_time - 0.120) == 156
+    assert core._command_at("right", feedback_time - 0.120) == -156
+    assert len(core._commands["left"]) < 60
+
+
 def delayed_profile():
     profile = MachineProfile(
         hold_ultimate_k_n_per_mm=Measured(1.2264),

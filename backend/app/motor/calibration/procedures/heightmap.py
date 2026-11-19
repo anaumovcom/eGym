@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from collections.abc import Generator, Sequence
+from statistics import fmean
 from typing import Any
 
 from app.motor.calibration.fit import Stat, linear_fit, stat
+from app.motor.calibration.measurement_plots import PlotUpdate
 from app.motor.calibration.procedures.motion import Balance, land, travel
 from app.motor.calibration.procedures.statics import fit_balance, measure_window
 from app.motor.calibration.runner import Command, Frame, ProcedureError
@@ -20,9 +22,14 @@ def map_heights(bottom_mm: float, top_mm: float, count: int = 5) -> list[float]:
     return [round(bottom_mm + (top_mm - bottom_mm) * i / (count - 1), 1) for i in range(count)]
 
 
-def height_map(balance: Balance, heights: Sequence[float], *, repeats: int = 2, slow_rate_n_s: float = 6.0) -> Procedure:
+def _window(height: float, point: dict[str, Any], side: Side) -> tuple[float, float, float]:
+    return height, fmean(point["down"][side]), fmean(point["up"][side])
+
+
+def height_map(balance: Balance, heights: Sequence[float], *, repeats: int = 2, slow_rate_n_s: float = 6.0, publish: PlotUpdate | None = None) -> Procedure:
     frame = yield Command(None, note="старт", progress=0.0)
     points: list[dict[str, Any]] = []
+    readings = {side: {"map": [], "edges": []} for side in SIDES}
     span = 1.0 / (len(heights) + 1)
     for index, height in enumerate(heights):
         p0 = index * span
@@ -34,6 +41,10 @@ def height_map(balance: Balance, heights: Sequence[float], *, repeats: int = 2, 
         estimate = fit_balance(data)
         for side in SIDES:
             balance.set_point(side, estimate.height_mm, estimate.weight_n[side].mean)  # the next move starts from a better window
+            readings[side]["map"].append((estimate.height_mm, estimate.weight_n[side].mean))
+            readings[side]["edges"].append(_window(estimate.height_mm, data, side))
+        if publish:
+            publish({"sides": readings})
         points.append(data)
     frame = yield from land(balance, frame, progress=1.0 - 0.5 * span)
     return {"points": points}
@@ -51,6 +62,7 @@ def fit_height_map(data: dict[str, Any]) -> dict[str, Any]:
         line = linear_fit([e.height_mm for e in estimates], [w.mean for w in weights])
         result[side] = {
             "map": [(e.height_mm, w.mean) for e, w in zip(estimates, weights, strict=True)],
+            "edges": [_window(e.height_mm, point, side) for e, point in zip(estimates, data["points"], strict=True)],
             "ci95": max(_finite(w) for w in weights),
             "coulomb_up": stat(ups),
             "coulomb_down": stat(downs),

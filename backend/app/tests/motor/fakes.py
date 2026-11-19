@@ -21,6 +21,26 @@ class FakeModbusService:
     left_zero_pulses: int | None = None
     right_zero_pulses: int | None = None
     counts: dict[int, int] = field(default_factory=dict)  # raw absolute encoder counts per slave
+    recovery_attempts: int = 0
+    connection_requested: bool = True
+
+    def request_connection(self, params) -> None:
+        self.connection_requested = True
+
+    def auto_servo_allowed(self) -> bool:
+        return True
+
+    def check_servo_pair(self) -> bool:
+        return all(self.servo.values())
+
+    def recover_pair(self, initial_commands: dict[int, int], torque_limit: int, speed_limit_rpm: int) -> list[str]:
+        self.recovery_attempts += 1
+        if not self.connection_requested:
+            return ["Modbus отключён оператором"]
+        self.connected = 1 not in self.read_fail_slaves
+        errors = [f"ID{slave}: нет связи" for slave in sorted(self.read_fail_slaves)]
+        errors += [f"ID{slave}: авария {code}" for slave, code in self.alarm.items() if code]
+        return errors
 
     def get_status(self) -> SimpleNamespace:
         return SimpleNamespace(connected=self.connected)

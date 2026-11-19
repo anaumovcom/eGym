@@ -1,8 +1,10 @@
 # NEW E05 local audio core — parent integration API
 
-Core exports are in [index.ts](index.ts); [local-audio-runtime.ts](local-audio-runtime.ts)
-adds saved-settings and read-only safety/runtime gates for TEST preview UI.
-No automatic count, motor commands, paid dispatch, real voice packs or E08 stream integration.
+The E05 test-tone core is separate from workout speech. [local-audio-runtime.ts](local-audio-runtime.ts)
+owns saved preferences and read-only safety/runtime gates for test previews. The workout interpreter plays only
+verified, preinstalled recordings via [pack-client.ts](pack-client.ts); no live connection or on-cue download.
+The settings panel downloads packs, auditions individual recordings, and explicitly requests version-bound replacements.
+See the [settings guide](../../../../../docs/system-settings/system-settings.md) for the bundled Russian voice and operator controls.
 
 ## Context ownership
 

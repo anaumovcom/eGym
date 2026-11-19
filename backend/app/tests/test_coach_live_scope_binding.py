@@ -29,6 +29,26 @@ from app.tests.test_coach_e10_live import (
     ws_url,
 )
 
+pytestmark = pytest.mark.usefixtures("isolated_coach_lifespan")
+
+
+def test_workout_refused_before_lease_or_provider(client, session_factory):
+    client.base_url = "http://localhost"
+    enable(session_factory)
+    run = client.post("/api/coach/runs", headers=ORIGIN, json={"userId": "alexey", "ledger": "workout"}).json()
+
+    async def forbidden(*args):
+        pytest.fail("Workout must not initialize even a mock live pipeline")
+
+    client.app.dependency_overrides[get_live_factory] = lambda: forbidden
+    with client.websocket_connect(ws_url(run["runId"]), headers=ORIGIN) as ws:
+        ws.send_json({"type": "configure", "runToken": run["runToken"], "ownerId": "browser"})
+        assert ws.receive_json() == {"type": "error", "reason": "offline_only"}
+        assert ws.receive()["code"] == 1008
+    with session_factory() as db:
+        assert db.get(CoachLedgerRun, run["runId"]).generation == 0
+        assert ledger.snapshot(db, run["runId"])["requests"] == 0
+
 
 @pytest.fixture(autouse=True)
 def enabled_coach(use_test_emulator, monkeypatch):

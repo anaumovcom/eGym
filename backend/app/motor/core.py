@@ -33,6 +33,7 @@ from app.motor.force.load_models import LoadSetpoint, PhaseTracker, load_force
 from app.motor.force.shaping import governor, rate_limit, side_sync, virtual_spring
 from app.motor.profile import MachineProfile, Measured, SafetyEnvelope, Tunables, calibrated_tunables
 from app.motor.supervisor.modes import Mode, Supervisor
+from app.motor.supervisor.pair import aligned_difference
 from app.motor.supervisor.safety import CommMonitor, SafetyInput, apply_envelope
 from app.motor.units import SIDES, Side, rpm_to_mm_s, smooth_sign
 
@@ -59,7 +60,6 @@ DEFAULT_LANDING_MM_S = 15.0
 FIXED_OBSERVER_S = 0.17
 FIXED_STILL_MM_S = 1.0
 FIXED_STILL_DEADBAND_MM = 6.0  # stick-slip jumps were ~13 mm p-p (2× bus delay twin)
-FIXED_COMMAND_HISTORY = 16
 FIXED_DAMPING_RATIO = 0.7
 # Keep c·delay/m below this share (the damping acts a loop delay late).
 FIXED_DAMPING_DELAY_SHARE = 0.5
@@ -131,7 +131,7 @@ class MotorCore:
         # observer state: the last fresh frame (t, v) and the drive force modelled at that time
         self._fixed_last: dict[Side, tuple[float, float] | None] = {side: None for side in SIDES}
         self._fixed_applied: dict[Side, float] = {side: 0.0 for side in SIDES}
-        self._commands: dict[Side, deque[tuple[float, float]]] = {side: deque(maxlen=FIXED_COMMAND_HISTORY) for side in SIDES}
+        self._commands: dict[Side, deque[tuple[float, float]]] = {side: deque() for side in SIDES}
         self.load = LoadSetpoint()
         self.load_capped = False
         self.virtual_mass_kg = 0.0
@@ -145,6 +145,7 @@ class MotorCore:
         self._bar_v_mm_s = 0.0
         self._descent_previous_v: float | None = None
         self.sync_left_n = 0.0  # the sync force of the left side, the right one gets the opposite
+        self._sync_previous: dict[Side, ObservedState] = {}
         self._bar_a_mm_s2 = 0.0
         self._dt = 0.0
         self._t: float | None = None
@@ -308,11 +309,18 @@ class MotorCore:
         """Once per tick: the sync force of the left side (the right one gets the opposite)."""
 
         t = self.tunables
-        if output not in {"weightless", "idle", "train"}:
-            self.sync_left_n = side_sync(states["left"].x_mm, states["right"].x_mm, t.sync_k_n_per_mm, t.sync_max_n)
+        previous = self._sync_previous
+        self._sync_previous = {} if any(s.stale for s in states.values()) else states
+        fresh_s = self.envelope.stale_frame_limit_s
+        skew = aligned_difference(states, previous, fresh_s, lambda s: s.x_mm) if self._sync_previous else None
+        if skew is None:
+            self.sync_left_n = 0.0
             return
-        skew = states["left"].x_mm - states["right"].x_mm
-        skew_rate = states["left"].v_mm_s - states["right"].v_mm_s
+        if output not in {"weightless", "idle", "train"}:
+            self.sync_left_n = side_sync(skew, 0.0, t.sync_k_n_per_mm, t.sync_max_n)
+            return
+        skew_rate = aligned_difference(states, previous, fresh_s, lambda s: s.v_mm_s)
+        assert skew_rate is not None  # position and speed use the same timestamps
         mass = min(float(self.profile.side(side).moving_mass_kg.value) for side in SIDES) / 1000.0  # N·s²/mm
         c = FIXED_DAMPING_DELAY_SHARE * mass / self._loop_delay()
         k = min(t.sync_k_n_per_mm, c * c / (SYNC_SPRING_CORNER * mass))
@@ -640,8 +648,16 @@ class MotorCore:
         return (_value(self.profile.loop_delay_s, 0.04) or 0.04) + (_value(self.profile.torque_lag_s, 0.0) or 0.0)
 
     def _record_commands(self, now: float) -> None:
+        # Keep the command in effect at the earliest usable feedback time, even at 200 Hz.
+        delay = _value(self.profile.loop_delay_s, 0.04) or 0.04
+        earliest = now - self.envelope.stale_frame_limit_s - delay
         for side in SIDES:
-            self._commands[side].append((now, self.previous[side]))
+            history = self._commands[side]
+            if history and history[-1][0] == now:
+                history.pop()
+            history.append((now, self.previous[side]))
+            while len(history) > 1 and history[1][0] <= earliest:
+                history.popleft()
 
     def _command_at(self, side: Side, t: float) -> float:
         """The force command in effect at ``t`` (the last one written by then)."""

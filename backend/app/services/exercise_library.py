@@ -8,6 +8,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 from app.core.config import BACKEND_ROOT
+from app.models.enums import MuscleRole
 
 REPO_ROOT = BACKEND_ROOT.parent
 EXERCISES_ROOT = REPO_ROOT / "exercises"
@@ -31,6 +32,42 @@ class ImportedExerciseGuide:
 
 
 @dataclass(frozen=True)
+class MuscleLoadProfile:
+    activity_factor: float
+    counterweight: bool
+    weights: dict[str, float]
+
+    def contributions(self) -> dict[str, tuple[float, MuscleRole]]:
+        return {key: (weight, participation_role(weight)) for key, weight in self.weights.items()}
+
+
+def participation_role(weight: float) -> MuscleRole:
+    if weight >= 0.8:
+        return MuscleRole.primary
+    if weight >= 0.5:
+        return MuscleRole.secondary
+    if weight >= 0.3:
+        return MuscleRole.assisting
+    return MuscleRole.stabilizer
+
+
+@lru_cache(maxsize=1)
+def muscle_load_profiles() -> dict[str, MuscleLoadProfile]:
+    path = Path(__file__).parent / "data" / "exercise_muscle_load.csv"
+    profiles = {}
+    with path.open(encoding="utf-8", newline="") as source:
+        for row in DictReader(source):
+            slug = row.pop("slug")
+            activity = float(row.pop("activity_factor"))
+            counterweight = row.pop("counterweight") == "1"
+            weights = {key: float(value) for key, value in row.items() if value}
+            if slug in profiles or not weights or any(not 0 <= value <= 1 for value in weights.values()):
+                raise ValueError(f"Invalid muscle load profile for {slug}")
+            profiles[slug] = MuscleLoadProfile(activity, counterweight, dict(sorted(weights.items(), key=lambda pair: -pair[1])))
+    return profiles
+
+
+@dataclass(frozen=True)
 class ImportedExercise:
     slug: str
     name: str
@@ -44,6 +81,8 @@ class ImportedExercise:
     steps: tuple[str, ...]
     guide: ImportedExerciseGuide
     videos: tuple[ImportedExerciseVideo, ...]
+    load_profile: MuscleLoadProfile
+    measured_in_seconds: bool
 
 
 def _parse_csv() -> dict[str, tuple[str, str]]:
@@ -118,7 +157,15 @@ def _build_entry(slug: str, translations: dict[str, tuple[str, str]]) -> Importe
         technique=_to_guide_array(guide_source, "Technique"),
         things_to_avoid=_to_guide_array(guide_source, "Things to Avoid"),
     )
+    profile = muscle_load_profiles().get(slug)
+    if profile is None:
+        # An exercise imported after the matrix release keeps its declared targets.
+        profile = MuscleLoadProfile(0 if payload.get("equipment") in {"Recovery", "Stretches"} else 1, False,
+                                    {m: 0.8 for m in payload.get("muscles", []) if isinstance(m, str)})
     return ImportedExercise(
+        load_profile=profile,
+        measured_in_seconds=(payload.get("equipment") in {"Cardio", "Yoga", "Stretches"}
+                             or payload.get("force") in {"Hold", "Static"} or slug == "tip-toe-walking"),
         slug=slug,
         name=str(payload.get("name") or translated_name or slug),
         name_ru=str(payload.get("name_ru") or translated_name_ru or payload.get("name") or slug),
@@ -127,7 +174,7 @@ def _build_entry(slug: str, translations: dict[str, tuple[str, str]]) -> Importe
         force=_normalize_force(payload.get("force") if isinstance(payload.get("force"), str) else None),
         grips=str(payload.get("grips") or "Neutral"),
         mechanic=_normalize_mechanic(payload.get("mechanic") if isinstance(payload.get("mechanic"), str) else None),
-        muscles=tuple(item for item in (payload.get("muscles") or []) if isinstance(item, str)),
+        muscles=tuple(profile.weights),
         steps=tuple(item for item in (payload.get("steps") or []) if isinstance(item, str)),
         guide=guide,
         videos=_build_video_entries(slug, payload, directory),

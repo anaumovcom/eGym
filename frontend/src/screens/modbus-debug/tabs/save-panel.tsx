@@ -79,7 +79,7 @@ export function SavePanel() {
     <div className="space-y-4">
       {/* EEPROM save */}
       <div className="glass-panel rounded-2xl p-5 space-y-4">
-        <h3 className="font-semibold text-[#f4dfb4]">Сохранение в память драйвера</h3>
+        <h3 className="font-semibold">Сохранение в память драйвера · EEPROM</h3>
 
         {unsaved.length > 0 ? (
           <div className="rounded-xl bg-[#2d2500] border border-[#f2cf87]/30 p-3 space-y-2">
@@ -111,7 +111,7 @@ export function SavePanel() {
 
       {/* Save profile */}
       <div className="glass-panel rounded-2xl p-5 space-y-4">
-        <h3 className="font-semibold text-[#f4dfb4]">Профили настроек</h3>
+        <h3 className="font-semibold">Профили настроек</h3>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="space-y-1">
@@ -149,7 +149,7 @@ export function SavePanel() {
       {/* Profile list & compare */}
       <div className="glass-panel rounded-2xl p-5 space-y-4">
         <div className="flex items-center justify-between">
-          <h3 className="font-semibold text-[#f4dfb4]">Сохранённые профили</h3>
+          <h3 className="font-semibold">Сохранённые профили</h3>
           <Button variant="ghost" className="text-xs" onClick={handleLoadProfiles} disabled={busy === 'load'}>
             Обновить список
           </Button>
@@ -164,7 +164,7 @@ export function SavePanel() {
                 key={p.id}
                 className={cn(
                   'flex items-center justify-between rounded-xl px-4 py-3 cursor-pointer transition',
-                  selectedProfileId === p.id ? 'bg-[#b5852f]/20 border border-[#b5852f]/40' : 'bg-white/4 hover:bg-white/6',
+                  selectedProfileId === p.id ? 'bg-[#123553] border border-[#2b7ab9]' : 'bg-white/4 hover:bg-white/6',
                 )}
                 onClick={() => setSelectedProfileId(p.id ?? '')}
               >
@@ -194,10 +194,10 @@ export function SavePanel() {
           <div className="rounded-xl bg-white/4 p-4 space-y-2">
             <p className="text-sm">
               <span className="text-[#79de83]">{lastCompare.matching} совпадают</span>
-              {lastCompare.differing > 0 && <span className="text-[#f2cf87] ml-3">{lastCompare.differing} отличаются</span>}
+              {lastCompare.differing > 0 && <span className="text-[#70c9ff] ml-3">{lastCompare.differing} отличаются</span>}
             </p>
             {lastCompare.differences.length > 0 && (
-              <div className="overflow-x-auto">
+              <div className="modbus-table-scroll" role="region" aria-label="Таблица сравнения профилей" tabIndex={0}>
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-white/30 uppercase">
@@ -209,7 +209,7 @@ export function SavePanel() {
                   <tbody>
                     {lastCompare.differences.map((d) => (
                       <tr key={d.address} className="border-t border-white/6">
-                        <td className="py-1 font-mono text-[#f2cf87]">{d.addressHex}</td>
+                        <td className="py-1 font-mono text-[#70c9ff]">{d.addressHex}</td>
                         <td className="py-1 text-right font-mono text-white">{d.driverValue}</td>
                         <td className="py-1 text-right font-mono text-white/50">{d.profileValue}</td>
                       </tr>

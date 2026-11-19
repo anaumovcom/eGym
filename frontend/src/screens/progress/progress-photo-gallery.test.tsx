@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { useState } from 'react'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { groupProgressPhotos, ProgressPhotoGallery, type ProgressPhoto } from './progress-photo-gallery'
@@ -21,6 +22,7 @@ describe('ProgressPhotoGallery', () => {
     await user.click(screen.getByRole('button', { name: /Удалить фото: Спереди/ }))
     expect(screen.getByRole('dialog', { name: 'Удалить фото?' })).toBeVisible()
     expect(screen.getByRole('button', { name: 'Отмена' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Удалить фото', exact: true })).toHaveAttribute('data-variant', 'danger')
     expect(props.onDelete).not.toHaveBeenCalled()
     await user.click(screen.getByRole('button', { name: 'Отмена' }))
     expect(props.onDelete).not.toHaveBeenCalled()
@@ -141,5 +143,21 @@ describe('ProgressPhotoGallery', () => {
     await user.click(screen.getByRole('button', { name: /Пора обновить фото/ }))
     expect(props.onPhoto).toHaveBeenCalledOnce()
     expect(screen.getByText('одна съёмка')).toBeVisible()
+  })
+
+  it('keeps comparison usable when the current view loses its last shot', async () => {
+    const user = userEvent.setup()
+    const early = { ...front, id: 4, takenAt: '2026-08-10T10:00:00Z' }
+    function Diary() {
+      const [photos, setPhotos] = useState([front, early, back])
+      return <ProgressPhotoGallery photos={photos} loading={false} error={false} onPhoto={vi.fn()} onRetry={vi.fn()} onDelete={async (id) => setPhotos((current) => current.filter((photo) => photo.id !== id))} />
+    }
+    render(<MemoryRouter><Diary /></MemoryRouter>)
+    const compare = screen.getByRole('region', { name: 'Сравнение до и после' })
+    await user.click(within(compare).getByRole('button', { name: 'Сзади' }))
+    await user.click(screen.getByRole('button', { name: /Удалить фото: Сзади/ }))
+    await user.click(within(screen.getByRole('dialog', { name: 'Удалить фото?' })).getByRole('button', { name: 'Удалить фото' }))
+    expect(within(compare).getByRole('button', { name: 'Спереди' })).toHaveAttribute('aria-pressed', 'true')
+    expect(within(compare).getByRole('img', { name: 'После: Спереди' })).toBeVisible()
   })
 })

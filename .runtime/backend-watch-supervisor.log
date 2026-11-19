@@ -1,2 +1,1469 @@
 Backend supervisor следит за backend, exercises и exercise_name_translations.csv.
-Backend server запущен. PID: 11772
+Backend server запущен. PID: 27148
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\coach\packs.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22728
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\coach\packs.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29452
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\coach.py, D:\eGym\backend\app\schemas\coach_control.py, D:\eGym\backend\app\services\coach\pack_generation.py, D:\eGym\backend\app\services\coach\packs.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21420
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\coach.py, D:\eGym\backend\app\services\coach\packs.py, D:\eGym\backend\app\tests\conftest.py, D:\eGym\backend\app\tests\test_coach_e09_packs.py, D:\eGym\backend\app\tests\test_coach_live_scope_binding.py, D:\eGym\backend\app\tests\test_coach_pack_generation.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 524
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_muscle_display.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29456
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\muscle_catalog.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14456
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\coach.py, D:\eGym\backend\app\services\coach\packs.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 1640
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_coach_pack_generation.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29060
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\modbus.py, D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10252
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 15688
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19120
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23244
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29316
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 12444
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 8976
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24180
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29060
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21992
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27316
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28216
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28300
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27520
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25868
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22508
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29400
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 4348
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24620
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23460
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27012
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 2660
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29604
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18344
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 14028
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19548
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26284
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 12416
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23300
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26532
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 8296
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24420
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18628
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 12488
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26024
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24700
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 15388
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18092
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 17080
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 17652
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29384
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 14552
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29316
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27432
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25448
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26840
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 2112
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 16932
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20240
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28132
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24904
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28912
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25744
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 14416
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 14976
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23772
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26664
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29456
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 9060
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26672
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 14044
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19944
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22504
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20284
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 8312
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28696
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 17888
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29568
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27208
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19748
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23864
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26036
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27604
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20252
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26408
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24404
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26812
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21512
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26700
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26200
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28048
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 11924
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26960
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\middle_zone.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19616
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14632
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28956
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 9588
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26816
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26524
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29020
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_calibration_middle_zone.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28712
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\coach.py, D:\eGym\backend\app\services\coach\packs.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26456
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\coach.py, D:\eGym\backend\app\schemas\coach_control.py, D:\eGym\backend\app\services\coach\packs.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26244
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\coach_control.py, D:\eGym\backend\app\services\coach\packs.py, D:\eGym\backend\app\services\coach\preferences.py, D:\eGym\backend\app\services\coach\starter_voice.py, D:\eGym\backend\scripts\build_starter_voice.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19988
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\coach.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24880
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_coach_e09_packs.py, D:\eGym\backend\app\tests\test_coach_pack_generation.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 17204
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24200
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20452
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26200
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19956
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25504
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 15704
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 1952
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26248
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21196
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20768
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28020
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20372
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23756
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26520
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29340
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_coach_contracts_replay.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26644
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_muscle_display.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23964
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\middle_zone.py, D:\eGym\backend\app\motor\calibration\procedures\common.py, D:\eGym\backend\app\motor\calibration\procedures\feel.py, D:\eGym\backend\app\motor\calibration\procedures\feel_operator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28488
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\procedures\smith.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27196
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_calibration_middle_zone.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30440
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_calibrations_all.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31864
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\speed_study.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18900
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30056
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31368
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 2356
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\common.py, D:\eGym\backend\app\motor\calibration\procedures\feel_operator.py, D:\eGym\backend\app\tests\motor\test_calibrations_all.py, D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23736
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\tests\motor\test_calibration_middle_zone.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18344
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14272
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\middle_zone.py, D:\eGym\backend\app\motor\calibration\procedures\estimation.py, D:\eGym\backend\app\motor\calibration\session.py, D:\eGym\backend\app\motor\calibration\speed_study.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33256
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\heavy.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30588
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\procedures\heavy.py, D:\eGym\backend\app\motor\calibration\speed_study.py, D:\eGym\backend\app\tests\motor\test_calibration_middle_zone.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30060
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_calibration_middle_zone.py, D:\eGym\backend\app\tests\motor\test_calibrations_all.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14104
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 6648
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\speed_study.py, D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29060
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\graph.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32788
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_calibration_middle_zone.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20408
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_calibration_middle_zone.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10840
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34300
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\speed_study.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 8428
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20096
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\middle_zone.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32912
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\smith.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33992
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 2428
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\speed_study.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24004
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21268
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel_operator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33180
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31076
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\middle_zone.py, D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32992
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34240
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\estimation.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33480
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\data\exercise_muscle_load.csv
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 1732
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\data\exercise_muscle_load.csv
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32868
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\exercise_library.py, D:\eGym\backend\app\services\muscle_catalog.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33644
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\trainer.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14624
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\muscle_catalog.py, D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28616
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26460
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\fatigue_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 2636
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23832
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 3172
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28456
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 10064
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24052
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 31852
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 33488
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23516
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24896
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 10276
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29344
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 32996
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 34688
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 11640
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 31584
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23228
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19964
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 27432
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20560
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28648
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30296
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 31672
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 33008
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26064
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 22556
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 32272
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30976
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 8516
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24912
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20224
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 1180
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25652
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20988
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 34144
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 11676
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30532
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25012
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 18356
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29940
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 5720
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 31788
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25940
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29484
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25652
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 33092
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26028
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 32904
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\dashboard_service.py, D:\eGym\backend\app\services\fatigue_service.py, D:\eGym\backend\app\services\runtime_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33260
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage7_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21408
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel_operator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20004
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel.py, D:\eGym\backend\app\motor\calibration\procedures\trainer.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27192
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel.py, D:\eGym\backend\app\motor\calibration\procedures\trainer.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31876
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\data\exercise_muscle_load.csv
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34708
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\coach.py, D:\eGym\backend\scripts\build_starter_voice.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33300
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32400
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\exercise_settings.py, D:\eGym\backend\app\services\fatigue_service.py, D:\eGym\backend\app\services\muscle_catalog.py, D:\eGym\backend\app\services\training_service.py, D:\eGym\backend\app\tests\test_coach_v3_progress.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 15624
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21148
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\trainer.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29892
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\fatigue_service.py, D:\eGym\backend\app\tests\test_stage7_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28040
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel_operator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33420
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_calibrations_all.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19012
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\dashboard_service.py, D:\eGym\backend\app\services\exercise_library.py, D:\eGym\backend\app\services\exercise_settings.py, D:\eGym\backend\app\services\fatigue_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30692
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\data\exercise_muscle_load.csv
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26868
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34592
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_stage7_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27180
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31004
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\dashboard_service.py, D:\eGym\backend\app\services\fatigue_service.py, D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\tests\test_stage7_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35484
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31420
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\data\exercise_muscle_load.csv
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35204
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21288
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\tests\test_stage7_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33400
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel.py, D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33324
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27352
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27244
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\muscle_catalog.py, D:\eGym\backend\app\services\training_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33296
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\data\exercise_muscle_load.csv
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24624
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20556
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_calibrations_all.py, D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18804
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19972
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32424
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel.py, D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35488
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30148
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\procedures\feel_operator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32212
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel_operator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35116
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel_operator.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18452
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_calibrations_all.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 3696
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29920
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\estimation.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34536
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\coach\pack_generation.py, D:\eGym\backend\app\tests\test_coach_pack_generation.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18808
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10064
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 12784
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28236
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\procedures\feel.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24628
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25672
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25112
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31456
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\exercise_observation.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34220
+Обнаружены изменения backend данных: D:\eGym\backend\alembic\versions\20261118_0020_motor_set_observations.py, D:\eGym\backend\app\main.py, D:\eGym\backend\app\models\motor.py, D:\eGym\backend\app\motor\exercise_observation.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\motor_observations.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19480
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35040
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\parameters.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 17616
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\parameters.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30216
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py, D:\eGym\backend\app\motor\exercise_observation.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34832
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\tests\motor\test_direction_review.py, D:\eGym\backend\app\tests\test_load_direction_contract.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21824
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\exercise_observation.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 7504
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\parameters.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19676
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\session.py, D:\eGym\backend\app\motor\exercise_observation.py, D:\eGym\backend\app\motor\workout.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34888
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_set_observations.py, D:\eGym\backend\app\tests\motor\test_workout_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32356
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_workout_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34072
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_set_observations.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23656
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\exercise_observation.py, D:\eGym\backend\app\schemas\hardware.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34476
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\parameters.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27308
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\exercise_observation.py, D:\eGym\backend\app\tests\motor\test_set_observations.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 12380
+Обнаружены изменения backend данных: D:\eGym\backend\app\main.py, D:\eGym\backend\app\services\motor_observations.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33560
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\parameters.py, D:\eGym\backend\app\motor\profile.py, D:\eGym\backend\app\tests\motor\test_set_observations.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 8960
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27832
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 33764
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28420
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 6628
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 5584
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 13276
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 23384
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30416
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 33896
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 20244
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 35452
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 31712
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 35376
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 21252
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 3588
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 19972
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24988
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 15668
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 28296
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 29304
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26668
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 2560
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35432
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28248
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 16756
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\runner.py, D:\eGym\backend\app\motor\drive\registers.py, D:\eGym\backend\app\motor\workout.py, D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33924
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32044
+Обнаружены изменения backend данных: D:\eGym\backend\app\main.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28232
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\lichuan.py, D:\eGym\backend\app\schemas\modbus.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26036
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\modbus_debug.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28012
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\modbus_debug.py, D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29044
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\bus.py, D:\eGym\backend\app\motor\calibration\session.py, D:\eGym\backend\app\motor\drive\lichuan.py, D:\eGym\backend\app\motor\drive\protocol.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33968
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18260
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\fakes.py, D:\eGym\backend\app\tests\motor\test_safe_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34256
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30120
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 1348
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_modbus_two_drives.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26552
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23964
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\modbus_service.py, D:\eGym\backend\app\tests\motor\fakes.py, D:\eGym\backend\app\tests\test_modbus_two_drives.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30280
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34916
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\modbus_debug.py, D:\eGym\backend\app\motor\drive\lichuan.py, D:\eGym\backend\app\schemas\modbus.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19380
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32216
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25716
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_safe_runtime.py, D:\eGym\backend\app\tests\test_modbus_two_drives.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32540
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 17152
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19824
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\patterns.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30160
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\modbus_service.py, D:\eGym\backend\app\tests\motor\test_safe_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31772
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\runner.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 16712
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\facts.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19268
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\modbus_debug.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26664
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29060
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27556
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28740
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_calibrations_all.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35544
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\achievement.py, D:\eGym\backend\app\services\achievements\collection.py, D:\eGym\backend\app\services\achievements\media.py, D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30312
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\registers.py, D:\eGym\backend\app\tests\motor\test_calibrations_all.py, D:\eGym\backend\app\tests\motor\test_safe_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32904
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\progress_service.py, D:\eGym\backend\app\services\runtime_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31552
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\modbus_debug.py, D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27724
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\modbus_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 7272
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\modbus.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\modbus_service.py, D:\eGym\backend\app\tests\motor\test_safe_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 556
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_safe_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32864
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\facts.py, D:\eGym\backend\app\services\achievements\service.py, D:\eGym\backend\app\services\achievements\training_scope.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\modbus_service.py, D:\eGym\backend\app\tests\motor\test_safe_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26276
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_achievement_rebalance.py, D:\eGym\backend\app\tests\test_achievement_rollback.py, D:\eGym\backend\app\tests\test_achievement_training_scope.py, D:\eGym\backend\app\tests\test_achievements.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34092
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_achievement_receipts.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35224
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19472
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_safe_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22928
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_achievements.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22536
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py, D:\eGym\backend\app\services\runtime_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35176
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35076
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py, D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20884
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py, D:\eGym\backend\app\services\runtime_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35368
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py, D:\eGym\backend\app\tests\test_achievements.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14720
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\content\workout-titles.ru.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35156
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23304
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py, D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33108
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\content\workout-titles.ru.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 4108
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_achievements.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19376
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\content\workout-titles.ru.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34464
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\coach\starter_voice.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 13276
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\coach\packs.py, D:\eGym\backend\app\services\coach\workout_guidance.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27980
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\coach\workout_guidance.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27968
+Обнаружены изменения backend данных: D:\eGym\backend\scripts\build_starter_voice.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30128
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\store.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25288
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22900
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29604
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_achievement_receipts.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35676
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\parameters.py, D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34920
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\parameters.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19748
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 17968
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py, D:\eGym\backend\app\services\achievements\content\workout-titles.ru.json, D:\eGym\backend\app\services\achievements\patterns.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35696
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\achievement.py, D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22656
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\media.py, D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29356
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_achievement_receipts.py, D:\eGym\backend\app\tests\test_achievements.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23640
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\art-direction.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 1036
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\art-direction.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 1844
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\manifest.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27016
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py, D:\eGym\backend\app\tests\test_achievement_receipts.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19776
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\art-direction.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24256
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\manifest.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22092
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py, D:\eGym\backend\app\services\achievements\patterns.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 13528
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\patterns.py, D:\eGym\backend\app\tests\test_achievements.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25196
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\manifest.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30580
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24240
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_calendar_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 11336
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\facts.py, D:\eGym\backend\app\services\achievements\training_scope.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34560
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34444
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py, D:\eGym\backend\app\services\runtime_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32212
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\supervisor\pair.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23348
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\runner.py, D:\eGym\backend\app\motor\supervisor\pair.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27352
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\motion.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31452
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\fast.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34712
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py, D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\tests\test_calendar_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 12748
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\common.py, D:\eGym\backend\app\motor\calibration\procedures\fast.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21288
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_achievement_rollback.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25476
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\positioning.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33908
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\workout.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26928
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\fixed.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14940
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20632
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 9528
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\middle_zone.py, D:\eGym\backend\app\motor\calibration\procedures\fixed.py, D:\eGym\backend\app\motor\calibration\runner.py, D:\eGym\backend\app\motor\calibration\session.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 11456
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\holding.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28616
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\achievements.py, D:\eGym\backend\app\services\runtime_service.py, D:\eGym\backend\app\tests\test_calendar_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23984
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\holding.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33300
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\fault_rehearsal.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29244
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_calendar_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28772
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\exercise_observation.py, D:\eGym\backend\app\motor\workout.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19764
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py, D:\eGym\backend\app\tests\test_achievement_rollback.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30696
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29496
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\motion.py, D:\eGym\backend\app\motor\parameters.py, D:\eGym\backend\app\motor\workout.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35240
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 9388
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\tests\motor\test_workout_setup_speeds.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 2612
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\supervisor\pair.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21432
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\session.py, D:\eGym\backend\app\motor\workout.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31836
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py, D:\eGym\backend\app\tests\test_achievement_rollback.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14552
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_calibration_middle_zone.py, D:\eGym\backend\app\tests\motor\test_workout_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33928
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_motion_protection.py, D:\eGym\backend\app\tests\motor\test_workout_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27664
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_workout_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35820
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\service.py, D:\eGym\backend\app\tests\test_achievement_rollback.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 6968
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\middle_zone.py, D:\eGym\backend\app\motor\calibration\procedures\fast.py, D:\eGym\backend\app\motor\calibration\procedures\holding.py, D:\eGym\backend\app\motor\calibration\procedures\positioning.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33988
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\procedures\fast.py, D:\eGym\backend\app\motor\exercise_observation.py, D:\eGym\backend\app\motor\workout.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 2672
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\graph.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23956
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\procedures\fixed.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34516
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\motion.py, D:\eGym\backend\app\motor\calibration\procedures\positioning.py, D:\eGym\backend\app\motor\calibration\procedures\trainer.py, D:\eGym\backend\app\motor\exercise_observation.py, D:\eGym\backend\app\motor\workout.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27392
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33960
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\can_bus.py, D:\eGym\backend\app\schemas\drive_transport.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34100
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\feel.py, D:\eGym\backend\app\motor\calibration\procedures\trainer.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20272
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24856
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\motion.py, D:\eGym\backend\app\motor\calibration\runner.py, D:\eGym\backend\app\motor\core.py, D:\eGym\backend\app\motor\supervisor\pair.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25144
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 7544
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\common.py, D:\eGym\backend\app\motor\calibration\procedures\fast.py, D:\eGym\backend\app\motor\calibration\procedures\feel.py, D:\eGym\backend\app\motor\calibration\procedures\holding.py, D:\eGym\backend\app\motor\calibration\procedures\positioning.py, D:\eGym\backend\app\motor\calibration\procedures\smith.py, D:\eGym\backend\app\motor\calibration\procedures\trainer.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29336
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14476
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\hardware.py, D:\eGym\backend\app\api\routes\modbus_debug.py, D:\eGym\backend\app\main.py, D:\eGym\backend\app\services\drive_transport_settings.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21532
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\procedures\motion.py, D:\eGym\backend\app\motor\calibration\runner.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21844
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\procedures\bus.py, D:\eGym\backend\app\motor\calibration\session.py, D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28824
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28216
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\modbus_debug.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 1380
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35636
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_motion_protection.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25756
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\core.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_motion_protection.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28520
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 12748
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\session.py, D:\eGym\backend\app\schemas\hardware.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\services\hardware_service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28216
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35652
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\hardware.py, D:\eGym\backend\app\api\routes\modbus_debug.py, D:\eGym\backend\app\main.py, D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24728
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\fixed.py, D:\eGym\backend\app\tests\motor\test_calibration_middle_zone.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20176
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 11956
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 2540
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\common.py, D:\eGym\backend\app\motor\calibration\procedures\fast.py, D:\eGym\backend\app\motor\calibration\procedures\positioning.py, D:\eGym\backend\app\tests\motor\test_motion_protection.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 12036
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\drive_transport.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14660
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\drive_transport.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 8960
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\positioning.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 17972
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\trainer.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34312
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35784
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 32320
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 14368
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30244
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 31568
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 24532
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 30624
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 34828
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 33036
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 26812
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 13380
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 17336
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 25716
+Backend server завершился с кодом . Запускаю заново.
+Backend server запущен. PID: 34056
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34528
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\motion.py, D:\eGym\backend\app\motor\calibration\procedures\positioning.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31212
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\positioning.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34112
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21640
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\procedures\motion.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 15656
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_workout_setup_speeds.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14468
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\hardware.py, D:\eGym\backend\app\schemas\drive_transport.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26560
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28396
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22824
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\fault_rehearsal.py, D:\eGym\backend\app\motor\calibration\graph.py, D:\eGym\backend\app\motor\calibration\procedures\feel.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30664
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34732
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23332
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\schemas\drive_transport.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34020
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\core.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20964
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py, D:\eGym\backend\app\tests\motor\test_fixed_hold.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 4752
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35220
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32132
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34132
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\content\workout-titles.ru.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14496
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 22648
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\facts.py, D:\eGym\backend\app\services\achievements\patterns.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29972
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\achievement.py, D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29956
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\achievements.py, D:\eGym\backend\app\services\achievements\media.py, D:\eGym\backend\app\services\achievements\service.py, D:\eGym\backend\media\achievements\collection\voice.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28244
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\scene-direction.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 12768
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\collection.py, D:\eGym\backend\app\services\achievements\service.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27520
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\manifest.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24628
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_achievement_receipts.py, D:\eGym\backend\app\tests\test_achievements.py, D:\eGym\backend\media\achievements\collection\scene-direction.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31000
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_achievement_stories.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 1380
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\manifest.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 19736
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\achievement.py, D:\eGym\backend\app\services\achievements\collection.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26668
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\patterns.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 7636
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\voice.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35492
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\test_achievement_stories.py, D:\eGym\backend\app\tests\test_achievement_v2_storage.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28072
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\voice.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24844
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\content\workout-titles.ru.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33860
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\voice.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 36064
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\estimation.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 36492
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25548
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\content\workout-titles.ru.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 16360
+Обнаружены изменения backend данных: D:\eGym\backend\media\achievements\collection\voice.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23632
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\graph.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21056
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\achievements\patterns.py, D:\eGym\backend\media\achievements\collection\scene-direction.json
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 36452
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_first_setup.py, D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21288
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 16392
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32672
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33408
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21668
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\common.py, D:\eGym\backend\app\motor\calibration\procedures\estimation.py, D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 27924
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_first_setup.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32380
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\estimation.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 36136
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\bus.py, D:\eGym\backend\app\motor\calibration\procedures\estimation.py, D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26776
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\procedures\fast.py, D:\eGym\backend\app\motor\calibration\procedures\heightmap.py, D:\eGym\backend\app\motor\calibration\procedures\holding.py, D:\eGym\backend\app\motor\calibration\procedures\smith.py, D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 31620
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py, D:\eGym\backend\app\motor\calibration\measurement_plots.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33836
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\drive_transport.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10996
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\can_bus.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18808
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\can_bus.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 32848
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen_diagnostics.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 28452
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 29596
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 20596
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 14284
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\measurement_plots.py, D:\eGym\backend\app\motor\calibration\procedures\common.py, D:\eGym\backend\app\motor\calibration\procedures\dynamics.py, D:\eGym\backend\app\motor\calibration\procedures\fast.py, D:\eGym\backend\app\motor\calibration\procedures\heightmap.py, D:\eGym\backend\app\motor\calibration\procedures\holding.py, D:\eGym\backend\app\motor\calibration\procedures\smith.py, D:\eGym\backend\app\motor\calibration\session.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 25224
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\calibration\measurement_plots.py, D:\eGym\backend\app\motor\calibration\procedures\feel.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23876
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\motor\drive\canopen_diagnostics.py, D:\eGym\backend\app\schemas\drive_transport.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30188
+Обнаружены изменения backend данных: D:\eGym\backend\app\schemas\drive_transport.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 26572
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23400
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_calibrations_all.py, D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 4232
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\motor\drive\canopen_diagnostics.py, D:\eGym\backend\app\schemas\drive_transport.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33600
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\can_bus.py, D:\eGym\backend\app\motor\drive\canopen.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 18384
+Обнаружены изменения backend данных: D:\eGym\backend\app\api\routes\motor.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30084
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\motor\drive\canopen_diagnostics.py, D:\eGym\backend\app\schemas\drive_transport.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 12372
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 33572
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 21440
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_guided_calibration_api.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 34140
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\services\hardware_runtime.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 5152
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 35956
+Обнаружены изменения backend данных: D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 10968
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\can_bus.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 37076
+Обнаружены изменения backend данных: D:\eGym\backend\app\services\hardware_runtime.py, D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 30408
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py, D:\eGym\backend\app\schemas\drive_transport.py, D:\eGym\backend\app\tests\motor\test_canopen_drive.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 23780
+Обнаружены изменения backend данных: D:\eGym\backend\app\motor\drive\canopen.py
+Принудительно перезапускаю backend server.
+Backend server запущен. PID: 24536

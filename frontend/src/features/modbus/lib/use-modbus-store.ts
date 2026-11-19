@@ -39,6 +39,9 @@ const DEFAULT_PARAMS: ModbusConnectionParams = {
   timeoutMs: 300,
 }
 
+// A status read from the previous page must not overwrite a newer connection.
+let statusRevision = 0
+
 function buildInitialParamState(): Map<number, ParameterState> {
   const m = new Map<number, ParameterState>()
   for (const p of PARAMETER_CATALOG) {
@@ -64,12 +67,11 @@ type ModbusStore = {
   selectedSide: 'left' | 'right'
   driveAddresses: { left: number; right: number }
   selectSide: (side: 'left' | 'right') => void
-  setDriveAddress: (side: 'left' | 'right', address: number) => void
   // Connection
   connectionParams: ModbusConnectionParams
   connectionStatus: ModbusConnectionStatus | null
+  connectionPending: 'connect' | 'disconnect' | null
   ports: SerialPortInfo[]
-  setConnectionParams: (params: Partial<ModbusConnectionParams>) => void
 
   // Diagnostics
   diagnostics: DriverDiagnostics | null
@@ -96,9 +98,9 @@ type ModbusStore = {
   // Async actions
   loadPorts: () => Promise<void>
   loadStatus: () => Promise<void>
-  connect: () => Promise<void>
+  connect: (params: ModbusConnectionParams) => Promise<ModbusConnectionStatus>
   disconnect: () => Promise<void>
-  ping: () => Promise<boolean>
+  ping: (side: 'left' | 'right') => Promise<boolean>
   readRegister: (address: number, count?: number) => Promise<void>
   readBatch: (addresses: number[]) => Promise<void>
   writeRegister: (address: number, value: number) => Promise<void>
@@ -121,13 +123,9 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
   selectSide(side) {
     set({ selectedSide: side, paramStates: buildInitialParamState(), diagnostics: null, lastCompare: null })
   },
-  setDriveAddress(side, address) {
-    if (!Number.isInteger(address) || address < 1 || address > 247) return
-    if (address === get().driveAddresses[side === 'left' ? 'right' : 'left']) return
-    set((s) => ({ driveAddresses: { ...s.driveAddresses, [side]: address }, paramStates: buildInitialParamState(), diagnostics: null }))
-  },
   connectionParams: DEFAULT_PARAMS,
   connectionStatus: null,
+  connectionPending: null,
   ports: [],
   diagnostics: null,
   paramStates: buildInitialParamState(),
@@ -137,10 +135,6 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
   profiles: [],
   lastCompare: null,
   motorEnabled: false,
-
-  setConnectionParams(params) {
-    set((s) => ({ connectionParams: { ...s.connectionParams, ...params } }))
-  },
 
   setUiValue(address, value) {
     set((s) => {
@@ -184,32 +178,64 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
   },
 
   async loadStatus() {
-    const status = await fetchModbusStatus()
-    set((state) => ({
-      connectionStatus: status,
-      driveAddresses: status.slaveId && status.rightSlaveId && status.slaveId !== status.rightSlaveId
-        ? { left: status.slaveId, right: status.rightSlaveId } : state.driveAddresses,
-      connectionParams: status.port && status.baudRate
-        ? { ...state.connectionParams, port: status.port, baudRate: status.baudRate, slaveId: status.slaveId ?? state.connectionParams.slaveId, rightSlaveId: status.rightSlaveId ?? state.connectionParams.rightSlaveId }
-        : state.connectionParams,
-    }))
+    if (get().connectionPending) return
+    const revision = ++statusRevision
+    try {
+      const status = await fetchModbusStatus()
+      if (revision !== statusRevision) return
+      set((state) => {
+        const driveAddresses = status.slaveId && status.rightSlaveId && status.slaveId !== status.rightSlaveId
+          ? { left: status.slaveId, right: status.rightSlaveId } : state.driveAddresses
+        return {
+          connectionStatus: status, driveAddresses,
+          ...((state.connectionStatus?.connected !== status.connected || state.connectionStatus?.port !== status.port
+            || state.driveAddresses.left !== driveAddresses.left || state.driveAddresses.right !== driveAddresses.right)
+            && { diagnostics: null, paramStates: buildInitialParamState(), motorEnabled: false }),
+          connectionParams: {
+            ...state.connectionParams, port: status.port ?? state.connectionParams.port,
+            baudRate: status.baudRate ?? state.connectionParams.baudRate,
+            timeoutMs: status.timeoutMs ?? state.connectionParams.timeoutMs,
+            slaveId: driveAddresses.left, rightSlaveId: driveAddresses.right,
+          },
+        }
+      })
+    } catch (error) {
+      if (revision !== statusRevision) return
+      set({ connectionStatus: null, diagnostics: null, motorEnabled: false })
+      throw error
+    }
   },
 
-  async connect() {
-    const { connectionParams, driveAddresses } = get()
-    const status = await connectModbus({ ...connectionParams, slaveId: driveAddresses.left, rightSlaveId: driveAddresses.right })
-    set({ connectionStatus: status })
+  async connect(params) {
+    if (get().connectionPending) throw new Error('Дождитесь завершения операции.')
+    ++statusRevision
+    set({ connectionPending: 'connect' })
+    try {
+      const status = await connectModbus(params)
+      set({ connectionStatus: status, ...(status.connected && {
+        connectionParams: params, driveAddresses: { left: params.slaveId, right: params.rightSlaveId },
+        paramStates: buildInitialParamState(), diagnostics: null, lastCompare: null, motorEnabled: false,
+      }) })
+      return status
+    } finally {
+      set({ connectionPending: null })
+    }
   },
 
   async disconnect() {
-    const status = await disconnectModbus()
-    set({ connectionStatus: status })
+    if (get().connectionPending) throw new Error('Дождитесь завершения операции.')
+    ++statusRevision
+    set({ connectionPending: 'disconnect' })
+    try {
+      const status = await disconnectModbus()
+      set({ connectionStatus: status, diagnostics: null, motorEnabled: false })
+    } finally {
+      set({ connectionPending: null })
+    }
   },
 
-  async ping() {
-    const { selectedSide, driveAddresses } = get()
-    const result = await pingModbus(driveAddresses[selectedSide])
-    void get().loadStatus()
+  async ping(side) {
+    const result = await pingModbus(get().driveAddresses[side])
     return result.success
   },
 
@@ -334,9 +360,12 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
   // ---------------------------------------------------------------------------
 
   async loadDiagnostics() {
-    const { selectedSide, driveAddresses } = get()
-    const diag = await fetchModbusDiagnostics(driveAddresses[selectedSide])
-    if (get().selectedSide === selectedSide) set({ diagnostics: diag })
+    const { selectedSide, driveAddresses, connectionStatus } = get()
+    const slave = driveAddresses[selectedSide]
+    const diag = await fetchModbusDiagnostics(slave)
+    const state = get()
+    if (state.connectionStatus?.connected && state.connectionStatus.port === connectionStatus?.port
+      && state.selectedSide === selectedSide && state.driveAddresses[selectedSide] === slave) set({ diagnostics: diag })
   },
 
   // ---------------------------------------------------------------------------
@@ -368,7 +397,7 @@ export const useModbusStore = create<ModbusStore>((set, get) => ({
         return { paramStates: next }
       })
     }
-    void get().loadStatus()
+    void get().loadStatus().catch(() => undefined)
     return { success, error: errors.length ? errors.join('; ') : undefined }
   },
 

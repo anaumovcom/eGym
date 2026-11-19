@@ -5,10 +5,11 @@ from dataclasses import dataclass
 
 import httpx
 from fastapi import HTTPException
-from sqlalchemy import inspect
+from sqlalchemy import inspect, update
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
+from app.models.coach import CoachJob
 from app.schemas.coach_control import Pricing
 from app.services.coach import ledger, packs, security
 from app.services.coach.voice import (
@@ -69,11 +70,17 @@ def require_job_schema(sessions: Callable[[], Session]) -> None:
 
 
 async def generate(sessions: Callable[[], Session], selected: PackProvider, store: packs.PackStore,
-                   slot: str, run_id: str, job_id: str, owner: str, generation: int) -> None:
+                   slot: str, run_id: str, job_id: str, owner: str, generation: int, replace_version: str | None = None) -> None:
     try:
         runner = packs.PackJobRunner(sessions, selected.voice, selected.pricing, store,
                                      slot=slot, model=selected.pricing.model)
-        await runner.run(job_id, owner, generation)
+        published = await runner.run(job_id, owner, generation, replace_version=replace_version)
+        if published is None:
+            # A revoked generation (for example a profile edit) can stop the runner without an exception.
+            # Never leave the settings UI polling a queued job whose run is about to be closed.
+            with sessions() as db, ledger.atomic(db):
+                db.execute(update(CoachJob).where(CoachJob.id == job_id, CoachJob.run_id == run_id,
+                                                  CoachJob.state == "queued").values(state="paused"))
     except Exception as error:
         # Runner persists paused/failed and settles or marks outstanding usage. Never expose provider bodies/secrets.
         packs.logger.error("pack_generation_stopped job=%s slot=%s reason=%s error_type=%s",
@@ -88,4 +95,4 @@ async def generate(sessions: Callable[[], Session], selected: PackProvider, stor
                 ledger.cancel_run(db, run_id, close=True)
         except Exception as error:
             packs.logger.error("pack_cleanup_failed job=%s stage=close_run error_type=%s", job_id, type(error).__name__)
-        active_slots.discard(slot)
+        active_slots.discard(packs.storage_slot(slot))

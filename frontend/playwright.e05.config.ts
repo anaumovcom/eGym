@@ -1,5 +1,6 @@
 import { defineConfig, devices, chromium } from '@playwright/test'
 import { existsSync } from 'node:fs'
+import { kioskDisplay } from './e2e/kiosk-display.mjs'
 
 // Deliberately separate from playwright.config.ts: that config starts a backend.
 export default defineConfig({
@@ -16,6 +17,7 @@ export default defineConfig({
   },
   projects: [{ name: 'chromium', use: {
     ...devices['Desktop Chrome'],
+    ...kioskDisplay,
     launchOptions: {
       executablePath: process.env.E05_CHROMIUM_PATH ??
         (existsSync(chromium.executablePath()) ? undefined : '/snap/bin/chromium'),

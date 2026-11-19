@@ -2,9 +2,15 @@ import { isPackSlot, type PackSlot } from './pack-client'
 
 const ERRORS: Record<string, string> = {
   unauthorized: 'Войдите в «Доступ оператора Coach» внизу настроек и повторите подготовку.',
+  secure_storage_unavailable: 'Не настроен доступ оператора или защищённое хранилище ключей. Для замены базовой записи нужен пароль оператора, но не ключ API.',
   credential_unavailable: 'Не найден ключ API в server vault. Сохраните ключи OpenAI и, для Fish Audio, Fish Audio в доступе оператора.',
   pack_generation_disabled: 'Генерация голоса выключена на сервере или цены не подтверждены оператором.',
   pack_generation_busy: 'Генерация уже идёт. Дождитесь её завершения и повторите загрузку.',
+  pack_changed: 'На сервере уже другая версия пакета. Скачайте обновление и выберите фразу заново.',
+  pack_not_prepared: 'Пакет ещё не опубликован на сервере.',
+  clip_not_found: 'В этой версии пакета нет выбранной записи.',
+  catalog_changed: 'Состав пакета изменился. Сначала обновите его.',
+  local_voice_unavailable: 'Локальный синтезатор недоступен на сервере. Ранее скачанные записи сохранены.',
   coach_schema_outdated: 'База данных Coach требует обновления. Примените миграции или перезапустите локальный сервер для обновления схемы; генерация ещё не запускалась.',
   coach_internal_error: 'Ошибка сервера при подготовке фраз. Генерация не подтверждена; требуется проверка сервера Coach.',
   cap_exceeds_user_budget: 'Лимит подготовки превышает сохранённый лимит пользователя. Сохраните настройки и повторите.',
@@ -36,16 +42,28 @@ function wait(signal: AbortSignal): Promise<void> {
   })
 }
 
+type Replacement = Readonly<{ clipId: string; expectedPackVersion: string }>
+function clipAction(slot: PackSlot, target: Replacement, action: 'regenerate' | 'approve' | 'record') {
+  if (!isPackSlot(slot) || !/^[a-z0-9-]{1,40}$/.test(target.clipId) || !/^[a-f0-9]{16}$/.test(target.expectedPackVersion)) throw new Error(ERRORS.unavailable)
+  return `packs/${slot}/clips/${target.clipId}/${action}`
+}
+
+export async function approveCoachClip(slot: PackSlot, target: Replacement, signal: AbortSignal): Promise<void> {
+  await request(clipAction(slot, target, 'approve'), signal, { expectedPackVersion: target.expectedPackVersion, listened: true })
+}
+
 /** Explicit paid operator action only. Auto-restoration and prepare/download remain GET-only. */
 export async function generateCoachPack(slot: PackSlot, userId: string, capUsd: string, signal: AbortSignal,
-  progress: (completed: number, total: number) => void): Promise<void> {
+  progress: (completed: number, total: number) => void, replacement?: Replacement): Promise<void> {
   if (!isPackSlot(slot)) throw new Error(ERRORS.unavailable)
   let run: { id: string; token: string; job: string } | null = null
   let completed = false
   try {
     if (signal.aborted) return
     // Receive the run token even if the UI cancels during startup, then cancel the server job in finally.
-    const result = await request(`packs/${slot}/prepare`, AbortSignal.timeout(15_000), { userId, capUsd, confirmPaid: true })
+    const path = replacement ? clipAction(slot, replacement, 'regenerate') : `packs/${slot}/prepare`
+    const result = await request(path, AbortSignal.timeout(15_000), { userId, capUsd, confirmPaid: true,
+      ...(replacement ? { expectedPackVersion: replacement.expectedPackVersion } : { includeOptional: true }) })
     if (result.state === 'completed') { completed = true; return }
     if (![result.runId, result.runToken, result.jobId].every(value => typeof value === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(value))) throw new Error(ERRORS.unavailable)
     run = { id: result.runId as string, token: result.runToken as string, job: result.jobId as string }
@@ -68,4 +86,9 @@ export async function generateCoachPack(slot: PackSlot, userId: string, capUsd: 
       await request(`runs/${run.id}/jobs/${run.job}/action`, AbortSignal.timeout(5000), { action: 'cancel' }, run.token).catch(() => {})
     }
   }
+}
+
+export type RecordingPace = 'normal' | 'slow' | 'brisk'
+export async function recordStarterClip(target: Replacement, pace: RecordingPace, signal: AbortSignal): Promise<void> {
+  await request(clipAction('ru-base', target, 'record'), signal, { expectedPackVersion: target.expectedPackVersion, pace, confirmLocal: true })
 }

@@ -1,0 +1,220 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "budget_usd":  10,
+    "prior_estimate_usd":  0.05061,
+    "estimate_usd":  0.296335,
+    "reservation_per_request_usd":  0.75,
+    "reference":  "reference-current.png",
+    "requests":  [
+                     {
+                         "id":  "01-graphite",
+                         "name":  "Graphite",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024549,
+                         "usage":  {
+                                       "input_tokens":  2325,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  817
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2605
+                                   },
+                         "started_at":  "2026-11-16T15:09:23.6126051Z"
+                     },
+                     {
+                         "id":  "02-studio",
+                         "name":  "Studio",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024574,
+                         "usage":  {
+                                       "input_tokens":  2330,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  822
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2610
+                                   },
+                         "started_at":  "2026-11-16T15:09:40.8951125Z"
+                     },
+                     {
+                         "id":  "03-performance",
+                         "name":  "Performance",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024569,
+                         "usage":  {
+                                       "input_tokens":  2329,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  821
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2609
+                                   },
+                         "started_at":  "2026-11-16T15:09:56.4941886Z"
+                     },
+                     {
+                         "id":  "04-midnight",
+                         "name":  "Midnight",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024539,
+                         "usage":  {
+                                       "input_tokens":  2323,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  815
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2603
+                                   },
+                         "started_at":  "2026-11-16T15:10:12.3969411Z"
+                     },
+                     {
+                         "id":  "05-porcelain",
+                         "name":  "Porcelain",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024559,
+                         "usage":  {
+                                       "input_tokens":  2327,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  819
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2607
+                                   },
+                         "started_at":  "2026-11-16T15:10:29.1436037Z"
+                     },
+                     {
+                         "id":  "06-evergreen",
+                         "name":  "Evergreen",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024559,
+                         "usage":  {
+                                       "input_tokens":  2327,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  819
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2607
+                                   },
+                         "started_at":  "2026-11-16T15:10:46.1016425Z"
+                     },
+                     {
+                         "id":  "07-titanium",
+                         "name":  "Titanium",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024589,
+                         "usage":  {
+                                       "input_tokens":  2333,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  825
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2613
+                                   },
+                         "started_at":  "2026-11-16T15:11:13.4464761Z"
+                     },
+                     {
+                         "id":  "08-sand",
+                         "name":  "Sand",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024574,
+                         "usage":  {
+                                       "input_tokens":  2330,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  822
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2610
+                                   },
+                         "started_at":  "2026-11-16T15:11:29.6665190Z"
+                     },
+                     {
+                         "id":  "09-indigo",
+                         "name":  "Indigo",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024579,
+                         "usage":  {
+                                       "input_tokens":  2331,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  823
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2611
+                                   },
+                         "started_at":  "2026-11-16T15:11:44.7251522Z"
+                     },
+                     {
+                         "id":  "10-monochrome",
+                         "name":  "Monochrome",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.024634,
+                         "usage":  {
+                                       "input_tokens":  2342,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1508,
+                                                                    "text_tokens":  834
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  2622
+                                   },
+                         "started_at":  "2026-11-16T15:12:01.2092811Z"
+                     }
+                 ]
+}

@@ -7,7 +7,12 @@ import { getSharedAudioContext } from './shared-audio-context'
 export type LocalAudioSource = 'local' | 'cache'
 export type NetworkAudioSource = 'realtime' | 'tts' | 'fish' | 'fake'
 export type MixerAudioSource = LocalAudioSource | NetworkAudioSource
-export type LocalPlayback = Readonly<{ kind: 'count' | 'cue'; action: 'count' | 'orient' | 'support' | 'result' | 'summary' | 'safety' }>
+export type LocalPlayback = Readonly<{
+  kind: 'count' | 'cue'; action: 'count' | 'orient' | 'support' | 'result' | 'summary' | 'safety'
+  /** Mixer-only marker; advice still reports the existing support action on the wire. */
+  advice?: true
+}>
+const isAdvicePlayback = (playback?: LocalPlayback) => playback?.kind === 'cue' && playback.advice === true
 export type AudioReason = CoachReason | 'ready' | 'started' | 'ended' | 'cancelled' | 'scope_changed' | 'mute' |
   'expired' | 'stale' | 'audio_locked' | 'unavailable' | 'duplicate' | 'id_capacity' |
   'queue_full' | 'queue_preempted' | 'invalid' | 'watchdog' | 'disposed' | 'volume' | 'context' | 'underrun'
@@ -144,6 +149,7 @@ export class LocalCoachAudioManager {
     if (!this.scope) this.scope = Object.freeze({ ...options.scope })
     const invalid = this.invalidPending(options)
     if (invalid) return this.reject(invalid)
+    if (isAdvicePlayback(options.localPlayback) && this.entries.size) return this.reject('no_window')
     const pending = [...this.entries.values()].filter(entry => entry.ordinal === null)
     if (pending.length >= MAX_PENDING) {
       if (!options.completion) return this.reject('queue_full')
@@ -227,6 +233,14 @@ export class LocalCoachAudioManager {
   cancelStream(id: string, reason: AudioReason = 'cancelled'): void {
     const entry = this.entries.get(id)
     if (!this.disposed && entry?.stream) this.remove(entry, reason, false)
+  }
+
+  /** Stop marked local/cache tips, including reservations that haven't started yet. */
+  cancelAdvice(reason: AudioReason = 'cancelled'): void {
+    if (this.disposed) return
+    for (const entry of [...this.entries.values()]) {
+      if (!entry.stream && isAdvicePlayback(entry.options.localPlayback)) this.remove(entry, reason, false)
+    }
   }
 
   cancelAll(reason: AudioReason = 'cancelled'): void {

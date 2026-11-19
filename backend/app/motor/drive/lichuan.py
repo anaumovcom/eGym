@@ -3,33 +3,41 @@
 from __future__ import annotations
 
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.motor.drive.protocol import DriveSample
 from app.motor.drive.registers import PA_TORQUE_COMMAND, PA_VIRTUAL_DI, alarm_text, assert_writable
 from app.motor.profile import SideProfile
 from app.motor.units import Side, clamp, force_to_raw, raw_to_force, rpm_to_mm_s
 
+if TYPE_CHECKING:
+    from app.services.modbus_service import ModbusService
+
 RESTORE_SPEED_LIMIT_RPM = 300  # modbus_service.DEFAULT_SPEED_LIMIT_RPM, if the connect value is unknown
 
 
 class LichuanTorqueDrive:
-    def __init__(self, side: Side, slave_id: int, profile: SideProfile, max_raw: int, service: Any) -> None:
+    def __init__(self, side: Side, slave_id: int, profile: SideProfile, max_raw: int, service: ModbusService) -> None:
         self.side = side
         self.slave_id = slave_id
         self.profile = profile
         self.max_raw = max_raw
         self.service = service
         self.last_raw: int | None = None
+        self.last_write_at: float | None = None
 
     def read(self) -> DriveSample:
         now = time.monotonic()
         data = self.service.read_torque_telemetry(self.slave_id, log=False)
         if data.get("error"):
             return DriveSample(self.side, now, ok=False, error=str(data["error"]))
-        alarm = int(data.get("alarm") or 0)
+        alarm_word = data.get("alarm")
+        if alarm_word is None:
+            return DriveSample(self.side, now, ok=False, error="Состояние аварии PA_1C9 неизвестно")
+        alarm = int(alarm_word)
         position = data.get("position_mm")
         counts = data.get("feedback_position")
+        bus_errors = data.get("bus_errors")
         sign = self.profile.sign
         sample = DriveSample(
             self.side,
@@ -42,6 +50,7 @@ class LichuanTorqueDrive:
             alarm=alarm,
             error=alarm_text(alarm) if alarm else (None if position is not None else "Ноль энкодера не известен"),
             counts=int(counts) if counts is not None else None,
+            reply_t=time.monotonic(), write_ack_t=self.last_write_at, bus_errors=int(bus_errors) if bus_errors is not None else None,
         )
         return sample
 
@@ -53,6 +62,7 @@ class LichuanTorqueDrive:
         except Exception as exc:  # noqa: BLE001 - a broken drive must not stop the caller
             error = str(exc)
         self.last_raw = None if error else value
+        self.last_write_at = None if error else time.monotonic()
         return error
 
     def write_force(self, force_n: float) -> str | None:

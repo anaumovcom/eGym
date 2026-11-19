@@ -5,6 +5,7 @@ import contextlib
 import json
 import time
 from collections.abc import Callable
+from hashlib import sha256
 
 from fastapi import (
     APIRouter,
@@ -18,6 +19,7 @@ from fastapi import (
     WebSocketDisconnect,
 )
 from fastapi.responses import FileResponse
+from filelock import FileLock, Timeout
 from pydantic import ValidationError
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
@@ -36,14 +38,28 @@ from app.schemas.coach_control import (
     JobCreate,
     LeaseRequest,
     LiveConfigure,
+    LocalPackRecording,
     OperatorLogin,
     PackJobCreate,
     PackPrepare,
+    PackRegenerate,
+    PackReview,
     PreferencesSave,
     RunBind,
     RunCreate,
 )
-from app.services.coach import episode, history, journal, ledger, live, pack_generation, packs, scenario, security
+from app.services.coach import (
+    episode,
+    history,
+    journal,
+    ledger,
+    live,
+    pack_generation,
+    packs,
+    scenario,
+    security,
+    starter_voice,
+)
 from app.services.coach.preferences import load_preferences, save_preferences
 
 router = APIRouter()
@@ -393,20 +409,81 @@ def get_pack_provider() -> pack_generation.ProviderFactory:
 async def prepare_pack(slot: str, payload: PackPrepare, request: Request, background: BackgroundTasks,
                        db: Session = Depends(get_session), sessions: Callable[[], Session] = Depends(get_session_factory),
                        factory: pack_generation.ProviderFactory = Depends(get_pack_provider)):
+    return await _queue_pack(slot, payload, request, background, db, sessions, factory)
+
+
+@router.post("/coach/packs/{slot}/regenerate")
+async def regenerate_pack(slot: str, payload: PackRegenerate, request: Request, background: BackgroundTasks,
+                          db: Session = Depends(get_session), sessions: Callable[[], Session] = Depends(get_session_factory),
+                          factory: pack_generation.ProviderFactory = Depends(get_pack_provider)):
+    return await _queue_pack(slot, payload, request, background, db, sessions, factory)
+
+
+@router.post("/coach/packs/{slot}/clips/{clip_id}/regenerate")
+async def regenerate_clip(slot: str, clip_id: str, payload: PackRegenerate, request: Request, background: BackgroundTasks,
+                          db: Session = Depends(get_session), sessions: Callable[[], Session] = Depends(get_session_factory),
+                          factory: pack_generation.ProviderFactory = Depends(get_pack_provider)):
+    return await _queue_pack(slot, payload, request, background, db, sessions, factory, clip_id)
+
+
+async def _queue_pack(slot: str, payload: PackPrepare | PackRegenerate, request: Request, background: BackgroundTasks,
+                      db: Session, sessions: Callable[[], Session], factory: pack_generation.ProviderFactory,
+                      clip_id: str | None = None):
     security.authorize(db, request)
+    if slot == starter_voice.SLOT:
+        raise HTTPException(409, "local_pack_only")  # A built-in voice must never dispatch to a paid provider.
     prefs = load_preferences(db, payload.user_id)
     if ledger.micros(payload.cap_usd) > min(10_000_000, ledger.micros(prefs.budget_usd)):
         raise HTTPException(409, "cap_exceeds_user_budget")
     db.rollback()
     store, model = pack_store(), packs.pack_model(slot)
-    current = packs.plan(store, slot, model)
-    # Counts 1..30 and all lifecycle/safety cues are required; optional counts can be added separately.
-    items = [row["clipId"] for row in current["clips"] if row["required"] and row["status"] != "ready"]
-    if not items:
-        store.publish(slot, packs.provider_voice(slot), model)
-        return {"state": "completed"}
-    if slot in pack_generation.active_slots or len(pack_generation.active_slots) >= 2:
+    slot_key = packs.storage_slot(slot)
+    if slot_key in pack_generation.active_slots or len(pack_generation.active_slots) >= 2:
         raise HTTPException(409, "pack_generation_busy")
+    lock_dir = store.root / "locks"
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(lock_dir / f"{slot_key}.lock", thread_local=False)
+    try:
+        lock.acquire(timeout=0)
+    except Timeout:
+        raise HTTPException(409, "pack_generation_busy") from None
+    try:
+        result = await _queue_locked(slot, payload, background, db, sessions, factory, clip_id, store, model)
+        if result["state"] == "queued":
+            background.add_task(lock.release)
+        else:
+            lock.release()
+        return result
+    except BaseException:
+        lock.release()
+        raise
+
+
+async def _queue_locked(slot: str, payload: PackPrepare | PackRegenerate, background: BackgroundTasks, db: Session,
+                        sessions: Callable[[], Session], factory: pack_generation.ProviderFactory, clip_id: str | None,
+                        store: packs.PackStore, model: str):
+    replace_version = None
+    if isinstance(payload, PackRegenerate):
+        current = store.compatible(slot, packs.provider_voice(slot), model)
+        if current is None:
+            raise HTTPException(404, "pack_not_prepared")
+        replace_version = payload.expected_pack_version
+        if current["packVersion"] != replace_version:
+            raise HTTPException(409, "pack_changed")
+        if clip_id is not None and clip_id not in current["clips"]:
+            raise HTTPException(404, "clip_not_found")
+        items = [clip_id] if clip_id is not None else list(current["clips"])
+        if not set(items) <= packs.CATALOG.keys():
+            raise HTTPException(409, "catalog_changed")
+        job_fp = sha256(replace_version.encode()).hexdigest()
+    else:
+        plan = packs.plan(store, slot, model)
+        items = [row["clipId"] for row in plan["clips"] if (row["required"] or payload.include_optional) and row["status"] != "ready"]
+        if not items:
+            if not store.publish(slot, packs.provider_voice(slot), model):
+                raise HTTPException(409, "pack_changed")
+            return {"state": "completed"}
+        job_fp = plan["planFingerprint"]
     pack_generation.require_job_schema(sessions)
     selected = factory(sessions, slot)  # Validate paid switches, verified prices and vault keys before creating a run.
     run_id = None
@@ -416,10 +493,10 @@ async def prepare_pack(slot: str, payload: PackPrepare, request: Request, backgr
         db.rollback()
         owner = f"pack-{run_id}"
         generation = ledger.lease(db, run_id, owner, 0)["generation"]
-        job_id = ledger.submit_job(db, run_id, "prepare", current["planFingerprint"], items)
+        job_id = ledger.submit_job(db, run_id, "regenerate" if replace_version else "prepare", job_fp, items)
         ledger.job_state(db, job_id, "queued")
-        pack_generation.active_slots.add(slot)
-        background.add_task(pack_generation.generate, sessions, selected, store, slot, run_id, job_id, owner, generation)
+        pack_generation.active_slots.add(packs.storage_slot(slot))
+        background.add_task(pack_generation.generate, sessions, selected, store, slot, run_id, job_id, owner, generation, replace_version)
         return {"state": "queued", "runId": run_id, "runToken": token, "jobId": job_id, "total": len(items)}
     except BaseException:
         await selected.close()
@@ -442,7 +519,67 @@ def pack_manifest(slot: str, response: Response):
     if manifest is None or manifest.get("model") != packs.pack_model(slot) or manifest.get("voice") != packs.provider_voice(slot):
         raise HTTPException(404, "pack_not_prepared")
     response.headers["Cache-Control"] = "no-store"
-    return manifest
+    # Older immutable manifests had no display text. Attach known catalogue labels only if the recipe matches.
+    clips = {}
+    for clip_id, entry in manifest["clips"].items():
+        spec = packs.CATALOG.get(clip_id)
+        recipe = entry.get("recipeFingerprint", entry["fingerprint"])
+        if spec and "text" not in entry and recipe == packs.fingerprint(spec, manifest["voice"], manifest["model"]):
+            entry = {**spec.catalogue_fields(), **entry}
+        clips[clip_id] = entry
+    return {**manifest, "clips": clips, "missingClips": len(packs.CATALOG.keys() - clips.keys())}
+
+
+@contextlib.contextmanager
+def edit_current_clip(store: packs.PackStore, slot: str, clip_id: str, expected: str):
+    lock_dir = store.root / "locks"
+    key = packs.storage_slot(slot)
+    lock_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        with FileLock(lock_dir / f"{key}.lock", timeout=0):
+            current = store.compatible(slot, packs.provider_voice(slot), packs.pack_model(slot))
+            if not current or current["packVersion"] != expected:
+                raise HTTPException(409, "pack_changed")
+            entry = current["clips"].get(clip_id)
+            if not entry:
+                raise HTTPException(404, "clip_not_found")
+            yield current, entry
+    except Timeout:
+        raise HTTPException(409, "pack_generation_busy") from None
+
+
+@router.post("/coach/packs/{slot}/clips/{clip_id}/approve")
+def approve_pack_clip(slot: str, clip_id: str, payload: PackReview, request: Request, db: Session = Depends(get_session)):
+    security.authorize(db, request)
+    spec = packs.CATALOG.get(clip_id)
+    if not spec or not spec.needs_approval:
+        raise HTTPException(404, "clip_not_found")
+    store = pack_store()
+    with edit_current_clip(store, slot, clip_id, payload.expected_pack_version) as (current, entry):
+        clips = {**current["clips"], clip_id: {**entry, "approved": True}}
+        result = store.publish_entries(slot, current["voice"], current["model"], clips)
+        return {"packVersion": result["packVersion"]}
+
+
+@router.post("/coach/packs/ru-base/clips/{clip_id}/record")
+def record_starter_clip(clip_id: str, payload: LocalPackRecording, request: Request, db: Session = Depends(get_session)):
+    security.authorize(db, request)  # Edits a shared server pack, even though this voice has no cost or API keys.
+    spec = packs.CATALOG.get(clip_id)
+    if not spec:
+        raise HTTPException(404, "clip_not_found")
+    store, slot = pack_store(), starter_voice.SLOT
+    with edit_current_clip(store, slot, clip_id, payload.expected_pack_version) as (current, _):
+        try:
+            pcm, rate = starter_voice.synthesize(spec.text, payload.pace)
+        except (ImportError, OSError, RuntimeError) as error:
+            raise HTTPException(503, "local_voice_unavailable") from error
+        data = packs.pcm_to_wav(packs.trim_edges(pcm, rate), rate)
+        recipe = packs.fingerprint(spec, starter_voice.VOICE, starter_voice.MODEL)
+        fp = sha256(recipe.encode() + data).hexdigest()
+        check = store.save_artifact(spec, fp, data)
+        entry = {**store.entry(spec, fp, check), "recipeFingerprint": recipe}
+        result = store.publish_entries(slot, current["voice"], current["model"], {**current["clips"], clip_id: entry})
+        return {"packVersion": result["packVersion"]}
 
 
 @router.get("/coach/packs/{slot}/{pack_version}/clips/{clip_id}")
@@ -456,11 +593,13 @@ def pack_clip(slot: str, pack_version: str, clip_id: str):
     if entry is None or not packs.FINGERPRINT_RE.match(str(entry.get("fingerprint"))):
         raise HTTPException(404, "clip_not_found")
     path = store.artifact_path(entry["fingerprint"])
+    headers = {"Cache-Control": "public, max-age=31536000, immutable", "ETag": f'"{entry["sha256"]}"',
+               "X-Content-Type-Options": "nosniff"}
     if not path.is_file():
+        if slot == starter_voice.SLOT and (data := starter_voice.recording(entry["fingerprint"])) is not None:
+            return Response(data, media_type="audio/wav", headers=headers)
         raise HTTPException(404, "clip_not_found")
-    return FileResponse(path, media_type="audio/wav", headers={
-        "Cache-Control": "public, max-age=31536000, immutable", "ETag": f'"{entry["sha256"]}"',
-        "X-Content-Type-Options": "nosniff"})
+    return FileResponse(path, media_type="audio/wav", headers=headers)
 
 
 @router.post("/coach/packs/{slot}/jobs")
@@ -540,8 +679,10 @@ async def coach_live(websocket: WebSocket, run_id: str, sessions: Callable[[], S
     try:
         with sessions() as db:
             run = ledger.get_run(db, run_id, config.run_token)
-            # workout: real training; test: capped sound-test wizard/CI with synthetic adapters.
-            if run.ledger not in {"workout", "test"} or run.state != "active":
+            # Workout playback is exclusively local, irrespective of legacy hybrid settings/paid flags.
+            if run.ledger == "workout":
+                raise HTTPException(409, "offline_only")
+            if run.ledger != "test" or run.state != "active":
                 raise HTTPException(409, "run_not_live")
             user_id, current = run.user_id, run.generation
             db.rollback()

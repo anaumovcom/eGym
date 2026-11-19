@@ -25,7 +25,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 describe('achievement audio safety', () => {
   it('renders no control and no audio source for a tier that is not earned', () => {
-    const { container } = render(<AchievementAudioButton tier={{ ...tier, earned: false, title: '' }} autoPlay />)
+    const { container } = render(<AchievementAudioButton tier={{ ...tier, earned: false, title: '' }} />)
     expect(container).toBeEmptyDOMElement()
     expect(HTMLMediaElement.prototype.play).not.toHaveBeenCalled()
   })
@@ -38,18 +38,18 @@ describe('achievement audio safety', () => {
 
   it('stops the other clip before starting another', async () => {
     render(<><AchievementAudioButton tier={tier} /><AchievementAudioButton tier={{ ...tier, id: 'practice.workouts:t5', title: 'Ещё награда' }} /></>)
-    fireEvent.click(screen.getByRole('button', { name: 'Прослушать фразу «Большая награда»' }))
-    await screen.findByRole('button', { name: 'Остановить фразу «Большая награда»' })
-    fireEvent.click(screen.getByRole('button', { name: 'Прослушать фразу «Ещё награда»' }))
-    await screen.findByRole('button', { name: 'Остановить фразу «Ещё награда»' })
-    expect(screen.getByRole('button', { name: 'Прослушать фразу «Большая награда»' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Послушать историю «Большая награда»' }))
+    await screen.findByRole('button', { name: 'Остановить озвучку «Большая награда»' })
+    fireEvent.click(screen.getByRole('button', { name: 'Послушать историю «Ещё награда»' }))
+    await screen.findByRole('button', { name: 'Остановить озвучку «Ещё награда»' })
+    expect(screen.getByRole('button', { name: 'Послушать историю «Большая награда»' })).toBeInTheDocument()
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(2)
   })
 
   it('stops on STOP and prevents restarting while emergency is active', async () => {
     const { rerender } = render(<AchievementAudioButton tier={tier} />)
     fireEvent.click(screen.getByRole('button'))
-    await screen.findByRole('button', { name: 'Остановить фразу «Большая награда»' })
+    await screen.findByRole('button', { name: 'Остановить озвучку «Большая награда»' })
     act(() => { useAppStore.setState({ emergencyStopActive: true }) })
     rerender(<AchievementAudioButton tier={tier} />)
     await waitFor(() => expect(screen.getByRole('button')).toBeDisabled())
@@ -59,27 +59,39 @@ describe('achievement audio safety', () => {
   it('stops when the selected profile changes', async () => {
     const { rerender } = render(<AchievementAudioButton tier={tier} />)
     fireEvent.click(screen.getByRole('button'))
-    await screen.findByRole('button', { name: 'Остановить фразу «Большая награда»' })
+    await screen.findByRole('button', { name: 'Остановить озвучку «Большая награда»' })
     act(() => { useAppStore.setState({ selectedUserId: 'elena' }) })
     rerender(<AchievementAudioButton tier={tier} />)
     await waitFor(() => expect(screen.getByRole('button')).toHaveAttribute('aria-pressed', 'false'))
   })
 
-  it('autoplays once and reports only successful playback', async () => {
+  it('stops the current recording when its award leaves the screen', async () => {
+    const { unmount } = render(<AchievementAudioButton tier={tier} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Послушать историю «Большая награда»' }))
+    await screen.findByRole('button', { name: 'Остановить озвучку «Большая награда»' })
+    vi.mocked(HTMLMediaElement.prototype.pause).mockClear()
+    unmount()
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalledTimes(1)
+  })
+
+  it('reports only a requested playback, even after rerender', async () => {
     const onPlaybackStart = vi.fn()
-    const { rerender } = render(<AchievementAudioButton tier={tier} autoPlay onPlaybackStart={onPlaybackStart} />)
+    const { rerender } = render(<AchievementAudioButton tier={tier} onPlaybackStart={onPlaybackStart} />)
+    expect(onPlaybackStart).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button'))
     await waitFor(() => expect(onPlaybackStart).toHaveBeenCalledTimes(1))
-    rerender(<AchievementAudioButton tier={tier} autoPlay onPlaybackStart={onPlaybackStart} />)
+    rerender(<AchievementAudioButton tier={tier} onPlaybackStart={onPlaybackStart} />)
     expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1)
   })
 
-  it('does not report blocked autoplay and leaves a working manual button', async () => {
+  it('reports a failed manual playback and allows a retry', async () => {
     const onPlaybackStart = vi.fn()
     vi.spyOn(HTMLMediaElement.prototype, 'play').mockRejectedValueOnce(new DOMException('Blocked', 'NotAllowedError'))
-    render(<AchievementAudioButton tier={tier} autoPlay onPlaybackStart={onPlaybackStart} />)
-    await screen.findByText('Автовоспроизведение недоступно. Нажмите «Прослушать».')
+    render(<AchievementAudioButton tier={tier} onPlaybackStart={onPlaybackStart} />)
+    fireEvent.click(screen.getByRole('button'))
+    await screen.findByText('Не удалось воспроизвести запись. Попробуйте ещё раз.')
     expect(onPlaybackStart).not.toHaveBeenCalled()
-    fireEvent.click(screen.getByRole('button', { name: 'Прослушать фразу «Большая награда»' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Послушать историю «Большая награда»' }))
     await waitFor(() => expect(onPlaybackStart).toHaveBeenCalledTimes(1))
   })
 })

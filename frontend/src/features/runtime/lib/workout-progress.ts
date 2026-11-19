@@ -113,6 +113,7 @@ export function getWorkoutResumeSummary(session: RuntimeWorkoutSession) {
     totalExercises: session.exercises.length,
     doneSets,
     totalSets,
+    currentExercise,
     nextLabel: currentExercise && current ? `${currentExercise.name} · ${describeWorkoutSet(currentExercise, current.setIndex)}` : null,
   }
 }

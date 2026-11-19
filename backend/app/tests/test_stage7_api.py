@@ -1,7 +1,9 @@
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 from sqlalchemy import select
@@ -9,7 +11,10 @@ from sqlalchemy import select
 from app.api.routes.analytics import media_service
 from app.models.analytics import ExerciseSession, MuscleFatigueEvent, MuscleFatigueSnapshot
 from app.models.training import ExerciseHistoryRecord
-from app.services.fatigue_service import FatigueService
+from app.services.dashboard_service import DashboardService
+from app.services.exercise_library import get_imported_exercise, load_imported_exercises, muscle_load_profiles
+from app.services.fatigue_service import FatigueReference, FatigueService
+from app.services.muscle_catalog import get_muscle_definition
 
 
 def test_save_workout_and_read_progress_and_fatigue(client: TestClient) -> None:
@@ -143,7 +148,7 @@ def test_fatigue_grows_after_each_set_and_across_exercises(client: TestClient, d
         },
     )
     assert first_set.status_code == 200
-    assert {item["muscleId"] for item in first_set.json()["fatigue"]} == {"chest", "triceps"}
+    assert {item["muscleId"] for item in first_set.json()["fatigue"]} == {"chest", "triceps", "front-shoulders", "rear-shoulders"}
     db_session.expire_all()
     chest_after_first = db_session.scalars(
         select(MuscleFatigueSnapshot).where(MuscleFatigueSnapshot.user_id == "alexey", MuscleFatigueSnapshot.muscle_id == "chest")
@@ -586,3 +591,98 @@ def test_timed_set_seconds_are_not_counted_as_reps(db_session) -> None:
 
 def test_stretch_set_does_not_create_fatigue(db_session) -> None:
     assert _set_fatigue_delta(db_session, planned_value=30, actual_value=30, reps=30, equipment="Stretches") == 0
+def test_catalog_load_coverage():
+    catalog = load_imported_exercises()
+    profiles = muscle_load_profiles()
+    assert set(profiles) == {exercise.slug for exercise in catalog}
+    for exercise in catalog:
+        profile = profiles[exercise.slug]
+        assert profile.weights and (profile.activity_factor == 0 or max(profile.weights.values()) > 0)
+        for muscle, weight in profile.weights.items():
+            assert 0 <= weight <= 1
+            assert get_muscle_definition(muscle).name != muscle.replace("-", " ").title()
+    bench = profiles["barbell-bench-press"].weights
+    assert bench["chest"] > bench["triceps"] > bench["rear-shoulders"]
+    assert profiles["smith-machine-inverted-row"].weights["lats"] >= 0.8
+    assert profiles["smith-machine-romanian-deadlift"].weights["hamstrings"] >= 0.8
+
+
+def test_fatigue_uses_work_once_and_distinguishes_assistance(db_session):
+    def load(**kw):
+        return _set_fatigue_delta(db_session, **kw)
+
+    partial = load(actual_value=5, reps=5, planned_value=10, weight_kg=20)
+    assert partial == load(actual_value=5, reps=5, planned_value=5, weight_kg=20)
+    assert 2 * partial == pytest.approx(load(actual_value=10, reps=10, planned_value=10, weight_kg=20), abs=.02)
+    assert partial == load(actual_value=5, reps=5, duration_seconds=60, discomfort_level=5, weight_kg=20)
+    assert 2 * load(side_factor=0.5) == pytest.approx(load(), abs=.01)
+    assisted = get_imported_exercise("machine-assisted-pull-up").load_profile
+    assert load(profile=assisted, weight_kg=40) < load(profile=assisted, weight_kg=10)
+    assert load(subjective_effort=None, rir=0) > load(subjective_effort=None, rir=4)
+    assert load(profile=get_imported_exercise("corpse-pose").load_profile) == 0
+    assert load(reference=FatigueReference(reps=12)) > load(reference=FatigueReference(reps=24))
+    assert load(reps=None, reference=FatigueReference(seconds=30)) > load(reps=None, reference=FatigueReference(seconds=60))
+    assert load(weight_kg=20, reference=FatigueReference(working_capacity_kg=40)) > load(
+        weight_kg=20, reference=FatigueReference(working_capacity_kg=80))
+
+
+
+@pytest.mark.parametrize("slug,kind,value,kg", [
+    ("machine-assisted-pull-up", "machine", 10, 25),
+    ("push-up", "bodyweight", 12, 0),
+    ("treadmill-walk", "timed", 60, 0),
+    ("smith-machine-romanian-deadlift", "machine", 8, 40),
+])
+def test_fatigue_plan_matches_recorded_workout_and_events(client, db_session, slug, kind, value, kg):
+    from app.services.fatigue_service import exercise_references
+
+    now = datetime.now(UTC)
+    item = SimpleNamespace(slug=slug, sets=f"2 × {value}", load=f"{kg} кг", per_side=False,
+                           load_type="timed" if kind == "timed" else "bodyweight" if kind == "bodyweight" else "weighted",
+                           strength_plan=[])
+    references = exercise_references(db_session, "alexey", {slug}, now)
+    forecast = DashboardService()._builder_muscle_load([SimpleNamespace(items=[item])], {}, references)
+    rows = [{"setNumber": n, "plannedValue": value, "actualValue": value, "tempoLabel": "обычный",
+             "reps": None if kind == "timed" else value, "weightKg": kg} for n in (1, 2)]
+    response = client.post("/api/runtime/workouts", json={
+        "userId": "alexey", "source": "today", "title": "Проверка расчёта", "status": "completed",
+        "startedAt": now.isoformat(), "finishedAt": now.isoformat(), "durationSeconds": 120,
+        "exercises": [{"userId": "alexey", "exerciseSlug": slug, "exerciseName": slug, "kind": kind,
+                       "orderIndex": 1, "status": "completed", "startedAt": now.isoformat(), "finishedAt": now.isoformat(),
+                       "targetSets": 2, "muscles": [], "sets": rows}],
+    })
+    assert response.status_code == 200, response.text
+    summary = response.json()
+    expected = {row.name: row.added_score for row in forecast}
+    assert expected == {row["name"]: row["score"] for row in summary["muscleLoad"]}
+    totals = {}
+    for event in db_session.scalars(select(MuscleFatigueEvent).where(
+            MuscleFatigueEvent.workout_session_id == summary["workoutSessionId"])):
+        name = get_muscle_definition(event.muscle_id).name
+        totals[name] = totals.get(name, 0) + event.fatigue_delta
+    assert expected and expected == {name: round(total) for name, total in totals.items()}
+
+def test_feedback_adjusts_stored_load_once_without_awarding_discomfort(client, db_session):
+    now = datetime.now(UTC)
+    response = client.post("/api/runtime/exercises", json={
+        "userId": "alexey", "exerciseSlug": "push-up", "exerciseName": "Отжимание", "kind": "bodyweight",
+        "orderIndex": 1, "status": "in_progress", "startedAt": now.isoformat(), "targetSets": 2, "muscles": [], "sets": [],
+    })
+    exercise_id = response.json()["exerciseSessionId"]
+    result = client.post("/api/runtime/sets", json={
+        "exerciseSessionId": exercise_id, "setNumber": 1, "plannedValue": 10, "actualValue": 10,
+        "reps": 10, "tempoLabel": "обычный",
+    })
+    assert result.status_code == 200
+    set_id = result.json()["setId"]
+
+    def chest_delta():
+        db_session.expire_all()
+        return db_session.scalar(select(MuscleFatigueEvent.fatigue_delta).where(
+            MuscleFatigueEvent.set_result_id == set_id, MuscleFatigueEvent.muscle_id == "chest"))
+
+    original = chest_delta()
+    for fields in ({"subjectiveEffort": 10}, {"subjectiveEffort": 10}, {"discomfortLevel": 4}):
+        response = client.post(f"/api/runtime/sets/{set_id}/feedback", json={"userId": "alexey", **fields})
+        assert response.status_code == 200
+        assert chest_delta() == pytest.approx(original * 1.4, abs=.01)

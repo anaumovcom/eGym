@@ -272,12 +272,17 @@ class SafetyEnvelope:
 def calibrated_tunables(profile: MachineProfile, tunables: Tunables) -> Tunables:
     """Tunables with the values identified by calibrations taking precedence (W1, X3/X4, F4, F5, F11)."""
 
-    overrides: dict[str, float] = {}
+    overrides = {key: float(item.value) for key, (_, item) in calibrated_sources(profile).items()}
+    return replace(tunables, **overrides) if overrides else tunables
+
+
+def calibrated_sources(profile: MachineProfile) -> dict[str, tuple[str, Measured]]:
+    sources = {}
     for key, path in CALIBRATED_TUNABLES:
         item: Measured = getattr(profile, path)
         if item.value is not None and item.provenance in ("measured", "manual"):
-            overrides[key] = float(item.value)
-    return replace(tunables, **overrides) if overrides else tunables
+            sources[key] = (path, item)
+    return sources
 
 
 # (tunable, profile field); a later pair wins (X4 in training over X3 in moves)

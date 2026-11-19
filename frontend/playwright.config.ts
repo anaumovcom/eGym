@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test'
+import { kioskDisplay } from './e2e/kiosk-display.mjs'
 
 const backendCorsOrigins = JSON.stringify([
   'http://127.0.0.1:4174',
@@ -18,7 +19,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      use: { ...devices['Desktop Chrome'], ...kioskDisplay },
     },
   ],
   webServer: [

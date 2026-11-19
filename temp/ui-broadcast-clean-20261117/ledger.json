@@ -1,0 +1,31 @@
+{
+    "model":  "gpt-image-2.5-flare",
+    "budget_usd":  10,
+    "prior_estimate_usd":  0.91776700000000033,
+    "estimate_usd":  0.93852500000000028,
+    "reservation_per_request_usd":  0.75,
+    "reference":  "reference-current.png",
+    "requests":  [
+                     {
+                         "id":  "01-broadcast-clean",
+                         "name":  "Без дублирования",
+                         "status":  "completed",
+                         "reserved_usd":  0.75,
+                         "estimate_usd":  0.020758,
+                         "usage":  {
+                                       "input_tokens":  1694,
+                                       "input_tokens_details":  {
+                                                                    "image_tokens":  1296,
+                                                                    "text_tokens":  398
+                                                                },
+                                       "output_tokens":  280,
+                                       "output_tokens_details":  {
+                                                                     "image_tokens":  280,
+                                                                     "text_tokens":  0
+                                                                 },
+                                       "total_tokens":  1974
+                                   },
+                         "started_at":  "2026-11-17T08:12:13.9448206Z"
+                     }
+                 ]
+}

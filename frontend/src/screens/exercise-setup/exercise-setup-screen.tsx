@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import * as Dialog from '@radix-ui/react-dialog'
-import { AlertTriangle, ArrowLeft, CheckCircle2, Flag, LockKeyhole, MoveVertical, Play, RotateCcw, SlidersHorizontal, Trash2, X } from 'lucide-react'
+import './exercise-setup-broadcast.css'
+import { AlertTriangle, ArrowLeft, CheckCircle2, Flag, ListVideo, LockKeyhole, MoveVertical, Play, RotateCcw, SkipForward, SlidersHorizontal, Trash2, X } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import type { ExerciseDetails } from '@/entities/exercise/model/types'
@@ -27,6 +28,7 @@ import { useHardwareStore } from '@/stores/hardware-store'
 import { apiGet } from '@/shared/api/client'
 import { Button } from '@/shared/ui/button'
 import { cn } from '@/shared/lib/cn'
+import { ExerciseTechniqueSteps } from '@/shared/ui/training/exercise-technique-steps'
 import { FormaShell } from '@/shared/ui/layout/forma-shell'
 import { SafetyDialogContent } from '@/shared/ui/overlays/safety-dialog'
 import { EmergencyStopOverlay } from '@/shared/ui/overlays/surface-components'
@@ -34,7 +36,7 @@ import { FormaState } from '@/shared/ui/status/forma-state'
 import { ExerciseVideoPlayer, LoadModeSelector } from '@/shared/ui/stage2/screen-components'
 import { ValueStepper } from '@/shared/ui/training/value-stepper'
 import { useAppStore } from '@/stores/app-store'
-import { useRuntimeStore } from '@/stores/runtime-store'
+import { getUpcomingExercises, useRuntimeStore } from '@/stores/runtime-store'
 
 function getUserName(userId: string | null) {
   return userId === 'elena' ? 'Елена' : userId === 'guest' ? 'Гость' : 'Алексей'
@@ -333,6 +335,9 @@ export function ExerciseSetupScreen() {
   const secondarySetupVideo = currentExercise.details.videos.find((video) => video.gender === 'male' && video.view === 'front' && video.url !== setupVideo?.url)
     ?? currentExercise.details.videos.find((video) => video.url !== setupVideo?.url)
   const setupVideos = setupVideo ? [setupVideo, ...(secondarySetupVideo ? [secondarySetupVideo] : [])] : []
+  const techniqueSteps = currentExercise.details.shortSteps ?? []
+  const showSteps = techniqueSteps.length > 0 && (!calibrationRequired || !setupVideos.length)
+  const upcomingExercises = calibrationRequired ? [] : getUpcomingExercises(session).slice(0, 3)
   const startBlocked = !exerciseSettings.ready || calibrationRequired && (!savedCalibration || !selectedUserId || savedCalibration.setupType !== setupType ||
     (setupType === 'bar_range' && (savedCalibration.lowerPointMm !== capturedLowerPointMm || savedCalibration.upperPointMm !== capturedUpperPointMm)) ||
     (setupType === 'fixed_position' && savedCalibration.fixedPositionMm !== capturedFixedPositionMm))
@@ -547,6 +552,9 @@ export function ExerciseSetupScreen() {
 
         await runCommand({
           action: setupType === 'fixed_position' ? 'start_fixed_position' : 'start_motion',
+          workoutRunId: latest.id,
+          workoutExerciseId: latestExercise.id,
+          warmup: startSetPlan?.setType === 'warmup',
           userId: selectedUserId,
           exerciseSlug: currentExercise.slug,
           calibrationRequired: true,
@@ -616,6 +624,16 @@ export function ExerciseSetupScreen() {
     >
       <div className="rt-screen rt-setup-screen">
         <header className="rt-header">
+          <div className="rt-title">
+            <span className="rt-setup-kicker">Настройка упражнения</span>
+            <h1 className="font-display font-bold tracking-[-0.04em] text-white">{exercise.name}</h1>
+            <p>
+              {session.workoutTitle !== exercise.name ? <span>{session.workoutTitle}</span> : null}
+              <span>Упражнение {exercise.order} из {session.exercises.length}</span>
+              {session.currentSetIndex > 0 ? <span>Начало с: {describeWorkoutSet(exercise, session.currentSetIndex)}</span> : null}
+              {exercise.perSide ? <span>Поочерёдно · на каждую сторону</span> : null}
+            </p>
+          </div>
           <div className="rt-header-nav">
             {previousExercise ? (
               <Button variant="secondary" disabled={restartingPrevious || startingExercise} iconLeft={<ArrowLeft aria-hidden="true" />} onClick={() => { setPreviousError(null); setPreviousDialogOpen(true) }}>
@@ -627,18 +645,6 @@ export function ExerciseSetupScreen() {
               </Button>
             )}
             {session.exercises.length > 1 ? <WorkoutNavigator session={session} disabled={restartingPrevious || startingExercise} /> : null}
-          </div>
-          <div className="rt-title">
-            <h1 className="font-display font-bold tracking-[-0.04em] text-white">Настройка упражнения</h1>
-            <p>
-              <span>{session.workoutTitle}</span>
-              <span>Упражнение {exercise.order} из {session.exercises.length}</span>
-              {session.currentSetIndex > 0 ? <span>Начало с: {describeWorkoutSet(exercise, session.currentSetIndex)}</span> : null}
-              {exercise.perSide ? <span>Поочерёдно · на каждую сторону</span> : null}
-            </p>
-          </div>
-          <div className="rt-chips" role="group" aria-label="Готовность к старту">
-            {/* Only problems are raised here; a saved setup is already shown in step 02. */}
             {calibrationRequired && (!savedCalibration || startBlocked) ? (
               <span className="rt-chip" data-tone="warning">
                 <AlertTriangle aria-hidden="true" />
@@ -648,46 +654,31 @@ export function ExerciseSetupScreen() {
           </div>
         </header>
 
-        <div className="rt-body rt-setup-body rt-setup-right" role="region" aria-label="Настройки упражнения">
-          <div className="rt-setup-media" data-video-count={setupVideos.length}>
+        <div className="rt-body rt-setup-body rt-setup-right" data-calibration={calibrationRequired} role="region" aria-label="Настройки упражнения">
+          <section className="rt-setup-media" data-video-count={setupVideos.length} aria-label="Техника движения">
             <header className="rt-setup-media-head">
-              <span className="rt-setup-media-icon" aria-hidden="true"><Play /></span>
+              <span className="rt-setup-media-icon" aria-hidden="true"><ListVideo /></span>
               <div>
-                <span className="rt-setup-eyebrow">Видео-инструкция</span>
                 <h2>Техника движения</h2>
+                {exercise.details.muscles?.length > 0 && <p>{exercise.details.muscles.join(' · ')}</p>}
               </div>
             </header>
             {setupVideos.length ? setupVideos.map((video) => (
               <div className="rt-media" key={video.url}>
-                <div className="rt-media-frame">
-                  <ExerciseVideoPlayer videoUrl={video.url} videoLabel={video.label} wrapperClassName="rounded-[var(--ui-radius)] border border-white/8" />
-                  <div className="rt-media-caption" aria-hidden="true">
-                    <span>{video.label}</span>
-                  </div>
-                </div>
+                <ExerciseVideoPlayer videoUrl={video.url} videoLabel={video.label} wrapperClassName="rt-media-frame" videoClassName="object-contain" />
               </div>
-            )) : (
-              <div className="rt-media">
-                <div className="rt-media-frame">
-                  <div className="flex aspect-video items-center justify-center rounded-[var(--ui-radius)] border border-white/8 bg-[#0b1017] text-white/45">Видео упражнения недоступно</div>
-                </div>
-              </div>
-            )}
-          </div>
+            )) : <p className="rt-setup-no-video">Видео упражнения недоступно</p>}
+            {showSteps && <ExerciseTechniqueSteps steps={techniqueSteps} />}
+          </section>
 
           <section className="rt-panel" aria-label="Параметры упражнения">
             <div className="rt-setup-parameters-head">
-            <div className="rt-exercise">
-              <span className="rt-setup-eyebrow">01 · Параметры упражнения</span>
-              <h2 title={exercise.name}>{exercise.name}</h2>
-              {exercise.secondaryName ? <p>{exercise.secondaryName}</p> : null}
-              {exercise.muscles.length ? <div className="rt-muscles">{exercise.muscles.slice(0, 4).map((item) => <span key={item}>{item}</span>)}</div> : null}
-            </div>
-            {exercise.kind !== 'timed' ? (
-              <Button variant="secondary" disabled={!exerciseSettings.ready} iconLeft={<SlidersHorizontal aria-hidden="true" />} onClick={() => setModeDialogOpen(true)}>
-                Режим тренировки
-              </Button>
-            ) : null}
+              <h2>Параметры упражнения</h2>
+              {exercise.kind !== 'timed' ? (
+                <Button variant="secondary" disabled={!exerciseSettings.ready} iconLeft={<SlidersHorizontal aria-hidden="true" />} onClick={() => setModeDialogOpen(true)}>
+                  Режим тренировки
+                </Button>
+              ) : null}
             </div>
 
             {hardwareError ? (
@@ -754,13 +745,23 @@ export function ExerciseSetupScreen() {
               />
             </fieldset>
 
-            <p className="rt-setup-parameters-note">{exercise.kind === 'timed' ? `На время · ${settings.sets} × ${formatTimedSeconds(settings.reps)}` : `${currentStrengthMode.title} · ${settings.mode} · безопасный диапазон ${settings.safeRange[0]}–${settings.safeRange[1]} кг`}{exercise.perSide ? ' · повторы на сторону' : ''}</p>
+            {exercise.kind !== 'timed' && <p className="rt-setup-parameters-note">{currentStrengthMode.title} · {settings.mode}{exercise.kind === 'machine' && ` · безопасный диапазон ${settings.safeRange[0]}–${settings.safeRange[1]} кг`}{exercise.perSide ? ' · повторы на сторону' : ''}</p>}
             {exercise.plan.length ? (
               <div className="rt-setup-plan">
                 <span className="rt-setup-plan-title">План подходов</span>
                 <SetPlanTrack exercise={exercise} currentIndex={session.currentSetIndex} results={session.completedSets[exercise.id]} />
               </div>
             ) : null}
+            {upcomingExercises.length > 0 && (
+              <section className="rt-setup-next" aria-label="Дальше в тренировке">
+                <h3><SkipForward aria-hidden="true" />Дальше в тренировке</h3>
+                <ol>
+                  {upcomingExercises.map(item => (
+                    <li key={item.id}><span>{item.order}</span>{item.name}</li>
+                  ))}
+                </ol>
+              </section>
+            )}
             {calibrationRequired ? (
               <div className="rt-setup-position">
                 <LoadDirectionSelector value={loadDirection} disabled={startPointSaving || loadedSetupKey !== `${selectedUserId}:${exercise.slug}`} onChange={(next) => void changeLoadDirection(next)} />
@@ -774,7 +775,6 @@ export function ExerciseSetupScreen() {
             <section className="rt-calibration" data-saved={Boolean(savedCalibration)} aria-label="Настройка грифа">
               <header>
                 <div>
-                  <span className="rt-setup-eyebrow">02 · Положение грифа</span>
                   <h3>{savedCalibration ? 'Настройка грифа сохранена' : 'Настройка грифа'}</h3>
                   {calibrationSaving ? <p role="status">Сохраняю настройку…</p> : savedCalibration && !startBlocked ? null : <p>
                     {setupType === 'fixed_position'
@@ -828,7 +828,7 @@ export function ExerciseSetupScreen() {
       <Dialog.Root open={modeDialogOpen} onOpenChange={setModeDialogOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="rt-details-panel">
+          <SafetyDialogContent className="rt-details-panel rt-setup-mode-dialog">
             <Dialog.Title className="font-display text-3xl font-bold">Режим тренировки</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-white/70">{exercise.name} · {settings.recommendation}</Dialog.Description>
             <div className="rt-details-body">
@@ -838,10 +838,10 @@ export function ExerciseSetupScreen() {
                 selectedDayType={currentStrengthMode.dayType}
                 onSelect={(modeId, dayType) => selectStrengthMode(modeId, dayType)}
               />
-              <div>
+              <section className="rt-setup-load-options" aria-label="Режим нагрузки">
                 <h3>Режим нагрузки</h3>
                 <LoadModeSelector value={settings.mode} options={['Обычный вес', 'Контроль техники', 'Лёгкий режим']} onChange={(mode) => updateLoadSettings({ mode })} />
-              </div>
+              </section>
             </div>
             <div className="builder-dialog-actions">
               <Dialog.Close asChild><Button>Готово</Button></Dialog.Close>
@@ -853,7 +853,7 @@ export function ExerciseSetupScreen() {
       <Dialog.Root open={finishDialogOpen} onOpenChange={setFinishDialogOpen}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="builder-dialog">
+          <SafetyDialogContent className="builder-dialog rt-setup-confirm">
             <Dialog.Title className="font-display text-3xl font-bold">Завершить тренировку сейчас?</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-white/70">Выполненные подходы сохранятся, оставшиеся упражнения останутся незавершёнными.</Dialog.Description>
             <div className="builder-dialog-actions">
@@ -875,7 +875,7 @@ export function ExerciseSetupScreen() {
       <Dialog.Root open={previousDialogOpen} onOpenChange={(open) => { if (!restartingPrevious) setPreviousDialogOpen(open) }}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[#05080f]/80 backdrop-blur-sm" />
-          <SafetyDialogContent className="builder-dialog">
+          <SafetyDialogContent className="builder-dialog rt-setup-confirm">
             <Dialog.Title className="font-display text-3xl font-bold">Вернуться к предыдущему упражнению?</Dialog.Title>
             <Dialog.Description className="mt-2 text-sm text-white/70">
               «{previousExercise?.name}» будет выполнено заново с первого подхода, его прежние подходы удалятся. Текущее упражнение начнётся после него.
@@ -913,13 +913,13 @@ function StrengthModeSelector({ modes, selectedModeId, selectedDayType, onSelect
   const selectedMode = modes.find((mode) => mode.id === selectedModeId)
 
   return (
-    <div className="rounded-[28px] border border-white/8 bg-white/4 p-5">
+    <div className="rt-strength-modes rounded-[28px] border border-white/8 bg-white/4 p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-sm uppercase tracking-[0.22em] text-white/35">Режим силовой тренировки</div>
           <div className="mt-2 font-display text-3xl font-bold text-white">Выберите структуру подходов</div>
         </div>
-        <div className="rounded-[18px] border border-[#d6b05f]/18 bg-[#18140b] px-4 py-3 text-sm text-[#f2cf87]">
+        <div className="rt-strength-selected rounded-[18px] border border-[#d6b05f]/18 bg-[#18140b] px-4 py-3 text-sm text-[#f2cf87]">
           {selectedMode?.title ?? 'Базовый режим'}
         </div>
       </div>
@@ -930,6 +930,8 @@ function StrengthModeSelector({ modes, selectedModeId, selectedDayType, onSelect
             <button
               key={mode.id}
               type="button"
+              aria-pressed={active}
+              data-strength-option="mode"
               onClick={() => onSelect(mode.id, mode.defaultDayType ?? null)}
               className={cn(
                 'rounded-[24px] border p-4 text-left transition',
@@ -955,6 +957,8 @@ function StrengthModeSelector({ modes, selectedModeId, selectedDayType, onSelect
             <button
               key={option.id}
               type="button"
+              aria-pressed={selectedDayType === option.id}
+              data-strength-option="day"
               onClick={() => onSelect(selectedMode.id, option.id)}
               className={cn(
                 'rounded-full border px-4 py-2 text-sm transition',

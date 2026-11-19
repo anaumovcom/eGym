@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AchievementLine } from '@/entities/achievement/model/types'
@@ -22,7 +22,7 @@ vi.mock('@/shared/ui/layout/forma-shell', () => ({ FormaShell: ({ children }: { 
 vi.mock('@/shared/ui/overlays/surface-components', () => ({ EmergencyStopOverlay: () => null }))
 
 const line: AchievementLine = {
-  id: 'start.first_set', group: 'start', groupName: 'Начало пути', metric: 'qualified_sets', unit: 'подход',
+  id: 'start.first_set', name: 'Первые подходы', group: 'start', groupName: 'Начало пути', metric: 'qualified_sets', unit: 'подход',
   description: 'Нужны сохранённые подходы и доказательные дни', thresholds: [1, 5], applicability: 'available',
   currentValue: 5, evidenceDays: 24, highestTier: 1, state: 'available', nextTierId: 'start.first_set:t2',
   progressPercent: 50, isNew: true,
@@ -30,7 +30,7 @@ const line: AchievementLine = {
     {
       id: 'start.first_set:t1', tier: 1, tierName: 'Начало', threshold: 1, minimumEvidenceDays: 12,
       title: 'Рычаг старта', phrase: 'Первая ступень получена', rarity: 'common', imageUrl: '/t1.webp',
-      thumbnailUrl: '/t1.webp', audioUrl: '/t1.wav', imageState: 'ready', audioState: 'ready', earned: true,
+      thumbnailUrl: '/t1.webp', audioUrl: '/t1.wav', imageState: 'ready', audioState: 'ready', earned: true, isNew: true,
       earnedAt: '2026-01-02T00:00:00Z', awardedAt: '2026-01-02T00:00:00Z', status: 'earned',
     },
     {
@@ -54,6 +54,21 @@ afterEach(() => {
 })
 
 describe('achievement detail receipts and privacy', () => {
+  it('opens a revoked tier through its old link without marking another reward as read', async () => {
+    api.detail.mockResolvedValue({ ...line, tiers: [line.tiers[0], { ...line.tiers[1], status: 'revoked' }] })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(<QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={['/achievements/start.first_set?tier=2']}>
+        <Routes><Route path="/achievements/:definitionId" element={<AchievementDetailScreen />} /></Routes>
+      </MemoryRouter>
+    </QueryClientProvider>)
+    const hero = within(await screen.findByRole('region', { name: 'Ступень снова закрыта' }))
+    expect(hero.getByText('5 подходов')).toBeVisible()
+    expect(hero.queryByText('Получено')).not.toBeInTheDocument()
+    expect(hero.queryByText('image:earned')).not.toBeInTheDocument()
+    expect(api.recordReceipt).not.toHaveBeenCalled()
+  })
+
   it('opens the highest earned tier, records real actions and hides locked editorial', async () => {
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     render(
@@ -64,14 +79,14 @@ describe('achievement detail receipts and privacy', () => {
       </QueryClientProvider>,
     )
 
-    expect(await screen.findByRole('heading', { name: 'Рычаг старта', level: 1 })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: line.name, level: 1 })).toBeInTheDocument()
     expect(screen.getByText('Скрытая награда')).toBeInTheDocument()
     // Hero + the earned tier only: the locked tier has no audio control even if a stray URL arrived.
     expect(screen.getAllByText('audio')).toHaveLength(2)
     expect(screen.getByText('Новая')).toBeInTheDocument()
     expect(screen.queryByText('Практика сохранена')).not.toBeInTheDocument()
-    await waitFor(() => expect(api.recordReceipt).toHaveBeenCalledWith('alexey', 'start.first_set', 'detail', undefined))
-    expect(media.audio.some((props) => props.autoPlay)).toBe(true)
+    await waitFor(() => expect(api.recordReceipt).toHaveBeenCalledWith('alexey', 'start.first_set', 'detail', 1))
+    expect(media.audio.some((props) => props.autoPlay)).toBe(false)
 
     fireEvent.click(screen.getAllByText('audio')[0])
     await waitFor(() => expect(api.recordReceipt).toHaveBeenCalledWith('alexey', 'start.first_set', 'audio', 1))

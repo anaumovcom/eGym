@@ -1,4 +1,18 @@
 /* Progress page: overview + strength. Single gold hue for data, status green/red only for deltas. */
+/* Bind accents at their consumers, not the page: muscle balance and heatmaps stay unchanged. */
+html[data-forma-theme='broadcast-blue'] :is(.pv-kpi-icon, .progress-spark, .pv-insight[data-tone='info'] .pv-insight-icon, .progress-chart-bar, .progress-chart-line, .progress-chart-point, .pv-streak svg, .pv-trophy, .ps-pr, .pv-periods, .pv-segment, .ps-list-scroll > button) { --pv-gold: var(--broadcast-accent, #58a6ff); --pv-gold-soft: var(--broadcast-accent-soft, #2583ff24); }
+html[data-forma-theme='broadcast-blue'] .pv-periods button[aria-pressed='true'],
+html[data-forma-theme='broadcast-blue'] .pv-segment button[aria-pressed='true'] { color: var(--broadcast-accent-strong, #b8daff); box-shadow: inset 0 0 0 1px var(--broadcast-accent-border, #58a6ff55); }
+html[data-forma-theme='broadcast-blue'] :is(.pv-link, .ps-list-more, .pv-trophy, .ps-target header, .ps-target-scheme, .ps-pr) { color: var(--broadcast-accent, #58a6ff); }
+html[data-forma-theme='broadcast-blue'] .pv-link:hover { color: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] a.pv-insight:hover,
+html[data-forma-theme='broadcast-blue'] .ps-list-scroll > button[aria-pressed='true'] { border-color: var(--broadcast-accent-border, #58a6ff55); }
+html[data-forma-theme='broadcast-blue'] .progress-chart-bar[data-active],
+html[data-forma-theme='broadcast-blue'] .progress-chart-point[data-pr] { fill: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .progress-chart-pr-ring { stroke: var(--broadcast-accent-strong, #b8daff); }
+html[data-forma-theme='broadcast-blue'] .ps-legend i { background: var(--broadcast-accent-strong, #b8daff); box-shadow: 0 0 0 2px var(--pv-surface), 0 0 0 3.5px var(--broadcast-accent-border, #58a6ff55); }
+html[data-forma-theme='broadcast-blue'] .ps-target { border-color: var(--broadcast-accent-border, #58a6ff55); background: radial-gradient(120% 90% at 100% 0%, var(--broadcast-accent-soft, #2583ff24), transparent 60%), var(--pv-surface); }
+
 .progress-center { --pv-surface: #111925; --pv-surface-2: #0d141e; --pv-line: #ffffff14; --pv-gold: #d7b15d; --pv-gold-soft: #d7b15d24; --pv-good: #6ed36d; --pv-bad: #f07b6f; --pv-muted: #8f9bab; }
 
 .pv-periods, .pv-segment { display: inline-flex; gap: .25rem; padding: .3rem; border: 1px solid var(--pv-line); border-radius: var(--ui-radius); background: #0f1620; }
@@ -201,4 +215,96 @@ a.pv-insight:hover { border-color: #d7b15d55; background: #121b27; }
 @media (max-width: 799px) {
   .pv-skeleton > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .pv-periods { max-width: 100%; overflow-x: auto; }
+}
+
+html[data-forma-theme='broadcast-blue'] .progress-center {
+  --pv-surface: var(--record-panel);
+  --pv-surface-2: var(--record-inset);
+  --pv-line: var(--record-line);
+  --pv-muted: var(--record-muted);
+}
+html[data-forma-theme='broadcast-blue'] .progress-heading {
+  align-items: center;
+  padding: clamp(.85rem, 2vw, 1.5rem);
+  border: 1px solid var(--pv-line);
+  border-radius: 1rem;
+  background: linear-gradient(110deg, #102b40, var(--pv-surface) 65%);
+}
+html[data-forma-theme='broadcast-blue'] .progress-kicker { display: block; color: var(--record-link); font-size: .72rem; font-weight: 650; letter-spacing: .1em; text-transform: uppercase; }
+html[data-forma-theme='broadcast-blue'] .progress-heading h1 { font-size: clamp(1.8rem, 3vw, 3rem); line-height: 1.15; }
+html[data-forma-theme='broadcast-blue'] .progress-heading p { color: var(--pv-muted); }
+html[data-forma-theme='broadcast-blue'] .progress-controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .65rem; }
+html[data-forma-theme='broadcast-blue'] .progress-controls .pv-periods { flex-wrap: wrap; max-width: 100%; border-radius: 1rem; background: var(--pv-surface); }
+html[data-forma-theme='broadcast-blue'] .pv-periods button { min-height: 2.75rem; padding-inline: clamp(.55rem, 1vw, 1rem); border-radius: .75rem; }
+html[data-forma-theme='broadcast-blue'] :is(.pv-periods, .pv-segment) button[aria-pressed='true'] { background: #12375c; color: #fff; }
+
+html[data-forma-theme='broadcast-blue'] .pv-kpis.progress-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  overflow: hidden;
+  border: 1px solid var(--pv-line);
+  border-radius: .9rem;
+  background: var(--pv-line);
+}
+html[data-forma-theme='broadcast-blue'] .progress-metrics .pv-kpi {
+  padding: clamp(.7rem, 1.25vw, 1.2rem);
+  gap: .35rem;
+  border: 0;
+  border-radius: 0;
+  background: var(--pv-surface);
+}
+html[data-forma-theme='broadcast-blue'] .progress-metrics .pv-kpi[data-kpi='volume'] { background: linear-gradient(155deg, #102f49, var(--pv-surface) 80%); }
+html[data-forma-theme='broadcast-blue'] .progress-metrics .pv-kpi strong { font-size: clamp(1.65rem, 2.7vw, 2.65rem); overflow-wrap: anywhere; }
+html[data-forma-theme='broadcast-blue'] .pv-kpi-icon { flex-shrink: 0; color: var(--record-link); }
+html[data-forma-theme='broadcast-blue'] .pv-kpi footer { flex-wrap: wrap; }
+html[data-forma-theme='broadcast-blue'] .pv-kpi .pv-delta[data-tone='good'] { color: var(--pv-good); }
+html[data-forma-theme='broadcast-blue'] .pv-kpi .pv-delta[data-tone='bad'] { color: var(--pv-bad); }
+html[data-forma-theme='broadcast-blue'] .pv-kpi .progress-spark { height: 1.45rem; }
+
+html[data-forma-theme='broadcast-blue'] :is(.pv-overview, .pv-row, .ps-layout, .ps-detail, .ps-main) { gap: .85rem; }
+html[data-forma-theme='broadcast-blue'] .pv-row-main { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }
+html[data-forma-theme='broadcast-blue'] .pv-row-three { grid-template-columns: repeat(auto-fit, minmax(min(100%, 17.5rem), 1fr)); }
+html[data-forma-theme='broadcast-blue'] :is(.pv-card, .ps-list, .ps-target) { padding: clamp(.8rem, 1.4vw, 1.25rem); border-radius: .9rem; }
+html[data-forma-theme='broadcast-blue'] .pv-card > header { flex-wrap: wrap; align-items: center; gap: .5rem .9rem; padding-bottom: .7rem; border-bottom: 1px solid var(--pv-line); }
+html[data-forma-theme='broadcast-blue'] .pv-card h3 { font-size: clamp(1.1rem, 1.5vw, 1.4rem); }
+html[data-forma-theme='broadcast-blue'] .pv-insights { grid-template-columns: repeat(auto-fit, minmax(min(100%, 17rem), 1fr)); gap: .6rem; }
+html[data-forma-theme='broadcast-blue'] .pv-insight { padding: .75rem .85rem; border-radius: .75rem; }
+html[data-forma-theme='broadcast-blue'] .pv-streak > div { border-radius: .65rem; background: var(--pv-surface-2); }
+html[data-forma-theme='broadcast-blue'] .progress-heatmap-footer { flex-wrap: wrap; }
+html[data-forma-theme='broadcast-blue'] :is(.progress-heatmap-cell, .progress-heatmap-legend i)[data-level='1'] { background: #174373; }
+html[data-forma-theme='broadcast-blue'] :is(.progress-heatmap-cell, .progress-heatmap-legend i)[data-level='2'] { background: #2168b1; }
+html[data-forma-theme='broadcast-blue'] :is(.progress-heatmap-cell, .progress-heatmap-legend i)[data-level='3'] { background: #2f8bf2; }
+html[data-forma-theme='broadcast-blue'] :is(.progress-heatmap-cell, .progress-heatmap-legend i)[data-level='4'] { background: #78bdff; }
+html[data-forma-theme='broadcast-blue'] .progress-heatmap-cell[data-active] { outline-color: #c2dbff; }
+html[data-forma-theme='broadcast-blue'] .pv-balance-track i { background: linear-gradient(90deg, #1769d5, #56aaff); }
+html[data-forma-theme='broadcast-blue'] .pv-list-row { padding-inline: .35rem; border-bottom: 1px solid var(--pv-line); border-radius: .5rem; }
+html[data-forma-theme='broadcast-blue'] .pv-list-main b { white-space: normal; overflow-wrap: anywhere; }
+html[data-forma-theme='broadcast-blue'] .progress-center :is(.pv-link, .ps-list-more) { color: var(--record-link); }
+
+html[data-forma-theme='broadcast-blue'] .ps-layout { grid-template-columns: minmax(13rem, .31fr) minmax(0, 1fr); }
+html[data-forma-theme='broadcast-blue'] .ps-list { position: sticky; min-width: 0; }
+html[data-forma-theme='broadcast-blue'] .ps-list h2 { padding-bottom: .6rem; border-bottom: 1px solid var(--pv-line); }
+html[data-forma-theme='broadcast-blue'] .ps-list-scroll { flex-direction: column; max-height: 58dvh; overflow: auto; padding: 3px; }
+html[data-forma-theme='broadcast-blue'] .ps-list-scroll > button { min-width: 0; min-height: 3.65rem; border-radius: .65rem; }
+html[data-forma-theme='broadcast-blue'] .ps-list-scroll > button[aria-pressed='true'] { box-shadow: inset 3px 0 var(--broadcast-accent, #58a6ff); }
+html[data-forma-theme='broadcast-blue'] .ps-detail-head { flex-wrap: wrap; align-items: center; padding: .85rem 1.15rem; border: 1px solid var(--pv-line); border-radius: .85rem; background: var(--pv-surface); }
+html[data-forma-theme='broadcast-blue'] .ps-detail-head h2 { overflow-wrap: anywhere; }
+html[data-forma-theme='broadcast-blue'] .ps-stats { grid-template-columns: repeat(auto-fit, minmax(min(100%, 8.5rem), 1fr)); gap: .5rem; }
+html[data-forma-theme='broadcast-blue'] .ps-stats > div { padding: .75rem .9rem; border-radius: .65rem; }
+html[data-forma-theme='broadcast-blue'] .ps-stats strong { font-size: clamp(1.3rem, 2vw, 1.8rem); overflow-wrap: anywhere; }
+html[data-forma-theme='broadcast-blue'] .ps-main { grid-template-columns: minmax(0, 1fr) minmax(13rem, .46fr); }
+html[data-forma-theme='broadcast-blue'] .ps-main[data-single] { grid-template-columns: minmax(0, 1fr); }
+html[data-forma-theme='broadcast-blue'] .pv-segment { flex-wrap: wrap; }
+html[data-forma-theme='broadcast-blue'] .ps-table tbody tr:nth-child(odd) { background: #9dd4ff08; }
+html[data-forma-theme='broadcast-blue'] .progress-empty { padding: 1rem; border: 1px dashed var(--pv-line); border-radius: .9rem; background: var(--pv-surface); }
+
+@media (max-width: 1100px) {
+  html[data-forma-theme='broadcast-blue'] :is(.ps-main, .pv-row-main) { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 800px) {
+  html[data-forma-theme='broadcast-blue'] .pv-kpis.progress-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html[data-forma-theme='broadcast-blue'] .ps-layout { grid-template-columns: minmax(0, 1fr); }
+  html[data-forma-theme='broadcast-blue'] .ps-list { position: static; }
+  html[data-forma-theme='broadcast-blue'] .ps-list-scroll { flex-direction: row; max-height: none; }
+  html[data-forma-theme='broadcast-blue'] .ps-list-scroll > button { flex: 0 0 min(13rem, 80%); }
 }
